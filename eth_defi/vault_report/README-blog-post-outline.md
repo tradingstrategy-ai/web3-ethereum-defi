@@ -27,7 +27,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | Perpetual futures DEX | Flagged `perp_dex_trading_vault`: Hyperliquid, GRVT, Lighter, Hibachi, ApeX |
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
-| Other | Everything else: yield aggregators, trading vaults, RWA and synthetic dollar vaults |
+| Other | Everything else: yield aggregators, trading vaults, RWA and synthetic dollar vaults. Only vaults with an identified protocol are ranked |
 
 ## Unidentified protocols
 
@@ -40,19 +40,34 @@ protocol of their own. This covers:
 
 The rule is `is_identified_protocol()` in `eth_defi.vault_report.sections`, the
 same as the website's `isUnknownVaultProtocol()` in the frontend
-(`src/lib/top-vaults/helpers.ts`). In the report:
+(`src/lib/top-vaults/helpers.ts`).
 
-- **TVL by DeFi vault protocol:** unidentified vaults are summed into Other, together with the protocols outside the top 7
-- **Average yield by protocol:** unidentified vaults are left out; Other is not a protocol
-- **Tables and hero image:** the protocol column shows Other, without a protocol link
-- **Report statistics:** unidentified vaults do not count as identified protocols
+**These vaults are counted only in TVL summaries, never in performance
+comparisons,** because their data is often broken: generic wrappers, lending
+pool receipts and tokens with unusual share accounting produce capped returns,
+one-day price jumps and similar artefacts. `select_comparable_vaults()` removes
+them before any return is compared.
+
+| Section | Unidentified protocol vaults |
+|---|---|
+| Report statistics (vault count, combined TVL) | Included; not counted as identified protocols |
+| Stablecoin TVL by DeFi vault protocol | Included, summed into Other with the protocols outside the top 7 |
+| Inflows and outflows | Included |
+| Average yield by blockchain and by protocol | Left out |
+| Treasury bill caption | Left out |
+| All best-performing tables and their performance charts, including *Other vaults* | Left out |
+| Best-performing new vaults, per-chain table, risk and return, hero image | Left out |
+
+The *Other vaults* table is a vault group, see [Vault groups](#vault-groups):
+vaults with an identified protocol that are not lending, perp DEX or tokenised
+fund vaults, for example yield aggregators. It is not the Other protocol pile.
 
 When a protocol is mapped in the vault metadata, its vaults leave the Other
 pile automatically. No report change is needed.
 
 ## Common rules
 
-- **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section.
+- **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** "by return" is the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise. The website ranks vaults by the same metric. "By Sharpe" is the three-month Sharpe ratio.
 - **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
 - **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the table below, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL, and the legend shows annualised returns. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are table ranks. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.

@@ -257,6 +257,25 @@ def filter_eligible_vaults(
     return eligible
 
 
+def select_comparable_vaults(eligible_df: pd.DataFrame) -> pd.DataFrame:
+    """Select the vaults that may appear in performance comparisons.
+
+    Vaults without an identified protocol, the :py:data:`OTHER_PROTOCOL` pile,
+    are often broken or misread: generic ERC-4626 wrappers, lending pool
+    receipts and tokens with unusual share accounting. They are left out of
+    every table and chart that compares returns, and counted only in TVL
+    summaries: the TVL by protocol chart, inflows and outflows and the report
+    statistics.
+
+    :param eligible_df:
+        Output of :py:func:`filter_eligible_vaults`.
+
+    :return:
+        Eligible vaults with an identified protocol.
+    """
+    return eligible_df.loc[eligible_df["protocol_identified"]]
+
+
 def is_identified_protocol(protocol: str | None, protocol_slug: str | None) -> bool:
     """Check whether a vault's protocol has been identified.
 

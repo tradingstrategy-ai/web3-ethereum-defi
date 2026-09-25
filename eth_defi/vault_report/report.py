@@ -66,6 +66,7 @@ from eth_defi.vault_report.sections import (
     filter_eligible_vaults,
     render_section_table,
     select_average_yield_vaults,
+    select_comparable_vaults,
     select_group,
     select_new_vaults,
     select_tvl_history_vaults,
@@ -224,16 +225,19 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     active = f"at least {criteria.min_events} deposit and redemption events"
     performance = "The chart compares the 90-day equity curves of the top {count} vaults of the table with {benchmark}; the legend numbers are table ranks"
     matching = "the benchmarks matching the vaults: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
+    unidentified = "Vaults without an identified protocol, such as generic ERC-4626 vaults, are left out, because their data is often unreliable"
     average = [
         "Each small dot is a vault's annualised one-month return; the large dot is the TVL-weighted average",
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
         "The dashed line is the current 3-month US Treasury bill yield; the right column shows the difference to it in percentage points, and the TVL",
+        unidentified,
     ]
     return {
         "chain_yields": [f"The {criteria.yield_top_chains} largest blockchains by stablecoin vault TVL, perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
         "protocol_yields": [f"The {criteria.yield_top_protocols} largest identified vault protocols by stablecoin vault TVL, with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols")],
         "protocol_tvl": [
             "Weekly total value locked in stablecoin DeFi vaults over the last year, by vault protocol; tokenised funds are shown separately below",
+            "Vaults without an identified protocol, such as generic ERC-4626 vaults, are counted in Other",
             f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
             live.format(url="https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y"),
         ],
@@ -250,6 +254,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "best": [
             "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
             f"{min_tvl} in every table; lending and other vaults also need {active}",
+            unidentified,
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
         ],
@@ -261,12 +266,13 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX or tokenised fund vaults", performance.format(count=criteria.performance_chart_vaults, benchmark=matching)],
         "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, performance.format(count=criteria.performance_chart_vaults, benchmark=matching)],
-        "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded"],
+        "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified],
         "risk_return": [
             "Each bubble is a stablecoin yield vault from the tables above; bubble area shows TVL",
             f"Vaults with annualised three-month returns above {criteria.scatter_max_return:.0%} are drawn as triangles on the top edge; volatility is on a log scale",
+            unidentified,
         ],
-        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
+        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", unidentified, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
     }
 
 
@@ -274,7 +280,8 @@ def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -
     """Select vaults for all report tables.
 
     :param eligible_df:
-        Output of :py:func:`eth_defi.vault_report.sections.filter_eligible_vaults`.
+        Output of :py:func:`eth_defi.vault_report.sections.select_comparable_vaults`:
+        eligible vaults with an identified protocol.
 
     :param criteria:
         Report thresholds.
@@ -361,7 +368,9 @@ def render_report_charts(
     empty = pd.DataFrame()
     data_date = data.data_end_at.strftime("%Y-%m-%d")
     month_label = make_month_label(data.data_end_at)
-    yield_universe = select_yield_vaults(eligible_df, criteria)
+    # Performance charts compare only vaults with an identified protocol; TVL charts use all eligible vaults
+    comparable_df = select_comparable_vaults(eligible_df)
+    yield_universe = select_yield_vaults(comparable_df, criteria)
     protocol_logos = {vault_id: load_protocol_logo_uri(slug, theme) for vault_id, slug in eligible_df["protocol_slug"].items()}
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
@@ -379,7 +388,7 @@ def render_report_charts(
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     benchmark_indices = fetch_benchmark_indices(data.data_end_at - PRICE_HISTORY, data.data_end_at, cache_dir, tbill_yields)
 
-    average_yield_vaults = select_average_yield_vaults(eligible_df, criteria)
+    average_yield_vaults = select_average_yield_vaults(comparable_df, criteria)
     chain_yields = calculate_chain_yields(average_yield_vaults, criteria)
     protocol_yields = calculate_protocol_yields(average_yield_vaults, criteria)
     chain_logos = {chain: fetch_chain_logo_uri(chain, cache_dir / "logos") for chain in chain_yields.index}
@@ -524,7 +533,8 @@ def generate_monthly_vault_report(
 
     data_end_at = data.data_end_at
     eligible_df = filter_eligible_vaults(data.vaults_df, data_end_at, criteria)
-    sections = build_report_sections(eligible_df, criteria)
+    comparable_df = select_comparable_vaults(eligible_df)
+    sections = build_report_sections(comparable_df, criteria)
     if check_sparklines:
         sparkline_ids = frozenset(fetch_available_sparklines([vault_id for section in sections.values() for vault_id in section.vaults_df.index]))
         sections = {key: dataclasses.replace(section, sparkline_ids=sparkline_ids) for key, section in sections.items()}
@@ -539,7 +549,7 @@ def generate_monthly_vault_report(
 
     month_label = make_month_label(data_end_at)
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
-    best_caption = make_benchmark_caption(select_yield_vaults(eligible_df, criteria), tbill_latest, criteria.min_tvl)
+    best_caption = make_benchmark_caption(select_yield_vaults(comparable_df, criteria), tbill_latest, criteria.min_tvl)
     context = PostContext(
         month_label=month_label,
         stats=calculate_report_stats(data.vaults_df, eligible_df, data_end_at),

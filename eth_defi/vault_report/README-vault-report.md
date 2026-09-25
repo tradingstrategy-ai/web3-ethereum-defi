@@ -163,7 +163,10 @@ like the exported 3M Sharpe, so its latest values match the table.
 ### Unidentified protocols
 
 Generic ERC-4626 vaults, unknown and placeholder protocols form one "Other" pile
-until their protocols are mapped, following the website's rule. See
+until their protocols are mapped, following the website's rule. Their data is
+often broken, so they are counted only in TVL summaries (statistics, TVL by
+protocol, inflows and outflows) and left out of every table and chart that
+compares performance. See
 [README-blog-post-outline.md](./README-blog-post-outline.md#unidentified-protocols).
 
 ### Tables
