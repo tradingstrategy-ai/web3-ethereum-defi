@@ -25,9 +25,10 @@ Downloads younger than six hours are reused. The script:
 2. Downloads the ~250 MB cleaned vault price Parquet through the Pro
    [vault datasets](https://tradingstrategy.ai/trading-view/vaults/datasets) API
    using `VAULT_PRO_API_KEY`. The charts use it.
-3. Downloads the 3-month US Treasury yield ([FRED DGS3MO](https://fred.stlouisfed.org/series/DGS3MO)),
-   the same benchmark series as the website's vault pages, and chain logos from
-   the website. Both are optional: an outage leaves them out of the charts.
+3. Downloads the benchmarks: the 3-month US Treasury yield
+   ([FRED DGS3MO](https://fred.stlouisfed.org/series/DGS3MO)) and daily BTC and ETH
+   closes from Coinbase, the same sources as the website's vault pages, plus chain
+   logos from the website. All are optional: an outage leaves them out of the charts.
 4. Reads the previous report post with the Ghost Content API
    (`GHOST_CONTENT_API_URL`, `GHOST_CONTENT_API_KEY`). The new post links back to it
    and copies its *About the report*, *Partners* and *Next steps* sections.
@@ -100,6 +101,21 @@ VAULT_PRICES_PARQUET=~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet \
 poetry run python scripts/erc-4626/generate-monthly-vault-report.py
 ```
 
+### Benchmarks
+
+Each vault is compared with the benchmark that matches its activity, following
+the website's rules (`vault-price-benchmarks.ts` in the frontend):
+
+| Vault | Benchmark |
+|---|---|
+| Perpetual futures DEX vaults (Hyperliquid, GRVT, Lighter, Hibachi, ApeX), GMX GLV and crypto GM pools | BTC and ETH; GM BTC or ETH pools only their own asset |
+| Other volatile vaults: 3M volatility ≥ 25% or 3M drawdown ≤ −10% | BTC and ETH |
+| Calm yield vaults: lending, credit and GMX stablecoin-only pools | US 3M T-bill |
+
+The website compares every non-perp, non-GMX vault with the T-bill. The report
+adds the activity rule, because a trading-like stablecoin vault is better judged
+against the crypto market it trades. Both thresholds are in `ReportCriteria`.
+
 ## Report content
 
 The sections follow the February 2026 post, with the changes noted below.
@@ -108,22 +124,24 @@ and redemption events.
 
 | Section | Content |
 |---|---|
-| Hero image | New. The top 5 yield vaults as bars with protocol logos: 1200×630 for link previews and the Ghost feature image, and a 1080×1080 version for X, which shows blog links as square cards. Leaves out vaults above 400% annualised return, above 50% volatility or with a Severe or Dangerous risk rating |
-| Average vault yield per blockchain | New chart, replacing a website screenshot. TVL-weighted 1M annualised return per chain with chain logos and the T-bill yield line, perp DEX vaults included. Excludes outlier vaults (>400% ann.) and volatile vaults (>50% ann. volatility) |
+| Hero image | New. The top 5 yield vaults with protocol logos, 90-day price sparklines and the return as a large number: 1200×630 for link previews and the Ghost feature image, and a 1080×1080 version for X, which shows blog links as square cards. Leaves out vaults above 400% annualised return, above 50% volatility or with a Severe or Dangerous risk rating |
+| Vault yield per blockchain | New chart, replacing a website screenshot. A dot plot: each vault is a small dot, the TVL-weighted 1M annualised return a large dot, against the T-bill line, with the difference in percentage points. Perp DEX vaults included. Excludes outlier vaults (>400% ann.) and volatile vaults (>50% ann. volatility) from the averages |
 | Stablecoin vault TVL by protocol | New chart. Weekly TVL over 12 months: top 7 protocols and Other, with a glowing total line. Built with the same DuckDB query and filters as the website's historical TVL chart (blacklisted vaults and points above $50B excluded) |
-| The best-performing vaults | Yield vaults with ≥ $200k TVL, top 50 by 1M annualised return, with a caption counting the vaults that beat the T-bill. Two 3M rolling return charts, top vaults and low-volatility vaults, against the T-bill |
+| The best-performing vaults | Yield vaults with ≥ $200k TVL, top 50 by 1M annualised return, with a caption counting the vaults that beat the T-bill. Two performance charts: small multiples of the 90-day return of the top 8 vaults and of the top 8 low-volatility vaults, each against its benchmark |
 | Top movers since the previous report | New chart. Slope chart of the top 20. Previous ranks are recalculated among vaults eligible this month |
 | Risk and return | New chart. Bubble scatter of 3M volatility (log scale) against 3M annualised return, bubble area by TVL, coloured by strategy. Returns above 100% are drawn as triangles on the top edge |
-| The best-performing perp DEX vaults | New section. Hyperliquid, GRVT, Lighter and other native trading vaults with ≥ $200k TVL, top 20. In earlier posts these crowded yield vaults out of the main list |
+| The best-performing perp DEX vaults | New section. Hyperliquid, GRVT, Lighter and other native trading vaults with ≥ $200k TVL, top 20, with a performance chart of the top 8 against BTC and ETH. In earlier posts these crowded yield vaults out of the main list |
 | Correlation of returns | Daily returns correlation heatmap over 90 days: top 20 vaults by 3M return with ≥ $50k TVL, at most two per protocol |
 | The best-performing vaults on each chain | Top 3 per chain with ≥ $100k TVL, perp DEX vaults included |
 | The best-performing large vaults | Yield vaults with ≥ $2M TVL, top 50 |
 | The best-performing new vaults | Yield vaults launched in the last 60 days with ≥ $15k TVL, top 50 |
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
-week older than the report date. Rolling return charts leave out vaults above
-400% annualised return or 50% annualised volatility, because one outlier
-flattens every other line. These vaults are still listed in the tables.
+week older than the report date. Performance charts show the first rows of
+their table, each vault in its own panel with its own y axis, so volatile
+vaults do not flatten calm ones. Vaults younger than 90 days start at launch,
+marked "since" in the panel. The hero image leaves out vaults above 400%
+annualised return, above 50% volatility or with a Severe or Dangerous risk rating.
 
 ### Tables
 

@@ -7,6 +7,7 @@ Each test is skipped unless its credentials are available.
     source .local-test.env && poetry run pytest tests/vault_report/test_vault_report_live.py
 """
 
+import datetime
 import os
 import uuid
 from pathlib import Path
@@ -15,7 +16,7 @@ import pandas as pd
 import pytest
 import requests
 
-from eth_defi.vault_report.benchmarks import fetch_treasury_bill_yields
+from eth_defi.vault_report.benchmarks import BTC, ETH, fetch_crypto_prices, fetch_treasury_bill_yields
 from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
 from eth_defi.vault_report.logos import fetch_chain_logo_uri
@@ -110,3 +111,13 @@ def test_chain_logo_available(tmp_path: Path):
     """The website serves chain logos, and Hypercore maps to the Hyperliquid logo."""
     for chain in ("Ethereum", "Hypercore"):
         assert fetch_chain_logo_uri(chain, tmp_path).startswith("data:image/svg+xml;base64,")
+
+
+def test_crypto_benchmark_prices_available(tmp_path: Path):
+    """Coinbase serves daily BTC and ETH closes without an API key."""
+    end_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    for benchmark in (BTC, ETH):
+        prices = fetch_crypto_prices(benchmark, end_at - datetime.timedelta(days=100), end_at, tmp_path)
+        assert prices is not None
+        assert len(prices) >= 95
+        assert prices.iloc[-1] > 0

@@ -157,6 +157,20 @@ def _pick_net(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df[f"{column}_net"], errors="coerce").fillna(pd.to_numeric(df[column], errors="coerce"))
 
 
+def _get_three_months_drawdown(period_results: list[dict] | None) -> float:
+    """Read the three-month maximum drawdown from a vault's period results.
+
+    :param period_results:
+        ``period_results`` list of a top vaults JSON record.
+
+    :return:
+        Drawdown as a negative fraction, or ``NaN`` if missing.
+    """
+    three_months = next((p for p in (period_results or []) if p.get("period") == "3M"), None)
+    value = three_months.get("max_drawdown") if three_months else None
+    return float(value) if value is not None else float("nan")
+
+
 def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     """Turn top vaults JSON records into a report DataFrame.
 
@@ -168,6 +182,8 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     - ``three_months_cagr_best``: the same for the annualised three-month return
     - ``three_months_sharpe_best``: net Sharpe, falling back to gross
     - ``is_perp_dex``: perpetual DEX native trading vault
+    - ``three_months_max_drawdown``: maximum drawdown of the three-month period
+      as a negative fraction, from ``period_results``
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
 
     TVL values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
@@ -190,6 +206,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")
     df["three_months_sharpe_best"] = _pick_net(df, "three_months_sharpe")
     df["is_perp_dex"] = df["flags"].apply(lambda flags: PERP_DEX_TRADING_VAULT_FLAG in (flags or []))
+    df["three_months_max_drawdown"] = df["period_results"].apply(_get_three_months_drawdown) if "period_results" in df.columns else float("nan")
 
     for column in ("current_nav", "peak_nav"):
         df[column] = df[column].where(df[column] <= MAX_VALID_NAV)

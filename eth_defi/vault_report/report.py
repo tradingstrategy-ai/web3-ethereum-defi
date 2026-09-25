@@ -32,17 +32,16 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.research.vault_metrics import USDollarAmount
-from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns, fetch_treasury_bill_yields, get_latest_yield
+from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
 from eth_defi.vault_report.branding import SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
 from eth_defi.vault_report.charts import (
-    calculate_rolling_returns,
+    PerformancePanel,
     create_chain_yield_figure,
     create_correlation_figure,
     create_movers_figure,
+    create_performance_grid_figure,
     create_protocol_tvl_figure,
     create_risk_return_figure,
-    create_rolling_returns_figure,
-    make_vault_label,
     render_figure_png,
 )
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
@@ -62,6 +61,7 @@ from eth_defi.vault_report.sections import (
     filter_eligible_vaults,
     render_section_table,
     select_best_vaults,
+    select_chain_yield_vaults,
     select_new_vaults,
     select_perp_dex_vaults,
     select_tvl_history_vaults,
@@ -71,8 +71,18 @@ from eth_defi.vault_report.theme import DARK_THEME, ChartTheme
 
 logger = logging.getLogger(__name__)
 
-#: Price history read for charts: 180 days of chart history plus the 90-day rolling window
-PRICE_HISTORY = datetime.timedelta(days=280)
+#: Period of the performance charts and hero sparklines
+PERFORMANCE_WINDOW = datetime.timedelta(days=90)
+
+#: Price history read for charts: the performance window plus a margin; correlations also use 90 days
+PRICE_HISTORY = datetime.timedelta(days=100)
+
+#: Performance chart key -> report section whose top vaults it shows
+PERFORMANCE_CHARTS = {
+    "best_performance": "best",
+    "low_volatility_performance": "low_volatility",
+    "perp_dex_performance": "perp_dex",
+}
 
 #: History shown in the TVL by protocol chart
 TVL_HISTORY = datetime.timedelta(days=365)
@@ -208,10 +218,10 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     yield_vaults = f"Excludes perp DEX vaults and vaults with fewer than {criteria.min_events} deposit and redemption events"
     return {
         "chain_yields": [
-            "TVL-weighted average of the annualised one-month returns of stablecoin vaults on each blockchain, including perp DEX vaults",
+            "Annualised one-month returns of stablecoin vaults on each blockchain, including perp DEX vaults: each small dot is a vault, the large dot is the TVL-weighted average",
             f"Vaults with at least {format_usd(criteria.chain_yield_min_vault_tvl)} TVL, blockchains with at least {format_usd(criteria.chain_yield_min_chain_tvl)} TVL",
             f"Outlier vaults with over {criteria.chain_yield_max_return:.0%} annualised returns or over {criteria.chain_yield_max_volatility:.0%} annualised volatility excluded",
-            "The dashed line is the current 3-month US Treasury bill yield",
+            "The dashed line is the current 3-month US Treasury bill yield; the right column shows each chain's difference to it in percentage points",
         ],
         "protocol_tvl": [
             "Weekly total value locked in stablecoin vaults over the last year, by vault protocol",
@@ -221,7 +231,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "best": [
             live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
             "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
-            f"The charts show three-month rolling returns for the top vaults, and for the top low-volatility vaults, against the 3-month US Treasury bill. Vaults with over {criteria.chart_max_return:.0%} annualised returns are left out for readability",
+            "The charts show the 90-day return of the top vaults, and of the top low-volatility vaults, against a benchmark matching each vault: the 3-month US Treasury bill for calm yield vaults, and BTC and ETH for volatile vaults",
             f"Minimum {format_usd(criteria.min_tvl)} TVL",
             yield_vaults,
             TABLE_FORMAT_NOTE,
@@ -235,6 +245,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         "perp_dex": [
             f"Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults with minimum {format_usd(criteria.perp_dex_min_tvl)} TVL",
+            "The chart compares the 90-day return of the top vaults with BTC and ETH",
         ],
         "correlation": [
             f"The top vaults by three-month returns, with minimum {format_usd(criteria.correlation_min_tvl)} TVL",
@@ -420,29 +431,30 @@ def render_report_charts(
     """
     empty = pd.DataFrame()
     data_date = data.data_end_at.strftime("%Y-%m-%d")
+    month_label = make_month_label(data.data_end_at)
     watermark = load_watermark_logo_uri(theme)
     best_all = select_best_vaults(eligible_df, criteria)
+    protocol_logos = {vault_id: load_protocol_logo_uri(slug, theme) for vault_id, slug in eligible_df["protocol_slug"].items()}
 
-    def _chartable(section_key: str) -> pd.DataFrame:
-        df = sections[section_key].vaults_df if section_key in sections else empty
-        if not len(df):
-            return df
-        return df.loc[(df["one_month_cagr_best"] <= criteria.chart_max_return) & (df["three_months_volatility"] <= criteria.chart_max_volatility)].head(criteria.chart_vault_count)
+    def _section(key: str) -> pd.DataFrame:
+        return sections[key].vaults_df if key in sections else empty
 
-    rolling_vaults = {"best_rolling": _chartable("best"), "low_volatility_rolling": _chartable("low_volatility")}
-    correlation_df = sections["correlation"].vaults_df if "correlation" in sections else empty
+    performance_vaults = {key: _section(section_key).head(criteria.performance_chart_vaults) for key, section_key in PERFORMANCE_CHARTS.items()}
+    correlation_df = _section("correlation")
+    hero_vaults = _section("best")
+    if len(hero_vaults):
+        hero_mask = (hero_vaults["one_month_cagr_best"] <= criteria.chart_max_return) & (hero_vaults["three_months_volatility"] <= criteria.hero_max_volatility) & ~hero_vaults["risk"].isin(criteria.hero_excluded_risks)
+        hero_vaults = hero_vaults.loc[hero_mask].head(5)
 
-    chart_ids = set(correlation_df.index).union(*(df.index for df in rolling_vaults.values()))
+    chart_ids = set(correlation_df.index) | set(hero_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
     daily_prices = calculate_daily_share_prices(read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY))
-    rolling_returns = calculate_rolling_returns(daily_prices)
     if daily_prices.empty:
         logger.warning("No price data for the chart vaults in %s, leaving out the price charts", data.prices_path)
-        rolling_vaults, correlation_df = {}, empty
+        performance_vaults, correlation_df = {}, empty
 
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
-    tbill_rolling = calculate_treasury_bill_rolling_returns(tbill_yields, datetime.timedelta(days=90), rolling_returns.index) if tbill_yields is not None and not rolling_returns.empty else None
+    benchmark_indices = fetch_benchmark_indices(data.data_end_at - PERFORMANCE_WINDOW - datetime.timedelta(days=7), data.data_end_at, cache_dir, tbill_yields)
 
-    protocol_logos = {vault_id: load_protocol_logo_uri(slug, theme) for vault_id, slug in eligible_df["protocol_slug"].items()}
     chain_yields = calculate_chain_yields(eligible_df, criteria)
     chain_logos = {chain: fetch_chain_logo_uri(chain, cache_dir / "logos") for chain in chain_yields.index}
 
@@ -453,8 +465,12 @@ def render_report_charts(
 
     figures = {
         "chain_yields": (
-            create_chain_yield_figure(chain_yields, theme, chain_logos, tbill_latest, watermark),
-            ChartPanel("Average stablecoin vault yield by blockchain", "TVL-weighted annualised one-month return, compared to the 3-month US Treasury bill", "tradingstrategy.ai/trading-view/vaults/chains"),
+            create_chain_yield_figure(chain_yields, select_chain_yield_vaults(eligible_df, criteria), theme, chain_logos, tbill_latest, watermark, criteria.chain_yield_chart_max_return),
+            ChartPanel(
+                "Stablecoin vault yield by blockchain",
+                "Small dots: vaults · large dots: TVL-weighted average · right: difference to the US 3M T-bill",
+                "tradingstrategy.ai/trading-view/vaults/chains",
+            ),
         ),
     }
     if len(protocol_tvl):
@@ -462,14 +478,27 @@ def render_report_charts(
             create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(protocol_names.get(name), theme) for name in protocol_tvl.columns}, watermark),
             ChartPanel("Stablecoin vault TVL by protocol", "Weekly total value locked over the last 12 months", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
         )
-    panels = {
-        "best_rolling": ChartPanel("3M rolling returns, best-performing vaults", f"Top {criteria.chart_vault_count} stablecoin yield vaults by 1M return, not annualised, against the US Treasury bill", "tradingstrategy.ai/trading-view/vaults"),
-        "low_volatility_rolling": ChartPanel("3M rolling returns, low-volatility vaults", f"Top {criteria.chart_vault_count} vaults with under {criteria.low_volatility_threshold:.1%} annualised volatility, not annualised", "tradingstrategy.ai/trading-view/vaults"),
+
+    period = f"{PERFORMANCE_WINDOW.days}-day return, not annualised"
+    performance_panels = {
+        "best_performance": ChartPanel("Performance of the best-performing vaults", f"Top {criteria.performance_chart_vaults} of the table below, {period}, against the benchmark matching each vault", "tradingstrategy.ai/trading-view/vaults"),
+        "low_volatility_performance": ChartPanel("Performance of low-volatility vaults", f"Top {criteria.performance_chart_vaults} vaults with under {criteria.low_volatility_threshold:.1%} annualised volatility, {period}", "tradingstrategy.ai/trading-view/vaults"),
+        "perp_dex_performance": ChartPanel("Performance of perp DEX vaults", f"Top {criteria.performance_chart_vaults} perp DEX vaults, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
     }
-    for key, df in rolling_vaults.items():
-        if len(df):
-            labels = {vault_id: make_vault_label(row) for vault_id, row in df.iterrows()}
-            figures[key] = (create_rolling_returns_figure(rolling_returns, labels, theme, protocol_logos, tbill_rolling, watermark), panels[key])
+    for key, df in performance_vaults.items():
+        if not len(df):
+            continue
+        panels = [
+            PerformancePanel(
+                vault_id=vault_id,
+                name=vault["name"] or vault["address"],
+                subtitle=f"{vault['chain']} · {vault['protocol'] if vault['protocol_slug'] != UNKNOWN_PROTOCOL_SLUG else 'Unknown protocol'}",
+                logo_uri=protocol_logos.get(vault_id),
+                benchmarks=select_benchmarks(vault, criteria.crypto_benchmark_min_volatility, criteria.crypto_benchmark_max_drawdown),
+            )
+            for vault_id, vault in df.iterrows()
+        ]
+        figures[key] = (create_performance_grid_figure(panels, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW), performance_panels[key])
 
     figures["risk_return"] = (
         create_risk_return_figure(best_all, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),
@@ -480,7 +509,7 @@ def render_report_charts(
     if changes and previous is not None and previous.published_at is not None:
         names = {vault_id: best_all.loc[vault_id, "name"] or vault_id for vault_id in (c.vault_id for c in changes)}
         figures["movers"] = (
-            create_movers_figure(changes, names, theme, previous.published_at.strftime("%B %Y"), make_month_label(data.data_end_at), protocol_logos),
+            create_movers_figure(changes, names, theme, previous.published_at.strftime("%B %Y"), month_label, protocol_logos),
             ChartPanel(
                 f"Top {MOVERS_TOP_N} movers",
                 f"Rank changes since the {previous.published_at.strftime('%B %Y')} report; previous ranks recalculated among vaults eligible this month",
@@ -500,12 +529,11 @@ def render_report_charts(
         path = render_figure_png(fig, chart_dir / f"{key}.png")
         chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path)
 
-    hero_vaults = _chartable("best")
-    hero_vaults = hero_vaults.loc[~hero_vaults["risk"].isin(criteria.hero_excluded_risks)].head(5)
+    sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
+    sparklines = {vault_id: daily_prices.loc[daily_prices.index >= sparkline_start, vault_id] for vault_id in hero_vaults.index if vault_id in daily_prices.columns}
     hero_subtitle = f"1M annualised return · ≥ {format_usd(criteria.min_tvl)} TVL · high-risk vaults excluded · {data_date}"
-    month_label = make_month_label(data.data_end_at)
-    hero_path = render_hero_image(hero_vaults, month_label, hero_subtitle, theme, output_dir / "hero.png")
-    render_hero_image(hero_vaults, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE)
+    hero_path = render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero.png")
+    render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE)
     return chart_paths, hero_path
 
 
