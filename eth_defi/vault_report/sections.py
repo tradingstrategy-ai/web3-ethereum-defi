@@ -49,8 +49,8 @@ RISK_BADGE_COLOURS = {
     "Severe": ("#f8dada", "#9e2424"),
 }
 
-#: Badge colours for vaults without a technical risk rating
-UNRATED_BADGE_COLOURS = ("#ecebe8", "#52514e")
+#: Badge colours for vaults without a technical risk rating; the mid-grey text stays readable on the dark blog page and in light newsletters
+UNRATED_BADGE_COLOURS = ("#ecebe8", "#8f8d88")
 
 #: Link target of the risk badges
 RISK_FRAMEWORK_URL = "https://tradingstrategy.ai/blog/announcing-vault-technical-risk-framework-beta"
