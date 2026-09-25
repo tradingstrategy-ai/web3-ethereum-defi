@@ -471,7 +471,8 @@ def render_report_charts(
             ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} vaults with the largest increases and the {criteria.tvl_change_top_n} with the largest decreases", "tradingstrategy.ai/trading-view/vaults"),
         )
 
-    period = f"over {PERFORMANCE_WINDOW.days} days"
+    # The legend shows annualised returns without a unit label, so the subtitle states it
+    period = f"over {PERFORMANCE_WINDOW.days} days, returns annualised"
     selection = f"Top {criteria.performance_chart_vaults} {{by}} with at least {format_usd(criteria.min_tvl)} TVL"
     by_return = selection.format(by="by return")
     performance_panels = {
