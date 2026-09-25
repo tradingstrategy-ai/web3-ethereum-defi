@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Automate the monthly best-performing stablecoin vaults blog report with generated tables, charts and a Ghost draft post stub (2026-09-25)
 - feat: Add mainnet-only Derive v3 native vault discovery, daily price history and shared vault export, with separate testnet inspection and storage (2026-09-24).
 - feat: Add Arc mainnet metadata, HyperSync lookup, generic share-price-gated vault-scanner scheduling, temporary Morpho API coverage handling, Docker RPC wiring and an isolated initial vault-discovery script (2026-09-24)
 - fix: Clip Derive funding-rate API responses to the requested time range when the service includes a preceding boundary sample (2026-09-24)
