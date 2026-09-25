@@ -332,8 +332,6 @@ def test_calculate_vault_record_emits_manual_review_status() -> None:
     record = calculate_vault_record(
         prices_df=prices_df,
         vault_metadata_rows=metadata_rows,
-        month_ago=index.max() - pd.Timedelta(days=30),
-        three_months_ago=index.max() - pd.Timedelta(days=90),
         vault_id=vault_id,
     )
     assert record["manual_review_status"] == "ok"
@@ -345,8 +343,6 @@ def test_calculate_vault_record_emits_manual_review_status() -> None:
     record = calculate_vault_record(
         prices_df=prices_df,
         vault_metadata_rows=metadata_rows,
-        month_ago=index.max() - pd.Timedelta(days=30),
-        three_months_ago=index.max() - pd.Timedelta(days=90),
         vault_id=vault_id,
     )
     assert record["manual_review_status"] is None

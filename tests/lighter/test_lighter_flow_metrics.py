@@ -263,6 +263,17 @@ def test_lighter_flow_derivation_rejects_gaps_resets_and_current_day() -> None:
     assert result.loc[6, "daily_withdrawal_usd"] == pytest.approx(2.0)
 
 
+def _flow_arrays(prices: pd.DataFrame) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    """Convert a test flow frame to the arrays the flow helpers take.
+
+    :return:
+        Timestamps in nanoseconds and each flow column as ``float64``.
+    """
+    timestamp_ns = prices.index.as_unit("ns").asi8
+    flows = {column: prices[column].to_numpy(dtype="float64", na_value=np.nan) for column in prices.columns}
+    return timestamp_ns, flows
+
+
 def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
     """Keep unavailable counts and incomplete monetary totals unknown."""
     dates = pd.date_range("2025-01-01", periods=3, freq="D")
@@ -277,8 +288,8 @@ def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
     )
 
     period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
-    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
-    netflow = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
+    _attach_period_flow_metrics(period_results, *_flow_arrays(prices), now_=dates[-1], exclude_current_utc_day=False)
+    netflow = _calculate_netflow_metrics(*_flow_arrays(prices), period_results, now_=dates[-1])
     assert netflow is not None
     day = next(row for row in netflow if row.period == "1d")
     assert day.data_complete
@@ -297,8 +308,8 @@ def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
     assert week.net_flow_usd is None
 
     prices.loc[dates[-1], "daily_deposit_usd"] = np.nan
-    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
-    incomplete = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
+    _attach_period_flow_metrics(period_results, *_flow_arrays(prices), now_=dates[-1], exclude_current_utc_day=False)
+    incomplete = _calculate_netflow_metrics(*_flow_arrays(prices), period_results, now_=dates[-1])
     assert incomplete is not None
     day = next(row for row in incomplete if row.period == "1d")
     assert not day.data_complete
@@ -323,8 +334,8 @@ def test_netflow_never_exports_partial_event_counts() -> None:
     )
 
     period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
-    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
-    netflow = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
+    _attach_period_flow_metrics(period_results, *_flow_arrays(prices), now_=dates[-1], exclude_current_utc_day=False)
+    netflow = _calculate_netflow_metrics(*_flow_arrays(prices), period_results, now_=dates[-1])
 
     assert netflow is not None
     week = next(row for row in netflow if row.period == "7d")
@@ -349,8 +360,8 @@ def test_lighter_netflow_excludes_current_provisional_day() -> None:
     )
 
     period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
-    _attach_period_flow_metrics(period_results, prices, now_=today, exclude_current_utc_day=True)
-    netflow = _calculate_netflow_metrics(prices, period_results, now_=today, exclude_current_utc_day=True)
+    _attach_period_flow_metrics(period_results, *_flow_arrays(prices), now_=today, exclude_current_utc_day=True)
+    netflow = _calculate_netflow_metrics(*_flow_arrays(prices), period_results, now_=today, exclude_current_utc_day=True)
 
     assert netflow is not None
     canonical_week = next(row for row in period_results if row.period == "1W")

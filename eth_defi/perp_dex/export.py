@@ -6,6 +6,20 @@ from typing import Any
 
 import pandas as pd
 
+#: Cleaned price-row columns read by :func:`build_perp_dex_other_data`.
+#:
+#: Callers that hold the price rows as a DataFrame pass only these cells
+#: instead of a whole row. Keep this in sync with the ``row.get()`` calls below.
+PERP_DEX_ROW_COLUMNS: tuple[str, ...] = (
+    "perp_position_data_status",
+    "perp_long_notional",
+    "perp_short_notional",
+    "perp_largest_position_notional",
+    "perp_open_position_count",
+    "perp_metrics_observed_at",
+    "perp_quote_asset",
+)
+
 
 def build_perp_dex_other_data(row: Mapping[str, Any]) -> dict[str, Any] | None:
     """Build ``other_data.perp_dex`` from one already-cleaned price row.

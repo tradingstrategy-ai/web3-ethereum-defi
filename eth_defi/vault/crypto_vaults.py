@@ -832,8 +832,6 @@ def _build_native_crypto_metrics(
     price_ids = set(projected_prices["id"].astype(str))
     vault_rows = {spec: row for spec, row in vault_db.rows.items() if spec.as_string_id() in price_ids}
     slugify_vaults(vaults=vault_rows)
-    month_ago = projected_prices.index.max() - pd.Timedelta(days=30)
-    three_months_ago = projected_prices.index.max() - pd.Timedelta(days=90)
     grouped_vaults = projected_prices.groupby("id", group_keys=False, sort=False, observed=True)
     generated_at = pd.Timestamp(native_datetime_utc_now())
     records: list[pd.Series] = []
@@ -849,8 +847,6 @@ def _build_native_crypto_metrics(
             record = calculate_vault_record(
                 group,
                 vault_rows,
-                month_ago,
-                three_months_ago,
                 vault_id=str(vault_id),
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
                 crypto_usd_conversion_context=crypto_usd_conversion_context,

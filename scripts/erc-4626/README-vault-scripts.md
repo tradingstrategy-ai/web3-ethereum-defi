@@ -976,9 +976,38 @@ exports.
 Forward filling is an explicit approximation: an unobserved day receives a
 zero return and accumulated movement falls on the next observed day. Metrics
 therefore depend on observation cadence. For an otherwise eligible flat period,
-the common export uses zero for volatility and Sharpe; Sharpe is mathematically
-undefined in that case, so zero is a compatibility value rather than evidence
-of a measured risk-adjusted return.
+the common export uses zero for volatility and null for Sharpe, because Sharpe
+is mathematically undefined without volatility. Sharpe is also null for
+periods shorter than 14 days or with fewer than 10 daily prices.
+
+#### Lifetime metrics benchmark
+
+``calculate_lifetime_metrics()`` and its daily preparation work on NumPy
+arrays built once for the whole multi-vault frame, rather than on a pandas
+DataFrame per vault. To measure a change to this code and prove that its
+output is unchanged, record a reference run first, then compare against it:
+
+```shell
+LIFETIME_BENCHMARK_OUTPUT=/tmp/before.pickle \
+poetry run python scripts/erc-4626/benchmark-lifetime-metrics.py
+
+# After changing the code:
+LIFETIME_BENCHMARK_COMPARE_WITH=/tmp/before.pickle \
+poetry run python scripts/erc-4626/benchmark-lifetime-metrics.py
+```
+
+The script reads the cleaned hourly Parquet with the same columns as the
+top-vault export and selects stablecoin vaults deterministically by SHA-256.
+It reports the daily-preparation time, the metrics time and peak RSS.
+``LIFETIME_BENCHMARK_N`` sets the sample size (default 1,000; ``0`` runs every
+stablecoin vault). The comparison checks the rows exactly as they are exported
+to JSON: column order, value types, since JSON writes ``0`` and ``0.0``
+differently, and floats within a relative tolerance of ``1e-9``. It reads local
+files only and never uploads.
+
+On the 2026-09-25 production snapshot of 12,795 stablecoin vaults, daily
+preparation took 9.6 s instead of 75.9 s and ``calculate_lifetime_metrics()``
+22.8 s instead of 235.3 s, with no differing exported values.
 
 #### GMX V2 liquidity-provider vaults
 
