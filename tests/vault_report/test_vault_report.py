@@ -33,6 +33,7 @@ from eth_defi.vault_report.sections import (
     ReportSection,
     calculate_average_yields,
     calculate_chain_yields,
+    calculate_fund_nav_history,
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
@@ -315,6 +316,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "chain_yields",
         "protocol_yields",
         "protocol_tvl",
+        "fund_nav",
         "tvl_changes",
         "lending_performance",
         "perp_dex_performance",
@@ -509,6 +511,12 @@ def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):
     by_protocol = calculate_protocol_tvl_history(tvl, vaults_df, top_n=1)
     assert list(by_protocol.columns) == ["Morpho", "Other"]
     assert by_protocol.iloc[-1].sum() == pytest.approx(tvl.iloc[-1].sum())
+
+    # Tokenised fund NAV is grouped per fund name, without Other when every fund is shown
+    funds = vaults_df.loc[vaults_df["group"] == TOKENISED_FUND]
+    by_fund = calculate_fund_nav_history(tvl[list(funds.index)], funds)
+    assert list(by_fund.columns) == list(funds["name"])
+    assert by_fund.iloc[-1].sum() == pytest.approx(tvl[list(funds.index)].iloc[-1].sum())
 
 
 def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
