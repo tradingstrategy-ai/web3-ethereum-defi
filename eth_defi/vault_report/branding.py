@@ -392,11 +392,6 @@ def render_hero_image(
     pad = 56
 
     draw_brand_logo(image, pad, 42, 44, theme)
-    badge = "Monthly vault report"
-    badge_font = _font(20)
-    badge_width = draw.textlength(badge, font=badge_font) + 36
-    draw.rounded_rectangle((width - pad - badge_width, 44, width - pad, 84), radius=20, outline=_hex_to_rgba(theme.axis), width=2)
-    draw.text((width - pad - badge_width + 18, 53), badge, font=badge_font, fill=theme.muted_text)
 
     title_top = 150 if square else 116
     draw.text((pad, title_top), "Best-performing stablecoin vaults", font=_font(50 if square else 52, bold=True), fill=theme.text)
@@ -440,8 +435,8 @@ def render_hero_image(
         draw.text((width - pad - draw.textlength(value, font=value_font), top + 6), value, font=value_font, fill=theme.positive)
 
     footer_font = _font(18)
-    footer_text = _fit_text(draw, subtitle, footer_font, width - 2 * pad - 220)
+    # The TradingStrategy.ai logo in the header brands the image, so the footer carries only the selection criteria
+    footer_text = _fit_text(draw, subtitle, footer_font, width - 2 * pad)
     draw.text((pad, height - 50), footer_text, font=footer_font, fill=theme.muted_text)
-    draw.text((width - pad - draw.textlength("tradingstrategy.ai", font=_font(20, bold=True)), height - 52), "tradingstrategy.ai", font=_font(20, bold=True), fill=theme.text)
     image.convert("RGB").save(output_path, format="PNG", optimize=True)
     return output_path
