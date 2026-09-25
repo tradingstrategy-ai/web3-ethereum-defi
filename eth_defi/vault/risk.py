@@ -755,6 +755,12 @@ _BROKEN_VAULT_CONTRACTS = {
     # head and estimates at 126,909 gas there, but historical reads revert on
     # every provider, so only head valuations exist (PR #1536).
     "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",
+    # Securitize AsyncFundVault for the tokenised ARK Venture Fund on Ethereum.
+    # It is the ERC-7540-style subscription contract, not a separate fund: it
+    # emits ERC-4626 Deposit events, but has no NAV provider, so convertToAssets()
+    # returns 0 and totalAssets() is only its USDC redemption reserve. The ARKVX
+    # DSToken 0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a is the tracked instrument.
+    "0xeF312D033Ed52E2796ba604FEF12B4a56053B292",
 }
 
 #: Cause excessive gas fees, RPC havoc.

@@ -7,10 +7,13 @@ from the DSToken scan and official issuer address lists. It intentionally
 excludes company securities and test tokens.
 """
 
-from dataclasses import dataclass
+import datetime
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from eth_typing import HexAddress
+
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,6 +44,13 @@ class SecuritizeProduct:
     nav_source: str
     #: Human-readable denomination for a known fund NAV.
     denomination: str | None = None
+    #: Reviewed fund fee schedule, or ``None`` when fees are unknown.
+    #:
+    #: Excluded from hashing because :py:class:`FeeData` is mutable and
+    #: products are used as dictionary keys.
+    fee_data: FeeData | None = field(default=None, hash=False, compare=False)
+    #: Typical wait before an investor can exit, or ``None`` when unknown.
+    lock_up: datetime.timedelta | None = None
 
 
 BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
@@ -59,6 +69,13 @@ COSIMO_X_FUND_PAGE_URL = "https://www.cosimodigital.com/asset-management/cosimo-
 SCIENCE_BLOCKCHAIN_FUND_PAGE_URL = "https://www.science-inc.com/blockchain.html"
 PROTOS_FUND_PAGE_URL = "https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/"
 MI4_FUND_PAGE_URL = "https://securitize.io/primary-market/mantle-index-four-fund"
+ARKVX_FUND_PAGE_URL = "https://www.ark-funds.com/funds/arkvx"
+#: Prospectus and statement of additional information dated 2025-10-28.
+ARKVX_PROSPECTUS_URL = "https://www.sec.gov/Archives/edgar/data/1905088/000121390025102648/ea0260971-01_486bpos.htm"
+#: Investment Company Act Release No. 36333 permitting a tokenised share class.
+ARKVX_SEC_ORDER_URL = "https://www.sec.gov/Archives/edgar/data/1905088/999999999726001524/filename1.pdf"
+#: Rule 23c-3 repurchase offer notice with the 2026-09-30 deadline.
+ARKVX_REPURCHASE_OFFER_URL = "https://www.sec.gov/Archives/edgar/data/1905088/000121390026096448/ea0304158-01_n23c3a.htm"
 
 
 def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> SecuritizeProduct:
@@ -417,6 +434,52 @@ MI4_MANTLE = SecuritizeProduct(
     denomination="USD",
 )
 
+#: Tokenised ARK Venture Fund shares on Ethereum.
+#:
+#: Fees follow the Class D table in the 2025-10-28 prospectus. The 2% deposit
+#: fee is the tokenised-route subscription fee reported by the press and
+#: confirmed by onchain settlement prices; see
+#: :py:mod:`eth_defi.tokenised_fund.securitize.settlement`.
+#:
+#: https://etherscan.io/token/0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a
+ARKVX_ETHEREUM = SecuritizeProduct(
+    chain_id=1,
+    token=HexAddress("0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a"),
+    product_name="ARK Venture Fund",
+    short_description="Interval fund investing in private and public disruptive-innovation companies, with daily NAV and quarterly repurchase offers expected at 5% of shares",
+    description=("Tokenised shares of ARK Venture Fund (ARKVX), a registered closed-end interval fund managed by ARK Investment Management LLC that seeks long-term growth of capital by investing 20% to 90% of its assets in private companies and the remainder in public companies linked to disruptive innovation. NAV is struck every business day, and the adviser fair-values the private holdings. The fund's Class D shares carry a 2.75% management fee and 2.90% net annual expenses under a Board-terminable expense cap; the tokenised class shares the management fee but may have its own other expenses. Liquidity is limited to quarterly repurchase offers of 5% to 25% of shares, expected to be 5%."),
+    manager_name="ARK Invest",
+    curator_slug="ark-invest",
+    homepage=ARKVX_FUND_PAGE_URL,
+    notes=f"""ARK Venture Fund (ARKVX), tokenised on Ethereum through Securitize.
+
+- **Curator:** ARK Investment Management LLC (ARK Invest) manages the fund. Securitize Markets, LLC, an SEC-registered broker-dealer, distributes the tokenised shares, and Securitize provides the tokenisation and investor-onboarding infrastructure. The Bank of New York Mellon is the fund's custodian.
+- **Vault strategy:** The fund's objective is "to seek long-term growth of capital". It invests 20% to 90% of its assets in private companies and the remainder in public companies aligned with disruptive innovation, such as artificial intelligence, space, robotics, energy storage, fintech and genomics. On 2026-08-31 it held 74.15% in private companies and had USD 1.30 billion of net assets across all share classes. Its largest positions were SpaceX (7.54%), Kalshi (5.81%), Ayar Labs (5.65%), OpenAI (5.26%), Stripe (4.16%) and Anthropic (3.86%).
+- **Prospectus and regulatory status:** ARKVX is a closed-end interval fund registered under the Investment Company Act of 1940 (file 811-23778). Its current [prospectus and statement of additional information]({ARKVX_PROSPECTUS_URL}) are dated 2025-10-28. On 2026-09-21 the SEC granted [amended exemptive relief]({ARKVX_SEC_ORDER_URL}) (Release No. 36333) that permits a tokenised share class. The press describes the tokens as Class D shares held one-to-one at BNY Mellon, whereas the SEC application describes a separate Tokenized Class that is not yet registered in a prospectus amendment. Read the prospectus before investing.
+- **Fees:** The prospectus fee table for Class D shows a 2.75% management fee, 0.04% interest on borrowed funds, 0.69% other expenses (including a 0.15% distribution and servicing fee) and 0.01% acquired fund fees: 3.49% gross annual expenses. ARK waives or reimburses 0.59%, giving **2.90% net annual expenses for Class D**. The expense cap stays in place until the fund's Board approves its termination, and ARK cannot recoup waived amounts. According to the SEC application, the tokenised class has the same management fee and no sales load, but may bear its own other expenses, including blockchain gas costs, so its total expense ratio may differ. There is no performance fee or early repurchase fee. Press coverage of the Securitize route reports a **2% subscription fee**, deducted before units are priced at NAV; it is not in the SEC filings, but onchain settlement prices are consistent with it.
+- **Fund value promise:** The fund does not promise a stable or guaranteed share value. NAV is calculated each business day as of the NYSE close, and ARK, as the Rule 2a-5 valuation designee, fair-values the private holdings. NAV can therefore differ from the price at which those holdings could be sold, and can move sharply when private companies are revalued. The prospectus states that investors "should invest in the Fund only if they can sustain a complete loss". Shares are not bank deposits and are not FDIC-insured or bank-guaranteed.
+- **Liquidity and redemptions:** The fund's shares are not listed on an exchange, and the prospectus says no secondary market is expected. The SEC relief permits tokenised shares to trade on alternative trading systems, but ARK's tokenisation announcement still states that no secondary market is expected to develop. The fund's main liquidity route is its quarterly Rule 23c-3 repurchase offers, made in March, June, September and December, for 5% to 25% of outstanding shares at NAV; the fund expects to offer 5%. When tenders exceed the offer, repurchases are prorated, so a holder may not be able to sell all of their shares in a given quarter. The current offer's deadline is 2026-09-30 ([notice]({ARKVX_REPURCHASE_OFFER_URL})).
+- **Distributions:** The fund intends to make annual distributions, reinvested in shares unless the holder opts out. How the tokenised class receives distributions is not yet documented.
+- **Token structure and eligibility:** ARKVX tokens are Securitize DSTokens. Only investors who have passed identity and eligibility checks can subscribe, redeem or receive transfers, and only into whitelisted wallets. Subscriptions are paid in USDC through Securitize's ERC-7540-style subscription vault. They are batched into generations that settle after NAV is struck; the first settlements came one to two business days apart. The prospectus sets a USD 500 minimum investment for Class D, and press coverage reports the same minimum for the tokenised route.
+- **Price data in this listing:** The share price is rebuilt from onchain deposit settlement events. Each settlement records a USDC price that includes the 2% subscription fee, so NAV/share is the settlement price multiplied by 0.98, rounded to cents. This matches ARK's published NAV for the business day before each settlement. The price therefore updates only when deposits settle and lags the fund's own NAV by one business day. TVL covers onchain tokenised shares only, not the whole fund.
+- **Fund page:** [ARK Venture Fund]({ARKVX_FUND_PAGE_URL}).
+""",
+    estimated_nav_per_share=None,
+    nav_source="settlement_arkvx_deposit_generation",
+    denomination="USD",
+    fee_data=FeeData(
+        # Fund expenses accrue daily in NAV, so the share price is net of them.
+        fee_mode=VaultFeeMode.internalised_skimming,
+        management=0.0275,
+        performance=0.0,
+        # Subscription fee deducted before pricing, outside the share price.
+        deposit=0.02,
+        withdraw=0.0,
+    ),
+    # Rule 23c-3 repurchase offers are quarterly; oversubscribed offers are prorated.
+    lock_up=datetime.timedelta(days=90),
+)
+
 #: Supported Securitize investment funds keyed by chain and DSToken address.
 SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
     (product.chain_id, product.token): product
@@ -438,6 +501,7 @@ SECURITIZE_PRODUCTS: dict[tuple[int, HexAddress], SecuritizeProduct] = {
         SCI2_ETHEREUM,
         PRTS_ETHEREUM,
         MI4_MANTLE,
+        ARKVX_ETHEREUM,
     )
 }
 

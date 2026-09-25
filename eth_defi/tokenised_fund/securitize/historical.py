@@ -11,6 +11,7 @@ from eth_abi import decode
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.tokenised_fund.securitize.settlement import SecuritizeSettlementError
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 if TYPE_CHECKING:
@@ -41,7 +42,8 @@ class SecuritizeVaultHistoricalReader(VaultHistoricalReader):
 
     Securitize tokens expose ERC-20 supply but no common fund NAV interface.
     Fixed-price products use their reviewed adapter estimate; variable-NAV
-    products read a RedStone push feed in the same historical multicall.
+    products read a RedStone push feed in the same historical multicall, or
+    use the latest subscription-vault settlement at or before the block.
     """
 
     def __init__(self, vault: "SecuritizeVault", stateful: bool):  # noqa: FBT001
@@ -97,6 +99,11 @@ class SecuritizeVaultHistoricalReader(VaultHistoricalReader):
         share_price = self.vault.product.estimated_nav_per_share if self.vault.product is not None else None
         state_result: EncodedCallResult | None = None
         errors: list[str] = []
+        if self.vault.settlement_feed is not None:
+            try:
+                share_price = self.vault.fetch_share_price(block_number)
+            except SecuritizeSettlementError as e:
+                errors.append(str(e))
         for result in call_results:
             function = result.call.extra_data.get("function")
             if function == "totalSupply":
@@ -120,7 +127,7 @@ class SecuritizeVaultHistoricalReader(VaultHistoricalReader):
                 else:
                     errors.append(f"RedStone {self.vault.redstone_feed.feed_id} latestRoundData call failed")
 
-        if share_price is None:
+        if share_price is None and self.vault.settlement_feed is None:
             if self.vault.redstone_feed is not None and block_number < self.vault.redstone_feed.first_block:
                 errors.append(f"RedStone {self.vault.redstone_feed.feed_id} has no observation before block {self.vault.redstone_feed.first_block}")
             elif self.vault.redstone_feed is None:

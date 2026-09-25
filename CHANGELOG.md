@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: List the tokenised ARK Venture Fund (ARKVX) on Securitize with NAV history reconstructed from onchain subscription settlements, prospectus-reviewed fees and an ARK Invest curator (2026-09-25).
 - perf: Calculate vault lifetime metrics and daily returns on NumPy arrays built once for the whole frame, cutting the full stablecoin metrics run from 311 s to 32 s with identical exported values, and add a benchmark with an exported-row parity check (2026-09-25).
 - feat: Add mainnet-only Derive v3 native vault discovery, daily price history and shared vault export, with separate testnet inspection and storage (2026-09-24).
 - feat: Add Arc mainnet metadata, HyperSync lookup, generic share-price-gated vault-scanner scheduling, temporary Morpho API coverage handling, Docker RPC wiring and an isolated initial vault-discovery script (2026-09-24)

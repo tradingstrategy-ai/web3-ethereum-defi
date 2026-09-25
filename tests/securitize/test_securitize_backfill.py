@@ -7,6 +7,7 @@ import pytest
 from eth_defi.tokenised_fund.securitize import backfill
 from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
+from eth_defi.tokenised_fund.securitize.settlement import SECURITIZE_SETTLEMENT_FEEDS
 
 DEPLOYMENT_BLOCK = 100
 EXPLICIT_START_BLOCK = 75
@@ -41,7 +42,7 @@ def test_default_backfill_includes_complete_product_registry(monkeypatch: pytest
 
     assert {(product.chain_id, product.token) for product in products} == set(SECURITIZE_PRODUCTS)
     estimated_product_count = sum(product.estimated_nav_per_share is not None for product in products)
-    assert sum(backfill_history_module.has_historical_price(product) for product in products) == estimated_product_count + len(REDSTONE_SECURITIZE_FEEDS)
+    assert sum(backfill_history_module.has_historical_price(product) for product in products) == estimated_product_count + len(REDSTONE_SECURITIZE_FEEDS) + len(SECURITIZE_SETTLEMENT_FEEDS)
 
 
 def test_create_price_row_report_distinguishes_priced_and_metadata_only(backfill_history_module) -> None:

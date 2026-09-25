@@ -33,4 +33,21 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9": {
         StrategyTag.venture_funding,
     },
+    #: Vault: ARK Venture Fund (ARKVX).
+    #: Added: 2026-09-25.
+    #: Decision material: The prospectus states the objective "to seek
+    #: long-term growth of capital" by investing 20%-90% of assets in private
+    #: companies, with 74.15% in private companies on 2026-08-31 and top
+    #: positions in venture-backed firms such as SpaceX, Kalshi, Ayar Labs,
+    #: OpenAI, Stripe and Anthropic. ARK markets it as its venture fund, which
+    #: supports the venture-funding tag, matching BCAP.
+    #: Sources:
+    #: - https://www.ark-funds.com/funds/arkvx
+    #: - https://www.sec.gov/Archives/edgar/data/1905088/000121390025102648/ea0260971-01_486bpos.htm
+    #: - https://etherscan.io/token/0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a
+    #: - eth_defi/tokenised_fund/securitize/description.py
+    #: - eth_defi/tokenised_fund/securitize/vault.py
+    "0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a": {
+        StrategyTag.venture_funding,
+    },
 }

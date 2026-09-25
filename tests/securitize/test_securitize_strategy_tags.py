@@ -3,7 +3,7 @@
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.tokenised_fund.securitize.description import BCAP_ETHEREUM, MI4_MANTLE
+from eth_defi.tokenised_fund.securitize.description import ARKVX_ETHEREUM, BCAP_ETHEREUM, MI4_MANTLE
 from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -19,6 +19,13 @@ def test_mantle_index_four_strategy_tags() -> None:
 def test_bcap_strategy_tags() -> None:
     """BCAP returns its maintained venture-funding tag."""
     vault = SecuritizeVault(Web3(), VaultSpec(chain_id=BCAP_ETHEREUM.chain_id, vault_address=BCAP_ETHEREUM.token))
+
+    assert vault.get_strategy_tags() == {StrategyTag.venture_funding}
+
+
+def test_arkvx_strategy_tags() -> None:
+    """ARK Venture Fund returns its maintained venture-funding tag."""
+    vault = SecuritizeVault(Web3(), VaultSpec(chain_id=ARKVX_ETHEREUM.chain_id, vault_address=ARKVX_ETHEREUM.token))
 
     assert vault.get_strategy_tags() == {StrategyTag.venture_funding}
 

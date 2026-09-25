@@ -12,10 +12,12 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.securitize.description import BUIDL_ETHEREUM, SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS, RedstoneSecuritizeFeed, fetch_redstone_feed_contract, fetch_redstone_price_at
+from eth_defi.tokenised_fund.securitize.settlement import SECURITIZE_SETTLEMENT_FEEDS, SecuritizeSettlementError, SecuritizeSettlementFeed, SecuritizeSettlementPrice, fetch_settlement_prices, find_settlement_price_at
 from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
@@ -40,6 +42,7 @@ SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX = "No on-chain NAV source configured for
 SECURITIZE_PRICE_SOURCE_PREFIXES: dict[str, PriceSource] = {
     "redstone_": PriceSource.redstone,
     "chronicle_": PriceSource.chronicle,
+    "settlement_": PriceSource.smart_contract_event,
     "estimated_": PriceSource.fixed_price,
 }
 
@@ -88,7 +91,9 @@ class SecuritizeVault(TokenisedFundVault):
 
     The adapter reads share supply from the ERC-20-compatible token. BUIDL has
     an explicit one-USD NAV estimate; recognised variable-NAV funds read a
-    reviewed RedStone on-chain push feed at the same archive block.
+    reviewed RedStone onchain push feed at the same archive block, or the
+    NAV struck by the fund's subscription-vault settlements
+    (:py:mod:`eth_defi.tokenised_fund.securitize.settlement`).
     """
 
     def __init__(
@@ -199,6 +204,57 @@ class SecuritizeVault(TokenisedFundVault):
         """
 
         return fetch_redstone_feed_contract(self.web3, self.redstone_feed) if self.redstone_feed is not None else None
+
+    @property
+    def settlement_feed(self) -> SecuritizeSettlementFeed | None:
+        """Return the reviewed subscription-settlement NAV feed for this product.
+
+        :return:
+            Feed configuration, or ``None`` for products priced otherwise.
+        """
+
+        return SECURITIZE_SETTLEMENT_FEEDS.get((self.chain_id, HexAddress(self.address.lower())))
+
+    @cached_property
+    def settlement_prices(self) -> list[SecuritizeSettlementPrice]:
+        """Fetch the settlement NAV timeline once per adapter instance.
+
+        The historical scanner processes results in its main process and the
+        recurring scheduler creates new adapters every cycle, so one Hypersync
+        query covers a whole scan.
+
+        A Hypersync failure deliberately propagates. The historical scanner
+        replaces its Parquet file atomically, so aborting keeps the existing
+        history and the next cycle retries. Returning unpriced rows instead
+        would overwrite good history in the rescanned range.
+
+        :return:
+            Deposit settlement prices up to the current head, sorted by block.
+        :raises SecuritizeSettlementError:
+            If Hypersync is unavailable on the product chain.
+        """
+
+        feed = self.settlement_feed
+        assert feed is not None, f"No settlement NAV feed configured for Securitize DSToken {self.address}"
+        hypersync_client = configure_hypersync_from_env(self.web3).hypersync_client
+        if hypersync_client is None:
+            raise SecuritizeSettlementError(f"Securitize settlement NAV for {self.address} requires Hypersync on chain {self.chain_id}")
+        return fetch_settlement_prices(hypersync_client, feed, self.web3.eth.block_number)
+
+    def fetch_settlement_price_at(self, block_number: int) -> SecuritizeSettlementPrice | None:
+        """Find the settlement NAV in force at a block.
+
+        The first call fetches the product's settlement timeline through
+        :py:attr:`settlement_prices`; later calls reuse it.
+
+        :param block_number:
+            Sampled block.
+        :return:
+            Latest settlement at or before the block, or ``None`` before the
+            first settlement.
+        """
+
+        return find_settlement_price_at(self.settlement_prices, block_number)
 
     @property
     def name(self) -> str:
@@ -319,6 +375,12 @@ class SecuritizeVault(TokenisedFundVault):
             return self.product.estimated_nav_per_share
         if self.redstone_feed is not None:
             return fetch_redstone_price_at(self.web3, self.redstone_feed, block_identifier).share_price
+        if self.settlement_feed is not None:
+            block_number = block_identifier if isinstance(block_identifier, int) else self.web3.eth.get_block(block_identifier)["number"]
+            settlement = self.fetch_settlement_price_at(block_number)
+            if settlement is None:
+                raise SecuritizeSettlementError(f"Securitize DSToken {self.address} has no fulfilled deposit generation at or before block {block_number}")
+            return settlement.share_price
         raise NotImplementedError(f"{SECURITIZE_NAV_UNAVAILABLE_ERROR_PREFIX} {self.address}")
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
@@ -462,44 +524,49 @@ class SecuritizeVault(TokenisedFundVault):
         return SecuritizeVaultHistoricalReader(self, stateful=stateful)
 
     def get_fee_data(self) -> FeeData:
-        """Return unknown product fee data.
+        """Return the reviewed product fee schedule.
+
+        DSTokens do not contain fund fees, so fees come from the product's
+        prospectus review in :py:mod:`eth_defi.tokenised_fund.securitize.description`.
 
         :return:
-            Unknown fee data because DSToken does not contain fund fees.
+            Reviewed fee data, or unknown fee data for unreviewed products.
         """
 
+        if self.product is not None and self.product.fee_data is not None:
+            return self.product.fee_data
         return BROKEN_FEE_DATA
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Return unknown management fee.
+        """Return the reviewed annual management fee.
 
         :param block_identifier:
             Ignored because no on-chain fee accessor exists.
         :return:
-            ``None``.
+            Management fee, or ``None`` when unknown.
         """
 
-        return None
+        return self.get_fee_data().management
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Return unknown performance fee.
+        """Return the reviewed performance fee.
 
         :param block_identifier:
             Ignored because no on-chain fee accessor exists.
         :return:
-            ``None``.
+            Performance fee, or ``None`` when unknown.
         """
 
-        return None
+        return self.get_fee_data().performance
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        """Return unknown product lock-up.
+        """Return the reviewed product lock-up.
 
         :return:
-            ``None`` because redemption terms are product-specific.
+            Typical exit delay, or ``None`` when redemption terms are unknown.
         """
 
-        return None
+        return self.product.lock_up if self.product is not None else None
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the appropriate product or protocol page.
