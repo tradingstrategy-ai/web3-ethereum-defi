@@ -16,25 +16,32 @@ from eth_defi.research.vault_correlation import choose_vaults_for_correlation_co
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformancePanel, calculate_period_performance, create_correlation_figure, create_performance_grid_figure
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformancePanel, calculate_period_performance, create_performance_grid_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
-from eth_defi.vault_report.movers import calculate_rank_changes, parse_ranked_vault_links, resolve_vault_id
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft, read_previous_ranking
+from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import (
+    LENDING,
+    OTHER,
+    PERP_DEX,
+    TOKENISED_FUND,
     ReportCriteria,
     ReportSection,
+    calculate_average_yields,
     calculate_chain_yields,
     calculate_protocol_tvl_history,
+    calculate_protocol_yields,
+    calculate_tvl_changes,
     filter_eligible_vaults,
     format_return,
     format_risk_badge,
     format_sharpe,
     render_section_table,
-    select_best_vaults,
-    select_perp_dex_vaults,
+    select_average_yield_vaults,
+    select_group,
     select_vaults_by_chain,
+    select_yield_vaults,
 )
 from eth_defi.vault_report.theme import DARK_THEME
 
@@ -82,6 +89,7 @@ def make_vault_record(address: str, **overrides) -> dict:
         "trading_strategy_link": f"https://tradingstrategy.ai/trading-view/vaults/{address}",
         "vault_slug": f"vault-{address}",
         "strategy_tags": ["lending"],
+        "period_results": [{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 1_000_000.0}, {"period": "3M", "max_drawdown": 0.0}],
     }
     record.update(overrides)
     return record
@@ -98,7 +106,9 @@ def vault_records() -> list[dict]:
         make_vault_record("0xee", one_month_cagr_net=0.90, current_nav=50_000.0),
         make_vault_record("0xff", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=0.9, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
         make_vault_record("0x11", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=1.5, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
-        make_vault_record("0x22", chain="Base", one_month_cagr_net=0.05, current_nav=3_000_000.0, years=0.1),
+        make_vault_record("0x22", chain="Base", one_month_cagr_net=0.05, current_nav=3_000_000.0, years=0.1, period_results=[{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 3_000_000.0}]),
+        make_vault_record("0x33", protocol="ERC-4626", protocol_slug="erc-4626", strategy_tags=None, one_month_cagr_net=0.30),
+        make_vault_record("0x44", protocol="Securitize", protocol_slug="securitize", strategy_tags=None, flags=["tokenised_fund"], one_month_cagr_net=0.045, event_count=2, period_results=[{"period": "1M", "tvl_start": 2_000_000.0, "tvl_end": 1_000_000.0}]),
     ]
 
 
@@ -134,32 +144,50 @@ def offline_report(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(report_module, "fetch_available_sparklines", lambda vault_ids: set(list(vault_ids)[:1]))
 
 
-def test_filter_and_rank_sections(vaults_df: pd.DataFrame):
-    """Blacklisted, stale and perp DEX vaults are handled and ranking prefers net returns."""
+def test_filter_and_group_sections(vaults_df: pd.DataFrame):
+    """Vaults are grouped, filtered by TVL and activity, and ranked by return or Sharpe."""
     criteria = ReportCriteria()
     eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)
-    assert set(eligible["address"]) == {"0xaa", "0xbb", "0xee", "0xff", "0x11", "0x22"}
+    assert set(eligible["address"]) == {"0xaa", "0xbb", "0xee", "0xff", "0x11", "0x22", "0x33", "0x44"}
+    assert eligible["group"].to_dict() == {"1-0xaa": LENDING, "1-0xbb": LENDING, "1-0xee": LENDING, "1-0xff": PERP_DEX, "1-0x11": PERP_DEX, "1-0x22": LENDING, "1-0x33": OTHER, "1-0x44": TOKENISED_FUND}
 
-    best = select_best_vaults(eligible, criteria)
-    assert list(best["address"]) == ["0xaa", "0xbb", "0x22"]
-
-    # Tied capped annualised returns are ranked by the absolute monthly return
-    perp = select_perp_dex_vaults(eligible, criteria)
-    assert list(perp["address"]) == ["0x11", "0xff"]
+    # 0xee is below the $100k TVL threshold
+    assert list(select_group(eligible, criteria, LENDING)["address"]) == ["0xaa", "0xbb", "0x22"]
+    # Tied capped annualised returns are ranked by the absolute monthly return; perp vaults need no deposit events
+    assert list(select_group(eligible, criteria, PERP_DEX)["address"]) == ["0x11", "0xff"]
+    assert list(select_group(eligible, criteria, PERP_DEX, by="three_months_sharpe_best")["address"]) == ["0x11", "0xff"]
+    assert list(select_group(eligible, criteria, OTHER)["address"]) == ["0x33"]
+    # Tokenised funds need no deposit events either
+    assert list(select_group(eligible, criteria, TOKENISED_FUND)["address"]) == ["0x44"]
+    assert set(select_yield_vaults(eligible, criteria)["address"]) == {"0xaa", "0xbb", "0x22", "0x33", "0x44"}
 
     by_chain = select_vaults_by_chain(eligible, ReportCriteria(chain_top_n=1))
-    assert list(by_chain["address"]) == ["0x22", "0xaa", "0x11"]
+    assert list(by_chain["address"]) == ["0x22", "0x33", "0x11"]
 
 
-def test_calculate_chain_yields(vaults_df: pd.DataFrame):
-    """Chain yields are TVL-weighted and exclude outliers and volatile vaults."""
-    criteria = ReportCriteria(chain_yield_min_chain_tvl=0)
+def test_average_yields(vaults_df: pd.DataFrame):
+    """Average yields are TVL-weighted, exclude outliers and volatile vaults, and leave out placeholder protocols."""
+    criteria = ReportCriteria()
     eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)
-    yields = calculate_chain_yields(eligible, criteria)
-    assert "Hypercore" not in yields.index
-    # Ethereum: 0.20 @ 1M, 0.15 @ 1M, 0.90 @ 50k
-    assert yields.loc["Ethereum", "avg_return"] == pytest.approx((0.20 * 1_000_000 + 0.15 * 1_000_000 + 0.90 * 50_000) / 2_050_000)
-    assert yields.loc["Ethereum", "vault_count"] == 3
+    yield_vaults = select_average_yield_vaults(eligible, criteria)
+    assert "1-0xff" not in yield_vaults.index  # 80% volatility
+
+    by_chain = calculate_average_yields(yield_vaults, "chain")
+    # Ethereum: 0.20 @ 1M, 0.15 @ 1M, 0.90 @ 50k, 0.30 @ 1M, 0.045 @ 1M
+    assert by_chain.loc["Ethereum", "avg_return"] == pytest.approx((0.20 + 0.15 + 0.90 * 0.05 + 0.30 + 0.045) / 4.05)
+    assert list(calculate_chain_yields(yield_vaults, ReportCriteria(yield_top_chains=1)).index) == ["Ethereum"]
+
+    protocols = calculate_protocol_yields(yield_vaults, criteria)
+    assert "ERC-4626" not in protocols.index
+    assert set(protocols.index) == {"Morpho", "Securitize"}
+
+
+def test_tvl_changes(vaults_df: pd.DataFrame):
+    """TVL changes come from the one-month period, the largest increases first."""
+    eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, ReportCriteria())
+    changes = calculate_tvl_changes(eligible, ReportCriteria(tvl_change_top_n=1))
+    assert list(changes.index) == ["1-0x22", "1-0x44"]
+    assert list(changes["tvl_change"]) == [2_000_000.0, -1_000_000.0]
 
 
 def test_formatting():
@@ -190,8 +218,6 @@ def test_daily_prices_and_performance(prices_path: Path):
     panels = [PerformancePanel("1-0xaa", "A", "Ethereum · Morpho", None, (TREASURY_BILL,)), PerformancePanel("1-0xbb", "B", "Ethereum · Morpho", None, (BTC, ETH))]
     fig = create_performance_grid_figure(panels, daily, indices, DARK_THEME)
     assert len(fig.data) == 1 + 2 + 2  # T-bill + two vault traces for A; BTC and ETH are missing, two vault traces for B
-    fig = create_correlation_figure(daily, {"1-0xaa": "A", "1-0xbb": "B"}, DARK_THEME)
-    assert fig.data[0].z.shape == (2, 2)
 
 
 def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
@@ -209,7 +235,6 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     report = generate_monthly_vault_report(
         data,
         output_dir=tmp_path / "out",
-        criteria=ReportCriteria(correlation_min_tvl=0),
         previous=previous,
         changelog_entries=["Add Foo vault support (2026-09-01)"],
         render_charts=False,
@@ -223,16 +248,15 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "Add Foo vault support" in post_html
     assert "Vault 0xcc" not in post_html  # Blacklisted
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
-    assert manifest["sections"]["best"] == 3
-    assert manifest["sections"]["perp_dex"] == 2
-    assert (tmp_path / "out" / "tables" / "best.csv").exists()
-    assert manifest["rankings"]["best"] == ["1-0xaa", "1-0xbb", "1-0x22"]
-    assert read_previous_ranking(tmp_path / "out") == ["1-0xaa", "1-0xbb", "1-0x22"]
-    assert "3 of the 3 stablecoin yield vaults with at least $200k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
+    assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "other": 1, "tokenised_funds": 1, "new": 1, "by_chain": 6}
+    assert (tmp_path / "out" / "tables" / "lending.csv").exists()
+    assert "5 of the 5 stablecoin yield vaults with at least $100k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
+    assert '<h3 id="best-performing-lending-vaults">' in post_html
+    assert '<h2 id="the-best-performing-tokenised-funds">' in post_html
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
-    report.chart_paths = {"best_performance": tmp_path / "missing.png"}
+    report.chart_paths = {"lending_performance": tmp_path / "missing.png"}
     client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
     client.session = FakeSession("draft")
     with pytest.raises(GhostAPIError):
@@ -243,11 +267,20 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
 @pytest.mark.skipif(not CHOREOGRAPHER_CHROME_PATH.exists(), reason="Kaleido needs Chrome, install with plotly_get_chrome")
 def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
     """All charts render as branded PNG panels, and the hero image has the social card size."""
-    previous_table = '<h2 id="the-best-performing-vaults">Best</h2><table><tbody><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0xbb">B</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0xaa">A</a></td></tr></tbody></table>'
-    previous = GhostPost(id="p0", title="Previous", slug="previous", status="published", published_at=datetime.datetime(2026, 8, 25), updated_at=None, html=previous_table)
     data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
-    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0), previous=previous)
-    assert set(report.chart_paths) == {"chain_yields", "protocol_tvl", "best_performance", "low_volatility_performance", "perp_dex_performance", "risk_return", "movers", "correlation"}
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out")
+    assert set(report.chart_paths) == {
+        "chain_yields",
+        "protocol_yields",
+        "protocol_tvl",
+        "tvl_changes",
+        "lending_performance",
+        "perp_dex_performance",
+        "perp_dex_sharpe_performance",
+        "other_performance",
+        "tokenised_funds_performance",
+        "risk_return",
+    }
     for path in report.chart_paths.values():
         image = Image.open(path)
         assert image.mode == "RGBA"
@@ -255,8 +288,8 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
     assert Image.open(report.hero_path).size == HERO_SIZE
     assert Image.open(tmp_path / "out" / "hero-square.png").size == SQUARE_HERO_SIZE
     post_html = (tmp_path / "out" / "post.html").read_text()
-    assert 'src="charts/best_performance.png"' in post_html
-    assert 'src="charts/perp_dex_performance.png"' in post_html
+    assert 'src="charts/lending_performance.png"' in post_html
+    assert 'src="charts/tvl_changes.png"' in post_html
 
 
 @pytest.mark.skipif(not CHOREOGRAPHER_CHROME_PATH.exists(), reason="Kaleido needs Chrome, install with plotly_get_chrome")
@@ -265,9 +298,9 @@ def test_render_report_charts_without_prices(tmp_path: Path, vaults_df: pd.DataF
     empty_prices = tmp_path / "empty.parquet"
     pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0], "total_assets": [1.0]}).to_parquet(empty_prices)
     data = VaultReportData(vaults_df=vaults_df, prices_path=empty_prices)
-    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0))
-    assert set(report.chart_paths) == {"chain_yields", "risk_return"}
-    assert "best" in report.context.tables
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out")
+    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "tvl_changes", "risk_return"}
+    assert "lending" in report.context.tables
 
 
 def test_data_is_escaped_in_post(tmp_path: Path, vault_records: list[dict], prices_path: Path):
@@ -426,27 +459,6 @@ def test_select_benchmarks(vaults_df: pd.DataFrame):
     assert _select(protocol_slug="gmx", vault_slug="gm-btc-usdc") == (BTC,)
     assert _select(protocol_slug="gmx", vault_slug="gm-swap-usdc-usdt", name="GM swap [USDC-USDT]") == (TREASURY_BILL,)
     assert _select(protocol_slug="gmx", vault_slug="glv-weth-usdc") == (BTC, ETH)
-
-
-def test_movers(vaults_df: pd.DataFrame):
-    """Previous table links resolve by address or slug, and ranks are recalculated in the current universe."""
-    post_html = '<h2 id="the-best-performing-vaults">Best</h2><table><tbody><tr><td><a href="https://tradingstrategy.ai/trading-view/hypercore/vaults/x?a=0xFF&amp;ref=x">Perp</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/ethereum/vaults/old-name?a=0xbb">B</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0x22">C</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/gone">Gone</a></td></tr></tbody></table>'
-    links = parse_ranked_vault_links(post_html, "the-best-performing-vaults")
-    assert len(links) == 4
-    previous_ids = [resolve_vault_id(link, vaults_df) for link in links]
-    assert previous_ids == ["1-0xff", "1-0xbb", "1-0x22", None]
-
-    # A slug shared by vaults on two chains resolves only with the chain in the link
-    twin = vaults_df.loc[["1-0x22"]].assign(id="42161-0x22", chain="Arbitrum")
-    twin.index = ["42161-0x22"]
-    with_twin = pd.concat([vaults_df.assign(vault_slug=vaults_df["vault_slug"].replace("vault-0x22", "shared")), twin.assign(vault_slug="shared")])
-    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/vaults/shared", with_twin) is None
-    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/base/vaults/shared", with_twin) == "1-0x22"
-    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/arbitrum/vaults/shared", with_twin) == "42161-0x22"
-
-    changes, dropped = calculate_rank_changes(previous_ids, ["1-0xaa", "1-0x22", "1-0xbb"], top_n=2)
-    assert [(c.vault_id, c.previous_rank, c.status) for c in changes] == [("1-0xaa", None, "new"), ("1-0x22", 2, "same")]
-    assert dropped == ["1-0xbb"]
 
 
 def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):

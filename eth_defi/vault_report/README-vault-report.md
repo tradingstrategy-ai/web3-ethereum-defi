@@ -33,14 +33,9 @@ Downloads younger than six hours are reused. The script:
    (`GHOST_CONTENT_API_URL`, `GHOST_CONTENT_API_KEY`). The new post links back to it
    and copies its *About the report*, *Partners* and *Next steps* sections.
    Changelog entries added since its publication are offered to the editor.
-   The movers chart compares against its ranking; the stored `report.json`
-   ranking of the previous bundle is used when it exists, otherwise the ranking
-   is parsed from the post's table.
 5. Writes a local bundle to `~/.cache/tradingstrategy/vault-report/reports/{slug}/`:
-   `post.html`, a browser-viewable `preview.html`, `report.json` (including the
-   rankings for next month), `hero.png`, `hero-square.png`, `charts/*.png` and
-   `tables/*.html|csv`. The `low_volatility` table is the input of the
-   low-volatility chart and is not included in the post.
+   `post.html`, a browser-viewable `preview.html`, `report.json`, `hero.png`,
+   `hero-square.png`, `charts/*.png` and `tables/*.html|csv`.
 6. When `GHOST_ADMIN_API_KEY` is set, uploads the charts and the hero image and
    creates a **draft** post, with the hero as its feature image. The script never publishes.
 
@@ -118,30 +113,30 @@ against the crypto market it trades. Both thresholds are in `ReportCriteria`.
 
 ## Report content
 
-The sections follow the February 2026 post, with the changes noted below.
-"Yield vaults" excludes perp DEX vaults and vaults with fewer than 10 deposit
-and redemption events.
+The section order, selection rules and editor input of each section are
+described in [README-blog-post-outline.md](./README-blog-post-outline.md). In
+short, the post has:
 
-| Section | Content |
-|---|---|
-| Hero image | New. The top 5 yield vaults with protocol logos, 90-day price sparklines and the return as a large number: 1200×630 for link previews and the Ghost feature image, and a 1080×1080 version for X, which shows blog links as square cards. Leaves out vaults above 400% annualised return, above 50% volatility or with a Severe or Dangerous risk rating |
-| Vault yield per blockchain | New chart, replacing a website screenshot. A dot plot: each vault is a small dot, the TVL-weighted 1M annualised return a large dot, against the T-bill line, with the difference in percentage points. Perp DEX vaults included. Excludes outlier vaults (>400% ann.) and volatile vaults (>50% ann. volatility) from the averages |
-| Stablecoin vault TVL by protocol | New chart. Weekly TVL over 12 months: top 7 protocols and Other, with a glowing total line. Built with the same DuckDB query and filters as the website's historical TVL chart (blacklisted vaults and points above $50B excluded) |
-| The best-performing vaults | Yield vaults with ≥ $200k TVL, top 50 by 1M annualised return, with a caption counting the vaults that beat the T-bill. Two performance charts: small multiples of the 90-day return of the top 8 vaults and of the top 8 low-volatility vaults, each against its benchmark |
-| Top movers since the previous report | New chart. Slope chart of the top 20. Previous ranks are recalculated among vaults eligible this month |
-| Risk and return | New chart. Bubble scatter of 3M volatility (log scale) against 3M annualised return, bubble area by TVL, coloured by strategy. Returns above 100% are drawn as triangles on the top edge |
-| The best-performing perp DEX vaults | New section. Hyperliquid, GRVT, Lighter and other native trading vaults with ≥ $200k TVL, top 20, with a performance chart of the top 8 against BTC and ETH. In earlier posts these crowded yield vaults out of the main list |
-| Correlation of returns | Daily returns correlation heatmap over 90 days: top 20 vaults by 3M return with ≥ $50k TVL, at most two per protocol |
-| The best-performing vaults on each chain | Top 3 per chain with ≥ $100k TVL, perp DEX vaults included |
-| The best-performing large vaults | Yield vaults with ≥ $2M TVL, top 50 |
-| The best-performing new vaults | Yield vaults launched in the last 60 days with ≥ $15k TVL, top 50 |
+- average yield dot plots for the 10 largest blockchains and the 10 largest
+  protocols by TVL, against the T-bill;
+- stablecoin vault TVL by protocol over 12 months;
+- inflows and outflows: the largest 30-day TVL changes in dollars;
+- the best-performing vaults, split into lending, perp DEX by return, perp DEX
+  by Sharpe ratio and other vaults, each with a performance chart and a table;
+- the best-performing tokenised funds and new vaults;
+- a risk and return scatter and the top 3 vaults on each chain.
+
+The hero image shows the top 5 yield vaults with protocol logos, 90-day price
+sparklines and the return as a large number: 1200×630 for link previews and the
+Ghost feature image, and a 1080×1080 version for X, which shows blog links as
+square cards. It leaves out vaults above 400% annualised return, above 50%
+volatility or with a Severe or Dangerous risk rating.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
 week older than the report date. Performance charts show the first rows of
 their table, each vault in its own panel with its own y axis, so volatile
 vaults do not flatten calm ones. Vaults younger than 90 days start at launch,
-marked "since" in the panel. The hero image leaves out vaults above 400%
-annualised return, above 50% volatility or with a Severe or Dangerous risk rating.
+marked "since" in the panel.
 
 ### Tables
 
@@ -162,7 +157,7 @@ The thresholds live in `eth_defi.vault_report.sections.ReportCriteria`.
 2. Open the draft in Ghost Admin using the editor link the script prints.
 3. Fill in the yellow `EDITOR:` callouts: the intro highlight, report content
    updates (changelog candidates are listed in the callout), community news and
-   comments on the top vaults and the TVL trend. Then delete the callouts.
+   comments on the top vaults, the TVL trend and the largest inflows and outflows. Then delete the callouts.
 4. Review the tables. Unusual entries, such as capped `>9,999%` returns or
    leveraged tokens, deserve a comment or a vault note.
 5. Publish, then share the post. Attach `hero-square.png` when posting on X.

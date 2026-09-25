@@ -41,7 +41,8 @@ GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
 class SectionTemplate:
     """Static content of one data section of the post.
 
-    A section is included when its table or any of its charts exists.
+    A section is included when its table or any of its charts exists, or
+    always when :py:attr:`always` is set, e.g. for a heading that groups subsections.
     """
 
     #: Section key: the table key in :py:attr:`PostContext.tables` and the criteria notes key
@@ -62,14 +63,27 @@ class SectionTemplate:
     #: Text of an editor callout, or empty
     editor_note: str = ""
 
+    #: Heading level, 2 for sections and 3 for subsections
+    level: int = 2
 
-#: Data sections in display order
+    #: Include the section even without a table or chart
+    always: bool = False
+
+
+#: Data sections in display order, see ``README-blog-post-outline.md``
 SECTION_TEMPLATES = (
     SectionTemplate(
         key="chain_yields",
-        heading_id="average-vault-yield-per-blockchain",
-        heading="Vault yield per blockchain",
-        charts=(("chain_yields", "Stablecoin vault yield by blockchain against the US Treasury bill"),),
+        heading_id="average-yield-by-blockchain",
+        heading="Average yield by blockchain",
+        charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
+        editor_note="Comment on the chains paying the most and the least.",
+    ),
+    SectionTemplate(
+        key="protocol_yields",
+        heading_id="average-yield-by-protocol",
+        heading="Average yield by protocol",
+        charts=(("protocol_yields", "Stablecoin vault yield of the largest protocols against the US Treasury bill"),),
     ),
     SectionTemplate(
         key="protocol_tvl",
@@ -79,19 +93,57 @@ SECTION_TEMPLATES = (
         editor_note="Comment on the TVL trend: which protocols grew or shrank.",
     ),
     SectionTemplate(
+        key="tvl_changes",
+        heading_id="inflows-and-outflows",
+        heading="Inflows and outflows",
+        intro="<p>Where the money moved: the vaults whose total value locked grew or shrank the most over the last 30 days.</p>",
+        charts=(("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),),
+        editor_note="Explain the largest moves if known, e.g. a new fund launch or a redemption.",
+    ),
+    SectionTemplate(
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>Here you can find the stablecoin vaults with the best monthly returns.</p>",
-        charts=(("best_performance", "90-day performance of the best-performing vaults against benchmarks"), ("low_volatility_performance", "90-day performance of low-volatility vaults against the US Treasury bill")),
+        intro="<p>The best-performing vaults of the month in four groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, and other vaults.</p>",
         editor_note="Comment on the top vaults of the month.",
+        always=True,
     ),
     SectionTemplate(
-        key="movers",
-        heading_id="top-movers",
-        heading="Top movers since the previous report",
-        charts=(("movers", "Top 20 vault rank changes since the previous report"),),
+        key="lending",
+        heading_id="best-performing-lending-vaults",
+        heading="Lending vaults",
+        charts=(("lending_performance", "90-day performance of the best-performing lending vaults against benchmarks"),),
+        level=3,
     ),
+    SectionTemplate(
+        key="perp_dex",
+        heading_id="best-performing-perp-dex-vaults",
+        heading="Perpetual futures DEX vaults by return",
+        charts=(("perp_dex_performance", "90-day performance of the best-performing perp DEX vaults against BTC and ETH"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="perp_dex_sharpe",
+        heading_id="best-performing-perp-dex-vaults-by-sharpe",
+        heading="Perpetual futures DEX vaults by Sharpe ratio",
+        charts=(("perp_dex_sharpe_performance", "90-day performance of the perp DEX vaults with the best Sharpe ratio against BTC and ETH"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="other",
+        heading_id="best-performing-other-vaults",
+        heading="Other vaults",
+        charts=(("other_performance", "90-day performance of other best-performing vaults against benchmarks"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="tokenised_funds",
+        heading_id="the-best-performing-tokenised-funds",
+        heading="The best-performing tokenised funds",
+        intro="<p>Tokenised funds bring traditional money market, treasury and credit funds onchain.</p>",
+        charts=(("tokenised_funds_performance", "90-day performance of the best-performing tokenised funds against benchmarks"),),
+    ),
+    SectionTemplate(key="new", heading_id="the-best-performing-new-vaults", heading="The best-performing new vaults"),
     SectionTemplate(
         key="risk_return",
         heading_id="risk-and-return",
@@ -99,28 +151,7 @@ SECTION_TEMPLATES = (
         intro="<p>Higher returns usually come with higher volatility. Vaults above and to the left of the crowd offer better returns for their risk.</p>",
         charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
-    SectionTemplate(
-        key="perp_dex",
-        heading_id="the-best-performing-perp-dex-vaults",
-        heading="The best-performing perp DEX vaults",
-        intro="<p>Perpetual futures DEX native vaults run active trading strategies, like market making and directional trading. Their returns are more volatile than yield vaults, so we list them separately and compare them with BTC and ETH.</p>",
-        charts=(("perp_dex_performance", "90-day performance of perp DEX vaults against BTC and ETH"),),
-    ),
-    SectionTemplate(
-        key="correlation",
-        heading_id="correlation-of-returns",
-        heading="Correlation of returns",
-        intro="<p>Daily returns correlation for the highest-performing vaults.</p>",
-        charts=(("correlation", "Vault daily returns correlation"),),
-    ),
     SectionTemplate(key="by_chain", heading_id="the-best-performing-vaults-on-each-chain", heading="The best-performing vaults on each chain"),
-    SectionTemplate(
-        key="large",
-        heading_id="the-best-performing-large-vaults",
-        heading="The best-performing large vaults",
-        intro="<p>Here are the vaults of interest to investors with a larger size.</p>",
-    ),
-    SectionTemplate(key="new", heading_id="the-best-performing-new-vaults", heading="The best-performing new vaults"),
 )
 
 
@@ -327,9 +358,9 @@ def build_post_html(context: PostContext) -> str:
     ]
 
     for template in SECTION_TEMPLATES:
-        if template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):
+        if not template.always and template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):
             continue
-        parts += [f'<h2 id="{template.heading_id}">{template.heading}</h2>', template.intro]
+        parts += [f'<h{template.level} id="{template.heading_id}">{template.heading}</h{template.level}>', template.intro]
         if template.key in context.captions:
             parts.append(f"<p><strong>{html.escape(context.captions[template.key])}</strong></p>")
         if template.editor_note:

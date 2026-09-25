@@ -31,7 +31,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
-from eth_defi.vault_report.sections import SPARKLINE_URL
+from eth_defi.vault_report.sections import SPARKLINE_URL, classify_vault
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +184,8 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     - ``is_perp_dex``: perpetual DEX native trading vault
     - ``three_months_max_drawdown``: maximum drawdown of the three-month period
       as a negative fraction, from ``period_results``
+    - ``group``: lending, perpetual futures DEX, tokenised fund or other, see
+      :py:func:`eth_defi.vault_report.sections.classify_vault`
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
 
     TVL values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
@@ -210,6 +212,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
 
     for column in ("current_nav", "peak_nav"):
         df[column] = df[column].where(df[column] <= MAX_VALID_NAV)
+    df["group"] = df.apply(classify_vault, axis=1)
     return df
 
 
