@@ -10,8 +10,8 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 - Benchmarks matching the vaults' activity: the US Treasury bill for calm
   yield vaults, BTC and ETH for trading and volatile vaults, see
   :py:mod:`eth_defi.vault_report.benchmarks`
-- Performance as equity curves (value of $100 invested) of all compared vaults
-  in one chart with a shared axis, yields as dots on a rate scale, and dollar TVL changes as
+- Performance as equity curves in percent of all compared vaults in one chart
+  with a shared axis, yields as dots on a rate scale, and dollar TVL changes as
   diverging bars
 - A faint logo watermark inside the plot area, as on the website charts
 - Glowing lines for charts with few series, like the website's hero charts
@@ -209,11 +209,14 @@ class PerformanceSeries:
 #: Benchmark line dash styles. Benchmarks share one neutral colour, so they do not compete with the vault colours.
 BENCHMARK_DASHES = {TREASURY_BILL: "dash", BTC: "dot", ETH: "dashdot"}
 
-#: Value of the equity curves at the window start, in US dollars
+#: Equity index value at the window start. Lines are plotted as an index, so a log axis works, and labelled in equity %.
 EQUITY_CURVE_BASE = 100
 
-#: Candidate y axis ticks of a log-scale equity curve chart, in US dollars
-LOG_SCALE_TICKS = (10, 20, 50, 80, 100, 120, 150, 200, 300, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
+#: Candidate y axis ticks of a log-scale equity chart, as equity index values
+LOG_SCALE_TICKS = (10, 20, 50, 80, 100, 120, 150, 200, 300, 400, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
+
+#: Candidate tick steps of a linear equity chart, in percentage points
+LINEAR_TICK_STEPS = (0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
 
 
 def calculate_period_performance(series: pd.Series, start_at: pd.Timestamp) -> pd.Series:
@@ -248,11 +251,11 @@ def create_performance_figure(
 ) -> Figure:
     """Draw the equity curves of vaults and their benchmarks in one chart.
 
-    Each line shows the value of $100 invested at the start of the window, like
-    the website's vault comparison chart. All vaults share the time axis and the
-    value axis, so their equity curves can be compared directly. Vault colours
+    Each line shows the equity change in percent since the start of the window.
+    All vaults share the time axis and the equity axis, so their equity curves
+    can be compared directly. Vault colours
     follow the table order, and the legend numbers match the table rows. A vault
-    younger than the window starts from $100 at its first data point.
+    younger than the window starts from 0% at its first data point.
 
     Benchmarks used by at least half of the vaults, see
     :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`, are drawn
@@ -319,7 +322,7 @@ def create_performance_figure(
     log_scale = high > log_threshold
 
     def scale(values: pd.Series) -> np.ndarray:
-        # Cumulative return in percent -> value of $100 invested
+        # Cumulative return in percent -> equity index
         return (EQUITY_CURVE_BASE * (1 + values / 100)).to_numpy()
 
     bottom, top = EQUITY_CURVE_BASE * (1 + low / 100), EQUITY_CURVE_BASE * (1 + high / 100)
@@ -336,8 +339,8 @@ def create_performance_figure(
         return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
 
     def describe(value: float) -> str:
-        # End value of the $100 investment
-        return f"${EQUITY_CURVE_BASE * (1 + value / 100):,.2f}"
+        # End equity change
+        return f"{value:+,.1f}%"
 
     fig = go.Figure()
     entries = []
@@ -389,9 +392,12 @@ def create_performance_figure(
     fig.update_xaxes(range=[start_at, end_at + pd.Timedelta(window) * 0.16], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
-        fig.update_yaxes(type="log", range=list(y_range), tickvals=ticks, ticktext=[f"${tick:,}" for tick in ticks], title="Value of $100 invested (log scale)")
+        fig.update_yaxes(type="log", title="Equity % (log scale)")
     else:
-        fig.update_yaxes(range=list(y_range), tickprefix="$", tickformat=",.0f" if top - bottom > 3 else ",.1f", title="Value of $100 invested")
+        step = next((step for step in LINEAR_TICK_STEPS if (y_range[1] - y_range[0]) / step <= 7), LINEAR_TICK_STEPS[-1])
+        ticks = list(np.arange(np.ceil((y_range[0] - EQUITY_CURVE_BASE) / step) * step, y_range[1] - EQUITY_CURVE_BASE, step) + EQUITY_CURVE_BASE)
+        fig.update_yaxes(title="Equity %")
+    fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=[f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks])
     fig.update_yaxes(side="left", zeroline=False)
     fig.add_hline(y=EQUITY_CURVE_BASE, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
