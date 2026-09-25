@@ -144,7 +144,9 @@ numbers are table ranks, repeated as badges at the line ends. Days without a sha
 updated vaults do not draw staircases. Vaults younger than 90
 days start at 0% at launch, marked "since" in the legend. A single vault far
 above the others is drawn off scale with a ▲ marker, and the axis switches to
-a log scale when returns exceed 100%.
+a log scale when returns exceed 100%. The perp DEX Sharpe ratio chart draws the
+90-day rolling Sharpe ratio instead, calculated from forward-filled daily prices
+like the exported 3M Sharpe, so its latest values match the table.
 
 ### Tables
 

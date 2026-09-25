@@ -14,10 +14,11 @@ import requests
 from PIL import Image
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
+from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, create_performance_figure
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
@@ -242,6 +243,22 @@ def test_daily_prices_and_performance(prices_path: Path):
     assert fig.layout.yaxis.type != "log"
     assert fig.layout.yaxis.range[1] < 110  # The $100 equity curves of the calm vaults, not the 10× outlier
     assert any(annotation.text == "▲ 3" for annotation in fig.layout.annotations)
+
+
+def test_rolling_sharpe_chart():
+    """The rolling Sharpe ratio matches the exported Sharpe ratio method, and the chart leaves out the T-bill."""
+    index = pd.date_range("2026-01-01", periods=200, freq="D")
+    rng = np.random.default_rng(42)
+    prices = pd.DataFrame({"a": 100 * np.cumprod(1 + rng.normal(0.002, 0.01, len(index))), "b": 100 * np.cumprod(1 + rng.normal(0.001, 0.02, len(index)))}, index=index)
+    sharpe = calculate_rolling_sharpe(prices["a"])
+    expected = calculate_sharpe_ratio_from_returns(prices["a"].pct_change().iloc[-90:])
+    assert sharpe.iloc[-1] == pytest.approx(expected)
+
+    indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=index), index[-1]), BTC: prices["b"] * 2}
+    series = [PerformanceSeries("a", "A", None, (BTC, TREASURY_BILL)), PerformanceSeries("b", "B", None, (BTC, TREASURY_BILL))]
+    fig = create_performance_figure(series, prices, indices, DARK_THEME, measure="sharpe")
+    assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", BTC]
+    assert fig.layout.yaxis.title.text == "90-day rolling Sharpe ratio"
 
 
 def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):

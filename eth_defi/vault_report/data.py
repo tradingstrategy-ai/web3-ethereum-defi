@@ -291,7 +291,7 @@ def read_vault_share_prices(
     return df
 
 
-def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_daily_share_prices(prices_df: pd.DataFrame, interpolate: bool = True) -> pd.DataFrame:
     """Resample share prices to a daily wide table.
 
     Days without an observation are interpolated in time between the vault's
@@ -302,6 +302,11 @@ def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     :param prices_df:
         Output of :py:func:`read_vault_share_prices`.
 
+    :param interpolate:
+        Interpolate missing days for drawing equity curves. Set ``False`` to
+        forward fill instead, like the exported metrics do before calculating
+        Sharpe ratios, see :py:func:`eth_defi.vault_report.charts.calculate_rolling_sharpe`.
+
     :return:
         DataFrame indexed by daily ``DatetimeIndex`` with one column of
         share prices per vault id.
@@ -309,7 +314,9 @@ def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     if len(prices_df) == 0:
         return pd.DataFrame()
     daily = prices_df.pivot_table(index="timestamp", columns="id", values="share_price", aggfunc="last").resample("D").last()
-    return daily.interpolate(method="time", limit_area="inside")
+    if interpolate:
+        return daily.interpolate(method="time", limit_area="inside")
+    return daily.ffill().where(daily.bfill().notna())
 
 
 #: TVL points above this are broken share tokens; the same threshold as the
