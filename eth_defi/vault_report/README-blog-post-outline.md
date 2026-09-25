@@ -24,6 +24,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 
 | Group | Rule |
 |---|---|
+| AMM pool | Tagged `amm` or `market_making_amm`, or a GMX, YieldBasis or Curve vault: GMX GM and GLV pools, the Curve-based YieldBasis yb-LP, Gains Network gTrade, KiloEx. Perp DEX liquidity vaults tagged only `liquidity_provider`, like Hyperliquid HLP, stay perp DEX |
 | Perpetual futures DEX | Flagged `perp_dex_trading_vault`: Hyperliquid, GRVT, Lighter, Hibachi, ApeX |
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
@@ -67,6 +68,8 @@ pile automatically. No report change is needed.
 
 ## Common rules
 
+- **AMM pools:** their returns include the price moves of the pooled assets, so by default they are ranked only in their own *AMM pools* section, with at least $1M TVL (`ReportCriteria.amm_min_tvl`). They are left out of the average yields, the T-bill caption, the new vaults, the per-chain table, risk and return and the hero image, and counted only in the TVL summaries. `ReportCriteria.include_amm_pools` puts them back in the other rankings.
+
 - **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults instead.
 - **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
 
@@ -94,6 +97,7 @@ pile automatically. No report change is needed.
 | 9.2 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
 | 9.3 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 9.4 | ↳ Other vaults | Performance chart and table, **by return** | — |
+| 9.5 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
 | 10 | The best-performing tokenised funds | Performance chart and table, by return | — |
 | 11 | The best-performing new vaults | Table: launched in the last 60 days, at least $15k TVL | — |
 | 12 | Risk and return | Bubble scatter of 3M volatility against 3M return for the yield vaults | — |

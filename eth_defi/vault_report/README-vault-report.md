@@ -166,6 +166,16 @@ a log scale when returns exceed 100%. The perp DEX Sharpe ratio chart draws the
 90-day rolling Sharpe ratio on a scale starting at 0 instead, calculated from forward-filled daily prices
 like the exported 3M Sharpe, so its latest values match the table.
 
+### AMM pools
+
+AMM pools (GMX GM and GLV pools, the Curve-based YieldBasis, Gains Network,
+KiloEx) earn trading fees on pooled crypto, so their returns follow the price of
+the pooled assets. They get their own *AMM pools* section with at least $1M TVL
+and are left out of every other ranking and chart by default, counted only in
+the TVL summaries. Set `ReportCriteria.include_amm_pools` to rank them with
+the other vaults. See
+[README-blog-post-outline.md](./README-blog-post-outline.md#common-rules).
+
 ### Unidentified protocols
 
 Generic ERC-4626 vaults, unknown and placeholder protocols form one "Other" pile
