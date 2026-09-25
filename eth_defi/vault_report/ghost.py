@@ -289,6 +289,7 @@ class GhostAdminClient:
         html: str,
         custom_excerpt: str | None = None,
         tags: list[str] | None = None,
+        feature_image: str | None = None,
         *,
         overwrite_draft: bool = False,
     ) -> GhostPost:
@@ -316,6 +317,9 @@ class GhostAdminClient:
         :param tags:
             Tag names.
 
+        :param feature_image:
+            URL of an uploaded image, used as the post's feature and social sharing image.
+
         :param overwrite_draft:
             Replace the body of an existing draft with the same slug.
 
@@ -327,6 +331,8 @@ class GhostAdminClient:
             post_data["custom_excerpt"] = custom_excerpt
         if tags:
             post_data["tags"] = [{"name": t} for t in tags]
+        if feature_image:
+            post_data["feature_image"] = feature_image
 
         existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft)
         if existing is None:

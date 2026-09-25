@@ -39,9 +39,12 @@ GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
 
 @dataclass(slots=True, frozen=True)
 class SectionTemplate:
-    """Static content of one vault listing section of the post."""
+    """Static content of one data section of the post.
 
-    #: Table key in :py:attr:`PostContext.tables`
+    A section is included when its table or any of its charts exists.
+    """
+
+    #: Section key: the table key in :py:attr:`PostContext.tables` and the criteria notes key
     key: str
 
     #: Heading anchor id
@@ -60,8 +63,21 @@ class SectionTemplate:
     editor_note: str = ""
 
 
-#: Vault listing sections in display order
+#: Data sections in display order
 SECTION_TEMPLATES = (
+    SectionTemplate(
+        key="chain_yields",
+        heading_id="average-vault-yield-per-blockchain",
+        heading="Average vault yield per blockchain",
+        charts=(("chain_yields", "Average stablecoin vault yield by blockchain"),),
+    ),
+    SectionTemplate(
+        key="protocol_tvl",
+        heading_id="stablecoin-vault-tvl-by-protocol",
+        heading="Stablecoin vault TVL by protocol",
+        charts=(("protocol_tvl", "Stablecoin vault TVL by protocol"),),
+        editor_note="Comment on the TVL trend: which protocols grew or shrank.",
+    ),
     SectionTemplate(
         key="best",
         heading_id="the-best-performing-vaults",
@@ -69,6 +85,19 @@ SECTION_TEMPLATES = (
         intro="<p>Here you can find the stablecoin vaults with the best monthly returns.</p>",
         charts=(("best_rolling", "3M rolling returns of the best-performing vaults"), ("low_volatility_rolling", "3M rolling returns of low-volatility vaults")),
         editor_note="Comment on the top vaults of the month.",
+    ),
+    SectionTemplate(
+        key="movers",
+        heading_id="top-movers",
+        heading="Top movers since the previous report",
+        charts=(("movers", "Top 20 vault rank changes since the previous report"),),
+    ),
+    SectionTemplate(
+        key="risk_return",
+        heading_id="risk-and-return",
+        heading="Risk and return",
+        intro="<p>Higher returns usually come with higher volatility. Vaults above and to the left of the crowd offer better returns for their risk.</p>",
+        charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
     SectionTemplate(
         key="perp_dex",
@@ -293,28 +322,22 @@ def build_post_html(context: PostContext) -> str:
         _editor_note("Add community news as <code>h3</code> subsections: new vault launches, partnerships, incidents, Trading Strategy product news."),
     ]
 
-    if "chain_yields" in context.charts:
-        parts += [
-            '<h2 id="average-vault-yield-per-blockchain">Average vault yield per blockchain</h2>',
-            _bullets(context.criteria_notes.get("chain_yields", [])),
-            _image(context.charts["chain_yields"], "Average stablecoin vault yield by blockchain", '<a href="https://tradingstrategy.ai/trading-view/vaults/chains">Explore vault yields by blockchain</a>'),
-        ]
-
     for template in SECTION_TEMPLATES:
-        if template.key not in context.tables:
+        if template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):
             continue
         parts += [f'<h2 id="{template.heading_id}">{template.heading}</h2>', template.intro]
         if template.editor_note:
             parts.append(_editor_note(template.editor_note))
         parts.append(_bullets(context.criteria_notes.get(template.key, [])))
         parts += [_image(context.charts[chart_key], alt) for chart_key, alt in template.charts if chart_key in context.charts]
-        parts.append(f"<!--kg-card-begin: html-->\n{context.tables[template.key]}\n<!--kg-card-end: html-->")
+        if template.key in context.tables:
+            parts.append(f"<!--kg-card-begin: html-->\n{context.tables[template.key]}\n<!--kg-card-end: html-->")
 
     parts += [_evergreen("partners"), _evergreen("next-steps")]
     return "\n".join(part for part in parts if part)
 
 
-def build_preview_html(title: str, post_html: str) -> str:
+def build_preview_html(title: str, post_html: str, feature_image: str | None = None) -> str:
     """Wrap the post body into a standalone HTML page for local preview.
 
     :param title:
@@ -322,6 +345,9 @@ def build_preview_html(title: str, post_html: str) -> str:
 
     :param post_html:
         Output of :py:func:`build_post_html`.
+
+    :param feature_image:
+        Feature image path or URL, shown above the title as Ghost themes do.
 
     :return:
         HTML document.
@@ -334,4 +360,5 @@ def build_preview_html(title: str, post_html: str) -> str:
     .kg-callout-card-yellow { background: #fcf4e3; border-radius: 6px; padding: 1em; display: flex; gap: 0.6em; margin: 1em 0; }
     figcaption { text-align: center; color: #52514e; font-size: 14px; }
     """
-    return f"<!DOCTYPE html>\n<html><head><meta charset='utf-8'><title>{html.escape(title)}</title><style>{style}</style></head>\n<body><h1>{html.escape(title)}</h1>\n{post_html}\n</body></html>\n"
+    feature = f'<img src="{html.escape(feature_image)}" alt="">' if feature_image else ""
+    return f"<!DOCTYPE html>\n<html><head><meta charset='utf-8'><title>{html.escape(title)}</title><style>{style}</style></head>\n<body>{feature}<h1>{html.escape(title)}</h1>\n{post_html}\n</body></html>\n"
