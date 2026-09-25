@@ -100,6 +100,8 @@ def make_vault_record(address: str, **overrides) -> dict:
         "period_results": [{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 1_000_000.0}, {"period": "3M", "max_drawdown": 0.0}],
     }
     record.update(overrides)
+    # The export carries the numeric risk level next to its label, see VaultTechnicalRisk
+    record.setdefault("risk_numeric", {"Negligible": 1, "Low": 20, "High": 30, "Severe": 40, "Dangerous": 50, "Blacklisted": 999}.get(record["risk"]))
     return record
 
 

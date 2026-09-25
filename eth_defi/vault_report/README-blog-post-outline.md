@@ -15,7 +15,7 @@ adds. The pipeline that generates the post is described in
 | Title | The best-performing stablecoin vaults, {Month YYYY} |
 | Slug | `the-best-performing-stablecoin-vaults-{month}-{yyyy}` |
 | Excerpt | The best stablecoin yield in DeFi, {Month YYYY} report. |
-| Feature image | 1200×630 hero: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Severe and Dangerous risk vaults |
+| Feature image | 1200×630 hero: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Dangerous or worse risk ratings, returns above 400% and volatility above 50% |
 | Social image for X | `hero-square.png`, 1080×1080, attached by hand when posting |
 
 ## Vault groups

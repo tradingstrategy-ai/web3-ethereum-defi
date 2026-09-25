@@ -148,7 +148,8 @@ The hero image shows the top 5 yield vaults with protocol logos, 90-day price
 sparklines and the return as a large number: 1200×630 for link previews and the
 Ghost feature image, and a 1080×1080 version for X, which shows blog links as
 square cards. It leaves out vaults above 400% annualised return, above 50%
-volatility or with a Severe or Dangerous risk rating.
+volatility or with a Dangerous or worse risk rating. The image does not state
+these filters; its footer shows only the minimum TVL and the data date.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
 week older than the report date. Performance charts draw the 90-day equity

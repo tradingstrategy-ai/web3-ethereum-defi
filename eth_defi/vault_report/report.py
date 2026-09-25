@@ -410,7 +410,7 @@ def render_report_charts(
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
     performance_vaults = {key: sections[key].vaults_df.head(criteria.performance_chart_vaults) for key in BEST_SECTIONS if key in sections}
-    hero_vaults = yield_universe.loc[(yield_universe["one_month_cagr_best"] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility) & ~yield_universe["risk"].isin(criteria.hero_excluded_risks)].head(5)
+    hero_vaults = yield_universe.loc[(yield_universe["one_month_cagr_best"] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility) & ~(yield_universe["risk_numeric"] >= criteria.hero_min_excluded_risk)].head(5)
 
     chart_ids = set(hero_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
     share_prices = read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY)
@@ -520,7 +520,8 @@ def render_report_charts(
 
     sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
     sparklines = {vault_id: daily_prices.loc[daily_prices.index >= sparkline_start, vault_id] for vault_id in hero_vaults.index if vault_id in daily_prices.columns}
-    hero_subtitle = f"1M annualised return · ≥ {format_usd(criteria.min_tvl)} TVL · high-risk vaults excluded · {data_date}"
+    # The column header already names the return; the risk and outlier filters are not repeated on the image
+    hero_subtitle = f"≥ {format_usd(criteria.min_tvl)} TVL · {data_date}"
     hero_logos = rasterise_logos({prop.logo_uri for vault_id in hero_vaults.index for prop in vault_properties[vault_id] if prop.logo_uri})
     hero_properties = {vault_id: [(prop.text, hero_logos.get(prop.logo_uri)) for prop in vault_properties[vault_id]] for vault_id in hero_vaults.index}
     hero_path = render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero.png", properties=hero_properties)
