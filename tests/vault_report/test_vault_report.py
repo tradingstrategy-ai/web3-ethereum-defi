@@ -214,11 +214,11 @@ def test_daily_prices_and_performance(prices_path: Path):
     assert performance.iloc[0] == 0
     assert performance.iloc[-1] == pytest.approx((daily["1-0xaa"].iloc[-1] / daily.loc[start, "1-0xaa"] - 1) * 100)
 
-    # All vaults share one chart: a line and an end dot per vault, and each available benchmark once
+    # All vaults share one chart: a casing, a line and an end dot per vault, and each available benchmark once
     indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=daily.index), daily.index[-1])}
     series = [PerformanceSeries("1-0xaa", "A", None, (TREASURY_BILL,)), PerformanceSeries("1-0xbb", "B", None, (BTC, ETH, TREASURY_BILL))]
     fig = create_performance_figure(series, daily, indices, DARK_THEME)
-    assert [trace.name for trace in fig.data if trace.mode == "lines"] == ["A", "B", TREASURY_BILL]
+    assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", TREASURY_BILL]
     assert fig.layout.yaxis.type != "log"
 
     # A vault returning more than the threshold switches the shared axis to a log scale
@@ -233,7 +233,7 @@ def test_daily_prices_and_performance(prices_path: Path):
     fig = create_performance_figure(outlier_series, outlier_prices, indices, DARK_THEME)
     assert fig.layout.yaxis.type != "log"
     assert fig.layout.yaxis.range[1] < 10
-    assert any(annotation.text == "▲" for annotation in fig.layout.annotations)
+    assert any(annotation.text == "▲ 3" for annotation in fig.layout.annotations)
 
 
 def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):

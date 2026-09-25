@@ -317,38 +317,66 @@ def create_performance_figure(
     def scale(values: pd.Series) -> np.ndarray:
         return (1 + values / 100).to_numpy() if log_scale else values.to_numpy()
 
+    padding = (high - low) * 0.06 + 0.2
+    if log_scale:
+        y_range = (np.log10(max(1 + (low - padding) / 100, (1 + low / 100) * 0.9)), np.log10(1 + (high + padding) / 100))
+    else:
+        y_range = (low - padding, high + padding)
+
+    def position(value: float) -> float:
+        # Paper y coordinate of a cumulative return, for the end labels
+        axis_value = np.log10(1 + value / 100) if log_scale else value
+        return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
+
     fig = go.Figure()
     entries = []
+    labels = []
     for i, item in enumerate(series):
         performance = vaults.get(item.vault_id)
         if performance is None:
             continue
         colour = theme.series_colours[i]
-        fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3}))
-        # End dot with a surface ring, so crossing lines stay distinguishable where they end
-        fig.add_trace(go.Scatter(x=performance.index[-1:], y=scale(performance)[-1:], mode="markers", marker={"size": 11, "color": colour, "line": {"color": theme.surface, "width": 2}}, showlegend=False, hoverinfo="skip"))
+        if item.vault_id in off_scale:
+            # Draw an off-scale line only until it leaves the top of the chart, where a marker continues it
+            exit_at = performance.index[performance > high][0]
+            performance = performance.loc[:exit_at]
+        # A surface-coloured casing under each line keeps crossing lines apart
+        fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", line={"color": theme.surface, "width": 8}, showlegend=False, hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
         note = " · off scale" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{performance.iloc[-1]:+,.1f}%{since}{note}"))
+        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{vaults[item.vault_id].iloc[-1]:+,.1f}%{since}{note}"))
+        badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
-            # Mark where the line leaves the top of the chart
-            exit_at = performance.index[performance > high][0]
-            fig.add_annotation(text="▲", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, font={"size": 20, "color": colour})
+            fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
+        else:
+            fig.add_trace(go.Scatter(x=performance.index[-1:], y=scale(performance)[-1:], mode="markers", marker={"size": 11, "color": colour, "line": {"color": theme.surface, "width": 2}}, showlegend=False, hoverinfo="skip"))
+            labels.append((position(performance.iloc[-1]), f"{i + 1}", badge))
 
     for name, performance in benchmarks.items():
-        fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": theme.muted_text, "width": 2.5, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
-        entries.append(LegendEntry(name, theme.muted_text, dash=BENCHMARK_DASHES[name], detail=f"{performance.iloc[-1]:+,.1f}%"))
+        fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
+        labels.append((position(performance.iloc[-1]), f"{name.removeprefix('US 3M ')} {performance.iloc[-1]:+,.1f}%", {"font": {"size": 15, "color": theme.muted_text}}))
+
+    # Direct labels right of the line ends, pushed apart so they do not overlap
+    min_gap = 0.042
+    placed = []
+    for y, text, style in sorted(labels, key=lambda label: -label[0]):
+        y = min(y, placed[-1][0] - min_gap) if placed else min(y, 0.98)
+        placed.append((y, text, style))
+    shift = max(0.0, 0.02 - placed[-1][0]) if placed else 0.0
+    for y, text, style in placed:
+        fig.add_annotation(text=text, x=end_at + pd.Timedelta(days=1.5), y=y + shift, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
 
     apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT + 100)
     fig.update_layout(margin={"l": 110, "r": LEGEND_MARGIN, "t": 30, "b": 70})
-    fig.update_xaxes(range=[start_at, end_at + pd.Timedelta(days=2)], tickformat="%b %d", showgrid=False)
-    padding = (high - low) * 0.06 + 0.2
+    # The range leaves room for the end labels; ticks stop at the data date
+    ticks = pd.date_range(end=end_at, periods=7, freq="14D")
+    fig.update_xaxes(range=[start_at, end_at + pd.Timedelta(window) * 0.16], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if low - 5 <= tick <= high * 1.1]
-        bottom = max(1 + (low - padding) / 100, (1 + low / 100) * 0.9)
-        fig.update_yaxes(type="log", range=[np.log10(bottom), np.log10(1 + (high + padding) / 100)], tickvals=[1 + tick / 100 for tick in ticks], ticktext=[f"{tick:+,}%" if tick else "0%" for tick in ticks], title="Cumulative return (log scale)")
+        fig.update_yaxes(type="log", range=list(y_range), tickvals=[1 + tick / 100 for tick in ticks], ticktext=[f"{tick:+,}%" if tick else "0%" for tick in ticks], title="Cumulative return (log scale)")
     else:
-        fig.update_yaxes(range=[low - padding, high + padding], ticksuffix="%", title="Cumulative return")
+        fig.update_yaxes(range=list(y_range), ticksuffix="%", title="Cumulative return")
     fig.update_yaxes(side="left", zeroline=False)
     fig.add_hline(y=1 if log_scale else 0, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
