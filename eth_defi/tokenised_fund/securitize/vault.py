@@ -17,7 +17,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.securitize.description import BUIDL_ETHEREUM, SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS, RedstoneSecuritizeFeed, fetch_redstone_feed_contract, fetch_redstone_price_at
-from eth_defi.tokenised_fund.securitize.settlement import SECURITIZE_SETTLEMENT_FEEDS, SecuritizeSettlementError, SecuritizeSettlementFeed, SecuritizeSettlementPrice, fetch_settlement_prices, find_settlement_price_at
+from eth_defi.tokenised_fund.securitize.settlement import SECURITIZE_SETTLEMENT_FEEDS, SETTLEMENT_FETCH_ATTEMPTS, SecuritizeSettlementError, SecuritizeSettlementFeed, SecuritizeSettlementPrice, fetch_settlement_prices, find_settlement_price_at
 from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
@@ -127,6 +127,10 @@ class SecuritizeVault(TokenisedFundVault):
         self.features = features or {ERC4626Feature.securitize_like}
         self.default_block_identifier = default_block_identifier
         self.product = SECURITIZE_PRODUCTS.get((spec.chain_id, HexAddress(spec.vault_address.lower())))
+        #: Hypersync attempts for the settlement timeline. Live metadata reads
+        #: fail fast so a rate-limited key cannot stall a chain's metadata
+        #: rescan; :py:meth:`get_historical_reader` raises the limit.
+        self.settlement_fetch_attempts = 1
 
     def get_share_price_source(self) -> PriceSource | None:
         """Return the reviewed source configured for this Securitize product.
@@ -241,7 +245,7 @@ class SecuritizeVault(TokenisedFundVault):
         hypersync_client = configure_hypersync_from_env(self.web3).hypersync_client
         if hypersync_client is None:
             raise RuntimeError(f"Securitize settlement NAV for {self.address} requires Hypersync on chain {self.chain_id}")
-        return fetch_settlement_prices(hypersync_client, feed, self.web3.eth.block_number)
+        return fetch_settlement_prices(hypersync_client, feed, self.web3.eth.block_number, attempts=self.settlement_fetch_attempts)
 
     def fetch_settlement_price_at(self, block_number: int) -> SecuritizeSettlementPrice | None:
         """Find the settlement NAV in force at a block.
@@ -517,12 +521,16 @@ class SecuritizeVault(TokenisedFundVault):
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Create the DSToken historical reader.
 
+        Historical scans retry a rate-limited settlement fetch, because
+        aborting discards the whole scan run for this product.
+
         :param stateful:
             Whether to attach adaptive reader state.
         :return:
             DSToken historical reader.
         """
 
+        self.settlement_fetch_attempts = SETTLEMENT_FETCH_ATTEMPTS
         return SecuritizeVaultHistoricalReader(self, stateful=stateful)
 
     def get_fee_data(self) -> FeeData:

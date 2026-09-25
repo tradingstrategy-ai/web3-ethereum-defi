@@ -395,3 +395,27 @@ Settlement NAV has no RPC or archive-state fallback:
   `x-ratelimit-remaining: 0` for most of each window. Fetches succeeded only
   intermittently. Production needs a dedicated or higher-tier key for this
   scheduler item to be reliable.
+
+## Scanner isolation
+
+ARKVX failures must not affect other products, scheduler items or the scanner
+process:
+
+- The generic per-chain price scan never includes ARKVX. It is excluded as a
+  tokenised-fund scheduler target and by the activity filter.
+- `run_tokenised_fund_price_scan()` isolates each product. A failing product
+  logs a concise `WARNING`, keeps its existing rows through the atomic
+  Parquet rewrite, and the remaining products are still scanned. Once every
+  product has been attempted, one `RuntimeError` chained from the first
+  failure marks the scheduler item as failed, so it is retried on the next
+  tick. This applies to every tokenised-fund protocol.
+- `TOKENISED_FUND_SCAN_EXCEPTIONS` is shared by the per-product and per-item
+  handlers. It adds `ArithmeticError`, `AssertionError`, `LookupError` and
+  `DecodingError` to the previous provider and Arrow errors, so an adapter
+  data error cannot escape `run_scan_tick()` and stop the scanner process.
+- Live metadata reads use one Hypersync attempt, so a saturated key cannot
+  stall a chain's threaded metadata rescan. The historical reader allows
+  three attempts, which bounds the delay to the sequential scheduler at
+  about three minutes per tick.
+- The settlement NAV jump check skips a zero previous NAV instead of dividing
+  by zero.

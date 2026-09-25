@@ -13,12 +13,14 @@ from web3 import Web3
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.securitize import settlement as settlement_module
+from eth_defi.tokenised_fund.securitize import vault as vault_module
 from eth_defi.tokenised_fund.securitize.backfill import has_historical_price
 from eth_defi.tokenised_fund.securitize.description import ARKVX_ETHEREUM, ARKVX_PROSPECTUS_URL, ARKVX_REPURCHASE_OFFER_URL, ARKVX_SEC_ORDER_URL
 from eth_defi.tokenised_fund.securitize.settlement import (
     DEPOSIT_GENERATION_FULFILLED_TOPIC,
     REDEMPTION_GENERATION_FULFILLED_TOPIC,
     SECURITIZE_SETTLEMENT_FEEDS,
+    SETTLEMENT_FETCH_ATTEMPTS,
     SecuritizeSettlementFeed,
     SecuritizeSettlementPrice,
     calculate_settlement_share_price,
@@ -254,6 +256,27 @@ def test_settlement_fetch_retries_rate_limit_until_reset(monkeypatch: pytest.Mon
     assert [price.share_price for price in prices] == [Decimal("60.51")]
     assert sleeps == [12]
     assert "retrying in 12 s" in caplog.text
+
+
+def test_live_reads_fail_fast_and_historical_reads_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep live metadata reads to one Hypersync attempt; retry only historical scans."""
+
+    attempts_used: list[int] = []
+
+    def fetch_prices(_client: object, _feed: SecuritizeSettlementFeed, _end_block: int, attempts: int) -> list[SecuritizeSettlementPrice]:
+        attempts_used.append(attempts)
+        return create_arkvx_timeline()
+
+    monkeypatch.setattr(vault_module, "configure_hypersync_from_env", lambda _web3: SimpleNamespace(hypersync_client=object()))
+    monkeypatch.setattr(vault_module, "fetch_settlement_prices", fetch_prices)
+    web3 = SimpleNamespace(eth=SimpleNamespace(block_number=ARKVX_TEST_BLOCK))
+    spec = VaultSpec(chain_id=ARKVX_ETHEREUM.chain_id, vault_address=ARKVX_ETHEREUM.token)
+
+    assert SecuritizeVault(web3, spec).fetch_share_price(ARKVX_TEST_BLOCK) == Decimal("60.49")
+    historical_vault = SecuritizeVault(web3, spec)
+    historical_vault.get_historical_reader(stateful=False)
+    assert historical_vault.fetch_share_price(ARKVX_TEST_BLOCK) == Decimal("60.49")
+    assert attempts_used == [1, SETTLEMENT_FETCH_ATTEMPTS]
 
 
 @pytest.fixture(scope="module")

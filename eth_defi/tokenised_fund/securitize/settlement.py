@@ -65,8 +65,11 @@ WAD = Decimal(10**18)
 #: whole reconstructed series.
 SETTLEMENT_NAV_JUMP_WARNING_THRESHOLD = Decimal("0.20")
 
-#: Hypersync attempts before a rate-limited settlement fetch fails.
-SETTLEMENT_FETCH_ATTEMPTS = 6
+#: Hypersync attempts before a rate-limited historical settlement fetch fails.
+#:
+#: Bounded so a saturated API key delays the sequential tokenised-fund
+#: scheduler by at most a few minutes; the item is retried on the next tick.
+SETTLEMENT_FETCH_ATTEMPTS = 3
 
 #: Seconds added to the server-stated ``resets_in`` before retrying.
 #:
@@ -221,7 +224,7 @@ def decode_settlement_prices(logs: Iterable[IndexedVaultFlowLog], feed: Securiti
 
         nav_price_wad, _total_deposits = eth_abi.decode(["uint256", "uint256"], event_data_to_bytes(log.data))
         price = SecuritizeSettlementPrice.from_wad(log.block_number, generation_id, nav_price_wad, feed)
-        if prices:
+        if prices and prices[-1].share_price > 0:
             previous = prices[-1].share_price
             if abs(price.share_price - previous) / previous > SETTLEMENT_NAV_JUMP_WARNING_THRESHOLD:
                 logger.warning(

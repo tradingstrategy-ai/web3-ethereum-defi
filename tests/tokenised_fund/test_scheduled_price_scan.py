@@ -11,6 +11,7 @@ import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.tokenised_fund import price_backfill
+from eth_defi.tokenised_fund import scan as tokenised_fund_scan
 from eth_defi.tokenised_fund.asseto.registry import AssetoRegistryRefreshResult
 from eth_defi.tokenised_fund.backfill import PROTOCOL_BACKFILLS
 from eth_defi.tokenised_fund.price_backfill import TokenisedFundPriceBackfillConfig, build_price_backfill_plan, parse_vault_addresses, run_price_backfill
@@ -485,3 +486,103 @@ def test_tokenised_fund_tick_updates_only_successful_protocol_cycle_state(tmp_pa
     assert results["Securitize"].status == "success"
     assert results["Securitize"].price_rows == EXPECTED_PRICE_ROWS
     assert successful_items == ["Securitize"]
+
+
+def test_failed_tokenised_fund_product_does_not_stop_other_products(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scan every product of a protocol even when an earlier product fails."""
+
+    scanner = select_tokenised_fund_price_scanners("securitize")[0]
+    failing_target = VaultSpec(1, "0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a")
+    healthy_target = VaultSpec(1, "0x7712c34205737192402172409a8f7ccef8aa2aec")
+    vault_db_path = tmp_path / "vaults.pickle"
+    VaultDatabase(
+        rows={
+            failing_target: {"_detection_data": SimpleNamespace(features={scanner.feature}, first_seen_at_block=NEW_VAULT_FIRST_BLOCK)},
+            healthy_target: {"_detection_data": SimpleNamespace(features={scanner.feature}, first_seen_at_block=NEW_VAULT_FIRST_BLOCK)},
+        }
+    ).write(vault_db_path)
+    scanned: list[str] = []
+
+    def fake_scan(**kwargs: object) -> dict[str, int]:
+        (address,) = kwargs["vault_addresses"]
+        scanned.append(address)
+        if address == failing_target.vault_address:
+            message = "inner receiver: rate limited by server"
+            raise RuntimeError(message)
+        return {"rows_written": EXPECTED_PRICE_ROWS, "start_block": NEW_VAULT_FIRST_BLOCK, "end_block": 100}
+
+    monkeypatch.setattr(tokenised_fund_scan, "read_json_rpc_url", lambda _chain_id: "https://example.invalid")
+    monkeypatch.setattr(tokenised_fund_scan, "create_multi_provider_web3", lambda *_args, **_kwargs: SimpleNamespace(eth=SimpleNamespace(block_number=100)))
+    monkeypatch.setattr(tokenised_fund_scan, "create_vault_instance", lambda *_args, **_kwargs: SimpleNamespace(first_seen_at_block=None))
+    monkeypatch.setattr(tokenised_fund_scan, "configure_hypersync_from_env", lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=None))
+    monkeypatch.setattr(tokenised_fund_scan, "MultiProviderWeb3Factory", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(tokenised_fund_scan, "TokenDiskCache", lambda: SimpleNamespace(commit=lambda: None))
+    monkeypatch.setattr(tokenised_fund_scan, "scan_historical_prices_to_parquet", fake_scan)
+
+    with pytest.raises(RuntimeError, match="failed for 1 of 2 products") as exc_info:
+        run_tokenised_fund_price_scan(
+            scanner,
+            TokenisedFundPriceScanContext(vault_db_path=vault_db_path, raw_price_path=tmp_path / "prices.parquet", max_workers=1, enabled_chain_ids=frozenset({1})),
+        )
+
+    assert scanned == [failing_target.vault_address, healthy_target.vault_address]
+    assert "rate limited" in str(exc_info.value.__cause__)
+
+
+def test_tokenised_fund_tick_contains_unexpected_product_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An adapter error outside the provider errors fails only its own scheduler item."""
+
+    successful_items: list[str] = []
+    scanners = (select_tokenised_fund_price_scanners("securitize")[0], select_tokenised_fund_price_scanners("franklin")[0])
+
+    def fake_scan(scanner: object, _context: object) -> TokenisedFundPriceScanResult:
+        if scanner.selector == "securitize":
+            message = "malformed settlement data"
+            raise AssertionError(message)
+        return TokenisedFundPriceScanResult(vault_count=1, price_rows=EXPECTED_PRICE_ROWS, latest_data_timestamp=None, start_block=1, end_block=2)
+
+    monkeypatch.setattr(scan_all_chains, "run_tokenised_fund_price_scan", fake_scan)
+    monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *_args, **_kwargs: None)
+
+    results = scan_all_chains.run_scan_tick(
+        chains=[],
+        active_protocols=["Securitize", "Franklin"],
+        scan_prices=False,
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=False,
+        scan_hibachi=False,
+        scan_apex=False,
+        scan_core3=False,
+        scan_currency_rates=False,
+        max_workers=1,
+        core3_max_workers=1,
+        currency_api_max_workers=1,
+        frequency="1h",
+        retry_count=0,
+        skip_post_processing=True,
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_price_path=tmp_path / "vault-prices-1h.parquet",
+        reader_state_path=tmp_path / "vault-reader-state-1h.pickle",
+        hyperliquid_db_path=tmp_path / "hyperliquid-vaults.duckdb",
+        hyperliquid_hf_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
+        grvt_db_path=tmp_path / "grvt-vaults.duckdb",
+        lighter_db_path=tmp_path / "lighter-pools.duckdb",
+        hibachi_db_path=tmp_path / "hibachi-vaults.duckdb",
+        apex_db_path=tmp_path / "apex-vaults.duckdb",
+        bkp_files=[],
+        bkp_dir=tmp_path / "backups",
+        tokenised_fund_scanners=scanners,
+        tokenised_fund_scheduling_enabled=True,
+        on_item_success=successful_items.append,
+    )
+
+    assert results["Securitize"].status == "failed"
+    assert results["Franklin"].status == "success"
+    assert successful_items == ["Franklin"]
