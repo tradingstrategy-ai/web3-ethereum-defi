@@ -68,6 +68,8 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
+    MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS,
+    MORPHO_API_SUPPORTED_CHAINS,
     MorphoVaultAPIResult,
     MorphoVaultAPIStatus,
     MorphoVaultData,
@@ -79,10 +81,12 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.curator import ARC_CHAIN_ID
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ARC = os.environ.get("JSON_RPC_ARC")
 
 #: frobUSDC on Arbitrum — short_timelock (RED) + bad_debt_unrealized (RED)
 FROB_USDC_ARBITRUM = "0xC3415c9231Dad88F8146107372143f6dAE042967"
@@ -96,6 +100,9 @@ YELLOW_ONLY_USDC_ETHEREUM = "0xbEeFCe6c76C7D7A8066562Fe9FF0e343a52dD92F"
 
 #: Gauntlet USDC Prime on Ethereum — clean vault, no warnings
 GAUNTLET_USDC_PRIME_ETHEREUM = "0xdd0f28e19C1780eb6396170735D45153D261490d"
+
+# Bitwise Premium RWA USDC on Arc — listed Morpho V2 vault with curator metadata
+BITWISE_PREMIUM_RWA_USDC_ARC = "0x7610094b846657dcf166d59e42973db52c7015f9"
 
 NOT_FOUND_TEST_VAULT = "0x000000000000000000000000000000000000dead"
 
@@ -182,6 +189,12 @@ def web3_ethereum() -> Web3:
     return create_multi_provider_web3(JSON_RPC_ETHEREUM)
 
 
+@pytest.fixture(scope="module")
+def web3_arc() -> Web3:
+    """Web3 connection to Arc mainnet."""
+    return create_multi_provider_web3(JSON_RPC_ARC)
+
+
 # ---------------------------------------------------------------------------
 # Mocked API status tests
 # ---------------------------------------------------------------------------
@@ -213,8 +226,6 @@ def test_morpho_not_found_adds_dynamic_flag_and_note(monkeypatch: pytest.MonkeyP
         (4217, "Tempo", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
         (4663, "Robinhood", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
         (4663, "Robinhood", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
-        (5042, "Arc", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
-        (5042, "Arc", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
     ],
 )
 def test_morpho_api_not_found_bypass_chains_are_temporarily_not_blacklisted(
@@ -239,6 +250,13 @@ def test_morpho_api_not_found_bypass_chains_are_temporarily_not_blacklisted(
 
     assert vault.get_flags() == set(), chain_name
     assert vault.get_notes() is None, chain_name
+
+
+def test_arc_morpho_api_support_is_enabled() -> None:
+    """Arc uses live Morpho API metadata rather than the new-chain bypass."""
+
+    assert ARC_CHAIN_ID in MORPHO_API_SUPPORTED_CHAINS
+    assert ARC_CHAIN_ID not in MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS
 
 
 def test_morpho_not_found_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -716,3 +734,20 @@ def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
     # 4. bad_debt_usd, if present, is a positive float
     if w["bad_debt_usd"] is not None:
         assert w["bad_debt_usd"] > 0, f"Expected positive bad_debt_usd, got {w['bad_debt_usd']}"
+
+
+@flaky.flaky
+@pytest.mark.skipif(JSON_RPC_ARC is None, reason="JSON_RPC_ARC needed")
+def test_morpho_arc_v2_curator_metadata(web3_arc: Web3, tmp_path: Path) -> None:
+    """The live Morpho API returns Bitwise curator metadata for Arc V2."""
+
+    result = fetch_morpho_vault_api_result(
+        web3_arc,
+        BITWISE_PREMIUM_RWA_USDC_ARC,
+        cache_path=tmp_path,
+        api_version="v2",
+    )
+
+    assert result.status is MorphoVaultAPIStatus.found
+    assert result.data is not None
+    assert result.data["manager_name"] == "Bitwise"

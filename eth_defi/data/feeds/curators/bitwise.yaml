@@ -1,0 +1,19 @@
+feeder-id: bitwise
+name: Bitwise
+role: curator
+morpho-curator: Bitwise
+website: https://bitwiseinvestments.com
+twitter: BitwiseInvest
+linkedin: bitwiseinvestments
+short_description: Bitwise is a crypto asset manager that also provides non-custodial vault curation services.
+long_description: |
+  [Bitwise](https://bitwiseinvestments.com) is a crypto asset manager offering investment products and onchain strategies. Its [Onchain Solutions vault page](https://onchain.bitwiseinvestments.com/vaults/papy-ausd) identifies Bitwise Investment Manager, LLC as the provider of vault curation services for its Morpho strategies. Bitwise's [Arc announcement](https://bitwiseinvestments.com/newsroom/the-bitwise-premium-rwa-vault-papy-expands-to-arc-with-usdc-deposits) documents its Bitwise Premium RWA vault on Arc.
+
+# Evidence and background references.
+other-links:
+  - title: Bitwise Investments - Bitwise Premium RWA Vault expands to Arc
+    url: https://bitwiseinvestments.com/newsroom/the-bitwise-premium-rwa-vault-papy-expands-to-arc-with-usdc-deposits
+  - title: Bitwise Onchain - PAPY vault curation disclosure
+    url: https://onchain.bitwiseinvestments.com/vaults/papy-ausd
+  - title: Morpho - Bitwise joins the Morpho network as a curator
+    url: https://morpho.org/blog/bitwise-joins-the-morpho-network-as-a-curator

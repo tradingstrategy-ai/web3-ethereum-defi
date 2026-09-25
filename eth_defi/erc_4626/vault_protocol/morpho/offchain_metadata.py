@@ -82,6 +82,7 @@ MORPHO_API_SUPPORTED_CHAINS = frozenset(
         252,  # Fraxtal
         480,  # World Chain
         999,  # HyperEVM / Hyperliquid
+        5042,  # Arc
         1868,  # Soneium
         8453,  # Base
         34443,  # Mode
@@ -94,34 +95,9 @@ MORPHO_API_SUPPORTED_CHAINS = frozenset(
 )
 
 #: Chains where a missing Morpho API record must not blacklist an otherwise
-#: detected Morpho vault.
-#:
-#: Arc, Robinhood Chain and Tempo launched with active Morpho vaults before the
-#: public API had complete coverage. Some legitimate vaults therefore do not
-#: resolve by address. The normal ``NOT_FOUND`` handling adds
-#: :attr:`~eth_defi.vault.flag.VaultFlag.not_in_morpho_api`, which is a hard
-#: blacklist flag. Applying it to every vault on an API-unsupported new chain
-#: would hide contracts that the onchain classifier has already identified as
-#: valid Morpho V1 or V2 vaults.
-#:
-#: Arc evidence was captured during the isolated mainnet scan on 2026-09-24.
-#: The scan found 59 ERC-4626 leads, including the Morpho V2 Steakhouse Prime
-#: USDC vault at ``0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298``. Its contract
-#: metadata and Morpho V2 selectors read successfully from chain 5042, while
-#: Morpho's public API did not support that chain. This is therefore an API
-#: coverage gap, not evidence that the vault contract is invalid.
-#:
-#: The bypass is deliberately narrow. It changes only the result of a missing
-#: API record for the listed chain IDs: it does not invent offchain metadata,
-#: suppress warnings returned for a found record, relax onchain classification,
-#: or affect vaults on any other chain. The unavailable warning enrichment is
-#: left empty and the onchain-detected vault remains visible for review.
-#:
-#: Remove a chain from this set once its production Morpho vaults reliably
-#: resolve through the public API. For Arc, first add chain 5042 to
-#: ``MORPHO_API_SUPPORTED_CHAINS``, verify that known production vaults resolve
-#: by address, and then remove 5042 from this bypass in the same change.
-MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS = frozenset({4217, 4663, 5042})  # Tempo, Robinhood Chain, Arc
+#: detected Morpho vault. Arc is intentionally absent: its V2 vaults now
+#: resolve through the public API and provide curator metadata.
+MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS = frozenset({4217, 4663})  # Tempo, Robinhood Chain
 
 logger = logging.getLogger(__name__)
 

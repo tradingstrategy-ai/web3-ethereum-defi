@@ -56,6 +56,26 @@ def test_3f_steakhouse_usdc_has_rwa_lending_tags() -> None:
 @pytest.mark.parametrize(
     "address",
     (
+        "0x7610094b846657dcf166d59e42973db52c7015f9",
+        "0x6bdfe1165d5165808d02de05969c9a19e9b7cf30",
+    ),
+)
+def test_arc_morpho_rwa_vaults_have_rwa_lending_tags(address: str) -> None:
+    """Bitwise and Dialectic's Arc vaults are RWA-backed Morpho lending."""
+
+    vault = _make_vault(MorphoV2Vault)
+    vault.vault_address = HexAddress(address)
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.lending,
+        StrategyTag.rwa,
+        StrategyTag.rwa_lending,
+    }
+
+
+@pytest.mark.parametrize(
+    "address",
+    (
         "0x810b29d043eb851ba4cf80b1b194ed5177e70958",
         "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6",
     ),
