@@ -272,6 +272,7 @@ def fetch_settlement_prices(
     """
 
     assert hypersync_client is not None, f"Securitize settlement NAV for {feed.token} requires a Hypersync client"
+    assert attempts >= 1, f"attempts must be at least 1, got {attempts}"
     if end_block < feed.first_block:
         return []
     for attempt in range(1, attempts + 1):

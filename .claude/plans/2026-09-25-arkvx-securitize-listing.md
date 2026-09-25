@@ -229,7 +229,7 @@ ARKVX_REPURCHASE_OFFER_URL = "https://www.sec.gov/Archives/edgar/data/1905088/00
 ### `short_description`
 
 ```text
-Interval fund investing in private and public disruptive-innovation companies, with daily NAV and quarterly repurchase offers expected at 5% of shares
+Interval fund investing in private and public disruptive-innovation companies, with business-day NAV and quarterly repurchase offers expected at 5% of shares
 ```
 
 Named holdings are kept out of the short description because they change;
@@ -410,8 +410,8 @@ process:
   failure marks the scheduler item as failed, so it is retried on the next
   tick. This applies to every tokenised-fund protocol.
 - `TOKENISED_FUND_SCAN_EXCEPTIONS` is shared by the per-product and per-item
-  handlers. It adds `ArithmeticError`, `AssertionError`, `LookupError` and
-  `DecodingError` to the previous provider and Arrow errors, so an adapter
+  handlers. It adds `ArithmeticError`, `AssertionError`, `LookupError`, `TypeError`
+  and `DecodingError` to the previous provider and Arrow errors, so an adapter
   data error cannot escape `run_scan_tick()` and stop the scanner process.
 - Live metadata reads use one Hypersync attempt, so a saturated key cannot
   stall a chain's threaded metadata rescan. The historical reader allows
@@ -419,3 +419,25 @@ process:
   about three minutes per tick.
 - The settlement NAV jump check skips a zero previous NAV instead of dividing
   by zero.
+
+## Kimi K3 PR review decisions
+
+The Kimi K3 review of PR #1599 on 2026-09-25 found no high-confidence bugs. It
+verified the Parquet atomicity, the reader-state handling, the effect on other
+Securitize products and the blacklist entry.
+
+- Applied: documented the `AssertionError` raised when `HYPERSYNC_API_KEY` is
+  missing, asserted `attempts >= 1`, added `TypeError` to
+  `TOKENISED_FUND_SCAN_EXCEPTIONS`, changed "daily NAV" to "business-day NAV",
+  and commented the fee-mode choice.
+- Partly incorrect: a failed metadata rescan does not replace a good row,
+  because `VaultDatabase._merge_rows()` keeps existing good data. Only a first
+  registration while Hypersync is unavailable produces a broken row.
+- Kept as a known limitation: a small subscription-fee change (for example
+  2% to 3%) shifts NAV by about 1%, which no jump threshold can separate from a
+  normal NAV move. The fee assumption is documented in the notes and the
+  risks section.
+- Not changed: `internalised_skimming` with a separate deposit fee follows the
+  Asseto precedent; refetching the tail for all Securitize products adds only a
+  few archive calls per tick.
+

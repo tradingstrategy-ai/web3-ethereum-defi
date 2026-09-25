@@ -235,9 +235,11 @@ class SecuritizeVault(TokenisedFundVault):
         :return:
             Deposit settlement prices up to the current head, sorted by block.
         :raises RuntimeError:
-            If Hypersync is unavailable on the product chain. This is not a
-            :py:class:`SecuritizeSettlementError`, so the historical reader
-            aborts instead of writing unpriced rows.
+            If Hypersync is unavailable on the product chain or stays rate
+            limited. This is not a :py:class:`SecuritizeSettlementError`, so
+            the historical reader aborts instead of writing unpriced rows.
+        :raises AssertionError:
+            If ``HYPERSYNC_API_KEY`` is not configured.
         """
 
         feed = self.settlement_feed

@@ -53,6 +53,7 @@ TOKENISED_FUND_SCAN_EXCEPTIONS: tuple[type[Exception], ...] = (
     ArithmeticError,
     AssertionError,
     LookupError,
+    TypeError,
     DecodingError,
     pa.ArrowException,
     Web3Exception,

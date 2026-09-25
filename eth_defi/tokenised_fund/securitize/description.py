@@ -443,7 +443,7 @@ ARKVX_ETHEREUM = SecuritizeProduct(
     chain_id=1,
     token=HexAddress("0xdf1c8e71cbdf48af50b36f96ad2eb6f5094ba72a"),
     product_name="ARK Venture Fund",
-    short_description="Interval fund investing in private and public disruptive-innovation companies, with daily NAV and quarterly repurchase offers expected at 5% of shares",
+    short_description="Interval fund investing in private and public disruptive-innovation companies, with business-day NAV and quarterly repurchase offers expected at 5% of shares",
     description=("Tokenised shares of ARK Venture Fund (ARKVX), a registered closed-end interval fund managed by ARK Investment Management LLC that seeks long-term growth of capital by investing 20% to 90% of its assets in private companies and the remainder in public companies linked to disruptive innovation. NAV is struck every business day, and the adviser fair-values the private holdings. The fund's Class D shares carry a 2.75% management fee and 2.90% net annual expenses under a Board-terminable expense cap; the tokenised class shares the management fee but may have its own other expenses. Liquidity is limited to quarterly repurchase offers of 5% to 25% of shares, expected to be 5%."),
     manager_name="ARK Invest",
     curator_slug="ark-invest",
@@ -466,6 +466,8 @@ ARKVX_ETHEREUM = SecuritizeProduct(
     denomination="USD",
     fee_data=FeeData(
         # Fund expenses accrue daily in NAV, so the share price is net of them.
+        # The subscription fee is charged outside NAV at entry and reported
+        # separately as the deposit fee, following the Asseto mint-fee model.
         fee_mode=VaultFeeMode.internalised_skimming,
         management=0.0275,
         performance=0.0,
