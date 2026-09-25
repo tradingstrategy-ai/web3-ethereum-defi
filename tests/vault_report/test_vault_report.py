@@ -25,6 +25,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import (
+    AMM,
     LENDING,
     OTHER,
     OTHER_PROTOCOL,
@@ -38,6 +39,7 @@ from eth_defi.vault_report.sections import (
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
+    exclude_amm_pools,
     exclude_chart_risks,
     filter_eligible_vaults,
     format_return,
@@ -179,6 +181,28 @@ def test_filter_and_group_sections(vaults_df: pd.DataFrame):
 
     by_chain = select_vaults_by_chain(eligible, ReportCriteria(chain_top_n=1))
     assert list(by_chain["address"]) == ["0x22", "0x33", "0x11"]
+
+
+def test_amm_pools(vault_records: list[dict]):
+    """AMM pools get their own section with a $1M TVL minimum and are left out of other rankings by default."""
+    records = [
+        *vault_records,
+        make_vault_record("0x66", chain="Arbitrum", protocol="GMX", protocol_slug="gmx", strategy_tags=None, one_month_cagr_net=0.9, three_months_cagr=2.4, current_nav=5_000_000.0),
+        make_vault_record("0x77", protocol="YieldBasis", protocol_slug="yieldbasis", strategy_tags=["amm", "liquidity_provider"], one_month_cagr_net=0.5, current_nav=500_000.0),
+        make_vault_record("0x88", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", strategy_tags=["liquidity_provider"], flags=["perp_dex_trading_vault"], event_count=2),
+    ]
+    criteria = ReportCriteria()
+    comparable = select_comparable_vaults(filter_eligible_vaults(prepare_vault_metrics(records), DATA_END_AT, criteria))
+    assert comparable.loc[["1-0x66", "1-0x77", "1-0x88"], "group"].tolist() == [AMM, AMM, PERP_DEX]
+
+    # The AMM table needs $1M TVL, so the $500k YieldBasis pool is left out
+    assert list(select_group(comparable, criteria, AMM)["address"]) == ["0x66"]
+
+    # AMM pools are left out of the other rankings, unless included
+    ranked = exclude_amm_pools(comparable, criteria)
+    assert "1-0x66" not in select_yield_vaults(ranked, criteria).index
+    assert "1-0x66" not in select_average_yield_vaults(ranked, criteria).index
+    assert "1-0x66" in select_yield_vaults(exclude_amm_pools(comparable, ReportCriteria(include_amm_pools=True)), criteria).index
 
 
 def test_average_yields(vaults_df: pd.DataFrame):

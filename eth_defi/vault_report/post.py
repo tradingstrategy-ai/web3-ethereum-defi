@@ -111,7 +111,7 @@ SECTION_TEMPLATES = (
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>The best-performing vaults of the month in four groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, and other vaults.</p>",
+        intro="<p>The best-performing vaults of the month in five groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools.</p>",
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
@@ -141,6 +141,13 @@ SECTION_TEMPLATES = (
         heading_id="best-performing-other-vaults",
         heading="Other vaults",
         charts=(("other_performance", "90-day performance of other best-performing vaults against benchmarks"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="amm",
+        heading_id="best-performing-amm-pools",
+        heading="AMM pools",
+        charts=(("amm_performance", "90-day performance of the best-performing AMM pools against benchmarks"),),
         level=3,
     ),
     SectionTemplate(

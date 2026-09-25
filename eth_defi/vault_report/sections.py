@@ -56,6 +56,14 @@ LENDING_STRATEGY_TAGS = frozenset({"lending", "lending_optimisation", "lending_l
 #: adapters would make this list unnecessary.
 LENDING_PROTOCOL_SLUGS = frozenset({"aave", "morpho", "euler", "fluid", "spark", "silo-finance", "llama-lend", "curvance", "dolomite", "gearbox", "sentiment", "arcadia-finance", "term-finance", "40acres", "3jane", "frax"})
 
+#: Strategy tags of automated market maker pools, e.g. YieldBasis, Gains Network gTrade and KiloEx.
+#: ``liquidity_provider`` alone is not enough: perp DEX liquidity vaults like Hyperliquid HLP carry it too.
+AMM_STRATEGY_TAGS = frozenset({"amm", "market_making_amm"})
+
+#: Protocols whose vaults are all AMM pools, including untagged ones: GMX GM and GLV pools, and the
+#: Curve-based YieldBasis and Curve pools
+AMM_PROTOCOL_SLUGS = frozenset({"gmx", "yieldbasis", "curve"})
+
 #: Vault flag for tokenised funds, such as money market and treasury funds
 TOKENISED_FUND_FLAG = "tokenised_fund"
 
@@ -74,6 +82,7 @@ OTHER_PROTOCOL = "Other"
 #: Vault group labels, see :py:func:`classify_vault`
 LENDING = "lending"
 PERP_DEX = "perp_dex"
+AMM = "amm"
 TOKENISED_FUND = "tokenised_fund"
 OTHER = "other"
 
@@ -102,6 +111,14 @@ class ReportCriteria:
 
     #: Minimum TVL for the new vaults table
     new_vault_min_tvl: USDollarAmount = 15_000
+
+    #: Include AMM pools in the rankings and charts outside their own section. AMM pools, such as GMX GM
+    #: pools and YieldBasis, carry the market risk of the traded assets, so by default they are ranked only
+    #: in the AMM pools section and counted only in the TVL summaries.
+    include_amm_pools: bool = False
+
+    #: Minimum TVL for the AMM pools table
+    amm_min_tvl: USDollarAmount = 1_000_000
 
     #: Maximum age of a vault in the new vaults table
     new_vault_max_age: datetime.timedelta = datetime.timedelta(days=60)
@@ -243,6 +260,23 @@ def filter_eligible_vaults(
     return eligible
 
 
+def exclude_amm_pools(vaults_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Leave AMM pools out of the rankings and charts outside their own section.
+
+    See :py:attr:`ReportCriteria.include_amm_pools`.
+
+    :param vaults_df:
+        Vault metrics with the ``group`` column.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Vaults without AMM pools, or all vaults when AMM pools are included.
+    """
+    return vaults_df if criteria.include_amm_pools else vaults_df.loc[vaults_df["group"] != AMM]
+
+
 def exclude_chart_risks(vaults_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Leave out vaults whose risk rating is too high to feature in a chart.
 
@@ -306,13 +340,15 @@ def classify_vault(vault: pd.Series) -> str:
         Vault metrics row with ``is_perp_dex``, ``flags``, ``strategy_tags`` and ``protocol_slug``.
 
     :return:
-        :py:data:`PERP_DEX`, :py:data:`TOKENISED_FUND`, :py:data:`LENDING` or :py:data:`OTHER`.
+        :py:data:`AMM`, :py:data:`PERP_DEX`, :py:data:`TOKENISED_FUND`, :py:data:`LENDING` or :py:data:`OTHER`.
     """
+    tags = vault["strategy_tags"] if isinstance(vault["strategy_tags"], list) else []
+    if AMM_STRATEGY_TAGS.intersection(tags) or vault["protocol_slug"] in AMM_PROTOCOL_SLUGS:
+        return AMM
     if vault["is_perp_dex"]:
         return PERP_DEX
     if TOKENISED_FUND_FLAG in (vault["flags"] if isinstance(vault["flags"], list) else []):
         return TOKENISED_FUND
-    tags = vault["strategy_tags"] if isinstance(vault["strategy_tags"], list) else []
     if LENDING_STRATEGY_TAGS.intersection(tags) or vault["protocol_slug"] in LENDING_PROTOCOL_SLUGS:
         return LENDING
     return OTHER
@@ -346,7 +382,7 @@ def rank_vaults(df: pd.DataFrame, column: str = "one_month_cagr_best") -> pd.Dat
 def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str, *, by: str = "one_month_cagr_best") -> pd.DataFrame:
     """Select the best vaults of a vault group.
 
-    Applies the TVL threshold, and the activity threshold for groups other than
+    Applies the TVL threshold, :py:attr:`ReportCriteria.amm_min_tvl` for AMM pools, and the activity threshold for groups other than
     perpetual futures DEX vaults and tokenised funds, whose deposits are not
     comparable onchain events.
 
@@ -366,7 +402,8 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
         All matching vaults, best first, not truncated.
     """
     df = eligible_df
-    mask = (df["group"] == group) & (df["current_nav"] >= criteria.min_tvl)
+    min_tvl = criteria.amm_min_tvl if group == AMM else criteria.min_tvl
+    mask = (df["group"] == group) & (df["current_nav"] >= min_tvl)
     if group in (LENDING, OTHER):
         mask &= df["event_count"] >= criteria.min_events
     return rank_vaults(df.loc[mask & df[by].notna()], by)
