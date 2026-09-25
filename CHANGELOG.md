@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Automate the monthly best-performing stablecoin vaults blog report with generated tables, charts and a Ghost draft post stub (2026-09-25)
+- feat: Automate the monthly best-performing stablecoin vaults blog report with generated tables, branded charts in the website's visual identity, a social hero image, a US Treasury bill benchmark and a Ghost draft post stub (2026-09-25)
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
 - fix: Retry Derive v3 transient application error 9002 with bounded exponential backoff instead of failing live vault-listing reads immediately (2026-09-28).
 - fix: List Kamui's three permissioned Lagoon vaults through one chain-aware address registry, bypass their inapplicable generic Deposit-event threshold, and refresh their onchain whitelist and unofficial metadata (2026-09-28).

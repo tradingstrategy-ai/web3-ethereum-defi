@@ -21,6 +21,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -29,7 +30,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.research.vault_metrics import MAX_VALID_NAV
+from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
 from eth_defi.vault_report.sections import SPARKLINE_URL
 
 logger = logging.getLogger(__name__)
@@ -290,17 +291,31 @@ def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     return daily.ffill().where(daily.bfill().notna())
 
 
+#: TVL points above this are broken share tokens; the same threshold as the
+#: website historical TVL charts (``src/lib/echarts/tvl-outliers.ts`` in the frontend)
+TVL_OUTLIER_THRESHOLD: USDollarAmount = 50_000_000_000
+
+#: Extra history read before the chart start, so vaults with sparse updates
+#: already have a value in the first week
+TVL_LOOKBACK_BUFFER = datetime.timedelta(days=35)
+
+
 def read_vault_tvl_history(
     prices_path: Path,
     vault_ids: list[str],
     start_at: datetime.datetime,
-    frequency: str = "W",
 ) -> pd.DataFrame:
-    """Read TVL history for vaults, resampled to a fixed frequency.
+    """Read weekly TVL history for vaults.
 
-    Each vault's TVL is forward filled between its first and last data point
-    only. Values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
-    come from broken share tokens and are treated as missing.
+    Mirrors the website's historical TVL query
+    (``src/lib/echarts/historical-tvl-server.ts`` in the frontend): the last
+    ``total_assets`` value of each vault in each week, with values above
+    :py:data:`TVL_OUTLIER_THRESHOLD` dropped. Each vault is forward filled
+    between its first and last week only. ``total_assets`` in the cleaned
+    price Parquet is already in USD, also for EUR-denominated vaults.
+
+    The aggregation runs in an in-memory DuckDB connection, so only one row
+    per vault and week is loaded into pandas.
 
     :param prices_path:
         Cleaned vault price Parquet with ``id``, ``timestamp`` and ``total_assets`` columns.
@@ -309,23 +324,26 @@ def read_vault_tvl_history(
         Vault ids to read.
 
     :param start_at:
-        Skip rows before this timestamp.
-
-    :param frequency:
-        Pandas resampling frequency.
+        First week to include.
 
     :return:
-        DataFrame indexed by period end with one TVL column per vault id, in
-        the vault denomination (USD for stablecoin vaults).
+        DataFrame indexed by week start with one TVL column per vault id, in USD.
     """
-    expression = pc.field("id").isin(vault_ids) & (pc.field("timestamp") >= pd.Timestamp(start_at))
-    df = pq.read_table(prices_path, columns=["id", "timestamp", "total_assets"], filters=expression).to_pandas(ignore_metadata=True)
-    logger.info("Read %d TVL rows for %d vaults from %s", len(df), df["id"].nunique(), prices_path)
-    if len(df) == 0:
+    query = """
+        SELECT id, date_trunc('week', "timestamp") AS week, arg_max(total_assets, "timestamp") AS tvl
+        FROM read_parquet(?)
+        WHERE "timestamp" >= ? AND total_assets >= 0 AND total_assets <= ? AND id IN (SELECT unnest(?))
+        GROUP BY id, week
+    """
+    read_from = pd.Timestamp(start_at - TVL_LOOKBACK_BUFFER)
+    with duckdb.connect() as connection:
+        weekly = connection.execute(query, [str(prices_path), read_from, TVL_OUTLIER_THRESHOLD, vault_ids]).df()
+    logger.info("Read %d weekly TVL rows for %d vaults from %s", len(weekly), weekly["id"].nunique(), prices_path)
+    if len(weekly) == 0:
         return pd.DataFrame()
-    df = df.loc[(df["total_assets"] >= 0) & (df["total_assets"] <= MAX_VALID_NAV)]
-    periodic = df.pivot_table(index="timestamp", columns="id", values="total_assets", aggfunc="last").resample(frequency).last()
-    return periodic.ffill().where(periodic.bfill().notna())
+    periodic = weekly.pivot(index="week", columns="id", values="tvl").sort_index()
+    periodic = periodic.ffill().where(periodic.bfill().notna())
+    return periodic.loc[periodic.index >= pd.Timestamp(start_at).to_period("W").start_time]
 
 
 def fetch_available_sparklines(vault_ids: list[str], max_workers: int = 16, timeout: float = 20.0) -> set[str]:
