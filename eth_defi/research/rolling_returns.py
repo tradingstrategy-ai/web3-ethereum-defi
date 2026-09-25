@@ -1,4 +1,7 @@
-"""Used in vault report notebooks to calculate and rolling returns for vaults."""
+"""Calculate and visualise rolling returns for vaults in research notebooks.
+
+The monthly blog report uses its own static chart helpers in :py:mod:`eth_defi.vault_report.charts`.
+"""
 
 import numpy as np
 import pandas as pd
@@ -11,9 +14,8 @@ from eth_defi.chain import get_chain_name
 
 CHART_BENCHMARK_COUNT: int = 10
 
-RETURNS_ROLLING_WINDOW = 30  # Bars, 1M
-
-CHART_HISTORY = pd.Timedelta(days=30 * 5)  #
+#: How far back rolling return charts are drawn by default
+CHART_HISTORY = pd.Timedelta(days=30 * 5)
 
 
 def wrap_legend_text(text: str, max_length: int = 30) -> str:
@@ -41,47 +43,6 @@ def wrap_legend_text(text: str, max_length: int = 30) -> str:
         lines.append(" ".join(current_line))
 
     return "<br>".join(lines)
-
-
-def visualise_rolling_returns(
-    df: pd.DataFrame,
-    title: str,
-    legend_wrap_length: int = 30,
-) -> Figure:
-    assert isinstance(df, pd.DataFrame), "df must be a pandas DataFrame"
-    assert isinstance(title, str), f"title must be a string: {title}"
-
-    # Create a copy of the dataframe to avoid modifying the original
-    df_plot = df.copy()
-
-    # Wrap long legend names
-    df_plot["name_wrapped"] = df_plot["name"].apply(lambda x: wrap_legend_text(x, legend_wrap_length))
-
-    fig = px.line(
-        df_plot,
-        x="timestamp",
-        y="rolling_1m_returns_annualized",
-        color="name_wrapped",
-        title=title,
-        labels={"rolling_1m_returns": "1M rolling return annualised (%)", "timestamp": "Time", "name_wrapped": "Vault"},
-        hover_data=["id"],
-        color_discrete_sequence=qualitative.Dark24,
-    )
-
-    fig.update_layout(
-        xaxis_title="Date",
-        yaxis_title="1M rolling return annualised (%)",
-        legend_title="Vaults",
-        hovermode="closest",
-        template=pio.templates.default,
-        legend=dict(
-            valign="top",  # Align legend items to top
-            itemsizing="constant",  # Keep consistent item sizing
-        ),
-    )
-
-    fig.update_traces(line=dict(width=4))
-    return fig
 
 
 def _calculate_rolling_returns_from_prices(
@@ -235,44 +196,6 @@ def calculate_rolling_returns(
     df = df.loc[df["timestamp"] >= (pd.Timestamp.now() - history_length)]
 
     return df
-
-
-def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
-    """Calculate daily returns for each vault in isolation.
-
-    Sparse observations are resampled and forward filled to produce one row
-    per consecutive calendar day for each vault.
-
-    :param df_work:
-        DataFrame with sparse or hourly share-price values.
-    :return:
-        Daily vault rows with ``share_price_daily`` and ``daily_returns``
-        columns.
-    """
-
-    df_work = df_work.set_index("timestamp")
-
-    result_dfs = []
-
-    # Group by chain and address, then resample and forward fill
-    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
-        # Resample this group to daily frequency and forward fill
-        resampled = group.resample("D").last().ffill()
-        resampled["share_price_daily"] = resampled["share_price"]
-
-        # Calculate daily returns
-        resampled["daily_returns"] = resampled["share_price_daily"].pct_change(fill_method=None).fillna(0)
-
-        # Add back the groupby keys as they'll be dropped during resampling
-        resampled["chain"] = chain_val
-        resampled["address"] = addr_val
-
-        result_dfs.append(resampled)
-
-    # Concatenate all the processed groups
-    df_result = pd.concat(result_dfs)
-
-    return df_result
 
 
 def visualise_rolling_returns(

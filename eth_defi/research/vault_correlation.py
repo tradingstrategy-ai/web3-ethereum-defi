@@ -1,13 +1,12 @@
 """Vault returns correlations heatmap and such."""
 
-from collections import Counter
+from collections.abc import Callable
 
 import pandas as pd
-
-from eth_defi.vault.flag import is_flagged_vault
-
 import plotly.graph_objects as go
 from plotly.graph_objects import Figure
+
+from eth_defi.vault.flag import is_flagged_vault
 
 
 def _resample_returns(group, period="1D"):
@@ -17,40 +16,47 @@ def _resample_returns(group, period="1D"):
 
 def choose_vaults_for_correlation_comparison(
     lifetime_data_filtered_df: pd.DataFrame,
-    min_nav=50_000,
-    per_protocol=2,
-    max=20,
-    printer=print,
+    min_nav: float = 50_000,
+    per_protocol: int = 2,
+    max: int = 20,
+    printer: Callable[[str], None] = print,
 ) -> pd.DataFrame:
-    """Pick meaningful vaults for the comparison"""
+    """Pick meaningful vaults for the returns correlation comparison.
 
-    protocols_counts = Counter()
-    chosen_rows = []
+    Takes the vaults with the best three-month returns, limiting the number
+    of vaults per protocol to get more variety. Vaults of protocols we have
+    not tagged yet (``unknown`` in the protocol name) are not limited.
 
-    lifetime_data_filtered_df = lifetime_data_filtered_df.copy()
+    :param lifetime_data_filtered_df:
+        Vault metrics with ``three_months_returns``, ``three_months_cagr``,
+        ``current_nav``, ``address`` and ``protocol`` columns.
 
-    lifetime_data_filtered_df = lifetime_data_filtered_df.dropna(subset=["three_months_returns", "current_nav"])
-    lifetime_data_filtered_df = lifetime_data_filtered_df[lifetime_data_filtered_df["current_nav"] >= min_nav]
-    lifetime_data_filtered_df = lifetime_data_filtered_df[~lifetime_data_filtered_df["address"].str.lower().apply(is_flagged_vault)]
+    :param min_nav:
+        Minimum current TVL in USD.
 
-    lifetime_data_filtered_df = lifetime_data_filtered_df.sort_values(by="three_months_returns", ascending=False)
+    :param per_protocol:
+        Maximum vaults per protocol.
+
+    :param max:
+        Maximum vaults in total.
+
+    :param printer:
+        Where to write a description of the selection criteria.
+
+    :return:
+        Selected vault rows sorted by ``three_months_cagr``. Empty if no vault matches.
+    """
+    df = lifetime_data_filtered_df.dropna(subset=["three_months_returns", "current_nav"])
+    df = df[df["current_nav"] >= min_nav]
+    df = df[~df["address"].str.lower().apply(is_flagged_vault).astype(bool)]
+    df = df.sort_values(by="three_months_returns", ascending=False)
 
     printer(f"For the correlation matrix, we choose the top {max} vaults by their 3M returns, with minimum TVL of {min_nav:,} USD and then limiting to {per_protocol} vaults per protocol to have more variety.")
 
-    for idx, row in lifetime_data_filtered_df.iterrows():
-        protocol = row["protocol"]
-        protocols_counts[protocol] += 1
-
-        # Alwaas include protocols we have not been able to tag yet
-        if protocols_counts[protocol] <= per_protocol or ("unknown" in protocol.lower()):
-            chosen_rows.append(row)
-
-        if len(chosen_rows) >= max:
-            break
-
-    df = pd.DataFrame(chosen_rows)
-    df = df.sort_values(by="three_months_cagr", ascending=False)
-    return df
+    rank_in_protocol = df.groupby("protocol").cumcount()
+    untagged = df["protocol"].str.lower().str.contains("unknown")
+    chosen = df[(rank_in_protocol < per_protocol) | untagged].head(max)
+    return chosen.sort_values(by="three_months_cagr", ascending=False)
 
 
 def visualise_vault_returns_correlation(

@@ -195,6 +195,14 @@ Notes:
   ```shell
   codex exec --json --sandbox read-only -m gpt-5.6-sol "Reply with exactly: OK" < /dev/null
   ```
+- On `codex-cli 0.155.1` (ChatGPT auth, 2026-09-25), `-m gpt-6-sol` was accepted
+  without a fallback-metadata warning and completed a full review, even though
+  the string does not appear in the installed npm package. Binary strings are
+  therefore not a complete list of usable ids; the smoke test is the check.
+- A `--sandbox read-only` Codex review cannot run this repository's pytest:
+  collection fails because Matplotlib needs a writable cache or temporary
+  directory. Run the focused tests yourself and tell the reviewer so, instead
+  of asking it to run them.
 
 ## Claude CLI
 
