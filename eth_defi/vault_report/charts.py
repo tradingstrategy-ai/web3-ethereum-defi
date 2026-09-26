@@ -677,11 +677,11 @@ def create_performance_figure(
     fig.update_xaxes(range=[start_at, x_end], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
-        fig.update_yaxes(type="log", title="Return since start (log scale)")
+        fig.update_yaxes(type="log", title=f"Return over {window.days} days (log scale)")
     else:
         step = next((step for step in LINEAR_TICK_STEPS if (y_range[1] - y_range[0]) / step <= 7), LINEAR_TICK_STEPS[-1])
         ticks = list(np.arange(np.ceil((y_range[0] - baseline) / step) * step, y_range[1] - baseline, step) + baseline)
-        fig.update_yaxes(title=f"Sharpe ratio, {sharpe_window.days}-day rolling" if sharpe else "Return since start")
+        fig.update_yaxes(title=f"Sharpe ratio, {sharpe_window.days}-day rolling" if sharpe else f"Return over {window.days} days")
     ticktext = [f"{tick:,.4g}" for tick in ticks] if sharpe else [f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks]
     fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=ticktext)
     fig.update_yaxes(side="left", zeroline=False)
