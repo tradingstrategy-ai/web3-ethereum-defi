@@ -398,7 +398,8 @@ def render_hero_image(
     draw.text((pad, title_top + 64), month_label, font=_font(32), fill=theme.positive)
 
     rows = vaults_df.head(5)
-    rows_top, row_height = (330, 118) if square else (250, 66)
+    # The square image spreads its rows down to the footer
+    rows_top, row_height = (340, 140) if square else (250, 66)
     spark_left = int(width * (0.52 if square else 0.56))
     spark_right = spark_left + (200 if square else 240)
     header_font = _font(15)

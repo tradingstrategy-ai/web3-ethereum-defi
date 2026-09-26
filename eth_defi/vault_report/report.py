@@ -270,9 +270,11 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the charts but listed in the tables"
     benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
     chart_ranking = f"The chart shows the top {criteria.performance_chart_vaults} vaults of the group by annualised three-month return, which is steadier than the table's one-month ranking"
+    amm = "AMM pools, such as GMX and YieldBasis pools, are ranked only in their own section below"
     average = [
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
         unidentified,
+        amm,
     ]
     return {
         "chain_yields": ["Perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
@@ -290,7 +292,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "tvl_changes": ["A TVL change includes deposits, redemptions and the vault's own returns"],
         "best": [
             "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
-            f"{min_tvl} in every table; lending and other vaults also need {active}",
+            f"{min_tvl} in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending and other vaults also need {active}",
             unidentified,
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
@@ -307,13 +309,14 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             chart_risk,
         ],
         "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, chart_ranking, benchmarks, chart_risk],
-        "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified],
+        "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified, amm],
         "risk_return": [
             f"Vaults with annualised three-month returns above {criteria.scatter_max_return:.0%} are drawn as triangles on the top edge",
             "Vaults rated Dangerous or worse are left out",
             unidentified,
+            amm,
         ],
-        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", unidentified, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
+        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", unidentified, amm, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
     }
 
 
