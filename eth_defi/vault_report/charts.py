@@ -425,7 +425,7 @@ def create_performance_figure(
     theme: ChartTheme,
     window: datetime.timedelta = datetime.timedelta(days=90),
     log_threshold: float = 100.0,
-    outlier_ratio: float = 5.0,
+    outlier_ratio: float = 3.0,
     benchmark_logos: dict[str, str | None] | None = None,
     measure: Literal["equity", "sharpe"] = "equity",
     sharpe_window: datetime.timedelta = datetime.timedelta(days=90),
@@ -521,6 +521,10 @@ def create_performance_figure(
     off_scale = set(peaks.index[peaks > outlier_ratio * reference]) if len(peaks) > 2 else set()
     lines = [*(line for vault_id, line in vaults.items() if vault_id not in off_scale), *benchmarks.values()]
     low, high = (min(line.min() for line in lines), max(line.max() for line in lines)) if lines else (0.0, 0.0)
+    # An off-scale line is drawn until it leaves the top, so the bottom of the axis must fit its dips before that
+    for vault_id in off_scale:
+        line = vaults[vault_id]
+        low = min(low, line.loc[: line.index[line > high][0]].min())
     log_scale = not sharpe and high > log_threshold
 
     def to_axis(values: pd.Series | float) -> pd.Series | float:
