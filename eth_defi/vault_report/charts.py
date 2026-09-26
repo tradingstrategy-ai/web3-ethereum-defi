@@ -68,6 +68,15 @@ PROPERTY_ICON_SIZE = 17
 #: Height of one property row, in pixels
 PROPERTY_ROW_HEIGHT = 21
 
+#: Gap between a property icon and its text, in pixels
+PROPERTY_ICON_GAP = 6
+
+#: Gap between two properties on the same row, in pixels
+PROPERTY_GAP = 16
+
+#: Widest property icon as a multiple of its height; wider logos are scaled down to fit
+PROPERTY_MAX_ICON_ASPECT = 2.0
+
 
 @dataclass(slots=True, frozen=True)
 class VaultProperty:
@@ -82,6 +91,20 @@ class VaultProperty:
 
     #: Logo data URI, or ``None`` to draw the text only
     logo_uri: str | None = None
+
+    #: Logo width divided by its height, after :py:func:`trim_logos` removes its margins
+    logo_aspect: float = 1.0
+
+    @property
+    def icon_size(self) -> tuple[float, float]:
+        """Drawn icon width and height in pixels.
+
+        Icons are :py:data:`PROPERTY_ICON_SIZE` tall; wide logos are
+        scaled down to at most :py:data:`PROPERTY_MAX_ICON_ASPECT` times that width.
+        """
+        aspect = max(self.logo_aspect, 0.1)
+        width = min(PROPERTY_ICON_SIZE * aspect, PROPERTY_ICON_SIZE * PROPERTY_MAX_ICON_ASPECT)
+        return width, width / aspect
 
 
 @dataclass(slots=True, frozen=True)
@@ -203,12 +226,12 @@ def layout_properties(properties: tuple[VaultProperty, ...], width: float) -> li
     rows: list[list[tuple[VaultProperty, float]]] = []
     cursor = 0.0
     for prop in properties:
-        item_width = (PROPERTY_ICON_SIZE + 5 if prop.logo_uri else 0) + _measure_text(prop.text)
+        item_width = (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text)
         if not rows or (cursor > 0 and cursor + item_width > width):
             rows.append([])
             cursor = 0.0
         rows[-1].append((prop, cursor))
-        cursor += item_width + 16
+        cursor += item_width + PROPERTY_GAP
     return rows
 
 
@@ -261,8 +284,9 @@ def add_property_rows(
         for prop, offset in row:
             item_x = x + offset / x_pixels
             if prop.logo_uri:
-                fig.add_layout_image(source=prop.logo_uri, xref="paper", yref=yref, x=item_x, y=centre, sizex=PROPERTY_ICON_SIZE / x_pixels, sizey=PROPERTY_ICON_SIZE / y_pixels, xanchor="left", yanchor="middle")
-                item_x += (PROPERTY_ICON_SIZE + 5) / x_pixels
+                icon_width, icon_height = prop.icon_size
+                fig.add_layout_image(source=prop.logo_uri, xref="paper", yref=yref, x=item_x, y=centre, sizex=icon_width / x_pixels, sizey=icon_height / y_pixels, xanchor="left", yanchor="middle")
+                item_x += (icon_width + PROPERTY_ICON_GAP) / x_pixels
             fig.add_annotation(text=prop.text, xref="paper", yref=yref, x=item_x, y=centre, xanchor="left", yanchor="middle", showarrow=False, font={"size": PROPERTY_FONT_SIZE, "color": theme.muted_text})
     return len(rows)
 
@@ -310,7 +334,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
         height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
         widths = [_measure_text(line, 17) for line in lines]
-        widths += [offset + (PROPERTY_ICON_SIZE + 5 if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
+        widths += [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
         layouts.append((entry, lines, height + gap_pixels))
@@ -1142,7 +1166,7 @@ def create_protocol_tvl_figure(
     return fig
 
 
-def rasterise_logos(logo_uris: set[str], size: int = 96) -> dict[str, Image.Image]:
+def rasterise_logos(logo_uris: set[str], size: int = 96, columns: int = 16) -> dict[str, Image.Image]:
     """Convert logo data URIs to Pillow images for the Pillow-drawn hero image.
 
     PNG logos are decoded directly. SVG logos, such as the website's chain
@@ -1154,6 +1178,9 @@ def rasterise_logos(logo_uris: set[str], size: int = 96) -> dict[str, Image.Imag
     :param size:
         Rendered size of an SVG logo in pixels.
 
+    :param columns:
+        SVG logos per row of the render sheet, which keeps the sheet within browser canvas limits.
+
     :return:
         Data URI -> RGBA image.
     """
@@ -1162,16 +1189,50 @@ def rasterise_logos(logo_uris: set[str], size: int = 96) -> dict[str, Image.Imag
     for uri in logo_uris - set(svgs):
         images[uri] = Image.open(io.BytesIO(base64.b64decode(uri.split(",", 1)[1]))).convert("RGBA")
     if svgs:
+        grid_columns = min(columns, len(svgs))
+        grid_rows = -(-len(svgs) // grid_columns)
         fig = go.Figure()
-        fig.update_layout(width=size * len(svgs), height=size, margin={"l": 0, "r": 0, "t": 0, "b": 0}, xaxis_visible=False, yaxis_visible=False)
+        fig.update_layout(width=size * grid_columns, height=size * grid_rows, margin={"l": 0, "r": 0, "t": 0, "b": 0}, xaxis_visible=False, yaxis_visible=False)
         for i, uri in enumerate(svgs):
-            fig.add_layout_image(source=uri, xref="paper", yref="paper", x=i / len(svgs), y=1, sizex=1 / len(svgs), sizey=1, xanchor="left", yanchor="top")
+            row, column = divmod(i, grid_columns)
+            fig.add_layout_image(source=uri, xref="paper", yref="paper", x=column / grid_columns, y=1 - row / grid_rows, sizex=1 / grid_columns, sizey=1 / grid_rows, xanchor="left", yanchor="top")
         with tempfile.TemporaryDirectory() as tmp:
             sheet = Image.open(render_figure_png(fig, Path(tmp) / "logos.png")).convert("RGBA")
             sheet.load()
         for i, uri in enumerate(svgs):
-            images[uri] = sheet.crop((i * size, 0, (i + 1) * size, size))
+            row, column = divmod(i, grid_columns)
+            images[uri] = sheet.crop((column * size, row * size, (column + 1) * size, (row + 1) * size))
     return images
+
+
+def trim_logos(logo_uris: set[str], size: int = 96) -> dict[str, tuple[str, float]]:
+    """Remove the transparent margins around logos.
+
+    Logo files come with different amounts of empty space around the mark, so
+    icons drawn in same-sized boxes look unevenly spaced from their text. The
+    logos are rasterised, cropped to their visible pixels and re-encoded as
+    PNG, and their aspect ratio sizes each icon box to the mark itself.
+
+    :param logo_uris:
+        PNG or SVG data URIs.
+
+    :param size:
+        Raster size of SVG logos in pixels, a few times the drawn icon size.
+
+    :return:
+        Original data URI -> (trimmed PNG data URI, width divided by height).
+        Logos without visible pixels are left out.
+    """
+    trimmed = {}
+    for uri, image in rasterise_logos(logo_uris, size).items():
+        bbox = image.getchannel("A").point(lambda alpha: 255 if alpha > 16 else 0).getbbox()
+        if bbox is None:
+            continue
+        cropped = image.crop(bbox)
+        buffer = io.BytesIO()
+        cropped.save(buffer, format="PNG")
+        trimmed[uri] = ("data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"), cropped.width / cropped.height)
+    return trimmed
 
 
 def _configure_fonts() -> None:
@@ -1198,7 +1259,7 @@ def _configure_fonts() -> None:
     os.environ["FONTCONFIG_FILE"] = str(config_dir / "fonts.conf")
 
 
-def render_figure_png(fig: Figure, path: Path) -> Path:
+def render_figure_png(fig: Figure, path: Path, scale: float = 1.0) -> Path:
     """Render a figure as a PNG image.
 
     Kaleido 1.x renders images with a headless Chrome. If ``BROWSER_PATH``
@@ -1217,6 +1278,9 @@ def render_figure_png(fig: Figure, path: Path) -> Path:
     :param path:
         Output file.
 
+    :param scale:
+        Resolution multiplier; the layout keeps its size in design pixels.
+
     :return:
         The output path.
     """
@@ -1231,7 +1295,7 @@ def render_figure_png(fig: Figure, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     transparent = go.Figure(fig).update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     try:
-        transparent.write_image(path, format="png")
+        transparent.write_image(path, format="png", scale=scale)
     except RuntimeError as e:
         raise RuntimeError("Could not render chart PNG. Kaleido needs Chrome: run `poetry run plotly_get_chrome` or set BROWSER_PATH to a Chrome binary.") from e
     logger.info("Rendered chart %s", path)

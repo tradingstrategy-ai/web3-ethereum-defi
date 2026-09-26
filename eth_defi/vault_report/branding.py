@@ -45,6 +45,13 @@ PANEL_CONTENT_GAP = 28
 #: Width of every chart panel, so charts show at the same scale in the post
 PANEL_WIDTH = 1400
 
+#: Resolution multiplier of the chart panels.
+#:
+#: Layouts, fonts and margins are designed in :py:data:`PANEL_WIDTH` pixels;
+#: Kaleido and the panel frame render them at this scale for sharper images
+#: on high-density screens, e.g. 1400 px designs export 1867 px wide.
+CHART_SCALE = 4 / 3
+
 #: Colour distance from the surface above which a chart pixel counts as content
 CONTENT_THRESHOLD = 6
 
@@ -181,7 +188,7 @@ def _draw_glow(image: Image.Image, theme: ChartTheme, radius: int) -> None:
     image.alpha_composite(glow)
 
 
-def _round_corners(image: Image.Image, theme: ChartTheme) -> Image.Image:
+def _round_corners(image: Image.Image, theme: ChartTheme, scale: float = 1.0) -> Image.Image:
     """Clip an image to a rounded panel with a highlight border.
 
     :param image:
@@ -190,13 +197,17 @@ def _round_corners(image: Image.Image, theme: ChartTheme) -> Image.Image:
     :param theme:
         Chart theme.
 
+    :param scale:
+        Resolution multiplier for the corner radius and border width.
+
     :return:
         RGBA image with transparent corners.
     """
     mask = Image.new("L", image.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=PANEL_RADIUS, fill=255)
+    radius = round(PANEL_RADIUS * scale)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=radius, fill=255)
     border_colour = (255, 255, 255, 30) if theme.name == "dark" else (0, 0, 0, 26)
-    ImageDraw.Draw(image).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=PANEL_RADIUS, outline=border_colour, width=2)
+    ImageDraw.Draw(image).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=radius, outline=border_colour, width=round(2 * scale))
     result = Image.new("RGBA", image.size, (0, 0, 0, 0))
     result.paste(image, (0, 0), mask)
     return result
@@ -233,7 +244,7 @@ def crop_to_content(image: Image.Image, background: str, threshold: int = CONTEN
     return image.crop((columns.min(), rows.min(), columns.max() + 1, rows.max() + 1))
 
 
-def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle: str, footer_note: str, link: str, output_path: Path) -> Path:
+def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle: str, footer_note: str, link: str, output_path: Path, scale: float = CHART_SCALE) -> Path:
     """Frame a chart image in a branded panel.
 
     The chart is cropped to its content, resized to the inner width of a
@@ -262,29 +273,38 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     :param output_path:
         Where to write the PNG. May be the same as ``chart_png``.
 
+    :param scale:
+        Resolution multiplier: the chart must be rendered at the same scale,
+        see :py:func:`eth_defi.vault_report.charts.render_figure_png`.
+
     :return:
         ``output_path``.
     """
+
+    def px(value: float) -> int:
+        """Scale a design pixel measure to the output resolution."""
+        return round(value * scale)
+
     # The chart content gets the same padding on every side. Content is resized to the panel's inner width,
     # a few percent at most, because the Plotly layouts are tuned to fill it.
     content = crop_to_content(Image.open(chart_png).convert("RGBA"), theme.surface)
-    pad, gap = PANEL_PADDING, PANEL_CONTENT_GAP
-    width = PANEL_WIDTH
+    pad, gap = px(PANEL_PADDING), px(PANEL_CONTENT_GAP)
+    width = px(PANEL_WIDTH)
     inner_width = width - 2 * pad
     if content.width != inner_width:
-        scale = inner_width / content.width
-        if abs(scale - 1) > 0.05:
-            logger.warning("Chart %s content is %d px wide, resized by %.0f%% to fit the panel", chart_png, content.width, (scale - 1) * 100)
-        content = content.resize((inner_width, round(content.height * scale)), Image.Resampling.LANCZOS)
+        resize_ratio = inner_width / content.width
+        if abs(resize_ratio - 1) > 0.05:
+            logger.warning("Chart %s content is %d px wide, resized by %.0f%% to fit the panel", chart_png, content.width, (resize_ratio - 1) * 100)
+        content = content.resize((inner_width, round(content.height * resize_ratio)), Image.Resampling.LANCZOS)
     # The footer text sits 44 px above the bottom edge, like the other panel margins
-    footer_height = 107
-    title_font, subtitle_font = _font(40, bold=True), _font(24)
+    footer_height = px(107)
+    title_font, subtitle_font = _font(px(40), bold=True), _font(px(24))
     # Long titles and subtitles wrap to more lines, and the header grows to fit them
     measure = ImageDraw.Draw(content)
     title_lines = _wrap_text(measure, title, title_font, width - 2 * pad)
     subtitle_lines = _wrap_text(measure, subtitle, subtitle_font, width - 2 * pad)
-    subtitle_top = 36 + 50 * len(title_lines) + 2
-    header_height = subtitle_top + 32 * len(subtitle_lines)
+    subtitle_top = px(36 + 50 * len(title_lines) + 2)
+    header_height = subtitle_top + px(32) * len(subtitle_lines)
     chart_height = gap + content.height + gap
     panel = Image.new("RGBA", (width, header_height + chart_height + footer_height), _hex_to_rgba(theme.surface))
     _draw_glow(panel, theme, radius=int(width * 0.35))
@@ -292,19 +312,19 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
 
     draw = ImageDraw.Draw(panel)
     for i, line in enumerate(title_lines):
-        draw.text((pad, 36 + 50 * i), line, font=title_font, fill=theme.text)
+        draw.text((pad, px(36 + 50 * i)), line, font=title_font, fill=theme.text)
     for i, line in enumerate(subtitle_lines):
-        draw.text((pad, subtitle_top + 32 * i), line, font=subtitle_font, fill=theme.muted_text)
+        draw.text((pad, subtitle_top + px(32) * i), line, font=subtitle_font, fill=theme.muted_text)
 
     footer_top = header_height + chart_height
-    draw.line((pad, footer_top + 4, width - pad, footer_top + 4), fill=_hex_to_rgba(theme.axis, 90), width=1)
-    text_y = footer_top + 30
-    logo_width = draw_brand_logo(panel, pad, footer_top + 22, 41, theme)
-    draw.text((pad + logo_width + 22, text_y + 1), footer_note, font=_font(22), fill=theme.muted_text)
-    link_font = _font(22)
-    draw.text((width - pad - draw.textlength(link, font=link_font), text_y + 1), link, font=link_font, fill=theme.muted_text)
+    draw.line((pad, footer_top + px(4), width - pad, footer_top + px(4)), fill=_hex_to_rgba(theme.axis, 90), width=px(1))
+    text_y = footer_top + px(31)
+    logo_width = draw_brand_logo(panel, pad, footer_top + px(22), px(41), theme)
+    footer_font = _font(px(22))
+    draw.text((pad + logo_width + px(22), text_y), footer_note, font=footer_font, fill=theme.muted_text)
+    draw.text((width - pad - draw.textlength(link, font=footer_font), text_y), link, font=footer_font, fill=theme.muted_text)
 
-    _round_corners(panel, theme).save(output_path, format="PNG", optimize=True)
+    _round_corners(panel, theme, scale).save(output_path, format="PNG", optimize=True)
     return output_path
 
 
@@ -457,9 +477,9 @@ def render_hero_image(
                 if x + 22 > text_right:
                     break
                 icon = icon.copy()
-                icon.thumbnail((19, 19))
+                icon.thumbnail((38, 19))
                 image.alpha_composite(icon, (x, int(property_y - icon.height / 2)))
-                x += 25
+                x += icon.width + 6
             if text_right - x < 40:
                 break
             fitted = _fit_text(draw, text, property_font, text_right - x)

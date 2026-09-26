@@ -70,10 +70,16 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   and a link to the live chart. The chart is cropped to its drawn content and
   fitted to the panel's inner width, so every panel is 1400 px wide with a
   44 px margin on all four sides, whatever its Plotly margins. Keep new Plotly
-  layouts within 5% of that inner width; the pipeline warns otherwise.
+  layouts within 5% of that inner width; the pipeline warns otherwise. These
+  are design pixels: Kaleido and the frame render them at
+  `branding.CHART_SCALE`, 4/3, so the exported PNGs are 1867 px wide and stay
+  sharp on high-density screens. The social hero images keep their fixed
+  1200×630 and 1080×1080 sizes.
   Wherever a chart names a vault (the hero image, performance chart legends and
   inflows and outflows), the curator, protocol and chain follow under the name
-  in that order, each with its own icon. A curator that is the protocol itself,
+  in that order, each with its own icon. Logos are trimmed of their
+  transparent margins (`charts.trim_logos()`) and each icon is sized to its
+  mark, so every icon sits the same distance from its text. A curator that is the protocol itself,
   or a chain named after the protocol, is shown once. Titles, subtitles, legend
   entries and vault labels word-wrap instead of being truncated, so names are
   always shown in full.

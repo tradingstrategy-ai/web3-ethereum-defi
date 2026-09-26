@@ -4,6 +4,7 @@ import base64
 import datetime
 import hashlib
 import hmac
+import io
 import json
 import sys
 from pathlib import Path
@@ -19,8 +20,8 @@ from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report import vault_checks as vault_checks_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
-from eth_defi.vault_report.branding import HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, select_moving_vaults, wrap_label
+from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, select_moving_vaults, trim_logos, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
@@ -648,7 +649,7 @@ def test_compose_chart_panel(tmp_path: Path):
     render = Image.new("RGBA", (1400, 800), (0, 0, 0, 0))
     ImageDraw.Draw(render).rectangle((100, 100, 1299, 699), fill=DARK_THEME.series_colours[0])
     render.save(chart)
-    output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "panel.png")
+    output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "panel.png", scale=1)
     image = Image.open(output)
     # The 1200×600 content is resized to the 1312 px inner width: header 120, gaps 2×28, footer 107
     assert image.size == (PANEL_WIDTH, 120 + 28 + 656 + 28 + 107)
@@ -658,8 +659,33 @@ def test_compose_chart_panel(tmp_path: Path):
 
     # Long titles and subtitles wrap to more lines instead of being truncated, and the header grows
     long_title = "Performance of the best-performing perpetual futures DEX vaults with the best Sharpe ratio this month"
-    output = compose_chart_panel(chart, DARK_THEME, long_title, f"{long_title}, {long_title}", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "long.png")
+    output = compose_chart_panel(chart, DARK_THEME, long_title, f"{long_title}, {long_title}", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "long.png", scale=1)
     assert Image.open(output).size == (PANEL_WIDTH, 120 + 50 + 32 + 28 + 656 + 28 + 107)  # One more title line and one more subtitle line
+
+    # At the export scale every measure grows by 4/3, also when the chart content needs resizing
+    output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "scaled.png")
+    image = Image.open(output)
+    assert image.width == round(PANEL_WIDTH * CHART_SCALE) == 1867
+    assert image.height == round(120 * CHART_SCALE) + 2 * round(28 * CHART_SCALE) + round(600 * (1867 - 2 * 59) / 1200) + round(107 * CHART_SCALE)
+    title_rows = [y for y in range(8, 110) if any(min(image.getpixel((x, y))) > 200 for x in range(59, 200))]  # Opaque white title text, below the panel border
+    assert title_rows[0] == pytest.approx(59, abs=2)  # The top margin matches the 59 px side margin
+
+
+def test_trim_logos():
+    """Logos lose their transparent margins, so each icon box fits its mark."""
+    logo = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    ImageDraw.Draw(logo).rectangle((38, 8, 57, 87), fill=(255, 0, 0, 255))  # A narrow 20×80 mark
+    buffer = io.BytesIO()
+    logo.save(buffer, format="PNG")
+    uri = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    trimmed_uri, aspect = trim_logos({uri})[uri]
+    trimmed = Image.open(io.BytesIO(base64.b64decode(trimmed_uri.split(",", 1)[1])))
+    assert trimmed.size == (20, 80)
+    assert aspect == 0.25
+
+    # The icon keeps the row height and its own width; very wide logos are scaled down
+    assert VaultProperty("Ethereum", trimmed_uri, aspect).icon_size == (17 * 0.25, 17)
+    assert VaultProperty("Wide", trimmed_uri, 4.0).icon_size == (34, 8.5)
 
 
 def test_wrap_label():

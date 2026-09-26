@@ -30,7 +30,7 @@ import html
 import json
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pandas as pd
@@ -38,7 +38,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
-from eth_defi.vault_report.branding import SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
+from eth_defi.vault_report.branding import CHART_SCALE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
@@ -51,6 +51,7 @@ from eth_defi.vault_report.charts import (
     rasterise_logos,
     render_figure_png,
     select_moving_vaults,
+    trim_logos,
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
@@ -547,6 +548,9 @@ def render_report_charts(
     tvl_changes = calculate_tvl_changes(eligible_df, criteria)
     # Curator, protocol and chain under each vault name, with their icons
     vault_properties = {vault_id: make_vault_properties(eligible_df.loc[vault_id], theme, chain_logo) for vault_id in chart_ids | set(tvl_changes.index)}
+    # Trimmed logos get icon boxes of their own shape, so every icon sits the same distance from its text
+    trimmed_logos = trim_logos({prop.logo_uri for properties in vault_properties.values() for prop in properties if prop.logo_uri})
+    vault_properties = {vault_id: tuple(replace(prop, logo_uri=trimmed_logos[prop.logo_uri][0], logo_aspect=trimmed_logos[prop.logo_uri][1]) if prop.logo_uri in trimmed_logos else prop for prop in properties) for vault_id, properties in vault_properties.items()}
 
     difference = "Small dots: vaults · large dots: TVL-weighted average · right: difference to the US 3M T-bill and TVL"
     figures = {
@@ -630,8 +634,8 @@ def render_report_charts(
     chart_dir = output_dir / "charts"
     chart_paths = {}
     for key, (fig, panel) in tqdm(figures.items(), desc="Rendering charts"):
-        path = render_figure_png(fig, chart_dir / f"{key}.png")
-        chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path)
+        path = render_figure_png(fig, chart_dir / f"{key}.png", scale=CHART_SCALE)
+        chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path, scale=CHART_SCALE)
 
     sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
     sparklines = {vault_id: daily_prices.loc[daily_prices.index >= sparkline_start, vault_id] for vault_id in hero_vaults.index if vault_id in daily_prices.columns}
