@@ -1,30 +1,45 @@
 name: Maple
 slug: maple
 short_description: |
-  Institutional-grade DeFi lending protocol connecting capital providers with vetted borrowers.
+  Maple is a digital asset lending platform whose syrupUSDC and syrupUSDT vaults earn yield mainly from fixed-rate, overcollateralised loans to crypto institutions.
 long_description: |
-  Maple Finance is an institutional-grade DeFi lending protocol that connects
-  capital providers with vetted institutional borrowers.
+  [Maple](https://maple.finance/) is a digital asset lending platform,
+  [founded in 2019](https://docs.maple.finance/), that lends to institutions onchain. Its Syrup
+  products,
+  [launched in 2024](https://maple.finance/insights/maple-launches-syrup-institutional-yield-unlocked),
+  open this lending to DeFi users: depositing USDC or USDT mints syrupUSDC or syrupUSDT, tokens that
+  rise in value as interest accrues. Maple also runs permissioned pools for KYC-approved
+  institutional lenders.
 
-  The Syrup protocol provides permissionless access to yield-bearing tokens
-  (syrupUSDC, syrupUSDT) that represent deposits in Maple's institutional lending pools.
+  **Where the yield comes from.** Returns come mainly from
+  [fixed-rate, overcollateralised loans](https://docs.maple.finance/syrupusdc-usdt-usdg-for-lenders/introduction)
+  to crypto-native institutions that post liquid digital assets as collateral, underwritten by
+  Maple's lending arm, Maple Direct, with further yield from futures basis trades and DeFi
+  liquidity provision. Each Syrup product sits in its own segregated portfolio, legally separate
+  from Maple's institutional pools.
 
-  When users deposit USDC or USDT into Syrup, they receive syrup tokens in return.
-  These tokens are yield-bearing LP tokens, similar to Aave's aUSDC or Compound's cUSDC.
-  The underlying deposits are lent to vetted institutional borrowers like market makers
-  and trading firms, with loans secured by overcollateralised digital asset collateral.
+  **Withdrawals.** Redemptions join a
+  [first-in, first-out queue](https://docs.maple.finance/syrupusdc-usdt-usdg-for-lenders/risk) and
+  keep earning interest until paid; Maple says most are processed within 24 hours, but they can
+  take up to 30 days. Holders who want to exit at once can sell syrup tokens on DEXs such as
+  Uniswap and Balancer at market prices.
 
-  Key features:
-
-  - Institutional yield: Access to real-world lending rates typically higher than
-    standard DeFi lending (10-15% APY)
-  - Overcollateralised: Loans are secured by digital asset collateral (BTC, ETH)
-    at ratios significantly above 100%
-  - Permissionless: Unlike Maple's core institutional pools, Syrup is accessible
-    to anyone with a DeFi wallet
-  - Composability: syrup tokens are standard ERC-20 tokens that can be used in
-    other DeFi applications
+  **Risks, eligibility and fees.** syrupUSDC is backed by the underlying loans, not by USDC, so
+  depositors carry credit risk and can lose principal if a borrower defaults and the collateral
+  does not cover the loan. Maple can
+  [impair a loan](https://docs.maple.finance/maple-institutional-for-lenders/defaults-and-impairments)
+  it does not expect to be repaid, lowering the pool's value before a formal default. Syrup is
+  [not available](https://docs.maple.finance/legal/syrupusdc-and-syrupusdt-available-jurisdictions)
+  in the United States, Australia and other restricted jurisdictions. Maple's
+  [fees](https://docs.maple.finance/technical-resources/protocol-overview/fees) come out of yield:
+  a management fee is deducted from the interest borrowers pay before it reaches the pool.
 fee_description: |
+  Maple's fees are taken from yield rather than charged on deposits. A management fee is deducted
+  from the gross interest paid by borrowers, split between the pool delegate and the Maple
+  treasury, and the remaining net interest accrues to the pool. A performance fee is also charged
+  on yield from DeFi strategies, and borrowers pay origination and service fees. Selling syrup
+  tokens on a DEX instead of using the withdrawal queue incurs trading fees and slippage. See
+  [Maple fees](https://docs.maple.finance/technical-resources/protocol-overview/fees).
 links:
   homepage: https://maple.finance/
   app: https://app.maple.finance/earn

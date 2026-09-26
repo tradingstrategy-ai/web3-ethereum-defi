@@ -14,11 +14,30 @@ website: https://www.jpmorgan.com
 twitter: jpmorgan
 linkedin: jpmorgan
 # rss: not found - J.P. Morgan newsroom pages do not expose RSS/Atom links
-short_description: J.P. Morgan is a global investment bank and financial services firm serving corporate, institutional, government and investor clients.
+short_description: J.P. Morgan, part of JPMorgan Chase & Co., provides investment banking, commercial banking, payments and asset management services to clients in more than 100 countries.
 long_description: |
-  J.P. Morgan is a global investment bank and financial services firm within JPMorgan Chase & Co. The bank provides investment banking, markets, securities services, treasury services, payments, asset management, private banking and wealth-management services for companies, institutions, governments and investors around the world.
+  [J.P. Morgan](https://www.jpmorgan.com/about-us) is a JPMorgan Chase & Co. brand covering
+  investment banking, commercial banking, payments and asset management for corporate,
+  institutional and government clients worldwide. Its asset management arm, J.P. Morgan Asset
+  Management, offers two tokenised money market funds on the public Ethereum blockchain through
+  Morgan Money, its institutional liquidity platform.
 
-  For this integration, J.P. Morgan is treated as the curator of the JLTXX and MONY vault-like instruments because both are J.P. Morgan fund products. Kinexys is the technology provider for the tokenised asset and settlement infrastructure; it is not the curator business represented by this YAML entry. J.P. Morgan's MONY launch announcement identifies the fund as powered by Kinexys Digital Assets and distributed through Morgan Money.
+  The
+  [JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX)](https://am.jpmorgan.com/us/en/asset-management/adv/about-us/media/press-releases/jp-morgan-asset-management-launches-second-tokenized-fund-on-ethereum/),
+  launched in May 2026, is a US-registered government money market fund designed to support
+  stablecoin issuers under the GENIUS Act. It invests only in US Treasury securities and overnight
+  repurchase agreements fully collateralised by Treasuries or cash; its
+  [fact sheet](https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf)
+  lists a stable USD 1.00 NAV target and a USD 1 million minimum. Qualified investors subscribe and
+  redeem in cash, or in stablecoins through a third-party vendor, and hold the tokens at their own
+  blockchain addresses.
+
+  The
+  [My OnChain Net Yield Fund (MONY)](https://am.jpmorgan.com/us/en/asset-management/adv/about-us/media/press-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund/),
+  launched in December 2025, is a Rule 506(c) private placement intended for qualified purchasers
+  that are also accredited investors, and invests in US Treasuries and fully collateralised Treasury
+  repurchase agreements. It runs on Kinexys Digital Assets, J.P. Morgan's multi-chain tokenisation
+  platform; JLTXX is the second fund to use it.
 
 # Evidence and background references.
 other-links:

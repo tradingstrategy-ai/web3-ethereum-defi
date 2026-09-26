@@ -4,11 +4,29 @@ role: curator
 website: https://www.blackrock.com/corporate/about-us
 twitter: BlackRock
 linkedin: blackrock
-short_description: BlackRock is a global asset manager and technology provider serving institutional and individual investors.
+short_description: BlackRock is a global asset manager and technology provider whose businesses include iShares ETFs, Aladdin technology and tokenised funds such as BUIDL.
 long_description: |
-  BlackRock is a global asset manager and technology provider that provides investment products and portfolio technology for institutional and individual investors. Its investment platform covers public and private markets, cash management and related investment services.
+  [BlackRock](https://www.blackrock.com/corporate/about-us) is a global asset manager and technology
+  provider founded in 1988. Its first tokenised fund on a public blockchain, the BlackRock USD
+  Institutional Digital Liquidity Fund (BUIDL),
+  [launched on Ethereum in March 2024](https://investors.securitize.io/news/news-details/2024/BlackRock-Launches-Its-First-Tokenized-Fund-BUIDL-on-the-Ethereum-Network-03-20-2024/default.aspx)
+  with Securitize as transfer agent and tokenisation platform and Securitize Markets as placement
+  agent. BlackRock also made a strategic investment in Securitize.
 
-  For this integration, BlackRock is the curator of the BUIDL and BUIDL-I fund share classes. Securitize supplies the tokenisation and investor-services infrastructure, while BlackRock manages the underlying liquidity fund.
+  BUIDL invests all of its assets in cash, US Treasury bills and repurchase agreements. It seeks a
+  stable value of USD 1 per token and pays daily accrued dividends as new tokens each month. The
+  fund is a British Virgin Islands company offered privately under
+  [Rule 506(c) and Investment Company Act Section 3(c)(7)](https://www.sec.gov/Archives/edgar/data/2013810/000201381026000002/xslFormDX01/primary_doc.xml),
+  so investors must be qualified purchasers, and tokens can be transferred only to other
+  pre-approved investors.
+
+  BlackRock Financial Management is the investment manager and BNY the fund administrator and
+  custodian.
+  [New share classes followed in November 2024](https://www.prnewswire.com/news-releases/blackrock-launches-new-buidl-share-classes-across-multiple-blockchains-to-expand-access-and-potential-of-buidl-ecosystem-302304035.html)
+  on Aptos, Arbitrum, Avalanche, OP Mainnet and Polygon, and later on Solana and
+  [BNB Chain](https://www.prnewswire.com/news-releases/blackrocks-buidl-tokenized-by-securitize-now-accepted-as-collateral-for-trading-on-binance-and-launches-on-bnb-chain-302613374.html).
+  [BlackRock's official token address list](https://www.blackrock.com/corporate/compliance/scams-and-fraud/blackrock-token-addresses)
+  also includes a second Ethereum token for the fund's I Class, BUIDL-I.
 other-links:
   - title: BlackRock official company overview
     url: https://www.blackrock.com/corporate/about-us

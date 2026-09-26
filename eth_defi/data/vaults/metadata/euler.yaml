@@ -1,26 +1,45 @@
 name: Euler
 slug: euler
 short_description: |
-  Modular lending platform for lending and borrowing ERC-20 crypto assets.
+  Euler is a modular lending protocol where curators run isolated USDC, USDT and other lending vaults on Ethereum, Base, Arbitrum and a dozen more networks.
 long_description: |
-  Euler is a modular lending platform that allows users to lend and borrow ERC-20 crypto assets
-  in a decentralised, non-custodial manner. The platform is built on Ethereum and enables any
-  asset to become collateral for a lending market.
+  [Euler](https://www.euler.finance/) is a modular, decentralised lending protocol built from
+  independent vaults. Each [vault](https://docs.euler.finance/learn/vaults/) lends one asset, such
+  as USDC, under its own settings, and vaults can accept deposits in other vaults as collateral, so
+  curators can build anything from isolated pairs to multi-asset lending markets. Euler v2
+  [launched in September 2024](https://www.euler.finance/blog/euler-q1-2026) and runs on
+  [Ethereum, Base, Arbitrum, Avalanche, BNB Chain, Monad, Plasma and other networks](https://docs.euler.finance/build/contract-addresses/).
 
-  Euler v2 has two main components:
+  **Vault types.** [Governed vaults](https://docs.euler.finance/learn/vault-types/) are managed by a
+  governor or risk curator who can change accepted collateral, loan-to-value limits, caps, oracles
+  and fees. Ungoverned vaults keep fixed parameters, and escrow vaults only hold collateral and earn
+  no interest. Euler Earn vaults take one asset and allocate it across Euler lending vaults and
+  other strategies chosen by their curator. Euler vault yields come from the interest borrowers
+  pay, minus any interest fee set by the vault's governor;
+  [Euler protocol fees have been zero since April 2026](https://docs.euler.finance/learn/interest-rates/).
 
-  - **Euler Vault Kit (EVK)**: A modular framework for building credit vaults - permissionless,
-    composable ERC-4626 lending pools with added borrowing functionality
-  - **Ethereum Vault Connector (EVC)**: An interoperability layer that connects vaults and allows
-    their use as collateral for other vaults
+  **Withdrawals and risks.** Deposits are
+  [not principal-protected](https://docs.euler.finance/use/supply-assets/): a vault can lose value
+  through bad debt, oracle failure, smart contract failure or configuration changes, and
+  withdrawals are limited to liquidity that borrowers have not taken, so high utilisation can delay
+  them. Isolation contains losses rather than preventing them: when Stream Finance, which had
+  borrowed much of the liquidity on Euler's Plasma deployment, defaulted in late 2025, Euler Labs'
+  Q1 2026 review reported that the Plasma deployment was effectively wiped out, while Euler's
+  DAO-managed markets had no direct exposure.
 
-  Key features:
-
-  - Permissionless vault deployment with customisable risk parameters
-  - Multicall batching and flash liquidity via EVC
-  - Market-leading risk-adjusted rates for lenders and borrowers
-  - Institutional-grade security with multiple audits
+  **History.** Euler v1 was
+  [exploited for about $197 million in March 2023](https://www.euler.finance/blog/war-peace-behind-the-scenes-of-eulers-240m-exploit-recovery),
+  and all stolen funds were recovered within three weeks after negotiations with the attacker.
+  Euler v2 is a new codebase rebuilt from the ground up, and Euler publishes its
+  [security review and audit record](https://docs.euler.finance/security/).
 fee_description: |
+  Governors of Euler lending vaults can set an interest fee: a share of the interest paid by
+  borrowers that goes to the vault's fee receiver, so depositors earn interest net of it. Euler
+  Earn vaults can charge a performance fee of up to 50% of yield, paid by minting new shares to the
+  fee recipient. Euler protocol fees were set to zero in April 2026, and the DAO can reintroduce
+  them through governance. See
+  [Euler interest rates and fees](https://docs.euler.finance/learn/interest-rates/) and
+  [Euler Earn fee settings](https://docs.euler.finance/curate/vaults/euler-earn/deployment-and-management/).
 links:
   homepage: https://www.euler.finance/
   app: https://app.euler.finance/

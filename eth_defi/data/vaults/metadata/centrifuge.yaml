@@ -1,26 +1,44 @@
 name: Centrifuge
 slug: centrifuge
 short_description: |
-  Protocol for real-world asset tokenisation and financing.
+  Centrifuge is an onchain asset management and RWA tokenisation platform where managers such as Anemoy issue tokenised Treasury, AAA CLO, credit and S&P 500 funds.
 long_description: |
-  Centrifuge is a protocol for real-world asset (RWA) tokenisation and financing.
-  It enables borrowers to finance assets like invoices, real estate, and other
-  tokenised assets without the need for banks or other intermediaries.
+  [Centrifuge](https://centrifuge.io/) is open infrastructure for onchain asset management and
+  real-world asset (RWA) tokenisation. Asset managers use it to issue fund shares as tokens on
+  several blockchains, take subscriptions and redemptions in stablecoins such as USDC, and publish
+  NAVs, while each product remains the responsibility of its manager. Centrifuge Labs develops the
+  protocol under the oversight of the Centrifuge Network Foundation, according to its
+  [governance documentation](https://docs.centrifuge.io/getting-started/cfg-governance).
 
-  Each pool can have multiple tranches, and each tranche is a separate deployment
-  of an ERC-7540 Vault and a Tranche Token. Additionally, each tranche of a
-  Centrifuge pool can have multiple Liquidity Pools (vaults) - one for each
-  supported investment currency.
+  **Funds.** Most listed products come from [Anemoy](https://www.anemoy.io/), an asset manager
+  that issues its funds on Centrifuge. The
+  [Janus Henderson Anemoy Treasury Fund (JTRSY)](https://www.anemoy.io/funds/jtrsy) holds US
+  Treasury bills with up to six months to maturity and offers daily redemptions; the
+  [Janus Henderson Anemoy AAA CLO Fund (JAAA)](https://www.anemoy.io/funds/jaaa) holds AAA-rated CLO
+  tranches managed by Janus Henderson's securitised credit team; and the
+  [Janus Henderson Anemoy S&P 500 Fund (SPXA)](https://www.anemoy.io/funds/spxa) tracks the index
+  under an S&P Dow Jones Indices licence. Anemoy also offers
+  [ACRDX](https://www.anemoy.io/news/acrdx-launched), a feeder into Apollo Diversified Credit Fund,
+  and [HYB](https://www.anemoy.io/news/nylim-centrifuge-anemoy), which tokenises New York Life
+  Investment Management's US high yield bond strategy.
 
-  The protocol implements ERC-7540 (asynchronous deposits/redemptions) on top of
-  ERC-4626, enabling integration with Centrifuge's epoch-based investment system.
+  **Eligibility and dealing.** JTRSY, JAAA and SPXA are regulated funds in the British Virgin
+  Islands, and JAAA and SPXA are open only to non-US professional investors. Under the
+  [investor guide](https://docs.centrifuge.io/user/investor), permissioned products require the
+  manager to approve each wallet after onboarding checks such as KYC/AML and jurisdiction. Deposits
+  settle instantly or as requests, while redemptions are always requests that the manager processes
+  at the price applied at that time. [deRWA tokens](https://centrifuge.io/derwa-tokens) such as
+  deJAAA and deJTRSY are freely transferable tokens linked to those funds, which holders can trade on
+  DEXs or use as loan collateral.
 
-  One of the most popular Centrifuge users is Anemoy, which offers tokenised US assets
-  like S&P 500 index, Janus Henderson AAA collateralised loan obligation ETF and US treasuries.
-  The integration also recognises JTRSY share tokens for the Janus Henderson Anemoy
-  Treasury Fund. These shares are not themselves subscription or redemption vaults;
-  eligible dealing takes place through separate Centrifuge pool infrastructure.
+  **Fees and risks.** Fees are set by each manager in the product terms. Holders take the credit,
+  interest-rate or equity risk of the underlying fund, rely on NAVs published by the manager and its
+  dealing cadence, and receive the market price rather than NAV when selling deRWA tokens on a DEX.
 fee_description: |
+  Fees are product-specific. Each manager or issuer sets any management, performance, subscription
+  or redemption fees in its offering terms, and Centrifuge notes that product information comes from
+  the issuer rather than from Centrifuge. Check the fund documents, linked from each product's page
+  in the Centrifuge app, before investing.
 links:
   homepage: https://centrifuge.io/
   app: https://app.centrifuge.io/

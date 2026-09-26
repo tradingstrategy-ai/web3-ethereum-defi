@@ -1,15 +1,41 @@
 name: Ondo
 slug: ondo
 short_description: |
-  Tokenised U.S. dollar yield and short-term government-securities products for eligible investors.
+  Ondo Finance offers tokenised US Treasury products: USDY, a yield-bearing note for non-US investors, and OUSG, a short-term Treasury fund for qualified purchasers.
 long_description: |
-  Ondo issues tokenised products that give eligible investors access to U.S. dollar yield and
-  short-term U.S. government-securities strategies. This integration covers the Ethereum USDY
-  and OUSG share tokens, whose issuers publish their redemption value through on-chain price oracles.
+  [Ondo Finance](https://ondo.finance/) is a US tokenisation company whose tokenised Treasury
+  products include USDY and OUSG. Both accrue yield in the token price rather than paying it out.
+  Ondo also offers [tokenised US stocks and ETFs](https://docs.ondo.finance/ondo-stocks/overview) to
+  non-US investors through Ondo Global Markets.
 
-  These products have investor eligibility, onboarding and transfer restrictions. USDY and OUSG
-  are not general-purpose public deposit accounts: subscriptions and redemptions use Ondo's
-  issuer-managed process, and the availability of those processes depends on the investor and product terms.
+  **USDY.** The
+  [US Dollar Yield token](https://docs.ondo.finance/general-access-products/usdy/basics) is a
+  tokenised note issued by Ondo Global Markets (BVI) Limited and secured, depending on issue date,
+  by short-term US Treasuries, iShares Short Treasury Bond ETF shares or bank demand deposits. Its
+  price is updated each business day at a yield rate Ondo sets monthly; rUSDY is a rebasing version
+  that stays at $1. Unlike a
+  [stablecoin](https://docs.ondo.finance/general-access-products/usdy/comparison-stablecoins), USDY
+  gives holders a security interest in its assets, with Ankura Trust as collateral agent. It can be
+  transferred without onboarding, but minting and redeeming require it. US persons
+  [may not acquire USDY](https://docs.ondo.finance/general-access-products/usdy/eligibility), and in
+  the UK, EEA, Switzerland, Singapore and other listed jurisdictions only professional or qualified
+  investors can.
+
+  **OUSG.** [OUSG](https://ondo.finance/ousg) (Ondo Short-Term US Government Treasuries) is issued
+  by Ondo I LP and advised by Ondo Capital Management, an SEC-registered adviser. It holds
+  tokenised Treasury and money market funds from managers including State Street, BlackRock,
+  Franklin Templeton and Fidelity, plus bank deposits and USDC, in a mix that changes over time, and updates its NAV each business day. Only onboarded investors who are both
+  accredited investors and qualified purchasers can hold, transfer or redeem it. They can
+  [mint and redeem instantly](https://docs.ondo.finance/qualified-access-products/ousg/overview) in
+  USDC from $5,000, around the clock, or by next-business-day requests from $100,000 (subscriptions)
+  and $50,000 (redemptions).
+
+  **Fees and risks.** OUSG's 0.15% management fee is
+  [waived until 1 January 2027](https://docs.ondo.finance/qualified-access-products/ousg/fees-and-taxes)
+  and its fund expenses are capped at 0.15% a year; USDY holders receive the asset yield net of fees
+  and expenses. Instant OUSG redemptions are capped per investor and in total each day and depend on
+  USDC availability. If USDY's issuer misses a redemption, an event of default requires Ankura Trust
+  to liquidate the portfolio and repay holders, subject to holder approval.
 fee_description: |
   Fund expenses affect the published NAV or redemption price. OUSG documents a 0.15% management
   fee, waived until 1 January 2027. USDY and OUSG issuer terms, including any subscription or

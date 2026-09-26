@@ -1,22 +1,36 @@
 name: Spark
 slug: spark
 short_description: |
-  Decentralised non-custodial liquidity protocol built on MakerDAO/Sky infrastructure.
+  Spark is a Sky ecosystem capital allocator whose Spark Savings vaults pay a governance-set rate on USDC, USDT, PYUSD, USDG and ETH deposits on Ethereum and other chains.
 long_description: |
-  Spark is a decentralised non-custodial liquidity protocol built on top of the MakerDAO/Sky
-  infrastructure. It allows users to participate as suppliers or borrowers, and provides
-  yield-generating stablecoin products through the Sky Savings Rate (SSR).
+  [Spark](https://spark.finance/) is part of the Sky ecosystem, formerly MakerDAO. It
+  [borrows from Sky's stablecoin reserves](https://docs.spark.finance/faq) and deploys the capital
+  across DeFi, centralised venues and real-world assets. Its three products are Spark Savings, the
+  SparkLend money market and the
+  [Spark Liquidity Layer](https://docs.spark.finance/products/spark-liquidity-layer), which has
+  operated since November 2024 and can only move funds between governance-approved venues, within
+  set rate limits.
 
-  The sUSDC vault is an ERC-4626 compliant tokenised vault that allows users to deposit USDC
-  and earn the Sky Savings Rate. The vault handles USDC deposits by converting USDC to USDS
-  using the dss-lite-psm (Peg Stability Module) and then depositing into sUSDS to earn yield.
+  **Savings vaults.** [Spark Savings](https://docs.spark.finance/products/spark-savings) vaults
+  accept USDC, USDT, PYUSD, USDG or ETH on Ethereum, Avalanche, Arbitrum, X Layer and Robinhood
+  Chain. Deposits are deployed through the Spark Liquidity Layer, while share values grow at a rate
+  that Spark governance sets, regardless of where the funds sit. The USDC, USDT and PYUSD vaults
+  are fully backed by USDS, so they share the same underlying USDS exposure whichever of these
+  stablecoins is deposited. The legacy Savings USDC
+  (sUSDC) vault instead earns the Sky Savings Rate.
 
-  Key features:
+  **Withdrawals.** There are no lock-ups. Each vault keeps an idle buffer of up to $10 million for
+  instant withdrawals, and larger withdrawals from the Ethereum USDC and USDT vaults can be
+  [requested and are usually filled within minutes](https://docs.spark.finance/products/spark-savings/guides/liquidity-intents).
+  If a potential loss affects the vaults, Spark can put them into recovery mode and temporarily
+  halt withdrawals.
 
-  - No deposit/withdrawal fees at the smart contract level
-  - Yield accrues through the Sky Savings Rate (SSR)
-  - Instant deposits and withdrawals (subject to PSM liquidity)
-  - Fully backed by sUSDS (savings USDS)
+  **Risks and fees.** Losses from Spark's allocations are absorbed first by Spark's own risk
+  capital, then by Sky's surplus buffer and other risk capital and, as a last resort, by newly
+  minted SKY; only after that would remaining losses be shared among all USDS holders, including
+  savings depositors. Deposits and withdrawals carry no fees, and depositing a token into its
+  matching vault has no slippage. Spark lists its
+  [security audits](https://docs.spark.finance/dev/security/security-and-audits).
 fee_description: |
   No deposit/withdrawal fees at the smart contract level.
 links:

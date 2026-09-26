@@ -4,11 +4,27 @@ role: curator
 asseto-role: China Asset Management (Hong Kong)
 website: https://www.chinaamc.com.hk/
 linkedin: chinaamchk
-short_description: China Asset Management is a Hong Kong asset manager offering funds, ETFs, mandates and investment advisory services.
+short_description: China Asset Management is a mainland Chinese fund manager whose Hong Kong subsidiary offers equity, fixed-income, ETF and digital-asset funds, including tokenised money market funds.
 long_description: |
-  China Asset Management is a wholly owned subsidiary of China Asset Management Co. Limited and was incorporated in Hong Kong in 2008. Its investment platform covers equity and fixed-income funds, ETFs, mandates and advisory services for individual and institutional investors.
+  China Asset Management runs its tokenised funds through
+  [China Asset Management (Hong Kong) Limited](https://www.chinaamc.com.hk/), a wholly owned
+  subsidiary of China Asset Management Co. Limited incorporated in Hong Kong in 2008 and regulated
+  by the Securities and Futures Commission (SFC). Its range spans equity, fixed-income, ETF,
+  leveraged and inverse, and digital-asset funds.
 
-  The company manages the ChinaAMC USD Digital Money Market Fund, whose reviewed tokenised share deployments include CUMIU through Libeara and AMCASH+ through Asseto.
+  The
+  [ChinaAMC USD Digital Money Market Fund](https://www.chinaamc.com.hk/detail?fundId=USDDMMF&fundName=ChinaAMC-USD-Digital-Money-Market-Fund-%28Tokenized-Unlisted-Class%29)
+  is an SFC-authorised Hong Kong public fund that invests in short-term deposits and high-quality
+  money market instruments, aiming for US-dollar returns in line with money market rates. Its
+  unlisted share classes, including Class I USD (CUMIU), are issued only as tokens, while a listed
+  class trades on the Stock Exchange of Hong Kong.
+
+  Under the fund prospectus, published on the fund page,
+  Standard Chartered Bank (Hong Kong) acts as tokenisation agent, digital platform operator and
+  administrator, recording shares on Ethereum through Libeara, a Standard Chartered subsidiary,
+  and Standard Chartered Trustee (Hong Kong) is custodian. Investors, including retail investors,
+  deal daily at NAV in cash through eligible distributors such as OSL Digital Securities, which act
+  as nominees for end investors; the tokens do not trade on secondary markets.
 
 # Evidence and background references.
 other-links:

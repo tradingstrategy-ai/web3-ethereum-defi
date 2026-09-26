@@ -4,9 +4,29 @@ role: curator
 upshift-strategist:
   - Sentora
 website: https://sentora.com
-short_description: 'Sentora is an institutional DeFi platform for capital deployment, risk management, strategy design, and cover.'
+short_description: 'Sentora is an institutional DeFi platform, formed by the merger of IntoTheBlock and Trident Digital, that designs and risk-curates stablecoin vaults and yield strategies.'
 long_description: |
-  Sentora describes its platform as institutional-grade intelligence for deploying on-chain capital across DeFi. The homepage highlights strategy design, risk management, integrated cover, stablecoin adoption, risk curation, and tokenised equity yield as solutions for protocols and institutions.
+  [Sentora](https://sentora.com/) is an institutional DeFi platform formed in May 2025 by the
+  [merger of IntoTheBlock and Trident Digital](https://www.prnewswire.com/news-releases/intotheblock-and-trident-merge-to-launch-sentora-securing-25m-to-create-first-compliant-institutional-defi-platform-for-yield-liquidity-and-risk-management-302447198.html),
+  alongside a Series A of up to $25 million led by New Form Capital, with Ripple among the investors. It designs
+  and risk-curates vaults and yield strategies for institutions, exchanges and fintechs, using its
+  [Risk Radar](https://sentora.com/platform/risk-management) analytics, which recompute risk signals
+  every block.
+
+  Sentora's curated lending vaults centre on PayPal's PYUSD and Ripple's RLUSD stablecoins. It curates
+  lending vaults on Euler and Kamino and [introduced itself as a Morpho curator](https://forum.morpho.org/t/introducing-sentora/2102)
+  in December 2025. Some of its Morpho PYUSD vaults lend against tokenised credit such as Figure's
+  PRIME home-equity token, Huma's PST and [mWIN, which Sentora co-developed with Wellington and Midas](https://sentora.com/research/articles/mwin-is-the-first-of-its-kind-rwa-featuring-wellington-investment-expertise-powered-by-midas-and-sentora).
+  As its [case study](https://sentora.com/case-studies/sentora-s-prime-main-vault-reaches-200m-in-pyusd-deposits-in-under-100-days)
+  discloses, Sentora also operates the leveraged PRIME strategy that creates borrowing demand in the
+  market its PRIME vault supplies. Morpho lists SparkDAO alongside Sentora as curator of the
+  [Sentora x Spark RLUSD](https://app.morpho.org/ethereum/vault/0xFC8C624B6080a0a780583799f2A862DE936F6E22/sentora-x-spark-rlusd)
+  vault.
+
+  Sentora is also the strategy designer for all four vaults in
+  [Kraken's DeFi Earn programme](https://sentora.com/case-studies/kraken-defi-earn-vaults-curated-by-sentora-hit-500m-deposits-milestone-in-under-6-months),
+  launched in January 2026. Some Sentora products and services
+  [are not permitted for US residents](https://sentora.com/solutions/tokenized-equity-yield-stey).
 twitter: SentoraHQ
 linkedin: sentorahq
 rss: https://medium.com/feed/sentora

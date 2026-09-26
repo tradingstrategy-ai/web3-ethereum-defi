@@ -2,11 +2,27 @@ feeder-id: blockchain-capital
 name: Blockchain Capital
 role: curator
 website: https://www.blockchaincapital.com/
-short_description: Blockchain Capital is a venture-capital firm that invests in blockchain and cryptocurrency businesses.
+short_description: Blockchain Capital is a venture capital firm, founded in 2013, that invests in companies and protocols building crypto and blockchain products.
 long_description: |
-  Blockchain Capital is a venture-capital firm focused on businesses building blockchain and cryptocurrency products. It invests in companies at different stages of development and manages investment funds for its investors.
+  [Blockchain Capital](https://www.blockchaincapital.com/) is a venture capital firm founded in 2013
+  that invests in crypto companies, protocols and tokens. In 2017 it
+  [structured its third fund](https://www.prnewswire.com/news-releases/blockchain-capital-to-raise-its-third-fund-via-a-digital-token-offering-300424587.html)
+  as a traditional limited partnership plus a parallel offering of BCAP, Ethereum tokens issued by
+  a Singapore entity that represent fractional ownership of Blockchain Capital III Digital Liquid
+  Venture Fund. The April 2017 token sale
+  [raised USD 10 million](https://www.blockchaincapital.com/about-us) at USD 1 per token.
 
-  For this integration, Blockchain Capital is the curator of BCAP, the share class of its Blockchain Capital III Digital Liquid Venture Fund.
+  Blockchain Capital's
+  [December 2024 announcement](https://www.prnewswire.com/news-releases/blockchain-capitals-pioneering-tokenized-fund-announces-dividend-and-upgrades-to-zksync-assembling-its-portfolio-companies-to-advance-venture-capital-investment-access-302328430.html)
+  describes the fund as an evergreen venture fund investing in the equity and digital assets of
+  blockchain projects, whose tokens give accredited and non-US investors an indirect economic
+  interest and cannot be redeemed. It also declared a first dividend of USD 0.25 per token in USDC,
+  scheduled for January 2025, and a full move of BCAP from Ethereum to ZKsync Era.
+
+  In 2018 Blockchain Capital and Securitize
+  [announced an upgrade of BCAP to Securitize's platform](https://www.globenewswire.com/news-release/2018/09/04/1565117/0/en/BCAP-Tokens-to-be-Upgraded-Utilizing-Securitize-Platform.html)
+  to enforce the tokens' securities-law transfer restrictions. The tokenised fund and other
+  Blockchain Capital funds have invested in Securitize and ZKsync.
 other-links:
   - title: Blockchain Capital official firm overview and history of BCAP
     url: https://www.blockchaincapital.com/about-us

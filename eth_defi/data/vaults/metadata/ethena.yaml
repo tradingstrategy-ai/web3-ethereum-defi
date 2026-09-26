@@ -1,26 +1,42 @@
 name: Ethena
 slug: ethena
 short_description: |
-  Synthetic dollar protocol providing crypto-native solution for money.
+  Ethena is a synthetic dollar protocol issuing USDe, backed by hedged crypto and stablecoin reserves, and sUSDe, its staked version that accrues protocol rewards.
 long_description: |
-  Ethena is a synthetic dollar protocol built on Ethereum that provides a crypto-native
-  solution for money, USDe, alongside a globally accessible dollar savings asset, sUSDe.
+  [Ethena](https://ethena.fi/) is a synthetic dollar protocol that issues USDe and its staked,
+  yield-bearing version, sUSDe. Unlike a fiat-backed stablecoin, USDe is
+  [backed](https://docs.ethena.fi/overview/how-usde-works) by spot crypto hedged with short
+  perpetual and futures positions of about the same size, so the combined position is delta-neutral,
+  plus stablecoins and short-duration real-world assets that need no hedge. Its issuer is Ethena BVI
+  Limited, and the [USDe terms](https://docs.ethena.fi/resources/usde-terms-and-conditions) list
+  BTC, ETH, SOL, liquid staking tokens, USDC, USDT and USDtb among the reserves. Only whitelisted
+  counterparties that pass KYC checks can mint or redeem USDe directly; other holders trade it on
+  exchanges and onchain pools.
 
-  USDe is a synthetic dollar backed by crypto assets and corresponding short futures
-  positions, maintaining its $1 peg through delta-neutral hedging. In practice, Ethena
-  accepts crypto collateral (such as Ethereum) and immediately takes an equivalent short
-  position in perpetual futures markets, balancing price movements to stabilise USDe's value.
+  **sUSDe yield.** Staking USDe returns sUSDe, whose value in USDe rises as rewards are added to the
+  staking contract. Rewards are funded from
+  [protocol revenue](https://docs.ethena.fi/backing-assets/protocol-revenue): funding and basis
+  spreads on the hedges, overcollateralised DeFi and institutional lending, tokenised government
+  debt and credit, and stablecoin rewards. They are
+  [discretionary](https://docs.ethena.fi/protocol-overview/rewards-mechanism), paid by a subsidiary
+  of the Ethena Foundation, and never negative, as loss-making periods are meant to be absorbed by a
+  [reserve fund](https://docs.ethena.fi/protocol-overview/reserve-fund). The same revenue also funds
+  partner reward programmes.
 
-  sUSDe (staked USDe) allows users to stake USDe and earn yield from three sustainable
-  sources: funding and basis spread from delta hedging derivatives positions, rewards from
-  liquid stable backing assets, and staked ETH consensus/execution layer rewards.
+  **Unstaking and eligibility.** Unstaking starts a
+  [cooldown](https://docs.ethena.fi/video-guides/how-to-stake-usde) before USDe can be withdrawn,
+  currently one to seven days depending on reserve conditions and set by governance; exiting sooner
+  depends on secondary-market liquidity. sUSDe is not offered to residents of the EU or EEA, and the
+  [terms of service](https://docs.ethena.fi/resources/terms-of-service) bar US persons from Ethena's
+  app and services.
 
-  Key features:
-
-  - No management or performance fees at the smart contract level
-  - Yield comes from protocol funding rates and staking rewards
-  - Governance-configurable cooldown period for withdrawals (up to 90 days)
-  - Fully backed by USDe
+  **Fees and risks.** Ethena does not currently charge fees for its app, although network fees
+  apply, and approved minters pay only execution costs such as gas when minting or redeeming USDe.
+  The main
+  [documented risks](https://docs.ethena.fi/protocol-overview/risks) are persistently negative
+  funding rates, liquidation of hedges, exchange failure, stablecoin depegs and the failure of the
+  [off-exchange custodians](https://docs.ethena.fi/overview/off-exchange-custody) that hold the
+  backing, currently Copper, Ceffu, Kraken and Anchorage Digital.
 fee_description: |
   No management or performance fees at the smart contract level.
 links:

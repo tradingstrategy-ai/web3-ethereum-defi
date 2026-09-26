@@ -4,9 +4,28 @@ role: curator
 symbiotic-curator: Re7 Labs
 euler-entity: re7-labs
 website: https://re7.capital
-short_description: 'Re7 Labs is the innovation arm of Re7 Capital, supporting DeFi investment strategies and ecosystem development.'
+short_description: 'Re7 Labs is the onchain risk-curation and strategy arm of digital asset investment firm Re7 Capital, curating lending vaults on Morpho, Euler and Kamino.'
 long_description: |
-  Re7 Capital describes itself as a research-driven digital asset investment firm specialising in DeFi yield and liquid alpha strategies. Its homepage and LinkedIn presence frame Re7 as investors and operators across decentralised digital asset ecosystems, with Re7 Labs referenced as the innovation arm behind its strategy stack.
+  [Re7 Labs](https://re7labs.xyz/) is the onchain asset management and risk-curation arm of
+  [Re7 Capital](https://re7.capital/), which [describes itself](https://re7research.substack.com/p/the-weekly-21st-september-2026)
+  as a research-driven digital asset investment firm specialising in DeFi yield and liquid alpha
+  strategies. Re7 Labs [curates vaults](https://ournetwork.substack.com/p/on346-re7-vaults) on lending
+  protocols including Morpho, Euler and Kamino, among them isolated Re7 Labs Cluster markets on Euler
+  on chains such as Avalanche, BNB Chain, Linea and Sonic.
+
+  Re7 [proposed its first Morpho vault](https://forum.morpho.org/t/re7-labs-lst-backed-eth-metamorpho-vault-whitelisting/427),
+  lending ETH against liquid staking tokens, in January 2024, and in July 2024 began adding
+  [Aragon-based guardians](https://forum.morpho.org/t/re7-labs-vaults-now-with-trustless-guardian-using-aragon/681)
+  that let depositors vote to veto pending vault changes.
+
+  In November 2025 Re7's Morpho World Chain vault was left with bad debt related to Elixir's
+  sdeUSD, which Re7 [reported as fully repaid](https://x.com/Re7Labs/status/1989758811637489792)
+  on 15 November. Re7 [said](https://x.com/Re7Labs/status/1991567617811677616) it had cut its
+  vaults' exposure by more than half before redemptions were halted and had sent legal notices
+  requiring repayment. In the March 2026 Resolv exploit, two USR markets in its Re7 USDC vaults on Base and
+  Ethereum were affected; Re7 [cut their caps to zero the same morning](https://x.com/Re7Labs/status/2035770653261869480)
+  and in June 2026 made [223,000 USDC of recovery proceeds](https://x.com/Re7Labs/status/2069005026769445148)
+  claimable through Merkl.
 twitter: Re7Capital
 linkedin: re7capital
 rss: https://re7research.substack.com/feed
