@@ -391,53 +391,87 @@ def render_hero_image(
     draw = ImageDraw.Draw(image)
     pad = 56
 
-    draw_brand_logo(image, pad, 42, 44, theme)
+    # Header: logo left, edition and selection criteria right
+    draw_brand_logo(image, pad, 40, 40, theme)
+    edition_font, criteria_font = _font(22, bold=True), _font(16)
+    draw.text((width - pad - draw.textlength(month_label, font=edition_font), 40), month_label, font=edition_font, fill=theme.positive)
+    draw.text((width - pad - draw.textlength(subtitle, font=criteria_font), 70), subtitle, font=criteria_font, fill=theme.muted_text)
 
-    title_top = 150 if square else 116
-    draw.text((pad, title_top), "Best-performing stablecoin vaults", font=_font(50 if square else 52, bold=True), fill=theme.text)
-    draw.text((pad, title_top + 64), month_label, font=_font(32), fill=theme.positive)
+    title_top = 150 if square else 104
+    title_font = _font(56 if square else 46, bold=True)
+    draw.text((pad, title_top), "Best-performing stablecoin vaults", font=title_font, fill=theme.text)
 
+    # The ranking sits on a rounded card with column headers and hairline row separators
+    card_top = title_top + (110 if square else 78)
+    card_bottom = height - (56 if square else 30)
+    card = (pad - 20, card_top, width - pad + 20, card_bottom)
+    card_layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    ImageDraw.Draw(card_layer).rounded_rectangle(card, radius=22, fill=_hex_to_rgba(theme.surface, 235), outline=(255, 255, 255, 22) if theme.name == "dark" else (0, 0, 0, 20), width=1)
+    image.alpha_composite(card_layer)
+    draw = ImageDraw.Draw(image)
+
+    header_height = 44 if square else 38
     rows = vaults_df.head(5)
-    # The square image spreads its rows down to the footer
-    rows_top, row_height = (340, 140) if square else (250, 66)
-    spark_left = int(width * (0.52 if square else 0.56))
-    spark_right = spark_left + (200 if square else 240)
-    header_font = _font(15)
-    draw.text((spark_left, rows_top - 30), "90-day price", font=header_font, fill=theme.muted_text)
-    header = "3M return, annualised"
-    draw.text((width - pad - draw.textlength(header, font=header_font), rows_top - 30), header, font=header_font, fill=theme.muted_text)
+    row_height = (card_bottom - card_top - header_height - 8) / max(len(rows), 1)
+    spark_left = int(width * (0.54 if square else 0.575))
+    spark_right = spark_left + (190 if square else 220)
+    header_font = _font(14)
+    header_y = card_top + header_height / 2
+    for text, x, anchor in (("VAULT", pad + 52, "lm"), ("90-DAY PRICE", spark_left, "lm"), ("3M RETURN, ANNUALISED", width - pad, "rm")):
+        draw.text((x, header_y), text, font=header_font, fill=theme.muted_text, anchor=anchor)
+    # Neutral hairlines: white on the dark theme, black on the light one
+    separator = (255, 255, 255, 28) if theme.name == "dark" else (0, 0, 0, 24)
+    # Separators go on a layer: ImageDraw does not blend translucent colours into an RGBA image
+    lines_layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    lines_draw = ImageDraw.Draw(lines_layer)
+    lines_draw.line((pad, card_top + header_height, width - pad, card_top + header_height), fill=separator, width=1)
+
+    # Top three ranks get gold, silver and bronze rings
+    medals = {1: "#d4af37", 2: "#c0c4cc", 3: "#c8804a"}
+    name_font, property_font = _font(28 if square else 25, bold=True), _font(18 if square else 17)
+    value_font = _font(40 if square else 34, bold=True)
     for rank, (vault_id, vault) in enumerate(rows.iterrows(), start=1):
-        top = rows_top + (rank - 1) * row_height
-        draw.text((pad, top + 12), str(rank), font=_font(28, bold=True), fill=theme.muted_text)
-        name_x = pad + 44
-        text_right = spark_left - 24
-        draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), text_right - name_x), font=_font(26, bold=True), fill=theme.text)
+        top = card_top + header_height + (rank - 1) * row_height
+        middle = top + row_height / 2
+        if rank > 1:
+            lines_draw.line((pad, top, width - pad, top), fill=separator, width=1)
+
+        # Rank badge: a translucent tinted disc with a ring, drawn on its own layer so the tint blends
+        radius = 17 if square else 15
+        ring = medals.get(rank, theme.muted_text)
+        badge = Image.new("RGBA", size, (0, 0, 0, 0))
+        ImageDraw.Draw(badge).ellipse((pad, middle - radius, pad + 2 * radius, middle + radius), outline=_hex_to_rgba(ring, 255 if rank in medals else 110), width=2, fill=_hex_to_rgba(ring, 34 if rank in medals else 0))
+        image.alpha_composite(badge)
+        draw = ImageDraw.Draw(image)
+        draw.text((pad + radius, middle), str(rank), font=_font(17 if square else 16, bold=True), fill=ring, anchor="mm")
+
+        name_x = pad + 2 * radius + 20
+        text_right = spark_left - 28
+        name_y = middle - (21 if square else 18)
+        draw.text((name_x, name_y), _fit_text(draw, vault["name"] or vault["address"], name_font, text_right - name_x), font=name_font, fill=theme.text, anchor="lm")
         # Curator, protocol and chain under the name, each with its own icon
-        property_font = _font(18)
+        property_y = middle + (17 if square else 15)
         x = name_x
         for text, icon in properties.get(vault_id, [(vault["protocol_label"], None), (vault["chain"], None)]):
             if icon is not None:
                 if x + 22 > text_right:
                     break
                 icon = icon.copy()
-                icon.thumbnail((20, 20))
-                image.alpha_composite(icon, (x, top + 36 + (20 - icon.height) // 2))
-                x += 26
+                icon.thumbnail((19, 19))
+                image.alpha_composite(icon, (x, int(property_y - icon.height / 2)))
+                x += 25
             if text_right - x < 40:
                 break
             fitted = _fit_text(draw, text, property_font, text_right - x)
-            draw.text((x, top + 34), fitted, font=property_font, fill=theme.muted_text)
-            x += int(draw.textlength(fitted, font=property_font)) + 18
+            draw.text((x, property_y), fitted, font=property_font, fill=theme.muted_text, anchor="lm")
+            x += int(draw.textlength(fitted, font=property_font)) + 16
         if vault_id in sparklines:
-            _draw_sparkline(image, sparklines[vault_id], (spark_left, top + 6, spark_right, top + 50), theme.positive)
+            spark_half = min(24 if square else 20, row_height * 0.32)
+            _draw_sparkline(image, sparklines[vault_id], (spark_left, int(middle - spark_half), spark_right, int(middle + spark_half)), theme.positive)
             draw = ImageDraw.Draw(image)
         value = format_return(vault["three_months_cagr_net"], vault["three_months_cagr"]).replace(" (n)", "").replace(" (g)", "")
-        value_font = _font(34, bold=True)
-        draw.text((width - pad - draw.textlength(value, font=value_font), top + 6), value, font=value_font, fill=theme.positive)
+        draw.text((width - pad, middle), value, font=value_font, fill=theme.positive, anchor="rm")
+    image.alpha_composite(lines_layer)
 
-    footer_font = _font(18)
-    # The TradingStrategy.ai logo in the header brands the image, so the footer carries only the selection criteria
-    footer_text = _fit_text(draw, subtitle, footer_font, width - 2 * pad)
-    draw.text((pad, height - 50), footer_text, font=footer_font, fill=theme.muted_text)
     image.convert("RGB").save(output_path, format="PNG", optimize=True)
     return output_path
