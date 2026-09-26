@@ -277,6 +277,11 @@ The Codex CLI:
 codex --search exec --json --ephemeral --sandbox danger-full-access [-m gpt-6-sol] "<prompt>"
 ```
 
+The Claude CLI bills `ANTHROPIC_API_KEY` when it is set, ahead of the
+claude.ai login. If `.local-test.env` exports an API key without credit, the
+agent stops with "Credit balance is too low": run the report with
+`unset ANTHROPIC_API_KEY` after sourcing the environment to use the login.
+
 `vault_checks.build_agent_command()` builds both commands, with stdin closed
 and the JSONL stream written to the transcript. Read
 `.claude/docs/agent-tricks-and-troubleshooting.md` before changing them.

@@ -596,13 +596,15 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
     round_.facts_path.write_text(json.dumps(facts_to_json({c.vault_id: facts[c.vault_id] for c in in_scope if c.vault_id in facts}), indent=2, default=str))
     logger.info("Round %d: checking %d in-scope vaults with %s", number, len(in_scope), settings.agent)
     command = build_agent_command(settings.agent, build_agent_prompt(round_, round_.facts_path), settings.model)
+    diff_before = show_flag_diff(settings.repository_root)
     run_check_agent(command, settings.repository_root, output_dir / f"vault-check-agent-{number}.jsonl", round_.decisions_path, settings.timeout)
     decisions = read_check_decisions(round_.decisions_path, in_scope, round_.candidates_digest, data_end_at)
     missing = check_blacklist_entries(decisions, settings.repository_root / FLAG_FILE)
     if missing:
         raise CheckValidationError(f"Blacklisted vaults missing from {FLAG_FILE}: {missing}")
+    # Warn only about changes made in this round, not uncommitted entries of earlier rounds
     diff = show_flag_diff(settings.repository_root)
-    if diff:
+    if diff and diff != diff_before:
         logger.warning("The check agent blacklisted vaults in %s; review and commit the change:\n%s", FLAG_FILE, diff)
     return round_, decisions
 
@@ -753,7 +755,9 @@ def render_excluded_table(result: CheckResult) -> str | None:
         decision = result.decisions[candidate.vault_id]
         name = html.escape(candidate.name or candidate.address)
         vault = f'<a href="{html.escape(candidate.link)}">{name}</a>' if candidate.link and re.match(r"^https://", candidate.link) else name
-        body.append(f"<tr><td>{vault}</td><td>{html.escape(candidate.protocol or '')}</td><td>{html.escape(decision.suspicious_item or '')}</td><td>{html.escape(decision.reason or '')}</td></tr>")
+        # Curators reuse vault names across chains, e.g. Re7 Labs Cluster
+        chain = f" ({html.escape(candidate.chain)})" if candidate.chain else ""
+        body.append(f"<tr><td>{vault}{chain}</td><td>{html.escape(candidate.protocol or '')}</td><td>{html.escape(decision.suspicious_item or '')}</td><td>{html.escape(decision.reason or '')}</td></tr>")
     return "<table>\n<thead><tr><th>Vault</th><th>Protocol</th><th>Suspicious item</th><th>Reason</th></tr></thead>\n<tbody>\n" + "\n".join(body) + "\n</tbody>\n</table>"
 
 

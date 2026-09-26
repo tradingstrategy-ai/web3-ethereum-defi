@@ -47,9 +47,6 @@ from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
-#: Morpho Blue singleton, the same address on every chain
-MORPHO_BLUE_ADDRESS = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb"
-
 #: A position at least this large, as a share of the vault's assets, is checked for suspicious collateral
 SUSPICIOUS_POSITION_SHARE: Percent = 0.10
 
@@ -233,7 +230,8 @@ def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -
         Exposures, total assets and idle assets, in denomination token units.
     """
     vault = get_deployed_contract(web3, "morpho/MetaMorpho.json", Web3.to_checksum_address(vault_address))
-    morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", Web3.to_checksum_address(MORPHO_BLUE_ADDRESS))
+    # Morpho Blue is not at the same address on every chain, so ask the vault
+    morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", vault.functions.MORPHO().call(block_identifier=block))
     asset = _token(web3, vault.functions.asset().call(block_identifier=block), chain_id)
     scale = 10**asset.decimals
     total_assets = vault.functions.totalAssets().call(block_identifier=block) / scale
@@ -415,7 +413,14 @@ def raise_signals(facts: VaultFacts) -> list[str]:
     for exposure in facts.exposures:
         if exposure.collateral and exposure.share_of_assets >= SUSPICIOUS_POSITION_SHARE:
             if exposure.collateral_dex_liquidity_usd is not None and exposure.collateral_dex_liquidity_usd < MIN_COLLATERAL_DEX_LIQUIDITY_USD:
-                signals.append(f"{exposure.share_of_assets:.0%} of assets lent against {exposure.collateral_symbol or exposure.collateral} with ${exposure.collateral_dex_liquidity_usd:,.0f} DEX liquidity")
+                symbol = exposure.collateral_symbol or exposure.collateral
+                if exposure.kind == "euler_collateral":
+                    # An EVK pool accepts several collaterals and its exposure to each one is not known
+                    signal = f"{exposure.share_of_assets:.0%} of assets in an Euler pool that accepts {symbol} as collateral, with ${exposure.collateral_dex_liquidity_usd:,.0f} DEX liquidity"
+                else:
+                    signal = f"{exposure.share_of_assets:.0%} of assets lent against {symbol} with ${exposure.collateral_dex_liquidity_usd:,.0f} DEX liquidity"
+                if signal not in signals:
+                    signals.append(signal)
     if facts.redeemable_share is not None and facts.redeemable_share < MIN_REDEEMABLE_SHARE:
         signals.append(f"redeemable liquidity is {facts.redeemable_share:.2%} of assets")
     idle_share = facts.history.get("idle_share_max_14d")
