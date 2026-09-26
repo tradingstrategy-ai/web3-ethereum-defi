@@ -118,7 +118,7 @@ SECTION_TEMPLATES = (
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>The best-performing vaults of the month in five groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools.</p>",
+        intro="<p>The best-performing vaults of the month in five groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools, and the best vaults on each chain.</p>",
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
@@ -158,6 +158,13 @@ SECTION_TEMPLATES = (
         level=3,
     ),
     SectionTemplate(
+        key="by_chain",
+        heading_id="the-best-performing-vaults-on-each-chain",
+        heading="Best-performing vaults on each chain",
+        charts=(("by_chain_best", "The best-performing vault on each chain"),),
+        level=3,
+    ),
+    SectionTemplate(
         key="tokenised_funds",
         heading_id="the-best-performing-tokenised-funds",
         heading="The best-performing tokenised funds",
@@ -172,7 +179,6 @@ SECTION_TEMPLATES = (
         intro="<p>Higher returns usually come with higher volatility. Vaults above and to the left of the crowd offer better returns for their risk.</p>",
         charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
-    SectionTemplate(key="by_chain", heading_id="the-best-performing-vaults-on-each-chain", heading="The best-performing vaults on each chain"),
 )
 
 

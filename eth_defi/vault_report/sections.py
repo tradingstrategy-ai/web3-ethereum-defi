@@ -464,6 +464,26 @@ def select_vaults_by_chain(eligible_df: pd.DataFrame, criteria: ReportCriteria) 
     return top.sort_values(["chain", "one_month_cagr_best"], ascending=[True, False])
 
 
+def select_chain_chart_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Best vaults on each chain for the per-chain chart.
+
+    Like :py:func:`select_vaults_by_chain`, but ranked by the charts' annualised
+    three-month return, :py:data:`CHART_RETURN`, and leaving out vaults rated
+    too risky for charts.
+
+    :param eligible_df:
+        Eligible vaults, AMM pools and unidentified protocols already left out.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Up to :py:attr:`ReportCriteria.chain_top_n` vaults per chain, best first within each chain.
+    """
+    df = exclude_chart_risks(eligible_df.loc[(eligible_df["current_nav"] >= criteria.chain_min_tvl) & eligible_df[CHART_RETURN].notna()], criteria)
+    return rank_vaults(df, CHART_RETURN).groupby("chain", sort=False).head(criteria.chain_top_n)
+
+
 def select_average_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Select the vaults counted in the average yield charts.
 

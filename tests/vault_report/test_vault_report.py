@@ -346,6 +346,9 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "5 of the 5 stablecoin yield vaults with at least $100k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
     assert '<h3 id="best-performing-lending-vaults">' in post_html
     assert '<h2 id="the-best-performing-tokenised-funds">' in post_html
+    # The per-chain table is a subsection of the best-performing vaults, before the tokenised funds
+    assert '<h3 id="the-best-performing-vaults-on-each-chain">' in post_html
+    assert post_html.index("the-best-performing-vaults-on-each-chain") < post_html.index("the-best-performing-tokenised-funds")
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
@@ -375,6 +378,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "other_performance",
         "tokenised_funds_performance",
         "risk_return",
+        "by_chain_best",
     }
     for path in report.chart_paths.values():
         image = Image.open(path)
@@ -394,7 +398,7 @@ def test_render_report_charts_without_prices(tmp_path: Path, vaults_df: pd.DataF
     pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0], "total_assets": [1.0]}).to_parquet(empty_prices)
     data = VaultReportData(vaults_df=vaults_df, prices_path=empty_prices)
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out")
-    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "protocol_high_yields", "tvl_changes", "risk_return"}
+    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "protocol_high_yields", "tvl_changes", "risk_return", "by_chain_best"}
     assert "lending" in report.context.tables
 
 

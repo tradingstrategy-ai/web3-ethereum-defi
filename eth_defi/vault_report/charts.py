@@ -799,6 +799,82 @@ def create_average_yield_figure(
     return fig
 
 
+def create_chain_best_figure(
+    chain_vaults: pd.DataFrame,
+    theme: ChartTheme,
+    logos: dict[str, str | None] | None = None,
+    benchmark_yield: float | None = None,
+) -> Figure:
+    """Draw the best vaults on each chain as a dot plot on a log return scale.
+
+    Each chain is a row, sorted by its best vault's return. The best vault is a
+    large green dot, the runners-up small grey dots, and the right-hand column
+    names the best vault and its return. The best vaults range from money
+    market yields to capped trading returns, so the return axis is logarithmic.
+
+    :param chain_vaults:
+        Output of :py:func:`eth_defi.vault_report.sections.select_chain_chart_vaults`,
+        with ``chain``, ``name`` and ``three_months_cagr_best`` columns, best first within each chain.
+
+    :param theme:
+        Chart theme.
+
+    :param logos:
+        Chain name -> logo data URI.
+
+    :param benchmark_yield:
+        Latest US Treasury bill yield as a fraction, drawn as a reference line.
+
+    :return:
+        Plotly figure.
+    """
+    logos = logos or {}
+    best = chain_vaults.groupby("chain", sort=False).head(1).sort_values(CHART_RETURN)
+    positions = {chain: position for position, chain in enumerate(best["chain"])}
+    floor = 0.1
+    points = chain_vaults.assign(x=(chain_vaults[CHART_RETURN] * 100).clip(lower=floor), y=chain_vaults["chain"].map(positions))
+    runners_up = points.loc[~points.index.isin(best.index)]
+    leaders = points.loc[best.index]
+
+    fig = go.Figure()
+    for position in positions.values():
+        fig.add_shape(type="line", xref="paper", yref="y", x0=0, x1=1, y0=position, y1=position, line={"color": theme.grid, "width": 1}, layer="below")
+    fig.add_trace(go.Scatter(x=runners_up["x"], y=runners_up["y"], mode="markers", marker={"size": 11, "color": to_rgba(theme.muted_text, 0.5), "line": {"color": theme.surface, "width": 2}}, hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(x=leaders["x"], y=leaders["y"], mode="markers", marker={"size": 20, "color": theme.positive, "line": {"color": theme.surface, "width": 3}}, hoverinfo="skip", showlegend=False))
+
+    height = max(IMAGE_HEIGHT, 140 + 52 * len(positions))
+    apply_theme(fig, theme, IMAGE_WIDTH, height)
+    fig.update_layout(xaxis_title="3-month return, annualised (log scale)", margin={"l": 200, "r": 390, "t": 50, "b": 90})
+    top = max(float(points["x"].max()) * 1.6, 20.0)
+    x_ticks = [tick for tick in (0.1, 1, 10, 100, 1_000, 10_000) if floor <= tick <= top]
+    fig.update_xaxes(type="log", range=[np.log10(floor) - 0.1, np.log10(top)], tickvals=x_ticks, ticktext=[f"{tick:,g}%" for tick in x_ticks], showgrid=True, gridcolor=theme.grid)
+    fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(positions) - 0.3])
+
+    for chain, position in positions.items():
+        logo = logos.get(chain)
+        if logo:
+            fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.22, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
+        fig.add_annotation(text=wrap_label(chain, 14), xref="paper", yref="y", x=-0.175, y=position, xanchor="left", align="left", showarrow=False, font={"size": 19, "color": theme.text})
+        leader = leaders.loc[leaders["chain"] == chain].iloc[0]
+        value = leader[CHART_RETURN]
+        text = f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}%" if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
+        fig.add_annotation(
+            text=f"{highlight_number(text, theme, value)}  {shorten_text(leader['name'] or leader['address'], 28)}",
+            xref="paper",
+            yref="y",
+            x=1.02,
+            y=position,
+            xanchor="left",
+            showarrow=False,
+            font={"size": 17, "color": theme.text},
+        )
+
+    if benchmark_yield is not None:
+        fig.add_vline(x=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
+        fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", x=np.log10(benchmark_yield * 100), xref="x", y=1.0, yref="paper", yanchor="bottom", showarrow=False, font={"size": 18, "color": theme.benchmark})
+    return fig
+
+
 def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, properties: dict[str, tuple[VaultProperty, ...]] | None = None) -> Figure:
     """Draw the largest one-month TVL increases and decreases as diverging bars.
 

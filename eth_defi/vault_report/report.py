@@ -41,6 +41,7 @@ from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
     create_average_yield_figure,
+    create_chain_best_figure,
     create_performance_figure,
     create_protocol_tvl_figure,
     create_risk_return_figure,
@@ -76,6 +77,7 @@ from eth_defi.vault_report.sections import (
     rank_vaults,
     render_section_table,
     select_average_yield_vaults,
+    select_chain_chart_vaults,
     select_comparable_vaults,
     select_group,
     select_new_vaults,
@@ -325,7 +327,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             unidentified,
             amm,
         ],
-        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", unidentified, amm, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
+        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain, perp DEX vaults and tokenised funds included", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", "The chart ranks by annualised three-month return on a log scale, and leaves out vaults rated Dangerous or worse; the table ranks by one-month return", unidentified, amm, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
     }
 
 
@@ -537,6 +539,17 @@ def render_report_charts(
         else:
             figure = create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos)
         figures[f"{key}_performance"] = (figure, performance_panels[key])
+
+    chain_chart_vaults = select_chain_chart_vaults(ranked_df, criteria)
+    if len(chain_chart_vaults):
+        figures["by_chain_best"] = (
+            create_chain_best_figure(chain_chart_vaults, theme, {chain: chain_logo(chain) for chain in chain_chart_vaults["chain"].unique()}, tbill_latest),
+            ChartPanel(
+                "The best-performing vault on each chain",
+                f"Large dot: the best vault · small dots: the runners-up · at least {format_usd(criteria.chain_min_tvl)} TVL",
+                "tradingstrategy.ai/trading-view/vaults/chains",
+            ),
+        )
 
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
     figures["risk_return"] = (
