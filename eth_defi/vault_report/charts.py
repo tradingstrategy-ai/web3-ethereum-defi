@@ -21,6 +21,7 @@ import datetime
 import io
 import logging
 import os
+import re
 import tempfile
 import textwrap
 import zlib
@@ -136,6 +137,25 @@ def wrap_label(text: str, width: int) -> str:
         Label with ``<br>`` line breaks.
     """
     return "<br>".join(textwrap.wrap(text, width=width)) or text
+
+
+def highlight_number(text: str, theme: ChartTheme, value: float | None = None) -> str:
+    """Wrap a number in a legend label in bold and an accent colour, so it stands out from the text.
+
+    :param text:
+        Formatted number, e.g. ``+22.6%`` or ``$5.5B``.
+
+    :param theme:
+        Chart theme.
+
+    :param value:
+        Signed value for returns: negative values are red, others green. ``None`` for amounts, which are green.
+
+    :return:
+        Plotly HTML.
+    """
+    colour = theme.negative if value is not None and value < 0 else theme.positive
+    return f"<span style='color:{colour}'><b>{text}</b></span>"
 
 
 def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE) -> float:
@@ -276,7 +296,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
         widths = [_measure_text(line, 17) for line in lines]
         widths += [offset + (PROPERTY_ICON_SIZE + 5 if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
-        widths += [_measure_text(entry.detail, 17)] if entry.detail else []
+        widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
         layouts.append((entry, lines, height + gap_pixels))
 
@@ -575,7 +595,8 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", line={"color": theme.surface, "width": 8}, showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         note = " ▲" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{note}", properties=item.properties))
+        last = vaults[item.vault_id].iloc[-1]
+        entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{highlight_number(describe(vaults[item.vault_id]), theme, last)}{note}", properties=item.properties))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
             fig.add_annotation(text=f"▲ {rank}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
@@ -587,7 +608,7 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
         # Benchmark logos use the same small icon row as the vaults' curator, protocol and chain
-        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=describe(performance), properties=(VaultProperty("Benchmark", logo),)))
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=highlight_number(describe(performance), theme, performance.iloc[-1]), properties=(VaultProperty("Benchmark", logo),)))
         # The line end shows the benchmark logo and value; the name is only needed without a logo
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
@@ -742,9 +763,12 @@ def create_average_yield_figure(
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
         fig.add_annotation(text=wrap_label(group, 16), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", align="left", showarrow=False, font={"size": 20, "color": theme.text})
         # Round before formatting so a tiny negative difference does not print as -0.0
-        spread = f" {round((row['avg_return'] - benchmark_yield) * 100, 1) + 0.0:+.1f} pp" if benchmark_yield is not None else ""
+        # The average takes its dot's colour, the difference to the T-bill is green or red, the TVL is muted
+        difference = round((row["avg_return"] - benchmark_yield) * 100, 1) + 0.0 if benchmark_yield is not None else None
+        average_colour = theme.positive if benchmark_yield is None or row["avg_return"] >= benchmark_yield else theme.text
+        spread = f" <span style='color:{theme.positive if difference >= 0 else theme.negative}'>{difference:+.1f} pp</span>" if difference is not None else ""
         fig.add_annotation(
-            text=f"<b>{row['avg_return']:.1%}</b><span style='color:{theme.muted_text}'>{spread} · {_format_usd_short(row['tvl'])}</span>",
+            text=f"<span style='color:{average_colour}'><b>{row['avg_return']:.1%}</b></span>{spread}<span style='color:{theme.muted_text}'> · {_format_usd_short(row['tvl'])}</span>",
             xref="paper",
             yref="y",
             x=1.02,
@@ -952,11 +976,11 @@ def create_protocol_tvl_figure(
     for colour, protocol in zip(colours, tvl_by_protocol.columns, strict=False):
         series = tvl_by_protocol[protocol] / 1e9
         fig.add_trace(go.Scatter(x=series.index, y=series.to_numpy(), mode="lines", stackgroup="tvl", name=protocol, line={"width": 0, "color": colour}, fillcolor=to_rgba(colour, 0.56)))
-        entries.append(LegendEntry(f"{protocol} {_format_usd_short(series.iloc[-1] * 1e9)}", colour, logos.get(protocol)))
+        entries.append(LegendEntry(protocol, colour, logos.get(protocol), detail=highlight_number(_format_usd_short(series.iloc[-1] * 1e9), theme)))
 
     total = tvl_by_protocol.sum(axis=1) / 1e9
     add_glow_line(fig, total.index, total.to_numpy(), theme.positive, "Total")
-    entries.insert(0, LegendEntry(f"Total {_format_usd_short(total.iloc[-1] * 1e9)}", theme.positive))
+    entries.insert(0, LegendEntry("Total", theme.positive, detail=highlight_number(_format_usd_short(total.iloc[-1] * 1e9), theme)))
 
     apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT)
     # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
