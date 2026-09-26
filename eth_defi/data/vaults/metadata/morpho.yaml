@@ -1,40 +1,48 @@
 name: Morpho
 slug: morpho
 short_description: |
-  Decentralised lending protocol with optimised interest rates and flexible vault architectures.
+  Morpho is a decentralised lending protocol where curators run USDC, ETH and other lending vaults on Ethereum, Base and more than 40 other networks.
 long_description: |
-  Morpho is a decentralised lending protocol that enables peer-to-peer lending with optimised
-  interest rates. The protocol matches lenders and borrowers directly when possible, allowing
-  both parties to benefit from improved rates compared to traditional lending pools.
+  [Morpho](https://morpho.org/) is a decentralised, noncustodial lending protocol. Its
+  [lending markets](https://docs.morpho.org/learn/concepts/blue/) are isolated: each pairs one
+  collateral asset with one loan asset under a fixed liquidation loan-to-value and oracle, and
+  anyone can create one. Morpho vaults sit on top: a depositor supplies a single asset, such as
+  USDC or ETH, and the vault lends it across several markets. Morpho Blue and the first vaults
+  [went live at the start of 2024](https://morpho.org/blog/morpho-v2-liberating-the-potential-of-onchain-loans/),
+  and the contracts are
+  [deployed on Ethereum, Base, Arbitrum and more than 40 other networks](https://docs.morpho.org/developers/contracts/addresses/).
 
-  Morpho offers two major vault versions:
+  **Curators.** Each vault has a [curator](https://docs.morpho.org/learn/concepts/curator/) who
+  decides which markets it may lend to and caps its exposure to each, while allocators move
+  liquidity within those limits. Curator changes that add risk go through a timelock set for each
+  vault, which can give depositors time to exit before they apply.
+  [Morpho Vaults V2](https://morpho.org/blog/morpho-vaults-v2-a-new-standard-for-asset-curation/),
+  launched on 29 September 2025, can also allocate to other Morpho vaults and newer market types,
+  appoint sentinels who can cut risk in an emergency, and restrict deposits to approved users.
 
-  - **Morpho V1 (MetaMorpho)**: The original Morpho vault architecture that directly integrates
-    with Morpho markets. These vaults are identified by the `MORPHO()` function.
+  **Yield and fees.** Returns come from
+  [interest paid by borrowers](https://docs.morpho.org/developers/earn/concepts/yield-fees/) in the
+  underlying markets, so vault APYs move with borrowing demand. A vault can charge a
+  [performance fee](https://docs.morpho.org/curate/concepts/fee/) of up to 50% of the interest it
+  earns and, in V2, a management fee of up to 5% a year on deposits.
 
-  - **Morpho V2**: A newer adapter-based architecture that enables flexible allocation across
-    multiple yield sources through smart contract adapters. V2 vaults support:
-
-    - Multi-protocol yield allocation via adapters
-    - Granular ID & Cap system for risk management
-    - Performance fees (up to 50%) and management fees (up to 5%)
-    - Timelocked governance with curator/allocator roles
-    - Non-custodial exits via `forceDeallocate`
-
-  Key features:
-
-  - Permissionless market creation with customisable risk parameters
-  - Multiple curated vault strategies from leading risk managers
-  - Institutional-grade security with multiple audits
-  - Deployed across Ethereum, Base, Arbitrum, and other chains
+  **Withdrawals and risks.** Exits depend on unborrowed liquidity in the markets a vault lends to,
+  so [high utilisation can delay withdrawals](https://docs.morpho.org/learn/resources/risks/). V2
+  vaults also let depositors redeem shares for the underlying market positions, subject to a penalty
+  of up to 2%, even when the vault lacks immediate liquidity. If collateral loses value faster than
+  liquidators can act,
+  [the bad debt is a loss for every lender in that market](https://docs.morpho.org/curate/tutorials-v1/bad-debt/),
+  including vaults allocated to it. Oracle failures and curator decisions are the other main risks;
+  Morpho publishes its [audit reports](https://docs.morpho.org/get-started/resources/audits/).
 fee_description: |
-  Morpho vaults have two fee types:
+  Morpho vaults can charge two fee types:
 
-  - **Performance fee**: Up to 50% on generated yield, taken when interest accrues
-  - **Management fee**: Up to 5% per year on total assets under management
+  - **Performance fee**: Up to 50% of the interest the vault earns, taken when interest accrues
+  - **Management fee**: Up to 5% per year on total assets, available in Morpho Vaults V2 only
 
   Fees are internalised into the share price through share minting to fee recipients.
-  Individual vaults may have different fee configurations set by their curators.
+  Each vault sets its own fees: the owner does so in V1 vaults and the curator in V2 vaults. See
+  [Morpho vault fees](https://docs.morpho.org/curate/concepts/fee/).
 links:
   homepage: https://morpho.org/
   app: https://app.morpho.org/

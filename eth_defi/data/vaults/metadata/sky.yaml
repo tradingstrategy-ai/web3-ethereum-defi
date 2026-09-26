@@ -1,21 +1,32 @@
 name: Sky
 slug: sky
 short_description: |
-  One of the oldest and most established DeFi protocols, formerly MakerDAO.
+  Sky, formerly MakerDAO, issues the USDS and DAI stablecoins; its sUSDS and sDAI vaults pay governance-set savings rates and stUSDS earns interest from SKY-backed loans.
 long_description: |
-  Sky (formerly MakerDAO) is one of the oldest and most established DeFi protocols.
-  The protocol provides the USDS stablecoin and allows users to earn yield through
-  staking USDS in the stUSDS vault.
+  [Sky](https://sky.money/), formerly MakerDAO, is the decentralised protocol behind the DAI and
+  USDS stablecoins. Its [white paper](https://makerdao.com/en/whitepaper/) traces the original Dai
+  to December 2017, and in September 2024 the protocol
+  [launched USDS and the SKY token](https://forum.skyeco.com/t/sky-has-arrived/24959) as upgrades
+  of DAI and MKR, with DAI and USDS convertible one-to-one. USDS is
+  [backed by](https://sky.money/blog/what-is-usds) stablecoin reserves, crypto-collateralised loans,
+  US Treasury bills and other approved assets. The white paper also notes that Sky governance could
+  upgrade USDS to add a freeze function.
 
-  The stUSDS vault is an ERC-4626 compliant tokenised vault that allows users to
-  stake USDS and earn the Sky Savings Rate (SSR).
+  **Savings USDS and Savings DAI.** sUSDS earns the Sky Savings Rate, which SKY holders set through
+  onchain governance and which is funded by protocol revenue from collateralised loans, Treasury
+  bills and lending markets. The rate is variable and
+  [can change at any time or fall to zero](https://docs.sky.money/legal/skybase-international/user-risks).
+  sUSDS charges no deposit or withdrawal fees, and sDAI works the same way for DAI through the older
+  DAI Savings Rate.
 
-  Key features:
-
-  - No deposit/withdrawal fees at the smart contract level
-  - Yield accrues through the Sky Savings Rate (SSR)
-  - Instant deposits and withdrawals
-  - Fully decentralised and battle-tested infrastructure
+  **Staked USDS.** [stUSDS](https://sky.money/stusds) is a higher-risk module that lends USDS to
+  borrowers who post staked SKY as collateral. It earns the SKY borrow rate on the lent share and
+  the Sky Savings Rate on the rest, so its yield moves with utilisation.
+  [Only USDS that is not lent out can be withdrawn](https://github.com/sky-ecosystem/stusds), so
+  exits can be delayed or partial when utilisation is high. Depositors take first-loss exposure: if
+  liquidations of SKY collateral fall short, stUSDS absorbs the bad debt, which ties its risk
+  closely to the SKY price. The stUSDS code also notes that depositors must trust Sky governance,
+  which can upgrade the contract.
 fee_description: |
   No deposit/withdrawal fees at the smart contract level.
 links:

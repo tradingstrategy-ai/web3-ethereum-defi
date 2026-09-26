@@ -4,9 +4,27 @@ name: Spark
 role: curator
 morpho-curator: Spark Chip
 curatorwatch: https://curatorwatch.com/curator/spark-chip
-short_description: 'Spark is an on-chain asset allocator and DeFi yield engine powered by Sky, SparkLend, savings, and liquidity deployments.'
+short_description: 'Spark is a Sky ecosystem capital allocator that runs Spark Savings and SparkLend and curates its own Morpho lending vaults as SparkDAO.'
 long_description: |
-  Spark describes itself as an on-chain asset allocator deploying capital across DeFi, CeFi, and real-world assets. Its homepage highlights institutional-grade savings, SparkLend borrowing markets, the Spark Liquidity Layer, transparent on-chain deployments, governance through SPK, and integrations that help grow other protocols.
+  [Spark](https://spark.finance/) is a capital allocator in the Sky ecosystem that deploys stablecoin
+  liquidity across DeFi, CeFi and real-world-asset markets through its
+  [Spark Liquidity Layer](https://docs.spark.finance/products/spark-liquidity-layer), where governance
+  must pre-approve each venue and rate limits cap capital movements. Spark is a protocol-operated
+  curator, not an independent one: it runs its own vaults under
+  [SPK token-holder governance](https://docs.spark.finance/governance) set within the Sky Atlas.
+
+  Its [Spark Savings](https://docs.spark.finance/products/spark-savings) vaults (spUSDC, spUSDT,
+  spPYUSD, spUSDG and spETH) earn yield through the Spark Liquidity Layer at rates set by Spark
+  governance. spUSDC, spUSDT and spPYUSD are fully backed by USDS, with Spark's junior risk capital
+  first in line to absorb losses, and Spark can put the vaults into a recovery mode that temporarily halts withdrawals
+  in the event of a potential loss. The legacy Spark USDC Vault (sUSDC) passes through the Sky Savings
+  Rate instead.
+
+  On Morpho, Spark curates as SparkDAO: the [Spark USDC Vault on Base](https://app.morpho.org/base/vault/0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A/spark-usdc-vault)
+  and the Spark Blue Chip USDC and USDT vaults on Ethereum lend against what Spark describes as the
+  lowest-risk crypto and real-world-asset collateral, and Morpho lists SparkDAO alongside Sentora as
+  curator of the [Sentora x Spark RLUSD](https://app.morpho.org/ethereum/vault/0xFC8C624B6080a0a780583799f2A862DE936F6E22/sentora-x-spark-rlusd)
+  vault.
 canonical-feeder-id: spark
 
 # Evidence and background references.

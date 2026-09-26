@@ -62,8 +62,8 @@ def test_build_curators_for_export_with_feed(tmp_path: Path):
     assert rec["slug"] == "gauntlet"
     assert rec["name"] == "Gauntlet"
     assert rec["website"] == "https://www.gauntlet.xyz"
-    assert rec["short_description"].startswith("Gauntlet provides")
-    assert "risk management" in rec["long_description"]
+    assert rec["short_description"].startswith("Gauntlet is a quantitative risk-modelling firm")
+    assert "Morpho vaults" in rec["long_description"]
     assert rec["twitter"] == "https://x.com/gauntlet_xyz"
     assert rec["protocol_curator"] is False
     assert rec["canonical_feeder_id"] is None
@@ -184,7 +184,7 @@ def test_build_curators_for_export_ondo_protocol_curator_alias() -> None:
     assert rec["name"] == "Ondo Finance"
     assert rec["protocol_curator"] is True
     assert rec["canonical_feeder_id"] == "ondo"
-    assert "tokenised investment products" in rec["short_description"]
+    assert "tokenised US Treasury products" in rec["short_description"]
 
 
 def test_build_curators_for_export_d2_finance_protocol_curator() -> None:

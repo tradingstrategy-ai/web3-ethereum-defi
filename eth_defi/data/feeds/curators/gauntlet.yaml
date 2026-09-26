@@ -4,11 +4,31 @@ role: curator
 symbiotic-curator: Gauntlet
 morpho-curator: Gauntlet
 website: https://www.gauntlet.xyz
-short_description: Gauntlet provides quantitative risk management, optimisation and vault strategies for DeFi protocols.
+short_description: Gauntlet is a quantitative risk-modelling firm, active in DeFi since 2018, that curates risk-tiered lending and yield vaults on Morpho, Kamino and Aera.
 long_description: |
-  Gauntlet applies quantitative optimisation, simulation and research to risk management and growth problems in DeFi.
-  Its site describes work across lending, restaking, real-world asset yield, applied research and self-custodial vault strategies.
-  The company builds tooling and recommendations for protocols, DAOs, builders and capital allocators while monitoring on-chain markets.
+  [Gauntlet](https://www.gauntlet.xyz/) is a quantitative risk and optimisation firm, active in DeFi
+  since 2018, whose [applied research team](https://www.gauntlet.xyz/resources/gauntlet-applied-research-2025-recap-leading-growth-optimization-and-risk-management-in-defi)
+  works with protocols including Compound and Uniswap. Gauntlet
+  [began curating Morpho vaults in early 2024](https://vaultbook.gauntlet.xyz/vaults/morpho-vaults)
+  and now runs them on Ethereum, Base, Arbitrum, OP Mainnet and other networks; it
+  [added Kamino vaults](https://vaultbook.gauntlet.xyz/vaults/kamino-vaults) on Solana in November
+  2025 and runs the Gauntlet USD Alpha stablecoin vault on Aera.
+
+  Gauntlet vaults on Morpho use three risk tiers.
+  [Prime vaults](https://vaultbook.gauntlet.xyz/vaults/morpho-vaults/prime-vaults-conservative-yield-strategies)
+  lend against blue-chip collateral such as BTC, ETH and wstETH; Balanced vaults (formerly Core) add
+  selected yield-bearing or moderately higher-risk markets; and Frontier vaults accept less liquid,
+  more speculative collateral for higher yields. On Morpho v2 vaults, adding markets or raising
+  allocation caps carries a seven-day timelock in Prime and three days in Balanced and Frontier.
+  Exchanges and custodians including Bitpanda, Gemini and Anchorage Digital
+  [offer Gauntlet-curated vaults](https://vaultbook.gauntlet.xyz/resources/integrations-and-partnerships)
+  to their users.
+
+  In March 2026 the Resolv USR exploit hit USR, wstUSR and RLP lending markets held by its USDC Core
+  and USDC Frontier vaults on Ethereum and three other Gauntlet-curated vaults. Gauntlet
+  [removed the affected markets](https://x.com/gauntlet_xyz/status/2038780123777052951) and, after an
+  agreement with Resolv, announced [4,379,827 USDC of recovery proceeds](https://x.com/gauntlet_xyz/status/2062185818698223704)
+  for affected depositors, claimable through Merkl, with claim timing varying by vault.
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks

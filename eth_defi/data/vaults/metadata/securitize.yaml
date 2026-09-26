@@ -1,16 +1,44 @@
 name: Securitize
 slug: securitize
 short_description: |
-  Tokenisation platform for real-world assets, with permissioned on-chain securities infrastructure.
+  Securitize is a regulated tokenisation platform that tokenises, distributes and services fund shares for eligible investors, including BlackRock's BUIDL, Apollo's ACRED and VanEck's VBILL.
 long_description: |
-  Securitize helps investment firms bring traditional financial products, such as funds and
-  private-market investments, into digital form. It provides the services needed to create,
-  manage and make these products available to eligible investors.
+  [Securitize](https://securitize.io/) is a tokenisation platform that provides tokenisation,
+  distribution and transfer agency services for securities issued by fund managers such as
+  BlackRock, Apollo, Hamilton Lane and VanEck. Its subsidiaries include an SEC-registered transfer
+  agent that maintains ownership records for tokenised securities, a FINRA-member broker-dealer that runs an
+  alternative trading system, and a fund administrator. Securitize Corp. has traded on the NYSE as
+  SECZ since July 2026, according to its
+  [registration statement](https://www.sec.gov/Archives/edgar/data/0002094496/000162828026051182/secz-20260731.htm).
 
-  Securitize works with asset managers, wealth advisers and investors. Its platform can support
-  many investment products. BlackRock USD Institutional Digital Liquidity Fund (BUIDL) is the
-  first Securitize product tracked by this integration, but it is only one example of the funds
-  and securities that can use Securitize's services.
+  **Treasury funds.** The
+  [BlackRock USD Institutional Digital Liquidity Fund (BUIDL)](https://www.nasdaq.com/press-release/blackrock-launches-its-first-tokenized-fund-buidl-on-the-ethereum-network-2024-03-20)
+  and the
+  [VanEck Treasury Fund (VBILL)](https://www.prnewswire.com/news-releases/vaneck-launches-first-tokenized-fund-vbill-on-securitize-302453863.html)
+  hold cash, short-dated US Treasuries and repurchase agreements and target $1 per share. BUIDL pays
+  its income as new tokens each month, so its token price does not show its yield.
+
+  **Credit and other funds.** These have a NAV that moves with their portfolio: the
+  [Apollo Diversified Credit Securitize Fund (ACRED)](https://www.prnewswire.com/news-releases/apollo-and-securitize-announce-partnership-and-launch-tokenized-access-to-credit-fund-on-aptos-avalanche-ethereum-ink-polygon-and-solana-networks-302364212.html)
+  feeds into Apollo's diversified global credit strategy; the
+  [Securitize Tokenized AAA CLO Fund (STAC)](https://www.bny.com/corporate/global/en/about-us/newsroom/company-news/securitize-launches-tokenized-aaa-clo-fund-with-services-provided-by-bny-bringing-institutional-structured-credit-on-chain.html)
+  holds AAA-rated CLO tranches, with BNY as custodian and BNY Investments as sub-adviser;
+  [HLSCOPE](https://www.hamiltonlane.com/en-us/news/scope-available-via-securitize) feeds into
+  Hamilton Lane's Senior Credit Opportunities Fund, which makes senior secured loans; BCAP is
+  Blockchain Capital's venture fund; and Mantle Index Four (MI4), tokenised on the Mantle network,
+  holds BTC, ETH, SOL and dollar stablecoins.
+
+  **Eligibility and dealing.** The tokens are permissioned securities: investors must pass KYC/AML
+  checks and each fund's qualification rules, typically qualified purchaser or accredited investor
+  status, and tokens move only between approved wallets. Subscriptions and redemptions go through
+  Securitize at NAV on each fund's schedule, with daily redemptions for ACRED. Minimums vary: BUIDL
+  launched with $5 million, VBILL starts at $100,000 ($1 million on Ethereum) and HLSCOPE at
+  $10,000.
+
+  **Fees and risks.** Fees are set in each fund's offering documents. Besides the credit,
+  interest-rate and valuation risk of each strategy, Securitize's filings flag thin secondary
+  markets, token prices diverging from the underlying assets, blockchain and smart contract
+  failures, and regulatory change.
 fee_description: |
   DSToken does not expose product-level management, performance, subscription or redemption fees.
   Fee terms are determined by each issuer's fund documents and are therefore reported as unknown

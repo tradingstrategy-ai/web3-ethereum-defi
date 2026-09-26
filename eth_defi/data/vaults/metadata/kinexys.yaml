@@ -1,22 +1,40 @@
 name: Kinexys
 slug: kinexys
 short_description: |
-  Permissioned tokenised fund contracts from Kinexys by J.P. Morgan.
+  Kinexys by J.P. Morgan is the bank's blockchain business; its Kinexys Digital Assets platform tokenises J.P. Morgan money market funds such as JLTXX and MONY on Ethereum.
 long_description: |
-  Kinexys Digital Assets Fungible Asset Contract, or ODA-FACT, is a standardised
-  token contract surface used for tokenised institutional fund products. The
-  ODA-FACT name comes from J.P. Morgan's token-standard terminology: current
-  Kinexys material calls it Kinexys Digital Assets Fungible Asset Contract,
-  while the ODA prefix reflects the earlier Onyx Digital Assets branding before
-  Onyx was renamed to Kinexys. The integration tracks JPMorgan's OnChain
-  Liquidity-Token Money Market Fund token, JLTXX, and My OnChain Net Yield Fund
-  token, MONY, on Ethereum.
+  [Kinexys by J.P. Morgan](https://www.jpmorgan.com/kinexys/index), called Onyx until its
+  [November 2024 rebrand](https://www.jpmorgan.com/insights/payments/blockchain-digital-assets/introducing-kinexys),
+  is J.P. Morgan's bank-led blockchain platform for programmable payments, onchain FX and asset
+  tokenisation. Its Kinexys Digital Assets unit runs the permissioned token system that J.P. Morgan
+  Asset Management uses to represent
+  [money market fund](https://www.jpmorgan.com/kinexys/tokenized-money-market-funds) shares as
+  tokens on the public Ethereum blockchain.
 
-  ODA-FACT contracts are ERC-20-compatible tokenised fund contracts, not
-  ERC-4626 vaults. The integration reads token supply on-chain and currently
-  combines it with an explicitly labelled 1.00 USD NAV estimate for JLTXX until
-  an official NAV source is integrated. MONY exposes token supply but no
-  on-chain NAV or share-price source, so it is recorded without a valuation.
+  **JLTXX.** The
+  [JPMorgan OnChain Liquidity-Token Money Market Fund](https://am.jpmorgan.com/us/en/asset-management/adv/about-us/media/press-releases/jp-morgan-asset-management-launches-second-tokenized-fund-on-ethereum/),
+  launched on 13 May 2026, is a US-registered government money market fund advised by J.P. Morgan
+  Investment Management. According to its
+  [fact sheet](https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf),
+  it invests only in US Treasuries and overnight repurchase agreements fully collateralised by
+  Treasuries or cash, seeks a stable $1.00 NAV and is managed to meet the GENIUS Act reserve-asset
+  rules for stablecoin issuers, though it is not a stablecoin itself. Dividends are paid daily as
+  additional shares, so income shows up as more tokens rather than a higher token price.
+
+  **Access and dealing.** Under the
+  [prospectus](https://www.sec.gov/Archives/edgar/data/1659326/000119312526217424/d44657d485bpos.htm),
+  shares are offered only in the US, mainly through J.P. Morgan's Morgan Money platform for
+  institutional investors, with a $1 million minimum. Orders settle in US dollars or, through a
+  third-party conversion service, USDC. Tokens move only between fund-approved Ethereum addresses,
+  and the transfer agent's register, not the blockchain, is the legal record of ownership.
+
+  **MONY, fees and risks.** J.P. Morgan Asset Management's first tokenised money market fund,
+  [My OnChain Net Yield Fund (MONY)](https://am.jpmorgan.com/us/en/asset-management/adv/about-us/media/press-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund/),
+  launched in December 2025, is a private placement for accredited investors who are also qualified
+  purchasers and holds similar Treasury assets. JLTXX's net expenses are 0.16% a year after a fee
+  waiver that runs to 30 June 2028. JLTXX can lose value, is not FDIC-insured and may suspend
+  redemptions under money market fund rules; its prospectus also flags network delays, forks,
+  volatile gas fees and lost private keys.
 fee_description: |
   Fee terms are not readable from the ODA-FACT token contract surface. For the
   JLTXX Token Class, the May 13, 2026 prospectus advertises 0.71% gross total

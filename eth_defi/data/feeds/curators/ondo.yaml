@@ -3,11 +3,25 @@ feeder-id: ondo
 name: Ondo Finance
 role: curator
 canonical-feeder-id: ondo
-short_description: Ondo Finance provides tokenised investment products and infrastructure for eligible investors.
+short_description: Ondo Finance builds platforms, assets and infrastructure that bring financial markets onchain, including the USDY and OUSG tokenised US Treasury products.
 long_description: |
-  Ondo Finance issues and operates tokenised investment products, including USDY and OUSG.
-  Its products use issuer-managed onboarding, investor-eligibility checks and transfer controls.
-  For this integration, Ondo Finance is the curator and issuer of the reviewed USDY and OUSG tokenised fund products.
+  [Ondo Finance](https://ondo.finance/) builds tokenised financial products and has an
+  [asset management arm](https://docs.ondo.finance/) that creates and manages them. Ondo is not an
+  independent curator: for USDY and OUSG, Ondo entities act as issuer and manager, run investor
+  onboarding and publish prices, and no separate curator is disclosed.
+
+  [USDY](https://docs.ondo.finance/general-access-products/usdy/basics) is a tokenised note, now
+  issued by Ondo Global Markets (BVI) Limited, secured by short-term US Treasuries, Treasury ETF
+  shares or bank deposits depending on when it was issued. It is available only to eligible non-US
+  investors: minting and redemption require onboarding with the issuer, although the token can be
+  transferred without onboarding.
+
+  [OUSG](https://docs.ondo.finance/qualified-access-products/ousg/overview) represents shares in Ondo
+  I LP, which holds mainly short-term US Treasury exposure through funds from managers such as
+  State Street, BlackRock, Franklin Templeton and Fidelity. Only onboarded investors who are both
+  [accredited investors and qualified purchasers](https://docs.ondo.finance/qualified-access-products/eligibility)
+  can hold or transfer it, and Ondo updates its NAV onchain each business day. Ondo states a 0.15%
+  management fee, waived until 1 January 2027.
 other-links:
   - title: Ondo official smart contract address registry for USDY and OUSG
     url: https://docs.ondo.finance/addresses

@@ -3,10 +3,31 @@ name: Janus Henderson
 role: curator
 website: https://www.janushenderson.com/en-us/investor/who-we-are/
 curatorwatch: https://curatorwatch.com/curator/janus-henderson
-short_description: Janus Henderson is a global active asset manager providing investment products across equities, fixed income, multi-asset and alternatives.
+short_description: Janus Henderson Investors is a global asset manager with investment capabilities across equities, fixed income, alternatives and multi-asset, including tokenised funds.
 long_description: |
-  Janus Henderson describes its mission as helping clients define and achieve financial outcomes through differentiated insights, disciplined investments and client service. The firm reports more than 90 years of investing experience, global investment capabilities and $479.6 billion in client assets under management as of 31 March 2026.
-  Janus Henderson partnered with Anemoy and Centrifuge to manage Anemoy's tokenised on-chain fund, with Janus Henderson serving as sub-advisor and managing day-to-day fund operations and portfolio management through Tabula.
+  [Janus Henderson Investors](https://www.janushenderson.com/en-us/investor/who-we-are/) is a global
+  asset manager with more than 90 years of history, whose capabilities span equities, fixed income,
+  alternatives and multi-asset investing. In September 2024 it
+  [partnered with Anemoy and Centrifuge](https://www.janushenderson.com/corporate/press-releases/janus-henderson-to-partner-with-anemoy-and-centrifuge-on-its-first-tokenized-fund/)
+  to manage Anemoy's Liquid Treasury Fund as sub-investment manager; the fund was
+  [renamed the Janus Henderson Anemoy Treasury Fund (JTRSY)](https://www.janushenderson.com/en-us/advisor/press-releases/janus-henderson-anemoy-treasury-fund-receives-highest-tokenized-fund-rating/)
+  in February 2025.
+
+  [JTRSY](https://www.anemoy.io/funds/jtrsy) holds US Treasury bills maturing within six months,
+  offers daily redemptions and settles subscriptions and redemptions in USDC. It is regulated by the
+  BVI Financial Services Commission and accepts subscriptions only from whitelisted wallets. The
+  [Janus Henderson Anemoy AAA CLO Fund (JAAA)](https://www.anemoy.io/news/janus-henderson-anemoy-aaa-clo-onchain),
+  announced in June 2025 with a USD 1 billion allocation from Grove, is managed by the portfolio
+  managers of Janus Henderson's AAA CLO ETF. The
+  [Janus Henderson Anemoy S&P 500 Fund (SPXA)](https://www.anemoy.io/news/spxa-licensed-index-fund)
+  launched on Base in September 2025 under an S&P Dow Jones Indices licence, with Anemoy as
+  investment manager and Janus Henderson as sub-investment manager.
+
+  JAAA and SPXA are
+  [regulated open-ended BVI funds for non-US professional investors](https://www.anemoy.io/funds/jaaa),
+  and none of the funds is offered in the United States. In Centrifuge's deRWA format,
+  [deJAAA](https://centrifuge.io/blog/centrifuge-brings-derwa-to-millions-on-evm) and deJTRSY are
+  freely transferable tokens linked to the funds, used for DeFi trading and lending.
 linkedin: janus-henderson-investors
 
 # Evidence and background references.

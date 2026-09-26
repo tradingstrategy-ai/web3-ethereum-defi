@@ -3,9 +3,31 @@ name: Steakhouse Financial
 role: curator
 morpho-curator: Steakhouse Financial
 website: https://steakhouse.financial
-short_description: 'Steakhouse Financial builds institutional-grade DeFi products, vaults, risk infrastructure, and stablecoin advisory services.'
+short_description: 'Steakhouse Financial is an onchain vault curator and advisory firm for the stablecoin economy, running risk-curated lending vaults on Morpho and Kamino.'
 long_description: |
-  Steakhouse Financial describes its work as products for the stablecoin economy. The homepage presents services for launching stablecoin and yield products, earning through risk-curated DeFi vaults, advisory on crypto and tokenised asset strategy, and raising capital through on-chain credit and liquidity infrastructure.
+  [Steakhouse Financial](https://www.steakhouse.financial/) is a DeFi vault curator and advisory firm.
+  Steakhouse vaults are noncustodial lending vaults for stablecoins and crypto assets on Morpho,
+  across Ethereum, Base, Arbitrum and other networks, and on Kamino on Solana. According to
+  [Morpho](https://morpho.org/stories/steakhouse), the firm moved from DeFi consulting, including
+  onboarding tokenised US Treasuries and private credit to MakerDAO, into curation when Morpho vaults
+  launched in early 2024.
+
+  Its [product lines](https://www.steakhouse.financial/docs/products/vault-products/current/) are
+  Prime (formerly branded Steakhouse), lending against blue-chip collateral, with a seven-day
+  timelock on vault changes; High Yield (formerly Smokehouse), accepting longer-tail collateral,
+  typically with a 10% performance fee and a three-day timelock on changes; and Turbo, running leveraged looping and carry strategies.
+  Steakhouse publishes [AA-to-C risk ratings](https://www.steakhouse.financial/docs/markets/) for the
+  lending markets it considers, and most of its vaults let depositors veto pending changes through
+  [Aragon DAO guardians](https://forum.morpho.org/t/steakhouse-metamorpho-vaults-are-upgrading-their-guardian-setups-to-fully-trustless/527).
+
+  It curates the vaults behind [Coinbase's USDC lending](https://kitchen.steakhouse.financial/p/lend-your-usdc-on-coinbase)
+  on Base, launched in September 2025, is the exclusive curator for
+  [Robinhood Earn](https://www.steakhouse.financial/docs/products/robinhood/) on Robinhood Chain, and
+  runs co-branded [partnership vaults](https://www.steakhouse.financial/docs/products/vault-products/partnership-vaults)
+  with firms including Safe, Grove, Ethena and Bitget. Its
+  [vault terms](https://www.steakhouse.financial/docs/documents/disclaimers/vaults) name Carniceria
+  Tropical SA, a wholly owned Panama-incorporated subsidiary of Steakhouse Financial Ltd, as the
+  operator of the vaults.
 twitter: SteakhouseFi
 linkedin: steakhouse-financial
 linkedin-rss-hub-disabled-at: 2026-06-09
