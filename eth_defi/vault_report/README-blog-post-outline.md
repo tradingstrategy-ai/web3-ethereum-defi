@@ -73,6 +73,8 @@ pile automatically. No report change is needed.
 - **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults instead.
 - **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
 
+- **Investability check:** an agent checks the vaults the rankings would show, see [README-vault-report.md](./README-vault-report.md#investability-check). Vaults that are not investable in practice, such as Morpho or Euler vaults with suspicious collateral or vaults without exit liquidity, are left out of every ranking, chart and the hero image, and the next vaults move up. The TVL summaries and inflows and outflows keep them. Version 1 covers Morpho, Euler and 40acres; more protocols will follow.
+
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
 - **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
@@ -103,6 +105,7 @@ pile automatically. No report change is needed.
 | 10 | The best-performing tokenised funds | Performance chart and table, by return | — |
 | 11 | The best-performing new vaults | Table: launched in the last 60 days, at least $15k TVL | — |
 | 12 | Risk and return | Bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
+| 12b | Excluded vaults in this report | Table of vaults the investability check removed from the rankings: vault, protocol, suspicious item, reason | ✏️ Resolve uncertain vaults |
 | 13 | Partners | Copied from the previous post | — |
 | 14 | Next steps | Copied from the previous post | — |
 

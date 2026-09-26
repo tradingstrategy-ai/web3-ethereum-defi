@@ -179,6 +179,12 @@ SECTION_TEMPLATES = (
         intro="<p>Higher returns usually come with higher volatility. Vaults above and to the left of the crowd offer better returns for their risk.</p>",
         charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
+    SectionTemplate(
+        key="excluded",
+        heading_id="excluded-vaults-in-this-report",
+        heading="Excluded vaults in this report",
+        intro=("<p>The vaults below would have ranked in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols.</p>"),
+    ),
 )
 
 
@@ -209,6 +215,9 @@ class PostContext:
 
     #: Section key -> one data-driven sentence shown after the section introduction, plain text
     captions: dict[str, str] = field(default_factory=dict)
+
+    #: Section key -> extra editor note HTML, e.g. about the investability check
+    editor_notes: dict[str, str] = field(default_factory=dict)
 
 
 def make_month_label(data_end_at: datetime.datetime) -> str:
@@ -392,6 +401,8 @@ def build_post_html(context: PostContext) -> str:
             parts.append(f"<p><strong>{html.escape(context.captions[template.key])}</strong></p>")
         if template.editor_note:
             parts.append(_editor_note(template.editor_note))
+        if template.key in context.editor_notes:
+            parts.append(_editor_note(context.editor_notes[template.key]))
         parts.append(_bullets(context.criteria_notes.get(template.key, [])))
         parts += [_image(context.charts[chart_key], alt) for chart_key, alt in template.charts if chart_key in context.charts]
         if template.key in context.tables:

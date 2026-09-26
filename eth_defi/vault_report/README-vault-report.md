@@ -201,6 +201,136 @@ compares performance. See
 
 The thresholds live in `eth_defi.vault_report.sections.ReportCriteria`.
 
+## Investability check
+
+Some top-ranking vaults are not investable in practice: a Morpho vault lending
+against a token with no market, or a pool whose depositors cannot withdraw.
+Deciding this takes research outside the data we collect, such as block
+explorers, DexScreener, protocol forums and X, so an LLM agent does it with the
+[check-top-list-vaults skill](../../.claude/skills/check-top-list-vaults/SKILL.md).
+The design and its trade-offs are in
+[the plan](../../.claude/plans/2026-09-26-vault-report-investability-check.md).
+
+Version 1 covers:
+
+| Protocol | Checks |
+|---|---|
+| Morpho | suspicious collateral or positions; no exit liquidity |
+| Euler | suspicious collateral or positions; no exit liquidity |
+| 40acres | no exit liquidity |
+
+The check will be extended to other protocols by adding a row to
+`vault_checks.CHECK_SCOPE`, a probe to `vault_probes.py` and a section to the
+skill. Vaults of other protocols pass through unchecked.
+
+### How it runs
+
+`eth_defi.vault_report.vault_checks.run_vault_checks()` runs before the report
+is rendered:
+
+1. It collects every ranked list the report would publish (the tables, the
+   performance charts, the per-chain chart and the hero image) with the real
+   selectors, 50% deeper than they are shown, so excluded vaults can be
+   replaced. The largest vaults of the average yield charts are prescreened
+   too.
+2. `vault_probes.fetch_candidate_facts()` reads the in-scope vaults onchain:
+   Morpho withdraw-queue markets and their collateral, Euler Earn strategies
+   and EVK collateral, 40acres free liquidity, DEX liquidity of the collateral
+   from DexScreener, and the last 30 days of liquidity from the price Parquet.
+   It raises deterministic signals, which are triggers for research, not
+   verdicts.
+3. The agent CLI runs unattended with the skill, the candidates and the facts,
+   and writes a decisions file: `exclude`, `keep` or `uncertain` for every
+   candidate, with evidence. The pipeline validates the file and aborts on a
+   missing, stale or malformed one.
+4. If exclusions make the lists shorter than shown, the next vaults are
+   checked in another round, up to three rounds.
+5. Excluded vaults leave every ranking, chart, the T-bill caption and the hero
+   image, and are listed in the *Excluded vaults in this report* section. They
+   stay in the TVL summaries and the inflows and outflows, which report where
+   money is, not where to invest. `uncertain` vaults stay in the report with an
+   editor callout.
+
+The check files go to the report bundle: `vault-check-candidates-N.json`,
+`vault-check-facts-N.json`, `vault-check-decisions-N.json` and the agent
+transcript `vault-check-agent-N.jsonl`. A rerun on the same data reuses the
+decisions instead of running the agent again.
+
+The agent runs without a sandbox, because it needs web search, X and the
+repository's RPC scripts. It is told to only read, and to write only the
+decisions file and `eth_defi/vault/flag.py`. A run costs a few dollars and
+takes 10–40 minutes.
+
+### Agent CLIs
+
+The Claude CLI, the default:
+
+```shell
+claude -p "<prompt>" --permission-mode dontAsk \
+    --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebSearch,WebFetch" \
+    --output-format stream-json --verbose --no-session-persistence
+```
+
+The Codex CLI:
+
+```shell
+codex --search exec --json --ephemeral --sandbox danger-full-access [-m gpt-6-sol] "<prompt>"
+```
+
+`vault_checks.build_agent_command()` builds both commands, with stdin closed
+and the JSONL stream written to the transcript. Read
+`.claude/docs/agent-tricks-and-troubleshooting.md` before changing them.
+
+### Environment variables
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `VAULT_CHECK_AGENT` | `none` | `claude`, `codex`, `reuse` (only reuse saved decisions) or `none` (no check) |
+| `VAULT_CHECK_MODEL` | CLI default | Model for the agent, e.g. `gpt-6-sol` for Codex |
+| `VAULT_CHECK_DECISIONS` | | Comma-separated bundle directories whose decisions files can be reused |
+| `VAULT_CHECK_OVERRIDES` | | JSON list of editor decision records that replace the agent's |
+| `VAULT_CHECK_TIMEOUT` | `60` | Agent timeout per round, in minutes |
+| `MAX_WORKERS` | `8` | Parallel onchain probes |
+
+Without the check, the post gets an editor callout saying the top lists were
+not checked.
+
+To check the lists without rendering the report, or to probe a single vault:
+
+```shell
+source .local-test.env && VAULT_CHECK_AGENT=claude \
+    poetry run python scripts/erc-4626/check-top-list-vaults.py
+
+source .local-test.env && VAULT_ID=8453-0xf80c0529bd94c773844e459853cd91b9263dd525 PROTOCOL_SLUG=morpho \
+    poetry run python scripts/erc-4626/probe-vault-positions.py
+```
+
+### Blacklisting
+
+When the agent finds a likely scam, or a vault whose positions cannot be
+valued or exited by construction, it adds a `VAULT_FLAGS_AND_NOTES` entry to
+`eth_defi/vault/flag.py`, with confidence high and one of the flags
+`malicious`, `misleading_valuation`, `illiquid` or `controversial`. That
+hides the vault on the website and in the data exports too. Merely illiquid
+vaults, such as 40acres pools, are excluded from the report but not
+blacklisted.
+
+The agent never commits. The script prints the `flag.py` diff: review it,
+then commit it in a pull request of its own.
+
+### Review workflow
+
+1. Read the *Excluded vaults in this report* table and the `uncertain`
+   callouts in the draft.
+2. Check the evidence of any surprising decision in
+   `vault-check-decisions-N.json`.
+3. To overrule the agent, write an overrides file and rerun with
+   `VAULT_CHECK_AGENT=reuse`:
+
+   ```json
+   [{"vault_id": "8453-0x...", "decision": "keep", "reason": "Collateral has a primary-market NAV"}]
+   ```
+
 ## Editor workflow
 
 1. Run the script in the last week of the month.
@@ -208,9 +338,11 @@ The thresholds live in `eth_defi.vault_report.sections.ReportCriteria`.
 3. Fill in the yellow `EDITOR:` callouts: the intro highlight, report content
    updates (changelog candidates are listed in the callout), community news and
    comments on the top vaults, the TVL trend and the largest inflows and outflows. Then delete the callouts.
-4. Review the tables. Unusual entries, such as capped `>9,999%` returns or
+4. Review the investability check, see [Review workflow](#review-workflow),
+   and commit any `flag.py` blacklist entries separately.
+5. Review the tables. Unusual entries, such as capped `>9,999%` returns or
    leveraged tokens, deserve a comment or a vault note.
-5. Publish, then share the post. Attach `hero-square.png` when posting on X.
+6. Publish, then share the post. Attach `hero-square.png` when posting on X.
 
 ## Tests
 

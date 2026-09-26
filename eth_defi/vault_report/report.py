@@ -25,6 +25,8 @@ Output bundle layout::
 
 import dataclasses
 import datetime
+import functools
+import html
 import json
 import logging
 from collections.abc import Callable
@@ -86,6 +88,7 @@ from eth_defi.vault_report.sections import (
     select_yield_vaults,
 )
 from eth_defi.vault_report.theme import DARK_THEME, ChartTheme
+from eth_defi.vault_report.vault_checks import CheckResult, VaultCheckSettings, apply_check_decisions, candidate_depth, excluded_rows, render_excluded_table, run_vault_checks, summarise_checks
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +183,9 @@ class GeneratedReport:
 
     #: Social hero image, or ``None`` when charts were not rendered
     hero_path: Path | None = None
+
+    #: Investability check result, or ``None`` when the check did not run
+    vault_checks: CheckResult | None = None
 
 
 def format_usd(value: USDollarAmount) -> str:
@@ -331,6 +337,65 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     }
 
 
+def collect_top_lists(comparable_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, pd.DataFrame]:
+    """Collect every top list of the report, with a buffer, for the investability check.
+
+    Uses the same selectors and ranking metrics as the tables
+    (:py:func:`build_report_sections`) and the charts (:py:func:`render_report_charts`),
+    each list extended by :py:attr:`ReportCriteria.check_buffer_ratio`, so
+    enough checked vaults remain after exclusions.
+
+    :param comparable_df:
+        Eligible vaults with an identified protocol, excluded vaults already dropped.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        List name -> ranked vaults, e.g. ``table:lending`` or ``chart:hero``.
+    """
+    ratio = criteria.check_buffer_ratio
+    table_depth = candidate_depth(criteria.top_n, ratio)
+    chart_depth = candidate_depth(criteria.performance_chart_vaults, ratio)
+    chain_depth = candidate_depth(criteria.chain_top_n, ratio)
+    ranked_df = exclude_amm_pools(comparable_df, criteria)
+    lists = {}
+    for key, (group, metric) in BEST_SECTIONS.items():
+        lists[f"table:{key}"] = select_group(comparable_df, criteria, group, by=metric).head(table_depth)
+        chart_metric = metric if key == "perp_dex_sharpe" else CHART_RETURN
+        lists[f"chart:{key}"] = select_group(comparable_df, criteria, group, by=chart_metric).pipe(exclude_chart_risks, criteria).head(chart_depth)
+    lists["table:new"] = select_new_vaults(ranked_df, dataclasses.replace(criteria, top_n=table_depth))
+    by_chain = rank_vaults(ranked_df.loc[ranked_df["current_nav"] >= criteria.chain_min_tvl])
+    lists["table:by_chain"] = by_chain.groupby("chain", sort=False).head(chain_depth)
+    lists["chart:by_chain_best"] = select_chain_chart_vaults(ranked_df, dataclasses.replace(criteria, chain_top_n=chain_depth))
+    yield_universe = select_yield_vaults(ranked_df, criteria)
+    hero_candidates = yield_universe.loc[(yield_universe[CHART_RETURN] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility)]
+    lists["chart:hero"] = rank_vaults(hero_candidates, CHART_RETURN).pipe(exclude_chart_risks, criteria).head(candidate_depth(5, ratio))
+    return lists
+
+
+def make_check_editor_notes(result: CheckResult | None) -> dict[str, str]:
+    """Editor notes about the investability check.
+
+    :param result:
+        Check result, or ``None`` when the check did not run.
+
+    :return:
+        Section key -> editor note HTML.
+    """
+    if result is None:
+        return {"best": "This report was generated <b>without the investability check</b>. Run it with <code>VAULT_CHECK_AGENT</code> before publishing, see README-vault-report.md."}
+    notes = []
+    if result.excluded:
+        notes.append("Review the evidence of each exclusion in <code>report.json</code> (<code>vault_checks.excluded</code>) and the <code>vault-check-decisions-*.json</code> files before publishing.")
+    if result.uncertain:
+        names = ", ".join(html.escape(candidate.name) for candidate in result.uncertain)
+        notes.append(f"The check could not decide on: {names}. They are still in the report; resolve them before publishing.")
+    if result.unchecked:
+        notes.append(f"{len(result.unchecked)} in-scope vaults in the top lists were not checked before the round limit.")
+    return {"excluded": " ".join(notes)} if notes else {}
+
+
 def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, ReportSection]:
     """Select vaults for all report tables.
 
@@ -388,6 +453,7 @@ def render_report_charts(
     output_dir: Path,
     cache_dir: Path,
     tbill_yields: pd.Series | None = None,
+    excluded: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, Path], Path]:
     """Render all branded report charts and the hero images.
 
@@ -418,6 +484,9 @@ def render_report_charts(
     :param tbill_yields:
         US Treasury bill yields, see :py:func:`eth_defi.vault_report.benchmarks.fetch_treasury_bill_yields`.
 
+    :param excluded:
+        Vaults the investability check excluded from all rankings and charts.
+
     :return:
         Tuple (chart key -> PNG path, hero image path). The square hero image is
         written next to the hero image as ``hero-square.png``.
@@ -425,8 +494,9 @@ def render_report_charts(
     empty = pd.DataFrame()
     data_date = data.data_end_at.strftime("%Y-%m-%d")
     month_label = make_month_label(data.data_end_at)
-    # Performance charts compare only vaults with an identified protocol; TVL charts use all eligible vaults
-    comparable_df = select_comparable_vaults(eligible_df)
+    # Performance charts compare only vaults with an identified protocol that passed the investability check;
+    # TVL charts use all eligible vaults
+    comparable_df = apply_check_decisions(select_comparable_vaults(eligible_df), excluded)
     # AMM pools are charted only in their own section unless included
     ranked_df = exclude_amm_pools(comparable_df, criteria)
     yield_universe = select_yield_vaults(ranked_df, criteria)
@@ -585,6 +655,7 @@ def generate_monthly_vault_report(
     theme: ChartTheme = DARK_THEME,
     cache_dir: Path | None = None,
     check_sparklines: bool = True,
+    vault_checks: VaultCheckSettings | None = None,
 ) -> GeneratedReport:
     """Generate the report tables, charts and post body into a local bundle.
 
@@ -615,6 +686,10 @@ def generate_monthly_vault_report(
     :param check_sparklines:
         Check which vaults have a published sparkline and show them in the tables.
 
+    :param vault_checks:
+        Run the investability check, see :py:mod:`eth_defi.vault_report.vault_checks`.
+        ``None`` skips it; the post then carries an editor note.
+
     :return:
         Generated report description.
     """
@@ -626,6 +701,23 @@ def generate_monthly_vault_report(
     data_end_at = data.data_end_at
     eligible_df = filter_eligible_vaults(data.vaults_df, data_end_at, criteria)
     comparable_df = select_comparable_vaults(eligible_df)
+    check_result = None
+    if vault_checks is not None:
+        aggregate_df = select_average_yield_vaults(exclude_amm_pools(comparable_df, criteria), criteria)
+        check_result = run_vault_checks(
+            functools.partial(collect_top_lists, criteria=criteria),
+            comparable_df,
+            data_end_at,
+            data.prices_path,
+            output_dir,
+            vault_checks,
+            max_rounds=criteria.check_max_rounds,
+            aggregate_df=aggregate_df,
+            prescreen_min_tvl=criteria.check_prescreen_min_tvl,
+            max_escalations=criteria.check_max_escalations,
+        )
+        comparable_df = apply_check_decisions(comparable_df, check_result.excluded)
+    excluded = check_result.excluded if check_result else frozenset()
     ranked_df = exclude_amm_pools(comparable_df, criteria)
     sections = build_report_sections(comparable_df, criteria)
     if check_sparklines:
@@ -638,7 +730,14 @@ def generate_monthly_vault_report(
         (output_dir / "tables" / f"{key}.html").write_text(tables[key])
         section.vaults_df[CSV_COLUMNS].to_csv(output_dir / "tables" / f"{key}.csv", index=False)
 
-    chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields) if render_charts else ({}, None)
+    if check_result is not None:
+        excluded_table = render_excluded_table(check_result)
+        if excluded_table:
+            tables["excluded"] = excluded_table
+            pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
+    editor_notes = make_check_editor_notes(check_result)
+
+    chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded) if render_charts else ({}, None)
 
     month_label = make_month_label(data_end_at)
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
@@ -652,6 +751,7 @@ def generate_monthly_vault_report(
         previous=previous,
         changelog_entries=changelog_entries or [],
         captions={"best": best_caption} if best_caption else {},
+        editor_notes=editor_notes,
     )
     report = GeneratedReport(
         output_dir=output_dir,
@@ -663,6 +763,7 @@ def generate_monthly_vault_report(
         chart_paths=chart_paths,
         sections=sections,
         hero_path=hero_path,
+        vault_checks=check_result,
     )
 
     post_html = build_post_html(context)
@@ -701,6 +802,7 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "hero_square": "hero-square.png" if report.hero_path else None,
         "previous_report_slug": previous.slug if previous else None,
         "ghost_draft": {"id": ghost_post.id, "slug": ghost_post.slug, "editor_url": editor_url} if ghost_post else None,
+        "vault_checks": summarise_checks(report.vault_checks) if report.vault_checks else None,
     }
     path = report.output_dir / "report.json"
     path.write_text(json.dumps(manifest, indent=2))

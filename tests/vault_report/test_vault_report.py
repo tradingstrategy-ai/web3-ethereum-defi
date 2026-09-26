@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import hmac
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +17,7 @@ from PIL import Image, ImageDraw
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
+from eth_defi.vault_report import vault_checks as vault_checks_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, select_moving_vaults, wrap_label
@@ -23,7 +25,7 @@ from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_pr
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, make_vault_properties, publish_report_draft
+from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import (
     AMM,
     LENDING,
@@ -55,6 +57,8 @@ from eth_defi.vault_report.sections import (
     select_yield_vaults,
 )
 from eth_defi.vault_report.theme import DARK_THEME
+from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, read_check_decisions, run_check_agent, write_candidates_file
+from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
 
 DATA_END_AT = datetime.datetime(2026, 9, 24)
 
@@ -663,3 +667,158 @@ def test_wrap_label():
     label = wrap_label("Janus Henderson Anemoy Treasury Fund", 20)
     assert label == "Janus Henderson<br>Anemoy Treasury Fund"
     assert wrap_label("Morpho", 16) == "Morpho"
+
+
+# ---------------------------------------------------------------------------
+# Investability check
+# ---------------------------------------------------------------------------
+
+
+def _decisions_document(candidates: list[CheckCandidate], digest: str, decisions: list[dict], data_end_at: datetime.datetime = DATA_END_AT) -> dict:
+    """A decisions file document as the agent writes it."""
+    return {"schema_version": SCHEMA_VERSION, "scope_version": SCOPE_VERSION, "rules_version": RULES_VERSION, "data_end_at": data_end_at.isoformat(), "candidates_digest": digest, "decisions": decisions}
+
+
+def _exclusion(vault_id: str, **overrides) -> dict:
+    """A valid exclusion record."""
+    record = {"vault_id": vault_id, "decision": "exclude", "category": "suspicious_collateral", "suspicious_item": "RSS collateral", "reason": "Lends against a token with no market.", "evidence": [{"source": "https://example.com", "observed_at": DATA_END_AT.isoformat()}], "confidence": "high"}
+    record.update(overrides)
+    return record
+
+
+def test_check_candidates_follow_report_selectors(vaults_df: pd.DataFrame):
+    """Candidates come from each real selector and metric, deduplicated, with their lists and ranks."""
+    criteria = ReportCriteria()
+    comparable = select_comparable_vaults(filter_eligible_vaults(vaults_df, DATA_END_AT, criteria))
+    lists = collect_top_lists(comparable, criteria)
+    assert {"table:lending", "chart:lending", "chart:hero", "table:by_chain", "chart:by_chain_best", "table:new"} <= set(lists)
+    candidates = build_check_candidates(lists)
+    # 0xaa ranks first by one-month return in the lending table and first by three-month return in the lending chart
+    assert "table:lending#1" in candidates["1-0xaa"].lists
+    assert any(item.startswith("chart:lending#") for item in candidates["1-0xaa"].lists)
+    assert candidates["1-0xaa"].in_scope
+    assert not candidates["1-0xff"].in_scope  # Hyperliquid is not in version 1 scope
+    assert candidate_depth(20, 0.5) == 30
+
+
+def test_check_decisions_validation(tmp_path: Path, vaults_df: pd.DataFrame):
+    """Decisions must match the round, cover every in-scope candidate and carry evidence."""
+    candidates = list(build_check_candidates({"table:lending": vaults_df.loc[["1-0xaa", "1-0xbb"]]}).values())
+    digest = write_candidates_file(tmp_path / "candidates.json", candidates, DATA_END_AT)
+    path = tmp_path / "decisions.json"
+
+    def check(decisions: list[dict], **header) -> dict:
+        document = _decisions_document(candidates, digest, decisions) | header
+        path.write_text(json.dumps(document))
+        return read_check_decisions(path, candidates, digest, DATA_END_AT)
+
+    valid = [_exclusion("1-0xaa"), {"vault_id": "1-0xbb", "decision": "keep"}]
+    assert check(valid)["1-0xaa"].decision == "exclude"
+    failures = {
+        "other month": lambda: check(valid, data_end_at="2026-08-24T00:00:00"),
+        "changed candidates": lambda: check(valid, candidates_digest="0" * 64),
+        "missing decision": lambda: check(valid[:1]),
+        "unknown vault": lambda: check([*valid, {"vault_id": "1-0x99", "decision": "keep"}]),
+        "duplicate": lambda: check([*valid, {"vault_id": "1-0xbb", "decision": "keep"}]),
+        "not checked": lambda: check([valid[0], {"vault_id": "1-0xbb", "decision": "not_in_scope"}]),
+        "no evidence": lambda: check([_exclusion("1-0xaa", evidence=[]), valid[1]]),
+        "blacklist without high confidence": lambda: check([_exclusion("1-0xaa", blacklist=True, vault_flag="misleading_valuation", confidence="medium"), valid[1]]),
+        "blacklist with a harmless flag": lambda: check([_exclusion("1-0xaa", blacklist=True, vault_flag="trading"), valid[1]]),
+        "stale liquidity evidence": lambda: check([_exclusion("1-0xaa", category="no_exit_liquidity", evidence=[{"source": "x", "observed_at": "2026-08-01T00:00:00"}]), valid[1]]),
+    }
+    for name, failure in failures.items():
+        with pytest.raises(CheckValidationError):
+            failure()
+            pytest.fail(name)
+    path.unlink()
+    with pytest.raises(CheckValidationError):
+        read_check_decisions(path, candidates, digest, DATA_END_AT)
+
+
+def test_blacklist_entry_check(tmp_path: Path):
+    """A blacklisted vault must have a flag.py entry with its flag."""
+    decisions = {"8453-0xf80c": CheckDecision(vault_id="8453-0xf80c", decision="exclude", blacklist=True, vault_flag="misleading_valuation")}
+    flag_file = tmp_path / "flag.py"
+    flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    "0xabc": (VaultFlag.illiquid, X),\n}\n')
+    assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]
+    flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    # King RSS\n    "0xf80c": (VaultFlag.misleading_valuation, KING_RSS),\n}\n')
+    assert check_blacklist_entries(decisions, flag_file) == []
+
+
+def test_check_agent_runner(tmp_path: Path):
+    """The runner accepts only a freshly written decisions file from a clean exit."""
+    decisions = tmp_path / "decisions.json"
+    writer = [sys.executable, "-c", f"open({str(decisions)!r}, 'w').write('{{}}')"]
+    decisions.write_text("stale")
+    run_check_agent(writer, tmp_path, tmp_path / "agent.jsonl", decisions, timeout=60)
+    assert decisions.read_text() == "{}"
+
+    decisions.write_text("stale")
+    with pytest.raises(CheckValidationError):
+        run_check_agent([sys.executable, "-c", "pass"], tmp_path, tmp_path / "agent.jsonl", decisions, timeout=60)
+    assert not decisions.exists()  # A stale file is never accepted
+    with pytest.raises(CheckValidationError):
+        run_check_agent([sys.executable, "-c", "raise SystemExit(3)"], tmp_path, tmp_path / "agent.jsonl", decisions, timeout=60)
+
+    # Both CLIs run unsandboxed with web search
+    assert build_agent_command("codex", "p", "gpt-6-sol")[:3] == ["codex", "--search", "exec"]
+    assert "danger-full-access" in build_agent_command("codex", "p")
+    assert "WebSearch" in build_agent_command("claude", "p")[build_agent_command("claude", "p").index("--allowedTools") + 1]
+
+
+def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """An excluded vault leaves every table and the caption, and is listed in the excluded section."""
+    monkeypatch.setattr(vault_checks_module, "fetch_candidate_facts", lambda candidates, prices_path, end_at, max_workers: {})
+
+    def fake_agent(command, cwd, log_path, decisions_path, timeout):
+        round_number = decisions_path.stem.rsplit("-", 1)[1]
+        document = json.loads((decisions_path.parent / f"vault-check-candidates-{round_number}.json").read_text())
+        digest = hashlib.sha256((decisions_path.parent / f"vault-check-candidates-{round_number}.json").read_bytes()).hexdigest()
+        records = [_exclusion(c["vault_id"], reason="<script>alert(1)</script> no market") if c["vault_id"] == "1-0xaa" else {"vault_id": c["vault_id"], "decision": "keep"} for c in document["candidates"]]
+        decisions_path.write_text(json.dumps({**{k: document[k] for k in ("schema_version", "scope_version", "rules_version", "data_end_at")}, "candidates_digest": digest, "decisions": records}))
+
+    monkeypatch.setattr(vault_checks_module, "run_check_agent", fake_agent)
+    monkeypatch.setattr(vault_checks_module, "show_flag_diff", lambda root: "")
+    data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
+    settings = VaultCheckSettings(agent="claude", repository_root=tmp_path)
+    (tmp_path / "eth_defi" / "vault").mkdir(parents=True)
+    (tmp_path / "eth_defi" / "vault" / "flag.py").write_text("")
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, vault_checks=settings)
+
+    assert report.vault_checks.excluded == frozenset({"1-0xaa"})
+    assert all("1-0xaa" not in section.vaults_df.index for section in report.sections.values())
+    post_html = (tmp_path / "out" / "post.html").read_text()
+    assert '<h2 id="excluded-vaults-in-this-report">' in post_html
+    excluded_section = post_html[post_html.index("excluded-vaults-in-this-report") :]
+    assert "Vault 0xaa" in excluded_section and "Vault 0xaa" not in post_html[: post_html.index("excluded-vaults-in-this-report")]
+    assert "<script>" not in post_html and "&lt;script&gt;" in excluded_section
+    manifest = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert manifest["vault_checks"]["excluded"][0]["vault_id"] == "1-0xaa"
+    assert (tmp_path / "out" / "tables" / "excluded.csv").exists()
+
+    # A rerun on the same data reuses the saved decisions instead of running the agent again
+    monkeypatch.setattr(vault_checks_module, "run_check_agent", lambda *args: pytest.fail("agent must not run"))
+    rerun = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, vault_checks=settings)
+    assert rerun.vault_checks.excluded == frozenset({"1-0xaa"})
+
+
+def test_report_without_check_has_editor_note(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
+    """Without the check, the post tells the editor so."""
+    data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
+    generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False)
+    post_html = (tmp_path / "out" / "post.html").read_text()
+    assert "without the investability check" in post_html
+    assert "excluded-vaults-in-this-report" not in post_html
+
+
+def test_probe_signals():
+    """Signals use redeemable, not idle, liquidity and flag collateral without a market."""
+    liquid = VaultFacts(vault_id="1-0x1", probe="morpho_v1", total_assets=100.0, idle_assets=0.0, redeemable_assets=40.0, redeemable_share=0.4, exposures=[Exposure(market="m", kind="morpho_market", assets=90.0, share_of_assets=0.9, collateral="0xc", collateral_symbol="cbBTC", collateral_dex_liquidity_usd=50e6)])
+    assert raise_signals(liquid) == []  # No idle cash, but plenty of queue liquidity
+    stuck = VaultFacts(vault_id="1-0x2", probe="morpho_v1", total_assets=100.0, idle_assets=0.0, redeemable_assets=0.0, redeemable_share=0.0, exposures=[Exposure(market="m", kind="morpho_market", assets=95.0, share_of_assets=0.95, collateral="0xd", collateral_symbol="RSS", collateral_dex_liquidity_usd=0.0)])
+    signals = raise_signals(stuck)
+    assert any("RSS" in signal for signal in signals) and any("redeemable" in signal for signal in signals)
+    assert select_probe("morpho", ["morpho_like", "euler_earn_like"]) == "morpho_v1"
+    assert select_probe("euler", ["euler_earn_like"]) == "euler_earn"
+    assert select_probe("40acres", []) == "forty_acres"
+    assert select_probe("yearn", []) == "unsupported"

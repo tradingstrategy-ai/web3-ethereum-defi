@@ -174,6 +174,19 @@ class ReportCriteria:
     #: Number of largest inflows and of largest outflows in the TVL change chart
     tvl_change_top_n: int = 10
 
+    #: Investability check: extra candidates collected for each top list, as a share of the vaults it shows,
+    #: see :py:mod:`eth_defi.vault_report.vault_checks`
+    check_buffer_ratio: float = 0.5
+
+    #: Investability check: rounds of refilling the top lists after exclusions
+    check_max_rounds: int = 3
+
+    #: Investability check: minimum TVL of an aggregate chart vault to prescreen
+    check_prescreen_min_tvl: USDollarAmount = 1_000_000
+
+    #: Investability check: maximum number of prescreened vaults sent to the agent
+    check_max_escalations: int = 20
+
 
 #: Default columns for vault tables, same as in the previous blog posts
 VAULT_TABLE_COLUMNS = [

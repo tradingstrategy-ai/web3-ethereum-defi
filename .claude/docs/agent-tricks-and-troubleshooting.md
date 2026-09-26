@@ -21,6 +21,12 @@ These commands are in scope for this document and for the **Agents** gate in
 
 Equivalent wrappers or aliases for the same tools are covered as well.
 
+Besides reviews, the monthly vault report runs Claude CLI or Codex CLI
+unattended and unsandboxed, with web search, for its investability check. The
+exact commands live in `eth_defi.vault_report.vault_checks.build_agent_command()`
+and are documented in `eth_defi/vault_report/README-vault-report.md`
+(*Investability check*).
+
 ## Review rules (when one agent drives another)
 
 Apply these whenever this file is required before an agent CLI run:

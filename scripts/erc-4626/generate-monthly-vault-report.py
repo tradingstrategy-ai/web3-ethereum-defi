@@ -26,6 +26,15 @@ Environment variables:
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
 - ``CHART_THEME``: ``dark`` (default, the website look) or ``light``
 - ``CHECK_SPARKLINES``: set ``false`` to leave sparklines out of the tables
+- ``VAULT_CHECK_AGENT``: ``claude`` or ``codex`` to run the investability check
+  of the top lists, see ``eth_defi/vault_report/README-vault-report.md``;
+  ``reuse`` to only reuse earlier decisions; unset or ``none`` to skip the check
+- ``VAULT_CHECK_MODEL``: model override for the check agent CLI
+- ``VAULT_CHECK_DECISIONS``: comma-separated directories with earlier check
+  decisions to reuse, e.g. a previous run's report bundle
+- ``VAULT_CHECK_OVERRIDES``: JSON file of hand-written decisions that override the agent
+- ``VAULT_CHECK_TIMEOUT``: agent timeout per round in minutes, default 60
+- ``MAX_WORKERS``: parallel threads for the check's onchain probes, default 8
 - ``LOG_LEVEL``: default ``info``
 """
 
@@ -43,6 +52,7 @@ from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, rea
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import ReportCriteria
 from eth_defi.vault_report.theme import get_theme
+from eth_defi.vault_report.vault_checks import VaultCheckSettings, excluded_rows
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +86,27 @@ def _env_flag(name: str) -> bool:
         Flag value.
     """
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
+def read_vault_check_settings() -> VaultCheckSettings | None:
+    """Read the investability check settings from environment variables.
+
+    :return:
+        Settings, or ``None`` when the check is disabled.
+    """
+    agent = os.environ.get("VAULT_CHECK_AGENT", "none").strip().lower()
+    if agent in ("", "none"):
+        return None
+    assert agent in ("claude", "codex", "reuse"), f"VAULT_CHECK_AGENT must be claude, codex, reuse or none, got {agent}"
+    reuse_dirs = [Path(path).expanduser() for path in os.environ.get("VAULT_CHECK_DECISIONS", "").split(",") if path]
+    return VaultCheckSettings(
+        agent=None if agent == "reuse" else agent,
+        model=os.environ.get("VAULT_CHECK_MODEL") or None,
+        reuse_dirs=reuse_dirs,
+        overrides_path=_env_path("VAULT_CHECK_OVERRIDES"),
+        timeout=float(os.environ.get("VAULT_CHECK_TIMEOUT", "60")) * 60,
+        max_workers=int(os.environ.get("MAX_WORKERS", "8")),
+    )
 
 
 def main() -> None:
@@ -119,10 +150,14 @@ def main() -> None:
         theme=get_theme(os.environ.get("CHART_THEME", "dark")),
         cache_dir=cache_dir / "assets",
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
+        vault_checks=read_vault_check_settings(),
     )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]
     print(tabulate(rows, headers=["Section", "Vaults", "Top vault"], tablefmt="fancy_grid"))
+    if report.vault_checks:
+        excluded = excluded_rows(report.vault_checks)
+        print(tabulate([[row["name"], row["protocol"], row["suspicious_item"], row["blacklist"]] for row in excluded], headers=["Excluded vault", "Protocol", "Suspicious item", "Blacklisted"], tablefmt="fancy_grid"))
 
     admin_api_key = os.environ.get("GHOST_ADMIN_API_KEY")
     admin_api_url = os.environ.get("GHOST_ADMIN_API_URL") or content_api_url
