@@ -81,9 +81,16 @@ SECTION_TEMPLATES = (
     ),
     SectionTemplate(
         key="protocol_yields",
-        heading_id="average-yield-by-protocol",
-        heading="Average yield by protocol",
+        heading_id="average-yield-by-protocol-high-tvl",
+        heading="Average yield by protocol, high TVL",
         charts=(("protocol_yields", "Stablecoin vault yield of the largest protocols against the US Treasury bill"),),
+    ),
+    SectionTemplate(
+        key="protocol_high_yields",
+        heading_id="average-yield-by-protocol-high-yield",
+        heading="Average yield by protocol, high yield",
+        charts=(("protocol_high_yields", "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill"),),
+        editor_note="Comment on the highest-yielding protocols and where their yield comes from.",
     ),
     SectionTemplate(
         key="protocol_tvl",

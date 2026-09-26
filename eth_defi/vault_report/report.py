@@ -65,6 +65,7 @@ from eth_defi.vault_report.sections import (
     ReportSection,
     calculate_chain_yields,
     calculate_fund_nav_history,
+    calculate_high_yield_protocols,
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
@@ -278,7 +279,13 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     ]
     return {
         "chain_yields": ["Perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
-        "protocol_yields": [f"Protocols with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols")],
+        "protocol_yields": [f"The {criteria.yield_top_protocols} largest protocols by TVL, each with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols")],
+        "protocol_high_yields": [
+            f"The {criteria.yield_top_protocols} protocols with the highest TVL-weighted average yield, among all protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL",
+            *average,
+            "Small protocols can reach the top with a few vaults; check the TVL column",
+            live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols"),
+        ],
         "protocol_tvl": [
             "Vaults without an identified protocol, such as generic ERC-4626 vaults, are counted in Other",
             f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
@@ -441,6 +448,7 @@ def render_report_charts(
     average_yield_vaults = select_average_yield_vaults(ranked_df, criteria)
     chain_yields = calculate_chain_yields(average_yield_vaults, criteria)
     protocol_yields = calculate_protocol_yields(average_yield_vaults, criteria)
+    high_yield_protocols = calculate_high_yield_protocols(average_yield_vaults, criteria)
     chain_logo_cache: dict[str, str | None] = {}
 
     def chain_logo(chain: str) -> str | None:
@@ -449,7 +457,7 @@ def render_report_charts(
         return chain_logo_cache[chain]
 
     chain_logos = {chain: chain_logo(chain) for chain in chain_yields.index}
-    protocol_group_logos = {name: load_protocol_logo_uri(protocol_slugs.get(name), theme) for name in protocol_yields.index}
+    protocol_group_logos = {name: load_protocol_logo_uri(protocol_slugs.get(name), theme) for name in protocol_yields.index.union(high_yield_protocols.index)}
 
     tvl_vaults = select_tvl_history_vaults(data.vaults_df)
     tvl_history = read_vault_tvl_history(data.prices_path, list(tvl_vaults.index), start_at=data.data_end_at - TVL_HISTORY)
@@ -475,6 +483,10 @@ def render_report_charts(
         "protocol_yields": (
             create_average_yield_figure(protocol_yields, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, criteria.yield_chart_max_return),
             ChartPanel(f"Stablecoin vault yield of the {criteria.yield_top_protocols} largest protocols", difference, "tradingstrategy.ai/trading-view/vaults/protocols"),
+        ),
+        "protocol_high_yields": (
+            create_average_yield_figure(high_yield_protocols, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, criteria.yield_max_return),
+            ChartPanel(f"The {criteria.yield_top_protocols} highest-yielding protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL", difference, "tradingstrategy.ai/trading-view/vaults/protocols"),
         ),
     }
     if len(protocol_tvl):

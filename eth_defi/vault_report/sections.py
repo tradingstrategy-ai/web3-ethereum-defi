@@ -151,8 +151,11 @@ class ReportCriteria:
     #: Number of protocols in the average yield chart, the largest by TVL
     yield_top_protocols: int = 10
 
-    #: Minimum TVL of a protocol in the average yield chart
+    #: Minimum TVL of a protocol in the high TVL average yield chart
     yield_min_protocol_tvl: USDollarAmount = 1_000_000
+
+    #: Minimum TVL of a protocol in the high yield average yield chart, which ranks protocols by yield
+    yield_high_yield_min_protocol_tvl: USDollarAmount = 150_000
 
     #: Minimum TVL per vault to be counted in the average yield charts
     yield_min_vault_tvl: USDollarAmount = 10_000
@@ -539,6 +542,29 @@ def calculate_protocol_yields(yield_vaults: pd.DataFrame, criteria: ReportCriter
     identified = yield_vaults.loc[yield_vaults["protocol_identified"]]
     yields = calculate_average_yields(identified, "protocol")
     return yields.loc[yields["tvl"] >= criteria.yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "tvl")
+
+
+def calculate_high_yield_protocols(yield_vaults: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Average yield of the highest-yielding vault protocols.
+
+    Complements :py:func:`calculate_protocol_yields`, which shows the largest
+    protocols: this ranks all identified protocols with at least
+    :py:attr:`ReportCriteria.yield_high_yield_min_protocol_tvl` TVL by their
+    TVL-weighted average yield.
+
+    :param yield_vaults:
+        Output of :py:func:`select_average_yield_vaults`.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        See :py:func:`calculate_average_yields`, the top
+        :py:attr:`ReportCriteria.yield_top_protocols` protocols by average yield.
+    """
+    identified = yield_vaults.loc[yield_vaults["protocol_identified"]]
+    yields = calculate_average_yields(identified, "protocol")
+    return yields.loc[yields["tvl"] >= criteria.yield_high_yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "avg_return")
 
 
 def calculate_tvl_changes(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:

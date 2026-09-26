@@ -134,8 +134,9 @@ The section order, selection rules and editor input of each section are
 described in [README-blog-post-outline.md](./README-blog-post-outline.md). In
 short, the post has:
 
-- average yield dot plots for the 10 largest blockchains and the 10 largest
-  protocols by TVL, against the T-bill;
+- average yield dot plots for the 10 largest blockchains, the 10 largest
+  protocols by TVL and the 10 highest-yielding protocols with at least $150k
+  TVL, against the T-bill;
 - stablecoin TVL by DeFi vault protocol and stablecoin NAV by tokenised fund
   over 12 months;
 - inflows and outflows: the largest 30-day TVL changes in dollars;

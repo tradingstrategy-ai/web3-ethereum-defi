@@ -36,6 +36,7 @@ from eth_defi.vault_report.sections import (
     calculate_average_yields,
     calculate_chain_yields,
     calculate_fund_nav_history,
+    calculate_high_yield_protocols,
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
@@ -224,6 +225,12 @@ def test_average_yields(vaults_df: pd.DataFrame):
     assert "ERC-4626" not in protocols.index
     assert set(protocols.index) == {"Morpho", "Securitize", "Yearn"}
 
+    # The high yield chart ranks protocols with at least $150k TVL by average yield
+    high_yield = calculate_high_yield_protocols(yield_vaults, ReportCriteria(yield_top_protocols=2))
+    assert list(high_yield["avg_return"]) == sorted(high_yield["avg_return"], reverse=True)
+    assert len(high_yield) == 2
+    assert calculate_high_yield_protocols(yield_vaults, ReportCriteria(yield_high_yield_min_protocol_tvl=10e9)).empty
+
 
 def test_tvl_changes(vaults_df: pd.DataFrame):
     """TVL changes come from the one-month period, the largest increases first."""
@@ -358,6 +365,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
     assert set(report.chart_paths) == {
         "chain_yields",
         "protocol_yields",
+        "protocol_high_yields",
         "protocol_tvl",
         "fund_nav",
         "tvl_changes",
@@ -386,7 +394,7 @@ def test_render_report_charts_without_prices(tmp_path: Path, vaults_df: pd.DataF
     pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0], "total_assets": [1.0]}).to_parquet(empty_prices)
     data = VaultReportData(vaults_df=vaults_df, prices_path=empty_prices)
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out")
-    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "tvl_changes", "risk_return"}
+    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "protocol_high_yields", "tvl_changes", "risk_return"}
     assert "lending" in report.context.tables
 
 

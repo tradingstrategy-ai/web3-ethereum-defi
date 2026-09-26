@@ -88,7 +88,8 @@ pile automatically. No report change is needed.
 | 2 | Report content updates | Data statistics: chains, protocols, vault count, TVL, stablecoins | ✏️ New integrations; changelog candidates are listed |
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
 | 4 | Average yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
-| 5 | Average yield by protocol | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
+| 5 | Average yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
+| 5b | Average yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
 | 6 | Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
 | 7 | Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | ✏️ Comment on the trend |
 | 8 | Inflows and outflows | The **10 largest TVL increases and decreases over 30 days**, in dollars | ✏️ Explain the largest moves |
@@ -105,12 +106,12 @@ pile automatically. No report change is needed.
 | 14 | Partners | Copied from the previous post | — |
 | 15 | Next steps | Copied from the previous post | — |
 
-The average yield charts (sections 4 and 5) show:
+The average yield charts (sections 4, 5 and 5b) show:
 - each vault as a small dot and the TVL-weighted average as a large dot;
 - the US 3M T-bill as a dashed line;
 - a right-hand column with the average, its difference to the T-bill in percentage points, and the TVL.
 
-Outliers above 400% annualised return or 50% annualised volatility are left out of the averages.
+Outliers above 400% annualised return or 50% annualised volatility are left out of the averages. The x axis reaches the 90th percentile vault but at most twice the highest average; vault dots beyond it are not drawn but still count in the averages.
 
 ## Changes from the earlier outline
 
@@ -130,7 +131,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 ## Decisions to confirm
 
 1. **"By CAGR" in tables means the annualised one-month return**, the metric the website ranks by; the charts use the three-month return. For perp DEX vaults, both often hit the export's 10,000% cap.
-2. **The top 10 protocols are the largest by TVL, each with at least $1M TVL.** Ranking by yield among protocols with $1M TVL gives a different list, led by small volatile protocols: YieldBasis, GMX and Enzyme were all above 90% in September 2026.
+2. **Protocol yields have two charts:** the 10 largest protocols by TVL (at least $1M), and the 10 highest-yielding protocols with at least $150k TVL. Small protocols with a few vaults can top the high yield chart; its TVL column shows how much money earns that yield.
 3. **TVL changes include returns as well as deposits and redemptions.** The export has estimated net flows (`flow_value`) for only about 1,100 of 5,500 vaults, so dollar TVL changes are used. Funds listed under several share tokens, such as the Janus Henderson Anemoy fund classes on Centrifuge, can appear more than once.
 4. **The lending classification is partly a curated protocol list**, because strategy tags cover only Aave, Euler and Morpho vaults. Tagging more protocol adapters would retire the list.
 5. **Kept from the earlier outline:** TVL by protocol, now split into DeFi vault protocols and tokenised funds, risk and return, and the per-chain table. Drop any of them to shorten the post.

@@ -685,8 +685,12 @@ def create_average_yield_figure(
         Latest US Treasury bill yield as a fraction.
 
     :param max_return:
-        Clip individual vault dots at this annualised return, and below at -5%;
-        clipped vaults are drawn as triangles on the edges.
+        Upper limit of the x axis as an annualised return.
+
+    The x axis fits the averages and most vault dots, up to the 90th percentile
+    vault but at most twice the highest average, so a few outlier vaults do not
+    squeeze the scale. Vault dots outside it are left out of the chart but still
+    counted in the averages.
 
     :return:
         Plotly figure.
@@ -694,16 +698,24 @@ def create_average_yield_figure(
     logos = logos or {}
     df = yields.sort_values("avg_return")
     positions = {group: position for position, group in enumerate(df.index)}
-    clip = max_return * 100
-
     points = vault_returns.loc[vault_returns[group_column].isin(positions)].copy()
-    points["x"] = (points[CHART_RETURN] * 100).clip(lower=-5, upper=clip)
-    points["marker"] = np.select([points[CHART_RETURN] * 100 > clip, points[CHART_RETURN] * 100 < -5], ["triangle-right", "triangle-left"], "circle")
+    points["x"] = points[CHART_RETURN] * 100
+    points = points.loc[points["x"].notna()]
+
+    # Fit the axis to the averages, the T-bill and the middle 90% of vaults; strip outlier dots beyond it
+    averages = df["avg_return"] * 100
+    # The axis reaches the 90th percentile vault, but at most twice the highest average, so the averages stay readable
+    highest = float(averages.max())
+    spread = min(float(np.percentile(points["x"], 90)) if len(points) else 0.0, highest * 2)
+    upper = min(max(spread, highest * 1.25, (benchmark_yield or 0) * 100 * 1.5, 2.0), max_return * 100)
+    lower = min(max(float(np.percentile(points["x"], 5)) if len(points) else 0.0, -5.0), float(averages.min()), 0.0)
+    points = points.loc[(points["x"] >= lower) & (points["x"] <= upper)]
+    span = upper - lower
     # Deterministic vertical jitter so dots of one group do not sit on top of each other
     points["y"] = [positions[group] + ((zlib.crc32(vault_id.encode()) % 1000) / 1000 - 0.5) * 0.44 for vault_id, group in zip(points.index, points[group_column], strict=True)]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=points["x"], y=points["y"], mode="markers", marker={"size": 7, "symbol": points["marker"], "color": to_rgba(theme.muted_text, 0.35)}, hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(x=points["x"], y=points["y"], mode="markers", marker={"size": 7, "color": to_rgba(theme.muted_text, 0.35)}, hoverinfo="skip", showlegend=False))
 
     above = [benchmark_yield is None or value >= benchmark_yield for value in df["avg_return"]]
     fig.add_trace(
@@ -720,7 +732,7 @@ def create_average_yield_figure(
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     # Margins sized so the labels, the plot and the right column fill the panel width
     fig.update_layout(xaxis_title="3-month yield, annualised", margin={"l": 254, "r": 264, "t": 50, "b": 90})
-    fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-6, clip + 2], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
+    fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[lower - span * 0.04, upper + span * 0.04], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 
     for position, (group, row) in enumerate(df.iterrows()):
