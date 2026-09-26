@@ -124,6 +124,21 @@ def to_rgba(colour: str, alpha: float) -> str:
     return f"rgba({red},{green},{blue},{alpha})"
 
 
+def shorten_text(text: str, max_length: int) -> str:
+    """Shorten a one-line label with an ellipsis, for labels that must not wrap.
+
+    :param text:
+        Label.
+
+    :param max_length:
+        Maximum length including the ellipsis.
+
+    :return:
+        Label of at most ``max_length`` characters.
+    """
+    return text if len(text) <= max_length else text[: max_length - 1].rstrip() + "…"
+
+
 def wrap_label(text: str, width: int) -> str:
     """Word-wrap a chart label to Plotly ``<br>`` lines without truncating it.
 
@@ -842,25 +857,53 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     return fig
 
 
+#: Volatility and return below which a vault counts as dormant: its share price has not moved
+DORMANT_VOLATILITY = 1e-5
+
+
+def select_moving_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
+    """Leave out dormant vaults whose share price has not moved over three months.
+
+    Vaults with practically zero volatility and zero return, e.g. idle or
+    wound-down vaults, would pile up as a vertical stripe on the left edge of
+    a log-scale risk and return chart.
+
+    :param vaults_df:
+        Vaults with ``three_months_volatility`` and ``three_months_cagr_best``.
+
+    :return:
+        Vaults with a moving share price.
+    """
+    dormant = (vaults_df["three_months_volatility"].fillna(0) < DORMANT_VOLATILITY) & (vaults_df["three_months_cagr_best"].fillna(0).abs() < 0.001)
+    return vaults_df.loc[~dormant]
+
+
 def create_risk_return_figure(
     vaults_df: pd.DataFrame,
     category_labels: dict[str, str],
     theme: ChartTheme,
     max_return: float,
     benchmark_yield: float | None = None,
-    label_count: int = 6,
+    label_count: int = 4,
 ) -> Figure:
     """Draw a risk/return bubble scatter of vaults.
 
     Uses annualised three-month volatility rather than Sharpe, because
     near-zero-volatility lending vaults have Sharpe ratios in the millions.
-    Vaults above ``max_return`` are drawn as triangles on the top edge, so the
-    bulk of the market is not squashed into a flat band. Unclassified vaults
-    are drawn first in a neutral colour, so classified strategies stand out.
+
+    Both axes are fitted to the bulk of the vaults, the 1st to 99th percentile,
+    so the dense middle of the market is readable. Vaults outside the axes are
+    drawn as triangles on the edge they fall beyond, in one "Off scale" legend
+    entry. Large bubbles are drawn first and are translucent, so small vaults
+    on top of them stay visible. Unclassified vaults are drawn in a neutral
+    colour, so classified strategies stand out.
+
+    Labels mark the highest-returning and the largest vaults, stacked
+    vertically so they do not overlap.
 
     :param vaults_df:
         Vaults with ``three_months_volatility``, ``three_months_cagr_best``,
-        ``current_nav`` and ``strategy_tags`` columns.
+        ``current_nav`` and ``strategy_tags`` columns, see :py:func:`select_moving_vaults`.
 
     :param category_labels:
         Strategy tag -> human-readable category label.
@@ -869,79 +912,108 @@ def create_risk_return_figure(
         Chart theme.
 
     :param max_return:
-        Clip annualised returns above this, as a fraction.
+        Upper limit of the return axis, as a fraction.
 
     :param benchmark_yield:
         Latest US Treasury bill yield as a fraction, drawn as a reference line.
 
     :param label_count:
-        Label the vaults with the highest returns within the clip directly.
+        Number of highest-returning and of largest vaults labelled directly.
 
     :return:
         Plotly figure.
     """
     df = vaults_df.dropna(subset=["three_months_volatility", "three_months_cagr_best", "current_nav"]).copy()
-    min_volatility = 1e-4
-    df["x"] = df["three_months_volatility"].clip(lower=min_volatility) * 100
-    df["clipped"] = df["three_months_cagr_best"] > max_return
-    df["y"] = df["three_months_cagr_best"].clip(lower=-0.5, upper=max_return) * 100
+    volatility = df["three_months_volatility"].clip(lower=1e-4) * 100
+    returns = df["three_months_cagr_best"] * 100
+
+    # Axes fitted to the bulk of the vaults, with room for the T-bill line
+    tbill = (benchmark_yield or 0) * 100
+    y_low = max(min(float(np.percentile(returns, 1)), 0.0) - 2, -15.0)
+    y_high = min(max(float(np.percentile(returns, 99)) * 1.1, tbill * 3, 10.0), max_return * 100)
+    x_low = 0.01
+    x_high = min(max(float(np.percentile(volatility, 98)) * 2, 1.0), 100.0)
+    x_range = (np.log10(x_low) - 0.08, np.log10(x_high) + 0.08)
+    y_margin = (y_high - y_low) * 0.03
+    y_range = (y_low - y_margin, y_high + y_margin)
+
+    df["x"] = volatility.clip(upper=x_high)
+    df["y"] = returns.clip(lower=y_low, upper=y_high)
+    df["off"] = np.select([returns > y_high, returns < y_low, volatility > x_high], ["triangle-up", "triangle-down", "triangle-right"], "")
     # Area ∝ TVL, capped so the few multi-billion vaults do not cover the chart
-    df["size"] = np.sqrt(df["current_nav"].clip(upper=2e9))
+    df["size"] = np.sqrt(df["current_nav"].clip(upper=1e9))
     df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unclassified")
     classified = df.loc[df["category"] != "Unclassified", "category"].value_counts().index[: len(theme.series_colours) - 1].tolist()
     df["category"] = df["category"].where(df["category"].isin(classified) | (df["category"] == "Unclassified"), "Other")
+    on_scale = df.loc[df["off"] == ""].sort_values("size", ascending=False)
 
     fig = go.Figure()
-    size_ref = 2.0 * df["size"].max() / (40**2)
-    colours = dict(zip(classified, theme.series_colours, strict=False)) | {"Other": theme.neutral, "Unclassified": theme.neutral}
+    size_ref = 2.0 * df["size"].max() / (34**2)
+    colours = dict(zip(classified, theme.series_colours, strict=False)) | {"Other": theme.neutral, "Unclassified": theme.muted_text}
     for category in ["Unclassified", *classified, "Other"]:
-        group = df.loc[(df["category"] == category) & ~df["clipped"]]
+        group = on_scale.loc[on_scale["category"] == category]
         if group.empty:
             continue
-        opacity = 0.45 if category == "Unclassified" else 0.8
+        opacity = 0.28 if category == "Unclassified" else 0.62
         fig.add_trace(
             go.Scatter(
                 x=group["x"],
                 y=group["y"],
                 mode="markers",
                 name=f"{category} ({len(group)})",
-                marker={
-                    "size": group["size"],
-                    "sizemode": "area",
-                    "sizeref": size_ref,
-                    "sizemin": 4,
-                    "color": to_rgba(colours[category], opacity),
-                    "line": {"color": theme.surface, "width": 1.5},
-                },
+                marker={"size": group["size"], "sizemode": "area", "sizeref": size_ref, "sizemin": 5, "color": to_rgba(colours[category], opacity), "line": {"color": to_rgba(colours[category], 0.9), "width": 1}},
             )
         )
 
-    clipped = df.loc[df["clipped"]]
-    if len(clipped):
-        fig.add_trace(go.Scatter(x=clipped["x"], y=clipped["y"], mode="markers", name=f"Above {max_return:.0%} ({len(clipped)})", marker={"size": 14, "symbol": "triangle-up", "color": theme.text}))
-
-    # Alternate label offsets so neighbouring labels do not overlap
-    offsets = [(34, -28), (34, 30), (-34, -48), (-34, 44)]
-    for i, (_, vault) in enumerate(df.loc[~df["clipped"]].nlargest(label_count, "y").iterrows()):
-        ax, ay = offsets[i % len(offsets)]
-        fig.add_annotation(x=np.log10(vault["x"]), y=vault["y"], text=wrap_label(vault["name"] or vault["address"], 24), align="left", showarrow=True, arrowcolor=theme.axis, ax=ax, ay=ay, font={"size": 15, "color": theme.text})
+    off_scale = df.loc[df["off"] != ""]
+    if len(off_scale):
+        fig.add_trace(go.Scatter(x=off_scale["x"], y=off_scale["y"], mode="markers", name=f"Off scale ({len(off_scale)})", marker={"size": 13, "symbol": off_scale["off"], "color": theme.text}))
 
     if benchmark_yield is not None:
-        fig.add_hline(y=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
-        fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", xref="paper", x=1.0, y=benchmark_yield * 100, yanchor="bottom", xanchor="right", yshift=4, showarrow=False, font={"size": 17, "color": theme.benchmark})
+        fig.add_hline(y=tbill, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
+        fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", xref="paper", x=0.94, y=tbill, yanchor="bottom", xanchor="right", yshift=4, showarrow=False, font={"size": 17, "color": theme.benchmark})
 
     apply_theme(fig, theme, IMAGE_WIDTH, 900)
+    margin = {"l": 90, "r": 330, "t": 40, "b": 80}
     fig.update_layout(
         xaxis_title="3-month volatility, annualised (log scale)",
         yaxis_title="3-month return, annualised",
-        margin={"l": 90, "r": 330, "t": 40, "b": 80},
+        margin=margin,
         legend={"font": {"size": 17, "color": theme.text}, "x": 1.02, "y": 1, "xanchor": "left", "itemsizing": "constant", "title": {"text": "Strategy", "font": {"color": theme.text}}},
     )
+
+    # Labels for the highest-returning and the largest vaults, stacked so they do not overlap
+    plot_width, plot_height = IMAGE_WIDTH - margin["l"] - margin["r"], 900 - margin["t"] - margin["b"]
+    top_returns = on_scale.nlargest(label_count, "y")
+    largest = on_scale.nlargest(label_count, "current_nav")
+    labelled = pd.concat([top_returns, largest])
+    labelled = labelled.loc[~labelled.index.duplicated()]
+    # The largest vaults sit in the dense middle, so their labels are pulled further out of it
+    in_cluster = set(largest.index) - set(top_returns.index)
+    placed: list[float] = []
+    for vault_id, vault in labelled.assign(py=lambda d: (d["y"] - y_range[0]) / (y_range[1] - y_range[0]) * plot_height).sort_values("py", ascending=False).iterrows():
+        px = (np.log10(vault["x"]) - x_range[0]) / (x_range[1] - x_range[0]) * plot_width
+        label_y = vault["py"] if not placed else min(vault["py"], placed[-1] - 30)
+        placed.append(label_y)
+        right = px < plot_width * 0.7
+        fig.add_annotation(
+            x=np.log10(vault["x"]),
+            y=vault["y"],
+            text=shorten_text(vault["name"] or vault["address"], 26),
+            showarrow=True,
+            arrowcolor=theme.axis,
+            arrowwidth=1,
+            ax=(180 if vault_id in in_cluster else 60) * (1 if right else -1),
+            ay=vault["py"] - label_y,
+            xanchor="left" if right else "right",
+            font={"size": 15, "color": theme.text},
+            bgcolor=to_rgba(theme.surface, 0.75),
+        )
+
     # Decade ticks with a percent sign, instead of Plotly's unlabelled 2 and 5 minor ticks
-    x_range = (np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1)
     x_ticks = [10.0**power for power in range(int(np.floor(x_range[0])), int(np.ceil(x_range[1])) + 1) if x_range[0] <= power <= x_range[1]]
     fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=list(x_range), tickvals=x_ticks, ticktext=[f"{tick:g}%" for tick in x_ticks])
-    fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8], ticksuffix="%")
+    fig.update_yaxes(side="left", range=list(y_range), ticksuffix="%", zeroline=True, zerolinecolor=theme.axis)
     return fig
 
 

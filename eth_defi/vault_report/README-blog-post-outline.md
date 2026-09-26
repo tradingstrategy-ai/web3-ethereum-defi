@@ -101,7 +101,7 @@ pile automatically. No report change is needed.
 | 9.5 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
 | 10 | The best-performing tokenised funds | Performance chart and table, by return | — |
 | 11 | The best-performing new vaults | Table: launched in the last 60 days, at least $15k TVL | — |
-| 12 | Risk and return | Bubble scatter of 3M volatility against 3M return for the yield vaults | — |
+| 12 | Risk and return | Bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
 | 13 | The best-performing vaults on each chain | Table: the top 3 per chain with at least $100k TVL | — |
 | 14 | Partners | Copied from the previous post | — |
 | 15 | Next steps | Copied from the previous post | — |

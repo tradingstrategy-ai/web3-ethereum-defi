@@ -18,7 +18,7 @@ from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, wrap_label
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, select_moving_vaults, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
@@ -592,6 +592,24 @@ def test_chart_risk_filter(vaults_df: pd.DataFrame):
     df = vaults_df.loc[["1-0xaa", "1-0xbb", "1-0x22", "1-0x55"]].copy()
     df["risk_numeric"] = [20.0, 40.0, 50.0, float("nan")]
     assert list(exclude_chart_risks(df, ReportCriteria())["address"]) == ["0xaa", "0xbb", "0x55"]
+
+
+def test_risk_return_scales(vaults_df: pd.DataFrame):
+    """Risk and return fits the bulk of vaults, marks outliers on the edges and leaves dormant vaults out."""
+    df = vaults_df.loc[["1-0xaa", "1-0xbb", "1-0x22", "1-0x55", "1-0x44"]].copy()
+    df["three_months_volatility"] = [0.001, 0.002, 0.003, 0.0, 0.004]
+    df["three_months_cagr_best"] = [0.04, 0.05, 0.06, 0.0, 0.05]
+    # 0x55 has a flat share price and is dormant
+    assert "1-0x55" not in select_moving_vaults(df).index
+
+    # Many ordinary vaults and one 500% outlier: the axis fits the ordinary ones and the outlier is an edge triangle
+    many = pd.concat([df.iloc[[0]].assign(three_months_cagr_best=0.03 + i / 1000) for i in range(100)], ignore_index=True)
+    many.index = [f"v{i}" for i in range(len(many))]
+    many.loc["v99", "three_months_cagr_best"] = 5.0
+    fig = create_risk_return_figure(many, {}, DARK_THEME, max_return=1.0, benchmark_yield=0.042)
+    assert fig.layout.yaxis.range[1] < 50  # Far below the 500% outlier
+    off_scale = [trace for trace in fig.data if trace.name and trace.name.startswith("Off scale")]
+    assert len(off_scale) == 1 and list(off_scale[0].marker.symbol) == ["triangle-up"]
 
 
 def test_vault_properties(vaults_df: pd.DataFrame):

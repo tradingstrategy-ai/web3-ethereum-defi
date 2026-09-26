@@ -47,6 +47,7 @@ from eth_defi.vault_report.charts import (
     create_tvl_change_figure,
     rasterise_logos,
     render_figure_png,
+    select_moving_vaults,
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
@@ -318,7 +319,8 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, chart_ranking, benchmarks, chart_risk],
         "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified, amm],
         "risk_return": [
-            f"Vaults with annualised three-month returns above {criteria.scatter_max_return:.0%} are drawn as triangles on the top edge",
+            "Both axes fit the bulk of the vaults; vaults beyond an axis are drawn as triangles on that edge",
+            "Vaults whose share price did not move over three months are left out",
             "Vaults rated Dangerous or worse are left out",
             unidentified,
             amm,
@@ -536,7 +538,7 @@ def render_report_charts(
             figure = create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos)
         figures[f"{key}_performance"] = (figure, performance_panels[key])
 
-    risk_return_vaults = exclude_chart_risks(yield_universe, criteria)
+    risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
     figures["risk_return"] = (
         create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
         ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/trading-view/vaults/yield-risk"),
