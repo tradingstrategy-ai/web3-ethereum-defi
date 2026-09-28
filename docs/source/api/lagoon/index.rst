@@ -20,6 +20,12 @@ for calls and storage fields covered by its Base integration test. Vault
 deployment remains pinned to the repository's v0.5 artefacts; v1 deployment
 and upgrade support are not provided.
 
+Reviewed private deployments remain excluded by default unless their chain and
+address are explicitly allowlisted. Kamui's Stable, Balanced and Boosted vaults
+are approved through this mechanism. Their v0.6 contracts report whitelisted
+deposits onchain, and their asynchronous flow history bypasses the generic
+vault-local ``Deposit`` event threshold used to suppress inactive contracts.
+
 Tutorials
 ~~~~~~~~~
 
@@ -37,6 +43,7 @@ Tutorials
    eth_defi.lagoon.vault
    eth_defi.lagoon.deployment
    eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.lagoon.constants
    eth_defi.erc_4626.vault_protocol.lagoon.funding
    eth_defi.erc_4626.vault_protocol.lagoon.tags
    eth_defi.lagoon.cowswap

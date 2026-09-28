@@ -24,6 +24,7 @@ from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
+from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
 from eth_defi.utils import wait_other_writers
 
 #: Where we cache fetched Lagoon metadata files
@@ -43,25 +44,28 @@ FAILED_REFRESH_RETRY_DELAY = datetime.timedelta(hours=1)
 #: listing endpoint omits them because ``isVisible`` is false. Chain IDs are
 #: part of the key so an address reused on another chain is never implicitly
 #: included.
-LAGOON_PRIVATE_VAULT_ALLOWLIST: frozenset[tuple[int, HexAddress]] = frozenset(
-    {
-        #: Der base USDC, about $5.1m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0xba6cfe8a9d199cd7f3e50114c4e4ec66f2d52c87")),
-        #: TowerBridge, about $4.6m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0x22f99228f3ba7cfc7189ddf14366970fe0cef0cb")),
-        #: Der USDC, about $2.2m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0xf10801bcc3deaf467fb8b3dbb7430111822e6dab")),
-        #: Muchacho USDC, about $1.1m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594")),
-        #: UEB3, about $1.1m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0x23b27310451f2754de34d9c04aa24e8be367124a")),
-        #: Odyssey Stablecoins Discretionary, about $1.0m TVL when reviewed on 2026-09-28.
-        (1, HexAddress("0xfd104766499a3ff60ea85b5c6015ba9e32b8c891")),
-        #: Angmar Capital, about $2.7m TVL when reviewed on 2026-09-28.
-        (42161, HexAddress("0x1723cb57af58efb35a013870c90fcc3d60174a4e")),
-        #: Dynamic Alpha Fundamental 2X, about $2.2m TVL when reviewed on 2026-09-28.
-        (42161, HexAddress("0xc047d64dafe9e6ac76508835c17c6719f9278c1c")),
-    }
+LAGOON_PRIVATE_VAULT_ALLOWLIST: frozenset[tuple[int, HexAddress]] = (
+    frozenset(
+        {
+            #: Der base USDC, about $5.1m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0xba6cfe8a9d199cd7f3e50114c4e4ec66f2d52c87")),
+            #: TowerBridge, about $4.6m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0x22f99228f3ba7cfc7189ddf14366970fe0cef0cb")),
+            #: Der USDC, about $2.2m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0xf10801bcc3deaf467fb8b3dbb7430111822e6dab")),
+            #: Muchacho USDC, about $1.1m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594")),
+            #: UEB3, about $1.1m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0x23b27310451f2754de34d9c04aa24e8be367124a")),
+            #: Odyssey Stablecoins Discretionary, about $1.0m TVL when reviewed on 2026-09-28.
+            (1, HexAddress("0xfd104766499a3ff60ea85b5c6015ba9e32b8c891")),
+            #: Angmar Capital, about $2.7m TVL when reviewed on 2026-09-28.
+            (42161, HexAddress("0x1723cb57af58efb35a013870c90fcc3d60174a4e")),
+            #: Dynamic Alpha Fundamental 2X, about $2.2m TVL when reviewed on 2026-09-28.
+            (42161, HexAddress("0xc047d64dafe9e6ac76508835c17c6719f9278c1c")),
+        }
+    )
+    | KAMUI_LAGOON_VAULTS
 )
 
 #: Explanation persisted for private Lagoon deployments that have no public

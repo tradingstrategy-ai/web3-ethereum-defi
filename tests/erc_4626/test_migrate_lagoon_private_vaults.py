@@ -2,19 +2,20 @@
 
 import datetime
 import importlib.util
+from collections.abc import Iterable
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LAGOON_PRIVATE_VAULT_ALLOWLIST, PRIVATE_LAGOON_VAULT_NOTE
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import PRIVATE_LAGOON_VAULT_NOTE
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.vaultdb import VaultDatabase
 
-EXPECTED_REVIEWED_VAULT_COUNT = len(LAGOON_PRIVATE_VAULT_ALLOWLIST)
+EXPECTED_REVIEWED_VAULT_COUNT = 8
 
 
 def load_migration_module() -> ModuleType:
@@ -56,9 +57,11 @@ def create_detection(spec: VaultSpec) -> ERC4262VaultDetection:
     )
 
 
-def create_database(*, custom_note_spec: VaultSpec | None = None) -> tuple[VaultDatabase, VaultSpec]:
+def create_database(reviewed_vaults: Iterable[tuple[int, str]], *, custom_note_spec: VaultSpec | None = None) -> tuple[VaultDatabase, VaultSpec]:
     """Create all reviewed Lagoon rows plus one unrelated row.
 
+    :param reviewed_vaults:
+        Fixed migration chain-address pairs.
     :param custom_note_spec:
         Optional reviewed row whose manual note must be preserved.
     :return:
@@ -66,7 +69,7 @@ def create_database(*, custom_note_spec: VaultSpec | None = None) -> tuple[Vault
     """
 
     rows = {}
-    for index, (chain_id, address) in enumerate(sorted(LAGOON_PRIVATE_VAULT_ALLOWLIST)):
+    for index, (chain_id, address) in enumerate(sorted(reviewed_vaults)):
         spec = VaultSpec(chain_id, address)
         rows[spec] = {
             "Name": f"Private Lagoon {index}",
@@ -116,7 +119,7 @@ def test_private_lagoon_migration_dry_run_is_exact_and_non_mutating(tmp_path: Pa
     migration = load_migration_module()
     reviewed_specs = migration.get_reviewed_specs()
     custom_note_spec = reviewed_specs[0]
-    vault_db, unrelated_spec = create_database(custom_note_spec=custom_note_spec)
+    vault_db, unrelated_spec = create_database(migration.REVIEWED_PRIVATE_LAGOON_VAULTS, custom_note_spec=custom_note_spec)
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db.write(vault_db_path)
     original_bytes = vault_db_path.read_bytes()
@@ -146,7 +149,7 @@ def test_private_lagoon_migration_writes_backup_and_preserves_unrelated_metadata
     migration = load_migration_module()
     reviewed_specs = migration.get_reviewed_specs()
     custom_note_spec = reviewed_specs[0]
-    vault_db, unrelated_spec = create_database(custom_note_spec=custom_note_spec)
+    vault_db, unrelated_spec = create_database(migration.REVIEWED_PRIVATE_LAGOON_VAULTS, custom_note_spec=custom_note_spec)
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db.write(vault_db_path)
     original_bytes = vault_db_path.read_bytes()
@@ -188,7 +191,7 @@ def test_private_lagoon_migration_aborts_on_unknown_permission(tmp_path: Path) -
     """Do not write any row when a reviewed live policy remains inconclusive."""
 
     migration = load_migration_module()
-    vault_db, _ = create_database()
+    vault_db, _ = create_database(migration.REVIEWED_PRIVATE_LAGOON_VAULTS)
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db.write(vault_db_path)
     original_bytes = vault_db_path.read_bytes()
