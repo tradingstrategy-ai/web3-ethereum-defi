@@ -103,6 +103,17 @@ def test_build_curators_for_export_without_feed() -> None:
     assert json.loads(json.dumps(rec))["risk"]["status"] == "unknown"
 
 
+def test_build_curators_for_export_includes_kamui() -> None:
+    """Expose Kamui metadata when its address-attributed vaults enter the export."""
+
+    result = build_curators_for_export(["kamui"], feed_db=None)
+
+    assert result["kamui"]["name"] == "Kamui"
+    assert result["kamui"]["website"] == "https://www.kamui.finance/"
+    assert result["kamui"]["protocol_curator"] is False
+    assert result["kamui"]["recent_posts"] == []
+
+
 def test_build_curators_for_export_with_incidents() -> None:
     """Incident metadata reaches the JSON-compatible curator export record.
 

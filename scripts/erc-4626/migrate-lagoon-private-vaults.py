@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Repair listing and deposit-permission metadata for reviewed private Lagoon vaults.
 
-The Lagoon application recognises the eight vaults in
-:data:`eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata.LAGOON_PRIVATE_VAULT_ALLOWLIST`
-but omits them from its paginated public catalogue. Rows scanned before the
+The Lagoon application recognises the eight vaults in this migration's fixed
+``REVIEWED_PRIVATE_LAGOON_VAULTS`` scope but omits them from its paginated
+public catalogue. Rows scanned before the
 address-specific review therefore retain the exclusionary ``unofficial`` flag
 and missing-frontend note. Some Ethereum RPC providers also omitted the empty
 ``data`` field from the v0.5 missing-getter revert, leaving five deposit-policy
@@ -168,8 +168,8 @@ def get_reviewed_specs() -> tuple[VaultSpec, ...]:
         Eight reviewed private Lagoon vault specifications.
     """
 
-    if REVIEWED_PRIVATE_LAGOON_VAULTS != LAGOON_PRIVATE_VAULT_ALLOWLIST:
-        message = "Private Lagoon migration scope no longer matches the reviewed listing allowlist"
+    if not REVIEWED_PRIVATE_LAGOON_VAULTS.issubset(LAGOON_PRIVATE_VAULT_ALLOWLIST):
+        message = "Private Lagoon migration scope contains a vault removed from the reviewed listing allowlist"
         raise RuntimeError(message)
     return tuple(VaultSpec(chain_id, address) for chain_id, address in sorted(REVIEWED_PRIVATE_LAGOON_VAULTS))
 

@@ -14,6 +14,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.erc_4626.vault_protocol.lagoon.constants import is_kamui_lagoon_vault
 from eth_defi.vault.base import VaultSpec
 
 #: Minimum deposit events for a vault to be included in the price scanner.
@@ -1023,8 +1024,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     protocol Reader contracts and use asynchronous ExchangeRouter requests, so
     they do not emit the ERC-4626 flow events counted by this filter. Rysk
     Premium is discovered from epoch-price configuration and may have a valid
-    finalised curve below the generic LP-deposit threshold. T3tris migration-pool
-    vaults are handled
+    finalised curve below the generic LP-deposit threshold. Kamui's reviewed
+    permissioned Lagoon vaults use asynchronous flows without vault-local
+    ``Deposit`` events, so exact chain-address matches bypass the generic
+    threshold. T3tris migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 
@@ -1035,7 +1038,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         ``True`` if low activity count filters should not drop this detection.
     """
 
-    return any(
+    protocol_exempt = any(
         feature in detection.features
         for feature in (
             ERC4626Feature.mellow_like,
@@ -1048,6 +1051,8 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.rysk_premium_like,
         )
     )
+    kamui_exempt = ERC4626Feature.lagoon_like in detection.features and is_kamui_lagoon_vault(detection.chain, detection.address)
+    return protocol_exempt or kamui_exempt
 
 
 def passes_price_scan_activity_filter(detection: "ERC4262VaultDetection", min_deposit_threshold: int) -> bool:

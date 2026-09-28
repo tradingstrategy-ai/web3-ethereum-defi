@@ -9,7 +9,9 @@ from eth_typing import HexAddress
 from pytest import MonkeyPatch
 from web3 import Web3
 
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.vault_protocol.lagoon import offchain_metadata
+from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LAGOON_PRIVATE_VAULT_ALLOWLIST, PRIVATE_LAGOON_VAULT_NOTE, is_lagoon_private_vault_allowlisted
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_7540.vault import ERC7540Vault
@@ -27,6 +29,9 @@ EXPECTED_PRIVATE_VAULTS = frozenset(
         (1, HexAddress("0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594")),
         (1, HexAddress("0xf10801bcc3deaf467fb8b3dbb7430111822e6dab")),
         (1, HexAddress("0xfd104766499a3ff60ea85b5c6015ba9e32b8c891")),
+        (1, HexAddress("0xcda323c2df692d989b24ba51d0acca924cf9a344")),
+        (1, HexAddress("0xa5ae405242f42c47996a0c6857ff10a77f9bdee6")),
+        (1, HexAddress("0x9e0db8f43bb91e2148b0db920e21370525cf3aab")),
         (42161, HexAddress("0x1723cb57af58efb35a013870c90fcc3d60174a4e")),
         (42161, HexAddress("0xc047d64dafe9e6ac76508835c17c6719f9278c1c")),
     }
@@ -61,9 +66,10 @@ def create_lagoon_vault(chain_id: int, address: HexAddress, metadata: offchain_m
 
 
 def test_private_lagoon_vault_allowlist_is_exact() -> None:
-    """Include only the eight reviewed plausible private deployments."""
+    """Include only the eleven reviewed plausible private deployments."""
 
     assert LAGOON_PRIVATE_VAULT_ALLOWLIST == EXPECTED_PRIVATE_VAULTS
+    assert KAMUI_LAGOON_VAULTS.issubset(LAGOON_PRIVATE_VAULT_ALLOWLIST)
     assert LAGOON_PRIVATE_VAULT_ALLOWLIST.isdisjoint(EXCLUDED_PRIVATE_VAULTS)
 
 
@@ -84,6 +90,43 @@ def test_private_lagoon_vault_is_not_flagged_unofficial(chain_id: int, address: 
 
     assert vault.get_flags() == set()
     assert vault.get_notes() == PRIVATE_LAGOON_VAULT_NOTE
+
+
+@pytest.mark.parametrize(("chain_id", "address"), sorted(KAMUI_LAGOON_VAULTS))
+def test_kamui_lagoon_vault_bypasses_deposit_event_threshold(chain_id: int, address: HexAddress) -> None:
+    """Schedule reviewed Kamui vaults despite their absent canonical Deposit events."""
+
+    timestamp = datetime.datetime(2026, 9, 28)  # noqa: DTZ001 - Repository convention is naive UTC.
+    detection = ERC4262VaultDetection(
+        chain=chain_id,
+        address=address,
+        first_seen_at_block=1,
+        first_seen_at=timestamp,
+        features={ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like},
+        updated_at=timestamp,
+        deposit_count=0,
+        redeem_count=1,
+    )
+
+    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is True
+
+
+def test_unreviewed_lagoon_vault_does_not_bypass_deposit_event_threshold() -> None:
+    """Keep the Kamui shortcut scoped to reviewed chain-address pairs."""
+
+    timestamp = datetime.datetime(2026, 9, 28)  # noqa: DTZ001 - Repository convention is naive UTC.
+    detection = ERC4262VaultDetection(
+        chain=ETHEREUM_CHAIN_ID,
+        address=HexAddress("0x1111111111111111111111111111111111111111"),
+        first_seen_at_block=1,
+        first_seen_at=timestamp,
+        features={ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like},
+        updated_at=timestamp,
+        deposit_count=0,
+        redeem_count=1,
+    )
+
+    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is False
 
 
 @pytest.mark.parametrize(("chain_id", "address"), EXCLUDED_PRIVATE_VAULTS)

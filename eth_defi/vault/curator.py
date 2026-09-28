@@ -147,6 +147,7 @@ from typing import TypedDict
 
 from eth_typing import HexAddress
 
+from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
 from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
@@ -465,9 +466,7 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # https://app.lagoon.finance/api/vault?chainId=1&address=0xcDA323c2DF692d989B24BA51D0aCCa924cf9a344
     # https://app.lagoon.finance/api/vault?chainId=1&address=0xA5AE405242f42C47996a0C6857ff10a77F9bdeE6
     # https://app.lagoon.finance/api/vault?chainId=1&address=0x9E0DB8F43bb91e2148B0Db920E21370525CF3Aab
-    (1, "0xcda323c2df692d989b24ba51d0acca924cf9a344"): "kamui",
-    (1, "0xa5ae405242f42c47996a0c6857ff10a77f9bdee6"): "kamui",
-    (1, "0x9e0db8f43bb91e2148b0db920e21370525cf3aab"): "kamui",
+    **dict.fromkeys(KAMUI_LAGOON_VAULTS, "kamui"),
     # RockawayX Dune dashboard, query 6932634, checked 2026-07-01.
     # https://dune.com/rockawayxvault/rockawayx-dashboard
     (1, "0xcd69123b3fbbfc666e1f6a501da27b564c00de54"): "rockawayx",
