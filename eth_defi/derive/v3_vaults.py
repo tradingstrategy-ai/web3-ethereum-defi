@@ -9,6 +9,7 @@ performance history. See `Derive's vault documentation
 
 import datetime
 import logging
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
@@ -28,6 +29,13 @@ DERIVE_V3_TESTNET_API_URL = "https://testnet.api.derive.xyz/v3"
 _MILLISECONDS_THRESHOLD = 100_000_000_000
 _MAX_VAULT_PAGE_SIZE = 100
 _MAX_PERFORMANCE_PAGE_SIZE = 10_000
+
+#: Derive JSON-envelope error codes that explicitly ask the caller to retry.
+#:
+#: Code 9002 was observed from ``public/get_vaults`` while the backend waited
+#: for its feeds to catch up. The HTTP response itself is successful, so the
+#: Requests HTTP adapter cannot retry it.
+_TRANSIENT_API_ERROR_CODES = frozenset({9002})
 
 
 @dataclass(slots=True)
@@ -176,14 +184,32 @@ class DeriveV3VaultClient:
     :param network: ``testnet`` or ``mainnet``.
     :param session: Optional configured HTTP session.
     :param timeout: Per-request timeout in seconds.
+    :param api_error_retry_attempts:
+        Maximum attempts for retryable errors returned inside a successful
+        Derive JSON response.
+    :param api_error_retry_backoff:
+        Initial exponential backoff in seconds between retryable API errors.
     """
 
-    def __init__(self, network: Literal["testnet", "mainnet"] = "testnet", session: Session | None = None, timeout: float = 30.0):
+    def __init__(
+        self,
+        network: Literal["testnet", "mainnet"] = "testnet",
+        session: Session | None = None,
+        timeout: float = 30.0,
+        api_error_retry_attempts: int = 3,
+        api_error_retry_backoff: float = 0.5,
+    ) -> None:
         if network not in {"testnet", "mainnet"}:
             raise ValueError(f"Unknown Derive v3 network: {network}")
+        if api_error_retry_attempts < 1:
+            raise ValueError(f"api_error_retry_attempts must be at least one, got {api_error_retry_attempts}")
+        if api_error_retry_backoff < 0:
+            raise ValueError(f"api_error_retry_backoff must not be negative, got {api_error_retry_backoff}")
         self.network = network
         self.url = DERIVE_V3_TESTNET_API_URL if network == "testnet" else DERIVE_V3_MAINNET_API_URL
         self.timeout = timeout
+        self.api_error_retry_attempts = api_error_retry_attempts
+        self.api_error_retry_backoff = api_error_retry_backoff
         self.session = session or Session()
         if session is None:
             retry = LoggingRetry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504], respect_retry_after_header=True, logger=logger, allowed_methods=LoggingRetry.DEFAULT_ALLOWED_METHODS | frozenset({"POST"}))
@@ -198,16 +224,47 @@ class DeriveV3VaultClient:
         :param method: Path such as ``public/get_vaults``.
         :param params: JSON request object.
         :return: The unwrapped ``result`` object or list.
-        :raises ValueError: On a Derive application error or malformed response.
+        Retryable Derive application errors use a bounded exponential backoff.
+        In particular, error code 9002 means the backend is temporarily
+        unavailable while its feeds catch up. HTTP status retries remain the
+        responsibility of the configured Requests adapter.
+
+        :raises ValueError:
+            On a permanent Derive application error, exhausted transient error,
+            or malformed response.
         """
-        response = self.session.post(f"{self.url}/{method}", json=params, timeout=self.timeout)
-        response.raise_for_status()
-        body = response.json()
-        if body.get("error") is not None:
-            raise ValueError(f"Derive v3 {method} failed: {body['error']}")
-        if "result" not in body:
-            raise ValueError(f"Derive v3 {method} returned no result")
-        return body["result"]
+        for attempt in range(1, self.api_error_retry_attempts + 1):
+            response = self.session.post(f"{self.url}/{method}", json=params, timeout=self.timeout)
+            response.raise_for_status()
+            body = response.json()
+            if not isinstance(body, dict):
+                raise ValueError(f"Derive v3 {method} returned a non-object response")
+
+            error = body.get("error")
+            if error is not None:
+                error_code = error.get("code") if isinstance(error, dict) else None
+                retryable = error_code in _TRANSIENT_API_ERROR_CODES
+                if not retryable or attempt >= self.api_error_retry_attempts:
+                    raise ValueError(f"Derive v3 {method} failed: {error}")
+
+                retry_delay = self.api_error_retry_backoff * 2 ** (attempt - 1)
+                logger.warning(
+                    "Derive v3 %s returned retryable API error %s on attempt %d/%d; retrying in %.1f seconds",
+                    method,
+                    error_code,
+                    attempt,
+                    self.api_error_retry_attempts,
+                    retry_delay,
+                )
+                time.sleep(retry_delay)
+                continue
+
+            if "result" not in body:
+                raise ValueError(f"Derive v3 {method} returned no result")
+            return body["result"]
+
+        message = "Derive v3 application retry loop exited unexpectedly"
+        raise AssertionError(message)
 
     def fetch_vaults(self, page_size: int = 100) -> Iterator[DeriveV3Vault]:
         """Fetch each page of the deployment's public vault listing.

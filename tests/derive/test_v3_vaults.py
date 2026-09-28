@@ -2,8 +2,8 @@
 
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock
 
-import flaky
 import pandas as pd
 import pytest
 
@@ -108,8 +108,6 @@ def test_v3_public_testnet_vault_api() -> None:
         client.close()
 
 
-# Observed 2026-09-28 in CI: Derive returned temporary backend-unavailable code 9002; the exact test passed locally immediately afterwards.
-@flaky.flaky
 def test_v3_public_mainnet_listing() -> None:
     """Check that the mainnet API returns a parseable, possibly empty listing.
 
@@ -122,6 +120,99 @@ def test_v3_public_mainnet_listing() -> None:
         assert isinstance(result["pagination"]["count"], int)
     finally:
         client.close()
+
+
+def test_v3_client_retries_temporary_backend_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry Derive error 9002 inside its successful HTTP response envelope.
+
+    :param monkeypatch:
+        Replace the retry sleeper so the unit test records rather than waits.
+
+    :return:
+        ``None``. Assertions validate recovery and the initial backoff.
+    """
+
+    expected_request_count = 2
+    retry_backoff = 0.25
+    retry_delays: list[float] = []
+    monkeypatch.setattr("eth_defi.derive.v3_vaults.time.sleep", retry_delays.append)
+    temporarily_unavailable = MagicMock()
+    temporarily_unavailable.json.return_value = {
+        "error": {
+            "code": 9002,
+            "message": "Backend temporarily unavailable, retry",
+            "data": "public/get_vaults unavailable until feeds catch up; retry",
+        }
+    }
+    success = MagicMock()
+    success.json.return_value = {"result": {"vaults": [], "pagination": {"count": 0}}}
+    session = MagicMock()
+    session.post.side_effect = [temporarily_unavailable, success]
+    client = DeriveV3VaultClient(network="mainnet", session=session, api_error_retry_backoff=retry_backoff)
+
+    try:
+        result = client._post("public/get_vaults", {"page": 1, "page_size": 1})
+    finally:
+        client.close()
+
+    assert result == {"vaults": [], "pagination": {"count": 0}}
+    assert session.post.call_count == expected_request_count
+    assert retry_delays == [retry_backoff]
+
+
+def test_v3_client_does_not_retry_permanent_api_error() -> None:
+    """Raise permanent Derive application errors without delaying the caller.
+
+    :return:
+        ``None``. Assertions validate fail-fast application-error handling.
+    """
+
+    permanent_error = MagicMock()
+    permanent_error.json.return_value = {"error": {"code": 1001, "message": "Invalid request"}}
+    session = MagicMock()
+    session.post.return_value = permanent_error
+    client = DeriveV3VaultClient(network="mainnet", session=session, api_error_retry_backoff=0)
+
+    try:
+        with pytest.raises(ValueError, match="Invalid request"):
+            client._post("public/get_vaults", {"page": 1, "page_size": 1})
+    finally:
+        client.close()
+
+    assert session.post.call_count == 1
+
+
+def test_v3_client_stops_after_temporary_error_retry_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raise the last transient Derive error after the bounded retry budget.
+
+    :param monkeypatch:
+        Replace the retry sleeper so the unit test records rather than waits.
+
+    :return:
+        ``None``. Assertions validate the request bound and exponential delays.
+    """
+
+    retry_attempts = 3
+    retry_backoff = 0.25
+    retry_delays: list[float] = []
+    monkeypatch.setattr("eth_defi.derive.v3_vaults.time.sleep", retry_delays.append)
+    responses = []
+    for _ in range(retry_attempts):
+        response = MagicMock()
+        response.json.return_value = {"error": {"code": 9002, "message": "Backend temporarily unavailable, retry"}}
+        responses.append(response)
+    session = MagicMock()
+    session.post.side_effect = responses
+    client = DeriveV3VaultClient(network="mainnet", session=session, api_error_retry_attempts=retry_attempts, api_error_retry_backoff=retry_backoff)
+
+    try:
+        with pytest.raises(ValueError, match="Backend temporarily unavailable"):
+            client._post("public/get_vaults", {"page": 1, "page_size": 1})
+    finally:
+        client.close()
+
+    assert session.post.call_count == retry_attempts
+    assert retry_delays == [retry_backoff, retry_backoff * 2]
 
 
 @pytest.mark.parametrize("timestamp_multiplier", [1, 1000])
