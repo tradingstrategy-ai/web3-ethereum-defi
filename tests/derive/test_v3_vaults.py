@@ -3,6 +3,7 @@
 from decimal import Decimal
 from pathlib import Path
 
+import flaky
 import pandas as pd
 import pytest
 
@@ -107,6 +108,8 @@ def test_v3_public_testnet_vault_api() -> None:
         client.close()
 
 
+# Observed 2026-09-28 in CI: Derive returned temporary backend-unavailable code 9002; the exact test passed locally immediately afterwards.
+@flaky.flaky
 def test_v3_public_mainnet_listing() -> None:
     """Check that the mainnet API returns a parseable, possibly empty listing.
 
