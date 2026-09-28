@@ -38,7 +38,58 @@ DEFAULT_CACHE_DURATION = datetime.timedelta(days=1)
 #: Prevent one failed refresh from being retried for every vault in the same scan.
 FAILED_REFRESH_RETRY_DELAY = datetime.timedelta(hours=1)
 
+#: Hidden Lagoon deployments reviewed for inclusion in the public vault
+#: catalogue. Lagoon's detail API recognises these addresses, but its paginated
+#: listing endpoint omits them because ``isVisible`` is false. Chain IDs are
+#: part of the key so an address reused on another chain is never implicitly
+#: included.
+LAGOON_PRIVATE_VAULT_ALLOWLIST: frozenset[tuple[int, HexAddress]] = frozenset(
+    {
+        #: Der base USDC, about $5.1m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0xba6cfe8a9d199cd7f3e50114c4e4ec66f2d52c87")),
+        #: TowerBridge, about $4.6m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0x22f99228f3ba7cfc7189ddf14366970fe0cef0cb")),
+        #: Der USDC, about $2.2m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0xf10801bcc3deaf467fb8b3dbb7430111822e6dab")),
+        #: Muchacho USDC, about $1.1m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594")),
+        #: UEB3, about $1.1m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0x23b27310451f2754de34d9c04aa24e8be367124a")),
+        #: Odyssey Stablecoins Discretionary, about $1.0m TVL when reviewed on 2026-09-28.
+        (1, HexAddress("0xfd104766499a3ff60ea85b5c6015ba9e32b8c891")),
+        #: Angmar Capital, about $2.7m TVL when reviewed on 2026-09-28.
+        (42161, HexAddress("0x1723cb57af58efb35a013870c90fcc3d60174a4e")),
+        #: Dynamic Alpha Fundamental 2X, about $2.2m TVL when reviewed on 2026-09-28.
+        (42161, HexAddress("0xc047d64dafe9e6ac76508835c17c6719f9278c1c")),
+    }
+)
+
+#: Explanation persisted for private Lagoon deployments that have no public
+#: strategy description.
+PRIVATE_LAGOON_VAULT_NOTE = "Private Lagoon vault reviewed and included through an address-specific allowlist; public strategy metadata is not available."
+
 logger = logging.getLogger(__name__)
+
+
+def is_lagoon_private_vault_allowlisted(chain_id: int, vault_address: HexAddress | str) -> bool:
+    """Check whether a hidden Lagoon deployment is approved for listing.
+
+    Lagoon's public catalogue omits private deployments even when its
+    exact-address detail endpoint recognises them. This explicit chain-aware
+    allowlist permits reviewed, economically material deployments without
+    weakening the default treatment of every other hidden contract.
+
+    :param chain_id:
+        EVM chain ID of the Lagoon deployment.
+
+    :param vault_address:
+        Vault contract address in any checksum casing.
+
+    :return:
+        ``True`` only for an explicitly reviewed chain-address pair.
+    """
+
+    return (chain_id, HexAddress(vault_address.lower())) in LAGOON_PRIVATE_VAULT_ALLOWLIST
 
 
 @dataclass(slots=True)
@@ -276,8 +327,10 @@ def fetch_lagoon_vaults_for_chain(
 ) -> dict[HexAddress, LagoonVaultMetadata]:
     """Fetch and cache Lagoon offchain vault metadata for a given chain.
 
-    - Enumerates vaults using the listing endpoint, then fetches each vault's
-      detail (including description) from the detail endpoint
+    - Enumerates visible vaults using the listing endpoint and adds explicitly
+      reviewed private deployments from the chain-aware allowlist
+    - Fetches each vault's detail, including its description, from the detail
+      endpoint
     - One JSON cache file per chain
     - Serialises concurrent readers and writers with a file lock
     - Retains stale metadata when Lagoon has a transient API failure
@@ -345,13 +398,25 @@ def fetch_lagoon_vaults_for_chain(
                 break
             page_index += 1
 
-        logger.info("Found %d Lagoon vaults on chain %d, fetching details", len(all_vault_addresses), chain_id)
-
-        if not all_vault_addresses and cached_vaults:
+        visible_vault_count = len(all_vault_addresses)
+        if visible_vault_count == 0 and cached_vaults:
             # An empty listing can also mean Lagoon changed its response shape.
-            # Do not erase known descriptions until a later refresh confirms it.
-            logger.warning("Lagoon returned no vaults for chain %d; keeping %d stale entries", chain_id, len(cached_vaults))
+            # Check this before adding private addresses so one successful
+            # allowlisted detail cannot replace the complete stale catalogue.
+            logger.warning("Lagoon returned no visible vaults for chain %d; keeping %d stale entries", chain_id, len(cached_vaults))
             return cached_vaults
+
+        private_vault_addresses = [address for private_chain_id, address in sorted(LAGOON_PRIVATE_VAULT_ALLOWLIST) if private_chain_id == chain_id]
+        all_vault_addresses.extend(private_vault_addresses)
+        all_vault_addresses = list(dict.fromkeys(HexAddress(address.lower()) for address in all_vault_addresses))
+
+        logger.info(
+            "Found %d visible and %d allowlisted private Lagoon vaults on chain %d, fetching %d details",
+            visible_vault_count,
+            len(private_vault_addresses),
+            chain_id,
+            len(all_vault_addresses),
+        )
 
         result: dict[HexAddress, LagoonVaultMetadata] = {}
         fresh_detail_count = 0

@@ -31,7 +31,30 @@ identifies Stable, Balanced and Boosted as its first three permissioned Ethereum
 
 Strategy categories are likewise maintained per vault contract rather than inferred from the
 Lagoon protocol. An unclassified Lagoon vault therefore has no strategy tags instead of receiving
-a protocol-wide default that could misrepresent its mandate.
+a protocol-wide default that could misrepresent its mandate. Each maintained classification records
+the exact-address primary sources and decision material in the Lagoon strategy table. Known cases
+where unrelated deployments reuse a contract address on different chains are resolved by chain ID
+and address together, preventing one vault's mandate from leaking to the other deployment.
+
+Private vault listing
+~~~~~~~~~~~~~~~~~~~~~
+
+Lagoon's paginated catalogue omits private deployments whose ``isVisible`` field is false, even
+though their exact-address detail endpoint remains available. The scanner includes economically
+material private vaults only after a manual plausibility review and records each approved chain and
+contract address in an explicit allowlist. Allowlisting removes the dynamic ``unofficial`` flag and
+fetches the private vault's available Lagoon metadata without inventing a curator or strategy when
+the public record does not disclose one.
+
+Hidden deployments are not admitted automatically. Unreviewed contracts continue to receive the
+``unofficial`` flag, and implausible balances, share prices, token metadata or stale deployments are
+grounds for exclusion. This keeps the public listing open to credible permissioned products without
+treating every discoverable Lagoon contract as endorsed.
+
+Private catalogue visibility is independent of investor admission. A vault can be hidden from
+Lagoon's paginated catalogue while its deployed access policy remains permissionless, or it can
+require an explicit account whitelist. The scanner derives ``deposit_permission`` from the current
+contract policy and does not infer it from ``isVisible`` or from the listing allowlist.
 
 Withdrawal timing metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
