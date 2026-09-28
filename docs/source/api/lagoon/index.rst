@@ -38,6 +38,7 @@ Tutorials
    eth_defi.lagoon.deployment
    eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem
    eth_defi.erc_4626.vault_protocol.lagoon.funding
+   eth_defi.erc_4626.vault_protocol.lagoon.tags
    eth_defi.lagoon.cowswap
    eth_defi.lagoon.config
    eth_defi.lagoon.analysis

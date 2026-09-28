@@ -7,17 +7,31 @@ Lagoon provides open, general-purpose, secure vault infrastructure to build and 
 yield products. The platform is designed for asset managers, DAOs, DeFi protocols and market
 makers who need flexible vault infrastructure.
 
-Powered by the ERC-7540 standard (asynchronous vaults), curators manage deposits and withdrawals
-asynchronously, while users can join any public vault to start earning on their assets. The
-infrastructure is built on top of Safe, leveraging Zodiac modules for security.
+Powered by the ERC-7540 standard (asynchronous vaults), Lagoon lets vault operators settle deposit
+and redemption requests asynchronously. Whether an investor can request entry or redemption
+depends on that vault's access policy; some products use allowlists or KYC/KYB checks. The
+infrastructure is built on top of Safe and uses Zodiac modules.
 
 Key features:
 
 - ERC-7540 asynchronous vault standard for managed deposits and withdrawals
 - Built on Safe with Zodiac modules for institutional-grade security
-- Smart contract code reviewed seven times by reputable firms
 - Vault access controls with optional KYC/KYB integration
 - CoW Protocol integration for trade execution
+
+Curator and strategy metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Lagoon supplies vault infrastructure for independently managed products, so the protocol name
+does not identify a vault's curator or investment mandate. The scanner uses Lagoon's offchain
+curator metadata when it is available. For products whose public Lagoon metadata omits the
+curator, attribution is maintained only for reviewed contract addresses with supporting sources.
+For example, Kamui's `launch announcement <https://www.linkedin.com/posts/kamui-finance_kamui-finance-brings-three-institutional-activity-7508163602609209344-rxYM>`__
+identifies Stable, Balanced and Boosted as its first three permissioned Ethereum vaults.
+
+Strategy categories are likewise maintained per vault contract rather than inferred from the
+Lagoon protocol. An unclassified Lagoon vault therefore has no strategy tags instead of receiving
+a protocol-wide default that could misrepresent its mandate.
 
 Withdrawal timing metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,5 +70,6 @@ Links
    eth_defi.erc_4626.vault_protocol.lagoon.cowswap
    eth_defi.erc_4626.vault_protocol.lagoon.lagoon_compatibility
    eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata
+   eth_defi.erc_4626.vault_protocol.lagoon.tags
    eth_defi.erc_4626.vault_protocol.lagoon.testing
    eth_defi.erc_4626.vault_protocol.lagoon.velora
