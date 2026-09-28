@@ -457,6 +457,17 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # as Growi Lending / Growi USDC Core.
     # https://growi.fi/lending/
     (999, "0x54e24c904cfc563af7a1ee9dfaf1354d034e44e4"): "growi-finance",
+    # Kamui's official launch names Stable, Balanced and Boosted as its first
+    # permissioned RWA vaults on Ethereum. These exact addresses were reviewed
+    # by matching their onchain names to Lagoon's public API records.
+    # https://www.kamui.finance/
+    # https://www.linkedin.com/posts/kamui-finance_kamui-finance-brings-three-institutional-activity-7508163602609209344-rxYM
+    # https://app.lagoon.finance/api/vault?chainId=1&address=0xcDA323c2DF692d989B24BA51D0aCCa924cf9a344
+    # https://app.lagoon.finance/api/vault?chainId=1&address=0xA5AE405242f42C47996a0C6857ff10a77F9bdeE6
+    # https://app.lagoon.finance/api/vault?chainId=1&address=0x9E0DB8F43bb91e2148B0Db920E21370525CF3Aab
+    (1, "0xcda323c2df692d989b24ba51d0acca924cf9a344"): "kamui",
+    (1, "0xa5ae405242f42c47996a0c6857ff10a77f9bdee6"): "kamui",
+    (1, "0x9e0db8f43bb91e2148b0db920e21370525cf3aab"): "kamui",
     # RockawayX Dune dashboard, query 6932634, checked 2026-07-01.
     # https://dune.com/rockawayxvault/rockawayx-dashboard
     (1, "0xcd69123b3fbbfc666e1f6a501da27b564c00de54"): "rockawayx",

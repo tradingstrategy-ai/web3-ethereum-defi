@@ -35,6 +35,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
+from eth_defi.erc_4626.vault_protocol.lagoon.tags import STRATEGY_TAGS
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.fallback import ExtraValueError
@@ -45,6 +46,7 @@ from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, Withdraw
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
@@ -474,6 +476,18 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
 
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Lagoon vault.
+
+        Lagoon supports independently managed vaults with different mandates,
+        so classifications are maintained per vault contract address.
+
+        :return:
+            Copy of the tag set, or ``None`` when this deployment has not been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def fetch_version(self) -> LagoonVersion:
         """Read and classify the deployed Lagoon version.

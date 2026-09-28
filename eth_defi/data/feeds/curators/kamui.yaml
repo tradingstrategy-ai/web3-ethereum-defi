@@ -1,0 +1,29 @@
+feeder-id: kamui
+name: Kamui
+role: curator
+lagoon-curator: Kamui
+website: https://www.kamui.finance/
+twitter: KamuiFinance
+linkedin: kamui-finance
+short_description: Kamui operates institutional vault products for tokenised real-world assets.
+long_description: |
+  [Kamui](https://www.kamui.finance/) operates infrastructure and managed vault products for tokenised real-world assets. Its [launch announcement](https://www.linkedin.com/posts/kamui-finance_kamui-finance-brings-three-institutional-activity-7508163602609209344-rxYM) identifies Stable, Balanced and Boosted as its first three permissioned Ethereum vaults, with mandates spanning tokenised US Treasury and money-market instruments, diversified assets and private credit. Access is available to professional and sophisticated investors in eligible jurisdictions.
+
+# Evidence and background references.
+#
+# Kamui's official website describes its end-to-end vault operations and the
+# three Kamui RWA Earn mandates. The official launch post identifies Stable,
+# Balanced and Boosted as Kamui's first three whitelisted Ethereum RWA vaults.
+other-links:
+  - title: Kamui official website - RWA Earn Stable, Balanced and Boosted vaults
+    url: https://www.kamui.finance/
+  - title: Kamui official LinkedIn launch post - three whitelisted Ethereum RWA vaults
+    url: https://www.linkedin.com/posts/kamui-finance_kamui-finance-brings-three-institutional-activity-7508163602609209344-rxYM
+  - title: Reuters press release - Kamui launches three institutional real-world asset vaults onchain
+    url: https://www.reuters.com/press-releases/kamui-finance-institutional-real-world-asset-vaults-onchain-2026-09-22/
+  - title: Syndicated launch release - Kamui Stable, Balanced and Boosted vault mandates
+    url: https://www.crypto-reporter.com/press-releases/kamui-finance-brings-three-institutional-real-world-asset-vaults-live-onchain-integrated-with-digift-centrifuge-midas-and-ondo-131821/
+  - title: Kamui vaults one-pager
+    url: https://docsend.com/view/ch5impz2zs5ecvpe
+  - title: Kamui Finance deck
+    url: https://docsend.com/view/mmajfqva32xbz59v

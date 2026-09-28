@@ -78,6 +78,34 @@ def test_identify_darkmatter_labs_hyperliquid_vault() -> None:
     }
 
 
+def test_identify_kamui_lagoon_vaults() -> None:
+    """Attribute Kamui's unbranded Lagoon vault contracts by address."""
+
+    vaults = {
+        "0xcda323c2df692d989b24ba51d0acca924cf9a344": "Stable Vault",
+        "0xa5ae405242f42c47996a0c6857ff10a77f9bdee6": "Balanced Vault",
+        "0x9e0db8f43bb91e2148b0db920e21370525cf3aab": "Boosted Vault",
+    }
+
+    for address, name in vaults.items():
+        assert identify_curator(1, "", name, address, "lagoon-finance") == "kamui"
+
+    assert get_curator_name("kamui") == "Kamui"
+    assert not is_protocol_curator("kamui")
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/kamui.yaml"),
+        public_url="https://example.invalid",
+    )
+    assert metadata["name"] == "Kamui"
+    assert metadata["short_description"]
+    assert metadata["long_description"]
+    assert metadata["twitter"] == "https://x.com/KamuiFinance"
+    assert metadata["linkedin"] == "https://www.linkedin.com/company/kamui-finance"
+    assert metadata["logos"]["generic"] == "https://example.invalid/curator-metadata/kamui/generic.png"
+    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/kamui/light.png"
+
+
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098
 BRANDMARK_VISIBLE_ALPHA_THRESHOLD = 15
 SRGB_LINEAR_THRESHOLD = 0.04045
