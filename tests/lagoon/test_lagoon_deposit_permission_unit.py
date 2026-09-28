@@ -12,7 +12,7 @@ from web3.exceptions import BadFunctionCallOutput
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.lagoon import vault as lagoon_vault_module
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ADDRESS_NOT_ALLOWED_SELECTOR, REQUEST_DEPOSIT_SELECTOR, LagoonDepositManager
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_ROLES_STORAGE_SLOT, LAGOON_MODERN_VERSIONS, LAGOON_VAULT_ABI_BY_VERSION, LagoonVault, LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT, LAGOON_MODERN_ROLES_STORAGE_SLOT, LAGOON_MODERN_VERSIONS, LAGOON_VAULT_ABI_BY_VERSION, LagoonAccessMode, LagoonVault, LagoonVersion
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
@@ -239,28 +239,40 @@ def test_lagoon_v05_uses_zero_address_sentinel(
 
 
 @pytest.mark.parametrize(
-    ("zero_address_allowed", "expected_whitelisted"),
+    ("access_mode", "expected_whitelisted"),
     [
-        (False, True),
-        (True, False),
+        (LagoonAccessMode.blacklist, False),
+        (LagoonAccessMode.whitelist, True),
     ],
 )
 @pytest.mark.parametrize("version", [LagoonVersion.v_0_6_0, LagoonVersion.v_1_0_0])
-def test_lagoon_modern_uses_is_allowed_zero_address_sentinel(
+def test_lagoon_modern_uses_access_mode_storage(
     version: LagoonVersion,
-    zero_address_allowed: bool,  # noqa: FBT001
+    access_mode: LagoonAccessMode,
     expected_whitelisted: bool,  # noqa: FBT001
 ) -> None:
-    """Modern Lagoon versions derive whitelist mode from ``isAllowed``."""
+    """Modern Lagoon versions derive whitelist mode from storage."""
     vault, functions = create_lagoon_policy_vault(
         version,
         BadFunctionCallOutput(),
-        {ZERO_ADDRESS_STR: zero_address_allowed},
+        # A zero-valued protocol fee receiver makes isAllowed(0x0) true even
+        # in whitelist mode, so the account view cannot identify the mode.
+        {ZERO_ADDRESS_STR: True},
     )
+    storage_calls: list[tuple[HexAddress, int, str]] = []
+
+    class FakeEth:
+        @staticmethod
+        def get_storage_at(address: HexAddress, slot: int, block_identifier: str) -> bytes:
+            storage_calls.append((address, slot, block_identifier))
+            return int(access_mode).to_bytes(32, byteorder="big")
+
+    vault.web3 = SimpleNamespace(eth=FakeEth())
 
     assert vault.is_whitelisted_deposit() is expected_whitelisted
     assert functions.membership_queries == []
-    assert functions.access_queries == [ZERO_ADDRESS_STR]
+    assert functions.access_queries == []
+    assert storage_calls == [(VAULT_ADDRESS, LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT, "latest")]
 
 
 @pytest.mark.parametrize("version", [LagoonVersion.v_0_6_0, LagoonVersion.v_1_0_0])
@@ -291,9 +303,16 @@ def test_lagoon_transient_policy_read_error_is_not_reclassified() -> None:
     assert functions.membership_queries == []
 
 
-def test_lagoon_v05_empty_provider_revert_uses_sentinel() -> None:
-    """The provider's deterministic missing-getter wrapper is not transient."""
-    missing_getter = ExtraValueError({"code": 3, "message": "execution reverted", "data": "0x"})
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"code": 3, "message": "execution reverted", "data": "0x"},
+        {"code": 3, "message": "execution reverted"},
+    ],
+)
+def test_lagoon_v05_empty_provider_revert_uses_sentinel(response: dict[str, object]) -> None:
+    """Provider variants of the deterministic missing-getter revert use the sentinel."""
+    missing_getter = ExtraValueError(response)
     vault, functions = create_lagoon_policy_vault(
         LagoonVersion.v_0_5_0,
         missing_getter,

@@ -34,8 +34,8 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
-from eth_defi.erc_4626.vault_protocol.lagoon.tags import STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import PRIVATE_LAGOON_VAULT_NOTE, LagoonVaultMetadata, fetch_lagoon_vault_metadata, is_lagoon_private_vault_allowlisted
+from eth_defi.erc_4626.vault_protocol.lagoon.tags import lookup_lagoon_strategy_tags
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.fallback import ExtraValueError
@@ -46,7 +46,7 @@ from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, Withdraw
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
-from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.strategy_tag import StrategyTag
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
@@ -90,18 +90,19 @@ def _is_empty_execution_revert(error: ExtraValueError) -> bool:
     The multi-provider wrapper raises :class:`ExtraValueError` both for
     malformed RPC responses and for deterministic EVM reverts.  Lagoon v0.5's
     removed ``isWhitelistActivated()`` getter has the specific response
-    ``code=3``, ``message=execution reverted``, ``data=0x``.  Only that shape
-    may activate the version-gated sentinel fallback.
+    ``code=3``, ``message=execution reverted`` response. Providers may return
+    ``data=0x`` or omit ``data`` entirely for the same empty EVM revert. Only
+    those shapes may activate the version-gated sentinel fallback.
 
     :param error:
         Provider response error raised by the whitelist policy call.
     :return:
-        ``True`` only for the deterministic empty EVM revert shape.
+        ``True`` only for a deterministic empty EVM revert shape.
     """
     if not error.args or not isinstance(error.args[0], dict):
         return False
     response = error.args[0]
-    return response.get("code") == JSON_RPC_EXECUTION_REVERT_CODE and response.get("data") == "0x" and "execution reverted" in str(response.get("message", "")).lower()
+    return response.get("code") == JSON_RPC_EXECUTION_REVERT_CODE and response.get("data") in {None, "0x"} and "execution reverted" in str(response.get("message", "")).lower()
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -151,6 +152,16 @@ class LagoonVersion(enum.Enum):
     v_1_0_0 = "v1.0.0"
 
 
+class LagoonAccessMode(enum.IntEnum):
+    """Vault-wide Lagoon v0.6-compatible account admission mode."""
+
+    #: All accounts are admitted except explicitly blacklisted ones.
+    blacklist = 0
+
+    #: Only explicitly whitelisted accounts are admitted.
+    whitelist = 1
+
+
 #: Versions handled through the observed v0.6-compatible read surface.
 LAGOON_MODERN_VERSIONS: frozenset[LagoonVersion] = frozenset(
     {
@@ -163,6 +174,14 @@ LAGOON_MODERN_VERSIONS: frozenset[LagoonVersion] = frozenset(
 #: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/RolesLib.sol
 LAGOON_MODERN_ROLES_STORAGE_SLOT = int(
     "0x7c302ed2c673c3d6b4551cf74a01ee649f887e14fd20d13dbca1b6099534d900",
+    16,
+)
+
+#: ERC-7201 ``hopper.storage.Whitelistable`` slot plus the ``accessMode``
+#: field's one-slot offset in the official Lagoon v0.6 storage layout.
+#: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol
+LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT = int(
+    "0x083cc98ab296d1a1f01854b5f7a2f47df4425a56ba7b35f7faa3a336067e4801",
     16,
 )
 
@@ -481,13 +500,15 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """Return the maintained strategy tags for this Lagoon vault.
 
         Lagoon supports independently managed vaults with different mandates,
-        so classifications are maintained per vault contract address.
+        so classifications are maintained per vault contract address. A small
+        chain-specific override table handles addresses reused by unrelated
+        deployments on different chains.
 
         :return:
             Copy of the tag set, or ``None`` when this deployment has not been
             classified.
         """
-        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
+        return lookup_lagoon_strategy_tags(self.chain_id, self.vault_address)
 
     def fetch_version(self) -> LagoonVersion:
         """Read and classify the deployed Lagoon version.
@@ -601,10 +622,14 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """Get vault flags, auto-flagging vaults missing from Lagoon's frontend.
 
         - If the vault has no metadata in Lagoon's API, it is flagged as ``unofficial``
+        - Reviewed private deployments can bypass this dynamic flag through an
+          explicit chain-address allowlist
         - Manual flags from :py:data:`~eth_defi.vault.flag.VAULT_FLAGS_AND_NOTES` take precedence
         """
         flags = super().get_flags()
         if flags:
+            return flags
+        if is_lagoon_private_vault_allowlisted(self.chain_id, self.vault_address):
             return flags
         if self.lagoon_metadata is None:
             return {VaultFlag.unofficial}
@@ -620,6 +645,8 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         manual_notes = super().get_notes()
         if manual_notes:
             return manual_notes
+        if is_lagoon_private_vault_allowlisted(self.chain_id, self.vault_address) and self.description is None:
+            return PRIVATE_LAGOON_VAULT_NOTE
         if self.lagoon_metadata is None:
             return MISSING_IN_PROTOCOL_FRONTEND
         return self.description
@@ -715,15 +742,17 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         ``isWhitelisted`` branch for a disabled whitelist.
 
         Lagoon v0.6 replaces ``Whitelistable`` with an access layer supporting
-        whitelist mode, blacklist mode and an external sanctions oracle. Its
-        canonical `AccessableLib.isAllowed implementation
+        whitelist mode, blacklist mode and an external sanctions oracle. The
+        adapter reads the canonical `AccessableStorage.accessMode field
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol>`__
+        directly. ``isAllowed(0x0)`` is not a valid mode sentinel because the
+        `AccessableLib.isAllowed implementation
         <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol#L131-L161>`__
-        returns ``False`` for the zero address in whitelist mode and ``True``
-        under the default-open blacklist mode. Therefore the modern adapter
-        uses ``isAllowed(0x0)`` as its version-specific sentinel. The v1 route
-        relies only on fixed-block compatibility with this selector, not on
+        grants unconditional access to the configured protocol fee receiver
+        and super operator, either of which can be the zero address. The v1
+        route uses only fixed-block-characterised storage compatibility, not
         verified v1 source. Individual account admission must still be checked
-        because an otherwise default-open account may be denied.
+        because a blacklist-mode account may be denied.
 
         :return:
             ``True`` when the vault uses whitelist mode.
@@ -733,12 +762,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
             nor its version-specific account-access fallback.
         """
         if self.version in LAGOON_MODERN_VERSIONS:
-            try:
-                # The zero address can never submit a transaction and granting
-                # it explicit access has no meaningful use.
-                return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
-            except NotImplementedError as e:
-                raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isAllowed(address)") from e
+            return self._fetch_modern_access_mode(self._get_block_identifier()) is LagoonAccessMode.whitelist
 
         try:
             return bool(self.whitelist_contract.functions.isWhitelistActivated().call(block_identifier=self._get_block_identifier()))
@@ -867,6 +891,31 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
             block_identifier=block_identifier,
         )
         return Web3.to_checksum_address(value[-20:])
+
+    def _fetch_modern_access_mode(self, block_identifier: BlockIdentifier) -> LagoonAccessMode:
+        """Read the v0.6-compatible vault-wide access mode from storage.
+
+        The official `v0.6 AccessableStorage layout
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol>`__
+        stores ``AccessMode`` at offset one in its ERC-7201 namespace. The
+        characterised v1 proxy exposes the same value at its fixed test block.
+
+        :param block_identifier:
+            Historical block at which to read the access configuration.
+
+        :return:
+            Decoded blacklist or whitelist access mode.
+
+        :raises ValueError:
+            If storage contains an unsupported access mode value.
+        """
+
+        value = self.web3.eth.get_storage_at(
+            self.vault_address,
+            LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT,
+            block_identifier=block_identifier,
+        )
+        return LagoonAccessMode(int.from_bytes(value, byteorder="big"))
 
     def _fetch_modern_roles(self, block_identifier: BlockIdentifier) -> tuple[HexAddress, HexAddress, HexAddress, HexAddress, HexAddress]:
         """Read the modern Lagoon role addresses from ERC-7201 storage.

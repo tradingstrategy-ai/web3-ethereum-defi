@@ -2089,6 +2089,64 @@ defaults to dry-run mode and creates a non-overwriting
 `*.bak-lagoon-fee-mode` backup before writing. Run `export-data-files.py`
 afterwards to publish regenerated fee-adjusted metrics.
 
+### migrate-lagoon-private-vaults.py
+
+Repair the exact eight reviewed private Lagoon rows after their public-listing
+allowlist and corrected onchain deposit-policy reads are deployed. The script
+removes only the obsolete ``unofficial`` flag, replaces only the stale
+missing-frontend note, and refreshes ``_deposit_permission`` through the live
+Lagoon adapter. Its reviewed scope is fixed to six Ethereum and two Arbitrum
+addresses. It does not discover vaults or touch price Parquet files, reader
+state, lead state, timestamp caches, or historical observations.
+
+Inspect the live plan first:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/erc-4626/migrate-lagoon-private-vaults.py
+```
+
+Expected against the pre-migration production pickle: eight updated rows;
+TowerBridge, Der base USDC, Der USDC, Muchacho USDC and Odyssey Stablecoins
+Discretionary become ``whitelisted``; UEB3, Angmar Capital and Dynamic Alpha
+Fundamental 2X become ``permissionless``. No files change in dry-run mode.
+
+After deployment, stop the looped scanner and apply the metadata-only repair in
+the production one-shot container so the host ``~/.tradingstrategy`` mount is
+preserved:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && \
+  docker compose stop vault-scanner-looped)
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && \
+  docker compose run --rm --entrypoint /bin/bash \
+    -e DRY_RUN=false \
+    vault-scanner-oneshot \
+    -lc 'python scripts/erc-4626/migrate-lagoon-private-vaults.py')
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose start vault-scanner-looped)
+```
+
+Persistent mode takes the shared ``scan-pipeline`` writer lock, creates a
+non-overwriting ``*.bak-lagoon-private-vaults`` sibling backup, and atomically
+replaces only ``vault-metadata-db.pickle``. Validate by rerunning with
+``DRY_RUN=true`` and requiring zero updates, then run the ordinary data export
+to publish the corrected metadata.
+
+| Variable | Description |
+|----------|-------------|
+| ``DRY_RUN`` | Optional. Report without writing. Defaults to ``true``. |
+| ``VAULT_DB_PATH`` | Optional metadata-pickle path. Defaults to the pipeline data directory. |
+| ``JSON_RPC_ETHEREUM`` | Required current-state Ethereum RPC URL or fallback list. |
+| ``JSON_RPC_ARBITRUM`` | Required current-state Arbitrum RPC URL or fallback list. |
+| ``PIPELINE_LOCK_TIMEOUT`` | Optional writer-lock timeout in seconds. Defaults to 60. |
+| ``LOG_LEVEL`` | Optional console log level. Defaults to ``info``. |
+
 ### migrate-arcus-vault-metadata.py
 
 Reclassify the two reviewed Arcus BTC and HOOD pTokens on Robinhood Chain after

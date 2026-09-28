@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Include eight reviewed, economically material private Lagoon vaults through a chain-aware address allowlist, correct their v0.5/v0.6 onchain deposit-permission reads, and provide a metadata-only migration while keeping unreviewed hidden deployments unofficial (2026-09-28).
+- feat: Categorise all currently listed Lagoon vault strategies from exact-address evidence, preserve four insufficient-evidence deployments as unclassified, and isolate reused contract addresses by chain (2026-09-28).
 - feat: Add Kamui curator metadata and address-scoped attribution for its three permissioned Ethereum Lagoon vaults, with reviewed real-world asset strategy classifications and official artwork (2026-09-28)
 - feat: List the tokenised ARK Venture Fund (ARKVX) on Securitize with NAV history reconstructed from onchain subscription settlements, prospectus-reviewed fees and an ARK Invest curator (2026-09-25).
 - perf: Calculate vault lifetime metrics and daily returns on NumPy arrays built once for the whole frame, cutting the full stablecoin metrics run from 311 s to 32 s with identical exported values, and add a benchmark with an exported-row parity check (2026-09-25).

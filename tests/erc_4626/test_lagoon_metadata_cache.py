@@ -23,6 +23,17 @@ EXPECTED_FAILED_REFRESH_COUNT = 2
 STARTED_AT = datetime.datetime(2026, 8, 1, 12, 0, 0)  # noqa: DTZ001 - Repository convention is naive UTC.
 
 
+@pytest.fixture(autouse=True)
+def isolate_private_vault_allowlist(monkeypatch: MonkeyPatch) -> None:
+    """Keep generic cache tests independent of the production private allowlist.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+    """
+
+    monkeypatch.setattr(offchain_metadata, "LAGOON_PRIVATE_VAULT_ALLOWLIST", frozenset())
+
+
 def _make_metadata(description: str | None, short_description: str | None) -> offchain_metadata.LagoonVaultMetadata:
     """Create complete Lagoon metadata for cache tests.
 

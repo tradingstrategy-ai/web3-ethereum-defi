@@ -9,7 +9,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonAccessMode, LagoonVault, LagoonVersion
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultSpec
 
@@ -106,6 +106,7 @@ def test_lagoon_v1_fixed_block_erc4626_and_access_views(lagoon_v1: LagoonVault) 
     assert contract.functions.maxDeposit(ZERO_ADDRESS_STR).call(block_identifier=LAGOON_V1_BASE_BLOCK) == 0
     assert contract.functions.maxRedeem(ZERO_ADDRESS_STR).call(block_identifier=LAGOON_V1_BASE_BLOCK) == 0
 
+    assert vault._fetch_modern_access_mode(LAGOON_V1_BASE_BLOCK) is LagoonAccessMode.whitelist
     assert vault.is_whitelisted_deposit() is True
     assert vault.is_account_whitelisted(ZERO_ADDRESS_STR) is False
 

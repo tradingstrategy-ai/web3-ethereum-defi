@@ -23,9 +23,10 @@ verified on BaseScan at the time of inspection. The v1 adapter therefore uses
 the official v0.6 ABI only for the observed compatible surface and must not
 describe it as a verified v1 ABI.
 
-The ERC-7201 role and pending-Silo storage constants and field order used by
-the modern adapter are based on `RolesLib.sol`, `Roles.sol`, `ERC7540Lib.sol`
-and `ERC7540.sol` in the official Lagoon v0.6 source at commit
+The ERC-7201 access-mode, role and pending-Silo storage constants and field
+order used by the modern adapter are based on `Accessable.sol`,
+`AccessableLib.sol`, `RolesLib.sol`, `Roles.sol`, `ERC7540Lib.sol` and
+`ERC7540.sol` in the official Lagoon v0.6 source at commit
 [`a8e73f5a5276aa4047b901083cbce127d7f7b470`](https://github.com/hopperlabsxyz/lagoon-v0/tree/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0).
 When Lagoon publishes verified v1 source, re-check the storage layout and
 replace this compatibility boundary with a version-specific ABI if required.
