@@ -24,6 +24,7 @@ except ImportError:
     fcntl = None
 from collections import defaultdict
 from collections.abc import Iterable
+from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
@@ -36,7 +37,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.vault import VaultReaderState
+from eth_defi.erc_4626.vault import UNKNOWN_EXCHANGE_RATE, VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
@@ -46,7 +47,7 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
-from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, verify_parquet_file
+from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VAULT_PRICE_REFRESH_INTERVAL, VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, is_meaningful_usd_tvl, verify_parquet_file
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
@@ -69,7 +70,16 @@ DEFAULT_BLACK_LIST = [
 
 
 class ParquetScanResult(TypedDict):
-    """Result of generating historical prices Parquet file."""
+    """Result of generating historical prices Parquet file.
+
+    Freshness is measured using real source ``timestamp`` values, never the
+    Parquet ``written_at`` time. A successful live scan targets an unchanged
+    row before the maximum 14-day age for a vault whose last supported USD TVL
+    estimate entered at $1,500 (remaining eligible until below $1,000). When
+    no new TVL can be read, the last observed value is used for monitoring;
+    its present-day TVL is unknown. Source outages are reported as overdue
+    rather than represented by fabricated rows.
+    """
 
     existing: bool
     chain_id: int
@@ -87,6 +97,19 @@ class ParquetScanResult(TypedDict):
 
     #: Newly emitted rows with a non-null share price keyed by vault address.
     price_rows_written_by_vault: dict[str, int]
+
+    #: Unchanged real observations retained solely for the early deadline.
+    freshness_rows_written: int
+
+    #: Vaults verified above the $1,500 entry or $1,000 exit TVL limits.
+    freshness_eligible_vaults: int
+
+    #: Addresses with a source row older than 14 days at the live scan horizon.
+    overdue_vaults: dict[str, str]
+
+    #: Observed addresses whose denomination lacks a supported USD conversion;
+    #: these are sampled but excluded from USD-qualified overdue counts.
+    unknown_conversion_vaults: list[str]
 
     reader_states: dict[VaultSpec, dict] | None
 
@@ -189,18 +212,46 @@ class VaultHistoricalReadMulticaller:
     def __init__(
         self,
         web3factory: Web3Factory,
-        supported_quote_tokens=set[TokenDetails] | None,
-        max_workers=8,
-        token_cache=None,
-        require_multicall_result=False,
+        supported_quote_tokens: set[TokenDetails] | None,
+        max_workers: int = 8,
+        token_cache: TokenDiskCache | None = None,
+        require_multicall_result: bool = False,
         write_all_samples: bool = False,
+        enforce_live_freshness: bool = False,
+        last_retained_at: dict[str, datetime.datetime] | None = None,
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
         rpc_request_stats: RPCRequestStats | None = None,
-    ):
-        """
+    ) -> None:
+        """Configure the multicall reader and its live-row retention state.
+
+        The reader keeps source timestamps in memory for one scan. The Parquet
+        writer seeds them from committed rows before the scan begins.
+
+        :param web3factory:
+            Factory for worker JSON-RPC connections.
         :param supported_quote_tokens:
-            Allows us to validate vaults against list of supported tokens
+            Optional supported denomination-token set.
+        :param max_workers:
+            Maximum concurrent historical read workers.
+        :param token_cache:
+            Token metadata cache; a default is created when omitted.
+        :param require_multicall_result:
+            Require a successful result from every requested multicall.
+        :param write_all_samples:
+            Retain every real sample, including unchanged samples.
+        :param enforce_live_freshness:
+            Retain an unchanged eligible EVM row after seven days.
+        :param last_retained_at:
+            Last committed source timestamp by lower-case vault address.
+        :param hypersync_client:
+            Client for cached historical block timestamps.
+        :param timestamp_cache_file:
+            Shared per-chain timestamp cache location.
+        :param rpc_request_stats:
+            Optional JSON-RPC usage accumulator.
+        :return:
+            ``None``.
         """
 
         if supported_quote_tokens is not None:
@@ -220,6 +271,13 @@ class VaultHistoricalReadMulticaller:
         self.token_cache = token_cache
         self.require_multicall_result = require_multicall_result
         self.write_all_samples = write_all_samples
+        self.enforce_live_freshness = enforce_live_freshness
+        self.last_retained_at = last_retained_at or {}
+        self.freshness_rows_written = 0
+        self.latest_observed_at: dict[str, datetime.datetime] = {}
+        self.latest_usd_tvl: dict[str, Decimal] = {}
+        self.prior_max_assets: dict[str, Decimal] = {}
+        self.unknown_conversion_vaults: set[str] = set()
 
         self.readers: dict[HexAddress, VaultHistoricalReader] = {}
 
@@ -350,7 +408,7 @@ class VaultHistoricalReadMulticaller:
         self,
         vaults: list[VaultBase],
         stateful=False,
-        saved_states: dict[VaultReaderState, dict] | None = None,
+        saved_states: dict[VaultSpec, dict] | None = None,
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
@@ -494,18 +552,28 @@ class VaultHistoricalReadMulticaller:
         reader_func: Callable = read_multicall_historical,
         saved_states: dict[VaultReaderState, dict] | None = None,
     ) -> Iterable[VaultHistoricalRead]:
-        """Create an iterable that extracts vault record from RPC.
+        """Create an iterable that extracts vault records from RPC.
 
+        Ordinary scans keep their first successful observation per vault even
+        when its values are unchanged. Live scans additionally retain a real
+        unchanged observation before its previous source row can become 14
+        days old. Verified USD TVL enters monitoring at $1,500 and leaves
+        below $1,000; unknown conversions are sampled but not certified.
+
+        :param vaults:
+            Vaults with known first-seen blocks on one chain.
         :param start_block:
-            The first block to read from.
-
-            Set to None to get from the saved state what we have not yet read.
-
+            Inclusive first block to read.
+        :param end_block:
+            Exclusive end block.
+        :param step:
+            Approximate interval between sampled blocks.
         :param reader_func:
-            Either ``read_multicall_historical`` or ``read_multicall_historical_stateful``
-
+            Stateless or stateful multicall reader.
+        :param saved_states:
+            Optional adaptive reader states from a previous scan.
         :return:
-            Unordered results
+            Real price observations retained by the sparse and freshness rules.
         """
 
         # Debug debug
@@ -573,9 +641,54 @@ class VaultHistoricalReadMulticaller:
 
         # Cache the last result per vault to detect changes
         last_results: dict[HexAddress, VaultHistoricalRead] = {}
+        retained_at = self.last_retained_at
+
+        def freshness_due(reader: VaultHistoricalReader, current: VaultHistoricalRead) -> bool:
+            """Check the early deadline using genuine source observation times.
+
+            :param reader:
+                Reader that produced the observation.
+            :param current:
+                Current row with source timestamp, price and denomination TVL.
+            :return:
+                Whether this unchanged row must be retained for freshness.
+            """
+            if not self.enforce_live_freshness or current.share_price is None or current.total_assets is None:
+                return False
+            address = reader.address.lower()
+            self.latest_observed_at[address] = max(self.latest_observed_at.get(address, current.timestamp), current.timestamp)
+            state = reader.reader_state
+            rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(reader.vault).exchange_rate
+            if rate == UNKNOWN_EXCHANGE_RATE:
+                self.unknown_conversion_vaults.add(address)
+                retain_for_freshness = True
+            else:
+                current_usd = current.total_assets * rate
+                self.latest_usd_tvl[address] = current_usd
+                highest_usd = state.max_tvl if isinstance(state, VaultReaderState) else self.prior_max_assets.get(address, Decimal(0)) * rate
+                retain_for_freshness = is_meaningful_usd_tvl(current_usd, highest_usd)
+            if not retain_for_freshness:
+                return False
+            previous = retained_at.get(address)
+            if previous is None:
+                return True
+            return current.timestamp - previous >= VAULT_PRICE_REFRESH_INTERVAL
 
         def is_unchanged(reader: VaultHistoricalReader, current: VaultHistoricalRead, previous: VaultHistoricalRead | None) -> bool:
-            """Apply the sparse filter appropriate for one vault product."""
+            """Apply the product's existing sparse-value comparison.
+
+            Share-price-equivalent readers ignore other changing fields;
+            ordinary readers compare the full economic observation.
+
+            :param reader:
+                Reader that supplied the current observation.
+            :param current:
+                Current source observation.
+            :param previous:
+                Last observation retained during this scan, if any.
+            :return:
+                Whether the current observation is economically unchanged.
+            """
 
             if reader.uses_share_price_equivalence:
                 return current.is_share_price_almost_equal(previous)
@@ -648,7 +761,9 @@ class VaultHistoricalReadMulticaller:
                         state.rpc_error_count += 1
                         state.last_rpc_error = str(current_result.errors)
 
-                if is_unchanged(reader, current_result, last_result) and not self.write_all_samples:
+                due = freshness_due(reader, current_result)
+                unchanged = is_unchanged(reader, current_result, last_result)
+                if unchanged and not self.write_all_samples and not due:
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
@@ -656,6 +771,10 @@ class VaultHistoricalReadMulticaller:
                         state.write_filtered += 1
                 else:
                     last_results[vault_address] = current_result
+                    if current_result.share_price is not None:
+                        retained_at[vault_address.lower()] = current_result.timestamp
+                    if due and unchanged:
+                        self.freshness_rows_written += 1
                     if state:
                         state.write_done += 1
                     yield current_result
@@ -669,11 +788,17 @@ class VaultHistoricalReadMulticaller:
                 current_result.vault_poll_frequency = "contextual"
                 if current_result.errors:
                     error_count += 1
-                if is_unchanged(reader, current_result, last_result):
+                due = freshness_due(reader, current_result)
+                unchanged = is_unchanged(reader, current_result, last_result)
+                if unchanged and not due:
                     skipped_results += 1
                     continue
                 last_result = current_result
                 last_results[reader.address] = current_result
+                if current_result.share_price is not None:
+                    retained_at[reader.address.lower()] = current_result.timestamp
+                if due and unchanged:
+                    self.freshness_rows_written += 1
                 total_results += 1
                 yield current_result
 
@@ -715,6 +840,8 @@ def scan_historical_prices_to_parquet(
     max_workers=8,
     require_multicall_result=False,
     write_all_samples: bool = False,
+    enforce_live_freshness: bool = False,
+    expected_live_vaults: set[str] | None = None,
     frequency: Literal["1d", "1h"] = "1d",
     reader_states: dict[VaultSpec, dict] | None = None,
     hypersync_client=None,
@@ -722,31 +849,25 @@ def scan_historical_prices_to_parquet(
     vault_addresses: set[str] | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
 ) -> ParquetScanResult:
-    """Scan all historical vault share prices of vaults and save them in to Parquet file.
+    """Scan vault prices and atomically update the shared raw Parquet file.
 
-    - Write historical prices to a Parquet file
-    - Multiprocess-boosted
-    - The same Parquet file can contain data from multiple chains
-    - Stamp the output schema with the current Docker ``metadata.version``
-      provenance, matching vault scanner JSON exports
-    - On Monad, dynamically clip the requested start to the provider's
-      historical-state window before deleting or replacing Parquet rows
-    - Preserve separate sampled blocks even when their second-resolution
-      block timestamps are equal; modern chains such as Monad can produce
-      multiple blocks per second, and block number remains the row identity
+    Rows from multiple chains share one file. A stateful live scan retains a
+    genuine unchanged eligible observation after seven days and audits the
+    latest source timestamp against a 14-day limit. Historical backfills use
+    sparse value-change sampling. Monad scans start at the provider's readable
+    historical-state boundary and preserve earlier committed rows.
 
     :param output_fname:
         Path to a destination Parquet file.
 
-        If the file exists and ``vault_addresses`` is set, only entries for those
-        vaults are deleted and rewritten. Otherwise all entries for the current
-        chain are deleted and rewritten.
+        If the file exists, replace rows in the requested block range for the
+        selected vault addresses, or for the full chain when omitted.
 
     :param web3:
         Web3 connection
 
     :param web3factory:
-        Creation of connections in subprocess
+        Factory for worker JSON-RPC connections.
 
     :param vaults:
         Vaults of which historical price we scan.
@@ -762,17 +883,13 @@ def scan_historical_prices_to_parquet(
         read, because Monad has no arbitrary-depth historical state.
 
     :param end_block:
-        Last block to scan.
+        Exclusive end block to scan.
 
         Leave empty to autodetect.
 
-    :param step_duration:
-        What is the historical step size (1 day).
-
-        Will be automatically attmpeted to map  to a block time.
-
     :param step:
-        What is the step is in number of blocks.
+        Approximate number of blocks between observations. When omitted,
+        derive it from ``frequency`` and the chain's block time.
 
         Sampling is block-based, not timestamp-based. Equal timestamps from
         separate blocks are valid input and output because the scanner only
@@ -782,11 +899,30 @@ def scan_historical_prices_to_parquet(
     :param chunk_size:
         How many rows to write to the Parquet file in one buffer.
 
+    :param compression:
+        Parquet compression codec.
+
     :param max_workers:
-        Number of subprocesses to use for multicall
+        Maximum concurrent multicall workers.
+
+    :param token_cache:
+        Shared token metadata cache used by the reader.
+
+    :param require_multicall_result:
+        Require successful multicall responses.
 
     :param hypersync_client:
         Speed up the discovery of timestamps
+
+    :param timestamp_cache_file:
+        Cache for historical block timestamps.
+
+    :param frequency:
+        One-hour or one-day base sampling grid.
+
+    :param reader_states:
+        Persisted adaptive read states for a live scan, or ``None`` for a
+        historical backfill.
 
     :param vault_addresses:
         If set, only delete and rewrite parquet rows for these vault addresses.
@@ -798,6 +934,14 @@ def scan_historical_prices_to_parquet(
         Write every sampled block even when a vault's values are unchanged.
         Dedicated issuer-NAV feeds use this to retain their daily freshness
         timestamp rather than collapsing an unchanged price history.
+
+    :param enforce_live_freshness:
+        Retain a genuine unchanged EVM observation once its preceding source
+        row is seven days old. Routine live scans enable this.
+
+    :param expected_live_vaults:
+        Vaults already verified as meaningful by a current-state probe. If
+        their historical reader yields no sample, report an overdue result.
 
     :param rpc_request_stats:
         Optional phase accumulator for physical JSON-RPC request accounting.
@@ -856,7 +1000,11 @@ def scan_historical_prices_to_parquet(
             # A vault requiring an older bootstrap must use its own
             # address-scoped scan. Restored states cannot safely replay time
             # before their individual ``last_call_at`` values.
-            start_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
+            last_scanned_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=0)
+            # The saved block was already processed. Replaying it with the
+            # restored last_call_at can skip its read while the overlapping
+            # Parquet replacement deletes its retained price row.
+            start_block = last_scanned_block + 1 if last_scanned_block else first_detect_block
             logger.info("Chain %s: determined start block %s from %s vault read states", chain_id, f"{start_block:,}", len(reader_states))
         else:
             # Clean start, find the first block of any vault on this chain.
@@ -881,6 +1029,7 @@ def scan_historical_prices_to_parquet(
         token_cache=token_cache,
         require_multicall_result=require_multicall_result,
         write_all_samples=write_all_samples,
+        enforce_live_freshness=enforce_live_freshness,
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
         rpc_request_stats=rpc_request_stats,
@@ -942,6 +1091,13 @@ def scan_historical_prices_to_parquet(
     # Always use the current canonical schema so new columns are not silently dropped
     canonical_schema = VaultHistoricalRead.to_pyarrow_schema()
 
+    # Resolve the source horizon before replacing the file so an RPC failure
+    # cannot leave a successful write with no freshness audit result.
+    freshness_horizon = None
+    if enforce_live_freshness:
+        horizon_block = web3.eth.get_block(max(0, end_block - 1))
+        freshness_horizon = datetime.datetime.fromtimestamp(horizon_block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
+
     if output_fname.exists():
         logger.info("Reading existing Parquet file %s", output_fname)
         existing_table = pq.read_table(output_fname)
@@ -949,6 +1105,27 @@ def scan_historical_prices_to_parquet(
     else:
         logger.info("Creating Parquet from the scratch %s", output_fname)
         existing_table = None
+
+    source_table = existing_table
+
+    if enforce_live_freshness and existing_table is not None:
+        selected_addresses = pa.array([vault.address.lower() for vault in vaults])
+        previous_mask = pc.and_(
+            pc.equal(existing_table["chain"], chain_id),
+            pc.less(existing_table["block_number"], start_block),
+        )
+        previous_mask = pc.and_(previous_mask, pc.is_in(existing_table["address"], value_set=selected_addresses))
+        previous_mask = pc.and_(previous_mask, pc.is_finite(existing_table["share_price"]))
+        prior = existing_table.select(["address", "timestamp"]).filter(previous_mask)
+        if len(prior):
+            grouped = prior.group_by("address").aggregate([("timestamp", "max")])
+            reader.last_retained_at = dict(zip(grouped["address"].to_pylist(), grouped["timestamp_max"].to_pylist()))
+        assets_mask = pc.and_(pc.equal(existing_table["chain"], chain_id), pc.is_in(existing_table["address"], value_set=selected_addresses))
+        assets_mask = pc.and_(assets_mask, pc.is_finite(existing_table["total_assets"]))
+        assets = existing_table.select(["address", "total_assets"]).filter(assets_mask)
+        if len(assets):
+            grouped = assets.group_by("address").aggregate([("total_assets", "max")])
+            reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
 
     if existing_table is not None:
         logger.info(
@@ -1095,6 +1272,65 @@ def scan_historical_prices_to_parquet(
 
     size = output_fname.stat().st_size
 
+    overdue_vaults: dict[str, str] = {}
+    freshness_eligible_vaults = 0
+    if enforce_live_freshness:
+        assert freshness_horizon is not None
+        horizon = freshness_horizon
+        expected_addresses = {address.lower() for address in (expected_live_vaults or ())}
+        contextual_addresses = {address.lower() for address, historical_reader in reader.readers.items() if historical_reader.uses_contextual_history}
+        contextual_history = None
+        if contextual_addresses and source_table is not None:
+            contextual_mask = pc.and_(
+                pc.equal(source_table["chain"], chain_id),
+                pc.is_in(source_table["address"], value_set=pa.array(sorted(contextual_addresses))),
+            )
+            contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["share_price"]))
+            contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["total_assets"]))
+            contextual_history = source_table.select(["address", "block_number", "timestamp", "total_assets"]).filter(contextual_mask).to_pandas()
+            if not contextual_history.empty:
+                contextual_history = contextual_history.sort_values(["address", "timestamp", "block_number"], kind="stable")
+        for address, historical_reader in reader.readers.items():
+            state = historical_reader.reader_state
+            qualified = address.lower() in expected_addresses or (isinstance(state, VaultReaderState) and state.freshness_qualified)
+            if not qualified and historical_reader.uses_contextual_history:
+                rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(historical_reader.vault).exchange_rate
+                if rate == UNKNOWN_EXCHANGE_RATE:
+                    reader.unknown_conversion_vaults.add(address.lower())
+                else:
+                    prior_assets = contextual_history.loc[contextual_history["address"] == address.lower(), "total_assets"] if contextual_history is not None else None
+                    highest_usd = reader.prior_max_assets.get(address.lower(), Decimal(0)) * rate
+                    latest_usd = reader.latest_usd_tvl.get(address.lower())
+                    if latest_usd is None and prior_assets is not None and len(prior_assets):
+                        # Retain last-known eligibility when the source has no new observation.
+                        latest_usd = Decimal(str(prior_assets.iloc[-1])) * rate
+                    qualified = is_meaningful_usd_tvl(latest_usd, highest_usd)
+            if not qualified:
+                continue
+            freshness_eligible_vaults += 1
+            retained = reader.last_retained_at.get(address.lower())
+            if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
+                reason = "no_valid_source_observation" if address.lower() not in reader.latest_observed_at else "source_observation_not_retained"
+                overdue_vaults[address.lower()] = reason
+        missing_readers = expected_addresses - {address.lower() for address in reader.readers}
+        freshness_eligible_vaults += len(missing_readers)
+        for address in missing_readers:
+            retained = reader.last_retained_at.get(address)
+            if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
+                overdue_vaults[address] = "reader_unavailable"
+            else:
+                logger.warning("Vault %s on chain %d has no historical reader in this scan; last price row is %s", address, chain_id, retained)
+        logger.info(
+            "Vault price freshness on chain %d: eligible=%d, heartbeat rows=%d, overdue=%d, unknown USD conversion=%d",
+            chain_id,
+            freshness_eligible_vaults,
+            reader.freshness_rows_written,
+            len(overdue_vaults),
+            len(reader.unknown_conversion_vaults),
+        )
+        for address, reason in overdue_vaults.items():
+            logger.warning("Vault %s on chain %d has no source price row within 14 days of scan horizon %s: %s", address, chain_id, horizon, reason)
+
     logger.info(
         f"Exported {rows_written} vault {frequency} price rows, file size is now {size:,} bytes",
     )
@@ -1124,4 +1360,8 @@ def scan_historical_prices_to_parquet(
         end_block=end_block,
         rows_written_by_vault=dict(rows_written_by_vault),
         price_rows_written_by_vault=dict(price_rows_written_by_vault),
+        freshness_rows_written=reader.freshness_rows_written,
+        freshness_eligible_vaults=freshness_eligible_vaults,
+        overdue_vaults=overdue_vaults,
+        unknown_conversion_vaults=sorted(reader.unknown_conversion_vaults),
     )

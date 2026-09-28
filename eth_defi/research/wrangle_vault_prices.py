@@ -106,6 +106,12 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     The DataFrame uses a :py:class:`~pandas.DatetimeIndex` built from the
     ``timestamp`` column.
 
+    The live raw scanner reports rows older than 14 days for vaults with
+    verified USD TVL of at least $1,500, remaining eligible down to $1,000.
+    Cleaning may remove raw rows because of denomination, metadata, activity
+    or quality filters, so this schema alone does not guarantee a fresh row.
+    ``timestamp`` is source time; ``written_at`` is publication time.
+
     Columns are grouped by availability:
 
     - **General** columns are present for all vault protocols.
@@ -169,7 +175,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: General — present for all protocols.
     block_number: int
 
-    #: Naive UTC timestamp (also used as the DatetimeIndex).
+    #: Naive UTC timestamp of the real source observation (also the index).
+    #: Use this, rather than ``written_at``, to assess the 14-day age.
     #:
     #: General — present for all protocols.
     timestamp: "pd.Timestamp"
@@ -189,6 +196,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     share_price: float
 
     #: Total assets under management (TVL) in denomination token units.
+    #: EVM freshness eligibility converts this using the reader's existing
+    #: estimated USD exchange rate. Native feeds use USD stablecoin units.
     #:
     #: General — present for all protocols.
     total_assets: float
@@ -223,9 +232,10 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Dynamic poll frequency used when taking this sample.
     #: Empty string if not set.
     #:
-    #: Example values: ``"1h"``, ``"4h"``, ``"24h"``.
-    #: The scanner adjusts frequency based on vault TVL and activity;
-    #: low-TVL vaults may be polled less frequently.
+    #: Example EVM labels: ``"large_tvl"``, ``"small_tvl"``,
+    #: ``"tiny_tvl"``, ``"peaked"``, ``"faded"`` and ``"contextual"``.
+    #: Peaked and faded vaults poll weekly; other vaults at $10,000+
+    #: estimated USD TVL poll hourly. This is separate from row retention.
     #:
     #: General — present for all protocols (may be empty for native protocols).
     vault_poll_frequency: str
@@ -322,7 +332,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: General — present for all protocols (empty when deposits are open).
     deposit_closed_reason: str
 
-    #: When this price row was actually written/fetched (naive UTC). NaT for old data.
+    #: Publication time (naive UTC), not the source observation time. NaT for
+    #: old data; use ``timestamp`` for the live 14-day freshness check.
     #:
     #: General — present for all protocols.
     written_at: "pd.Timestamp"
