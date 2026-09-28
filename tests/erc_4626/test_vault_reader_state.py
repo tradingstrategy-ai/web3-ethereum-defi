@@ -73,3 +73,43 @@ def test_vault_reader_state_recovers_from_faded_status_after_tvl_growth() -> Non
     assert state.faded_at is None
     assert state.reading_restarted_count == 1
     assert state.get_frequency() == ("small_tvl", datetime.timedelta(days=1))
+
+
+def test_vault_reader_state_freshness_qualification_uses_converted_tvl() -> None:
+    """Enter at $1,500 and leave below $1,000 using the existing ETH rate."""
+    vault = DummyVault(
+        spec=VaultSpec(1, "0x0000000000000000000000000000000000000002"),
+        denomination_token=DummyDenominationToken("ETH"),
+    )
+    state = VaultReaderState(vault)
+    start = datetime.datetime(2026, 1, 1)
+    for index, (assets, expected) in enumerate(
+        (("0.49", False), ("0.5", True), ("0.4", True), ("0.3", False)),
+        start=1,
+    ):
+        state.on_called(
+            DummyCallResult(timestamp=start + datetime.timedelta(days=index), block_identifier=index),
+            total_assets=Decimal(assets),
+            share_price=Decimal(1),
+        )
+        assert state.freshness_qualified is expected
+    restored = VaultReaderState(vault)
+    restored.load(state.save())
+    assert "freshness_qualified" not in state.save()
+    assert restored.freshness_qualified is False
+
+
+def test_vault_reader_state_unknown_conversion_cannot_certify_tvl() -> None:
+    """The fallback 0.99 marker is not a verified USD quote."""
+    vault = DummyVault(
+        spec=VaultSpec(1, "0x0000000000000000000000000000000000000003"),
+        denomination_token=DummyDenominationToken("UNRECOGNISED"),
+    )
+    state = VaultReaderState(vault)
+    state.on_called(
+        DummyCallResult(timestamp=datetime.datetime(2026, 1, 1), block_identifier=1),
+        total_assets=Decimal(1_000_000),
+        share_price=Decimal(1),
+    )
+    assert state.unsupported_token is True
+    assert state.freshness_qualified is False

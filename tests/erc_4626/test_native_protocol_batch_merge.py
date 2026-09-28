@@ -1,8 +1,10 @@
 """Tests for batched native-protocol Parquet price merging."""
 
+import datetime
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 import pytest
 
 from eth_defi.apex.constants import APEX_CHAIN_ID
@@ -39,6 +41,35 @@ def _prices(chain: int, address: str, timestamp: str) -> pd.DataFrame:
             "share_price": [1.0],
         }
     )
+
+
+def test_native_price_freshness_uses_source_timestamp_and_tvl_hysteresis() -> None:
+    """A recent file write cannot make an old meaningful source row fresh."""
+    frame = pd.concat(
+        [
+            _prices(GRVT_CHAIN_ID, "stale", "2026-01-01"),
+            _prices(GRVT_CHAIN_ID, "fresh", "2026-01-30"),
+            _prices(GRVT_CHAIN_ID, "tiny", "2026-01-01"),
+            _prices(GRVT_CHAIN_ID, "falling", "2026-01-01"),
+            _prices(GRVT_CHAIN_ID, "falling", "2026-01-15"),
+            _prices(GRVT_CHAIN_ID, "missing-price", "2026-01-30"),
+        ],
+        ignore_index=True,
+    )
+    frame["total_assets"] = [2_000.0, 2_000.0, 900.0, 1_600.0, 1_200.0, 2_000.0]
+    frame.loc[frame["address"] == "missing-price", "share_price"] = float("nan")
+    frame["written_at"] = pd.Timestamp("2026-01-31")
+
+    overdue = post_processing.audit_native_price_freshness(
+        pa.Table.from_pandas(frame, preserve_index=False),
+        datetime.datetime(2026, 1, 31),
+    )
+
+    assert overdue == {
+        f"{GRVT_CHAIN_ID}-stale": "stale_source_timestamp",
+        f"{GRVT_CHAIN_ID}-falling": "stale_source_timestamp",
+        f"{GRVT_CHAIN_ID}-missing-price": "no_valid_source_observation",
+    }
 
 
 def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source(

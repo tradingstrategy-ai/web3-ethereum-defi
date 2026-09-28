@@ -17,11 +17,27 @@ and stores the results in persistent reader state files.
 
 ### 1. Reader state persistence
 
-Each vault has a `VaultReaderState` that tracks:
+Each vault has a [`VaultReaderState`](../vault.py) that tracks:
 - Historical price reading metadata (TVL, share price, etc.)
 - `call_status`: Map of function names to `(check_block, reverts)` tuples
+- Latest and highest estimated USD TVL, from which the live price-row policy
+  derives eligibility (enter at $1,500; leave below $1,000)
 
 The state is persisted to `~/.tradingstrategy/vaults/reader-state.pickle`.
+
+## TVL limits and row freshness
+
+The reader converts denomination-token TVL using its existing estimated USD
+exchange rate or a protocol override. Unknown conversions do not certify USD
+TVL. Peaked and faded vaults poll weekly. Other vaults at $10,000 or more poll
+hourly, those from $1,000 to $10,000 daily, and tiny vaults weekly after an
+initial two-week daily sampling period. The live
+scanner retains a genuine unchanged row early enough to target a maximum
+14-day source-observation age for qualified vaults. A successful scan reports
+overdue vaults when no current valid source observation can be obtained. The
+Parquet `written_at` field only records publication time and does not refresh
+the source `timestamp`. Without a new TVL read, the audit uses the last
+observed TVL for eligibility; it cannot establish the vault's current TVL.
 
 ### 2. Warmup phase
 

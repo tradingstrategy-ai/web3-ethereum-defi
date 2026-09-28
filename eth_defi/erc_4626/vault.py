@@ -29,7 +29,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is_stablecoin_like
-from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.price_source import PriceSource
@@ -115,20 +115,13 @@ VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_t
 
 
 class VaultReaderState(BatchCallState):
-    """Adaptive reading frequency for vaults.
+    """Persist adaptive historical reading state for one vault.
 
-    - This class maintains the per-vault state of reading between different eth_call reads over time
-
-    - Most vaults are uninteresting, but we do not know ahead of time which ones
-
-    - We need 1h data for interesting vaults to make good trade decisions
-
-    - We switch to 1h scanning if the TVL is above a threshold, otherwise we read it once per day
-
-    .. note ::
-
-        Due to filtering, only handles stablecoin vaults correctly at the moment.
-        Lacks exchange rate support.
+    The reader estimates TVL in USD using :attr:`exchange_rate`. Active vaults
+    at or above $10,000 poll hourly; smaller vaults poll daily or weekly as
+    described by :meth:`get_frequency`. Live row-freshness monitoring starts
+    at $1,500 and ends below $1,000. Unknown denomination rates cannot
+    certify USD eligibility.
     """
 
     #: All attributes we store when we serialise the read state between runs
@@ -169,9 +162,9 @@ class VaultReaderState(BatchCallState):
         self,
         vault: "ERC4626Vault",
         tvl_threshold_1d_read=Decimal(10_000),
-        tiny_tvl_threshold_rare_read=Decimal(1000),
+        tiny_tvl_threshold_rare_read=MIN_MEANINGFUL_TVL_EXIT_USD,
         peaked_tvl_threshold=Decimal(200_000),
-        min_tvl_threshold=Decimal(1_500),
+        min_tvl_threshold=MIN_MEANINGFUL_TVL_USD,
         down_hard=0.98,
         traction_period: datetime.timedelta = datetime.timedelta(days=2 * 30),
     ):
@@ -385,6 +378,19 @@ class VaultReaderState(BatchCallState):
             # Marker value
             return UNKNOWN_EXCHANGE_RATE
 
+    @property
+    def freshness_qualified(self) -> bool:
+        """Determine live-row eligibility from persisted estimated USD TVL.
+
+        The existing ``last_tvl`` and ``max_tvl`` values provide the $1,500
+        entry and $1,000 exit limits without another stored reader-state flag.
+        An unknown denomination conversion cannot certify USD TVL.
+
+        :return:
+            Whether this vault meets the live price-row TVL limits.
+        """
+        return self.exchange_rate != UNKNOWN_EXCHANGE_RATE and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
+
     def should_invoke(
         self,
         call: "EncodedCall",
@@ -420,13 +426,22 @@ class VaultReaderState(BatchCallState):
         return False
 
     def get_frequency(self) -> tuple[VaultPollFrequency, datetime.timedelta | None]:
-        """How fast we are reading this vault or should the further reading be skipped."""
+        """Return the adaptive poll cadence for the last estimated USD TVL.
+
+        Peaked and faded vaults poll weekly regardless of TVL. Other vaults
+        at or above $10,000 poll hourly; those from $1,000 to $10,000 poll
+        daily. Tiny vaults poll daily for their first 14 days and weekly
+        thereafter. Live row retention uses a separate seven-day interval.
+
+        :return:
+            Poll-frequency label and minimum interval between calls.
+        """
 
         if self.peaked_at:
-            # For peaked vaults, only poll each 14 days
+            # Poll peaked vaults every seven days.
             return "peaked", datetime.timedelta(days=7)
         elif self.faded_at:
-            # For faded vaults, only poll each 14 days
+            # Poll faded vaults every seven days.
             return "faded", datetime.timedelta(days=7)
 
         if self.last_tvl < self.tiny_tvl_threshold_rare_read:
@@ -450,9 +465,22 @@ class VaultReaderState(BatchCallState):
         total_assets: Decimal | None = None,
         share_price: Decimal | None = None,
     ):
-        """
+        """Update adaptive polling and USD TVL qualification from a real read.
+
+        The denomination-token total assets are converted using the existing
+        :attr:`exchange_rate` estimate. An unknown-rate sentinel does not
+        certify a vault as having meaningful USD TVL. Entry is $1,500 and
+        exit is below $1,000; eligibility is derived from persisted latest
+        and peak TVL across scan cycles.
+
         :param result:
             Result of convertToAssets() call
+        :param total_assets:
+            Vault assets in denomination-token units.
+        :param share_price:
+            Share price in denomination-token units.
+        :return:
+            ``None``.
         """
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
@@ -467,7 +495,7 @@ class VaultReaderState(BatchCallState):
             total_assets = Decimal(0)
 
         exchange_rate = self.exchange_rate
-        if self.exchange_rate == UNKNOWN_EXCHANGE_RATE:
+        if exchange_rate == UNKNOWN_EXCHANGE_RATE:
             self.unsupported_token = True
 
         total_assets = total_assets * exchange_rate

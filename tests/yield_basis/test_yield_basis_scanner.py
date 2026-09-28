@@ -301,10 +301,28 @@ def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp
         return YieldBasisContextPrefillResult(1, int(kwargs["start_block"]), int(kwargs["end_block"]), 0, 0)
 
     def fake_price_writer(**kwargs: object) -> dict[str, object]:
-        """Return a minimal successful common-writer result."""
+        """Return a successful common-writer result.
+
+        Include freshness metrics so the scanner can report the result using
+        the same fields as the production writer.
+
+        :param kwargs:
+            Writer arguments captured for assertions.
+        :return:
+            Empty scan result with the production metrics fields.
+        """
 
         captured["writer_addresses"] = kwargs["vault_addresses"]
-        return {"rows_written": 0, "start_block": CHAIN_READER_BLOCK, "end_block": SCANNER_END_BLOCK, "reader_states": {}}
+        return {
+            "rows_written": 0,
+            "freshness_rows_written": 0,
+            "freshness_eligible_vaults": 0,
+            "overdue_vaults": {},
+            "unknown_conversion_vaults": 0,
+            "start_block": CHAIN_READER_BLOCK,
+            "end_block": SCANNER_END_BLOCK,
+            "reader_states": {},
+        }
 
     monkeypatch.setattr(scan_all_chains, "fetch_and_store_yield_basis_historical_context", fake_context_prefill)
     monkeypatch.setattr(scan_all_chains, "scan_historical_prices_to_parquet", fake_price_writer)

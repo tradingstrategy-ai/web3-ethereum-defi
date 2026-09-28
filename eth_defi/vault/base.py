@@ -51,6 +51,35 @@ if TYPE_CHECKING:
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
+#: Estimated USD TVL required to enter live price-row freshness monitoring.
+MIN_MEANINGFUL_TVL_USD = Decimal(1_500)
+
+#: A qualified vault leaves freshness monitoring below this estimated USD TVL.
+MIN_MEANINGFUL_TVL_EXIT_USD = Decimal(1_000)
+
+#: Maximum age of a real source observation at a successful live scan.
+MAX_VAULT_PRICE_ROW_AGE = datetime.timedelta(days=14)
+
+#: Retain an unchanged real observation once the preceding row is seven days old.
+VAULT_PRICE_REFRESH_INTERVAL = datetime.timedelta(days=7)
+
+
+def is_meaningful_usd_tvl(current: Decimal | None, highest: Decimal | None) -> bool:
+    """Check live price-row eligibility with $1,500 entry and $1,000 exit.
+
+    Both values must already be converted to estimated USD using the vault
+    reader's exchange rate. A vault that once reached the entry limit remains
+    eligible while its latest TVL is at least the exit limit.
+
+    :param current:
+        Latest estimated USD TVL, or ``None`` when unavailable.
+    :param highest:
+        Highest previously observed estimated USD TVL, or ``None``.
+    :return:
+        Whether the vault meets the live freshness TVL limits.
+    """
+    return current is not None and (current >= MIN_MEANINGFUL_TVL_USD or (current >= MIN_MEANINGFUL_TVL_EXIT_USD and highest is not None and highest >= MIN_MEANINGFUL_TVL_USD))
+
 
 class WithdrawalDelayType(enum.StrEnum):
     """Classify how a valid withdrawal request becomes redeemable."""
@@ -512,6 +541,13 @@ class RawVaultPriceRow(TypedDict, total=False):
     See :py:class:`CleanedVaultPriceRow` in
     :py:mod:`eth_defi.research.wrangle_vault_prices` for the enriched schema
     produced by the cleaning pipeline.
+
+    Routine live scans aim to retain a genuine observation before its source
+    timestamp is 14 days old for a vault with verified USD TVL of at least
+    $1,500. A previously qualified vault remains covered down to $1,000.
+    This applies to successfully observed vaults; failed source reads are
+    reported as overdue rather than represented by copied rows. Historical
+    backfills retain the existing change-based sampling behaviour.
     """
 
     #: EVM chain id (e.g. ``1`` for Ethereum, ``8453`` for Base).
@@ -553,7 +589,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: For native protocols without blocks this is a synthetic sequence number.
     block_number: int
 
-    #: Naive UTC timestamp of the block, with one-second source precision.
+    #: Naive UTC timestamp of the real source observation, with one-second
+    #: EVM block precision. This, not ``written_at``, determines freshness.
     #:
     #: Modern high-throughput chains, including Monad, can produce multiple
     #: blocks in the same second. This value may therefore repeat for the
@@ -576,6 +613,9 @@ class RawVaultPriceRow(TypedDict, total=False):
     share_price: float
 
     #: Total assets under management (TVL) in denomination token units.
+    #: Eligibility for the 14-day live row limit uses the reader state's
+    #: existing denomination-to-USD estimate; this field is not USD for
+    #: ETH/BTC-denominated EVM vaults. Native vaults use USD accounting.
     total_assets: float
 
     #: Total supply of vault share tokens.
@@ -596,9 +636,11 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: Dynamic poll frequency used when taking this sample.
     #: Empty string if not set.
     #:
-    #: Example values: ``"1h"``, ``"4h"``, ``"24h"``.
-    #: The scanner adjusts frequency based on vault TVL and activity;
-    #: low-TVL vaults may be polled less frequently.
+    #: Example values: ``"large_tvl"``, ``"small_tvl"``, ``"tiny_tvl"``,
+    #: ``"peaked"``, ``"faded"``, ``"first_read"`` and ``"contextual"``.
+    #: Peaked and faded vaults poll weekly; otherwise estimated USD TVL
+    #: of at least $10,000 polls hourly, $1,000-$10,000 daily, and tiny
+    #: vaults weekly after their initial two-week daily period.
     vault_poll_frequency: str
 
     #: Maximum deposit amount allowed (ERC-4626 ``maxDeposit``),
@@ -645,7 +687,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #:    in :py:mod:`eth_defi.erc_4626.vault_protocol` for details.
     utilisation: float
 
-    #: When this row was actually written/fetched (naive UTC). ``None`` until stamped at write time.
+    #: When the row was written (naive UTC), not when the source was observed.
+    #: A fresh ``written_at`` never makes an old ``timestamp`` current.
     written_at: "pd.Timestamp | None"
 
     #: Current long open-position notional for native perp vault accounts.

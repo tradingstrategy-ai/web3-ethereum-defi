@@ -8,6 +8,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 :py:mod:`post-process-prices` scripts.
 """
 
+import datetime
 import importlib.util
 import logging
 import os
@@ -32,6 +33,7 @@ from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
 from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, R2SourceDigest, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.derive.v3_constants import DERIVE_V3_CHAIN_ID, DERIVE_V3_MAINNET_DATABASE
 from eth_defi.derive.v3_vault_data_export import build_raw_prices_dataframe as build_derive_v3_prices_dataframe
@@ -46,7 +48,7 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
-from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, LIGHTER_ROBINHOOD
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, LIGHTER_ROBINHOOD
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
@@ -56,7 +58,7 @@ from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.sparkline_export import run_sparkline_export
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
-from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, VaultHistoricalRead
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
 from eth_defi.vault.data_file_export import (
@@ -414,6 +416,48 @@ def _align_native_merge_table(table: pa.Table, schema: pa.Schema) -> pa.Table:
     return pa.Table.from_arrays(arrays, schema=schema)
 
 
+def audit_native_price_freshness(
+    table: pa.Table,
+    horizon: datetime.datetime,
+) -> dict[str, str]:
+    """Report meaningful native vaults lacking a recent real price observation.
+
+    Native vault writers use USD stablecoin accounting and retain the API's
+    source ``timestamp``. A new Parquet ``written_at`` does not refresh a
+    stale source row. A vault qualifies at $1,500 and remains qualified down
+    to $1,000; a successful live publication expects a real row no older than
+    14 days. Missing source observations are reported, never fabricated.
+
+    :param table:
+        Combined raw price table containing ``chain``, ``address``,
+        ``timestamp``, ``share_price`` and USD ``total_assets`` columns.
+    :param horizon:
+        Naive UTC publication horizon of this native merge.
+    :return:
+        Overdue vault IDs mapped to the diagnostic reason.
+    """
+    native_chain_ids = (HYPERCORE_CHAIN_ID, GRVT_CHAIN_ID, LIGHTER_CHAIN_ID, HIBACHI_CHAIN_ID, APEX_CHAIN_ID)
+    mask = pc.is_in(table["chain"], value_set=pa.array(native_chain_ids, type=table["chain"].type))
+    native = table.select(["chain", "address", "timestamp", "total_assets", "share_price"]).filter(mask)
+    if not len(native):
+        return {}
+    frame = native.to_pandas().sort_values(["chain", "address", "timestamp"], kind="stable")
+    groups = frame.groupby(["chain", "address"], sort=False, dropna=False)
+    highest_tvl = groups["total_assets"].max()
+    latest = groups.tail(1).set_index(["chain", "address"])
+    latest_tvl = pd.to_numeric(latest["total_assets"], errors="coerce")
+    qualified = ((highest_tvl >= float(MIN_MEANINGFUL_TVL_USD)) & (latest_tvl >= float(MIN_MEANINGFUL_TVL_EXIT_USD))).fillna(False)
+    valid_price = pd.to_numeric(frame["share_price"], errors="coerce").replace([float("inf"), float("-inf")], float("nan")).notna()
+    valid_latest = frame.loc[valid_price].groupby(["chain", "address"], sort=False).tail(1).set_index(["chain", "address"])
+    latest_timestamp = pd.to_datetime(valid_latest["timestamp"], errors="coerce").reindex(latest.index)
+    overdue = qualified & (latest_timestamp.isna() | ((horizon - latest_timestamp) > MAX_VAULT_PRICE_ROW_AGE))
+    result = {f"{chain}-{address}": "no_valid_source_observation" if pd.isna(latest_timestamp.loc[(chain, address)]) else "stale_source_timestamp" for chain, address in overdue[overdue].index}
+    logger.info("Native price freshness: qualified=%d, overdue=%d", int(qualified.sum()), len(result))
+    for vault_id in result:
+        logger.warning("Native vault %s has no real source price observation within 14 days of %s", vault_id, horizon)
+    return result
+
+
 def _write_native_partitions_to_uncleaned_parquet(
     parquet_path: Path,
     replacements: dict[int, pd.DataFrame],
@@ -491,6 +535,9 @@ def _write_native_partitions_to_uncleaned_parquet(
 
     if capability_registry is not None:
         combined_table = combined_table.replace_schema_metadata(embed_perp_capability_registry(combined_table.schema, capability_registry).metadata)
+
+    if "total_assets" in combined_table.column_names:
+        audit_native_price_freshness(combined_table, native_datetime_utc_now())
 
     VaultHistoricalRead.write_uncleaned_arrow_table(combined_table, parquet_path)
 

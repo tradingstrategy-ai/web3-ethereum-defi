@@ -97,6 +97,34 @@ Scan process is stateful
 
 The default scan is set to 1h interval.
 
+TVL limits and update cycle
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The `vault reader state <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/erc_4626/vault.py>`__
+converts denomination-token TVL to an estimated USD amount for polling. Peaked
+and faded vaults poll weekly regardless of TVL. Other vaults with at least
+$10,000 poll hourly; those from $1,000 to $10,000 poll daily. Vaults below
+$1,000 poll weekly after an initial two-week daily sampling period. The
+conversion uses the existing symbol-based estimate and protocol overrides.
+Unknown denominations are recorded separately and cannot be certified against
+the USD TVL limits. They can still receive real periodic rows, but do not
+enter the USD-qualified or overdue counts.
+
+The `live price scan <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/vault/historical.py>`__
+monitors row age once a vault reaches $1,500 estimated USD TVL. It remains
+eligible until TVL falls below $1,000. The reader retains an unchanged real
+observation once the previous retained row is seven days old; ordinary EVM
+readers also retain the first successful sample of each scan. A low-deposit-count
+vault is included when a current-state TVL probe finds it meaningful. Historical
+backfills keep their existing sparse sampling. At each successful live scan,
+the scanner reports eligible vaults whose latest real source ``timestamp`` is
+more than 14 days old. ``written_at`` records file publication and does not
+refresh old source data. Contextual readers can only retain observations their
+sources provide; native feeds receive the same source-time audit. Source gaps
+are reported as overdue rather than filled with copied values. If no new TVL is
+available, the audit keeps a vault eligible using its last observed TVL; this
+does not establish its current TVL.
+
 This will write
 
 - ``~/tradingstrategy/vaults/vault-prices-1h.parquet`` file with the historical prices

@@ -28,6 +28,7 @@ import time
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -35,6 +36,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
+from joblib import Parallel, delayed
+from requests.exceptions import RequestException
+from tqdm_loggable.auto import tqdm
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.apex.constants import APEX_METRICS_DATABASE
@@ -60,7 +64,7 @@ from eth_defi.derive.v3_vault_data_export import merge_into_vault_database as de
 from eth_defi.derive.v3_vault_metrics import DeriveV3VaultDatabase, scan_derive_v3_vaults
 from eth_defi.derive.v3_vaults import DeriveV3VaultClient
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, passes_price_scan_activity_filter
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4262VaultDetection, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.lead_discovery_state import (
     DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     LeadDiscoveryState,
@@ -74,6 +78,7 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
 )
+from eth_defi.erc_4626.vault import UNKNOWN_EXCHANGE_RATE, VaultReaderState
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_CURVE_CANONICAL_START_BLOCK
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
@@ -113,7 +118,7 @@ from eth_defi.tokenised_fund.scan import (
     select_tokenised_fund_price_scanners,
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultBase, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
@@ -850,6 +855,33 @@ def scan_vaults_for_chain(
         }
 
 
+def fetch_current_vault_tvl_usd(vault: VaultBase) -> tuple[Decimal | None, bool]:
+    """Probe a discovered vault's current TVL using its existing USD conversion.
+
+    The probe lets a live scan include a meaningful vault even when it has
+    fewer than the normal number of deposit events. The vault's own reader
+    state supplies protocol-specific exchange-rate overrides. An unknown
+    conversion is reported separately and never treated as verified USD TVL.
+
+    :param vault:
+        Vault adapter to read at the provider's current state.
+    :return:
+        Estimated USD TVL and whether its denomination rate is unknown.
+        A missing TVL indicates a failed or unsupported current-state read.
+    """
+    try:
+        reader = vault.get_historical_reader(stateful=True)
+        state = reader.reader_state if isinstance(reader.reader_state, VaultReaderState) else VaultReaderState(vault)
+        rate = state.exchange_rate
+        if rate == UNKNOWN_EXCHANGE_RATE:
+            return None, True
+        nav = vault.fetch_nav()
+        return nav * rate, False
+    except (Web3Exception, RequestException, ValueError, TypeError, AttributeError, RuntimeError, ArithmeticError) as error:
+        logger.warning("Cannot verify current USD TVL for %s: %s", vault.address, error)
+        return None, False
+
+
 def scan_prices_for_chain(
     rpc_url: str,
     max_workers: int,
@@ -867,6 +899,11 @@ def scan_prices_for_chain(
     persist_reader_state: bool = True,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
+
+    Routine live scans include low-activity vaults with at least $1,500
+    estimated USD TVL, retaining qualification down to $1,000. A successful
+    scan reports any qualified vault whose latest real source row is older
+    than 14 days. Historical repairs keep their ordinary sparse sampling.
 
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
@@ -937,22 +974,35 @@ def scan_prices_for_chain(
         flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
         rysk_rows = [row for row in chain_vaults if ERC4626Feature.rysk_premium_like in row["_detection_data"].features]
 
+        current_end_block = end_block if end_block is not None else web3.eth.block_number
+        live_freshness = persist_reader_state and start_block is None
+
         # Create vault instances with filtering
         vaults = []
-        min_deposit_threshold = MIN_PRICE_SCAN_DEPOSIT_COUNT
+        low_activity_qualified = 0
+        low_activity_unverified = 0
+        low_activity_qualified_addresses: set[str] = set()
+        low_activity_candidates: list[tuple[ERC4262VaultDetection, VaultBase]] = []
 
-        for row in chain_vaults:
+        for row in tqdm(chain_vaults, desc=f"Selecting vaults on chain {chain_id}"):
             detection = row["_detection_data"]
 
             if VaultSpec(chain_id, detection.address.lower()) in excluded_specs:
                 continue
 
-            # Protocol-specific features can provide activity evidence when the
-            # canonical vault address does not emit ERC-4626 deposit events.
-            if detection.address.lower() not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
+            active = detection.address.lower() in HARDCODED_PROTOCOLS or passes_price_scan_activity_filter(detection, MIN_PRICE_SCAN_DEPOSIT_COUNT)
+            if not active and not live_freshness:
                 continue
 
-            vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
+            if active:
+                vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
+            else:
+                try:
+                    vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
+                except (Web3Exception, RequestException, ValueError, TypeError, AttributeError, RuntimeError, ArithmeticError) as error:
+                    low_activity_unverified += 1
+                    logger.warning("Cannot instantiate low-activity vault %s on chain %d for TVL probe: %s", detection.address, chain_id, error)
+                    continue
             if vault:
                 vault.first_seen_at_block = detection.first_seen_at_block
                 if detection.features & gmx_features:
@@ -963,6 +1013,33 @@ def scan_prices_for_chain(
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
                 elif ERC4626Feature.rysk_premium_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
+                if active:
+                    vaults.append(vault)
+                else:
+                    low_activity_candidates.append((detection, vault))
+
+        if low_activity_candidates:
+            probes = Parallel(n_jobs=max_workers, backend="threading", return_as="generator")(delayed(fetch_current_vault_tvl_usd)(vault) for _detection, vault in low_activity_candidates)
+            for (detection, vault), (tvl_usd, unknown_conversion) in zip(
+                low_activity_candidates,
+                tqdm(probes, total=len(low_activity_candidates), desc=f"Checking low-activity TVL on chain {chain_id}"),
+                strict=True,
+            ):
+                spec = VaultSpec(chain_id, detection.address.lower())
+                if unknown_conversion:
+                    low_activity_unverified += 1
+                    logger.info("Sampling low-activity vault %s on chain %d with unknown USD conversion", detection.address, chain_id)
+                elif tvl_usd is None:
+                    low_activity_unverified += 1
+                    continue
+                elif not is_meaningful_usd_tvl(tvl_usd, reader_states.get(spec, {}).get("max_tvl")):
+                    continue
+                else:
+                    low_activity_qualified += 1
+                    low_activity_qualified_addresses.add(detection.address.lower())
+                # A live TVL probe does not imply a genesis-to-head backfill.
+                lookback_blocks = int(datetime.timedelta(days=14) / datetime.timedelta(seconds=EVM_BLOCK_TIMES[chain_id]))
+                vault.first_seen_at_block = max(vault.first_seen_at_block, current_end_block - lookback_blocks)
                 vaults.append(vault)
 
         if vault_addresses is not None:
@@ -979,7 +1056,8 @@ def scan_prices_for_chain(
         # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
 
-        current_end_block = end_block if end_block is not None else web3.eth.block_number
+        metrics["low_activity_qualified"] = low_activity_qualified
+        metrics["low_activity_unverified"] = low_activity_unverified
 
         if yield_basis_rows:
             # The metadata phase may have been skipped, failed, or run against
@@ -1149,6 +1227,8 @@ def scan_prices_for_chain(
             token_cache=token_cache,
             frequency=frequency,
             reader_states=scanned_reader_states,
+            enforce_live_freshness=live_freshness,
+            expected_live_vaults=low_activity_qualified_addresses,
             hypersync_client=hypersync_config.hypersync_client,
             rpc_request_stats=stats,
             vault_addresses={vault.address.lower() for vault in vaults},
@@ -1163,6 +1243,10 @@ def scan_prices_for_chain(
         return True, {
             **metrics,
             "rows_written": result["rows_written"],
+            "freshness_rows_written": result["freshness_rows_written"],
+            "freshness_eligible_vaults": result["freshness_eligible_vaults"],
+            "overdue_vaults": result["overdue_vaults"],
+            "unknown_conversion_vaults": result["unknown_conversion_vaults"],
             "start_block": result["start_block"],
             "end_block": result["end_block"],
             "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
