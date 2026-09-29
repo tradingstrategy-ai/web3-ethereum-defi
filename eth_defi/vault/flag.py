@@ -440,6 +440,12 @@ BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is i
 
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
+KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."
+
+STREAM_ELIXIR_EULER_BAD_DEBT = "Fully borrowed against deUSD, sdeUSD or USDX collateral that collapsed with Stream Finance and Elixir in November 2025; the vault has no cash and withdrawals fail."
+
+STREAM_XUSD_DENOMINATED = "Denominated in Stream Finance xUSD, which collapsed in November 2025 and trades near $0.02; the reported TVL counts xUSD at $1 and the vault has no borrowers."
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -522,7 +528,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xce0b790ae0d8cf91e01f3fb69025e14569b574f3": (VaultFlag.misleading_valuation, MISLEADING_VALUATION),
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
-    # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112
+    # https://tradingstrategy.ai/vaults/borrowable-xusd-deposit-siloid-112
     "0x172a687c397e315dbe56ed78ab347d7743d0d4fa": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Llama Lend IBTC / crvUSD
     "0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d": (VaultFlag.illiquid, HIDDEN_VAULT),
@@ -700,7 +706,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Broken vault?
-    # http://localhost:5173/trading-view/vaults/stablecoins/iusd
+    # http://localhost:5173/vaults/stablecoins/iusd
     "0x36585e7ae4b8a422135618a2c113b8b516067e7a": (VaultFlag.broken, BROKEN_VAULT),
     # Broken vault?
     # Upshift Edge USDC
@@ -721,11 +727,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Foxify vault
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": (VaultFlag.proprietary_trading, FOXIFY_VAULT),
     # KUSDT
-    # http://localhost:5173/trading-view/binance/vaults/gtrade-kusdt
+    # http://localhost:5173/vaults/gtrade-kusdt
     # No idea what's this - unverified
     "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
     # Steakhouse High Yield USDT0 on Arbitrum
-    # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
+    # https://tradingstrategy.ai/vaults/steakhouse-high-yield-usdt0
     "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
     # Static RWA ZeroLend USDC
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (VaultFlag.illiquid, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
@@ -752,9 +758,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x7aca67a6856bf532a7b2dea9b20253f08bc9a85a": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Hemi Clearstar USDC.e
     "0x05c2e246156d37b39a825a25dd08d5589e3fd883": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
-    # https://tradingstrategy.ai/trading-view/vaults/lusd-coin-2
+    # https://tradingstrategy.ai/vaults/lusd-coin-2
     "0x0ddb1ea478f8ef0e22c7706d2903a41e94b1299b": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
-    # https://tradingstrategy.ai/trading-view/vaults/ltether-usd-4
+    # https://tradingstrategy.ai/vaults/ltether-usd-4
     "0x4c8e1656e042a206eef7e8fcff99bac667e4623e": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Harvest: USDC Vault (0x0F6d)
     "0x0f6d1d626fd6284c6c1c1345f30996b89b879689": (VaultFlag.subvault, SUBVAULT),
@@ -914,6 +920,22 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
     # VI-USDC-QA_G (Euler on Sonic)
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
+    # King RSS USDC Vault
+    "0xf80c0529bd94c773844e459853cd91b9263dd525": (VaultFlag.misleading_valuation, KING_RSS_UNSELLABLE_COLLATERAL),
+    # Re7 Labs Cluster AUSD (Euler on Avalanche)
+    "0x2137568666f12fc5a026f5430ae7194f1c1362ab": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USDC (Euler on Avalanche)
+    "0x39de0f00189306062d79edec6dca5bb6bfd108f9": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster deUSD (Euler on Avalanche)
+    "0xa45189636c04388adbb4d865100dd155e55682ec": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Keyring zkVerified Cluster USDC (Euler on Avalanche)
+    "0x8f23da78e3f31ab5deb75dc3282198bed630ffde": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USD1 (Euler on Binance)
+    "0xc41f2ba7102e9f9f2d603eb951f955ae205ed272": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USDT (Euler on Binance)
+    "0x69a93dbab609266af96f05658b2e22d020de2e19": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # MEV Capital Sonic Cluster (Euler on Sonic, xUSD)
+    "0xdebdab749330bb976fd10dc52f9a452aaf029028": (VaultFlag.depegged_denomination_token, STREAM_XUSD_DENOMINATED),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
