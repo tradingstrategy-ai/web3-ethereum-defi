@@ -25,6 +25,7 @@ from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceS
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
+from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import (
@@ -848,3 +849,68 @@ def test_probe_signals():
     assert select_probe("euler", ["euler_earn_like"]) == "euler_earn"
     assert select_probe("40acres", []) == "forty_acres"
     assert select_probe("yearn", []) == "unsupported"
+
+
+# ---------------------------------------------------------------------------
+# Latest podcasts
+# ---------------------------------------------------------------------------
+
+EPISODE_HTML = """<p>Listen to our latest episode featuring <a href="https://tradingstrategy.ai/vaults/curators/yearn?ref=trading-strategy.ghost.io">Yearn</a> &amp; learn about <b>vaults</b>.</p>
+<figure class="kg-card kg-embed-card"><iframe src="https://www.youtube.com/embed/TM9Wn73Qxt8?feature=oembed"></iframe></figure>
+<p><a href="https://www.youtube.com/watch?v=TM9Wn73Qxt8&amp;si=abc&amp;ref=trading-strategy.ghost.io">Watch the Yearn episode on Youtube</a></p>
+<p><a href="https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw?si=ghMV&amp;ref=trading-strategy.ghost.io">Listen on Spotify</a></p>"""
+
+
+def make_episode_post(slug: str, title: str, body: str = EPISODE_HTML) -> GhostPost:
+    """A published podcast episode post."""
+    return GhostPost(id=slug, title=title, slug=slug, status="published", html=body, published_at=datetime.datetime(2026, 9, 21), updated_at=None)
+
+
+def test_parse_podcast_episode():
+    """The promotion text, clean Spotify and YouTube links and the guest's logo slug are read from the post."""
+    episode = parse_podcast_episode(make_episode_post("episode-13-yearn", "Episode #13: Yearn"))
+    assert episode.promotion == "Listen to our latest episode featuring Yearn & learn about vaults."
+    assert episode.url == "https://tradingstrategy.ai/blog/episode-13-yearn"
+    assert episode.youtube_url == "https://www.youtube.com/watch?v=TM9Wn73Qxt8"  # A watch link, not the embed, without tracking
+    assert episode.spotify_url == "https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw"
+    assert episode.logo_slug == "yearn"
+    assert episode.guest == "Yearn"
+
+    bare = parse_podcast_episode(make_episode_post("episode-1-x", "Episode #1: X", "<p>Promo</p>"))
+    assert (bare.spotify_url, bare.youtube_url, bare.logo_slug) == (None, None, None)
+    rendered = render_podcast_episodes([bare], {})
+    assert "Spotify" not in rendered and "YouTube" not in rendered and "<img" not in rendered  # Only the title links, to the blog post
+
+
+def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """The podcasts come before the data analytics sections, with their logos bundled and uploaded on publish."""
+    episodes = [
+        parse_podcast_episode(make_episode_post("episode-13-yearn", "Episode #13: Yearn")),
+        parse_podcast_episode(make_episode_post("episode-99-evil", "Episode #99: <script>", "<p>Promo <script>alert(1)</script></p>")),
+    ]
+    data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, podcasts=episodes)
+
+    post_html = (tmp_path / "out" / "post.html").read_text()
+    # Offline reports have no charts, so the first data section is the best-performing vaults
+    assert post_html.index("defi-vault-community-news") < post_html.index('<h2 id="latest-podcasts">Latest podcasts</h2>') < post_html.index('id="the-best-performing-vaults"')
+    assert '<img src="podcasts/yearn.png" alt="Yearn logo"' in post_html
+    assert '<a href="https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw">Listen on Spotify</a>' in post_html
+    assert "<script>" not in post_html
+    assert (tmp_path / "out" / "podcasts" / "yearn.png").exists()
+    manifest = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert [podcast["title"] for podcast in manifest["podcasts"]] == ["Episode #13: Yearn", "Episode #99: <script>"]
+
+    # Publishing uploads the logos with the charts and links them in the draft
+    client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
+    drafts = []
+    monkeypatch.setattr(client, "fetch_writable_draft", lambda slug, overwrite_draft: None)
+    monkeypatch.setattr(client, "upload_image", lambda path: f"https://ghost.example/{path.name}")
+    monkeypatch.setattr(client, "create_or_update_draft", lambda **kwargs: drafts.append(kwargs) or GhostPost("d1", kwargs["title"], kwargs["slug"], "draft", None, None, None))
+    monkeypatch.setattr(client, "get_editor_url", lambda post: "https://example.ghost.io/ghost/#/editor/post/d1")
+    publish_report_draft(report, client)
+    assert '<img src="https://ghost.example/yearn.png"' in drafts[0]["html"]
+
+    # Without episodes the section is left out
+    generate_monthly_vault_report(data, output_dir=tmp_path / "empty", render_charts=False, check_sparklines=False)
+    assert "latest-podcasts" not in (tmp_path / "empty" / "post.html").read_text()

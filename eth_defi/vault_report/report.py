@@ -38,7 +38,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
-from eth_defi.vault_report.branding import CHART_SCALE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
+from eth_defi.vault_report.branding import CHART_SCALE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image, render_logo_tile
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
@@ -55,7 +55,8 @@ from eth_defi.vault_report.charts import (
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
-from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_uri
+from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_path, load_protocol_logo_uri
+from eth_defi.vault_report.podcasts import PodcastEpisode
 from eth_defi.vault_report.post import PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
 from eth_defi.vault_report.sections import (
     AMM,
@@ -187,6 +188,9 @@ class GeneratedReport:
 
     #: Investability check result, or ``None`` when the check did not run
     vault_checks: CheckResult | None = None
+
+    #: Podcast guest logo slug -> PNG path in the bundle
+    podcast_logo_paths: dict[str, Path] = field(default_factory=dict)
 
 
 def format_usd(value: USDollarAmount) -> str:
@@ -660,6 +664,7 @@ def generate_monthly_vault_report(
     cache_dir: Path | None = None,
     check_sparklines: bool = True,
     vault_checks: VaultCheckSettings | None = None,
+    podcasts: list[PodcastEpisode] | None = None,
 ) -> GeneratedReport:
     """Generate the report tables, charts and post body into a local bundle.
 
@@ -693,6 +698,11 @@ def generate_monthly_vault_report(
     :param vault_checks:
         Run the investability check, see :py:mod:`eth_defi.vault_report.vault_checks`.
         ``None`` skips it; the post then carries an editor note.
+
+    :param podcasts:
+        Latest podcast episodes for the *Latest podcasts* section, see
+        :py:func:`eth_defi.vault_report.podcasts.fetch_latest_podcast_episodes`.
+        ``None`` or empty leaves the section out.
 
     :return:
         Generated report description.
@@ -743,6 +753,7 @@ def generate_monthly_vault_report(
 
     chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded) if render_charts else ({}, None)
 
+    podcast_logo_paths = copy_podcast_logos(podcasts or [], theme, output_dir)
     month_label = make_month_label(data_end_at)
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     best_caption = make_benchmark_caption(select_yield_vaults(ranked_df, criteria), tbill_latest, criteria.min_tvl)
@@ -756,6 +767,8 @@ def generate_monthly_vault_report(
         changelog_entries=changelog_entries or [],
         captions={"best": best_caption} if best_caption else {},
         editor_notes=editor_notes,
+        podcasts=podcasts or [],
+        podcast_logos={slug: path.relative_to(output_dir).as_posix() for slug, path in podcast_logo_paths.items()},
     )
     report = GeneratedReport(
         output_dir=output_dir,
@@ -768,6 +781,7 @@ def generate_monthly_vault_report(
         sections=sections,
         hero_path=hero_path,
         vault_checks=check_result,
+        podcast_logo_paths=podcast_logo_paths,
     )
 
     post_html = build_post_html(context)
@@ -776,6 +790,36 @@ def generate_monthly_vault_report(
     write_report_manifest(report)
     logger.info("Report bundle written to %s", output_dir)
     return report
+
+
+def copy_podcast_logos(episodes: list[PodcastEpisode], theme: ChartTheme, output_dir: Path) -> dict[str, Path]:
+    """Copy the podcast guests' logos into the report bundle.
+
+    The logos come from the protocol and curator logo collection, so the post
+    does not depend on the website serving them, and are drawn on dark tiles,
+    see :py:func:`eth_defi.vault_report.branding.render_logo_tile`.
+    :py:func:`publish_report_draft` uploads them to Ghost with the charts.
+
+    :param episodes:
+        Podcast episodes.
+
+    :param theme:
+        Theme of the blog page, for the logo variant.
+
+    :param output_dir:
+        Report bundle directory.
+
+    :return:
+        Logo slug -> PNG path in ``podcasts/``. Guests without a logo are left out.
+    """
+    paths = {}
+    for slug in dict.fromkeys(episode.logo_slug for episode in episodes if episode.logo_slug):
+        source = load_protocol_logo_path(slug, theme)
+        if source is None:
+            logger.warning("No logo for podcast guest %s", slug)
+            continue
+        paths[slug] = render_logo_tile(source, theme, output_dir / "podcasts" / f"{slug}.png")
+    return paths
 
 
 def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None = None, editor_url: str | None = None) -> Path:
@@ -807,6 +851,7 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "previous_report_slug": previous.slug if previous else None,
         "ghost_draft": {"id": ghost_post.id, "slug": ghost_post.slug, "editor_url": editor_url} if ghost_post else None,
         "vault_checks": summarise_checks(report.vault_checks) if report.vault_checks else None,
+        "podcasts": [{**dataclasses.asdict(episode), "published_at": episode.published_at.isoformat() if episode.published_at else None} for episode in report.context.podcasts],
     }
     path = report.output_dir / "report.json"
     path.write_text(json.dumps(manifest, indent=2))
@@ -845,10 +890,11 @@ def publish_report_draft(
     admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft)
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
     feature_image = admin_client.upload_image(report.hero_path) if report.hero_path else None
+    podcast_logo_urls = {slug: admin_client.upload_image(path) for slug, path in report.podcast_logo_paths.items()}
     post = admin_client.create_or_update_draft(
         title=report.title,
         slug=report.slug,
-        html=build_post_html(dataclasses.replace(report.context, charts=chart_urls)),
+        html=build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_logos=podcast_logo_urls)),
         custom_excerpt=report.excerpt,
         tags=tags,
         feature_image=feature_image,

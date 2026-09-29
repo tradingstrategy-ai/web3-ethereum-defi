@@ -89,6 +89,7 @@ pile automatically. No report change is needed.
 | 1 | About the report | Copied from the previous post | — |
 | 2 | Report content updates | Data statistics: chains, protocols, vault count, TVL, stablecoins | ✏️ New integrations; changelog candidates are listed |
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
+| 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
 | 4 | Average yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
 | 5 | Average yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
 | 5b | Average yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |

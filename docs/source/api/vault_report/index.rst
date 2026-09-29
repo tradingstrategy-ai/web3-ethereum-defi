@@ -32,4 +32,7 @@ Run it with ``scripts/erc-4626/generate-monthly-vault-report.py``. See
    eth_defi.vault_report.benchmarks
    eth_defi.vault_report.post
    eth_defi.vault_report.ghost
+   eth_defi.vault_report.podcasts
+   eth_defi.vault_report.vault_probes
+   eth_defi.vault_report.vault_checks
    eth_defi.vault_report.report

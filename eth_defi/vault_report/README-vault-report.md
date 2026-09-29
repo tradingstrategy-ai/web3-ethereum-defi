@@ -33,6 +33,9 @@ Downloads younger than six hours are reused. The script:
    (`GHOST_CONTENT_API_URL`, `GHOST_CONTENT_API_KEY`). The new post links back to it
    and copies its *About the report*, *Partners* and *Next steps* sections.
    Changelog entries added since its publication are offered to the editor.
+   The same API reads the four latest
+   [podcast](https://tradingstrategy.ai/podcast) episodes for the *Latest
+   podcasts* section, see [Latest podcasts](#latest-podcasts).
 5. Writes a local bundle to `~/.cache/tradingstrategy/vault-report/reports/{slug}/`:
    `post.html`, a browser-viewable `preview.html`, `report.json`, `hero.png`,
    `hero-square.png`, `charts/*.png` and `tables/*.html|csv`.
@@ -182,6 +185,27 @@ and are left out of every other ranking and chart by default, counted only in
 the TVL summaries. Set `ReportCriteria.include_amm_pools` to rank them with
 the other vaults. See
 [README-blog-post-outline.md](./README-blog-post-outline.md#common-rules).
+
+### Latest podcasts
+
+The post lists the four latest episodes of the
+[Trading Strategy podcast](https://tradingstrategy.ai/podcast) before the data
+sections (`eth_defi.vault_report.podcasts`). Episodes are blog posts on Ghost,
+selected like the website's podcast page: the latest published posts whose
+title contains "episode". From each post the section takes:
+
+- the title, linked to the blog post;
+- the first paragraph, the episode's promotion text;
+- the Spotify and YouTube links, without share-tracking parameters;
+- the guest's logo, found from the post's link to the guest's curator or
+  protocol page on the website, e.g. `/vaults/curators/yearn`.
+
+Logos come from `eth_defi/data/vaults/formatted_logos` and are drawn on a dark
+rounded tile, because many are white and would disappear in light newsletter
+emails. The tiles are written to `podcasts/` in the bundle and uploaded to
+Ghost with the charts. An episode post without a Spotify, YouTube or guest page
+link logs a warning and is shown without it. The section is left out when the
+Ghost Content API is not configured.
 
 ### Unidentified protocols
 

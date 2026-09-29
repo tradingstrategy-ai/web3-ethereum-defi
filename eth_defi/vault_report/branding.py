@@ -328,6 +328,38 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     return output_path
 
 
+def render_logo_tile(logo_path: Path, theme: ChartTheme, output_path: Path, size: int = 96) -> Path:
+    """Draw a logo centred on a rounded tile of the panel surface colour.
+
+    Protocol logos are made for either dark or light backgrounds, and many are
+    white. On a tile of the chart panel colour a logo reads the same on the
+    dark blog page and in light newsletter emails.
+
+    :param logo_path:
+        Logo PNG for the theme's surface, see :py:func:`eth_defi.vault_report.logos.load_protocol_logo_path`.
+
+    :param theme:
+        Chart theme with the surface colour.
+
+    :param output_path:
+        Where to write the PNG.
+
+    :param size:
+        Tile width and height in pixels; shown at half size for high-density screens.
+
+    :return:
+        ``output_path``.
+    """
+    tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(tile).rounded_rectangle((0, 0, size - 1, size - 1), radius=size // 5, fill=_hex_to_rgba(theme.surface))
+    logo = Image.open(logo_path).convert("RGBA")
+    logo.thumbnail((round(size * 0.7), round(size * 0.7)), Image.Resampling.LANCZOS)
+    tile.alpha_composite(logo, ((size - logo.width) // 2, (size - logo.height) // 2))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tile.save(output_path, format="PNG", optimize=True)
+    return output_path
+
+
 def _draw_sparkline(image: Image.Image, values: pd.Series, box: tuple[int, int, int, int], colour: str) -> None:
     """Draw a small price line with a faint fill underneath.
 

@@ -18,7 +18,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from eth_defi.vault_report.ghost import GhostPost
+from eth_defi.vault_report.ghost import GhostPost, strip_ghost_ref
+from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
 
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
@@ -32,9 +33,6 @@ DEFAULT_EVERGREEN_SECTIONS = {
     "partners": '<h2 id="partners">Partners</h2><p>We want to thank our partners for getting this report together.</p>',
     "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Visit our <a href="https://tradingstrategy.ai/trading-view/vaults">vaults page</a> for real-time dashboards. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
 }
-
-#: Ghost adds this tracking parameter to links in its HTML output
-GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
 
 
 @dataclass(slots=True, frozen=True)
@@ -219,6 +217,12 @@ class PostContext:
     #: Section key -> extra editor note HTML, e.g. about the investability check
     editor_notes: dict[str, str] = field(default_factory=dict)
 
+    #: Latest podcast episodes, newest first; the section is left out when empty
+    podcasts: list[PodcastEpisode] = field(default_factory=list)
+
+    #: Podcast guest logo slug -> image URL or relative path
+    podcast_logos: dict[str, str] = field(default_factory=dict)
+
 
 def make_month_label(data_end_at: datetime.datetime) -> str:
     """Create a human-readable report month.
@@ -273,8 +277,7 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
     match = re.search(rf'<h2 id="{re.escape(heading_id)}">.*?(?=<h2 |$)', post_html, flags=re.DOTALL)
     if not match:
         return None
-    # Keep the separator when other query parameters follow: ?ref=x&a=1 -> ?a=1
-    return GHOST_REF_PARAMETER.sub(lambda m: m.group(1) if m.group(2) else "", match.group(0)).strip()
+    return strip_ghost_ref(match.group(0)).strip()
 
 
 def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords: tuple[str, ...] = ("vault", "protocol")) -> list[str]:
@@ -392,6 +395,14 @@ def build_post_html(context: PostContext) -> str:
         "<p>Highlights of what happened in the DeFi vault industry in the last month.</p>",
         _editor_note("Add community news as <code>h3</code> subsections: new vault launches, partnerships, incidents, Trading Strategy product news."),
     ]
+
+    # News before the data analytics sections
+    if context.podcasts:
+        parts += [
+            '<h2 id="latest-podcasts">Latest podcasts</h2>',
+            f'<p>The latest episodes of the <a href="{PODCAST_PAGE_URL}">Trading Strategy podcast</a>, where we talk with DeFi vault protocols and curators.</p>',
+            f"<!--kg-card-begin: html-->\n{render_podcast_episodes(context.podcasts, context.podcast_logos)}\n<!--kg-card-end: html-->",
+        ]
 
     for template in SECTION_TEMPLATES:
         if not template.always and template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):

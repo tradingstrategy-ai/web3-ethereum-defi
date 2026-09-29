@@ -16,6 +16,7 @@ import hmac
 import json
 import logging
 import mimetypes
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,23 @@ logger = logging.getLogger(__name__)
 
 #: Ghost API version header value
 GHOST_ACCEPT_VERSION = "v5.0"
+
+#: Ghost adds this tracking parameter to links in its HTML output
+GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
+
+
+def strip_ghost_ref(url: str) -> str:
+    """Remove the ``ref`` tracking parameter Ghost adds to links.
+
+    :param url:
+        Link from Ghost post HTML, e.g. ``https://youtu.be/abc?ref=example.ghost.io``.
+
+    :return:
+        The link without the parameter, e.g. ``https://youtu.be/abc``.
+    """
+    # Keep the separator when other query parameters follow: ?ref=x&a=1 -> ?a=1
+    return GHOST_REF_PARAMETER.sub(lambda m: m.group(1) if m.group(2) else "", url)
+
 
 #: Admin API JWT lifetime; Ghost allows at most five minutes
 ADMIN_TOKEN_LIFETIME = datetime.timedelta(minutes=5)
@@ -170,15 +188,32 @@ class GhostContentClient:
         :return:
             The latest post including its HTML body, or ``None``.
         """
-        params = {"key": self.content_api_key, "filter": f"slug:~^'{slug_prefix}'", "limit": "1", "order": "published_at desc", "formats": "html"}
+        posts = self.fetch_latest_posts(f"slug:~^'{slug_prefix}'", limit=1)
+        return posts[0] if posts else None
+
+    def fetch_latest_posts(self, nql_filter: str, limit: int) -> list[GhostPost]:
+        """Fetch the most recently published posts that match a filter.
+
+        See the `Content API filtering documentation <https://ghost.org/docs/content-api/#filtering>`__
+        for the NQL syntax.
+
+        :param nql_filter:
+            NQL filter, e.g. ``title:~'episode'`` for titles containing a word.
+
+        :param limit:
+            Maximum number of posts.
+
+        :return:
+            Posts including their HTML bodies, newest first.
+        """
+        params = {"key": self.content_api_key, "filter": nql_filter, "limit": str(limit), "order": "published_at desc", "formats": "html"}
         try:
             resp = self.session.get(f"{self.api_url}/ghost/api/content/posts/", params=params, timeout=self.timeout)
         except requests.RequestException as e:
             # Connection error messages contain the full URL with the key query parameter
             raise GhostAPIError(f"Ghost API fetch posts failed: {type(e).__name__}") from None
         _raise_for_ghost_error(resp, "fetch posts")
-        posts = resp.json()["posts"]
-        return GhostPost.from_api(posts[0]) if posts else None
+        return [GhostPost.from_api(post) for post in resp.json()["posts"]]
 
 
 class GhostAdminClient:

@@ -17,7 +17,7 @@ Environment variables:
 - ``VAULT_PRICES_PARQUET``: use a local cleaned vault price Parquet instead of downloading it
 - ``CACHE_DIR``: download cache, default ``~/.cache/tradingstrategy/vault-report``
 - ``OUTPUT_DIR``: report bundle directory, default ``{CACHE_DIR}/reports/{post slug}``
-- ``GHOST_CONTENT_API_URL``, ``GHOST_CONTENT_API_KEY``: read the previous report post (optional)
+- ``GHOST_CONTENT_API_URL``, ``GHOST_CONTENT_API_KEY``: read the previous report post and the latest podcast episodes (optional)
 - ``GHOST_ADMIN_API_URL``: defaults to ``GHOST_CONTENT_API_URL``
 - ``GHOST_ADMIN_API_KEY``: ``{id}:{secret}`` Admin API key; when set, upload charts and create the draft post
 - ``GHOST_OVERWRITE_DRAFT``: set ``true`` to replace an existing draft with the same slug
@@ -48,6 +48,7 @@ from tabulate import tabulate
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
+from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import ReportCriteria
@@ -130,11 +131,14 @@ def main() -> None:
     content_api_url = os.environ.get("GHOST_CONTENT_API_URL")
     content_api_key = os.environ.get("GHOST_CONTENT_API_KEY")
     previous = None
+    podcasts = []
     if content_api_url and content_api_key:
-        previous = GhostContentClient(content_api_url, content_api_key).fetch_latest_post_by_slug_prefix(REPORT_SLUG_PREFIX)
+        content_client = GhostContentClient(content_api_url, content_api_key)
+        previous = content_client.fetch_latest_post_by_slug_prefix(REPORT_SLUG_PREFIX)
         logger.info("Previous report: %s", previous.slug if previous else "not found")
+        podcasts = fetch_latest_podcast_episodes(content_client)
     else:
-        logger.warning("GHOST_CONTENT_API_URL / GHOST_CONTENT_API_KEY not set, not reading the previous report")
+        logger.warning("GHOST_CONTENT_API_URL / GHOST_CONTENT_API_KEY not set, not reading the previous report or the podcast episodes")
 
     changelog_since = previous.published_at.date() if previous else (data.data_end_at - datetime.timedelta(days=31)).date()
     changelog_entries = read_changelog_entries(CHANGELOG_PATH, since=changelog_since)[:MAX_CHANGELOG_ENTRIES]
@@ -151,6 +155,7 @@ def main() -> None:
         cache_dir=cache_dir / "assets",
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
         vault_checks=read_vault_check_settings(),
+        podcasts=podcasts,
     )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]

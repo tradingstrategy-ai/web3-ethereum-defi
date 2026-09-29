@@ -19,8 +19,10 @@ import requests
 from eth_defi.vault_report.benchmarks import BTC, ETH, fetch_crypto_prices, fetch_treasury_bill_yields
 from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
-from eth_defi.vault_report.logos import fetch_chain_logo_uri
+from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_protocol_logo_path
+from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, extract_section_html
+from eth_defi.vault_report.theme import DARK_THEME
 
 GHOST_CONTENT_API_URL = os.environ.get("GHOST_CONTENT_API_URL")
 GHOST_CONTENT_API_KEY = os.environ.get("GHOST_CONTENT_API_KEY")
@@ -75,6 +77,20 @@ def test_ghost_content_api_previous_report():
     partners = extract_section_html(post.html, "partners")
     assert partners.startswith('<h2 id="partners">')
     assert "ghost.io" not in partners
+
+
+@pytest.mark.skipif(not (GHOST_CONTENT_API_URL and GHOST_CONTENT_API_KEY), reason="GHOST_CONTENT_API_URL and GHOST_CONTENT_API_KEY needed")
+def test_ghost_content_api_latest_podcasts():
+    """The latest podcast episodes have promotion texts, Spotify and YouTube links and a guest logo."""
+    episodes = fetch_latest_podcast_episodes(GhostContentClient(GHOST_CONTENT_API_URL, GHOST_CONTENT_API_KEY))
+    assert len(episodes) == 4
+    assert [episode.published_at for episode in episodes] == sorted((episode.published_at for episode in episodes), reverse=True)
+    for episode in episodes:
+        assert "episode" in episode.title.lower()
+        assert episode.promotion
+        assert episode.spotify_url.startswith("https://open.spotify.com/episode/")
+        assert episode.youtube_url.startswith(("https://youtu.be/", "https://www.youtube.com/watch?v="))
+        assert load_protocol_logo_path(episode.logo_slug, DARK_THEME) is not None
 
 
 @pytest.mark.skipif(not (GHOST_CONTENT_API_URL and GHOST_ADMIN_API_KEY), reason="GHOST_CONTENT_API_URL and GHOST_ADMIN_API_KEY needed")
