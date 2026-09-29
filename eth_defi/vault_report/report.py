@@ -39,7 +39,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
-from eth_defi.vault_report.branding import CHART_SCALE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image, render_logo_tile
+from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image, render_logo_tile
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
@@ -551,7 +551,7 @@ def make_benchmark_caption(universe_df: pd.DataFrame, benchmark_yield: float | N
         return None
     returns = universe_df["one_month_cagr_best"]
     beat = int((returns > benchmark_yield).sum())
-    return f"{beat} of the {len(universe_df)} stablecoin yield vaults with at least {format_usd(min_tvl)} TVL beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month. Their median annualised one-month return was {returns.median():.1%}."
+    return f"{beat} of the {len(universe_df)} stablecoin yield vaults with at least {format_usd(min_tvl)} TVL beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month. The median annualised one-month return of all {len(universe_df)} was {returns.median():.1%}."
 
 
 def render_report_charts(
@@ -645,8 +645,8 @@ def render_report_charts(
     # DeFi vault protocols and tokenised funds are charted separately
     is_fund = tvl_vaults["group"] == TOKENISED_FUND
     defi_vaults, fund_vaults = tvl_vaults.loc[~is_fund], tvl_vaults.loc[is_fund]
-    defi_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in defi_vaults.index]]
-    fund_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in fund_vaults.index]]
+    defi_history = tvl_history[tvl_history.columns.intersection(defi_vaults.index, sort=False)]
+    fund_history = tvl_history[tvl_history.columns.intersection(fund_vaults.index, sort=False)]
     protocol_tvl = calculate_protocol_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     chain_tvl = calculate_chain_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
@@ -742,8 +742,9 @@ def render_report_charts(
     hero_subtitle = f"≥ {format_usd(criteria.min_tvl)} TVL · {data_date}"
     hero_logos = rasterise_logos({prop.logo_uri for vault_id in hero_vaults.index for prop in vault_properties[vault_id] if prop.logo_uri})
     hero_properties = {vault_id: [(prop.text, hero_logos.get(prop.logo_uri)) for prop in vault_properties[vault_id]] for vault_id in hero_vaults.index}
-    hero_path = render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero.png", properties=hero_properties)
-    render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE, properties=hero_properties)
+    hero_path = output_dir / "hero.png"
+    for path, size in ((hero_path, HERO_SIZE), (output_dir / "hero-square.png", SQUARE_HERO_SIZE)):
+        render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, path, size=size, properties=hero_properties)
     return chart_paths, hero_path
 
 

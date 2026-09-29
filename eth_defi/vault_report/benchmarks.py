@@ -33,6 +33,7 @@ import pandas as pd
 import requests
 
 from eth_defi.types import Percent
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault_report.data import fetch_file, get_cache_age
 
 logger = logging.getLogger(__name__)
@@ -262,7 +263,7 @@ def select_benchmarks(vault: pd.Series, min_volatility: Percent, max_drawdown: P
     """
     flags = vault["flags"] if isinstance(vault["flags"], list) else []
     slug = vault["vault_slug"] or ""
-    if "perp_dex_trading_vault" in flags or vault["chain_id"] in PERP_CHAIN_IDS:
+    if VaultFlag.perp_dex_trading_vault.value in flags or vault["chain_id"] in PERP_CHAIN_IDS:
         return (BTC, ETH)
     if vault["protocol_slug"] == "gmx":
         if slug.startswith("glv-"):

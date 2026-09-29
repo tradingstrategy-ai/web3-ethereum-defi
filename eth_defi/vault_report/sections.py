@@ -29,7 +29,9 @@ import pandas as pd
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.research.vault_metrics import USDollarAmount, _get_trading_strategy_chain_link, _get_trading_strategy_protocol_link
 from eth_defi.types import Percent
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 UNKNOWN_PROTOCOL_SLUG = "protocol-not-yet-identified"
 
 #: Technical risk label for vaults excluded from all listings
-BLACKLISTED_RISK = "Blacklisted"
+BLACKLISTED_RISK = VaultTechnicalRisk.blacklisted.get_risk_level_name()
 
 #: Sharpe ratios above this are displayed as ``>100``
 MAX_DISPLAYED_SHARPE = 100
@@ -51,20 +53,20 @@ SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vaul
 
 
 #: Strategy tags that make a vault a lending vault
-LENDING_STRATEGY_TAGS = frozenset({"lending", "lending_optimisation", "lending_looping"})
+LENDING_STRATEGY_TAGS = frozenset(tag.value for tag in (StrategyTag.lending, StrategyTag.lending_optimisation, StrategyTag.lending_looping))
 
 #: Strategy tags that make a vault a real-world asset (RWA) vault, see :py:class:`eth_defi.vault.strategy_tag.StrategyTag`.
 #:
 #: RWA lending vaults are RWA vaults, not lending vaults: their risk is the
 #: real-world borrowers and collateral. Tokenised funds and perp DEX vaults
 #: financing real-world credit keep their own groups.
-RWA_STRATEGY_TAGS = frozenset({"rwa", "rwa_credit", "rwa_lending", "rwa_royalties"})
+RWA_STRATEGY_TAGS = frozenset(tag.value for tag in (StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending, StrategyTag.rwa_royalties))
 
 #: Protocols whose vaults are lending vaults even without a strategy tag.
 #:
-#: Strategy tags are set only by some protocol adapters (Aave, Euler, Morpho),
-#: so the report also recognises the lending markets it knows. Tagging these
-#: adapters would make this list unnecessary.
+#: Not every protocol adapter sets strategy tags, so the report also
+#: recognises the lending markets it knows. Tagging these adapters would make
+#: this list unnecessary.
 LENDING_PROTOCOL_SLUGS = frozenset({"aave", "morpho", "euler", "fluid", "spark", "silo-finance", "llama-lend", "curvance", "dolomite", "gearbox", "sentiment", "arcadia-finance", "term-finance", "40acres", "3jane", "frax"})
 
 #: Vault feature of AMM liquidity-provider shares, set by the scanner for GMX GM and GLV pools and
@@ -72,7 +74,7 @@ LENDING_PROTOCOL_SLUGS = frozenset({"aave", "morpho", "euler", "fluid", "spark",
 AMM_POOL_FEATURE = ERC4626Feature.amm_pool_like.value
 
 #: Vault flag for tokenised funds, such as money market and treasury funds
-TOKENISED_FUND_FLAG = "tokenised_fund"
+TOKENISED_FUND_FLAG = VaultFlag.tokenised_fund.value
 
 #: Protocol slugs that mean the vault's protocol has not been identified yet: generic ERC-4626 and
 #: ERC-7540 vaults and placeholders. The same set as the website's ``isUnknownVaultProtocol()``

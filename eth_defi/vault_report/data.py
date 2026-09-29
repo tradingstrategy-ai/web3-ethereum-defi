@@ -32,6 +32,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, classify_vault, find_period, is_identified_protocol
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ VAULT_PRICES_DOWNLOAD_URL = "https://tradingstrategy.ai/vaults/datasets/download
 DEFAULT_CACHE_MAX_AGE = datetime.timedelta(hours=6)
 
 #: Vault flag for perpetual DEX native trading vaults (Hyperliquid, GRVT, Lighter...)
-PERP_DEX_TRADING_VAULT_FLAG = "perp_dex_trading_vault"
+PERP_DEX_TRADING_VAULT_FLAG = VaultFlag.perp_dex_trading_vault.value
 
 #: Legacy vault page URLs, ``/trading-view/vaults/{slug}`` and ``/trading-view/{chain}/vaults/{slug}``.
 #: The website redirects both to ``/vaults/{slug}``; exports made before the move still carry them.
