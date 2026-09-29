@@ -65,6 +65,7 @@ from eth_defi.vault_report.sections import (
     CHART_RETURN,
     LENDING,
     OTHER,
+    RWA,
     PERP_DEX,
     TABLE_FORMAT_NOTE,
     TOKENISED_FUND,
@@ -110,6 +111,7 @@ TVL_HISTORY = datetime.timedelta(days=365)
 #: Best-performing vault sections: section key -> (vault group, ranking metric column)
 BEST_SECTIONS = {
     "lending": (LENDING, "one_month_cagr_best"),
+    "rwa": (RWA, "one_month_cagr_best"),
     "perp_dex": (PERP_DEX, "one_month_cagr_best"),
     "perp_dex_sharpe": (PERP_DEX, "three_months_sharpe_best"),
     "other": (OTHER, "one_month_cagr_best"),
@@ -315,15 +317,16 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "tvl_changes": ["A TVL change includes deposits, redemptions and the vault's own returns"],
         "best": [
             "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
-            f"{min_tvl} in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending and other vaults also need {active}",
+            f"{min_tvl} in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending, RWA and other vaults also need {active}",
             unidentified,
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
         ],
         "lending": ["Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol", chart_ranking, benchmarks, chart_risk],
+        "rwa": ["Vaults investing in, lending against or financing real-world assets, such as private credit, trade finance and royalties, identified by their strategy", chart_ranking, benchmarks, chart_risk],
         "perp_dex": ["Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults", chart_ranking, chart_risk],
         "perp_dex_sharpe": ["The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones", "The legend shows the latest Sharpe ratio", chart_risk],
-        "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX, AMM or tokenised fund vaults", chart_ranking, benchmarks, chart_risk],
+        "other": ["Yield aggregators, trading and other vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults", chart_ranking, benchmarks, chart_risk],
         "amm": [
             "GMX GM and GLV pools and the Curve-based YieldBasis pools: their returns include the price moves of the pooled assets, so they are ranked separately",
             f"Minimum {format_usd(criteria.amm_min_tvl)} TVL",
@@ -595,6 +598,7 @@ def render_report_charts(
     by_return = selection.format(by="by 3M return")
     performance_panels = {
         "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
+        "rwa": ChartPanel("Performance of the best-performing RWA vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),

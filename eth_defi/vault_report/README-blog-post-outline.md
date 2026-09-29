@@ -27,8 +27,9 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | AMM pool | The `amm_pool_like` vault feature (`ERC4626Feature.amm_pool_like`), which the scanner sets for GMX GM and GLV pools and the Curve-based YieldBasis LTs. Strategy tags are not used: vaults tagged `amm`, such as Gains Network gTrade and KiloEx, stay in their other groups |
 | Perpetual futures DEX | Flagged `perp_dex_trading_vault`: Hyperliquid, GRVT, Lighter, Hibachi, ApeX |
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
+| Real-world assets (RWA) | An RWA strategy tag (`RWA_STRATEGY_TAGS`: `rwa`, `rwa_credit`, `rwa_lending`, `rwa_royalties`), e.g. private credit, trade finance and royalty vaults. RWA lending vaults count as RWA, not lending |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
-| Other | Everything else: yield aggregators, trading vaults, RWA and synthetic dollar vaults. Only vaults with an identified protocol are ranked |
+| Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. Only vaults with an identified protocol are ranked |
 
 ## Unidentified protocols
 
@@ -60,8 +61,8 @@ them before any return is compared.
 | Best-performing new vaults, per-chain table, risk and return, hero image | Left out |
 
 The *Other vaults* table is a vault group, see [Vault groups](#vault-groups):
-vaults with an identified protocol that are not lending, perp DEX or tokenised
-fund vaults, for example yield aggregators. It is not the Other protocol pile.
+vaults with an identified protocol that are not lending, RWA, perp DEX, AMM or
+tokenised fund vaults, for example yield aggregators. It is not the Other protocol pile.
 
 When a protocol is mapped in the vault metadata, its vaults leave the Other
 pile automatically. No report change is needed.
@@ -78,7 +79,7 @@ pile automatically. No report change is needed.
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
 - **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
-- **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
+- **Table thresholds:** at least $100k TVL. Lending, RWA and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
 - **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the group by three-month return, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL and that the legend returns are annualised; the legend shows the numbers only, without "ann." or a start date. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are chart ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
 
 ## Outline
@@ -98,6 +99,7 @@ pile automatically. No report change is needed.
 | 8 | Inflows and outflows | The **10 largest TVL increases and decreases over 30 days**, in dollars | ✏️ Explain the largest moves |
 | 9 | The best-performing vaults | Treasury bill caption: how many yield vaults beat the T-bill, and their median return | ✏️ Comment on the top vaults |
 | 9.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
+| 9.1b | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
 | 9.2 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
 | 9.3 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 9.4 | ↳ Other vaults | Performance chart and table, **by return** | — |
@@ -124,6 +126,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 | Correlation of returns removed | Hard to read, and little editorial value |
 | Top movers replaced with inflows and outflows | Dollar TVL changes show where money moved. Rank moves were dominated by the gap between reports and by changes in the vault universe |
 | Best-performing vaults split into lending, perp DEX by return, perp DEX by Sharpe and other | Each group has different risk and return, and a different benchmark |
+| RWA vaults split from lending and other into their own subsection | Their risk is real-world borrowers and collateral, and readers look for them. The group depends on strategy tags, so untagged RWA vaults stay in lending or other until tagged |
 | Best-performing large vaults folded into the split tables | The $100k threshold and the TVL column cover large vaults |
 | Separate perp DEX section folded into 9.2 and 9.3 | Part of the split |
 | Tokenised funds section added | Funds such as BlackRock BUIDL move the largest amounts, and readers compare them with DeFi yield |

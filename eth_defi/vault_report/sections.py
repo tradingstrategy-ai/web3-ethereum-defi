@@ -4,13 +4,16 @@ Each report section is a ranked subset of the vault metrics loaded by
 :py:func:`eth_defi.vault_report.data.fetch_vault_report_data`. The post
 structure is described in ``eth_defi/vault_report/README-blog-post-outline.md``.
 
-Vaults are classified into four groups, each ranked in its own table:
+Vaults are classified into groups, each ranked in its own table:
 
 - **Lending:** strategy tagged as lending, or a known lending protocol, see
   :py:data:`LENDING_PROTOCOL_SLUGS`
+- **Real-world assets (RWA):** strategy tagged as investing in, lending
+  against or financing real-world assets, see :py:data:`RWA_STRATEGY_TAGS`
 - **Perpetual futures DEX:** Hyperliquid, GRVT, Lighter and other native trading vaults
+- **AMM pools:** GMX GM and GLV pools and Curve-based YieldBasis pools
 - **Tokenised funds:** vaults flagged ``tokenised_fund``, e.g. money market funds
-- **Other:** everything else, e.g. yield aggregators, trading and RWA vaults
+- **Other:** everything else, e.g. yield aggregators and trading vaults
 
 Returns are annualised one-month returns, net of fees when fee data is known
 and gross otherwise, marked with ``(n)`` and ``(g)`` respectively.
@@ -48,7 +51,14 @@ SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vaul
 
 
 #: Strategy tags that make a vault a lending vault
-LENDING_STRATEGY_TAGS = frozenset({"lending", "lending_optimisation", "lending_looping", "rwa_lending"})
+LENDING_STRATEGY_TAGS = frozenset({"lending", "lending_optimisation", "lending_looping"})
+
+#: Strategy tags that make a vault a real-world asset (RWA) vault, see :py:class:`eth_defi.vault.strategy_tag.StrategyTag`.
+#:
+#: RWA lending vaults are RWA vaults, not lending vaults: their risk is the
+#: real-world borrowers and collateral. Tokenised funds and perp DEX vaults
+#: financing real-world credit keep their own groups.
+RWA_STRATEGY_TAGS = frozenset({"rwa", "rwa_credit", "rwa_lending", "rwa_royalties"})
 
 #: Protocols whose vaults are lending vaults even without a strategy tag.
 #:
@@ -78,6 +88,7 @@ OTHER_PROTOCOL = "Other"
 
 #: Vault group labels, see :py:func:`classify_vault`
 LENDING = "lending"
+RWA = "rwa"
 PERP_DEX = "perp_dex"
 AMM = "amm"
 TOKENISED_FUND = "tokenised_fund"
@@ -353,7 +364,7 @@ def classify_vault(vault: pd.Series) -> str:
         Vault metrics row with ``features``, ``is_perp_dex``, ``flags``, ``strategy_tags`` and ``protocol_slug``.
 
     :return:
-        :py:data:`AMM`, :py:data:`PERP_DEX`, :py:data:`TOKENISED_FUND`, :py:data:`LENDING` or :py:data:`OTHER`.
+        :py:data:`AMM`, :py:data:`PERP_DEX`, :py:data:`TOKENISED_FUND`, :py:data:`RWA`, :py:data:`LENDING` or :py:data:`OTHER`.
     """
     features = vault.get("features")
     if isinstance(features, list) and AMM_POOL_FEATURE in features:
@@ -363,6 +374,8 @@ def classify_vault(vault: pd.Series) -> str:
     if TOKENISED_FUND_FLAG in (vault["flags"] if isinstance(vault["flags"], list) else []):
         return TOKENISED_FUND
     tags = vault["strategy_tags"] if isinstance(vault["strategy_tags"], list) else []
+    if RWA_STRATEGY_TAGS.intersection(tags):
+        return RWA
     if LENDING_STRATEGY_TAGS.intersection(tags) or vault["protocol_slug"] in LENDING_PROTOCOL_SLUGS:
         return LENDING
     return OTHER
@@ -418,7 +431,7 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
     df = eligible_df
     min_tvl = criteria.amm_min_tvl if group == AMM else criteria.min_tvl
     mask = (df["group"] == group) & (df["current_nav"] >= min_tvl)
-    if group in (LENDING, OTHER):
+    if group in (LENDING, RWA, OTHER):
         mask &= df["event_count"] >= criteria.min_events
     return rank_vaults(df.loc[mask & df[by].notna()], by)
 

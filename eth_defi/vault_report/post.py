@@ -116,7 +116,7 @@ SECTION_TEMPLATES = (
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>The best-performing vaults of the month in five groups: lending vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools, and the best vaults on each chain.</p>",
+        intro="<p>The best-performing vaults of the month in six groups: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools, and the best vaults on each chain.</p>",
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
@@ -125,6 +125,13 @@ SECTION_TEMPLATES = (
         heading_id="best-performing-lending-vaults",
         heading="Lending vaults",
         charts=(("lending_performance", "90-day performance of the best-performing lending vaults against benchmarks"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="rwa",
+        heading_id="best-performing-rwa-vaults",
+        heading="Real-world asset (RWA) vaults",
+        charts=(("rwa_performance", "90-day performance of the best-performing RWA vaults against benchmarks"),),
         level=3,
     ),
     SectionTemplate(

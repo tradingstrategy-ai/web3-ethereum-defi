@@ -28,36 +28,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
-from eth_defi.vault_report.sections import (
-    AMM,
-    LENDING,
-    OTHER,
-    OTHER_PROTOCOL,
-    PERP_DEX,
-    TOKENISED_FUND,
-    ReportCriteria,
-    ReportSection,
-    calculate_average_yields,
-    calculate_chain_yields,
-    calculate_fund_nav_history,
-    calculate_high_yield_protocols,
-    calculate_protocol_tvl_history,
-    calculate_protocol_yields,
-    calculate_tvl_changes,
-    exclude_amm_pools,
-    exclude_chart_risks,
-    filter_eligible_vaults,
-    format_return,
-    format_sharpe,
-    format_vault_cells,
-    is_identified_protocol,
-    render_section_table,
-    select_average_yield_vaults,
-    select_comparable_vaults,
-    select_group,
-    select_vaults_by_chain,
-    select_yield_vaults,
-)
+from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
 from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
@@ -918,3 +889,18 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     generate_monthly_vault_report(data, output_dir=tmp_path / "empty", render_charts=False, check_sparklines=False)
     assert "latest-podcasts" not in (tmp_path / "empty" / "post.html").read_text()
     assert not (tmp_path / "empty" / "podcasts").exists()
+
+
+def test_rwa_vaults_section(tmp_path: Path, vault_records: list[dict], prices_path: Path):
+    """RWA-tagged vaults get their own group and subsection, including RWA lending vaults."""
+    rwa = make_vault_record("0x66", protocol="Lagoon Finance", protocol_slug="lagoon-finance", strategy_tags=["rwa_lending"], one_month_cagr_net=0.14)
+    assert classify_vault(prepare_vault_metrics([rwa]).iloc[0]) == RWA
+    fund = make_vault_record("0x77", strategy_tags=["rwa"], flags=["tokenised_fund"])
+    assert classify_vault(prepare_vault_metrics([fund]).iloc[0]) == TOKENISED_FUND  # Tokenised funds keep their own section
+
+    data = VaultReportData(vaults_df=prepare_vault_metrics([*vault_records, rwa]), prices_path=prices_path)
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False)
+    assert list(report.sections["rwa"].vaults_df.index) == ["1-0x66"]
+    assert "1-0x66" not in report.sections["lending"].vaults_df.index
+    post_html = (tmp_path / "out" / "post.html").read_text()
+    assert post_html.index('<h3 id="best-performing-lending-vaults">') < post_html.index('<h3 id="best-performing-rwa-vaults">Real-world asset (RWA) vaults</h3>') < post_html.index('<h3 id="best-performing-perp-dex-vaults">')
