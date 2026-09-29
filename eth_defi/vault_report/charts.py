@@ -19,6 +19,7 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 import base64
 import contextlib
 import datetime
+import html
 import io
 import logging
 import os
@@ -154,6 +155,21 @@ def to_rgba(colour: str, alpha: float) -> str:
     return f"rgba({red},{green},{blue},{alpha})"
 
 
+def plain_text(text: str) -> str:
+    """Escape external text, such as vault names, for Plotly text.
+
+    Plotly reads ``<b>``, ``<br>`` and other tags in text as markup, and
+    decodes HTML entities, so an escaped name is shown exactly as written.
+
+    :param text:
+        Text from the vault data, e.g. a vault name set by its deployer.
+
+    :return:
+        Text with ``&``, ``<`` and ``>`` escaped.
+    """
+    return html.escape(text, quote=False)
+
+
 def shorten_text(text: str, max_length: int) -> str:
     """Shorten a one-line label with an ellipsis, for labels that must not wrap.
 
@@ -181,7 +197,7 @@ def wrap_label(text: str, width: int) -> str:
     :return:
         Label with ``<br>`` line breaks.
     """
-    return "<br>".join(textwrap.wrap(text, width=width)) or text
+    return "<br>".join(plain_text(line) for line in textwrap.wrap(text, width=width)) or plain_text(text)
 
 
 def highlight_number(text: str, theme: ChartTheme, value: float | None = None) -> str:
@@ -297,7 +313,7 @@ def add_property_rows(
                 icon_width, icon_height = prop.icon_size
                 fig.add_layout_image(source=prop.logo_uri, xref="paper", yref=yref, x=item_x, y=centre, sizex=icon_width / x_pixels, sizey=icon_height / y_pixels, xanchor="left", yanchor="middle")
                 item_x += (icon_width + PROPERTY_ICON_GAP) / x_pixels
-            fig.add_annotation(text=prop.text, xref="paper", yref=yref, x=item_x, y=centre, xanchor="left", yanchor="middle", showarrow=False, font={"size": PROPERTY_FONT_SIZE, "color": theme.muted_text})
+            fig.add_annotation(text=plain_text(prop.text), xref="paper", yref=yref, x=item_x, y=centre, xanchor="left", yanchor="middle", showarrow=False, font={"size": PROPERTY_FONT_SIZE, "color": theme.muted_text})
     return len(rows)
 
 
@@ -372,7 +388,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         fig.add_shape(type="line", xref="paper", yref="paper", x0=paper_x(swatch_pixels[0]), x1=paper_x(swatch_pixels[1]), y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
         if entry.logo_uri:
             fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=paper_x(logo_pixels), y=first_line, sizex=30 / plot_width, sizey=30 / plot_height, xanchor="left", yanchor="middle")
-        label = "<br>".join(f"<b>{line}</b>" for line in lines)
+        label = "<br>".join(f"<b>{plain_text(line)}</b>" for line in lines)
         fig.add_annotation(text=label, xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
         if entry.detail:
@@ -609,7 +625,8 @@ def create_performance_figure(
     bottom, top = (0.0, high) if sharpe else (to_axis(low), to_axis(high))
     padding = (top - bottom) * 0.06 + 0.2
     if log_scale:
-        y_range = (np.log10(max(bottom - padding, bottom * 0.9)), np.log10(top + padding))
+        # A wiped-out vault reaches 0, which has no logarithm: floor the axis at a 99% loss
+        y_range = (np.log10(max(bottom - padding, bottom * 0.9, 1.0)), np.log10(top + padding))
     else:
         y_range = (0.0 if sharpe else bottom - padding, top + padding)
 
@@ -894,7 +911,7 @@ def create_chain_best_figure(
         value = leader[CHART_RETURN]
         text = CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
         fig.add_annotation(
-            text=f"{highlight_number(text, theme, value)}  {shorten_text(leader['name'] or leader['address'], 28)}",
+            text=f"{highlight_number(text, theme, value)}  {plain_text(shorten_text(leader['name'] or leader['address'], 28))}",
             xref="paper",
             yref="y",
             x=1.02,
@@ -962,7 +979,7 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
         vault_properties = properties.get(vault_id, ())
         property_rows = len(layout_properties(vault_properties, label_width)) if vault_properties else 0
         top = position + (len(lines) * 21 + property_rows * PROPERTY_ROW_HEIGHT) / 2 / unit_pixels
-        fig.add_annotation(text="<br>".join(lines), xref="paper", yref="y", x=label_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        fig.add_annotation(text="<br>".join(plain_text(line) for line in lines), xref="paper", yref="y", x=label_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         if vault_properties:
             add_property_rows(fig, vault_properties, theme, label_x, top - (len(lines) * 21 + PROPERTY_ROW_HEIGHT / 2) / unit_pixels, "y", label_width, plot_width, unit_pixels)
     return fig
@@ -1110,7 +1127,7 @@ def create_risk_return_figure(
         fig.add_annotation(
             x=np.log10(vault["x"]),
             y=vault["y"],
-            text=shorten_text(vault["name"] or vault["address"], 26),
+            text=plain_text(shorten_text(vault["name"] or vault["address"], 26)),
             showarrow=True,
             arrowcolor=theme.axis,
             arrowwidth=1,

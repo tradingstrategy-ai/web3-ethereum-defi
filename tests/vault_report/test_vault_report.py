@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import pytest
 import requests
 from PIL import Image, ImageDraw
@@ -20,9 +21,10 @@ from eth_defi.research.vault_correlation import choose_vaults_for_correlation_co
 from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report import vault_checks as vault_checks_module
+from eth_defi.vault_report import vault_probes as vault_probes_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, select_moving_vaults, trim_logos, wrap_label
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, LEGEND_MARGIN, LegendEntry, PerformanceSeries, VaultProperty, add_logo_legend, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, plain_text, select_moving_vaults, trim_logos, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
@@ -542,7 +544,10 @@ def test_select_benchmarks(vaults_df: pd.DataFrame):
 
 def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):
     """Weekly TVL is summed per protocol with the tail grouped as Other."""
-    tvl = read_vault_tvl_history(prices_path, list(vaults_df.index), start_at=DATA_END_AT - datetime.timedelta(days=60))
+    tvl = read_vault_tvl_history(prices_path, list(vaults_df.index), start_at=DATA_END_AT - datetime.timedelta(days=60), end_at=DATA_END_AT)
+    # Like the website: weekly averages of daily closing values, without the report date's incomplete week
+    assert tvl.index.max() < pd.Timestamp(DATA_END_AT).to_period("W").start_time
+    assert pd.Timedelta(tvl.index.to_series().diff().dropna().unique()[0]) == pd.Timedelta(days=7)
     by_protocol = calculate_protocol_tvl_history(tvl, vaults_df, top_n=1)
     assert list(by_protocol.columns) == ["Morpho", "Other"]
     assert by_protocol.iloc[-1].sum() == pytest.approx(tvl.iloc[-1].sum())
@@ -953,3 +958,27 @@ def test_legacy_vault_links_rewritten():
     ]
     links = prepare_vault_metrics(records)["trading_strategy_link"].tolist()
     assert links == ["https://tradingstrategy.ai/vaults/foo", "https://tradingstrategy.ai/vaults/bar", "https://tradingstrategy.ai/vaults/0x83"]
+
+
+def test_chart_text_is_escaped():
+    """Vault names are shown as written in charts, never read as markup."""
+    assert plain_text("A&B <script>") == "A&amp;B &lt;script&gt;"
+    assert wrap_label("<b>Evil</b> vault", 40) == "&lt;b&gt;Evil&lt;/b&gt; vault"
+    fig = go.Figure()
+    fig.update_layout(width=1000, height=600, margin={"l": 50, "r": LEGEND_MARGIN, "t": 20, "b": 20})
+    add_logo_legend(fig, [LegendEntry("1. <img src=x>", "#ff0000", properties=(VaultProperty("<i>Curator</i>"),))], DARK_THEME)
+    texts = [annotation.text for annotation in fig.layout.annotations]
+    assert "<b>1. &lt;img src=x&gt;</b>" in texts
+    assert "&lt;i&gt;Curator&lt;/i&gt;" in texts
+
+
+def test_probe_contains_rpc_failures(monkeypatch: pytest.MonkeyPatch):
+    """A dead RPC is recorded as a probe error, so one chain cannot stop the check."""
+
+    def dead_rpc(url: str):
+        raise RuntimeError("Could not connect to any provider")
+
+    monkeypatch.setattr(vault_probes_module, "read_json_rpc_url", lambda chain_id: "https://dead.example")
+    monkeypatch.setattr(vault_probes_module, "create_multi_provider_web3", dead_rpc)
+    facts = vault_probes_module.fetch_vault_facts("1-0x1234", "morpho", [], {})
+    assert facts.errors and "Could not connect" in facts.errors[0]

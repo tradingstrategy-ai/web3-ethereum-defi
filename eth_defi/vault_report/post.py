@@ -287,7 +287,7 @@ SECTION_TEMPLATES = (
         key="excluded",
         heading_id="excluded-vaults-in-this-report",
         heading="Excluded vaults in this report",
-        intro=("<p>The vaults below would have ranked in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols.</p>"),
+        intro=("<p>The vaults below would have ranked or been charted in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols.</p>"),
     ),
 )
 

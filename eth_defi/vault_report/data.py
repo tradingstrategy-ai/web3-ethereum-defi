@@ -221,14 +221,15 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     df.index = df["id"].to_numpy()
 
     for column in ("start_date", "end_date"):
-        df[column] = pd.to_datetime(df[column])
+        # Naive UTC, also if the export ever adds a time zone suffix
+        df[column] = pd.to_datetime(df[column], utc=True).dt.tz_localize(None)
     if "trading_strategy_link" in df.columns:
         df["trading_strategy_link"] = df["trading_strategy_link"].str.replace(LEGACY_VAULT_LINK, "https://tradingstrategy.ai/vaults/", regex=True)
 
     df["one_month_cagr_best"] = _pick_net(df, "one_month_cagr")
     df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")
     df["three_months_sharpe_best"] = _pick_net(df, "three_months_sharpe")
-    df["is_perp_dex"] = df["flags"].apply(lambda flags: PERP_DEX_TRADING_VAULT_FLAG in (flags or []))
+    df["is_perp_dex"] = df["flags"].apply(lambda flags: isinstance(flags, list) and PERP_DEX_TRADING_VAULT_FLAG in flags)
     df["three_months_max_drawdown"] = df["period_results"].apply(_get_three_months_drawdown) if "period_results" in df.columns else float("nan")
 
     for column in ("current_nav", "peak_nav"):
@@ -356,15 +357,17 @@ def read_vault_tvl_history(
     prices_path: Path,
     vault_ids: list[str],
     start_at: datetime.datetime,
+    end_at: datetime.datetime,
 ) -> pd.DataFrame:
     """Read weekly TVL history for vaults.
 
     Mirrors the website's historical TVL query
     (``src/lib/echarts/historical-tvl-server.ts`` in the frontend): the last
-    ``total_assets`` value of each vault in each week, with values above
-    :py:data:`TVL_OUTLIER_THRESHOLD` dropped. Each vault is forward filled
-    between its first and last week only. ``total_assets`` in the cleaned
-    price Parquet is already in USD, also for EUR-denominated vaults.
+    ``total_assets`` value of each vault on each day, averaged over each
+    week, leaving out the incomplete week of ``end_at``. Values above
+    :py:data:`TVL_OUTLIER_THRESHOLD` are dropped. Each vault is forward
+    filled between its first and last week only. ``total_assets`` in the
+    cleaned price Parquet is already in USD, also for EUR-denominated vaults.
 
     The aggregation runs in an in-memory DuckDB connection, so only one row
     per vault and week is loaded into pandas.
@@ -378,18 +381,27 @@ def read_vault_tvl_history(
     :param start_at:
         First week to include.
 
+    :param end_at:
+        Report data date; its week is incomplete and left out, like on the website.
+
     :return:
         DataFrame indexed by week start with one TVL column per vault id, in USD.
     """
     query = """
-        SELECT id, date_trunc('week', "timestamp") AS week, arg_max(total_assets, "timestamp") AS tvl
-        FROM read_parquet(?)
-        WHERE "timestamp" >= ? AND total_assets >= 0 AND total_assets <= ? AND id IN (SELECT unnest(?))
+        WITH daily AS (
+            SELECT id, CAST("timestamp" AS DATE) AS day, arg_max(total_assets, "timestamp") AS tvl
+            FROM read_parquet(?)
+            WHERE "timestamp" >= ? AND total_assets >= 0 AND total_assets <= ? AND id IN (SELECT unnest(?))
+            GROUP BY id, day
+        )
+        SELECT id, date_trunc('week', day) AS week, avg(tvl) AS tvl
+        FROM daily
+        WHERE date_trunc('week', day) < date_trunc('week', CAST(? AS TIMESTAMP))
         GROUP BY id, week
     """
     read_from = pd.Timestamp(start_at - TVL_LOOKBACK_BUFFER)
     with duckdb.connect() as connection:
-        weekly = connection.execute(query, [str(prices_path), read_from, TVL_OUTLIER_THRESHOLD, vault_ids]).df()
+        weekly = connection.execute(query, [str(prices_path), read_from, TVL_OUTLIER_THRESHOLD, vault_ids, pd.Timestamp(end_at)]).df()
     logger.info("Read %d weekly TVL rows for %d vaults from %s", len(weekly), weekly["id"].nunique(), prices_path)
     if len(weekly) == 0:
         return pd.DataFrame()

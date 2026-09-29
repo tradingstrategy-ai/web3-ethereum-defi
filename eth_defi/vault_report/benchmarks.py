@@ -262,13 +262,13 @@ def select_benchmarks(vault: pd.Series, min_volatility: Percent, max_drawdown: P
         Benchmark names, e.g. ``("BTC", "ETH")``.
     """
     flags = vault["flags"] if isinstance(vault["flags"], list) else []
-    slug = vault["vault_slug"] or ""
+    slug = vault["vault_slug"] if isinstance(vault["vault_slug"], str) else ""
     if VaultFlag.perp_dex_trading_vault.value in flags or vault["chain_id"] in PERP_CHAIN_IDS:
         return (BTC, ETH)
     if vault["protocol_slug"] == "gmx":
         if slug.startswith("glv-"):
             return (BTC, ETH)
-        if _is_gmx_stable_stable_pool(vault["name"] or "", slug):
+        if _is_gmx_stable_stable_pool(vault["name"] if isinstance(vault["name"], str) else "", slug):
             return (TREASURY_BILL,)
         if slug.startswith("gm-btc-"):
             return (BTC,)

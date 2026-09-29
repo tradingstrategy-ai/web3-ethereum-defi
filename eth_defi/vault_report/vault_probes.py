@@ -487,7 +487,8 @@ def fetch_vault_facts(vault_id: str, protocol_slug: str, features: list[str] | N
             facts.errors.append("Morpho V2 adapter liquidity is not probed; redeemable liquidity is unknown")
         facts.exposures, facts.total_assets, facts.idle_assets, facts.redeemable_assets = exposures, total, idle, redeemable
         facts.redeemable_share = redeemable / total if redeemable is not None and total else None
-    except (*CALL_ERRORS, ConnectionError, TimeoutError, AssertionError) as e:
+    # OSError covers requests' connection errors and timeouts; the multi-provider setup raises RuntimeError for a dead RPC
+    except (*CALL_ERRORS, OSError, RuntimeError, AssertionError) as e:
         logger.warning("Probe %s failed for %s: %s", probe, vault_id, e)
         facts.errors.append(f"{probe} probe failed: {e}")
     for exposure in facts.exposures:

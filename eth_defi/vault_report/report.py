@@ -646,7 +646,7 @@ def render_report_charts(
     protocol_group_logos = {name: load_protocol_logo_uri(protocol_slugs.get(name), theme) for name in protocol_yields.index.union(high_yield_protocols.index)}
 
     tvl_vaults = select_tvl_history_vaults(data.vaults_df)
-    tvl_history = read_vault_tvl_history(data.prices_path, list(tvl_vaults.index), start_at=data.data_end_at - TVL_HISTORY)
+    tvl_history = read_vault_tvl_history(data.prices_path, list(tvl_vaults.index), start_at=data.data_end_at - TVL_HISTORY, end_at=data.data_end_at)
     # DeFi vault protocols and tokenised funds are charted separately
     is_fund = tvl_vaults["group"] == TOKENISED_FUND
     defi_vaults, fund_vaults = tvl_vaults.loc[~is_fund], tvl_vaults.loc[is_fund]

@@ -415,9 +415,10 @@ def rank_vaults(df: pd.DataFrame, column: str = "one_month_cagr_best") -> pd.Dat
 def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str, *, by: str = "one_month_cagr_best") -> pd.DataFrame:
     """Select the best vaults of a vault group.
 
-    Applies the TVL threshold, :py:attr:`ReportCriteria.amm_min_tvl` for AMM pools, and the activity threshold for groups other than
-    perpetual futures DEX vaults and tokenised funds, whose deposits are not
-    comparable onchain events.
+    Applies the TVL threshold, :py:attr:`ReportCriteria.amm_min_tvl` for AMM
+    pools, and the activity threshold for lending, RWA and other vaults.
+    Perpetual futures DEX vaults and tokenised funds have no comparable
+    onchain deposit events, and AMM pools have the higher TVL threshold instead.
 
     :param eligible_df:
         Output of :py:func:`filter_eligible_vaults`.
