@@ -35,7 +35,7 @@ links:
   defillama: ''
   audits: https://docs.axis.to/backing-reserves-and-transparency/audits
   fees: https://docs.axis.to/susdx-the-rewards-vault/susdx
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/axis
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/axis
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/axis/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4

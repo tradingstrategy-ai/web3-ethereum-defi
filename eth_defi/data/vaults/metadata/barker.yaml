@@ -26,7 +26,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/barker
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/barker
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/barker/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0x54251e24e7e5dfc66c02ea02f41bcb2419380bad

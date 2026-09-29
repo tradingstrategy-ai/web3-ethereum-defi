@@ -17,13 +17,16 @@ Ghost Admin and publishes the post.
 source .local-test.env && poetry run python scripts/erc-4626/generate-monthly-vault-report.py
 ```
 
-A full run, including downloads, took about 15 seconds on 2026-09-25.
-Downloads younger than six hours are reused. The script:
+Without the investability check, a run with cached downloads took about 40
+seconds on 2026-09-29, most of it rendering the 16 charts. With the check,
+which runs an LLM agent, a run took about 32 minutes on 2026-09-26, see
+[Investability check](#investability-check). Downloads younger than six hours
+are reused. The script:
 
 1. Downloads the public top vaults JSON (`https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json`).
-   This is the same data the [vault dashboard](https://tradingstrategy.ai/trading-view/vaults) renders, so the report numbers match the website.
+   This is the same data the [vault dashboard](https://tradingstrategy.ai/vaults) renders, so the report numbers match the website.
 2. Downloads the ~250 MB cleaned vault price Parquet through the Pro
-   [vault datasets](https://tradingstrategy.ai/trading-view/vaults/datasets) API
+   [vault datasets](https://tradingstrategy.ai/vaults/datasets) API
    using `VAULT_PRO_API_KEY`. The charts use it.
 3. Downloads the benchmarks: the 3-month US Treasury yield
    ([FRED DGS3MO](https://fred.stlouisfed.org/series/DGS3MO)) and daily BTC and ETH
@@ -36,11 +39,15 @@ Downloads younger than six hours are reused. The script:
    The same API reads the four latest
    [podcast](https://tradingstrategy.ai/podcast) episodes for the *Latest
    podcasts* section, see [Latest podcasts](#latest-podcasts).
-5. Writes a local bundle to `~/.cache/tradingstrategy/vault-report/reports/{slug}/`:
+5. Optionally runs the [investability check](#investability-check), which
+   removes vaults that are not investable in practice from the rankings.
+6. Writes a local bundle to `~/.cache/tradingstrategy/vault-report/reports/{slug}/`:
    `post.html`, a browser-viewable `preview.html`, `report.json`, `hero.png`,
-   `hero-square.png`, `charts/*.png` and `tables/*.html|csv`.
-6. When `GHOST_ADMIN_API_KEY` is set, uploads the charts and the hero image and
-   creates a **draft** post, with the hero as its feature image. The script never publishes.
+   `hero-square.png`, `charts/*.png`, `tables/*.csv`, the podcast images in
+   `podcasts/` and the investability check files `vault-check-*`.
+7. When `GHOST_ADMIN_API_KEY` is set, uploads the charts, the podcast images
+   and the hero image and creates a **draft** post, with the hero as its
+   feature image. The script never publishes.
 
 See the script docstring for all environment variables.
 
@@ -143,31 +150,38 @@ The section order, selection rules and editor input of each section are
 described in [README-blog-post-outline.md](./README-blog-post-outline.md). In
 short, the post has:
 
+- the four latest podcast episodes;
 - average yield dot plots for the 10 largest blockchains, the 10 largest
   protocols by TVL and the 10 highest-yielding protocols with at least $150k
   TVL, against the T-bill;
-- stablecoin TVL by DeFi vault protocol and stablecoin NAV by tokenised fund
-  over 12 months;
+- stablecoin TVL by DeFi vault protocol and by blockchain, and stablecoin NAV
+  by tokenised fund, over 12 months;
 - inflows and outflows: the largest 30-day TVL changes in dollars;
-- the best-performing vaults, split into lending, perp DEX by return, perp DEX
-  by Sharpe ratio and other vaults, each with a performance chart and a table;
+- the best-performing vaults, split into lending, real-world asset (RWA), perp
+  DEX by return, perp DEX by Sharpe ratio and other vaults, and AMM pools, each
+  with a performance chart and a table, and the best vaults on each chain;
 - the best-performing tokenised funds and new vaults;
-- a risk and return scatter and the top 3 vaults on each chain.
+- a risk and return scatter;
+- the vaults the investability check excluded.
 
-The hero image shows the top 5 yield vaults with protocol logos, 90-day price
-sparklines and the return as a large number: 1200×630 for link previews and the
-Ghost feature image, and a 1080×1080 version for X, which shows blog links as
-square cards. It leaves out vaults above 400% annualised return, above 50%
-volatility or with a Dangerous or worse risk rating; the performance charts and
-the risk and return chart leave out Dangerous or worse vaults as well, while the
-tables keep them. The image does not state
-these filters; its footer shows only the minimum TVL and the data date.
+The hero image shows the top 5 yield vaults with their curator, protocol and
+chain, 90-day price sparklines and the return as a large number: 1200×630 for
+link previews and the Ghost feature image, and a 1080×1080 version for X, which
+shows blog links as square cards. It leaves out vaults above 400% annualised
+return, above 50% volatility or with a Dangerous or worse risk rating; the
+performance charts and the risk and return chart leave out Dangerous or worse
+vaults as well, while the tables keep them. The image does not state these
+filters; its footer shows only the minimum TVL and the data date.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
 week older than the report date. Performance charts draw the 90-day equity
 curves, in percent, of the top vaults of each group by three-month return in one
-chart with a shared axis, so they can be compared directly. The legend and the benchmark line ends show annualised
-returns over each line's span, capped at >9,999% like the tables. The legend
+chart with a shared axis, so they can be compared directly. The legend and the
+benchmark line ends show annualised returns over each line's span, computed
+from the chart's daily prices and capped at >9,999% like the tables. The vaults
+are chosen and ranked by the export's three-month return instead, so a legend
+number can be lower than the one below it, e.g. for a vault younger than 90
+days or one whose export metrics lag the price data. The legend
 numbers are chart ranks, repeated as badges at the line ends. Days without a share price update are interpolated, so sparsely
 updated vaults do not draw staircases. Vaults younger than 90
 days start at 0% at launch. A single vault far
@@ -214,7 +228,7 @@ Ghost Content API is not configured.
 Generic ERC-4626 vaults, unknown and placeholder protocols form one "Other" pile
 until their protocols are mapped, following the website's rule. Their data is
 often broken, so they are counted only in TVL summaries (statistics, TVL by
-protocol, inflows and outflows) and left out of every table and chart that
+protocol and by blockchain, inflows and outflows) and left out of every table and chart that
 compares performance. See
 [README-blog-post-outline.md](./README-blog-post-outline.md#unidentified-protocols).
 
@@ -286,12 +300,20 @@ is rendered:
 The check files go to the report bundle: `vault-check-candidates-N.json`,
 `vault-check-facts-N.json`, `vault-check-decisions-N.json` and the agent
 transcript `vault-check-agent-N.jsonl`. A rerun on the same data reuses the
-decisions instead of running the agent again.
+decisions instead of running the agent again. Each decisions file is tied to
+its candidate lists by a digest, so a rerun after the downloads have refreshed,
+six hours later, usually needs the agent again.
 
 The agent runs without a sandbox, because it needs web search, X and the
 repository's RPC scripts. It is told to only read, and to write only the
-decisions file and `eth_defi/vault/flag.py`. A run costs a few dollars and
-takes 10–40 minutes.
+decisions file and `eth_defi/vault/flag.py`. The September 2026 runs took
+26–32 minutes over three rounds with the Claude CLI.
+
+The agent is not deterministic. Two runs on 2026-09-26, on data a few hours
+apart, agreed on the clear cases (King RSS, the 40acres pools, the Stream and
+Elixir bad-debt pools) but not on every borderline vault: a vault lending
+against its curator's own token was excluded by one run and left `uncertain`
+by the other. Check the `uncertain` and borderline decisions each month.
 
 ### Agent CLIs
 
@@ -346,9 +368,11 @@ source .local-test.env && VAULT_ID=8453-0xf80c0529bd94c773844e459853cd91b9263dd5
 
 When the agent finds a likely scam, or a vault whose positions cannot be
 valued or exited by construction, it adds a `VAULT_FLAGS_AND_NOTES` entry to
-`eth_defi/vault/flag.py`, with confidence high and one of the flags
-`malicious`, `misleading_valuation`, `illiquid` or `controversial`. That
-hides the vault on the website and in the data exports too. Merely illiquid
+`eth_defi/vault/flag.py`, with confidence high. The skill suggests
+`malicious`, `misleading_valuation`, `illiquid` or `controversial`; the pipeline
+accepts any flag in `eth_defi.vault.flag.BAD_FLAGS`, e.g.
+`depegged_denomination_token` for a vault denominated in a collapsed stablecoin.
+That hides the vault on the website and in the data exports too. Merely illiquid
 vaults, such as 40acres pools, are excluded from the report but not
 blacklisted.
 
@@ -361,8 +385,10 @@ then commit it in a pull request of its own.
    callouts in the draft.
 2. Check the evidence of any surprising decision in
    `vault-check-decisions-N.json`.
-3. To overrule the agent, write an overrides file and rerun with
-   `VAULT_CHECK_AGENT=reuse`:
+3. To overrule the agent, write an overrides file and rerun on the same data
+   with `VAULT_CHECK_AGENT=reuse`, `VAULT_CHECK_OVERRIDES` pointing to the file
+   and, unless the rerun writes to the same bundle, `VAULT_CHECK_DECISIONS`
+   pointing to the bundle with the decisions:
 
    ```json
    [{"vault_id": "8453-0x...", "decision": "keep", "reason": "Collateral has a primary-market NAV"}]
@@ -374,7 +400,8 @@ then commit it in a pull request of its own.
 2. Open the draft in Ghost Admin using the editor link the script prints.
 3. Fill in the yellow `EDITOR:` callouts: the intro highlight, report content
    updates (changelog candidates are listed in the callout), community news and
-   comments on the top vaults, the TVL trend and the largest inflows and outflows. Then delete the callouts.
+   comments on the top vaults, the TVL trends by protocol and by blockchain and
+   the largest inflows and outflows. Then delete the callouts.
 4. Review the investability check, see [Review workflow](#review-workflow),
    and commit any `flag.py` blacklist entries separately.
 5. Review the tables. Unusual entries, such as capped `>9,999%` returns or
@@ -389,7 +416,8 @@ source .local-test.env && poetry run pytest tests/vault_report
 
 `tests/vault_report/test_vault_report.py` runs offline with synthetic data.
 `tests/vault_report/test_vault_report_live.py` checks the real data sources (top
-vaults JSON, Pro prices, FRED, chain logos) and the Ghost APIs. Each test is
+vaults JSON, Pro prices, FRED, chain logos, the latest podcast episodes) and
+the Ghost APIs. Each test is
 skipped when its credentials are missing. The Admin API test uploads a 1×1
 pixel image, creates a draft and then deletes the draft. Ghost has no API to
 delete uploaded images, so the test image stays in the media library.

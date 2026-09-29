@@ -6,7 +6,7 @@ Make the monthly "best-performing stablecoin vaults" blog report charts and
 tables recognisably Trading Strategy branded, more informative and more
 shareable. Today the charts are plain Plotly output. They share nothing with the
 dark, rounded, green-accented look of the
-[vault dashboard](https://tradingstrategy.ai/trading-view/vaults), and nothing
+[vault dashboard](https://tradingstrategy.ai/vaults), and nothing
 identifies a chart as ours once it is screenshotted onto social media.
 
 This plan covers recommendations 1-12 from the PR #1600 review discussion:
@@ -231,7 +231,7 @@ Plotly figures reusable in notebooks.
   - `parse_previous_ranking(previous_post_html, section_heading_id) -> list[VaultRef]`
     reads the `<table>` after the heading. Old links look like
     `/trading-view/{chain}/vaults/{slug}?a={address}`; new links look like
-    `/trading-view/vaults/{slug}`. Resolve each to a vault id using the
+    `/vaults/{slug}`. Resolve each to a vault id using the
     address when present, else `vault_slug` in the current JSON.
   - `calculate_rank_changes(previous, current_top_n) -> DataFrame` with the
     columns new / up / down / same / dropped.
@@ -263,7 +263,7 @@ Plotly figures reusable in notebooks.
   broken share token dominates the stack.
 - Top 10 protocols by current TVL + "Other", stacked areas at 0.56 alpha with
   no stroke, 1 year of history.
-- The numbers must match `https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y`
+- The numbers must match `https://tradingstrategy.ai/vaults/historical-tvl-protocol?history=1y`
   within a few percent. Add a manual verification step to the PR.
 - Tests: aggregation on a synthetic Parquet.
 

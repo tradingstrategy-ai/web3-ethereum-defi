@@ -31,7 +31,7 @@ links:
   defillama: https://defillama.com/protocol/inverse-finance
   audits: https://www.inverse.finance/audits
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/inverse-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/inverse-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/inverse_finance/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xb45ad160634c528Cc3D2926d9807104FA3157305

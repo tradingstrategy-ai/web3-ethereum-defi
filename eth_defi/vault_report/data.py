@@ -1,14 +1,14 @@
 """Load vault metrics and share price history for the monthly vault report.
 
 The report uses the same data as the live
-`vault dashboard <https://tradingstrategy.ai/trading-view/vaults>`__, so that
+`vault dashboard <https://tradingstrategy.ai/vaults>`__, so that
 the numbers in a blog post match what readers see on the website:
 
 - Vault metrics (returns, TVL, Sharpe, risk, flags) come from the public
   top vaults JSON export produced by :py:mod:`eth_defi.vault.top_vaults_json`.
 - Share price history for the charts comes from the cleaned vault price
   Parquet, available through the Pro
-  `vault datasets <https://tradingstrategy.ai/trading-view/vaults/datasets>`__
+  `vault datasets <https://tradingstrategy.ai/vaults/datasets>`__
   download API.
 
 On the production scanner host both files already exist in the pipeline data

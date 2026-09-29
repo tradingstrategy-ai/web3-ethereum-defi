@@ -28,7 +28,7 @@ staking deployments use address-based routing because their linear-reward implem
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/frax-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/frax-finance>`__
 - `Homepage <https://frax.com/>`__
 - `Documentation <https://docs.frax.finance/>`__
 - `Fraxlend documentation <https://docs.frax.finance/fraxlend/fraxlend-overview>`__

@@ -32,7 +32,7 @@ for the public export contract.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ember>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/ember>`__
 - `Homepage <https://ember.so/>`__
 - `App <https://ember.so/earn>`__
 - `Documentation <https://learn.ember.so/>`__

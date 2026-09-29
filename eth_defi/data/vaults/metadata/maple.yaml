@@ -49,7 +49,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/maple
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/maple
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/maple/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b

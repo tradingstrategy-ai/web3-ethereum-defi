@@ -475,7 +475,7 @@ source of truth for the review decisions.
 
 The sync also writes two derived link columns next to `Review status`:
 
-- `Trading Strategy` — `https://tradingstrategy.ai/trading-view/vaults/address/<address>`
+- `Trading Strategy` — `https://tradingstrategy.ai/vaults/address/<address>`
 - `Hyperliquid` — `https://app.hyperliquid.xyz/vaults/<address>`
 
 Both are regenerated from the vault address on every sync so they never go

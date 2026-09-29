@@ -32,7 +32,7 @@ links:
   defillama:
   audits: https://docs.gearbox.finance/risk-and-security/audits-bug-bounty
   fees: https://docs.gearbox.finance/overview/protocol-fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/gearbox
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gearbox/index.html
 example_smart_contracts:
   - https://plasmascan.to/address/0xb74760fd26400030620027dd29d19d74d514700e

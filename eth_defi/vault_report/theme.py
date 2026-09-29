@@ -1,7 +1,7 @@
 """Chart themes for the monthly vault report.
 
 The dark theme follows the visual identity of the
-`vault dashboard <https://tradingstrategy.ai/trading-view/vaults>`__: a near-black
+`vault dashboard <https://tradingstrategy.ai/vaults>`__: a near-black
 surface, slate axes, light labels, the green and red brand colours and an
 amber benchmark colour. The light theme is the original report style.
 

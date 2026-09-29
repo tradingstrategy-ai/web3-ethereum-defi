@@ -41,7 +41,7 @@ lifetime metrics export this fixed value as both ``min_withdrawal_period`` and
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/upshift>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/upshift>`__
 - `Homepage <https://www.upshift.finance/>`__
 - `App <https://app.upshift.finance/>`__
 - `Documentation <https://docs.upshift.finance/>`__

@@ -554,7 +554,7 @@ def calculate_chain_yields(yield_vaults: pd.DataFrame, criteria: ReportCriteria)
     """Average yield of the largest blockchains by TVL.
 
     Automates the "average vault yield per blockchain" figure, previously a
-    screenshot of the `chain overview <https://tradingstrategy.ai/trading-view/vaults/chains>`__.
+    screenshot of the `chain overview <https://tradingstrategy.ai/vaults/chains>`__.
 
     :param yield_vaults:
         Output of :py:func:`select_average_yield_vaults`.

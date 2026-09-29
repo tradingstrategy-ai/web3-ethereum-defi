@@ -44,7 +44,7 @@ links:
   defillama: https://defillama.com/protocol/frankencoin
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frankencoin
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/frankencoin
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frankencoin/index.html
 example_smart_contracts:
   - https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0

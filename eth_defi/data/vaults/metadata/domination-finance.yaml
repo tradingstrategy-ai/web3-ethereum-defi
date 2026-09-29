@@ -61,7 +61,7 @@ links:
   defillama: https://defillama.com/protocol/domination-finance
   audits: https://docs.domination.finance/docs/security/audits/
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/domination-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/domination-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/domination/index.html
 example_smart_contracts:
   - https://basescan.org/address/0xA194082Aabb75Dd1Ca9Dc1BA573A5528BeB8c2Fb

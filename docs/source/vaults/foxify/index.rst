@@ -13,7 +13,7 @@ Traders can access up to $10,000, either by completing one of two FUNDED challen
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/foxify>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/foxify>`__
 - `Website <https://www.foxify.trade/>`__
 - `Documentation <https://docs.foxify.trade/>`__
 - `Twitter <https://x.com/foxifytrade>`__

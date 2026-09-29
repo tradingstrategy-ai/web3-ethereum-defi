@@ -30,7 +30,7 @@ links:
   defillama: https://defillama.com/protocol/gains-network
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/gains-network
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0

@@ -74,7 +74,7 @@ def make_vault_record(address: str, **overrides) -> dict:
         "flags": [],
         "start_date": "2025-03-01T00:00:00",
         "end_date": DATA_END_AT.isoformat(),
-        "trading_strategy_link": f"https://tradingstrategy.ai/trading-view/vaults/{address}",
+        "trading_strategy_link": f"https://tradingstrategy.ai/vaults/{address}",
         "vault_slug": f"vault-{address}",
         "strategy_tags": ["lending"],
         "period_results": [{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 1_000_000.0}, {"period": "3M", "max_drawdown": 0.0}],

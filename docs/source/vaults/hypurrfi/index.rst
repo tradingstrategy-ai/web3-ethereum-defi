@@ -12,7 +12,7 @@ to borrowers seeking leveraged exposure to Hyperliquid-native assets.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/hypurrfi>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/hypurrfi>`__
 - `Homepage <https://www.hypurr.fi/>`__
 - `App <https://app.hypurr.fi/>`__
 - `Documentation <https://docs.hypurr.fi/>`__

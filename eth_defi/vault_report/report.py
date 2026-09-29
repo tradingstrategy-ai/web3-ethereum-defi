@@ -297,18 +297,18 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         amm,
     ]
     return {
-        "chain_yields": ["Perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
-        "protocol_yields": [f"The {criteria.yield_top_protocols} largest protocols by TVL, each with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols")],
+        "chain_yields": ["Perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/vaults/chains")],
+        "protocol_yields": [f"The {criteria.yield_top_protocols} largest protocols by TVL, each with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/vaults/protocols")],
         "protocol_high_yields": [
             f"The {criteria.yield_top_protocols} protocols with the highest TVL-weighted average yield, among all protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL",
             *average,
             "Small protocols can reach the top with a few vaults; check the TVL column",
-            live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols"),
+            live.format(url="https://tradingstrategy.ai/vaults/protocols"),
         ],
         "protocol_tvl": [
             "Vaults without an identified protocol, such as generic ERC-4626 vaults, are counted in Other",
             f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
-            live.format(url="https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y"),
+            live.format(url="https://tradingstrategy.ai/vaults/historical-tvl-protocol?history=1y"),
         ],
         "chain_tvl": [
             "The same DeFi vaults as the protocol chart, grouped by blockchain; smaller blockchains are counted in Other",
@@ -318,7 +318,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "fund_nav": [
             "A fund deployed on several chains under the same name is counted once",
             f"Excludes blacklisted funds and data points above {format_usd(TVL_OUTLIER_THRESHOLD)}",
-            live.format(url="https://tradingstrategy.ai/trading-view/vaults/funds"),
+            live.format(url="https://tradingstrategy.ai/vaults/funds"),
         ],
         "tvl_changes": ["A TVL change includes deposits, redemptions and the vault's own returns"],
         "best": [
@@ -326,7 +326,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             f"{min_tvl} in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending, RWA and other vaults also need {active}",
             unidentified,
             TABLE_FORMAT_NOTE,
-            live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
+            live.format(url="https://tradingstrategy.ai/vaults"),
         ],
         "lending": ["Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol", chart_ranking, benchmarks, chart_risk],
         "rwa": ["Vaults investing in, lending against or financing real-world assets, such as private credit, trade finance and royalties, identified by their strategy", chart_ranking, benchmarks, chart_risk],
@@ -349,7 +349,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             unidentified,
             amm,
         ],
-        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain, perp DEX vaults and tokenised funds included", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", "The chart ranks by annualised three-month return on a log scale, and leaves out vaults rated Dangerous or worse; the table ranks by one-month return", unidentified, amm, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
+        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain, perp DEX vaults and tokenised funds included", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", "The chart ranks by annualised three-month return on a log scale, and leaves out vaults rated Dangerous or worse; the table ranks by one-month return", unidentified, amm, live.format(url="https://tradingstrategy.ai/vaults/chains")],
     }
 
 
@@ -572,21 +572,21 @@ def render_report_charts(
     figures = {
         "chain_yields": (
             create_average_yield_figure(chain_yields, average_yield_vaults, "chain", theme, chain_logos, tbill_latest, criteria.yield_chart_max_return),
-            ChartPanel(f"Stablecoin vault yield on the {criteria.yield_top_chains} largest blockchains", difference, "tradingstrategy.ai/trading-view/vaults/chains"),
+            ChartPanel(f"Stablecoin vault yield on the {criteria.yield_top_chains} largest blockchains", difference, "tradingstrategy.ai/vaults/chains"),
         ),
         "protocol_yields": (
             create_average_yield_figure(protocol_yields, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, criteria.yield_chart_max_return),
-            ChartPanel(f"Stablecoin vault yield of the {criteria.yield_top_protocols} largest protocols", difference, "tradingstrategy.ai/trading-view/vaults/protocols"),
+            ChartPanel(f"Stablecoin vault yield of the {criteria.yield_top_protocols} largest protocols", difference, "tradingstrategy.ai/vaults/protocols"),
         ),
         "protocol_high_yields": (
             create_average_yield_figure(high_yield_protocols, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, criteria.yield_max_return),
-            ChartPanel(f"The {criteria.yield_top_protocols} highest-yielding protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL", difference, "tradingstrategy.ai/trading-view/vaults/protocols"),
+            ChartPanel(f"The {criteria.yield_top_protocols} highest-yielding protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL", difference, "tradingstrategy.ai/vaults/protocols"),
         ),
     }
     if len(protocol_tvl):
         figures["protocol_tvl"] = (
             create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(tvl_vault_slugs.get(name), theme) for name in protocol_tvl.columns}),
-            ChartPanel("Stablecoin TVL by DeFi vault protocol", "Weekly over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
+            ChartPanel("Stablecoin TVL by DeFi vault protocol", "Weekly over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/vaults/historical-tvl-protocol"),
         )
     if len(chain_tvl):
         figures["chain_tvl"] = (
@@ -596,12 +596,12 @@ def render_report_charts(
     if len(fund_nav):
         figures["fund_nav"] = (
             create_protocol_tvl_figure(fund_nav, theme, {name: load_protocol_logo_uri(fund_slugs.get(name), theme) for name in fund_nav.columns}, value_label="NAV"),
-            ChartPanel("Stablecoin NAV by tokenised fund", "Weekly over the last 12 months", "tradingstrategy.ai/trading-view/vaults/funds"),
+            ChartPanel("Stablecoin NAV by tokenised fund", "Weekly over the last 12 months", "tradingstrategy.ai/vaults/funds"),
         )
     if len(tvl_changes):
         figures["tvl_changes"] = (
             create_tvl_change_figure(tvl_changes, theme, vault_properties),
-            ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} vaults with the largest increases and the {criteria.tvl_change_top_n} with the largest decreases", "tradingstrategy.ai/trading-view/vaults"),
+            ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} vaults with the largest increases and the {criteria.tvl_change_top_n} with the largest decreases", "tradingstrategy.ai/vaults"),
         )
 
     # The legend shows annualised returns without a unit label, so the subtitle states it
@@ -609,13 +609,13 @@ def render_report_charts(
     selection = f"Top {criteria.performance_chart_vaults} {{by}} with at least {format_usd(criteria.min_tvl)} TVL"
     by_return = selection.format(by="by 3M return")
     performance_panels = {
-        "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "rwa": ChartPanel("Performance of the best-performing RWA vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "amm": ChartPanel("Performance of the best-performing AMM pools", f"Top {criteria.performance_chart_vaults} by 3M return with at least {format_usd(criteria.amm_min_tvl)} TVL, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by 3M return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
+        "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/vaults"),
+        "rwa": ChartPanel("Performance of the best-performing RWA vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/vaults"),
+        "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/vaults"),
+        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, against BTC and ETH", "tradingstrategy.ai/vaults"),
+        "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/vaults"),
+        "amm": ChartPanel("Performance of the best-performing AMM pools", f"Top {criteria.performance_chart_vaults} by 3M return with at least {format_usd(criteria.amm_min_tvl)} TVL, {period}, against their benchmarks", "tradingstrategy.ai/vaults"),
+        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by 3M return')}, {period}, against their benchmarks", "tradingstrategy.ai/vaults/funds"),
     }
     benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
     for key, df in performance_vaults.items():
@@ -643,14 +643,14 @@ def render_report_charts(
             ChartPanel(
                 "The best-performing vault on each chain",
                 f"Large dot: the best vault · small dots: the runners-up · at least {format_usd(criteria.chain_min_tvl)} TVL",
-                "tradingstrategy.ai/trading-view/vaults/chains",
+                "tradingstrategy.ai/vaults/chains",
             ),
         )
 
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
     figures["risk_return"] = (
         create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
-        ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/trading-view/vaults/yield-risk"),
+        ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/vaults/yield-risk"),
     )
 
     chart_dir = output_dir / "charts"

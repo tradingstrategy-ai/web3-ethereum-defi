@@ -184,6 +184,10 @@ does:
    | Unrealisable yield: collateral with no market, custom oracle | `misleading_valuation` |
    | Funds frozen or withdrawals disabled for good | `illiquid` |
    | Community reports of fraud not yet confirmed | `controversial` |
+   | Denominated in a collapsed or depegged stablecoin | `depegged_denomination_token` |
+
+   Another flag in `eth_defi.vault.flag.BAD_FLAGS` may be used when it
+   describes the finding better; the pipeline rejects flags outside that set.
 
 5. Run `poetry run ruff format eth_defi/vault/flag.py`.
 

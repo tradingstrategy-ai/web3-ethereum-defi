@@ -25,7 +25,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/usdx-money>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/usdx-money>`__
 - `Homepage <https://usdx.money/>`__
 - `Documentation <https://docs.usdx.money/>`__
 - `GitHub <https://github.com/X-Financial-Technologies/usdx>`__

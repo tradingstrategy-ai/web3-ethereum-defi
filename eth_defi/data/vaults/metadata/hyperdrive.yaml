@@ -36,7 +36,7 @@ links:
   defillama: https://defillama.com/protocol/hyperdrive-hl
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hyperdrive
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/hyperdrive
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hyperdrive_hl/index.html
 example_smart_contracts:
   - https://purrsec.com/address/0x9271A5C684330B2a6775e96B3C140FC1dC3C89be

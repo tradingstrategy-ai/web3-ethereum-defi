@@ -34,7 +34,7 @@ links:
   defillama: https://defillama.com/protocol/dolomite
   audits: https://docs.dolomite.io/introduction/security-and-audits
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/dolomite
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/dolomite/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x444868b6e8079ac2c55eea115250f92c2b2c4d14

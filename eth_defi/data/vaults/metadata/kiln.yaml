@@ -35,7 +35,7 @@ links:
   defillama:
   audits: https://docs.kiln.fi/v1/kiln-products/omnivaults/security/audits-and-bug-bounty
   fees: https://docs.kiln.fi/v1/kiln-products/omnivaults/how-to-integrate/governance
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kiln
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/kiln
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kiln/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xF4918Ef824a242602E0d3e5DB07fFd4DaC4ad3Ea

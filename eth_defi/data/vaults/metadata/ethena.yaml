@@ -48,7 +48,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ethena
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/ethena
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ethena/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497

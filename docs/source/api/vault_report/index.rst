@@ -8,7 +8,7 @@ visual identity, a social hero image and a
 completes with the monthly news.
 
 - Vault metrics come from the public top vaults JSON export, so the report
-  matches the `live vault dashboard <https://tradingstrategy.ai/trading-view/vaults>`__
+  matches the `live vault dashboard <https://tradingstrategy.ai/vaults>`__
 - Share price history for the charts comes from the Pro vault dataset download
 - The 3-month US Treasury yield from `FRED <https://fred.stlouisfed.org/series/DGS3MO>`__
   and BTC and ETH prices are drawn as benchmarks

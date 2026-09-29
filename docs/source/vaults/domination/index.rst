@@ -27,7 +27,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/domination-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/domination-finance>`__
 - `Homepage <https://domination.finance/>`__
 - `Vault app <https://app.domination.finance/vault>`__
 - `Documentation <https://docs.domination.finance/>`__

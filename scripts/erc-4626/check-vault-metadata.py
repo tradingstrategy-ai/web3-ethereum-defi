@@ -12,7 +12,7 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, VaultDatabase
 
 # Harvest
-# https://tradingstrategy.ai/trading-view/vaults/harvest-usdc-vault-0x0f6d
+# https://tradingstrategy.ai/vaults/harvest-usdc-vault-0x0f6d
 vault_id = VaultSpec.parse_string("8453-0x0f6d1d626fd6284c6c1c1345f30996b89b879689")
 vault_db = VaultDatabase.read()
 vault_record = vault_db.get(vault_id)

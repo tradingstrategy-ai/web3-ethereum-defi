@@ -34,7 +34,7 @@ links:
   defillama: https://defillama.com/protocol/ostium
   audits: https://ostium-labs.gitbook.io/ostium-docs/security/smart-contract-audits
   fees: https://docs.ostium.com/traders/reference/fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ostium
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/ostium
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98

@@ -49,7 +49,7 @@ links:
   defillama: https://defillama.com/protocol/flying-tulip
   audits: https://github.com/flyingtulipdotcom/security
   fees: https://docs.flyingtulip.com/product-suite/ft-usd/
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/flying-tulip
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/flying-tulip
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/flying_tulip/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xeb48218a4c35C814C7678cBcae88C6Ee037F7625
