@@ -98,6 +98,13 @@ SECTION_TEMPLATES = (
         editor_note="Comment on the TVL trend: which protocols grew or shrank.",
     ),
     SectionTemplate(
+        key="chain_tvl",
+        heading_id="stablecoin-tvl-by-blockchain",
+        heading="Stablecoin TVL by blockchain",
+        charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
+        editor_note="Comment on the TVL trend: which blockchains grew or shrank.",
+    ),
+    SectionTemplate(
         key="fund_nav",
         heading_id="stablecoin-nav-by-tokenised-fund",
         heading="Stablecoin NAV by tokenised fund",

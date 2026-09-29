@@ -836,6 +836,24 @@ def calculate_protocol_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.Data
     return _group_tvl_history(tvl_history, vaults_df["protocol_label"], top_n, excluded=OTHER_PROTOCOL)
 
 
+def calculate_chain_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:
+    """Sum vault TVL history per blockchain.
+
+    :param tvl_history:
+        Output of :py:func:`eth_defi.vault_report.data.read_vault_tvl_history`, one column per vault id.
+
+    :param vaults_df:
+        Vault metrics with a ``chain`` column, indexed by vault id.
+
+    :param top_n:
+        Blockchains shown separately, by their latest TVL. The rest are summed as ``Other``.
+
+    :return:
+        DataFrame with one column per blockchain, largest first, then ``Other`` if more blockchains remain.
+    """
+    return _group_tvl_history(tvl_history, vaults_df["chain"], top_n)
+
+
 def calculate_fund_nav_history(tvl_history: pd.DataFrame, funds_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:
     """Sum tokenised fund NAV history per fund.
 

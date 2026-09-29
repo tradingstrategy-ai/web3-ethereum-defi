@@ -65,12 +65,13 @@ from eth_defi.vault_report.sections import (
     CHART_RETURN,
     LENDING,
     OTHER,
-    RWA,
     PERP_DEX,
+    RWA,
     TABLE_FORMAT_NOTE,
     TOKENISED_FUND,
     ReportCriteria,
     ReportSection,
+    calculate_chain_tvl_history,
     calculate_chain_yields,
     calculate_fund_nav_history,
     calculate_high_yield_protocols,
@@ -308,6 +309,11 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             "Vaults without an identified protocol, such as generic ERC-4626 vaults, are counted in Other",
             f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
             live.format(url="https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y"),
+        ],
+        "chain_tvl": [
+            "The same DeFi vaults as the protocol chart, grouped by blockchain; smaller blockchains are counted in Other",
+            f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
+            live.format(url="https://tradingstrategy.ai/vaults/historical-tvl-chain"),
         ],
         "fund_nav": [
             "A fund deployed on several chains under the same name is counted once",
@@ -551,6 +557,7 @@ def render_report_charts(
     defi_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in defi_vaults.index]]
     fund_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in fund_vaults.index]]
     protocol_tvl = calculate_protocol_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
+    chain_tvl = calculate_chain_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
     tvl_vault_slugs = defi_vaults.loc[defi_vaults["protocol_identified"]].drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
     fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
@@ -580,6 +587,11 @@ def render_report_charts(
         figures["protocol_tvl"] = (
             create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(tvl_vault_slugs.get(name), theme) for name in protocol_tvl.columns}),
             ChartPanel("Stablecoin TVL by DeFi vault protocol", "Weekly over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
+        )
+    if len(chain_tvl):
+        figures["chain_tvl"] = (
+            create_protocol_tvl_figure(chain_tvl, theme, {chain: chain_logo(chain) for chain in chain_tvl.columns if chain != "Other"}),
+            ChartPanel("Stablecoin TVL by blockchain", "Weekly over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/vaults/historical-tvl-chain"),
         )
     if len(fund_nav):
         figures["fund_nav"] = (

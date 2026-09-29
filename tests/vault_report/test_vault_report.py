@@ -28,7 +28,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
-from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_vaults_by_chain, select_yield_vaults
+from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
 from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
@@ -347,6 +347,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "protocol_yields",
         "protocol_high_yields",
         "protocol_tvl",
+        "chain_tvl",
         "fund_nav",
         "tvl_changes",
         "lending_performance",
@@ -554,6 +555,12 @@ def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):
     by_fund = calculate_fund_nav_history(tvl[list(funds.index)], funds)
     assert list(by_fund.columns) == list(funds["name"])
     assert by_fund.iloc[-1].sum() == pytest.approx(tvl[list(funds.index)].iloc[-1].sum())
+
+    # Blockchain TVL keeps the largest chains and sums the rest as Other
+    by_chain = calculate_chain_tvl_history(tvl, vaults_df, top_n=1)
+    largest_chain = tvl.iloc[-1].groupby(vaults_df["chain"]).sum().idxmax()
+    assert list(by_chain.columns) == [largest_chain, "Other"]
+    assert by_chain.iloc[-1].sum() == pytest.approx(tvl.iloc[-1].sum())
 
 
 def test_unidentified_protocols(vaults_df: pd.DataFrame):
