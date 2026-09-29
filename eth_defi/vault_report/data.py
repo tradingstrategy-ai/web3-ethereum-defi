@@ -18,7 +18,6 @@ directory and can be passed as local paths instead of downloading them.
 import datetime
 import json
 import logging
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -33,7 +32,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
 from eth_defi.vault.flag import VaultFlag
-from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, classify_vault, find_period, is_identified_protocol
+from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, canonical_vault_urls, classify_vault, find_period, is_identified_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +49,6 @@ DEFAULT_CACHE_MAX_AGE = datetime.timedelta(hours=6)
 
 #: Vault flag for perpetual DEX native trading vaults (Hyperliquid, GRVT, Lighter...)
 PERP_DEX_TRADING_VAULT_FLAG = VaultFlag.perp_dex_trading_vault.value
-
-#: Legacy vault page URLs, ``/trading-view/vaults/{slug}`` and ``/trading-view/{chain}/vaults/{slug}``.
-#: The website redirects both to ``/vaults/{slug}``; exports made before the move still carry them.
-LEGACY_VAULT_LINK = re.compile(r"^https://tradingstrategy\.ai/trading-view/(?:[a-z0-9-]+/)?vaults/")
 
 
 @dataclass(slots=True)
@@ -205,7 +200,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     - ``group``: lending, perpetual futures DEX, tokenised fund or other, see
       :py:func:`eth_defi.vault_report.sections.classify_vault`
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
-    - ``trading_strategy_link``: legacy vault page URLs rewritten to ``/vaults/{slug}``, see :py:data:`LEGACY_VAULT_LINK`
+    - ``trading_strategy_link``: legacy vault page URLs rewritten, see :py:func:`~eth_defi.vault_report.sections.canonical_vault_urls`
 
     TVL values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
     come from broken share tokens and are set to ``NaN``.
@@ -224,7 +219,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
         # Naive UTC, also if the export ever adds a time zone suffix
         df[column] = pd.to_datetime(df[column], utc=True).dt.tz_localize(None)
     if "trading_strategy_link" in df.columns:
-        df["trading_strategy_link"] = df["trading_strategy_link"].str.replace(LEGACY_VAULT_LINK, "https://tradingstrategy.ai/vaults/", regex=True)
+        df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url) if isinstance(url, str) else url)
 
     df["one_month_cagr_best"] = _pick_net(df, "one_month_cagr")
     df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")

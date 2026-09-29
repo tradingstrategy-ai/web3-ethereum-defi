@@ -22,6 +22,7 @@ and gross otherwise, marked with ``(n)`` and ``(g)`` respectively.
 import datetime
 import html
 import logging
+import re
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -618,6 +619,32 @@ def calculate_high_yield_protocols(yield_vaults: pd.DataFrame, criteria: ReportC
     identified = yield_vaults.loc[yield_vaults["protocol_identified"]]
     yields = calculate_average_yields(identified, "protocol")
     return yields.loc[yields["tvl"] >= criteria.yield_high_yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "avg_return")
+
+
+#: Legacy vault page URLs and their current form. The website moved vault pages from
+#: ``/trading-view/`` and redirects the old paths; exports and posts made before the move still carry them.
+LEGACY_VAULT_URLS = (
+    # /trading-view/{chain}/vaults/{slug} -> /vaults/{slug}
+    (re.compile(r"https://tradingstrategy\.ai/trading-view/[a-z0-9-]+/vaults/"), "https://tradingstrategy.ai/vaults/"),
+    # /trading-view/{chain}/vaults -> /vaults/chains/{chain}
+    (re.compile(r"https://tradingstrategy\.ai/trading-view/(?!vaults\b)([a-z0-9-]+)/vaults\b"), r"https://tradingstrategy.ai/vaults/chains/\1"),
+    # /trading-view/vaults... -> /vaults...
+    (re.compile(r"https://tradingstrategy\.ai/trading-view/vaults\b"), "https://tradingstrategy.ai/vaults"),
+)
+
+
+def canonical_vault_urls(text: str) -> str:
+    """Rewrite legacy vault page URLs to the website's current ``/vaults/`` paths.
+
+    :param text:
+        A URL, or HTML with links.
+
+    :return:
+        The text with legacy vault URLs rewritten, following the website's redirects.
+    """
+    for pattern, replacement in LEGACY_VAULT_URLS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 def find_period(period_results: list[dict] | None, period: str) -> dict:

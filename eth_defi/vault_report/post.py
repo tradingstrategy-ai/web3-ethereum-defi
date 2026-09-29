@@ -21,7 +21,7 @@ from typing import Literal
 
 from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
-from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, OTHER, PERP_DEX, RWA, TOKENISED_FUND
+from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, OTHER, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls
 
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
@@ -384,7 +384,8 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
     match = re.search(rf'<h2 id="{re.escape(heading_id)}">.*?(?=<h2 |$)', post_html, flags=re.DOTALL)
     if not match:
         return None
-    return strip_ghost_ref(match.group(0)).strip()
+    # Previous posts may link to vault pages at their old /trading-view/ paths
+    return canonical_vault_urls(strip_ghost_ref(match.group(0))).strip()
 
 
 def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords: tuple[str, ...] = ("vault", "protocol")) -> list[str]:
