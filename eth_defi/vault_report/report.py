@@ -278,12 +278,15 @@ def make_performance_panel(section: BestSection, criteria: ReportCriteria) -> Ch
         Report thresholds.
 
     :return:
-        Chart panel texts. Equity curve subtitles say that the legend returns are annualised,
-        because the legend shows them without a unit label.
+        Chart panel texts. The subtitle adds only what the title, axes and
+        legend do not show: the ranking, the minimum TVL and, for equity
+        curves, that the legend returns are annualised, because the legend
+        shows them without a unit label.
     """
-    selection = f"Top {criteria.performance_chart_vaults} {section.ranked_by} with at least {format_usd(group_min_tvl(section.group, criteria))} TVL"
-    period = f", over {PERFORMANCE_WINDOW.days} days, returns annualised" if section.measure == "equity" else ""
-    return ChartPanel(f"Performance of {section.subject}", f"{selection}{period}, against {section.benchmark}", section.link)
+    subtitle = f"{section.ranked_by[0].upper()}{section.ranked_by[1:]}, at least {format_usd(group_min_tvl(section.group, criteria))} TVL"
+    if section.measure == "equity":
+        subtitle += ", returns annualised"
+    return ChartPanel(f"Performance of {section.subject}", subtitle, section.link)
 
 
 def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:

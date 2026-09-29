@@ -199,7 +199,6 @@ BEST_SECTIONS = (
         heading_id="the-best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
         description="Onchain money market, treasury and credit funds",
-        ranked_by="funds by 3M return",
         show_min_tvl=True,
         level=2,
         intro="<p>Tokenised funds bring traditional money market, treasury and credit funds onchain.</p>",

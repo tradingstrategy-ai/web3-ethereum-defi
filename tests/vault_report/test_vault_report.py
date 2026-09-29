@@ -256,7 +256,7 @@ def test_daily_prices_and_performance(prices_path: Path):
 
     # Legends and line end badges show the table rank, which can skip vaults left out of the chart
     fig = create_performance_figure([PerformanceSeries("1-0xaa", "A", (), (TREASURY_BILL,), rank=3)], daily, indices, DARK_THEME)
-    assert any(annotation.text.startswith("3. A") for annotation in fig.layout.annotations)
+    assert any(annotation.text.startswith("<b>3. A") for annotation in fig.layout.annotations)  # Bold vault names
 
     # A vault returning more than the threshold switches the shared axis to a log scale
     fig = create_performance_figure(series, daily, indices, DARK_THEME, log_threshold=-100)

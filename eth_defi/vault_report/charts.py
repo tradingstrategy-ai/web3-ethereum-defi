@@ -41,7 +41,7 @@ from plotly.graph_objects import Figure
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.logos import to_data_uri
 from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CHART_RETURN
-from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, ChartTheme, apply_theme
+from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,10 @@ CHOREOGRAPHER_CHROME_PATH = Path("~/.local/share/choreographer/deps/chrome-linux
 LEGEND_CHART_WIDTH = IMAGE_WIDTH - 70
 
 #: Width of the right margin that holds a logo legend
-LEGEND_MARGIN = 430
+LEGEND_MARGIN = 480
+
+#: Characters per line of a legend label with a detail or properties; longer vault names wrap
+LEGEND_LABEL_CHARACTERS = 34
 
 
 #: Font size of the curator, protocol and chain row under a vault name, in pixels
@@ -200,7 +203,7 @@ def highlight_number(text: str, theme: ChartTheme, value: float | None = None) -
     return f"<span style='color:{colour}'><b>{text}</b></span>"
 
 
-def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE) -> float:
+def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE, bold: bool = False) -> float:
     """Measure text width in pixels with the bundled chart font.
 
     :param text:
@@ -209,10 +212,13 @@ def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE) -> float:
     :param size:
         Font size in pixels.
 
+    :param bold:
+        Measure the semibold weight, which Chrome uses for ``<b>`` text.
+
     :return:
         Width in pixels.
     """
-    return ImageFont.truetype(str(FONT_REGULAR), size).getlength(text)
+    return ImageFont.truetype(str(FONT_SEMIBOLD if bold else FONT_REGULAR), size).getlength(text)
 
 
 def layout_properties(properties: tuple[VaultProperty, ...], width: float) -> list[list[tuple[VaultProperty, float]]]:
@@ -303,9 +309,9 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     :py:data:`LEGEND_MARGIN` pixels, and its height and margins must be set
     before calling this.
 
-    Labels are word-wrapped to full length. An entry's curator, protocol and
-    chain are drawn under its label with their icons, see
-    :py:func:`add_property_rows`, and its detail line last. Entries are spaced
+    Labels are drawn in bold and word-wrapped to full length. An entry's
+    detail line, e.g. its return, follows the label, and its curator, protocol
+    and chain come last with their icons, see :py:func:`add_property_rows`. Entries are spaced
     at least ``row_height`` apart, and further when they need more room; the
     figure grows taller rather than letting entries overlap.
 
@@ -334,10 +340,10 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     layouts = []
     widest = 0.0
     for entry in entries:
-        lines = textwrap.wrap(entry.label, width=28 if entry.detail or entry.properties else 24) or [entry.label]
+        lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
         property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
         height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
-        widths = [_measure_text(line, 17) for line in lines]
+        widths = [_measure_text(line, 17, bold=True) for line in lines]
         widths += [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
@@ -366,13 +372,14 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         fig.add_shape(type="line", xref="paper", yref="paper", x0=paper_x(swatch_pixels[0]), x1=paper_x(swatch_pixels[1]), y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
         if entry.logo_uri:
             fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=paper_x(logo_pixels), y=first_line, sizex=30 / plot_width, sizey=30 / plot_height, xanchor="left", yanchor="middle")
-        fig.add_annotation(text="<br>".join(lines), xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        label = "<br>".join(f"<b>{line}</b>" for line in lines)
+        fig.add_annotation(text=label, xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
-        if entry.properties:
-            rows = add_property_rows(fig, entry.properties, theme, text_x, cursor - PROPERTY_ROW_HEIGHT / plot_height / 2, "paper", text_width, plot_width, plot_height)
-            cursor -= rows * PROPERTY_ROW_HEIGHT / plot_height
         if entry.detail:
             fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
+            cursor -= line_pixels / plot_height
+        if entry.properties:
+            add_property_rows(fig, entry.properties, theme, text_x, cursor - PROPERTY_ROW_HEIGHT / plot_height / 2, "paper", text_width, plot_width, plot_height)
         y -= pitch / plot_height
 
 
