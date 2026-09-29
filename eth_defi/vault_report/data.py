@@ -30,9 +30,9 @@ import requests
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
-from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, classify_vault, is_identified_protocol
+from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, classify_vault, find_period, is_identified_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +118,8 @@ def fetch_file(
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    if path.exists():
-        modified_at = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.UTC).replace(tzinfo=None)
-        age = native_datetime_utc_now() - modified_at
+    age = get_cache_age(path)
+    if age is not None:
         if age < max_age:
             logger.info("Using cached %s, age %s", path, age)
             return path
@@ -162,6 +161,20 @@ def _pick_net(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df[f"{column}_net"], errors="coerce").fillna(pd.to_numeric(df[column], errors="coerce"))
 
 
+def get_cache_age(path: Path) -> datetime.timedelta | None:
+    """Age of a cached file from its modification time.
+
+    :param path:
+        Cached file.
+
+    :return:
+        Age, or ``None`` if the file does not exist.
+    """
+    if not path.exists():
+        return None
+    return native_datetime_utc_now() - native_datetime_utc_fromtimestamp(path.stat().st_mtime)
+
+
 def _get_three_months_drawdown(period_results: list[dict] | None) -> float:
     """Read the three-month maximum drawdown from a vault's period results.
 
@@ -171,8 +184,7 @@ def _get_three_months_drawdown(period_results: list[dict] | None) -> float:
     :return:
         Drawdown as a negative fraction, or ``NaN`` if missing.
     """
-    three_months = next((p for p in (period_results or []) if p.get("period") == "3M"), None)
-    value = three_months.get("max_drawdown") if three_months else None
+    value = find_period(period_results, "3M").get("max_drawdown")
     return float(value) if value is not None else float("nan")
 
 
@@ -402,10 +414,13 @@ def fetch_available_sparklines(vault_ids: list[str], max_workers: int = 16, time
     :return:
         Vault ids with a sparkline.
     """
+    # One connection pool for all checks instead of a TLS handshake per vault
+    session = requests.Session()
+    session.mount("https://", requests.adapters.HTTPAdapter(pool_maxsize=max_workers))
 
     def _exists(vault_id: str) -> bool:
         try:
-            return requests.head(SPARKLINE_URL.format(vault_id=vault_id), timeout=timeout).status_code == 200
+            return session.head(SPARKLINE_URL.format(vault_id=vault_id), timeout=timeout).status_code == 200
         except requests.RequestException as e:
             logger.warning("Could not check sparkline for %s: %s", vault_id, e)
             return False

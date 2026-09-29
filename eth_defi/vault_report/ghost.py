@@ -23,6 +23,7 @@ from pathlib import Path
 import requests
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.utils import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def create_ghost_admin_token(admin_api_key: str, now: datetime.datetime | None =
     key_id, secret = admin_api_key.split(":", 1)
     if now is None:
         now = native_datetime_utc_now()
-    iat = int(now.replace(tzinfo=datetime.UTC).timestamp())
+    iat = int(to_unix_timestamp(now))
     header = {"alg": "HS256", "typ": "JWT", "kid": key_id}
     payload = {"iat": iat, "exp": iat + int(ADMIN_TOKEN_LIFETIME.total_seconds()), "aud": "/admin/"}
     signing_input = _base64url(json.dumps(header, separators=(",", ":")).encode()) + "." + _base64url(json.dumps(payload, separators=(",", ":")).encode())

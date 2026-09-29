@@ -36,13 +36,14 @@ from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
+from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetailError, fetch_erc20_details
+from eth_defi.token import TokenDetailError, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,25 @@ def _token(web3: Web3, address: str, chain_id: int):
         return None
 
 
+def _read_vault_assets(web3: Web3, vault: Contract, chain_id: int, block: int) -> tuple[TokenDetails, int, float, float]:
+    """Read a vault's denomination token and its total and idle assets.
+
+    :return:
+        Denomination token, its decimal scale, total assets and idle assets in token units.
+    """
+    asset = _token(web3, vault.functions.asset().call(block_identifier=block), chain_id)
+    assert asset is not None, f"Vault {vault.address} denomination token is not an ERC-20 token"
+    scale = 10**asset.decimals
+    total_assets = vault.functions.totalAssets().call(block_identifier=block) / scale
+    idle = asset.contract.functions.balanceOf(vault.address).call(block_identifier=block) / scale
+    return asset, scale, total_assets, idle
+
+
+def _share(assets: float, total_assets: float) -> float:
+    """Share of the vault's total assets, zero for an empty vault."""
+    return assets / total_assets if total_assets else 0.0
+
+
 def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -> tuple[list[Exposure], float, float]:
     """Read the markets of a MetaMorpho V1 vault.
 
@@ -232,10 +252,7 @@ def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -
     vault = get_deployed_contract(web3, "morpho/MetaMorpho.json", Web3.to_checksum_address(vault_address))
     # Morpho Blue is not at the same address on every chain, so ask the vault
     morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", vault.functions.MORPHO().call(block_identifier=block))
-    asset = _token(web3, vault.functions.asset().call(block_identifier=block), chain_id)
-    scale = 10**asset.decimals
-    total_assets = vault.functions.totalAssets().call(block_identifier=block) / scale
-    idle = asset.contract.functions.balanceOf(vault.address).call(block_identifier=block) / scale
+    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
 
     exposures = []
     for index in range(vault.functions.withdrawQueueLength().call(block_identifier=block)):
@@ -253,7 +270,7 @@ def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -
                 market="0x" + market_id.hex(),
                 kind="morpho_market" if collateral_token else "idle",
                 assets=position,
-                share_of_assets=position / total_assets if total_assets else 0.0,
+                share_of_assets=_share(position, total_assets),
                 redeemable=min(position, free),
                 utilisation=borrow_assets / supply_assets if supply_assets else None,
                 collateral=collateral if collateral_token else None,
@@ -278,10 +295,7 @@ def probe_euler_earn(web3: Web3, vault_address: str, chain_id: int, block: int) 
         Exposures, total assets and idle assets, in denomination token units.
     """
     vault = get_deployed_contract(web3, "euler/EulerEarn.json", Web3.to_checksum_address(vault_address))
-    asset = _token(web3, vault.functions.asset().call(block_identifier=block), chain_id)
-    scale = 10**asset.decimals
-    total_assets = vault.functions.totalAssets().call(block_identifier=block) / scale
-    idle = asset.contract.functions.balanceOf(vault.address).call(block_identifier=block) / scale
+    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
 
     exposures = []
     for index in range(vault.functions.withdrawQueueLength().call(block_identifier=block)):
@@ -297,8 +311,9 @@ def probe_euler_earn(web3: Web3, vault_address: str, chain_id: int, block: int) 
             redeemable = vault.functions.maxWithdrawFromStrategy(strategy).call(block_identifier=block) / scale
         except CALL_ERRORS:
             redeemable = strategy_vault.functions.maxWithdraw(vault.address).call(block_identifier=block) / scale
-        exposures.append(Exposure(market=strategy, kind="euler_strategy", assets=position_assets, share_of_assets=position_assets / total_assets if total_assets else 0.0, redeemable=min(redeemable, position_assets)))
-        exposures.extend(_euler_collateral(web3, strategy, chain_id, block, position_assets / total_assets if total_assets else 0.0))
+        share = _share(position_assets, total_assets)
+        exposures.append(Exposure(market=strategy, kind="euler_strategy", assets=position_assets, share_of_assets=share, redeemable=min(redeemable, position_assets)))
+        exposures.extend(_euler_collateral(web3, strategy, chain_id, block, share))
     return exposures, total_assets, idle
 
 
@@ -328,13 +343,11 @@ def probe_simple_pool(web3: Web3, vault_address: str, chain_id: int, block: int,
         No exposures for 40acres, the EVK's collateral tokens otherwise; total assets and redeemable cash.
     """
     vault = get_deployed_contract(web3, "lagoon/IERC4626.json", Web3.to_checksum_address(vault_address))
-    asset = _token(web3, vault.functions.asset().call(block_identifier=block), chain_id)
-    scale = 10**asset.decimals
-    total_assets = vault.functions.totalAssets().call(block_identifier=block) / scale
+    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
     if cash_function:
         cash = web3.eth.contract(address=vault.address, abi=EVK_ABI).functions.cash().call(block_identifier=block) / scale
         return _euler_collateral(web3, vault_address, chain_id, block, 1.0), total_assets, cash
-    return [], total_assets, asset.contract.functions.balanceOf(vault.address).call(block_identifier=block) / scale
+    return [], total_assets, idle
 
 
 def select_probe(protocol_slug: str, features: list[str] | None) -> str:
@@ -453,6 +466,7 @@ def fetch_vault_facts(vault_id: str, protocol_slug: str, features: list[str] | N
     facts = VaultFacts(vault_id=vault_id, probe=probe, observed_at=native_datetime_utc_now().isoformat())
     if probe == "unsupported":
         return facts
+    web3 = None
     try:
         web3 = create_multi_provider_web3(read_json_rpc_url(chain_id))
         block = web3.eth.block_number
@@ -476,7 +490,6 @@ def fetch_vault_facts(vault_id: str, protocol_slug: str, features: list[str] | N
     except (*CALL_ERRORS, ConnectionError, TimeoutError, AssertionError) as e:
         logger.warning("Probe %s failed for %s: %s", probe, vault_id, e)
         facts.errors.append(f"{probe} probe failed: {e}")
-    web3 = None
     for exposure in facts.exposures:
         if not exposure.collateral:
             continue

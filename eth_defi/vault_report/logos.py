@@ -22,13 +22,14 @@ from pathlib import Path
 import requests
 
 from eth_defi.research.vault_metrics import _get_chain_slug
+from eth_defi.vault.protocol_metadata import FORMATTED_LOGOS_DIR
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.theme import ASSETS_DIR, ChartTheme
 
 logger = logging.getLogger(__name__)
 
 #: Protocol logos maintained in the vault metadata
-PROTOCOL_LOGO_DIR = Path(__file__).parents[1] / "data" / "vaults" / "formatted_logos"
+PROTOCOL_LOGO_DIR = FORMATTED_LOGOS_DIR
 
 #: Benchmark name -> bundled logo file
 BENCHMARK_LOGO_FILES = {TREASURY_BILL: "us-treasury.svg", BTC: "btc.svg", ETH: "eth.svg"}

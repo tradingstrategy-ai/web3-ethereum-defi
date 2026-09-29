@@ -36,6 +36,7 @@ from PIL import Image, ImageFont
 from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
+from eth_defi.vault_report.logos import to_data_uri
 from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CHART_RETURN
 from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, ChartTheme, apply_theme
 
@@ -1231,7 +1232,7 @@ def trim_logos(logo_uris: set[str], size: int = 96) -> dict[str, tuple[str, floa
         cropped = image.crop(bbox)
         buffer = io.BytesIO()
         cropped.save(buffer, format="PNG")
-        trimmed[uri] = ("data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"), cropped.width / cropped.height)
+        trimmed[uri] = (to_data_uri(buffer.getvalue(), "image/png"), cropped.width / cropped.height)
     return trimmed
 
 

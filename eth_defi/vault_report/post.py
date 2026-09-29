@@ -434,7 +434,7 @@ def _editor_note(inner_html: str) -> str:
     return f'<div class="kg-card kg-callout-card kg-callout-card-yellow"><div class="kg-callout-emoji">✏️</div><div class="kg-callout-text"><b>EDITOR:</b> {inner_html}</div></div>'
 
 
-def _image(src: str, alt: str, caption: str = "") -> str:
+def _image(src: str, alt: str) -> str:
     """Create a Ghost image card.
 
     :param src:
@@ -443,14 +443,10 @@ def _image(src: str, alt: str, caption: str = "") -> str:
     :param alt:
         Alternative text.
 
-    :param caption:
-        Caption HTML, or empty.
-
     :return:
         Image card HTML.
     """
-    figcaption = f"<figcaption>{caption}</figcaption>" if caption else ""
-    return f'<figure class="kg-card kg-image-card"><img src="{html.escape(src)}" class="kg-image" alt="{html.escape(alt)}" loading="lazy">{figcaption}</figure>'
+    return f'<figure class="kg-card kg-image-card"><img src="{html.escape(src)}" class="kg-image" alt="{html.escape(alt)}" loading="lazy"></figure>'
 
 
 def _bullets(items: list[str]) -> str:

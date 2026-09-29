@@ -613,6 +613,21 @@ def calculate_high_yield_protocols(yield_vaults: pd.DataFrame, criteria: ReportC
     return yields.loc[yields["tvl"] >= criteria.yield_high_yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "avg_return")
 
 
+def find_period(period_results: list[dict] | None, period: str) -> dict:
+    """Find one period's results in a vault's ``period_results``.
+
+    :param period_results:
+        ``period_results`` list of a top vaults JSON record, or ``None``.
+
+    :param period:
+        Period name, e.g. ``1M`` or ``3M``.
+
+    :return:
+        The period's results, or an empty dict if missing.
+    """
+    return next((result for result in (period_results or []) if result.get("period") == period), {})
+
+
 def calculate_tvl_changes(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Find the vaults with the largest TVL changes over the last month, in dollars.
 
@@ -632,7 +647,7 @@ def calculate_tvl_changes(eligible_df: pd.DataFrame, criteria: ReportCriteria) -
         decreases, with ``tvl_start``, ``tvl_end`` and ``tvl_change`` columns
         in USD, sorted from the largest increase to the largest decrease.
     """
-    one_month = eligible_df["period_results"].apply(lambda periods: next((p for p in (periods or []) if p.get("period") == "1M"), {}))
+    one_month = eligible_df["period_results"].apply(find_period, period="1M")
     df = eligible_df.assign(
         tvl_start=one_month.apply(lambda p: p.get("tvl_start")).astype(float),
         tvl_end=one_month.apply(lambda p: p.get("tvl_end")).astype(float),

@@ -32,9 +32,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from eth_defi.compat import native_datetime_utc_now
 from eth_defi.types import Percent
-from eth_defi.vault_report.data import fetch_file
+from eth_defi.vault_report.data import fetch_file, get_cache_age
 
 logger = logging.getLogger(__name__)
 
@@ -178,10 +177,9 @@ def fetch_crypto_prices(
     def _read_cache() -> pd.Series:
         return pd.read_csv(path, index_col=0, parse_dates=True).iloc[:, 0]
 
-    if path.exists():
-        modified_at = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.UTC).replace(tzinfo=None)
-        if native_datetime_utc_now() - modified_at < max_age:
-            return _read_cache()
+    age = get_cache_age(path)
+    if age is not None and age < max_age:
+        return _read_cache()
 
     candles = []
     chunk_start = pd.Timestamp(start_at).normalize()
