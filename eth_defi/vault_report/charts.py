@@ -40,7 +40,7 @@ from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.logos import to_data_uri
-from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CHART_RETURN
+from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CAPPED_RETURN_LABEL, CHART_RETURN
 from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
@@ -626,7 +626,7 @@ def create_performance_figure(
         if days < 1:
             return "---"
         annualised = ((1 + performance.iloc[-1] / 100) ** (365 / days) - 1) * 100
-        return f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}%" if annualised > CAPPED_ANNUALISED_RETURN * 100 else f"{annualised:+,.1f}%"
+        return CAPPED_RETURN_LABEL if annualised >= CAPPED_ANNUALISED_RETURN * 100 else f"{annualised:+,.1f}%"
 
     fig = go.Figure()
     entries = []
@@ -892,7 +892,7 @@ def create_chain_best_figure(
         fig.add_annotation(text=wrap_label(chain, 14), xref="paper", yref="y", x=-0.175, y=position, xanchor="left", align="left", showarrow=False, font={"size": 19, "color": theme.text})
         leader = leaders.loc[leaders["chain"] == chain].iloc[0]
         value = leader[CHART_RETURN]
-        text = f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}%" if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
+        text = CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
         fig.add_annotation(
             text=f"{highlight_number(text, theme, value)}  {shorten_text(leader['name'] or leader['address'], 28)}",
             xref="paper",
@@ -1051,7 +1051,7 @@ def create_risk_return_figure(
     df["x"] = volatility.clip(upper=x_high)
     df["y"] = returns.clip(lower=y_low, upper=y_high)
     df["off"] = np.select([returns > y_high, returns < y_low, volatility > x_high], ["triangle-up", "triangle-down", "triangle-right"], "")
-    # Area ∝ TVL, capped so the few multi-billion vaults do not cover the chart
+    # Bubble area grows with the square root of TVL, capped, so the few multi-billion vaults do not cover the chart
     df["size"] = np.sqrt(df["current_nav"].clip(upper=1e9))
     df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unclassified")
     classified = df.loc[df["category"] != "Unclassified", "category"].value_counts().index[: len(theme.series_colours) - 1].tolist()

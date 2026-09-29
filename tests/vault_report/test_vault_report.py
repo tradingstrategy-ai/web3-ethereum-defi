@@ -7,6 +7,7 @@ import hmac
 import io
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -224,6 +225,7 @@ def test_formatting():
     assert format_return(None, None) == "---"
     assert format_return(100.0, None) == ">9,999% (n)"
     assert format_return(99.0, None) == "9,900.0% (n)"
+    assert format_return(99.995, None) == "9,999.5% (n)"  # Only the export's 10,000% cap is shown as capped
     assert format_sharpe(8_205_524.0) == ">100"
     assert format_sharpe(float("nan")) == "---"
 
@@ -753,6 +755,30 @@ def test_blacklist_entry_check(tmp_path: Path):
     assert check_blacklist_entries(decisions, flag_file) == []
     decisions["8453-0xf80c"] = CheckDecision(vault_id="8453-0xf80c", decision="exclude", blacklist=True, vault_flag="illiquid")
     assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]  # Another flag
+
+
+def test_check_agent_timeout_stops_child_processes(tmp_path: Path):
+    """A timed-out agent is stopped with the tools it started, so nothing keeps writing files."""
+    marker = tmp_path / "late.txt"
+    # The agent starts a tool that would write a file after the timeout, then waits for it
+    tool = tmp_path / "tool.py"
+    tool.write_text(f"import time\ntime.sleep(3)\nopen({str(marker)!r}, 'w').write('x')\n")
+    agent_script = tmp_path / "agent.py"
+    agent_script.write_text(f"import subprocess, sys\nsubprocess.run([sys.executable, {str(tool)!r}])\n")
+    agent = [sys.executable, str(agent_script)]
+    with pytest.raises(CheckValidationError, match="timed out"):
+        run_check_agent(agent, tmp_path, tmp_path / "agent.jsonl", tmp_path / "decisions.json", timeout=0.5, poll_interval=0.2)
+    time.sleep(4)
+    assert not marker.exists()
+
+
+def test_vault_links_are_web_links(vaults_df: pd.DataFrame):
+    """A link that is not an https:// URL is shown as plain text, never as a clickable link."""
+    row = vaults_df.iloc[0].copy()
+    row["trading_strategy_link"] = "javascript:alert(1)"
+    assert "<a " not in format_vault_cells(row)["Vault"]
+    row["trading_strategy_link"] = "https://tradingstrategy.ai/vaults/foo"
+    assert format_vault_cells(row)["Vault"].startswith('<a href="https://tradingstrategy.ai/vaults/foo">')
 
 
 def test_check_agent_runner(tmp_path: Path):

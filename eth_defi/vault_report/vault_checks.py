@@ -32,6 +32,7 @@ import logging
 import math
 import os
 import re
+import signal
 import subprocess
 import time
 from collections import Counter
@@ -558,7 +559,7 @@ def build_agent_command(agent: AgentName, prompt: str, model: str | None = None)
     raise ValueError(f"Unknown agent {agent!r}")
 
 
-def run_check_agent(command: list[str], cwd: Path, log_path: Path, decisions_path: Path, timeout: float) -> None:
+def run_check_agent(command: list[str], cwd: Path, log_path: Path, decisions_path: Path, timeout: float, poll_interval: float = 60.0) -> None:
     """Run the agent CLI, streaming its JSONL output to a log file.
 
     The decisions file is deleted first, so a stale file from an earlier run
@@ -579,23 +580,28 @@ def run_check_agent(command: list[str], cwd: Path, log_path: Path, decisions_pat
     :param timeout:
         Seconds before the agent is stopped.
 
+    :param poll_interval:
+        Seconds between progress log lines and timeout checks.
+
     :raise CheckValidationError:
         When the agent fails, times out or does not write the decisions file.
     """
     decisions_path.unlink(missing_ok=True)
     started = time.monotonic()
     with log_path.open("w") as log, log_path.with_suffix(".err").open("w") as errors:
-        process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=errors)
+        # A process group of its own, so a timeout also stops the tools the agent started
+        process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=errors, start_new_session=True)
         while True:
             try:
-                process.wait(timeout=60)
+                process.wait(timeout=poll_interval)
                 break
             except subprocess.TimeoutExpired:
                 elapsed = time.monotonic() - started
                 lines = sum(1 for _ in log_path.open()) if log_path.exists() else 0
                 logger.info("Check agent running for %.0f minutes, %d events so far", elapsed / 60, lines)
                 if elapsed > timeout:
-                    process.kill()
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
                     raise CheckValidationError(f"Check agent timed out after {timeout:.0f} s, see {log_path}") from None
     if process.returncode != 0:
         raise CheckValidationError(f"Check agent exited with code {process.returncode}, see {log_path}")

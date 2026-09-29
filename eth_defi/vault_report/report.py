@@ -630,7 +630,8 @@ def render_report_charts(
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     benchmark_indices = fetch_benchmark_indices(data.data_end_at - PRICE_HISTORY, data.data_end_at, cache_dir, tbill_yields)
 
-    average_yield_vaults = select_average_yield_vaults(ranked_df, criteria)
+    # Like every chart, the average yields leave out Dangerous and worse vaults
+    average_yield_vaults = select_average_yield_vaults(exclude_chart_risks(ranked_df, criteria), criteria)
     chain_yields = calculate_chain_yields(average_yield_vaults, criteria)
     protocol_yields = calculate_protocol_yields(average_yield_vaults, criteria)
     high_yield_protocols = calculate_high_yield_protocols(average_yield_vaults, criteria)
@@ -731,7 +732,7 @@ def render_report_charts(
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
     figures["risk_return"] = (
         create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
-        ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/vaults/yield-risk"),
+        ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
     )
 
     chart_dir = output_dir / "charts"

@@ -169,8 +169,8 @@ chain, 90-day price sparklines and the return as a large number: 1200×630 for
 link previews and the Ghost feature image, and a 1080×1080 version for X, which
 shows blog links as square cards. It leaves out vaults above 400% annualised
 return, above 50% volatility or with a Dangerous or worse risk rating; the
-performance charts and the risk and return chart leave out Dangerous or worse
-vaults as well, while the tables keep them. The image does not state these
+performance charts, the average yield charts and the risk and return chart leave
+out Dangerous or worse vaults as well, while the tables keep them. The image does not state these
 filters; its footer shows only the minimum TVL and the data date.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a

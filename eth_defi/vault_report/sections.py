@@ -44,8 +44,12 @@ BLACKLISTED_RISK = VaultTechnicalRisk.blacklisted.get_risk_level_name()
 #: Sharpe ratios above this are displayed as ``>100``
 MAX_DISPLAYED_SHARPE = 100
 
-#: The top vaults export caps annualised returns at 10,000%; values at the cap are displayed as ``>9,999%``
-CAPPED_ANNUALISED_RETURN = 99.99
+#: The top vaults export caps annualised returns at 10,000% (``max_cagr`` in
+#: :py:mod:`eth_defi.research.vault_metrics`); values at the cap are displayed as :py:data:`CAPPED_RETURN_LABEL`
+CAPPED_ANNUALISED_RETURN = 100.0
+
+#: Label of a capped annualised return, like on the website
+CAPPED_RETURN_LABEL = ">9,999%"
 
 #: Public vault sparkline images, rendered by :py:mod:`eth_defi.research.sparkline_export`
 #: PNG rather than SVG, because email clients such as Gmail strip SVG images from newsletters
@@ -674,7 +678,7 @@ def format_return(net: Percent | None, gross: Percent | None) -> str:
     """
 
     def _format(value: Percent, marker: str) -> str:
-        return f">9,999% ({marker})" if value >= CAPPED_ANNUALISED_RETURN else f"{value:,.1%} ({marker})"
+        return f"{CAPPED_RETURN_LABEL} ({marker})" if value >= CAPPED_ANNUALISED_RETURN else f"{value:,.1%} ({marker})"
 
     if pd.notna(net):
         return _format(net, "n")
@@ -736,7 +740,8 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
 
     def _link(text: str, url: str | None) -> str:
         content = html.escape(text)
-        return f'<a href="{html.escape(url)}">{content}</a>' if url else content
+        # Links come from the export: accept only web links, never e.g. javascript: URLs
+        return f'<a href="{html.escape(url)}">{content}</a>' if isinstance(url, str) and url.startswith("https://") else content
 
     vault_id = row["id"]
     sparkline = f'<img src="{SPARKLINE_URL.format(vault_id=vault_id)}" width="72" height="18" alt="" style="width:72px;max-width:none;height:18px;vertical-align:middle">' if vault_id in sparkline_ids else ""
