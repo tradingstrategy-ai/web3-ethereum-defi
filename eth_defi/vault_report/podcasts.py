@@ -41,6 +41,20 @@ PODCAST_FILTER = "title:~'episode'"
 #: Number of episodes in the report
 LATEST_PODCAST_COUNT = 4
 
+#: Link label of each listening service, by its icon name in ``assets/podcast``
+PODCAST_SERVICES = {"youtube": "Watch on YouTube", "spotify": "Listen on Spotify"}
+
+
+def logo_image_key(slug: str) -> str:
+    """Key of a guest logo in the podcast image mapping, see :py:func:`render_podcast_episodes`."""
+    return f"logo:{slug}"
+
+
+def icon_image_key(service: str) -> str:
+    """Key of a listening service icon in the podcast image mapping, e.g. ``icon:youtube``."""
+    return f"icon:{service}"
+
+
 #: Spotify episode link
 SPOTIFY_LINK = re.compile(r'href="(https://open\.spotify\.com/episode/[^"]+)"')
 
@@ -147,27 +161,37 @@ def fetch_latest_podcast_episodes(client: GhostContentClient, count: int = LATES
     return episodes
 
 
-def render_podcast_episodes(episodes: list[PodcastEpisode], logos: dict[str, str]) -> str:
+def render_podcast_episodes(episodes: list[PodcastEpisode], images: dict[str, str]) -> str:
     """Render the podcast episode list for the post.
 
     Each episode is a table row with the guest's logo, the episode title linked
-    to its blog post, the promotion text and the Spotify and YouTube links. A
-    table keeps the logo beside the text in Ghost and in newsletter email clients.
+    to its blog post, the promotion text and the YouTube and Spotify links,
+    each with the service's icon. A table keeps the logo beside the text in
+    Ghost and in newsletter email clients.
 
     :param episodes:
         Episodes, newest first.
 
-    :param logos:
-        Logo slug -> image URL or relative path. Episodes without a logo are shown without one.
+    :param images:
+        Image URLs or relative paths, keyed by :py:func:`logo_image_key` for
+        guest logos and :py:func:`icon_image_key` for service icons. Missing
+        logos and icons are left out.
 
     :return:
         HTML table.
     """
     rows = []
     for episode in episodes:
-        logo_src = logos.get(episode.logo_slug) if episode.logo_slug else None
+        logo_src = images.get(logo_image_key(episode.logo_slug)) if episode.logo_slug else None
         logo = f'<img src="{html.escape(logo_src)}" alt="{html.escape(episode.guest)} logo" width="48" height="48" style="width:48px;height:48px;">' if logo_src else ""
-        links = [f'<a href="{html.escape(url)}">{label}</a>' for label, url in (("Watch on YouTube", episode.youtube_url), ("Listen on Spotify", episode.spotify_url)) if url]
+        links = []
+        for service, url in (("youtube", episode.youtube_url), ("spotify", episode.spotify_url)):
+            if not url:
+                continue
+            icon_src = images.get(icon_image_key(service))
+            # The icon is decorative: the link text names the service
+            icon = f'<img src="{html.escape(icon_src)}" alt="" width="16" height="16" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px;">' if icon_src else ""
+            links.append(f'<a href="{html.escape(url)}">{icon}{PODCAST_SERVICES[service]}</a>')
         text = [
             f'<strong><a href="{html.escape(episode.url)}">{html.escape(episode.title)}</a></strong>',
             html.escape(episode.promotion),

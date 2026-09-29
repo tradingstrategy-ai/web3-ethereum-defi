@@ -12,6 +12,11 @@ The script writes:
 - ``logo-horizontal-ai-dark.png`` and ``logo-horizontal-ai-light.png``: PNG
   renders for dark and light chart themes, used by the Pillow-drawn panel
   footers and hero images, which cannot draw SVG
+- ``podcast/youtube.png`` and ``podcast/spotify.png``: PNG renders of the
+  brand-coloured YouTube and Spotify icons in ``podcast/*.svg``, shown next to
+  the episode links of the *Latest podcasts* section, because email clients
+  cannot show SVG. The SVGs are the website's footer icons
+  (``src/lib/assets/icons`` in the frontend) in the brands' colours.
 
 Rendering needs Chrome for Kaleido, see ``eth_defi/vault_report/README-vault-report.md``.
 
@@ -32,7 +37,7 @@ from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.branding import crop_to_content
-from eth_defi.vault_report.charts import render_figure_png
+from eth_defi.vault_report.charts import rasterise_logos, render_figure_png
 from eth_defi.vault_report.logos import to_data_uri
 from eth_defi.vault_report.theme import ASSETS_DIR, DARK_THEME
 
@@ -103,8 +108,26 @@ def render_logo_png(svg: str, text_colour: str, path: Path) -> Path:
     return path
 
 
+def render_icon_png(svg_path: Path, size: int = 64) -> Path:
+    """Render a square icon SVG next to it as a PNG.
+
+    :param svg_path:
+        Icon SVG.
+
+    :param size:
+        PNG width and height in pixels, several times the shown size for high-density screens.
+
+    :return:
+        The PNG path.
+    """
+    uri = to_data_uri(svg_path.read_bytes(), "image/svg+xml")
+    path = svg_path.with_suffix(".png")
+    rasterise_logos({uri}, size)[uri].save(path, optimize=True)
+    return path
+
+
 def main() -> None:
-    """Write the logo SVG and its PNG renders."""
+    """Write the logo SVG and its PNG renders, and the podcast icon PNGs."""
     setup_console_logging(default_log_level="info")
     svg = build_logo_svg((ASSETS_DIR / "logo-horizontal.svg").read_text())
     svg_path = ASSETS_DIR / "logo-horizontal-ai.svg"
@@ -113,6 +136,7 @@ def main() -> None:
         svg_path,
         render_logo_png(svg, DARK_THEME.text, ASSETS_DIR / "logo-horizontal-ai-dark.png"),
         render_logo_png(svg, "#0B0B14", ASSETS_DIR / "logo-horizontal-ai-light.png"),
+        *(render_icon_png(icon) for icon in sorted((ASSETS_DIR / "podcast").glob("*.svg"))),
     ]
     rows = [[path.name, f"{Image.open(path).size[0]}×{Image.open(path).size[1]}" if path.suffix == ".png" else "SVG"] for path in outputs]
     print(tabulate(rows, headers=["File", "Size"], tablefmt="fancy_grid"))

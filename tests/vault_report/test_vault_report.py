@@ -895,7 +895,9 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     # Offline reports have no charts, so the first data section is the best-performing vaults
     assert post_html.index("defi-vault-community-news") < post_html.index('<h2 id="latest-podcasts">Latest podcasts</h2>') < post_html.index('id="the-best-performing-vaults"')
     assert '<img src="podcasts/yearn.png" alt="Yearn logo"' in post_html
-    assert '<a href="https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw">Listen on Spotify</a>' in post_html
+    assert '<a href="https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw"><img src="podcasts/icons/spotify.png" alt=""' in post_html
+    assert '<img src="podcasts/icons/youtube.png" alt=""' in post_html
+    assert (tmp_path / "out" / "podcasts" / "icons" / "youtube.png").exists()
     assert "<script>" not in post_html
     assert (tmp_path / "out" / "podcasts" / "yearn.png").exists()
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
@@ -910,7 +912,9 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     monkeypatch.setattr(client, "get_editor_url", lambda post: "https://example.ghost.io/ghost/#/editor/post/d1")
     publish_report_draft(report, client)
     assert '<img src="https://ghost.example/yearn.png"' in drafts[0]["html"]
+    assert '<img src="https://ghost.example/spotify.png"' in drafts[0]["html"]
 
     # Without episodes the section is left out
     generate_monthly_vault_report(data, output_dir=tmp_path / "empty", render_charts=False, check_sparklines=False)
     assert "latest-podcasts" not in (tmp_path / "empty" / "post.html").read_text()
+    assert not (tmp_path / "empty" / "podcasts").exists()

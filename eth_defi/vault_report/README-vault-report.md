@@ -196,7 +196,9 @@ title contains "episode". From each post the section takes:
 
 - the title, linked to the blog post;
 - the first paragraph, the episode's promotion text;
-- the Spotify and YouTube links, without share-tracking parameters;
+- the YouTube and Spotify links, without share-tracking parameters, each with
+  the service's brand-coloured icon (`assets/podcast`, the website's footer
+  icons rendered to PNG by `scripts/erc-4626/render-vault-report-logo.py`);
 - the guest's logo, found from the post's link to the guest's curator or
   protocol page on the website, e.g. `/vaults/curators/yearn`.
 

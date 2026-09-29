@@ -220,8 +220,9 @@ class PostContext:
     #: Latest podcast episodes, newest first; the section is left out when empty
     podcasts: list[PodcastEpisode] = field(default_factory=list)
 
-    #: Podcast guest logo slug -> image URL or relative path
-    podcast_logos: dict[str, str] = field(default_factory=dict)
+    #: Podcast guest logos and service icons -> image URL or relative path,
+    #: see :py:func:`eth_defi.vault_report.podcasts.render_podcast_episodes`
+    podcast_images: dict[str, str] = field(default_factory=dict)
 
 
 def make_month_label(data_end_at: datetime.datetime) -> str:
@@ -401,7 +402,7 @@ def build_post_html(context: PostContext) -> str:
         parts += [
             '<h2 id="latest-podcasts">Latest podcasts</h2>',
             f'<p>The latest episodes of the <a href="{PODCAST_PAGE_URL}">Trading Strategy podcast</a>, where we talk with DeFi vault protocols and curators.</p>',
-            f"<!--kg-card-begin: html-->\n{render_podcast_episodes(context.podcasts, context.podcast_logos)}\n<!--kg-card-end: html-->",
+            f"<!--kg-card-begin: html-->\n{render_podcast_episodes(context.podcasts, context.podcast_images)}\n<!--kg-card-end: html-->",
         ]
 
     for template in SECTION_TEMPLATES:
