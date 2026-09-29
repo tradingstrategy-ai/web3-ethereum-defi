@@ -447,6 +447,43 @@ def select_hero_vaults(yield_universe: pd.DataFrame, criteria: ReportCriteria, d
     return rank_vaults(candidates, CHART_RETURN).pipe(exclude_chart_risks, criteria).head(depth)
 
 
+def run_report_checks(comparable_df: pd.DataFrame, data: VaultReportData, output_dir: Path, settings: VaultCheckSettings, criteria: ReportCriteria) -> CheckResult:
+    """Run the investability check on the report's top lists and aggregate charts.
+
+    See :py:func:`eth_defi.vault_report.vault_checks.run_vault_checks`.
+
+    :param comparable_df:
+        Eligible vaults with an identified protocol.
+
+    :param data:
+        Report data, for the data date and the price file.
+
+    :param output_dir:
+        Report bundle; the check files are written here.
+
+    :param settings:
+        Agent and reuse settings.
+
+    :param criteria:
+        Report thresholds, including the ``check_*`` round limits.
+
+    :return:
+        Decisions of all rounds.
+    """
+    return run_vault_checks(
+        functools.partial(collect_top_lists, criteria=criteria),
+        comparable_df,
+        data.data_end_at,
+        data.prices_path,
+        output_dir,
+        settings,
+        max_rounds=criteria.check_max_rounds,
+        aggregate_df=select_average_yield_vaults(exclude_amm_pools(comparable_df, criteria), criteria),
+        prescreen_min_tvl=criteria.check_prescreen_min_tvl,
+        max_escalations=criteria.check_max_escalations,
+    )
+
+
 def make_check_editor_notes(result: CheckResult | None) -> dict[str, str]:
     """Editor notes about the investability check.
 
@@ -775,19 +812,7 @@ def generate_monthly_vault_report(
     comparable_df = select_comparable_vaults(eligible_df)
     check_result = None
     if vault_checks is not None:
-        aggregate_df = select_average_yield_vaults(exclude_amm_pools(comparable_df, criteria), criteria)
-        check_result = run_vault_checks(
-            functools.partial(collect_top_lists, criteria=criteria),
-            comparable_df,
-            data_end_at,
-            data.prices_path,
-            output_dir,
-            vault_checks,
-            max_rounds=criteria.check_max_rounds,
-            aggregate_df=aggregate_df,
-            prescreen_min_tvl=criteria.check_prescreen_min_tvl,
-            max_escalations=criteria.check_max_escalations,
-        )
+        check_result = run_report_checks(comparable_df, data, output_dir, vault_checks, criteria)
         comparable_df = apply_check_decisions(comparable_df, check_result.excluded)
     excluded = check_result.excluded if check_result else frozenset()
     ranked_df = exclude_amm_pools(comparable_df, criteria)

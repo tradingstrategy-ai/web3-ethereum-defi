@@ -748,6 +748,11 @@ def test_blacklist_entry_check(tmp_path: Path):
     assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]
     flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    # King RSS\n    "0xf80c": (VaultFlag.misleading_valuation, KING_RSS),\n}\n')
     assert check_blacklist_entries(decisions, flag_file) == []
+    # Formatting does not matter: the entry may be wrapped over several lines
+    flag_file.write_text('VAULT_FLAGS_AND_NOTES: dict = {\n    "0xF80C": (\n        VaultFlag.misleading_valuation,\n        KING_RSS,\n    ),\n}\n')
+    assert check_blacklist_entries(decisions, flag_file) == []
+    decisions["8453-0xf80c"] = CheckDecision(vault_id="8453-0xf80c", decision="exclude", blacklist=True, vault_flag="illiquid")
+    assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]  # Another flag
 
 
 def test_check_agent_runner(tmp_path: Path):

@@ -23,15 +23,18 @@ are covered. Likely scams are also blacklisted in ``eth_defi/vault/flag.py``
 by the agent, for review.
 """
 
+import ast
 import datetime
 import hashlib
 import html
 import json
 import logging
 import math
+import os
 import re
 import subprocess
 import time
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -39,7 +42,7 @@ from typing import Literal
 import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.vault.flag import BAD_FLAGS, VaultFlag
+from eth_defi.vault.flag import BAD_FLAGS
 from eth_defi.vault_report.vault_probes import facts_to_json, fetch_candidate_facts
 
 logger = logging.getLogger(__name__)
@@ -213,6 +216,35 @@ class VaultCheckSettings:
     #: Parallel threads for the deterministic probes
     max_workers: int = 8
 
+    @classmethod
+    def from_env(cls, default_agent: str = "none") -> "VaultCheckSettings | None":
+        """Read the settings from environment variables.
+
+        See the *Investability check* section of ``README-vault-report.md``
+        for the variables: ``VAULT_CHECK_AGENT``, ``VAULT_CHECK_MODEL``,
+        ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
+        ``VAULT_CHECK_TIMEOUT`` (minutes) and ``MAX_WORKERS``.
+
+        :param default_agent:
+            ``VAULT_CHECK_AGENT`` when unset: ``claude``, ``codex``, ``reuse`` or ``none``.
+
+        :return:
+            Settings, or ``None`` when the check is disabled with ``none``.
+        """
+        agent = os.environ.get("VAULT_CHECK_AGENT", default_agent).strip().lower()
+        if agent in ("", "none"):
+            return None
+        assert agent in ("claude", "codex", "reuse"), f"VAULT_CHECK_AGENT must be claude, codex, reuse or none, got {agent}"
+        overrides = os.environ.get("VAULT_CHECK_OVERRIDES")
+        return cls(
+            agent=None if agent == "reuse" else agent,
+            model=os.environ.get("VAULT_CHECK_MODEL") or None,
+            reuse_dirs=[Path(path).expanduser() for path in os.environ.get("VAULT_CHECK_DECISIONS", "").split(",") if path],
+            overrides_path=Path(overrides).expanduser() if overrides else None,
+            timeout=float(os.environ.get("VAULT_CHECK_TIMEOUT", "60")) * 60,
+            max_workers=int(os.environ.get("MAX_WORKERS", "8")),
+        )
+
 
 @dataclass(slots=True)
 class CheckResult:
@@ -234,6 +266,11 @@ class CheckResult:
     def excluded(self) -> frozenset[str]:
         """Ids of excluded vaults."""
         return frozenset(vault_id for vault_id, decision in self.decisions.items() if decision.decision == "exclude")
+
+    @property
+    def excluded_candidates(self) -> list[CheckCandidate]:
+        """Excluded candidates, in the order of the list and rank they would have appeared at."""
+        return sorted((self.candidates[vault_id] for vault_id in self.excluded if vault_id in self.candidates), key=_list_order)
 
     @property
     def uncertain(self) -> list[CheckCandidate]:
@@ -441,8 +478,8 @@ def read_overrides(path: Path) -> dict[str, CheckDecision]:
 def check_blacklist_entries(decisions: dict[str, CheckDecision], flag_file: Path) -> list[str]:
     """Check that every blacklisted vault has an entry in ``flag.py``.
 
-    ``flag.py`` is read as text, because the agent edits it while this process
-    already has the module loaded.
+    ``flag.py`` is parsed from source, because the agent edits it while this
+    process already has the module loaded.
 
     :param decisions:
         Decisions of the round.
@@ -453,29 +490,44 @@ def check_blacklist_entries(decisions: dict[str, CheckDecision], flag_file: Path
     :return:
         Vault ids missing from ``VAULT_FLAGS_AND_NOTES``.
     """
-    source = flag_file.read_text().lower()
-    missing = []
-    for vault_id, decision in decisions.items():
-        if decision.blacklist:
-            address = vault_id.split("-", 1)[1].lower()
-            if f'"{address}": (vaultflag.{decision.vault_flag}' not in source:
-                missing.append(vault_id)
-    return missing
+    blacklisted = {vault_id: decision.vault_flag for vault_id, decision in decisions.items() if decision.blacklist}
+    if not blacklisted:
+        return []
+    entries = read_flag_entries(flag_file)
+    return [vault_id for vault_id, flag in blacklisted.items() if entries.get(vault_id.split("-", 1)[1].lower()) != flag]
 
 
-def build_agent_prompt(round_: CheckRound, facts_path: Path) -> str:
+def read_flag_entries(flag_file: Path) -> dict[str, str | None]:
+    """Read the vault flags of ``VAULT_FLAGS_AND_NOTES`` from the ``flag.py`` source.
+
+    :param flag_file:
+        Path to ``eth_defi/vault/flag.py``.
+
+    :return:
+        Lowercased vault address -> ``VaultFlag`` member name, or ``None`` for a note without a flag.
+    """
+    for node in ast.walk(ast.parse(flag_file.read_text())):
+        target = node.target if isinstance(node, ast.AnnAssign) else node.targets[0] if isinstance(node, ast.Assign) else None
+        if isinstance(target, ast.Name) and target.id == "VAULT_FLAGS_AND_NOTES" and isinstance(node.value, ast.Dict):
+            entries = {}
+            for key, value in zip(node.value.keys, node.value.values, strict=True):
+                flag = value.elts[0] if isinstance(value, ast.Tuple) and value.elts else None
+                if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                    entries[key.value.lower()] = flag.attr if isinstance(flag, ast.Attribute) else None
+            return entries
+    raise CheckValidationError(f"VAULT_FLAGS_AND_NOTES not found in {flag_file}")
+
+
+def build_agent_prompt(round_: CheckRound) -> str:
     """Create the prompt that points the agent to the skill and the round's files.
 
     :param round_:
         Check round.
 
-    :param facts_path:
-        Facts file.
-
     :return:
         Prompt text.
     """
-    return f"Read {SKILL_FILE} and follow it exactly. Candidates: {round_.candidates_path}. Facts: {facts_path}. Write the decisions to {round_.decisions_path}. Copy candidates_digest={round_.candidates_digest} into the decisions file header. Work unattended: do not ask questions, do not commit or push."
+    return f"Read {SKILL_FILE} and follow it exactly. Candidates: {round_.candidates_path}. Facts: {round_.facts_path}. Write the decisions to {round_.decisions_path}. Copy candidates_digest={round_.candidates_digest} into the decisions file header. Work unattended: do not ask questions, do not commit or push."
 
 
 def build_agent_command(agent: AgentName, prompt: str, model: str | None = None) -> list[str]:
@@ -595,7 +647,7 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
         facts = fetch_candidate_facts([asdict(candidate) for candidate in in_scope], prices_path, data_end_at, settings.max_workers)
     round_.facts_path.write_text(json.dumps(facts_to_json({c.vault_id: facts[c.vault_id] for c in in_scope if c.vault_id in facts}), indent=2, default=str))
     logger.info("Round %d: checking %d in-scope vaults with %s", number, len(in_scope), settings.agent)
-    command = build_agent_command(settings.agent, build_agent_prompt(round_, round_.facts_path), settings.model)
+    command = build_agent_command(settings.agent, build_agent_prompt(round_), settings.model)
     diff_before = show_flag_diff(settings.repository_root)
     run_check_agent(command, settings.repository_root, output_dir / f"vault-check-agent-{number}.jsonl", round_.decisions_path, settings.timeout)
     decisions = read_check_decisions(round_.decisions_path, in_scope, round_.candidates_digest, data_end_at)
@@ -681,15 +733,16 @@ def run_vault_checks(
                 result.decisions[vault_id] = CheckDecision(vault_id=vault_id, decision="not_in_scope")
         return [candidate for vault_id, candidate in candidates.items() if vault_id not in result.decisions]
 
-    number = 0
+    def run_round(in_scope: list[CheckCandidate], facts: dict | None = None) -> None:
+        round_, decisions = _check_round(len(result.rounds) + 1, in_scope, data_end_at, prices_path, output_dir, settings, facts)
+        result.rounds.append(round_)
+        result.decisions.update(decisions)
+
     for _ in range(max_rounds):
         in_scope = triage(build_check_candidates(collect_lists(remaining())))
         if not in_scope:
             break
-        number += 1
-        round_, decisions = _check_round(number, in_scope, data_end_at, prices_path, output_dir, settings)
-        result.rounds.append(round_)
-        result.decisions.update(decisions)
+        run_round(in_scope)
     else:
         result.unchecked = sorted(c.vault_id for c in triage(build_check_candidates(collect_lists(remaining()))))
         if result.unchecked:
@@ -706,10 +759,7 @@ def run_vault_checks(
             logger.info("Prescreen: %d of %d vaults raised signals, %d sent to the agent", len(flagged), len(screened), len(escalated))
             in_scope = triage(escalated)
             if in_scope:
-                number += 1
-                round_, decisions = _check_round(number, in_scope, data_end_at, prices_path, output_dir, settings, facts)
-                result.rounds.append(round_)
-                result.decisions.update(decisions)
+                run_round(in_scope, facts)
     return result
 
 
@@ -747,7 +797,7 @@ def render_excluded_table(result: CheckResult) -> str | None:
     :return:
         HTML table, or ``None`` when nothing was excluded.
     """
-    rows = sorted((result.candidates[vault_id] for vault_id in result.excluded if vault_id in result.candidates), key=_list_order)
+    rows = result.excluded_candidates
     if not rows:
         return None
     body = []
@@ -770,7 +820,7 @@ def excluded_rows(result: CheckResult) -> list[dict]:
     :return:
         One record per excluded vault, with the decision and its evidence.
     """
-    rows = sorted((result.candidates[vault_id] for vault_id in result.excluded if vault_id in result.candidates), key=_list_order)
+    rows = result.excluded_candidates
     return [{"vault_id": c.vault_id, "name": c.name, "chain": c.chain, "protocol": c.protocol, "lists": ";".join(c.lists), **{k: v for k, v in asdict(result.decisions[c.vault_id]).items() if k != "vault_id"}} for c in rows]
 
 
@@ -783,25 +833,13 @@ def summarise_checks(result: CheckResult) -> dict:
     :return:
         Counts, round files and the excluded vaults with evidence.
     """
-    counts: dict[str, int] = {}
-    for decision in result.decisions.values():
-        counts[decision.decision] = counts.get(decision.decision, 0) + 1
     return {
         "checked_at": native_datetime_utc_now().isoformat(),
         "scope_version": SCOPE_VERSION,
         "rules_version": RULES_VERSION,
-        "counts": counts,
+        "counts": dict(Counter(decision.decision for decision in result.decisions.values())),
         "rounds": [{"number": r.number, "candidates": r.candidates_path.name, "decisions": r.decisions_path.name, "candidates_digest": r.candidates_digest} for r in result.rounds],
         "unchecked": result.unchecked,
         "excluded": excluded_rows(result),
         "uncertain": [c.vault_id for c in result.uncertain],
     }
-
-
-#: Blacklist flags the skill may choose, by finding
-BLACKLIST_FLAGS = {
-    "scam": VaultFlag.malicious,
-    "suspicious_collateral": VaultFlag.misleading_valuation,
-    "no_exit_liquidity": VaultFlag.illiquid,
-    "unconfirmed_fraud_reports": VaultFlag.controversial,
-}

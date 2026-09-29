@@ -17,7 +17,7 @@ Example:
 
 Environment variables:
 
-- ``VAULT_CHECK_AGENT``: ``claude`` or ``codex``, default ``claude``
+- ``VAULT_CHECK_AGENT``: ``claude``, ``codex`` or ``reuse``, default ``claude``
 - ``VAULT_CHECK_MODEL``, ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
   ``VAULT_CHECK_TIMEOUT``, ``MAX_WORKERS``: see ``generate-monthly-vault-report.py``
 - ``TOP_VAULTS_JSON``, ``VAULT_PRICES_PARQUET``, ``VAULT_PRO_API_KEY``, ``CACHE_DIR``: report inputs
@@ -26,7 +26,6 @@ Environment variables:
 - ``LOG_LEVEL``: default ``info``
 """
 
-import functools
 import logging
 import os
 from pathlib import Path
@@ -36,9 +35,9 @@ from tabulate import tabulate
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
 from eth_defi.vault_report.post import make_report_slug
-from eth_defi.vault_report.report import collect_top_lists
-from eth_defi.vault_report.sections import ReportCriteria, exclude_amm_pools, filter_eligible_vaults, select_average_yield_vaults, select_comparable_vaults
-from eth_defi.vault_report.vault_checks import VaultCheckSettings, run_vault_checks, show_flag_diff
+from eth_defi.vault_report.report import run_report_checks
+from eth_defi.vault_report.sections import ReportCriteria, filter_eligible_vaults, select_comparable_vaults
+from eth_defi.vault_report.vault_checks import VaultCheckSettings, show_flag_diff
 
 logger = logging.getLogger(__name__)
 
@@ -57,27 +56,10 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     criteria = ReportCriteria()
-    settings = VaultCheckSettings(
-        agent=os.environ.get("VAULT_CHECK_AGENT", "claude"),
-        model=os.environ.get("VAULT_CHECK_MODEL") or None,
-        reuse_dirs=[Path(path).expanduser() for path in os.environ.get("VAULT_CHECK_DECISIONS", "").split(",") if path],
-        overrides_path=Path(os.environ["VAULT_CHECK_OVERRIDES"]) if os.environ.get("VAULT_CHECK_OVERRIDES") else None,
-        timeout=float(os.environ.get("VAULT_CHECK_TIMEOUT", "60")) * 60,
-        max_workers=int(os.environ.get("MAX_WORKERS", "8")),
-    )
+    settings = VaultCheckSettings.from_env(default_agent="claude")
+    assert settings is not None, "VAULT_CHECK_AGENT=none disables the check; use claude, codex or reuse"
     comparable_df = select_comparable_vaults(filter_eligible_vaults(data.vaults_df, data.data_end_at, criteria))
-    result = run_vault_checks(
-        functools.partial(collect_top_lists, criteria=criteria),
-        comparable_df,
-        data.data_end_at,
-        data.prices_path,
-        output_dir,
-        settings,
-        max_rounds=criteria.check_max_rounds,
-        aggregate_df=select_average_yield_vaults(exclude_amm_pools(comparable_df, criteria), criteria),
-        prescreen_min_tvl=criteria.check_prescreen_min_tvl,
-        max_escalations=criteria.check_max_escalations,
-    )
+    result = run_report_checks(comparable_df, data, output_dir, settings, criteria)
 
     rows = []
     for vault_id, decision in result.decisions.items():

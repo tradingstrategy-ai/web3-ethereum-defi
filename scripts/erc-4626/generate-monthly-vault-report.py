@@ -89,27 +89,6 @@ def _env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
 
 
-def read_vault_check_settings() -> VaultCheckSettings | None:
-    """Read the investability check settings from environment variables.
-
-    :return:
-        Settings, or ``None`` when the check is disabled.
-    """
-    agent = os.environ.get("VAULT_CHECK_AGENT", "none").strip().lower()
-    if agent in ("", "none"):
-        return None
-    assert agent in ("claude", "codex", "reuse"), f"VAULT_CHECK_AGENT must be claude, codex, reuse or none, got {agent}"
-    reuse_dirs = [Path(path).expanduser() for path in os.environ.get("VAULT_CHECK_DECISIONS", "").split(",") if path]
-    return VaultCheckSettings(
-        agent=None if agent == "reuse" else agent,
-        model=os.environ.get("VAULT_CHECK_MODEL") or None,
-        reuse_dirs=reuse_dirs,
-        overrides_path=_env_path("VAULT_CHECK_OVERRIDES"),
-        timeout=float(os.environ.get("VAULT_CHECK_TIMEOUT", "60")) * 60,
-        max_workers=int(os.environ.get("MAX_WORKERS", "8")),
-    )
-
-
 def main() -> None:
     """Generate the report bundle and the Ghost draft."""
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
@@ -154,7 +133,7 @@ def main() -> None:
         theme=get_theme(os.environ.get("CHART_THEME", "dark")),
         cache_dir=cache_dir / "assets",
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
-        vault_checks=read_vault_check_settings(),
+        vault_checks=VaultCheckSettings.from_env(),
         podcasts=podcasts,
     )
 
