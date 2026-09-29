@@ -2,6 +2,7 @@
 
 import datetime
 import importlib.util
+import math
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -64,11 +65,11 @@ def create_inputs(tmp_path: Path, backfill: ModuleType, *, existing_history: boo
             redeem_count=2,
         )
         metadata_rows[spec] = {"Protocol": "Lagoon Finance", "_detection_data": detection}
-        price_rows.append({"chain": 1, "address": address, "block_number": backfill.KAMUI_BACKFILL_END_BLOCK, "share_price": 1.01, "total_assets": 100_000.0})
+        price_rows.append({"chain": 1, "address": address, "block_number": backfill.KAMUI_BACKFILL_END_BLOCK, "timestamp": now, "share_price": 1.01, "total_assets": 100_000.0, "performance_fee": math.nan})
         if existing_history:
-            price_rows.append({"chain": 1, "address": address, "block_number": first_block, "share_price": 1.0, "total_assets": 1_000.0})
+            price_rows.append({"chain": 1, "address": address, "block_number": first_block, "timestamp": now - datetime.timedelta(days=20), "share_price": 1.0, "total_assets": 1_000.0, "performance_fee": math.nan})
 
-    price_rows.append({"chain": 1, "address": "0x1111111111111111111111111111111111111111", "block_number": backfill.KAMUI_BACKFILL_END_BLOCK - 1, "share_price": 2.0, "total_assets": 500.0})
+    price_rows.append({"chain": 1, "address": "0x1111111111111111111111111111111111111111", "block_number": backfill.KAMUI_BACKFILL_END_BLOCK - 1, "timestamp": now, "share_price": 2.0, "total_assets": 500.0, "performance_fee": math.nan})
     vault_database = tmp_path / "vault-metadata-db.pickle"
     price_database = tmp_path / "vault-prices-1h.parquet"
     VaultDatabase(rows=metadata_rows).write(vault_database)
@@ -118,7 +119,10 @@ def test_kamui_backfill_stage_preserves_forward_rows(tmp_path: Path) -> None:
     before = backfill.load_scoped_price_rows(price_database)
     staged_database = tmp_path / "staged.parquet"
     original_rows = pq.read_table(price_database).to_pylist()
-    historical_rows = [{"chain": 1, "address": address, "block_number": first_block, "share_price": 1.0, "total_assets": 1_000.0} for address, first_block in backfill.KAMUI_FIRST_SEEN_BLOCKS.items()]
+    historical_rows = [
+        {"chain": 1, "address": address, "block_number": first_block, "timestamp": datetime.datetime(2026, 9, 10), "share_price": 1.0, "total_assets": 1_000.0, "performance_fee": math.nan}  # noqa: DTZ001 - Repository convention is naive UTC.
+        for address, first_block in backfill.KAMUI_FIRST_SEEN_BLOCKS.items()
+    ]
     pq.write_table(pa.Table.from_pylist(original_rows + historical_rows), staged_database)
     result = {
         "chain_id": 1,
@@ -132,6 +136,20 @@ def test_kamui_backfill_stage_preserves_forward_rows(tmp_path: Path) -> None:
     }
 
     backfill.validate_staged_prices(plan, before, staged_database, result)
+
+    short_history_rows = [dict(row) for row in original_rows + historical_rows]
+    for row in short_history_rows:
+        if row["block_number"] < backfill.KAMUI_BACKFILL_END_BLOCK and row["address"] in backfill.KAMUI_FIRST_SEEN_BLOCKS:
+            row["timestamp"] = datetime.datetime(2026, 9, 28)  # noqa: DTZ001 - Repository convention is naive UTC.
+    pq.write_table(pa.Table.from_pylist(short_history_rows), staged_database)
+    with pytest.raises(RuntimeError, match="less than 14 days"):
+        backfill.validate_staged_prices(plan, before, staged_database, result)
+
+    altered_nan_rows = [dict(row) for row in original_rows + historical_rows]
+    altered_nan_rows[0]["performance_fee"] = None
+    pq.write_table(pa.Table.from_pylist(altered_nan_rows), staged_database)
+    with pytest.raises(RuntimeError, match="forward price row NaN"):
+        backfill.validate_staged_prices(plan, before, staged_database, result)
 
     altered_rows = [dict(row) for row in original_rows + historical_rows]
     altered_rows[0]["share_price"] = 1.5

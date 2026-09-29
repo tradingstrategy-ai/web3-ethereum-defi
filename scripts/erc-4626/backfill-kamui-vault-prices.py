@@ -7,12 +7,14 @@ receives only the three reviewed addresses and never updates scheduled reader
 state. A staged Parquet copy is validated before replacing the production raw
 price file under the shared scanner lock.
 
-``DRY_RUN=true`` (the default) reads local metadata and prices and prints the
-exact plan without making persistent changes. ``DRY_RUN=false`` requires an
-archive-capable ``JSON_RPC_ETHEREUM`` and the usual Hypersync configuration.
-The mounted dense Ethereum timestamp cache must be retained in production.
+``DRY_RUN=true`` (the default) runs and validates the complete historical scan
+against scratch copies without publishing prices or updating shared state.
+Both modes require an archive-capable ``JSON_RPC_ETHEREUM`` and the usual
+Hypersync configuration. The mounted dense Ethereum timestamp cache must be
+retained in production.
 """
 
+import datetime
 import hashlib
 import logging
 import math
@@ -60,6 +62,9 @@ KAMUI_BACKFILL_END_BLOCK = 26_076_164
 #: Chain and sample frequency of the existing production price history.
 KAMUI_CHAIN_ID = 1
 KAMUI_BACKFILL_FREQUENCY = "1h"
+
+#: Minimum finite observation span needed for a vault sparkline.
+KAMUI_MIN_PRICE_HISTORY = datetime.timedelta(days=14)
 
 assert {(KAMUI_CHAIN_ID, address) for address in KAMUI_FIRST_SEEN_BLOCKS} == KAMUI_LAGOON_VAULTS
 
@@ -188,7 +193,44 @@ def hash_file(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def validate_staged_prices(plan: KamuiBackfillPlan, before: pa.Table, staged_database: Path, result: ParquetScanResult) -> None:
+def validate_forward_rows(before: pa.Table, after: pa.Table) -> None:
+    """Compare retained rows exactly, treating matching floating NaNs as equal.
+
+    PyArrow table equality treats a floating NaN as unequal to itself. The
+    production Kamui rows have NaNs in several optional numeric fields, so a
+    direct ``Table.equals()`` rejects a lossless Parquet rewrite. Compare the
+    NaN masks first, then compare values with only matching NaNs replaced by
+    nulls. This still rejects a changed value, a NaN-to-null change, a changed
+    row order or a schema change.
+
+    :param before:
+        Original forward Kamui rows, in persisted order.
+    :param after:
+        Staged forward Kamui rows, in persisted order.
+    :return:
+        None; raises if any retained row differs.
+    :raises RuntimeError:
+        If row count, schema, NaN positions or column values differ.
+    """
+
+    if before.num_rows != after.num_rows or not before.schema.equals(after.schema, check_metadata=False):
+        message = "Kamui staged scan changed an existing forward price row count or schema"
+        raise RuntimeError(message)
+    for field in before.schema:
+        original = before[field.name]
+        staged = after[field.name]
+        if pa.types.is_floating(field.type):
+            original_nan = pc.is_nan(original)
+            staged_nan = pc.is_nan(staged)
+            if not original_nan.equals(staged_nan):
+                raise RuntimeError(f"Kamui staged scan changed an existing forward price row NaN in {field.name}")
+            original = pc.if_else(pc.fill_null(original_nan, False), pa.scalar(None, type=field.type), original)
+            staged = pc.if_else(pc.fill_null(staged_nan, False), pa.scalar(None, type=field.type), staged)
+        if not original.equals(staged):
+            raise RuntimeError(f"Kamui staged scan changed an existing forward price row value in {field.name}")
+
+
+def validate_staged_prices(plan: KamuiBackfillPlan, before: pa.Table, staged_database: Path, result: ParquetScanResult) -> list[tuple[HexAddress, int, datetime.datetime, datetime.datetime, datetime.timedelta]]:
     """Reject a staged write that changed forward rows or missed a vault.
 
     The common writer applies an address and block filter to its copied input.
@@ -204,7 +246,8 @@ def validate_staged_prices(plan: KamuiBackfillPlan, before: pa.Table, staged_dat
     :param result:
         Common historical writer result for the staged scan.
     :return:
-        None; raises on any failed preservation or coverage check.
+        Per-vault finite price counts and UTC observation spans; raises on any
+        failed preservation or coverage check.
     :raises RuntimeError:
         If writer scope, row accounting, forward rows or vault price coverage
         differs from the plan.
@@ -230,15 +273,24 @@ def validate_staged_prices(plan: KamuiBackfillPlan, before: pa.Table, staged_dat
     if any(not any(row["address"] == address and row["share_price"] is not None and math.isfinite(row["share_price"]) for row in historical_rows) for address in expected):
         message = "Kamui staged scan produced no finite historical share price for at least one reviewed vault"
         raise RuntimeError(message)
+    finite_rows = [row for row in after.select(["address", "timestamp", "share_price"]).to_pylist() if row["share_price"] is not None and math.isfinite(row["share_price"])]
+    coverage_rows = []
+    for address in sorted(expected):
+        observed_at = [row["timestamp"] for row in finite_rows if row["address"] == address]
+        first_at = min(observed_at)
+        last_at = max(observed_at)
+        if last_at - first_at < KAMUI_MIN_PRICE_HISTORY:
+            message = f"Kamui staged scan has less than 14 days of finite price history for {address}: {first_at} to {last_at}"
+            raise RuntimeError(message)
+        coverage_rows.append((address, len(observed_at), first_at, last_at, last_at - first_at))
     before_forward = before.filter(pc.greater_equal(before["block_number"], plan.end_block))
     after_forward = after.filter(pc.greater_equal(after["block_number"], plan.end_block))
-    if not before_forward.equals(after_forward, check_metadata=False):
-        message = "Kamui staged scan changed an existing forward price row"
-        raise RuntimeError(message)
+    validate_forward_rows(before_forward, after_forward)
     expected_total = plan.original_row_count - plan.rows_to_replace + result["rows_written"]
     if pq.ParquetFile(staged_database).metadata.num_rows != expected_total:
         message = "Kamui staged Parquet row count does not match the scoped writer result"
         raise RuntimeError(message)
+    return coverage_rows
 
 
 def run_kamui_backfill(
@@ -247,14 +299,16 @@ def run_kamui_backfill(
     reader_state_database: Path,
     timestamp_cache: Path,
     max_workers: int,
+    *,
+    dry_run: bool,
 ) -> ParquetScanResult:
-    """Stage and publish the fixed historical range for three Kamui vaults.
+    """Stage and validate the fixed historical range for three Kamui vaults.
 
     The caller holds the shared pipeline writer lock. A scratch copy, isolated
     token cache and stateless historical reader keep unrelated price rows and
-    scheduled reader state intact. The normal scanner resumes from its existing
-    reader state after the atomic replacement. Historical bytecode availability
-    is checked with Ethereum's `eth_getCode
+    scheduled reader state intact. Dry runs also copy the timestamp cache and
+    discard the staged result; apply mode atomically publishes it. Historical
+    bytecode availability is checked with Ethereum's `eth_getCode
     <https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getcode>`__.
 
     :param plan:
@@ -267,6 +321,8 @@ def run_kamui_backfill(
         Mounted dense Ethereum block-timestamp cache directory.
     :param max_workers:
         Maximum historical RPC read workers.
+    :param dry_run:
+        Validate the complete scan but leave production prices and caches intact.
     :return:
         Validated common-writer result from the staged scan.
     :raises RuntimeError:
@@ -299,6 +355,11 @@ def run_kamui_backfill(
         scratch = Path(scratch_name)
         staged_database = scratch / price_database.name
         shutil.copy2(price_database, staged_database)
+        scan_timestamp_cache = timestamp_cache
+        if dry_run:
+            scan_timestamp_cache = scratch / "block-timestamp"
+            scan_timestamp_cache.mkdir()
+            shutil.copy2(timestamp_database, scan_timestamp_cache / timestamp_database.name)
         token_cache = TokenDiskCache(scratch / "tokens.sqlite")
         try:
             vaults: list[LagoonVault] = []
@@ -321,22 +382,25 @@ def run_kamui_backfill(
                 max_workers=max_workers,
                 frequency=KAMUI_BACKFILL_FREQUENCY,
                 hypersync_client=hypersync.hypersync_client,
-                timestamp_cache_file=timestamp_cache,
+                timestamp_cache_file=scan_timestamp_cache,
                 vault_addresses=set(KAMUI_FIRST_SEEN_BLOCKS),
             )
         finally:
             token_cache.close()
 
-        validate_staged_prices(plan, before, staged_database, result)
+        print(tabulate(validate_staged_prices(plan, before, staged_database, result), headers=("Vault address", "Finite rows", "First price at UTC", "Last price at UTC", "History span"), tablefmt="rounded_outline"))
         if hash_file(reader_state_database) != state_digest:
             message = "Scheduled reader-state pickle changed while Kamui backfill was running"
             raise RuntimeError(message)
-        os.replace(staged_database, price_database)
-        parent_fd = os.open(price_database.parent, os.O_DIRECTORY)
-        try:
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
+        if dry_run:
+            logger.info("Kamui full dry run passed; discarding validated staged price file without changing production state")
+        else:
+            os.replace(staged_database, price_database)
+            parent_fd = os.open(price_database.parent, os.O_DIRECTORY)
+            try:
+                os.fsync(parent_fd)
+            finally:
+                os.close(parent_fd)
         return result
 
 
@@ -366,24 +430,21 @@ def main() -> None:
         message = "MAX_WORKERS must be positive"
         raise ValueError(message)
 
-    if dry_run:
+    lock_timeout = int(os.environ.get("PIPELINE_LOCK_TIMEOUT", "60"))
+    if lock_timeout < 1:
+        message = "PIPELINE_LOCK_TIMEOUT must be positive"
+        raise ValueError(message)
+    with wait_other_writers(pipeline_dir / "scan-pipeline", timeout=lock_timeout):
         plan = plan_kamui_backfill(vault_database, price_database)
-    else:
-        lock_timeout = int(os.environ.get("PIPELINE_LOCK_TIMEOUT", "60"))
-        if lock_timeout < 1:
-            message = "PIPELINE_LOCK_TIMEOUT must be positive"
-            raise ValueError(message)
-        with wait_other_writers(pipeline_dir / "scan-pipeline", timeout=lock_timeout):
-            plan = plan_kamui_backfill(vault_database, price_database)
-            logger.info("Applying Kamui-only backfill, blocks [%d, %d), %d existing rows to replace", plan.start_block, plan.end_block, plan.rows_to_replace)
-            result = run_kamui_backfill(plan, price_database, reader_state_database, timestamp_cache, max_workers)
-            logger.info("Kamui backfill complete: %s", pformat_scan_result(result))
-            counts = [(address, result["price_rows_written_by_vault"][address]) for address in sorted(KAMUI_FIRST_SEEN_BLOCKS)]
-            print(tabulate(counts, headers=("Vault address", "Historical price rows"), tablefmt="rounded_outline"))
+        logger.info("%s Kamui-only backfill, blocks [%d, %d), %d existing rows to replace", "Validating" if dry_run else "Applying", plan.start_block, plan.end_block, plan.rows_to_replace)
+        result = run_kamui_backfill(plan, price_database, reader_state_database, timestamp_cache, max_workers, dry_run=dry_run)
+        logger.info("Kamui backfill %s: %s", "validated" if dry_run else "complete", pformat_scan_result(result))
+        counts = [(address, result["price_rows_written_by_vault"][address]) for address in sorted(KAMUI_FIRST_SEEN_BLOCKS)]
+        print(tabulate(counts, headers=("Vault address", "Historical price rows"), tablefmt="rounded_outline"))
 
     rows = [(address, KAMUI_FIRST_SEEN_BLOCKS[address], plan.end_block, plan.forward_rows_by_address[address]) for address in sorted(KAMUI_FIRST_SEEN_BLOCKS)]
     print(tabulate(rows, headers=("Vault address", "First seen block", "Exclusive end block", "Preserved later rows"), tablefmt="rounded_outline"))
-    print(f"Mode={'dry run' if dry_run else 'applied'}; existing rows in replacement range={plan.rows_to_replace}; unrelated vaults and reader state preserved")
+    print(f"Mode={'validated dry run' if dry_run else 'applied'}; existing rows in replacement range={plan.rows_to_replace}; unrelated vaults and reader state preserved")
 
 
 if __name__ == "__main__":

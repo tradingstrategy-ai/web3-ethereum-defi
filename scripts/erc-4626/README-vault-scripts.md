@@ -2161,16 +2161,21 @@ the common raw Parquet before replacing it under the ``scan-pipeline`` lock.
 Later Kamui observations, all other vaults, metadata and the scheduled reader
 state are preserved. The mounted dense Ethereum timestamp cache is required.
 
-Inspect the no-write plan first:
+Run the full no-publish validation first:
 
 ```shell
 source .local-test.env && DRY_RUN=true \
   poetry run python scripts/erc-4626/backfill-kamui-vault-prices.py
 ```
 
-Expected on the 2026-09-29 production snapshot: three vaults, zero existing
-rows inside the replacement range and three later rows preserved for each.
-The default is ``DRY_RUN=true``; the dry run performs local validation only.
+Expect exactly three vaults and zero existing rows inside the replacement
+range unless this backfill was already applied. The preserved later-row count
+can increase as ordinary scanning continues. The default is ``DRY_RUN=true``;
+it performs the complete historical RPC scan and staged-Parquet validation,
+then discards the result without publishing it. It copies both the raw price
+file and dense timestamp cache to scratch storage, so allow roughly 1 GB of
+free space and several minutes of runtime. It does not update the shared
+timestamp cache, scheduled reader state or raw price file.
 For production, use the mounted ``vault-scanner-oneshot`` service after the new
 image is deployed. Stop the looped scanner, run the script and restart it:
 
@@ -2195,11 +2200,12 @@ source ~/vault-scanner/vault-rpc.env && \
 ``DRY_RUN=false`` needs ``JSON_RPC_ETHEREUM`` with archive state and the usual
 Hypersync configuration. ``MAX_WORKERS`` defaults to four; ``TIMESTAMP_CACHE``
 can point to an equivalent prepopulated dense cache. The script prints
-per-vault historical price counts and aborts if any vault lacks a finite
-historical price or a later observation is changed. The next normal
+per-vault historical price counts and the finite observation span. It aborts
+if any vault has less than 14 days of finite raw price history or a later
+observation is changed. The next normal
 post-processing cycle regenerates cleaned prices, metrics and sparklines from
-the repaired raw file; whether a sparkline appears immediately still depends
-on 14 days of finite share-price observations.
+the repaired raw file; cleaned-price filters can still affect sparkline
+eligibility independently of this raw-history check.
 
 ### migrate-arcus-vault-metadata.py
 
