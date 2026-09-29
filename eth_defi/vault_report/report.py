@@ -43,6 +43,7 @@ from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, SQUARE_HERO_S
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
+    chart_renderer,
     create_average_yield_figure,
     create_chain_best_figure,
     create_performance_figure,
@@ -835,7 +836,10 @@ def generate_monthly_vault_report(
             pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
     editor_notes = make_check_editor_notes(check_result)
 
-    chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded) if render_charts else ({}, None)
+    chart_paths, hero_path = {}, None
+    if render_charts:
+        with chart_renderer():
+            chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded)
 
     podcast_image_paths = prepare_podcast_images(podcasts or [], theme, output_dir)
     month_label = make_month_label(data_end_at)

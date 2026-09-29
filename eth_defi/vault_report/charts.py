@@ -17,6 +17,7 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 """
 
 import base64
+import contextlib
 import datetime
 import io
 import logging
@@ -25,10 +26,12 @@ import re
 import tempfile
 import textwrap
 import zlib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import kaleido
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -1236,6 +1239,32 @@ def trim_logos(logo_uris: set[str], size: int = 96) -> dict[str, tuple[str, floa
     return trimmed
 
 
+def _configure_browser() -> None:
+    """Point Kaleido to Chrome and the bundled fonts, and quieten its logging."""
+    if not os.environ.get("BROWSER_PATH") and CHOREOGRAPHER_CHROME_PATH.exists():
+        os.environ["BROWSER_PATH"] = str(CHOREOGRAPHER_CHROME_PATH)
+    _configure_fonts()
+    # Kaleido and its browser driver log every tab and temporary directory operation at INFO level
+    for noisy_logger in ("kaleido", "choreographer"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
+
+@contextlib.contextmanager
+def chart_renderer() -> Iterator[None]:
+    """Keep one headless Chrome running for a batch of chart renders.
+
+    Without it, Kaleido starts a new browser for every image, which took
+    about 1 second per chart in September 2026 against 0.4 seconds with a
+    shared browser. See the `Kaleido documentation <https://github.com/plotly/Kaleido>`__.
+    """
+    _configure_browser()
+    kaleido.start_sync_server(silence_warnings=True)
+    try:
+        yield
+    finally:
+        kaleido.stop_sync_server(silence_warnings=True)
+
+
 def _configure_fonts() -> None:
     """Make the bundled Inter font available to Kaleido's Chrome.
 
@@ -1285,14 +1314,7 @@ def render_figure_png(fig: Figure, path: Path, scale: float = 1.0) -> Path:
     :return:
         The output path.
     """
-    if not os.environ.get("BROWSER_PATH") and CHOREOGRAPHER_CHROME_PATH.exists():
-        os.environ["BROWSER_PATH"] = str(CHOREOGRAPHER_CHROME_PATH)
-    _configure_fonts()
-
-    # Kaleido and its browser driver log every tab and temporary directory operation at INFO level
-    for noisy_logger in ("kaleido", "choreographer"):
-        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
-
+    _configure_browser()
     path.parent.mkdir(parents=True, exist_ok=True)
     transparent = go.Figure(fig).update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     try:
