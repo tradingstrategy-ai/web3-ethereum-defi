@@ -25,15 +25,13 @@ import re
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
-from eth_defi.vault_report.ghost import GhostContentClient, GhostPost
+from eth_defi.vault_report.ghost import BLOG_URL, GhostContentClient, GhostPost
 
 logger = logging.getLogger(__name__)
 
 #: The podcast index page on the website
 PODCAST_PAGE_URL = "https://tradingstrategy.ai/podcast"
 
-#: Blog post URL prefix; episode posts live at ``{BLOG_URL}/{slug}``
-BLOG_URL = "https://tradingstrategy.ai/blog"
 
 #: Ghost NQL filter matching the website's podcast rule: the title contains "episode", case-insensitively
 PODCAST_FILTER = "title:~'episode'"

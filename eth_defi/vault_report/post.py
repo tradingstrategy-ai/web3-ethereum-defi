@@ -17,15 +17,15 @@ import html
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
-from eth_defi.vault_report.ghost import GhostPost, strip_ghost_ref
+from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
+from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, OTHER, PERP_DEX, RWA, TOKENISED_FUND
 
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
 
-#: Public blog base URL. The Ghost API returns ``ghost.io`` URLs; readers use this domain.
-BLOG_URL = "https://tradingstrategy.ai/blog"
 
 #: Evergreen sections used when there is no previous post to copy them from, by heading id
 DEFAULT_EVERGREEN_SECTIONS = {
@@ -66,6 +66,146 @@ class SectionTemplate:
 
     #: Include the section even without a table or chart
     always: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class BestSection:
+    """One ranked vault group of the post: its table, performance chart and section.
+
+    The single definition of a best-performing section. The tables, the chart
+    selection, the chart panel, the criteria notes and the post section are all
+    derived from it, see :py:data:`BEST_SECTIONS`.
+    """
+
+    #: Section key, e.g. ``lending``: the table and criteria notes key
+    key: str
+
+    #: Vault group, see :py:func:`eth_defi.vault_report.sections.classify_vault`
+    group: str
+
+    #: Section heading
+    heading: str
+
+    #: Heading anchor id
+    heading_id: str
+
+    #: The ranked vaults in chart titles and alt texts, e.g. ``the best-performing lending vaults``
+    subject: str
+
+    #: First criteria note: which vaults the group holds
+    description: str
+
+    #: What the chart compares the vaults against
+    benchmark: str = "their benchmarks"
+
+    #: Table ranking column
+    metric: str = "one_month_cagr_best"
+
+    #: Chart lines: ``equity`` curves, or the rolling ``sharpe`` ratio ranked by :py:attr:`metric`
+    measure: Literal["equity", "sharpe"] = "equity"
+
+    #: How the chart subtitle describes the ranking, e.g. ``funds by 3M return``
+    ranked_by: str = "by 3M return"
+
+    #: State the minimum TVL in the criteria notes, for sections outside the shared best-performing notes
+    show_min_tvl: bool = False
+
+    #: Heading level, 3 for subsections of the best-performing vaults
+    level: int = 3
+
+    #: Introduction paragraph HTML, or empty
+    intro: str = ""
+
+    #: Live page on the website, without ``https://``, for the chart footer
+    link: str = "tradingstrategy.ai/vaults"
+
+    @property
+    def chart_key(self) -> str:
+        """Key of the performance chart in :py:attr:`PostContext.charts`."""
+        return f"{self.key}_performance"
+
+    @property
+    def chart_metric(self) -> str:
+        """Column that picks and ranks the chart vaults: the steadier three-month return, or the Sharpe ratio."""
+        return self.metric if self.measure == "sharpe" else CHART_RETURN
+
+    @property
+    def template(self) -> "SectionTemplate":
+        """The post section of this group."""
+        alt = f"90-day performance of {self.subject} against {self.benchmark}"
+        return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, intro=self.intro, charts=((self.chart_key, alt),), level=self.level)
+
+
+#: Best-performing vault sections in display order
+BEST_SECTIONS = (
+    BestSection(
+        key="lending",
+        group=LENDING,
+        heading="Lending vaults",
+        heading_id="best-performing-lending-vaults",
+        subject="the best-performing lending vaults",
+        description="Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol",
+    ),
+    BestSection(
+        key="rwa",
+        group=RWA,
+        heading="Real-world asset (RWA) vaults",
+        heading_id="best-performing-rwa-vaults",
+        subject="the best-performing RWA vaults",
+        description="Vaults investing in, lending against or financing real-world assets, such as private credit, trade finance and royalties, identified by their strategy",
+    ),
+    BestSection(
+        key="perp_dex",
+        group=PERP_DEX,
+        heading="Perpetual futures DEX vaults by return",
+        heading_id="best-performing-perp-dex-vaults",
+        subject="the best-performing perp DEX vaults",
+        description="Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults",
+        benchmark="BTC and ETH",
+    ),
+    BestSection(
+        key="perp_dex_sharpe",
+        group=PERP_DEX,
+        heading="Perpetual futures DEX vaults by Sharpe ratio",
+        heading_id="best-performing-perp-dex-vaults-by-sharpe",
+        subject="perp DEX vaults with the best Sharpe ratio",
+        description="The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones",
+        benchmark="BTC and ETH",
+        metric="three_months_sharpe_best",
+        measure="sharpe",
+        ranked_by="by 3M Sharpe ratio",
+    ),
+    BestSection(
+        key="other",
+        group=OTHER,
+        heading="Other vaults",
+        heading_id="best-performing-other-vaults",
+        subject="other best-performing vaults",
+        description="Yield aggregators, trading and other vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults",
+    ),
+    BestSection(
+        key="amm",
+        group=AMM,
+        heading="AMM pools",
+        heading_id="best-performing-amm-pools",
+        subject="the best-performing AMM pools",
+        description="GMX GM and GLV pools and the Curve-based YieldBasis pools: their returns include the price moves of the pooled assets, so they are ranked separately",
+        show_min_tvl=True,
+    ),
+    BestSection(
+        key="tokenised_funds",
+        group=TOKENISED_FUND,
+        heading="The best-performing tokenised funds",
+        heading_id="the-best-performing-tokenised-funds",
+        subject="the best-performing tokenised funds",
+        description="Onchain money market, treasury and credit funds",
+        ranked_by="funds by 3M return",
+        show_min_tvl=True,
+        level=2,
+        intro="<p>Tokenised funds bring traditional money market, treasury and credit funds onchain.</p>",
+        link="tradingstrategy.ai/vaults/funds",
+    ),
+)
 
 
 #: Data sections in display order, see ``README-blog-post-outline.md``
@@ -127,48 +267,7 @@ SECTION_TEMPLATES = (
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
-    SectionTemplate(
-        key="lending",
-        heading_id="best-performing-lending-vaults",
-        heading="Lending vaults",
-        charts=(("lending_performance", "90-day performance of the best-performing lending vaults against benchmarks"),),
-        level=3,
-    ),
-    SectionTemplate(
-        key="rwa",
-        heading_id="best-performing-rwa-vaults",
-        heading="Real-world asset (RWA) vaults",
-        charts=(("rwa_performance", "90-day performance of the best-performing RWA vaults against benchmarks"),),
-        level=3,
-    ),
-    SectionTemplate(
-        key="perp_dex",
-        heading_id="best-performing-perp-dex-vaults",
-        heading="Perpetual futures DEX vaults by return",
-        charts=(("perp_dex_performance", "90-day performance of the best-performing perp DEX vaults against BTC and ETH"),),
-        level=3,
-    ),
-    SectionTemplate(
-        key="perp_dex_sharpe",
-        heading_id="best-performing-perp-dex-vaults-by-sharpe",
-        heading="Perpetual futures DEX vaults by Sharpe ratio",
-        charts=(("perp_dex_sharpe_performance", "90-day performance of the perp DEX vaults with the best Sharpe ratio against BTC and ETH"),),
-        level=3,
-    ),
-    SectionTemplate(
-        key="other",
-        heading_id="best-performing-other-vaults",
-        heading="Other vaults",
-        charts=(("other_performance", "90-day performance of other best-performing vaults against benchmarks"),),
-        level=3,
-    ),
-    SectionTemplate(
-        key="amm",
-        heading_id="best-performing-amm-pools",
-        heading="AMM pools",
-        charts=(("amm_performance", "90-day performance of the best-performing AMM pools against benchmarks"),),
-        level=3,
-    ),
+    *(section.template for section in BEST_SECTIONS if section.level == 3),
     SectionTemplate(
         key="by_chain",
         heading_id="the-best-performing-vaults-on-each-chain",
@@ -176,13 +275,7 @@ SECTION_TEMPLATES = (
         charts=(("by_chain_best", "The best-performing vault on each chain"),),
         level=3,
     ),
-    SectionTemplate(
-        key="tokenised_funds",
-        heading_id="the-best-performing-tokenised-funds",
-        heading="The best-performing tokenised funds",
-        intro="<p>Tokenised funds bring traditional money market, treasury and credit funds onchain.</p>",
-        charts=(("tokenised_funds_performance", "90-day performance of the best-performing tokenised funds against benchmarks"),),
-    ),
+    *(section.template for section in BEST_SECTIONS if section.level == 2),
     SectionTemplate(key="new", heading_id="the-best-performing-new-vaults", heading="The best-performing new vaults"),
     SectionTemplate(
         key="risk_return",

@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 #: Ghost API version header value
 GHOST_ACCEPT_VERSION = "v5.0"
 
+#: Public blog base URL; posts live at ``{BLOG_URL}/{slug}``. The Ghost API returns ``ghost.io`` URLs; readers use this domain.
+BLOG_URL = "https://tradingstrategy.ai/blog"
+
 #: Ghost adds this tracking parameter to links in its HTML output
 GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
 

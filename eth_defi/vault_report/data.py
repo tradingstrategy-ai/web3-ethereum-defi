@@ -18,6 +18,7 @@ directory and can be passed as local paths instead of downloading them.
 import datetime
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -48,6 +49,10 @@ DEFAULT_CACHE_MAX_AGE = datetime.timedelta(hours=6)
 
 #: Vault flag for perpetual DEX native trading vaults (Hyperliquid, GRVT, Lighter...)
 PERP_DEX_TRADING_VAULT_FLAG = "perp_dex_trading_vault"
+
+#: Legacy vault page URLs, ``/trading-view/vaults/{slug}`` and ``/trading-view/{chain}/vaults/{slug}``.
+#: The website redirects both to ``/vaults/{slug}``; exports made before the move still carry them.
+LEGACY_VAULT_LINK = re.compile(r"^https://tradingstrategy\.ai/trading-view/(?:[a-z0-9-]+/)?vaults/")
 
 
 @dataclass(slots=True)
@@ -187,6 +192,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     - ``group``: lending, perpetual futures DEX, tokenised fund or other, see
       :py:func:`eth_defi.vault_report.sections.classify_vault`
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
+    - ``trading_strategy_link``: legacy vault page URLs rewritten to ``/vaults/{slug}``, see :py:data:`LEGACY_VAULT_LINK`
 
     TVL values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
     come from broken share tokens and are set to ``NaN``.
@@ -203,6 +209,8 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
 
     for column in ("start_date", "end_date"):
         df[column] = pd.to_datetime(df[column])
+    if "trading_strategy_link" in df.columns:
+        df["trading_strategy_link"] = df["trading_strategy_link"].str.replace(LEGACY_VAULT_LINK, "https://tradingstrategy.ai/vaults/", regex=True)
 
     df["one_month_cagr_best"] = _pick_net(df, "one_month_cagr")
     df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")

@@ -911,3 +911,14 @@ def test_rwa_vaults_section(tmp_path: Path, vault_records: list[dict], prices_pa
     assert "1-0x66" not in report.sections["lending"].vaults_df.index
     post_html = (tmp_path / "out" / "post.html").read_text()
     assert post_html.index('<h3 id="best-performing-lending-vaults">') < post_html.index('<h3 id="best-performing-rwa-vaults">Real-world asset (RWA) vaults</h3>') < post_html.index('<h3 id="best-performing-perp-dex-vaults">')
+
+
+def test_legacy_vault_links_rewritten():
+    """Exports made before the website moved vault pages link to /vaults/ in the report."""
+    records = [
+        make_vault_record("0x81", trading_strategy_link="https://tradingstrategy.ai/trading-view/vaults/foo"),
+        make_vault_record("0x82", trading_strategy_link="https://tradingstrategy.ai/trading-view/base/vaults/bar"),
+        make_vault_record("0x83"),
+    ]
+    links = prepare_vault_metrics(records)["trading_strategy_link"].tolist()
+    assert links == ["https://tradingstrategy.ai/vaults/foo", "https://tradingstrategy.ai/vaults/bar", "https://tradingstrategy.ai/vaults/0x83"]
