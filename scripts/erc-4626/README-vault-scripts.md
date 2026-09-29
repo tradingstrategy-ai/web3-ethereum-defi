@@ -2147,6 +2147,60 @@ to publish the corrected metadata.
 | ``PIPELINE_LOCK_TIMEOUT`` | Optional writer-lock timeout in seconds. Defaults to 60. |
 | ``LOG_LEVEL`` | Optional console log level. Defaults to ``info``. |
 
+### backfill-kamui-vault-prices.py
+
+Backfill only Kamui Stable, Balanced and Boosted on Ethereum. Their zero
+vault-local ``Deposit`` counts kept them out of ordinary price scanning until
+the address-specific exemption landed in [#1606](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1606)
+on 2026-09-28. The script scans hourly
+from their reviewed first-detection blocks (25,888,764 for Stable, 25,897,234
+for Balanced and 25,897,239 for Boosted) up to, but excluding, block
+26,076,164, the first existing Kamui price observation. The fixed range and
+three-address scope make reruns idempotent. It stages and validates a copy of
+the common raw Parquet before replacing it under the ``scan-pipeline`` lock.
+Later Kamui observations, all other vaults, metadata and the scheduled reader
+state are preserved. The mounted dense Ethereum timestamp cache is required.
+
+Inspect the no-write plan first:
+
+```shell
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/backfill-kamui-vault-prices.py
+```
+
+Expected on the 2026-09-29 production snapshot: three vaults, zero existing
+rows inside the replacement range and three later rows preserved for each.
+The default is ``DRY_RUN=true``; the dry run performs local validation only.
+For production, use the mounted ``vault-scanner-oneshot`` service after the new
+image is deployed. Stop the looped scanner, run the script and restart it:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
+  --entrypoint /bin/bash -e DRY_RUN=true vault-scanner-oneshot \
+  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
+  --entrypoint /bin/bash -e DRY_RUN=false vault-scanner-oneshot \
+  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose start vault-scanner-looped)
+```
+
+``DRY_RUN=false`` needs ``JSON_RPC_ETHEREUM`` with archive state and the usual
+Hypersync configuration. ``MAX_WORKERS`` defaults to four; ``TIMESTAMP_CACHE``
+can point to an equivalent prepopulated dense cache. The script prints
+per-vault historical price counts and aborts if any vault lacks a finite
+historical price or a later observation is changed. The next normal
+post-processing cycle regenerates cleaned prices, metrics and sparklines from
+the repaired raw file; whether a sparkline appears immediately still depends
+on 14 days of finite share-price observations.
+
 ### migrate-arcus-vault-metadata.py
 
 Reclassify the two reviewed Arcus BTC and HOOD pTokens on Robinhood Chain after
