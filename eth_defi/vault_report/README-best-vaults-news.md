@@ -155,9 +155,14 @@ Safety rules, see `GhostAdminClient.fetch_writable_draft()`:
 
 - the draft is **never published**: publishing is a manual step in Ghost;
 - a published or scheduled post with the same slug is never touched;
-- an existing draft is replaced only with `GHOST_OVERWRITE_DRAFT=true`,
-  because replacing it loses edits made in Ghost. Use it while iterating on a
-  draft nobody has edited yet.
+- an existing draft is replaced only with `GHOST_OVERWRITE_DRAFT=true`, and
+  only when nobody has edited it since the pipeline wrote it: after each write
+  the script records the draft's `updated_at` and a fingerprint of its text,
+  title, excerpt and feature image in `{CACHE_DIR}/ghost-drafts/{slug}.json`,
+  and compares the draft with that record before replacing it
+  (`ghost.DraftRecord`). A draft re-saved by opening it in the editor passes;
+  an edited one is refused. `GHOST_OVERWRITE_DRAFT=force` skips the comparison,
+  e.g. for a draft written before the record existed.
 
 ## GitHub pull request comment drafts
 

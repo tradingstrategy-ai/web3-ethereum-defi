@@ -77,7 +77,9 @@ investability check and chart rendering take minutes.
 
 The script refuses to overwrite an existing draft with the same slug, because
 that would lose the editor's work, and it never touches a published post. Delete
-the draft, or set `GHOST_OVERWRITE_DRAFT=true`, to regenerate it.
+the draft, or set `GHOST_OVERWRITE_DRAFT=true` to regenerate it. With `true`
+the script still refuses a draft edited since its last write, compared with
+the record in `{CACHE_DIR}/ghost-drafts/`; `force` skips that comparison.
 
 The Admin API key was added on 2026-09-30. `test_ghost_admin_api_draft` (see
 [Tests](#tests)) passed against the live site that day, and the September 2026
@@ -320,7 +322,11 @@ is rendered:
    candidate, with evidence. The pipeline validates the file and aborts on a
    missing, stale or malformed one.
 4. If exclusions make the lists shorter than shown, the next vaults are
-   checked in another round, up to three rounds.
+   checked in another round, up to three rounds
+   (`ReportCriteria.check_max_rounds`). If in-scope vaults in the top lists
+   are still unchecked after the last round, the report stops with an error
+   rather than show them; the finished rounds' decisions are reused on the
+   rerun.
 5. Excluded vaults leave every ranking, chart and the hero
    image, and the inflows and outflows. They are not listed in the post but in
    a dated Markdown file, `{date}-excluded-vaults.md`, written to

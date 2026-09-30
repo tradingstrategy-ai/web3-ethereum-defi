@@ -27,7 +27,9 @@ Environment variables:
 - ``GHOST_ADMIN_API_KEY``: ``{id}:{secret}`` Admin API key of a custom integration, or a staff
   access token; uploads the charts and creates the draft post
 - ``GHOST_DRAFT``: set ``false`` to only write the local bundle, without a Ghost draft
-- ``GHOST_OVERWRITE_DRAFT``: set ``true`` to replace an existing draft with the same slug
+- ``GHOST_OVERWRITE_DRAFT``: ``true`` to replace an existing draft with the same slug if nobody has
+  edited it since this pipeline wrote it, compared with the record in ``{CACHE_DIR}/ghost-drafts/``;
+  ``force`` to replace it without the comparison
 - ``MIN_TVL``: minimum TVL for the best-performing vault tables, default 100,000 USD
 - ``TOP_N``: vaults per best-performing table, default 20
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
@@ -60,7 +62,7 @@ from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
-from eth_defi.vault_report.ghost import ADMIN_API_KEY_HELP, GhostAdminClient, GhostAPIError, GhostContentClient
+from eth_defi.vault_report.ghost import ADMIN_API_KEY_HELP, DraftRecord, GhostAdminClient, GhostAPIError, GhostContentClient
 from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
@@ -139,7 +141,9 @@ def main() -> None:
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     # Fail before any download when the Ghost draft cannot be created
     admin_client = create_admin_client()
-    overwrite_draft = _env_flag("GHOST_OVERWRITE_DRAFT")
+    # "true" replaces an existing draft only if unedited since the pipeline wrote it, "force" in any case
+    force_overwrite = os.environ.get("GHOST_OVERWRITE_DRAFT", "").strip().lower() == "force"
+    overwrite_draft = force_overwrite or _env_flag("GHOST_OVERWRITE_DRAFT")
 
     cache_dir = _env_path("CACHE_DIR") or Path("~/.cache/tradingstrategy/vault-report").expanduser()
     defaults = ReportCriteria()
@@ -159,8 +163,9 @@ def main() -> None:
         # Check the Admin API login and that the slug is free or a replaceable draft,
         # before the investability check and chart rendering take minutes
         slug = make_report_slug(data.data_end_at)
+        draft_record_path = cache_dir / "ghost-drafts" / f"{slug}.json"
         try:
-            admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft)
+            admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=DraftRecord.load(draft_record_path), force=force_overwrite)
         except GhostAPIError as e:
             raise SystemExit(f"Cannot create the Ghost draft {slug}: {e}") from None
         logger.info("Ghost Admin API ready, the draft %s will be created at %s", slug, admin_client.api_url)
@@ -203,7 +208,7 @@ def main() -> None:
         print(tabulate([[row["name"], row["protocol"], row["suspicious_item"], row["blacklist"]] for row in excluded], headers=["Excluded vault", "Protocol", "Suspicious item", "Blacklisted"], tablefmt="fancy_grid"))
 
     if admin_client:
-        post = publish_report_draft(report, admin_client, overwrite_draft=overwrite_draft)
+        post = publish_report_draft(report, admin_client, overwrite_draft=overwrite_draft, force_overwrite=force_overwrite, draft_record_path=draft_record_path)
         print(f"Unpublished Ghost draft ready, open it in the Ghost editor: {admin_client.get_editor_url(post)}")
     else:
         print("GHOST_DRAFT=false: no Ghost draft created")

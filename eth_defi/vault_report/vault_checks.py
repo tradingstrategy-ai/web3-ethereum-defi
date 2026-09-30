@@ -280,9 +280,6 @@ class CheckResult:
     #: Rounds that ran
     rounds: list[CheckRound] = field(default_factory=list)
 
-    #: In-scope vaults still unchecked when the round limit was reached
-    unchecked: list[str] = field(default_factory=list)
-
     @property
     def excluded(self) -> frozenset[str]:
         """Ids of excluded vaults."""
@@ -856,9 +853,11 @@ def run_vault_checks(
             break
         run_round(in_scope)
     else:
-        result.unchecked = sorted(c.vault_id for c in triage(build_check_candidates(collect_lists(remaining()))))
-        if result.unchecked:
-            logger.warning("Round limit reached with %d unchecked in-scope vaults in the top lists: %s", len(result.unchecked), result.unchecked)
+        # A vault the check never saw must not reach a ranking: stop rather than publish it.
+        # The decisions of the finished rounds are saved, so a rerun with more rounds reuses them.
+        unchecked = sorted(c.vault_id for c in triage(build_check_candidates(collect_lists(remaining()))))
+        if unchecked:
+            raise CheckValidationError(f"Round limit of {max_rounds} reached with {len(unchecked)} unchecked in-scope vaults in the top lists: {unchecked}. Raise ReportCriteria.check_max_rounds and rerun; the finished rounds are reused.")
 
     if aggregate_df is not None:
         pool = aggregate_df.loc[aggregate_df["protocol_slug"].isin(CHECK_SCOPE.keys()) & (aggregate_df["current_nav"] >= prescreen_min_tvl) & ~aggregate_df.index.isin(list(result.decisions))]
@@ -958,7 +957,6 @@ def render_excluded_vaults_markdown(result: CheckResult, data_end_at: datetime.d
         "## Check run",
         "",
         f"- Rounds: {len(result.rounds)}; decisions: {', '.join(f'{count} {name}' for name, count in sorted(counts.items()))}",
-        f"- In-scope vaults not checked before the round limit: {len(result.unchecked)}",
         f"- Decision files: {', '.join(f'`{r.decisions_path.name}`' for r in result.rounds)}",
         "",
     ]
@@ -993,7 +991,6 @@ def summarise_checks(result: CheckResult) -> dict:
         "rules_version": RULES_VERSION,
         "counts": dict(Counter(decision.decision for decision in result.decisions.values())),
         "rounds": [{"number": r.number, "candidates": r.candidates_path.name, "decisions": r.decisions_path.name, "candidates_digest": r.candidates_digest} for r in result.rounds],
-        "unchecked": result.unchecked,
         "excluded": excluded_rows(result),
         "uncertain": [c.vault_id for c in result.uncertain],
     }

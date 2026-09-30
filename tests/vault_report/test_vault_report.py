@@ -1,6 +1,7 @@
 """Unit tests for the monthly vault report pipeline, using synthetic data."""
 
 import base64
+import dataclasses
 import datetime
 import hashlib
 import hmac
@@ -28,7 +29,7 @@ from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_
 from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, LEGEND_MARGIN, LegendEntry, PerformanceSeries, VaultProperty, add_logo_legend, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, plain_text, select_moving_vaults, trim_logos, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
-from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, check_ghost_admin_api_key, create_ghost_admin_token
+from eth_defi.vault_report.ghost import DraftRecord, GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, check_ghost_admin_api_key, create_ghost_admin_token, fingerprint_post_text
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
@@ -529,7 +530,7 @@ class FakeSession:
     ("existing_status", "overwrite", "expected"),
     [
         (None, False, "POST"),
-        ("draft", True, "PUT"),
+        ("draft", True, GhostAPIError),  # No record of the pipeline's last write
         ("draft", False, GhostAPIError),
         ("published", True, GhostAPIError),
     ],
@@ -991,7 +992,7 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     # Publishing uploads the logos with the charts and links them in the draft
     client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
     drafts = []
-    monkeypatch.setattr(client, "fetch_writable_draft", lambda slug, overwrite_draft: None)
+    monkeypatch.setattr(client, "fetch_writable_draft", lambda slug, **kwargs: None)
     monkeypatch.setattr(client, "upload_image", lambda path: f"https://ghost.example/{path.name}")
     monkeypatch.setattr(client, "create_or_update_draft", lambda **kwargs: drafts.append(kwargs) or GhostPost("d1", kwargs["title"], kwargs["slug"], "draft", None, None, None))
     monkeypatch.setattr(client, "get_editor_url", lambda post: "https://example.ghost.io/ghost/#/editor/post/d1")
@@ -1160,3 +1161,22 @@ def test_risk_return_chart_has_perp_dex_category_and_no_vault_labels(vaults_df: 
     # Outliers are left out, without an off-scale entry
     assert not any(trace.name.startswith("Off scale") for trace in figure.data)
     assert [annotation.text for annotation in figure.layout.annotations] == ["US 3M T-bill 4.0%"]
+
+
+def test_draft_overwrite_guard():
+    """An existing draft is replaced only when it is as the pipeline left it, or with force."""
+    body = '<p>Report</p><!--kg-card-begin: html-->\n<table><tr><td>1</td></tr></table>\n<!--kg-card-end: html--><figure><img src="a.png"></figure><h2 id="x">Heading</h2>'
+    # Ghost returns the same text re-serialised: other whitespace, the table converted, image URLs rewritten
+    ghost_html = '<p>Report</p>\n<!--kg-card-begin: html--><table><tbody><tr><td>1</td></tr></tbody></table><!--kg-card-end: html-->\n<figure class="kg-card"><img src="https://storage.ghost.io/a.png"></figure><h2 id="heading">Heading</h2>'
+    record = DraftRecord(post_id="p1", updated_at="2026-09-30T19:00:00.000Z", fingerprint=fingerprint_post_text(body), title="Title", custom_excerpt="Excerpt", feature_image=None)
+    reopened = GhostPost("p1", "Title", "s", "draft", ghost_html, None, "2026-09-30T19:05:00.000Z", custom_excerpt="Excerpt")
+    assert record.matches(reopened)  # Re-saved by the editor on opening, nothing changed
+    assert not record.matches(dataclasses.replace(reopened, html=ghost_html.replace("Report", "Edited report")))
+    assert not record.matches(dataclasses.replace(reopened, feature_image="https://example.com/hero.png"))
+    assert record.matches(dataclasses.replace(reopened, html="<p>changed</p>", updated_at=record.updated_at))  # Untouched since the write
+
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
+    client.session = FakeSession("draft")
+    with pytest.raises(GhostAPIError, match="no record"):
+        client.fetch_writable_draft("s", overwrite_draft=True)
+    assert client.fetch_writable_draft("s", overwrite_draft=True, force=True).id == "p1"

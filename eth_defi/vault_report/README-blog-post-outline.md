@@ -217,9 +217,9 @@ them; keep them when changing the templates in `post.py` or the notes in
 
 - The feature image is left empty for the editor; `hero.png` is an option.
 - The script creates or replaces an unpublished Ghost draft and never
-  publishes. Replace a draft only when nobody has edited it since the
-  pipeline wrote it: opening a draft in the editor re-saves it, so compare its
-  text and settings, not only `updated_at`.
+  publishes. It replaces a draft only when nobody has edited it since the
+  pipeline wrote it, comparing the draft with its record of the last write;
+  opening a draft in the editor re-saves it, which the comparison allows.
 
 ## Changes from the earlier outline
 

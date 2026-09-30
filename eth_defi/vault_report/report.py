@@ -56,7 +56,7 @@ from eth_defi.vault_report.charts import (
     trim_logos,
 )
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
-from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
+from eth_defi.vault_report.ghost import DraftRecord, GhostAdminClient, GhostPost, fingerprint_post_text
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_path, load_protocol_logo_uri
 from eth_defi.vault_report.podcasts import PODCAST_SERVICES, PodcastEpisode, icon_image_key, logo_image_key
 from eth_defi.vault_report.post import BEST_SECTIONS, NEW_VAULTS_CHART, BestSection, PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
@@ -486,8 +486,6 @@ def log_check_summary(result: CheckResult | None) -> None:
     logger.info("The investability check left %d vaults out of the post", len(result.excluded))
     if result.uncertain:
         logger.warning("The check could not decide on %d vaults, which stay in the report; resolve them before publishing: %s", len(result.uncertain), ", ".join(candidate.name for candidate in result.uncertain))
-    if result.unchecked:
-        logger.warning("%d in-scope vaults in the top lists were not checked before the round limit", len(result.unchecked))
 
 
 def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, ReportSection]:
@@ -702,14 +700,17 @@ def render_report_charts(
             ),
         )
 
-    risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(yield_universe, ranked_df, criteria), criteria))
-    risk_return_figure = create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest)
-    # Count the drawn vaults: outliers beyond the fitted axes are left out
-    drawn = sum(len(trace.x) for trace in risk_return_figure.data)
-    figures["risk_return"] = (
-        risk_return_figure,
-        ChartPanel("Volatility risk and return of stablecoin vaults", f"{drawn} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
-    )
+    risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(yield_universe, ranked_df, criteria), criteria)).dropna(subset=["three_months_volatility", "three_months_cagr_best", "current_nav"])
+    if not len(risk_return_vaults):
+        logger.warning("No vault has three-month volatility and return, leaving out the risk and return chart")
+    else:
+        risk_return_figure = create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest)
+        # Count the drawn vaults: outliers beyond the fitted axes are left out
+        drawn = sum(len(trace.x) for trace in risk_return_figure.data)
+        figures["risk_return"] = (
+            risk_return_figure,
+            ChartPanel("Volatility risk and return of stablecoin vaults", f"{drawn} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
+        )
 
     chart_dir = output_dir / "charts"
     chart_paths = {}
@@ -956,12 +957,17 @@ def publish_report_draft(
     tags: list[str] | None = None,
     *,
     overwrite_draft: bool = False,
+    force_overwrite: bool = False,
+    draft_record_path: Path | None = None,
 ) -> GhostPost:
     """Upload the images and create the Ghost draft post.
 
-    The feature image is left empty for the editor to choose; the bundle's
-    ``hero.png`` is a ready-made option. The draft is never published automatically. An existing draft with the same slug is replaced
-    only with ``overwrite_draft``, as replacing it loses manual edits made in Ghost.
+    The feature image is left for the editor to choose; the bundle's
+    ``hero.png`` is a ready-made option. The draft is never published
+    automatically. An existing draft with the same slug is replaced only with
+    ``overwrite_draft``, and only when the record of the pipeline's last write
+    shows nobody has edited it since, because replacing it would lose manual
+    edits made in Ghost. After the write the record is updated.
 
     :param report:
         Output of :py:func:`generate_monthly_vault_report`.
@@ -973,22 +979,36 @@ def publish_report_draft(
         Tag names for the post.
 
     :param overwrite_draft:
-        Replace an existing draft with the same slug.
+        Replace an existing draft with the same slug if it is unedited.
+
+    :param force_overwrite:
+        Replace an existing draft without checking it for edits.
+
+    :param draft_record_path:
+        JSON record of the pipeline's last write to this draft, see
+        :py:class:`~eth_defi.vault_report.ghost.DraftRecord`. Without it, an
+        existing draft is replaced only with ``force_overwrite``.
 
     :return:
         The Ghost draft post.
     """
+    last_write = DraftRecord.load(draft_record_path) if draft_record_path else None
     # Fail before uploading images if the draft cannot be written
-    admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft)
+    admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force_overwrite)
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
     podcast_image_urls = {key: admin_client.upload_image(path) for key, path in report.podcast_image_paths.items()}
+    body = build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls))
     post = admin_client.create_or_update_draft(
         title=report.title,
         slug=report.slug,
-        html=build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls)),
+        html=body,
         custom_excerpt=report.excerpt,
         tags=tags,
         overwrite_draft=overwrite_draft,
+        last_write=last_write,
+        force=force_overwrite,
     )
+    if draft_record_path:
+        DraftRecord(post_id=post.id, updated_at=post.updated_at, fingerprint=fingerprint_post_text(body), title=report.title, custom_excerpt=report.excerpt, feature_image=post.feature_image).save(draft_record_path)
     write_report_manifest(report, post, admin_client.get_editor_url(post))
     return post

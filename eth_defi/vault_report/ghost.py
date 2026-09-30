@@ -13,11 +13,12 @@ import base64
 import datetime
 import hashlib
 import hmac
+import html as html_lib
 import json
 import logging
 import mimetypes
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import requests
@@ -168,6 +169,12 @@ class GhostPost:
     #: Last update timestamp as returned by Ghost, needed for updates
     updated_at: str | None
 
+    #: Post excerpt
+    custom_excerpt: str | None = None
+
+    #: Feature image URL
+    feature_image: str | None = None
+
     @staticmethod
     def from_api(data: dict) -> "GhostPost":
         """Parse a post from a Ghost API response.
@@ -189,7 +196,100 @@ class GhostPost:
             html=data.get("html"),
             published_at=published_at,
             updated_at=data.get("updated_at"),
+            custom_excerpt=data.get("custom_excerpt"),
+            feature_image=data.get("feature_image"),
         )
+
+
+def fingerprint_post_text(post_html: str) -> str:
+    """Fingerprint the visible text of a post body.
+
+    Ghost converts the HTML the pipeline sends into its editor format and
+    back, and re-saves a draft when it is opened in the editor, so the HTML
+    itself changes without an edit. The fingerprint covers only the text:
+    images are dropped, HTML cards such as tables count as one placeholder,
+    and whitespace is normalised. The HTML the pipeline sent and the HTML
+    Ghost returns for an unedited draft have the same fingerprint.
+
+    :param post_html:
+        Post body HTML.
+
+    :return:
+        SHA-256 hex digest of the normalised text.
+    """
+    text = re.sub(r"<!--kg-card-begin: html-->.*?<!--kg-card-end: html-->", "\n[HTML CARD]\n", post_html, flags=re.DOTALL)
+    text = re.sub(r"<img[^>]*>", "", text)
+    # Every block element starts and ends a line, wherever Ghost puts its own line breaks
+    text = re.sub(r"</?(p|h[1-6]|li|ul|ol|div|figure|figcaption|blockquote|hr)\b[^>]*>", "\n", text)
+    text = html_lib.unescape(re.sub(r"<[^>]+>", "", text))
+    lines = [re.sub(r"\s+", " ", line).strip() for line in text.split("\n")]
+    return hashlib.sha256("\n".join(line for line in lines if line).encode()).hexdigest()
+
+
+@dataclass(slots=True)
+class DraftRecord:
+    """What the pipeline last wrote to a draft, to tell whether an editor has changed it since.
+
+    Stored as JSON next to the download cache after every write, see
+    :py:meth:`GhostAdminClient.fetch_writable_draft`.
+    """
+
+    #: Ghost post id
+    post_id: str
+
+    #: ``updated_at`` returned by Ghost for the pipeline's write
+    updated_at: str | None
+
+    #: :py:func:`fingerprint_post_text` of the body the pipeline sent
+    fingerprint: str
+
+    #: Title the pipeline set
+    title: str
+
+    #: Excerpt the pipeline set
+    custom_excerpt: str | None
+
+    #: Feature image after the write; the pipeline never sets one
+    feature_image: str | None
+
+    def matches(self, post: GhostPost) -> bool:
+        """Check that a draft is as the pipeline left it.
+
+        A later ``updated_at`` alone is not an edit, because Ghost re-saves a
+        draft when it is opened, so the text and settings are compared too.
+
+        :param post:
+            The draft, fetched with ``formats=html``.
+
+        :return:
+            ``True`` when nobody has changed the draft's text or settings.
+        """
+        if post.id != self.post_id:
+            return False
+        if post.updated_at == self.updated_at:
+            return True
+        return fingerprint_post_text(post.html or "") == self.fingerprint and (post.title, post.custom_excerpt, post.feature_image) == (self.title, self.custom_excerpt, self.feature_image)
+
+    def save(self, path: Path) -> None:
+        """Write the record as JSON.
+
+        :param path:
+            Record file.
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(asdict(self), indent=2))
+
+    @classmethod
+    def load(cls, path: Path) -> "DraftRecord | None":
+        """Read a record written by :py:meth:`save`.
+
+        :param path:
+            Record file.
+
+        :return:
+            The record, or ``None`` if the file does not exist.
+        """
+        return cls(**json.loads(path.read_text())) if path.exists() else None
 
 
 class GhostContentClient:
@@ -336,8 +436,13 @@ class GhostAdminClient:
         resp = self.session.delete(self._url(f"posts/{post_id}/"), headers=self._headers(), timeout=self.timeout)
         _raise_for_ghost_error(resp, f"delete post {post_id}")
 
-    def fetch_writable_draft(self, slug: str, *, overwrite_draft: bool = False) -> GhostPost | None:
+    def fetch_writable_draft(self, slug: str, *, overwrite_draft: bool = False, last_write: DraftRecord | None = None, force: bool = False) -> GhostPost | None:
         """Fetch the existing post for a slug and check a draft can be written there without losing work.
+
+        An existing draft is replaced only with ``overwrite_draft``, and only
+        when ``last_write`` shows nobody has edited it since the pipeline
+        wrote it, see :py:meth:`DraftRecord.matches`. ``force`` skips that
+        comparison.
 
         :param slug:
             Post slug.
@@ -345,12 +450,18 @@ class GhostAdminClient:
         :param overwrite_draft:
             Allow replacing an existing draft.
 
+        :param last_write:
+            What the pipeline last wrote to this draft.
+
+        :param force:
+            Replace an existing draft without comparing it with ``last_write``.
+
         :return:
             The existing draft to replace, or ``None`` if the slug is free.
 
         :raise GhostAPIError:
             A post with the slug has been published or scheduled, or a draft
-            exists and ``overwrite_draft`` is not set.
+            exists and may have been edited.
         """
         existing = self.fetch_post_by_slug(slug)
         if existing is None:
@@ -359,6 +470,12 @@ class GhostAdminClient:
             raise GhostAPIError(f"Post {slug} already exists with status {existing.status}; refusing to overwrite it")
         if not overwrite_draft:
             raise GhostAPIError(f"Draft {slug} already exists; refusing to overwrite possible manual edits. Delete the draft or enable overwriting.")
+        if force:
+            return existing
+        if last_write is None:
+            raise GhostAPIError(f"Draft {slug} exists but there is no record of what this pipeline last wrote to it, so edits cannot be ruled out. Check the draft and force the overwrite, or delete it.")
+        if not last_write.matches(existing):
+            raise GhostAPIError(f"Draft {slug} has been edited in Ghost since this pipeline wrote it; refusing to overwrite the edits.")
         return existing
 
     def create_or_update_draft(
@@ -370,6 +487,8 @@ class GhostAdminClient:
         tags: list[str] | None = None,
         *,
         overwrite_draft: bool = False,
+        last_write: DraftRecord | None = None,
+        force: bool = False,
     ) -> GhostPost:
         """Create a draft post, or replace the body of an existing draft with the same slug.
 
@@ -398,6 +517,12 @@ class GhostAdminClient:
         :param overwrite_draft:
             Replace the body of an existing draft with the same slug.
 
+        :param last_write:
+            What the pipeline last wrote to the draft, see :py:meth:`fetch_writable_draft`.
+
+        :param force:
+            Replace an existing draft without comparing it with ``last_write``.
+
         :return:
             The created or updated draft.
         """
@@ -408,7 +533,7 @@ class GhostAdminClient:
             post_data["tags"] = [{"name": t} for t in tags]
         # The feature image is the editor's choice: it is never sent, so replacing a draft keeps it
 
-        existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft)
+        existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force)
         if existing is None:
             resp = self.session.post(self._url("posts/"), headers=self._headers(), params={"source": "html"}, json={"posts": [post_data]}, timeout=self.timeout)
             _raise_for_ghost_error(resp, f"create draft {slug}")
