@@ -92,6 +92,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Asseto": VaultFeeMode.internalised_skimming,
     # Premium option-premium fees are not universal LP management,
     # performance, deposit or withdrawal fees.
+    "Antarctic": None,
     "Rysk": None,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,

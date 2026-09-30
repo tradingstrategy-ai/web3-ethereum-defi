@@ -92,6 +92,10 @@ class ERC4626Feature(enum.Enum):
     #: priced from protocol-specific onchain events.
     rysk_premium_like = "rysk_premium_like"
 
+    #: Antarctic perpetual exchange LP settlement prices.
+    #: https://www.antarctic.exchange/lp/amlp
+    antarctic_like = "antarctic_like"
+
     #: Franklin Templeton Benji tokenised fund share.
     #:
     #: https://digitalassets.franklintempleton.com/benji/
@@ -1049,6 +1053,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.gmx_glv,
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
+            ERC4626Feature.antarctic_like,
         )
     )
     kamui_exempt = ERC4626Feature.lagoon_like in detection.features and is_kamui_lagoon_vault(detection.chain, detection.address)
@@ -1155,6 +1160,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.antarctic_like in features:
+        return "Antarctic"
     elif ERC4626Feature.rysk_premium_like in features:
         return "Rysk"
     elif ERC4626Feature.franklin_like in features:

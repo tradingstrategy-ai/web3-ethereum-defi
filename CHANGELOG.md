@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30).
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
 - fix: Retry Derive v3 transient application error 9002 with bounded exponential backoff instead of failing live vault-listing reads immediately (2026-09-28).
 - fix: List Kamui's three permissioned Lagoon vaults through one chain-aware address registry, bypass their inapplicable generic Deposit-event threshold, and refresh their onchain whitelist and unofficial metadata (2026-09-28).
