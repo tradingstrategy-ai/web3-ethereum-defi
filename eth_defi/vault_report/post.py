@@ -29,7 +29,7 @@ from typing import Literal
 
 from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
-from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls
+from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls, web_link
 
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
@@ -71,7 +71,7 @@ def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) ->
     :return:
         Section HTML.
     """
-    links = [f'<a href="{html.escape(url)}">{html.escape(name)}</a>' for name, url in partners]
+    links = [web_link(name, url) for name, url in partners]
     names = ", ".join(links[:-1]) + f" and {links[-1]}" if len(links) > 1 else "".join(links)
     return f'<h2 id="partners">Partners</h2><p>We want to thank our partners {names} for getting this report together.</p>'
 
@@ -87,11 +87,12 @@ DEFAULT_EVERGREEN_SECTIONS = {
 class SectionTemplate:
     """Static content of one data section of the post.
 
-    A section is included when its table or any of its charts exists, or
-    always when :py:attr:`always` is set, e.g. for a heading that groups subsections.
+    A section is included when its table or any of its charts exists. A
+    grouping heading, see :py:attr:`group`, is included when any of its
+    subsections is.
     """
 
-    #: Section key: the table key in :py:attr:`PostContext.tables` and the criteria notes key
+    #: Section key: the table key in :py:attr:`PostContext.tables` and the section notes key
     key: str
 
     #: Heading anchor id
@@ -108,9 +109,6 @@ class SectionTemplate:
 
     #: Heading level, 2 for sections and 3 for subsections
     level: int = 2
-
-    #: Include the section even without a table or chart
-    always: bool = False
 
     #: A heading that groups the subsections after it: included when any of them is
     group: bool = False
@@ -175,8 +173,11 @@ class BestSection:
         return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, intro=self.intro, charts=((self.chart_key, alt),), level=3)
 
 
-#: Best-performing vault sections: subsections of the best-performing vaults, in display order
-#: except that the tokenised funds come last, after the new vaults and the per-chain section
+#: Chart key of the new vaults performance chart in :py:attr:`PostContext.charts`
+NEW_VAULTS_CHART = "new_performance"
+
+#: Best-performing vault groups, each with a table and a performance chart;
+#: :py:data:`SECTION_TEMPLATES` sets their display order
 BEST_SECTIONS = (
     BestSection(
         key="lending",
@@ -235,6 +236,9 @@ BEST_SECTIONS = (
 )
 
 
+#: Post sections of the best-performing vault groups, by key
+BEST_TEMPLATES = {section.key: section.template for section in BEST_SECTIONS}
+
 #: Data sections in display order. Follows the *Writing rules* in ``README-blog-post-outline.md``:
 #: the best-performing vaults first, with no introduction or caption, then average yield,
 #: risk and return, and the TVL section with inflows and outflows last. Every other
@@ -245,17 +249,17 @@ SECTION_TEMPLATES = (
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
         # No introduction and no T-bill caption: the heading leads straight to its subsections
-        always=True,
+        group=True,
     ),
     SectionTemplate(
         key="new",
         heading_id="best-performing-new-vaults",
         heading="New vaults",
         intro=f'<p>The best-performing vaults launched recently. Their short history makes their returns less reliable, so treat them as vaults to watch. See all <a href="{VAULTS_URL}/new-vaults">new vaults</a>.</p>',
-        charts=(("new_performance", "Performance of the best-performing new vaults since their launch against their benchmarks"),),
+        charts=((NEW_VAULTS_CHART, "Performance of the best-performing new vaults since their launch against their benchmarks"),),
         level=3,
     ),
-    *(section.template for section in BEST_SECTIONS if section.group != TOKENISED_FUND),
+    *(BEST_TEMPLATES[key] for key in ("lending", "rwa", "perp_dex", "perp_dex_sharpe", "amm")),
     SectionTemplate(
         key="by_chain",
         heading_id="best-performing-vaults-on-each-chain",
@@ -264,7 +268,7 @@ SECTION_TEMPLATES = (
         charts=(("by_chain_best", "The two best-performing vaults on each chain"),),
         level=3,
     ),
-    *(section.template for section in BEST_SECTIONS if section.group == TOKENISED_FUND),
+    BEST_TEMPLATES["tokenised_funds"],
     SectionTemplate(
         key="average_yields",
         heading_id="yield-by-chain-and-protocol",
@@ -381,9 +385,6 @@ class PostContext:
 
     #: Previous report post, if found
     previous: GhostPost | None = None
-
-    #: Recent changelog entries offered to the editor for the report content updates section
-    changelog_entries: list[str] = field(default_factory=list)
 
     #: Latest podcast episodes, newest first; the section is left out when empty
     podcasts: list[PodcastEpisode] = field(default_factory=list)
@@ -571,7 +572,7 @@ def build_post_html(context: PostContext) -> str:
         ]
 
     def _has_content(template: SectionTemplate) -> bool:
-        return template.always or template.key in context.tables or any(chart_key in context.charts for chart_key, _ in template.charts)
+        return template.key in context.tables or any(chart_key in context.charts for chart_key, _ in template.charts)
 
     for index, template in enumerate(SECTION_TEMPLATES):
         if template.group:

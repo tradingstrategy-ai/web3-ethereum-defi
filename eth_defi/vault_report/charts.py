@@ -41,7 +41,7 @@ from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.logos import to_data_uri
-from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CAPPED_RETURN_LABEL, CHART_RETURN
+from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CAPPED_RETURN_LABEL, CHART_RETURN, PERP_DEX, format_return
 from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
@@ -372,21 +372,19 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     icon_slot = max((prop.icon_size[0] for entry in split_entries for prop in entry.properties if prop.logo_uri), default=0.0)
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
-        entry_split = split and not entry.inline
         if entry.inline:
             detail_width = _measure_text(re.sub("<[^>]+>", "", entry.detail), 17) if entry.detail else 0.0
             widest = max(widest, inline_icon + PROPERTY_ICON_GAP + _measure_text(entry.label, 17, bold=True) + 12 + detail_width)
             layouts.append((entry, [entry.label], line_pixels + gap_pixels))
             continue
-        property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
-        property_widths = [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths = [_measure_text(line, 17, bold=True) for line in lines]
-        if entry_split:
+        if split:
             height = len(lines) * line_pixels + max(line_pixels if entry.detail else 0, len(entry.properties) * PROPERTY_ROW_HEIGHT)
             widths += [detail_column + icon_slot + PROPERTY_ICON_GAP + _measure_text(prop.text) for prop in entry.properties]
         else:
+            property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
             height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
-            widths += property_widths
+            widths += [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
         layouts.append((entry, lines, height + gap_pixels))
@@ -399,7 +397,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     if split:
         # Spread the spare height evenly between entries, so short and tall entries have equal gaps
         # and the last entry ends at the bottom of the plot
-        spare = max(0.0, (1 - (1 - top)) * plot_height - sum(pitch for _, _, pitch in layouts) + gap_pixels)
+        spare = max(0.0, top * plot_height - sum(pitch for _, _, pitch in layouts) + gap_pixels)
         extra = spare / max(len(layouts) - 1, 1)
         layouts = [(entry, lines, pitch + (extra if i < len(layouts) - 1 else 0)) for i, (entry, lines, pitch) in enumerate(layouts)]
     else:
@@ -436,12 +434,11 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         label = "<br>".join(f"<b>{plain_text(line)}</b>" for line in lines)
         fig.add_annotation(text=label, xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
-        entry_split = split and not entry.inline
         if entry.detail:
             fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
-            if not entry_split:
+            if not split:
                 cursor -= line_pixels / plot_height
-        if entry.properties and entry_split:
+        if entry.properties and split:
             properties_x = text_x + detail_column / plot_width
             for i, prop in enumerate(entry.properties):
                 centre = cursor - (i + 0.5) * PROPERTY_ROW_HEIGHT / plot_height
@@ -974,7 +971,7 @@ def create_chain_best_figure(
         lines = []
         for vault in (*leaders.loc[leaders["chain"] == chain].itertuples(), *seconds.loc[seconds["chain"] == chain].itertuples()):
             value = getattr(vault, CHART_RETURN)
-            text = CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
+            text = format_return(value, None)
             lines.append(f"{highlight_number(text, theme, value)}  {plain_text(shorten_text(vault.name or vault.address, 28))}")
         fig.add_annotation(
             text="<br>".join(lines),
@@ -1147,14 +1144,16 @@ def create_risk_return_figure(
 
     df["x"] = volatility
     df["y"] = returns
-    # Outliers beyond the fitted axes are not drawn
-    df["off"] = (returns > y_high) | (returns < y_low) | (volatility > x_high)
     # Bubble area grows with the square root of TVL, capped, so the few multi-billion vaults do not cover the chart
     df["size"] = np.sqrt(df["current_nav"].clip(upper=1e9))
     df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unclassified")
+    # Perp DEX vaults are one category whatever their trading style
+    if "group" in df:
+        df.loc[df["group"] == PERP_DEX, "category"] = category_labels.get("perpetual_futures", "Perpetual futures")
     classified = df.loc[df["category"] != "Unclassified", "category"].value_counts().index[: len(theme.series_colours) - 1].tolist()
     df["category"] = df["category"].where(df["category"].isin(classified) | (df["category"] == "Unclassified"), "Other")
-    on_scale = df.loc[~df["off"]].sort_values("size", ascending=False)
+    # Outliers beyond the fitted axes are not drawn
+    on_scale = df.loc[returns.between(y_low, y_high) & (volatility <= x_high)].sort_values("size", ascending=False)
 
     fig = go.Figure()
     size_ref = 2.0 * df["size"].max() / (34**2)

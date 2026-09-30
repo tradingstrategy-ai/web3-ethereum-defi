@@ -494,29 +494,27 @@ def read_overrides(path: Path) -> dict[str, CheckDecision]:
     return {decision.vault_id: decision for decision in (parse_decision(record) for record in json.loads(path.read_text()))}
 
 
-def check_blacklist_entries(decisions: dict[str, CheckDecision], flag_file: Path) -> list[str]:
-    """Check that every blacklisted vault has an entry in ``flag.py``.
+def _flag_key(vault_id: str) -> str:
+    """``VAULT_FLAGS_AND_NOTES`` key of a vault id: its lowercased address."""
+    return vault_id.split("-", 1)[1].lower()
 
-    ``flag.py`` is parsed from source, because the agent edits it while this
-    process already has the module loaded.
+
+def check_blacklist_entries(decisions: dict[str, CheckDecision], entries: dict[str, str | None]) -> list[str]:
+    """Check that every blacklisted vault has an entry in ``flag.py``.
 
     :param decisions:
         Decisions of the round.
 
-    :param flag_file:
-        Path to ``eth_defi/vault/flag.py``.
+    :param entries:
+        ``flag.py`` entries, see :py:func:`read_flag_entries`.
 
     :return:
-        Vault ids missing from ``VAULT_FLAGS_AND_NOTES``.
+        Vault ids missing from ``VAULT_FLAGS_AND_NOTES`` or flagged differently.
     """
-    blacklisted = {vault_id: decision.vault_flag for vault_id, decision in decisions.items() if decision.blacklist}
-    if not blacklisted:
-        return []
-    entries = read_flag_entries(flag_file)
-    return [vault_id for vault_id, flag in blacklisted.items() if entries.get(vault_id.split("-", 1)[1].lower()) != flag]
+    return [vault_id for vault_id, decision in decisions.items() if decision.blacklist and entries.get(_flag_key(vault_id)) != decision.vault_flag]
 
 
-def find_unreviewed_uncertain(decisions: dict[str, CheckDecision], flag_file: Path) -> list[str]:
+def find_unreviewed_uncertain(decisions: dict[str, CheckDecision], entries: dict[str, str | None]) -> list[str]:
     """Find ``uncertain`` vaults without an entry in ``flag.py``.
 
     The skill asks the agent to record every ``uncertain`` vault with
@@ -526,21 +524,20 @@ def find_unreviewed_uncertain(decisions: dict[str, CheckDecision], flag_file: Pa
     :param decisions:
         Decisions of the round.
 
-    :param flag_file:
-        Path to ``eth_defi/vault/flag.py``.
+    :param entries:
+        ``flag.py`` entries, see :py:func:`read_flag_entries`.
 
     :return:
         Vault ids of ``uncertain`` decisions missing from ``VAULT_FLAGS_AND_NOTES``.
     """
-    uncertain = [vault_id for vault_id, decision in decisions.items() if decision.decision == "uncertain"]
-    if not uncertain:
-        return []
-    entries = read_flag_entries(flag_file)
-    return [vault_id for vault_id in uncertain if vault_id.split("-", 1)[1].lower() not in entries]
+    return [vault_id for vault_id, decision in decisions.items() if decision.decision == "uncertain" and _flag_key(vault_id) not in entries]
 
 
 def read_flag_entries(flag_file: Path) -> dict[str, str | None]:
     """Read the vault flags of ``VAULT_FLAGS_AND_NOTES`` from the ``flag.py`` source.
+
+    ``flag.py`` is parsed from source, because the agent edits it while this
+    process already has the module loaded.
 
     :param flag_file:
         Path to ``eth_defi/vault/flag.py``.
@@ -705,11 +702,12 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
     diff_before = show_flag_diff(settings.repository_root)
     run_check_agent(command, settings.repository_root, output_dir / f"vault-check-agent-{number}.jsonl", round_.decisions_path, settings.timeout)
     decisions = read_check_decisions(round_.decisions_path, in_scope, round_.candidates_digest, data_end_at)
-    missing = check_blacklist_entries(decisions, settings.repository_root / FLAG_FILE)
+    entries = read_flag_entries(settings.repository_root / FLAG_FILE)
+    missing = check_blacklist_entries(decisions, entries)
     if missing:
         raise CheckValidationError(f"Blacklisted vaults missing from {FLAG_FILE}: {missing}")
     # A missing review entry loses the doubt after this run, but the decisions are still valid
-    unreviewed = find_unreviewed_uncertain(decisions, settings.repository_root / FLAG_FILE)
+    unreviewed = find_unreviewed_uncertain(decisions, entries)
     if unreviewed:
         logger.warning("Uncertain vaults without a review_needed entry in %s: %s", FLAG_FILE, unreviewed)
     # Warn only about changes made in this round, not uncommitted entries of earlier rounds

@@ -4,7 +4,7 @@ Each report section is a ranked subset of the vault metrics loaded by
 :py:func:`eth_defi.vault_report.data.fetch_vault_report_data`. The post
 structure is described in ``eth_defi/vault_report/README-blog-post-outline.md``.
 
-Vaults are classified into groups, each ranked in its own table:
+Vaults are classified into groups; each group except *Other* is ranked in its own table:
 
 - **Lending:** strategy tagged as lending, or a known lending protocol, see
   :py:data:`LENDING_PROTOCOL_SLUGS`
@@ -160,7 +160,7 @@ class ReportCriteria:
     #: Leave vaults above this annualised three-month volatility out of the hero image
     hero_max_volatility: Percent = 0.5
 
-    #: Clip the risk and return scatter's y axis at this annualised return; vaults above are drawn on the top edge
+    #: Clip the risk and return scatter's y axis at this annualised return; vaults above are left out
     scatter_max_return: Percent = 1.0
 
     #: Number of blockchains in the average yield chart, the largest by TVL
@@ -409,6 +409,21 @@ def rank_vaults(df: pd.DataFrame, column: str = "one_month_cagr_best") -> pd.Dat
     return df.sort_values([column, tie_breaker], ascending=False, na_position="last")
 
 
+def group_min_tvl(group: str, criteria: ReportCriteria) -> USDollarAmount:
+    """Minimum TVL of a vault group's table and chart: higher for AMM pools.
+
+    :param group:
+        Vault group, see :py:func:`classify_vault`.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Minimum TVL in USD.
+    """
+    return criteria.amm_min_tvl if group == AMM else criteria.min_tvl
+
+
 def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str, *, by: str = "one_month_cagr_best") -> pd.DataFrame:
     """Select the best vaults of a vault group.
 
@@ -433,8 +448,7 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
         All matching vaults, best first, not truncated.
     """
     df = eligible_df
-    min_tvl = criteria.amm_min_tvl if group == AMM else criteria.min_tvl
-    mask = (df["group"] == group) & (df["current_nav"] >= min_tvl)
+    mask = (df["group"] == group) & (df["current_nav"] >= group_min_tvl(group, criteria))
     if group in (LENDING, RWA, OTHER):
         mask &= df["event_count"] >= criteria.min_events
     return rank_vaults(df.loc[mask & df[by].notna()], by)
@@ -459,13 +473,16 @@ def select_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> 
     return rank_vaults(df.loc[mask])
 
 
-def select_risk_return_vaults(ranked_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+def select_risk_return_vaults(yield_universe: pd.DataFrame, ranked_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Vaults of the risk and return chart: the yield vaults and the perp DEX vaults.
 
-    Perp DEX vaults need the table TVL minimum but no deposit events, like
-    their tables. Every perp DEX vault is tagged ``perpetual_futures`` first,
-    so the chart shows them as one *Perpetual futures* category whatever
-    their trading style.
+    Perp DEX vaults are selected like their tables, with the table TVL
+    minimum and no deposit events, and need the three-month return the chart
+    plots. The chart shows them as one *Perpetual futures* category, see
+    :py:func:`eth_defi.vault_report.charts.create_risk_return_figure`.
+
+    :param yield_universe:
+        Output of :py:func:`select_yield_vaults`.
 
     :param ranked_df:
         Comparable vaults, AMM pools already left out unless included.
@@ -476,10 +493,7 @@ def select_risk_return_vaults(ranked_df: pd.DataFrame, criteria: ReportCriteria)
     :return:
         Vaults, best first.
     """
-    is_perp = (ranked_df["group"] == PERP_DEX) & (ranked_df["current_nav"] >= criteria.min_tvl)
-    perp = ranked_df.loc[is_perp].copy()
-    perp["strategy_tags"] = perp["strategy_tags"].apply(lambda tags: ["perpetual_futures", *[tag for tag in (tags if isinstance(tags, list) else []) if tag != "perpetual_futures"]])
-    return rank_vaults(pd.concat([select_yield_vaults(ranked_df, criteria), perp]))
+    return rank_vaults(pd.concat([yield_universe, select_group(ranked_df, criteria, PERP_DEX, by=CHART_RETURN)]))
 
 
 def select_new_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
@@ -806,6 +820,25 @@ def format_tvl(current: USDollarAmount | None) -> str:
     return f"${current:,.0f}"
 
 
+def web_link(text: str, url: str | None) -> str:
+    """Escaped HTML link, or the escaped text alone when the URL is not a web link.
+
+    Links come from exports and other data: accept only ``https://`` links,
+    never e.g. ``javascript:`` URLs.
+
+    :param text:
+        Link text.
+
+    :param url:
+        Target URL.
+
+    :return:
+        HTML.
+    """
+    content = html.escape(text)
+    return f'<a href="{html.escape(url)}">{content}</a>' if isinstance(url, str) and url.startswith("https://") else content
+
+
 def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset()) -> dict[str, str]:
     """Format one vault as HTML table cells.
 
@@ -818,16 +851,10 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
     :return:
         Column label -> escaped cell HTML, for all columns in :py:data:`VAULT_TABLE_COLUMNS`.
     """
-
-    def _link(text: str, url: str | None) -> str:
-        content = html.escape(text)
-        # Links come from the export: accept only web links, never e.g. javascript: URLs
-        return f'<a href="{html.escape(url)}">{content}</a>' if isinstance(url, str) and url.startswith("https://") else content
-
     vault_id = row["id"]
     sparkline = f'<img src="{SPARKLINE_URL.format(vault_id=vault_id)}" width="72" height="18" alt="" style="width:72px;max-width:none;height:18px;vertical-align:middle">' if vault_id in sparkline_ids else ""
     return {
-        "Vault": _link(row["name"] or row["address"], row["trading_strategy_link"]),
+        "Vault": web_link(row["name"] or row["address"], row["trading_strategy_link"]),
         "3M history": sparkline,
         "1M ann.": html.escape(format_return(row["one_month_cagr_net"], row["one_month_cagr"])),
         "3M ann.": html.escape(format_return(row["three_months_cagr_net"], row["three_months_cagr"])),
@@ -836,8 +863,8 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
         "TVL": html.escape(format_tvl(row["current_nav"])),
         "Age (y)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
         "Token": html.escape(row["denomination"] or ""),
-        "Chain": _link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),
-        "Protocol": _link(row["protocol"], _get_trading_strategy_protocol_link(row["protocol_slug"])) if row["protocol_identified"] else OTHER_PROTOCOL,
+        "Chain": web_link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),
+        "Protocol": web_link(row["protocol"], _get_trading_strategy_protocol_link(row["protocol_slug"])) if row["protocol_identified"] else OTHER_PROTOCOL,
     }
 
 
@@ -893,8 +920,8 @@ def is_blacklisted(vaults_df: pd.DataFrame) -> pd.Series:
     :return:
         Boolean series, ``True`` for blacklisted vaults.
     """
-    flagged = vaults_df.apply(lambda vault: bool(get_vault_special_flags(vault["address"], vault["protocol"]) & BAD_FLAGS) if isinstance(vault["address"], str) else False, axis=1)
-    return (vaults_df["risk"] == BLACKLISTED_RISK) | flagged.astype(bool)
+    flagged = [isinstance(address, str) and bool(get_vault_special_flags(address, protocol) & BAD_FLAGS) for address, protocol in zip(vaults_df["address"], vaults_df["protocol"], strict=True)]
+    return (vaults_df["risk"] == BLACKLISTED_RISK) | pd.Series(flagged, index=vaults_df.index)
 
 
 def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:

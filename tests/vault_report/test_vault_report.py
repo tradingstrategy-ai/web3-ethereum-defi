@@ -35,7 +35,7 @@ from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, 
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_tvl, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_risk_return_vaults, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
-from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, run_check_agent, write_candidates_file
+from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, read_flag_entries, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
 
 DATA_END_AT = datetime.datetime(2026, 9, 24)
@@ -789,14 +789,14 @@ def test_blacklist_entry_check(tmp_path: Path):
     decisions = {"8453-0xf80c": CheckDecision(vault_id="8453-0xf80c", decision="exclude", blacklist=True, vault_flag="misleading_valuation")}
     flag_file = tmp_path / "flag.py"
     flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    "0xabc": (VaultFlag.illiquid, X),\n}\n')
-    assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]
+    assert check_blacklist_entries(decisions, read_flag_entries(flag_file)) == ["8453-0xf80c"]
     flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    # King RSS\n    "0xf80c": (VaultFlag.misleading_valuation, KING_RSS),\n}\n')
-    assert check_blacklist_entries(decisions, flag_file) == []
+    assert check_blacklist_entries(decisions, read_flag_entries(flag_file)) == []
     # Formatting does not matter: the entry may be wrapped over several lines
     flag_file.write_text('VAULT_FLAGS_AND_NOTES: dict = {\n    "0xF80C": (\n        VaultFlag.misleading_valuation,\n        KING_RSS,\n    ),\n}\n')
-    assert check_blacklist_entries(decisions, flag_file) == []
+    assert check_blacklist_entries(decisions, read_flag_entries(flag_file)) == []
     decisions["8453-0xf80c"] = CheckDecision(vault_id="8453-0xf80c", decision="exclude", blacklist=True, vault_flag="illiquid")
-    assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]  # Another flag
+    assert check_blacklist_entries(decisions, read_flag_entries(flag_file)) == ["8453-0xf80c"]  # Another flag
 
 
 def test_uncertain_vaults_need_review_entries(tmp_path: Path):
@@ -808,7 +808,7 @@ def test_uncertain_vaults_need_review_entries(tmp_path: Path):
     }
     flag_file = tmp_path / "flag.py"
     flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    "0xaaa": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),\n}\n')
-    assert find_unreviewed_uncertain(decisions, flag_file) == ["8453-0xbbb"]
+    assert find_unreviewed_uncertain(decisions, read_flag_entries(flag_file)) == ["8453-0xbbb"]
 
 
 def test_check_agent_timeout_stops_child_processes(tmp_path: Path):
@@ -880,7 +880,7 @@ def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFr
     data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
     settings = VaultCheckSettings(agent="claude", repository_root=tmp_path)
     (tmp_path / "eth_defi" / "vault").mkdir(parents=True)
-    (tmp_path / "eth_defi" / "vault" / "flag.py").write_text("")
+    (tmp_path / "eth_defi" / "vault" / "flag.py").write_text("VAULT_FLAGS_AND_NOTES = {}\n")
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, vault_checks=settings, excluded_vaults_dir=tmp_path / "excluded-vaults")
 
     assert report.vault_checks.excluded == frozenset({"1-0xaa"})
@@ -1139,12 +1139,14 @@ def test_format_tvl():
 def test_risk_return_chart_has_perp_dex_category_and_no_vault_labels(vaults_df: pd.DataFrame):
     """Perp DEX vaults are in the risk and return chart as one Perpetual futures category, and no vault is labelled."""
     criteria = ReportCriteria()
-    vaults = select_risk_return_vaults(select_comparable_vaults(filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)), criteria)
-    perp = vaults.loc[vaults["group"] == PERP_DEX]
-    assert len(perp) and all(tags[0] == "perpetual_futures" for tags in perp["strategy_tags"])
+    comparable = select_comparable_vaults(filter_eligible_vaults(vaults_df, DATA_END_AT, criteria))
+    vaults = select_risk_return_vaults(select_yield_vaults(comparable, criteria), comparable, criteria)
+    assert len(vaults.loc[vaults["group"] == PERP_DEX])
     moving = vaults.assign(three_months_volatility=0.05, three_months_cagr_best=0.1)
     figure = create_risk_return_figure(moving, {"perpetual_futures": "Perpetual futures"}, DARK_THEME, max_return=4.0, benchmark_yield=0.04)
-    assert any(trace.name.startswith("Perpetual futures") for trace in figure.data)
+    # Every perp DEX vault is in the one category, whatever its first strategy tag
+    perp_trace = next(trace for trace in figure.data if trace.name.startswith("Perpetual futures"))
+    assert len(perp_trace.x) == (moving["group"] == PERP_DEX).sum()
     # Outliers are left out, without an off-scale entry
     assert not any(trace.name.startswith("Off scale") for trace in figure.data)
     assert [annotation.text for annotation in figure.layout.annotations] == ["US 3M T-bill 4.0%"]

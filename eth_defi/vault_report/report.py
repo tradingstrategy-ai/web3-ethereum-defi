@@ -16,7 +16,7 @@ Output bundle layout::
         post.html          Ghost post body, charts referenced by relative paths
         preview.html       Standalone page for reviewing the report in a browser
         report.json        Title, slug, statistics and file listing
-        hero.png           1200×630 social image, used as the Ghost feature image
+        hero.png           1200×630 social image, a ready-made feature image for the editor
         hero-square.png    1080×1080 social image for X
         charts/*.png       Branded chart images
         tables/*.html      Individual tables
@@ -59,9 +59,8 @@ from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_pr
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_path, load_protocol_logo_uri
 from eth_defi.vault_report.podcasts import PODCAST_SERVICES, PodcastEpisode, icon_image_key, logo_image_key
-from eth_defi.vault_report.post import BEST_SECTIONS, BestSection, PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
+from eth_defi.vault_report.post import BEST_SECTIONS, NEW_VAULTS_CHART, BestSection, PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
 from eth_defi.vault_report.sections import (
-    AMM,
     CHAIN_TABLE_COLUMNS,
     CHART_RETURN,
     TOKENISED_FUND,
@@ -78,6 +77,7 @@ from eth_defi.vault_report.sections import (
     exclude_amm_pools,
     exclude_chart_risks,
     filter_eligible_vaults,
+    group_min_tvl,
     rank_vaults,
     render_section_table,
     select_average_yield_vaults,
@@ -191,6 +191,9 @@ class GeneratedReport:
     #: Dated Markdown record of the vaults the investability check left out, or ``None`` without the check
     excluded_vaults_path: Path | None = None
 
+    #: Changelog entries since the previous report, offered to the editor in ``report.json``
+    changelog_entries: list[str] = field(default_factory=list)
+
 
 def format_usd(value: USDollarAmount) -> str:
     """Format a rounded US dollar amount for prose.
@@ -266,15 +269,6 @@ def make_vault_properties(vault: pd.Series, theme: ChartTheme, chain_logo: Calla
     if vault["chain_id"] not in PERP_DEX_NATIVE_CHAIN_IDS and vault["chain"].strip().lower() != protocol.lower():
         properties.append(VaultProperty(vault["chain"], chain_logo(vault["chain"])))
     return tuple(properties)
-
-
-def group_min_tvl(group: str, criteria: ReportCriteria) -> USDollarAmount:
-    """Minimum TVL of a vault group's table and chart: higher for AMM pools, see :py:func:`select_group`."""
-    return criteria.amm_min_tvl if group == AMM else criteria.min_tvl
-
-
-#: Chart key of the new vaults performance chart in :py:attr:`eth_defi.vault_report.post.PostContext.charts`
-NEW_VAULTS_CHART = "new_performance"
 
 
 def make_performance_panel(section: BestSection, criteria: ReportCriteria) -> ChartPanel:
@@ -708,7 +702,7 @@ def render_report_charts(
             ),
         )
 
-    risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(ranked_df, criteria), criteria))
+    risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(yield_universe, ranked_df, criteria), criteria))
     risk_return_figure = create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest)
     # Count the drawn vaults: outliers beyond the fitted axes are left out
     drawn = sum(len(trace.x) for trace in risk_return_figure.data)
@@ -781,7 +775,7 @@ def generate_monthly_vault_report(
 
     :param vault_checks:
         Run the investability check, see :py:mod:`eth_defi.vault_report.vault_checks`.
-        ``None`` skips it; the post then carries an editor note.
+        ``None`` skips it with a warning in the log.
 
     :param podcasts:
         Latest podcast episodes for the *Latest podcasts* section, see
@@ -820,11 +814,14 @@ def generate_monthly_vault_report(
         (output_dir / "tables" / f"{key}.html").write_text(tables[key])
         section.vaults_df[CSV_COLUMNS].to_csv(output_dir / "tables" / f"{key}.csv", index=False)
 
+    month_label = make_month_label(data_end_at)
+    title = make_report_title(month_label)
+
     # Excluded vaults are not listed in the post: a dated Markdown document records them
     excluded_vaults_path = None
     if check_result is not None:
         pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
-        excluded_markdown = render_excluded_vaults_markdown(check_result, data_end_at, make_report_title(make_month_label(data_end_at)))
+        excluded_markdown = render_excluded_vaults_markdown(check_result, data_end_at, title)
         excluded_vaults_path = output_dir / f"{data_end_at:%Y-%m-%d}-excluded-vaults.md"
         excluded_vaults_path.write_text(excluded_markdown)
         if excluded_vaults_dir is not None:
@@ -840,7 +837,6 @@ def generate_monthly_vault_report(
             chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded)
 
     podcast_image_paths = prepare_podcast_images(podcasts or [], theme, output_dir)
-    month_label = make_month_label(data_end_at)
     context = PostContext(
         month_label=month_label,
         stats=calculate_report_stats(data.vaults_df, eligible_df, data_end_at),
@@ -848,13 +844,12 @@ def generate_monthly_vault_report(
         charts={key: path.relative_to(output_dir).as_posix() for key, path in chart_paths.items()},
         criteria_notes=make_criteria_notes(criteria),
         previous=previous,
-        changelog_entries=changelog_entries or [],
         podcasts=podcasts or [],
         podcast_images={key: path.relative_to(output_dir).as_posix() for key, path in podcast_image_paths.items()},
     )
     report = GeneratedReport(
         output_dir=output_dir,
-        title=make_report_title(month_label),
+        title=title,
         slug=make_report_slug(data_end_at),
         excerpt=f"The best stablecoin yield in DeFi, {month_label} report.",
         data_end_at=data_end_at,
@@ -865,6 +860,7 @@ def generate_monthly_vault_report(
         vault_checks=check_result,
         podcast_image_paths=podcast_image_paths,
         excluded_vaults_path=excluded_vaults_path,
+        changelog_entries=changelog_entries or [],
     )
 
     post_html = build_post_html(context)
@@ -938,7 +934,7 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "excerpt": report.excerpt,
         "data_end_at": report.data_end_at.isoformat(),
         "stats": report.context.stats,
-        "changelog_entries": report.context.changelog_entries,
+        "changelog_entries": report.changelog_entries,
         "excluded_vaults": str(report.excluded_vaults_path) if report.excluded_vaults_path else None,
         "sections": {key: len(section.vaults_df) for key, section in report.sections.items()},
         "charts": report.context.charts,
@@ -992,8 +988,6 @@ def publish_report_draft(
         html=build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls)),
         custom_excerpt=report.excerpt,
         tags=tags,
-        # The editor picks the feature image; hero.png in the bundle is a ready-made option
-        feature_image=None,
         overwrite_draft=overwrite_draft,
     )
     write_report_manifest(report, post, admin_client.get_editor_url(post))

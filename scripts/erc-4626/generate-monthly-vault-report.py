@@ -91,16 +91,20 @@ def _env_path(name: str) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
-def _env_flag(name: str) -> bool:
-    """Read a ``true``/``false`` environment variable, defaulting to false.
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Read a ``true``/``false`` environment variable.
 
     :param name:
         Environment variable name.
 
+    :param default:
+        Value when the variable is not set.
+
     :return:
-        Flag value.
+        Flag value: ``1``, ``true`` and ``yes`` are true.
     """
-    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+    value = os.environ.get(name)
+    return default if value is None else value.strip().lower() in {"1", "true", "yes"}
 
 
 def create_admin_client() -> GhostAdminClient | None:
@@ -112,7 +116,7 @@ def create_admin_client() -> GhostAdminClient | None:
     :raise SystemExit:
         The draft is wanted but no usable Admin API key or URL is set.
     """
-    if os.environ.get("GHOST_DRAFT", "true").strip().lower() == "false":
+    if not _env_flag("GHOST_DRAFT", default=True):
         logger.info("GHOST_DRAFT=false: writing the local bundle only, no Ghost draft")
         return None
     bundle_only = "Set GHOST_DRAFT=false to only write the local bundle."
@@ -181,10 +185,10 @@ def main() -> None:
         criteria=criteria,
         previous=previous,
         changelog_entries=changelog_entries,
-        render_charts=os.environ.get("RENDER_CHARTS", "true").strip().lower() != "false",
+        render_charts=_env_flag("RENDER_CHARTS", default=True),
         theme=get_theme(os.environ.get("CHART_THEME", "dark")),
         cache_dir=cache_dir / "assets",
-        check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
+        check_sparklines=_env_flag("CHECK_SPARKLINES", default=True),
         vault_checks=VaultCheckSettings.from_env(),
         podcasts=podcasts,
         excluded_vaults_dir=_env_path("EXCLUDED_VAULTS_DIR") or EXCLUDED_VAULTS_DIR,
