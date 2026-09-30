@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import requests
+from PIL import Image
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, fetch_crypto_prices, fetch_treasury_bill_yields
 from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
@@ -100,8 +101,8 @@ def test_ghost_admin_api_draft(tmp_path: Path):
     client = GhostAdminClient(admin_url, GHOST_ADMIN_API_KEY)
 
     image_path = tmp_path / "test.png"
-    # 1x1 transparent PNG
-    image_path.write_bytes(bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082"))
+    # Ghost resizes uploads and rejects a hand-made 1x1 PNG with "Unable to manipulate image"
+    Image.new("RGB", (64, 64), (0, 200, 120)).save(image_path)
     image_url = client.upload_image(image_path)
     assert image_url.startswith("http")
 

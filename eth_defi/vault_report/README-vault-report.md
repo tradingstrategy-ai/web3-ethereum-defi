@@ -76,11 +76,18 @@ The script refuses to overwrite an existing draft with the same slug, because
 that would lose the editor's work, and it never touches a published post. Delete
 the draft, or set `GHOST_OVERWRITE_DRAFT=true`, to regenerate it.
 
-As of 2026-09-30 no Admin API key was available, so draft creation and the
-feature image upload are covered only by mocked tests. After adding the key, run
-`test_ghost_admin_api_draft` (see [Tests](#tests)). The blog frontend renders only
-published posts, so check the first branded post right after publishing: the
-tables, the image cards and the link previews on X and LinkedIn.
+The Admin API key was added on 2026-09-30. `test_ghost_admin_api_draft` (see
+[Tests](#tests)) passed against the live site that day, and the September 2026
+draft was created and then updated in place with `GHOST_OVERWRITE_DRAFT=true`.
+Reading the draft back through the Admin API showed every heading, image,
+table, callout and the table of contents intact. Ghost callout cards keep only
+inline markup: a list inside a callout is flattened into one run of text, so
+lists go after the callout.
+
+The Ghost site is private and the blog frontend renders only published posts,
+so the draft can be read only in the Ghost editor. Check the first branded post
+right after publishing: the tables, the image cards and the link previews on X
+and LinkedIn.
 
 ### Charts and visual identity
 

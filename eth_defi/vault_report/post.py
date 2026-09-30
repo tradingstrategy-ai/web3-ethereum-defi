@@ -454,12 +454,16 @@ def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords:
 def _editor_note(inner_html: str) -> str:
     """Create a yellow Ghost callout card for editor instructions.
 
+    Ghost keeps only inline markup, such as ``<code>`` and ``<b>``, in a
+    callout card: block elements such as lists are flattened into one run of text.
+
     :param inner_html:
-        Instruction HTML.
+        Instruction HTML, inline elements only.
 
     :return:
         Callout card HTML.
     """
+    assert "<ul>" not in inner_html and "<p>" not in inner_html, "Ghost callout cards hold inline text only"
     return f'<div class="kg-card kg-callout-card kg-callout-card-yellow"><div class="kg-callout-emoji">✏️</div><div class="kg-callout-text"><b>EDITOR:</b> {inner_html}</div></div>'
 
 
@@ -532,9 +536,11 @@ def build_post_html(context: PostContext) -> str:
     else:
         parts.append("<p>We have updated the report as follows:</p>")
 
-    candidates = f" Candidates from the changelog since the previous report: {_bullets([html.escape(e) for e in context.changelog_entries])}" if context.changelog_entries else ""
+    # Ghost callout cards hold inline text only, so the candidate list follows the callout as a normal list
+    candidates = " The candidates from the changelog since the previous report are listed below: edit them into the summary and delete the rest." if context.changelog_entries else ""
     parts += [
         _editor_note(f"Summarise the notable new integrations as bullet points here.{candidates}"),
+        _bullets([html.escape(entry) for entry in context.changelog_entries]),
         "<p>These benchmarks include:</p>",
         _bullets([_bold_numbers(html.escape(stat)) for stat in context.stats]),
         f'<h2 id="defi-vault-community-news">DeFi vault community news, {month}</h2>',
