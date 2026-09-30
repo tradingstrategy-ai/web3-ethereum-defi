@@ -310,7 +310,8 @@ is rendered:
    image, and the inflows and outflows, and are listed in the *Excluded vaults
    in this report* section. They stay in the TVL totals, which report where
    money is, not where to invest. `uncertain` vaults stay in the report with an
-   editor callout.
+   editor callout, and the agent records each of them in `flag.py` with
+   `VaultFlag.review_needed`, see [Vaults under review](#vaults-under-review).
 
 The check files go to the report bundle: `vault-check-candidates-N.json`,
 `vault-check-facts-N.json`, `vault-check-decisions-N.json` and the agent
@@ -329,7 +330,23 @@ The agent is not deterministic. Two runs on 2026-09-26, on data a few hours
 apart, agreed on the clear cases (King RSS, the 40acres pools, the Stream and
 Elixir bad-debt pools) but not on every borderline vault: a vault lending
 against its curator's own token was excluded by one run and left `uncertain`
-by the other. Check the `uncertain` and borderline decisions each month.
+by the other. Two runs on 2026-09-30, one on Opus 5.5 and one on Sonnet 5.5,
+disagreed on 15 of the vaults both checked. Check the `uncertain` and
+borderline decisions each month.
+
+### Vaults under review
+
+`VaultFlag.review_needed` marks a vault we are unsure about. It is **not** a
+bad flag: the vault stays on the website, in the exports and in the report,
+and its public note says it is under review. Its comment block in `flag.py`
+records each run's decision, date and model, what conflicts, and what a
+reviewer should check. The agent adds one for every `uncertain` vault, or adds
+its finding to an existing entry; the pipeline warns about `uncertain` vaults
+without an entry. The first 17 entries, from the two 2026-09-30 runs, cover
+the vaults either run left `uncertain` and those the runs decided differently.
+
+Resolve an entry by replacing the flag with a bad flag, with the evidence in
+its comment, or by removing the entry once the vault is cleared.
 
 ### Agent CLIs
 
@@ -436,7 +453,7 @@ then commit it in a pull request of its own.
    comments on the top vaults, the TVL trends by protocol and by blockchain and
    the largest inflows and outflows. Then delete the callouts.
 4. Review the investability check, see [Review workflow](#review-workflow),
-   and commit any `flag.py` blacklist entries separately.
+   and commit any `flag.py` blacklist and `review_needed` entries separately.
 5. Review the tables. Unusual entries, such as capped `>9,999%` returns or
    leveraged tokens, deserve a comment or a vault note.
 6. Publish, then share the post. Attach `hero-square.png` when posting on X.

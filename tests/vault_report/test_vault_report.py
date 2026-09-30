@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
+from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_special_flags
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report import vault_checks as vault_checks_module
 from eth_defi.vault_report import vault_probes as vault_probes_module
@@ -33,7 +34,7 @@ from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, 
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
-from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, read_check_decisions, run_check_agent, write_candidates_file
+from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
 
 DATA_END_AT = datetime.datetime(2026, 9, 24)
@@ -774,6 +775,18 @@ def test_blacklist_entry_check(tmp_path: Path):
     assert check_blacklist_entries(decisions, flag_file) == ["8453-0xf80c"]  # Another flag
 
 
+def test_uncertain_vaults_need_review_entries(tmp_path: Path):
+    """An uncertain vault without a flag.py entry is reported, so the doubt is not lost after the run."""
+    decisions = {
+        "8453-0xaaa": CheckDecision(vault_id="8453-0xaaa", decision="uncertain"),
+        "8453-0xbbb": CheckDecision(vault_id="8453-0xbbb", decision="uncertain"),
+        "8453-0xccc": CheckDecision(vault_id="8453-0xccc", decision="keep"),
+    }
+    flag_file = tmp_path / "flag.py"
+    flag_file.write_text('VAULT_FLAGS_AND_NOTES = {\n    "0xaaa": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),\n}\n')
+    assert find_unreviewed_uncertain(decisions, flag_file) == ["8453-0xbbb"]
+
+
 def test_check_agent_timeout_stops_child_processes(tmp_path: Path):
     """A timed-out agent is stopped with the tools it started, so nothing keeps writing files."""
     marker = tmp_path / "late.txt"
@@ -1046,6 +1059,17 @@ def test_flag_py_blacklist_applies_to_report(vault_records: list[dict]):
     assert king_rss["risk"] != "Blacklisted"
     assert king_rss["id"] not in filter_eligible_vaults(df, DATA_END_AT, ReportCriteria()).index
     assert king_rss["id"] not in select_tvl_history_vaults(df).index
+
+
+def test_review_needed_vault_stays_in_report(vault_records: list[dict]):
+    """A vault flagged review_needed is not blacklisted: it stays in the report and gets a public note."""
+    assert VaultFlag.review_needed not in BAD_FLAGS
+    address = "0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e"  # AlphaGrowth Base RWA, review_needed since 2026-09-30
+    assert get_vault_special_flags(address) == {VaultFlag.review_needed}
+    assert get_notes(address).startswith("Under review:")
+    vault = make_vault_record(address, chain="Base", one_month_cagr_net=0.3)
+    df = prepare_vault_metrics([*vault_records, vault])
+    assert vault["id"] in filter_eligible_vaults(df, DATA_END_AT, ReportCriteria()).index
 
 
 def test_every_section_introduces_itself_with_website_links():

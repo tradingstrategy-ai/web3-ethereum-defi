@@ -517,6 +517,29 @@ def check_blacklist_entries(decisions: dict[str, CheckDecision], flag_file: Path
     return [vault_id for vault_id, flag in blacklisted.items() if entries.get(vault_id.split("-", 1)[1].lower()) != flag]
 
 
+def find_unreviewed_uncertain(decisions: dict[str, CheckDecision], flag_file: Path) -> list[str]:
+    """Find ``uncertain`` vaults without an entry in ``flag.py``.
+
+    The skill asks the agent to record every ``uncertain`` vault with
+    ``VaultFlag.review_needed``, so the doubt survives the run. A vault with
+    any entry, e.g. an older bad flag, counts as recorded.
+
+    :param decisions:
+        Decisions of the round.
+
+    :param flag_file:
+        Path to ``eth_defi/vault/flag.py``.
+
+    :return:
+        Vault ids of ``uncertain`` decisions missing from ``VAULT_FLAGS_AND_NOTES``.
+    """
+    uncertain = [vault_id for vault_id, decision in decisions.items() if decision.decision == "uncertain"]
+    if not uncertain:
+        return []
+    entries = read_flag_entries(flag_file)
+    return [vault_id for vault_id in uncertain if vault_id.split("-", 1)[1].lower() not in entries]
+
+
 def read_flag_entries(flag_file: Path) -> dict[str, str | None]:
     """Read the vault flags of ``VAULT_FLAGS_AND_NOTES`` from the ``flag.py`` source.
 
@@ -686,10 +709,14 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
     missing = check_blacklist_entries(decisions, settings.repository_root / FLAG_FILE)
     if missing:
         raise CheckValidationError(f"Blacklisted vaults missing from {FLAG_FILE}: {missing}")
+    # A missing review entry loses the doubt after this run, but the decisions are still valid
+    unreviewed = find_unreviewed_uncertain(decisions, settings.repository_root / FLAG_FILE)
+    if unreviewed:
+        logger.warning("Uncertain vaults without a review_needed entry in %s: %s", FLAG_FILE, unreviewed)
     # Warn only about changes made in this round, not uncommitted entries of earlier rounds
     diff = show_flag_diff(settings.repository_root)
     if diff and diff != diff_before:
-        logger.warning("The check agent blacklisted vaults in %s; review and commit the change:\n%s", FLAG_FILE, diff)
+        logger.warning("The check agent changed %s, adding blacklist or review_needed entries; review and commit the change:\n%s", FLAG_FILE, diff)
     return round_, decisions
 
 
