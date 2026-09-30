@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 
@@ -25,6 +26,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+# First observed 2026-09-30: CI stream initialisation failed on a temporary
+# hyperliquid.hypersync.xyz DNS lookup; the same real-provider test passed locally.
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_rysk_price_becomes_observable_at_epoch_execution(tmp_path: Path) -> None:
     """Use the final execution block rather than the earlier proposal block.
 
