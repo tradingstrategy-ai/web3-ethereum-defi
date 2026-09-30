@@ -1,8 +1,13 @@
 """Generate the monthly best-performing stablecoin vaults blog post.
 
-Downloads the latest vault metrics and prices, renders tables and charts into
-a local bundle, and creates a Ghost draft post for the editor to complete.
-See ``eth_defi/vault_report/README-vault-report.md``.
+Downloads the latest vault metrics and prices, renders the tables and charts,
+and creates an unpublished draft post in Ghost for the editor to complete. The
+draft is never published. A local bundle with the same content is written too,
+for review and debugging. See ``eth_defi/vault_report/README-best-vaults-news.md``.
+
+Creating the draft needs a Ghost Admin API key: ``GHOST_CONTENT_API_KEY`` is
+read-only. Without a usable ``GHOST_ADMIN_API_KEY`` the script stops before
+downloading anything, unless ``GHOST_DRAFT=false`` asks for the local bundle only.
 
 Example:
 
@@ -19,7 +24,9 @@ Environment variables:
 - ``OUTPUT_DIR``: report bundle directory, default ``{CACHE_DIR}/reports/{post slug}``
 - ``GHOST_CONTENT_API_URL``, ``GHOST_CONTENT_API_KEY``: read the previous report post and the latest podcast episodes (optional)
 - ``GHOST_ADMIN_API_URL``: defaults to ``GHOST_CONTENT_API_URL``
-- ``GHOST_ADMIN_API_KEY``: ``{id}:{secret}`` Admin API key; when set, upload charts and create the draft post
+- ``GHOST_ADMIN_API_KEY``: ``{id}:{secret}`` Admin API key of a custom integration, or a staff
+  access token; uploads the charts and creates the draft post
+- ``GHOST_DRAFT``: set ``false`` to only write the local bundle, without a Ghost draft
 - ``GHOST_OVERWRITE_DRAFT``: set ``true`` to replace an existing draft with the same slug
 - ``MIN_TVL``: minimum TVL for the best-performing vault tables, default 100,000 USD
 - ``TOP_N``: vaults per best-performing table, default 20
@@ -49,7 +56,7 @@ from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
-from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
+from eth_defi.vault_report.ghost import ADMIN_API_KEY_HELP, GhostAdminClient, GhostAPIError, GhostContentClient
 from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
@@ -91,9 +98,37 @@ def _env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
 
 
+def create_admin_client() -> GhostAdminClient | None:
+    """Create the Ghost Admin API client for the draft post, or stop with instructions.
+
+    :return:
+        The client, or ``None`` when ``GHOST_DRAFT=false`` asks for the local bundle only.
+
+    :raise SystemExit:
+        The draft is wanted but no usable Admin API key or URL is set.
+    """
+    if os.environ.get("GHOST_DRAFT", "true").strip().lower() == "false":
+        logger.info("GHOST_DRAFT=false: writing the local bundle only, no Ghost draft")
+        return None
+    bundle_only = "Set GHOST_DRAFT=false to only write the local bundle."
+    admin_api_key = os.environ.get("GHOST_ADMIN_API_KEY")
+    admin_api_url = os.environ.get("GHOST_ADMIN_API_URL") or os.environ.get("GHOST_CONTENT_API_URL")
+    if not admin_api_url:
+        raise SystemExit(f"GHOST_ADMIN_API_URL or GHOST_CONTENT_API_URL must be set to create the Ghost draft. {bundle_only}")
+    if not admin_api_key:
+        raise SystemExit(f"GHOST_ADMIN_API_KEY is not set. {ADMIN_API_KEY_HELP} {bundle_only}")
+    try:
+        return GhostAdminClient(admin_api_url, admin_api_key)
+    except GhostAPIError as e:
+        raise SystemExit(f"{e} {bundle_only}") from None
+
+
 def main() -> None:
     """Generate the report bundle and the Ghost draft."""
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
+    # Fail before any download when the Ghost draft cannot be created
+    admin_client = create_admin_client()
+    overwrite_draft = _env_flag("GHOST_OVERWRITE_DRAFT")
 
     cache_dir = _env_path("CACHE_DIR") or Path("~/.cache/tradingstrategy/vault-report").expanduser()
     defaults = ReportCriteria()
@@ -108,6 +143,16 @@ def main() -> None:
         prices_path=_env_path("VAULT_PRICES_PARQUET"),
         api_key=os.environ.get("VAULT_PRO_API_KEY"),
     )
+
+    if admin_client:
+        # Check the Admin API login and that the slug is free or a replaceable draft,
+        # before the investability check and chart rendering take minutes
+        slug = make_report_slug(data.data_end_at)
+        try:
+            admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft)
+        except GhostAPIError as e:
+            raise SystemExit(f"Cannot create the Ghost draft {slug}: {e}") from None
+        logger.info("Ghost Admin API ready, the draft %s will be created at %s", slug, admin_client.api_url)
 
     content_api_url = os.environ.get("GHOST_CONTENT_API_URL")
     content_api_key = os.environ.get("GHOST_CONTENT_API_KEY")
@@ -145,14 +190,11 @@ def main() -> None:
         excluded = excluded_rows(report.vault_checks)
         print(tabulate([[row["name"], row["protocol"], row["suspicious_item"], row["blacklist"]] for row in excluded], headers=["Excluded vault", "Protocol", "Suspicious item", "Blacklisted"], tablefmt="fancy_grid"))
 
-    admin_api_key = os.environ.get("GHOST_ADMIN_API_KEY")
-    admin_api_url = os.environ.get("GHOST_ADMIN_API_URL") or content_api_url
-    if admin_api_key and admin_api_url:
-        client = GhostAdminClient(admin_api_url, admin_api_key)
-        post = publish_report_draft(report, client, overwrite_draft=_env_flag("GHOST_OVERWRITE_DRAFT"))
-        print(f"Ghost draft ready: {client.get_editor_url(post)}")
+    if admin_client:
+        post = publish_report_draft(report, admin_client, overwrite_draft=overwrite_draft)
+        print(f"Unpublished Ghost draft ready, open it in the Ghost editor: {admin_client.get_editor_url(post)}")
     else:
-        print("GHOST_ADMIN_API_KEY not set, no Ghost draft created")
+        print("GHOST_DRAFT=false: no Ghost draft created")
 
     print(f"Report: {report.title}")
     print(f"Local preview: {output_dir / 'preview.html'}")

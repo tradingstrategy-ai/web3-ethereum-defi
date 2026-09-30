@@ -78,6 +78,38 @@ def _raise_for_ghost_error(resp: requests.Response, action: str) -> None:
         raise GhostAPIError(f"Ghost API {action} failed: HTTP {resp.status_code}: {message}")
 
 
+#: Admin API key or staff access token: a 24-character hex id and a 64-character hex secret
+ADMIN_API_KEY_FORMAT = re.compile(r"^[0-9a-f]{24}:[0-9a-f]{64}$")
+
+#: Content API key: 26 hex characters, read-only
+CONTENT_API_KEY_FORMAT = re.compile(r"^[0-9a-f]{26}$")
+
+#: How to get a key that can create draft posts
+ADMIN_API_KEY_HELP = "Creating a draft post needs the Ghost Admin API. In Ghost Admin, open Settings -> Integrations -> Add custom integration and copy its Admin API key, or copy the Staff access token from your staff user profile. Put it in your secrets file, outside the repository, as GHOST_ADMIN_API_KEY."
+
+
+def check_ghost_admin_api_key(admin_api_key: str) -> None:
+    """Check that a key can authenticate to the Ghost Admin API.
+
+    The `Content API <https://ghost.org/docs/content-api/>`__ is read-only,
+    so its key cannot create posts, drafts included. The
+    `Admin API <https://ghost.org/docs/admin-api/#authentication>`__ takes an
+    integration's Admin API key or a staff access token, both ``{id}:{secret}``.
+    The key itself is never included in the error.
+
+    :param admin_api_key:
+        Key to check.
+
+    :raise GhostAPIError:
+        The key is a Content API key or not in ``{id}:{secret}`` format.
+    """
+    key = admin_api_key.strip()
+    if CONTENT_API_KEY_FORMAT.match(key):
+        raise GhostAPIError(f"GHOST_ADMIN_API_KEY is a Content API key, which is read-only and cannot create posts. {ADMIN_API_KEY_HELP}")
+    if not ADMIN_API_KEY_FORMAT.match(key):
+        raise GhostAPIError(f"GHOST_ADMIN_API_KEY is not an Admin API key in {{id}}:{{secret}} format. {ADMIN_API_KEY_HELP}")
+
+
 def _base64url(data: bytes) -> str:
     """Encode bytes as unpadded base64url, as used in JWTs."""
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
@@ -229,14 +261,18 @@ class GhostAdminClient:
             Ghost site API URL, e.g. ``https://example.ghost.io``.
 
         :param admin_api_key:
-            Admin API key in ``{id}:{secret}`` format.
+            Admin API key or staff access token in ``{id}:{secret}`` format,
+            see :py:func:`check_ghost_admin_api_key`.
 
         :param timeout:
             HTTP timeout in seconds.
+
+        :raise GhostAPIError:
+            The key cannot authenticate to the Admin API.
         """
-        assert ":" in admin_api_key, "Ghost Admin API key must be in {id}:{secret} format"
+        check_ghost_admin_api_key(admin_api_key)
         self.api_url = api_url.rstrip("/")
-        self.admin_api_key = admin_api_key
+        self.admin_api_key = admin_api_key.strip()
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers["Accept-Version"] = GHOST_ACCEPT_VERSION

@@ -47,24 +47,36 @@ are reused. The script:
    `post.html`, a browser-viewable `preview.html`, `report.json`, `hero.png`,
    `hero-square.png`, `charts/*.png`, `tables/*.csv`, the podcast images in
    `podcasts/` and the investability check files `vault-check-*`.
-7. When `GHOST_ADMIN_API_KEY` is set, uploads the charts, the podcast images
-   and the hero image and creates a **draft** post, with the hero as its
-   feature image. The script never publishes.
+7. Uploads the charts, the podcast images and the hero image to Ghost and
+   creates an unpublished **draft** post, with the hero as its feature image.
+   The script never publishes. This needs `GHOST_ADMIN_API_KEY`; without a
+   usable key the script stops at startup, before any download, unless
+   `GHOST_DRAFT=false` asks for the local bundle only.
 
 See the script docstring for all environment variables.
 
 ### Ghost Admin API key
 
-The Content API key is read-only and cannot create posts. To create drafts, add a
-custom integration in Ghost Admin under *Settings → Integrations → Add custom
-integration*. Store its Admin API key, which has the format `{id}:{secret}`, as
-`GHOST_ADMIN_API_KEY`. The `GHOST_ADMIN_API_URL` defaults to `GHOST_CONTENT_API_URL`.
+The Content API key (`GHOST_CONTENT_API_KEY`, 26 hex characters) is read-only
+and cannot create posts, drafts included, see the
+[Content API documentation](https://ghost.org/docs/content-api/). Creating the
+draft needs the [Admin API](https://ghost.org/docs/admin-api/#authentication):
+add a custom integration in Ghost Admin under *Settings → Integrations → Add
+custom integration* and store its Admin API key, or use the *Staff access
+token* from your staff user profile. Both have the format `{id}:{secret}`.
+Store it as `GHOST_ADMIN_API_KEY`. The `GHOST_ADMIN_API_URL` defaults to
+`GHOST_CONTENT_API_URL`.
+
+The script checks the key at startup: a missing key, a Content API key or a
+malformed key stops it with instructions, and the key is never printed. After
+the data download it checks the Admin API login and the post slug, before the
+investability check and chart rendering take minutes.
 
 The script refuses to overwrite an existing draft with the same slug, because
 that would lose the editor's work, and it never touches a published post. Delete
 the draft, or set `GHOST_OVERWRITE_DRAFT=true`, to regenerate it.
 
-As of 2026-09-25 no Admin API key was available, so draft creation and the
+As of 2026-09-30 no Admin API key was available, so draft creation and the
 feature image upload are covered only by mocked tests. After adding the key, run
 `test_ghost_admin_api_draft` (see [Tests](#tests)). The blog frontend renders only
 published posts, so check the first branded post right after publishing: the

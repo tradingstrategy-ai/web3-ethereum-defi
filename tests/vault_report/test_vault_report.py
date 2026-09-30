@@ -26,7 +26,7 @@ from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_
 from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, LEGEND_MARGIN, LegendEntry, PerformanceSeries, VaultProperty, add_logo_legend, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, create_risk_return_figure, plain_text, select_moving_vaults, trim_logos, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
-from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
+from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, check_ghost_admin_api_key, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
@@ -86,6 +86,10 @@ def make_vault_record(address: str, **overrides) -> dict:
     # The export carries the numeric risk level next to its label, see VaultTechnicalRisk
     record.setdefault("risk_numeric", {"Negligible": 1, "Low": 20, "High": 30, "Severe": 40, "Dangerous": 50, "Blacklisted": 999}.get(record["risk"]))
     return record
+
+
+#: A well-formed but fake Ghost Admin API key
+FAKE_ADMIN_API_KEY = "ab" * 12 + ":" + "00" * 32
 
 
 @pytest.fixture()
@@ -336,7 +340,7 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
 
     # An existing draft is checked before any chart is uploaded
     report.chart_paths = {"lending_performance": tmp_path / "missing.png"}
-    client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
     client.session = FakeSession("draft")
     with pytest.raises(GhostAPIError):
         publish_report_draft(report, client)
@@ -507,7 +511,7 @@ class FakeSession:
 )
 def test_create_or_update_draft(existing_status: str | None, overwrite: bool, expected: str | type):
     """Drafts are created, overwritten only on request, and published posts are never touched."""
-    client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
     client.session = FakeSession(existing_status)
     if expected is GhostAPIError:
         with pytest.raises(GhostAPIError):
@@ -934,7 +938,7 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     assert [podcast["title"] for podcast in manifest["podcasts"]] == ["Episode #13: Yearn", "Episode #99: <script>"]
 
     # Publishing uploads the logos with the charts and links them in the draft
-    client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
     drafts = []
     monkeypatch.setattr(client, "fetch_writable_draft", lambda slug, overwrite_draft: None)
     monkeypatch.setattr(client, "upload_image", lambda path: f"https://ghost.example/{path.name}")
@@ -1055,3 +1059,14 @@ def test_evergreen_sections_drop_empty_paragraphs():
     """Empty paragraphs left by the Ghost editor are not copied from the previous post."""
     previous = '<h2 id="about-the-report">About the report</h2><p>Text</p><p></p><p> </p><h2 id="next">'
     assert extract_section_html(previous, "about-the-report") == '<h2 id="about-the-report">About the report</h2><p>Text</p>'
+
+
+def test_ghost_admin_api_key_check():
+    """A Content API key or a malformed key is refused with instructions, without echoing the key."""
+    check_ghost_admin_api_key(FAKE_ADMIN_API_KEY)
+    content_key = "0123456789abcdef0123456789"
+    with pytest.raises(GhostAPIError, match="Content API key, which is read-only") as e:
+        GhostAdminClient("https://example.ghost.io", content_key)
+    assert content_key not in str(e.value)
+    with pytest.raises(GhostAPIError, match="not an Admin API key"):
+        check_ghost_admin_api_key("key:secret")

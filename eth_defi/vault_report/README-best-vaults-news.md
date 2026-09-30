@@ -76,13 +76,13 @@ flowchart TD
     REP --> POST
     CH --> BUN
     POST --> BUN
-    BUN -->|GHOST_ADMIN_API_KEY set| GH
+    REP -->|Admin API| GH
     BUN -->|manual, gh CLI| PR
 ```
 
-`scripts/erc-4626/generate-monthly-vault-report.py` runs the pipeline. It always
-writes the local bundle to `OUTPUT_DIR`. With a Ghost Admin API key it also
-uploads the images and creates the draft.
+`scripts/erc-4626/generate-monthly-vault-report.py` runs the pipeline. Its
+output is an unpublished draft post in Ghost. It also writes the same content
+to a local bundle in `OUTPUT_DIR` for review and debugging.
 
 ## Running the exporter
 
@@ -93,21 +93,28 @@ source .local-test.env && \
     poetry run python scripts/erc-4626/generate-monthly-vault-report.py
 ```
 
-Open `/tmp/vault-report/preview.html` in a browser to read the post before it
-goes anywhere. The run takes about 40 seconds without the investability check
-and 20–30 minutes with it.
+The script prints the Ghost editor link of the draft. Without a usable
+`GHOST_ADMIN_API_KEY` it stops at startup with instructions, see
+[Ghost post draft](#ghost-post-draft). With the investability check on
+Sonnet 5.5, a run took about 5 minutes on 2026-09-30; without the check,
+about 40 seconds.
 
 To iterate on the post text or charts without paying for another agent run,
-reuse the decisions of the previous bundle. This works while the downloaded
-data is unchanged: the downloads are cached for six hours, and the decisions
-are tied to the exact candidate lists by a digest.
+reuse the decisions of the previous bundle and replace the draft, as long as
+nobody has edited it in Ghost yet. Reuse works while the downloaded data and
+`flag.py` are unchanged: the downloads are cached for six hours, and the
+decisions are tied to the exact candidate lists by a digest.
 
 ```shell
 source .local-test.env && \
     OUTPUT_DIR=/tmp/vault-report-2 \
     VAULT_CHECK_AGENT=reuse VAULT_CHECK_DECISIONS=/tmp/vault-report \
+    GHOST_OVERWRITE_DRAFT=true \
     poetry run python scripts/erc-4626/generate-monthly-vault-report.py
 ```
+
+For a local preview only, e.g. when changing the templates, set
+`GHOST_DRAFT=false` and open `preview.html` in the bundle.
 
 ## Ghost post draft
 
@@ -115,8 +122,10 @@ The actual post is created as an unpublished draft that the editor finishes in
 the Ghost editor.
 
 1. Create a *custom integration* in Ghost Admin (*Settings → Integrations*)
-   and copy its **Admin API key**, `{id}:{secret}`. The Content API key used to
-   read the previous post and the podcasts is read-only and cannot create drafts.
+   and copy its **Admin API key**, `{id}:{secret}`, or copy the *Staff access
+   token* from your staff user profile. The Content API key used to read the
+   previous post and the podcasts is read-only and cannot create drafts; the
+   script recognises one given by mistake and stops with instructions.
 2. Put the key in your secrets file outside the repository, e.g.
    `~/local-test.env`, as `GHOST_ADMIN_API_KEY`. Never commit it or paste it
    into logs, chats or PR comments.
@@ -144,7 +153,7 @@ Safety rules, see `GhostAdminClient.fetch_writable_draft()`:
 
 ## GitHub pull request comment drafts
 
-Before the Admin API key existed, and for reviewers without Ghost access, the
+While no Admin API key was available, and for reviewers without Ghost access, the
 skeleton was previewed as a comment on the pull request, e.g.
 [the PR #1600 skeleton comment](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1600#issuecomment-5846041620).
 It shows the post in order, with the charts, the first three rows of each
@@ -154,7 +163,8 @@ Ghost never reads it.
 
 The steps:
 
-1. **Generate a bundle** with the exporter, without the Admin key.
+1. **Generate a bundle** with the exporter and `GHOST_DRAFT=false`, or reuse the
+   bundle of a run that created the Ghost draft.
 2. **Convert it to Markdown.** Headings, introductions and section notes come
    from `post.html`, tables from `tables/*.csv`, and the check results from
    `report.json` and the `vault-check-decisions-*.json` files. The comment uses
