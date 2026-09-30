@@ -317,7 +317,7 @@ def add_property_rows(
     return len(rows)
 
 
-def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, top: float = 1.0, row_height: float = 0.088) -> None:
+def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, top: float = 1.0, row_height: float = 0.088, split: bool = False) -> None:
     """Draw a legend with logos in the right margin.
 
     Plotly legends cannot show images, so the legend is drawn with shapes,
@@ -345,6 +345,11 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
 
     :param row_height:
         Minimum paper height of one entry. A legend taller than the plot makes the figure taller.
+
+    :param split:
+        Lay each entry out in two columns under its label: the detail on the
+        left, and the curator, protocol and chain stacked one per row on the
+        right. Entries become shorter when they have several properties.
     """
     fig.update_layout(showlegend=False)
     # Lay the legend out in pixels right of the plot: swatch, optional logo, then the text
@@ -355,12 +360,22 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     text_width = fig.layout.margin.r - text_pixels - 20
     layouts = []
     widest = 0.0
+    # In the split layout the properties column starts after the widest detail, so the columns line up across entries
+    detail_column = max((_measure_text(re.sub("<[^>]+>", "", entry.detail), 17) for entry in entries if entry.detail), default=0.0) + 24 if split else 0.0
+    # Stacked properties share one icon slot, as wide as the widest icon, so their texts line up
+    icon_slot = max((prop.icon_size[0] for entry in entries for prop in entry.properties if prop.logo_uri), default=0.0)
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
-        property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
-        height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
+        # A zero width puts every property on a row of its own
+        property_rows = layout_properties(entry.properties, 0 if split else text_width) if entry.properties else []
+        property_widths = [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths = [_measure_text(line, 17, bold=True) for line in lines]
-        widths += [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
+        if split:
+            height = len(lines) * line_pixels + max(line_pixels if entry.detail else 0, len(entry.properties) * PROPERTY_ROW_HEIGHT)
+            widths += [detail_column + icon_slot + PROPERTY_ICON_GAP + _measure_text(prop.text) for prop in entry.properties]
+        else:
+            height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
+            widths += property_widths
         widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
         layouts.append((entry, lines, height + gap_pixels))
@@ -370,7 +385,14 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     fig.update_layout(margin={"r": min(fig.layout.margin.r, round(text_pixels + widest + 12))})
     plot_width = fig.layout.width - fig.layout.margin.l - fig.layout.margin.r
     plot_height = fig.layout.height - fig.layout.margin.t - fig.layout.margin.b
-    layouts = [(entry, lines, max(row_height * plot_height, pitch)) for entry, lines, pitch in layouts]
+    if split:
+        # Spread the spare height evenly between entries, so short and tall entries have equal gaps
+        # and the last entry ends at the bottom of the plot
+        spare = max(0.0, (1 - (1 - top)) * plot_height - sum(pitch for _, _, pitch in layouts) + gap_pixels)
+        extra = spare / max(len(layouts) - 1, 1)
+        layouts = [(entry, lines, pitch + (extra if i < len(layouts) - 1 else 0)) for i, (entry, lines, pitch) in enumerate(layouts)]
+    else:
+        layouts = [(entry, lines, max(row_height * plot_height, pitch)) for entry, lines, pitch in layouts]
     needed = sum(pitch for _, _, pitch in layouts) - (1 - top) * plot_height
     if needed > plot_height:
         fig.update_layout(height=fig.layout.height + needed - plot_height)
@@ -393,8 +415,17 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         cursor = y - len(lines) * line_pixels / plot_height
         if entry.detail:
             fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
-            cursor -= line_pixels / plot_height
-        if entry.properties:
+            if not split:
+                cursor -= line_pixels / plot_height
+        if entry.properties and split:
+            properties_x = text_x + detail_column / plot_width
+            for i, prop in enumerate(entry.properties):
+                centre = cursor - (i + 0.5) * PROPERTY_ROW_HEIGHT / plot_height
+                if prop.logo_uri:
+                    icon_width, icon_height = prop.icon_size
+                    fig.add_layout_image(source=prop.logo_uri, xref="paper", yref="paper", x=properties_x + (icon_slot - icon_width) / 2 / plot_width, y=centre, sizex=icon_width / plot_width, sizey=icon_height / plot_height, xanchor="left", yanchor="middle")
+                fig.add_annotation(text=plain_text(prop.text), xref="paper", yref="paper", x=properties_x + (icon_slot + PROPERTY_ICON_GAP) / plot_width, y=centre, xanchor="left", yanchor="middle", showarrow=False, font={"size": PROPERTY_FONT_SIZE, "color": theme.muted_text})
+        elif entry.properties:
             add_property_rows(fig, entry.properties, theme, text_x, cursor - PROPERTY_ROW_HEIGHT / plot_height / 2, "paper", text_width, plot_width, plot_height)
         y -= pitch / plot_height
 
@@ -515,6 +546,7 @@ def create_performance_figure(
     benchmark_logos: dict[str, str | None] | None = None,
     measure: Literal["equity", "sharpe"] = "equity",
     sharpe_window: datetime.timedelta = datetime.timedelta(days=90),
+    split_legend: bool = False,
 ) -> Figure:
     """Draw the equity curves of vaults and their benchmarks in one chart.
 
@@ -573,6 +605,9 @@ def create_performance_figure(
 
     :param sharpe_window:
         Rolling window of the Sharpe ratio.
+
+    :param split_legend:
+        Use the two-column legend entries, see :py:func:`add_logo_legend`.
 
     :return:
         Plotly figure.
@@ -714,7 +749,7 @@ def create_performance_figure(
     fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=ticktext)
     fig.update_yaxes(side="left", zeroline=False)
     fig.add_hline(y=baseline, line={"color": theme.axis, "width": 1.5}, layer="below")
-    add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
+    add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)), split=split_legend)
     return fig
 
 

@@ -985,3 +985,20 @@ def test_probe_contains_rpc_failures(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(vault_probes_module, "create_multi_provider_web3", dead_rpc)
     facts = vault_probes_module.fetch_vault_facts("1-0x1234", "morpho", [], {})
     assert facts.errors and "Could not connect" in facts.errors[0]
+
+
+def test_split_legend_layout():
+    """In the split legend, properties stack in a column right of the detail, and their texts line up."""
+    fig = go.Figure()
+    fig.update_layout(width=1000, height=600, margin={"l": 50, "r": LEGEND_MARGIN, "t": 20, "b": 20})
+    icon = "data:image/png;base64,iVBORw0KGgo="
+    entries = [
+        LegendEntry("1. Vault A", "#ff0000", detail="224.46", properties=(VaultProperty("Curator", icon, 1.0), VaultProperty("Protocol", icon, 2.0))),
+        LegendEntry("2. Vault B", "#00ff00", detail="7.2", properties=(VaultProperty("Chain", icon, 1.0),)),
+    ]
+    add_logo_legend(fig, entries, DARK_THEME, split=True)
+    annotations = {annotation.text: annotation for annotation in fig.layout.annotations}
+    assert annotations["Curator"].x > annotations["224.46"].x  # Right of the detail
+    assert annotations["Curator"].x == annotations["Protocol"].x == annotations["Chain"].x  # One column, texts aligned
+    assert annotations["Curator"].y > annotations["Protocol"].y  # Stacked
+    assert annotations["224.46"].y == pytest.approx(annotations["Curator"].y + 22 / 2 / (600 - 40) - 21 / 2 / (600 - 40), abs=0.02)  # Same row

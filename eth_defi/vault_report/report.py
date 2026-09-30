@@ -715,7 +715,7 @@ def render_report_charts(
         ]
         # The Sharpe ratio uses forward-filled prices like the exported 3M Sharpe, so its latest values match the table
         prices = sharpe_prices if section.measure == "sharpe" else daily_prices
-        figure = create_performance_figure(series, prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure=section.measure, sharpe_window=SHARPE_WINDOW)
+        figure = create_performance_figure(series, prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure=section.measure, sharpe_window=SHARPE_WINDOW, split_legend=section.measure == "sharpe")
         figures[section.chart_key] = (figure, make_performance_panel(section, criteria))
 
     chain_chart_vaults = select_chain_chart_vaults(ranked_df, criteria)
