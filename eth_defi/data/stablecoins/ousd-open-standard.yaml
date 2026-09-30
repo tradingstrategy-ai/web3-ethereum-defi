@@ -1,0 +1,35 @@
+symbol: OUSD
+name: Open USD
+slug: ousd-open-standard
+category: stablecoin
+short_description: |
+  Open USD (OUSD) is a US dollar stablecoin issued by Bridge Building Inc. and operated through Open Standard. It launched on 30 September 2026 for payments, settlement and other financial services, with 1:1 USD minting and burning offered at no cost through supported business integrations.
+long_description: |
+  [Open USD](https://joinopenstandard.com/blog/ousd-is-live/) (OUSD) is issued by Bridge Building Inc., a Stripe company. Open Standard coordinates the shared stablecoin network. It launched on 30 September 2026 with native contracts announced for Base, Ethereum, Solana and Tempo. OUSD is distinct from Origin Protocol's yield-bearing token, which also uses the OUSD ticker.
+
+  Businesses can mint and burn at a 1:1 USD conversion rate without a provider fee through [supported integrations](https://joinopenstandard.com/integrate/), subject to each provider's onboarding, eligibility and geographic restrictions. The launch announcement says businesses can begin building through BVNK, Stripe and the Visa Stablecoin Platform immediately, with Coinbase starting on 1 October 2026. This is an institutional payments and settlement token; the announced reserve-revenue rewards are for participating businesses, not a yield promised to token holders.
+
+  [Open Standard says](https://joinopenstandard.com/blog/ousd-is-live/) reserves are held at BlackRock, Lead Bank and BNY, with monthly attestations to be published at [Bridge's reserve page](https://reserves.bridge.xyz/ousd). The ability to redeem depends on the issuer and an eligible integration provider. The official Solana token address is `ousd2mJsPEckLHcSCDxyKD7NDGARZcfLbDZkKiatYHB`.
+links:
+  homepage: https://joinopenstandard.com/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/openstandard
+contract_addresses:
+  - chain: base
+    address: '0xB2000000000000000000002fEb517dFeC7415344'
+  - chain: ethereum
+    address: '0x9f6F3991D525015a6F8CaF062C83b62fD3AC4436'
+  - chain: tempo
+    address: '0x20c0000000000000000000006a37DA5C996874BE'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+checks:
+  twitter_last_post_at: '2026-09-30'
+  domain_up_at: '2026-09-30'
+  marked_dead_at: ''
+  information_found_missing_at: ''
