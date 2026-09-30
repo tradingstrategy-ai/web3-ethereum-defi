@@ -254,8 +254,11 @@ SECTION_TEMPLATES = (
         key="tvl_changes",
         heading_id="inflows-and-outflows",
         heading="Inflows and outflows",
-        intro="<p>Where the money moved: the vaults whose total value locked grew or shrank the most over the last 30 days.</p>",
-        charts=(("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),),
+        intro="<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days.</p>",
+        charts=(
+            ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
+            ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
+        ),
         editor_note="Explain the largest moves if known, e.g. a new fund launch or a redemption.",
     ),
     SectionTemplate(

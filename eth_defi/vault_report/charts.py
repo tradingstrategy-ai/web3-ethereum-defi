@@ -918,9 +918,9 @@ def create_chain_best_figure(
 ) -> Figure:
     """Draw the best vaults on each chain as a dot plot on a log return scale.
 
-    Each chain is a row, sorted by its best vault's return. The best vault is a
-    large green dot, the runners-up small grey dots, and the right-hand column
-    names the best vault and its return. The best vaults range from money
+    Each chain is a row, sorted by its best vault's return. The two best vaults
+    are large green dots, the runners-up small grey dots, and the right-hand
+    column names the two best vaults and their returns. The best vaults range from money
     market yields to capped trading returns, so the return axis is logarithmic.
 
     :param chain_vaults:
@@ -941,19 +941,23 @@ def create_chain_best_figure(
     """
     logos = logos or {}
     best = chain_vaults.groupby("chain", sort=False).head(1).sort_values(CHART_RETURN)
+    second = chain_vaults.groupby("chain", sort=False).nth(1)
     positions = {chain: position for position, chain in enumerate(best["chain"])}
     floor = 0.1
     points = chain_vaults.assign(x=(chain_vaults[CHART_RETURN] * 100).clip(lower=floor), y=chain_vaults["chain"].map(positions))
-    runners_up = points.loc[~points.index.isin(best.index)]
+    runners_up = points.loc[~points.index.isin(best.index) & ~points.index.isin(second.index)]
     leaders = points.loc[best.index]
+    seconds = points.loc[second.index]
 
     fig = go.Figure()
     for position in positions.values():
         fig.add_shape(type="line", xref="paper", yref="y", x0=0, x1=1, y0=position, y1=position, line={"color": theme.grid, "width": 1}, layer="below")
     fig.add_trace(go.Scatter(x=runners_up["x"], y=runners_up["y"], mode="markers", marker={"size": 11, "color": to_rgba(theme.muted_text, 0.5), "line": {"color": theme.surface, "width": 2}}, hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(x=seconds["x"], y=seconds["y"], mode="markers", marker={"size": 16, "color": to_rgba(theme.positive, 0.55), "line": {"color": theme.surface, "width": 3}}, hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scatter(x=leaders["x"], y=leaders["y"], mode="markers", marker={"size": 20, "color": theme.positive, "line": {"color": theme.surface, "width": 3}}, hoverinfo="skip", showlegend=False))
 
-    height = max(IMAGE_HEIGHT, 140 + 52 * len(positions))
+    # Two named vaults per row need more height than one
+    height = max(IMAGE_HEIGHT, 140 + 64 * len(positions))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     fig.update_layout(xaxis_title="3-month return, annualised (log scale)", margin={"l": 200, "r": 390, "t": 50, "b": 90})
     top = max(float(points["x"].max()) * 1.6, 20.0)
@@ -966,11 +970,15 @@ def create_chain_best_figure(
         if logo:
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.22, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
         fig.add_annotation(text=wrap_label(chain, 14), xref="paper", yref="y", x=-0.175, y=position, xanchor="left", align="left", showarrow=False, font={"size": 19, "color": theme.text})
-        leader = leaders.loc[leaders["chain"] == chain].iloc[0]
-        value = leader[CHART_RETURN]
-        text = CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
+        # The two best vaults, the best first
+        lines = []
+        for vault in (*leaders.loc[leaders["chain"] == chain].itertuples(), *seconds.loc[seconds["chain"] == chain].itertuples()):
+            value = getattr(vault, CHART_RETURN)
+            text = CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value * 100:,.1f}%"
+            lines.append(f"{highlight_number(text, theme, value)}  {plain_text(shorten_text(vault.name or vault.address, 28))}")
         fig.add_annotation(
-            text=f"{highlight_number(text, theme, value)}  {plain_text(shorten_text(leader['name'] or leader['address'], 28))}",
+            text="<br>".join(lines),
+            align="left",
             xref="paper",
             yref="y",
             x=1.02,
@@ -986,7 +994,11 @@ def create_chain_best_figure(
     return fig
 
 
-def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, properties: dict[str, tuple[VaultProperty, ...]] | None = None) -> Figure:
+#: A TVL change this many times larger than the next one is drawn off scale, see :py:func:`create_tvl_change_figure`
+TVL_CHANGE_OUTLIER_RATIO = 3
+
+
+def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, properties: dict[str, tuple[VaultProperty, ...]] | None = None, logos: dict[str, str | None] | None = None) -> Figure:
     """Draw the largest one-month TVL increases and decreases as diverging bars.
 
     Dollar amounts are quantities, so bars are the right form here: increases
@@ -1001,19 +1013,32 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     :param properties:
         Vault id -> curator, protocol and chain, drawn with their icons under the vault name.
 
+    :param logos:
+        Row index -> logo data URI drawn before the name, e.g. chain logos when the rows are blockchains.
+
     :return:
         Plotly figure.
     """
     properties = properties or {}
+    logos = logos or {}
     df = changes.iloc[::-1]
     values = df["tvl_change"] / 1e6
+    # A single change far larger than the rest would flatten every other bar: draw it off scale,
+    # cut at the axis edge with an arrow, like the outliers of the other charts
+    magnitudes = values.abs().sort_values(ascending=False)
+    off_scale = len(magnitudes) > 1 and magnitudes.iloc[0] > TVL_CHANGE_OUTLIER_RATIO * magnitudes.iloc[1]
+    span = float(magnitudes.iloc[1 if off_scale else 0]) * 1.25 if len(magnitudes) else 1.0
+    drawn = values.clip(lower=-span * 0.97, upper=span * 0.97) if off_scale else values
+    labels = [("+" if value >= 0 else "") + _format_usd_short(change) for value, change in zip(values, df["tvl_change"], strict=True)]
+    if off_scale:
+        labels = [(f"◀ {label}" if value < 0 else f"{label} ▶") if abs(value) > span * 0.97 else label for value, label in zip(values, labels, strict=True)]
     fig = go.Figure(
         go.Bar(
-            x=values,
+            x=drawn,
             y=list(range(len(df))),
             orientation="h",
             marker={"color": [theme.positive if value >= 0 else theme.negative for value in values], "cornerradius": 5},
-            text=[("+" if value >= 0 else "") + _format_usd_short(change) for value, change in zip(values, df["tvl_change"], strict=True)],
+            text=labels,
             textposition="outside",
             textfont={"color": theme.text, "size": 17},
             cliponaxis=False,
@@ -1021,11 +1046,10 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     )
     height = max(IMAGE_HEIGHT, 120 + 72 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
-    span = float(values.abs().max()) * 1.25 if len(values) else 1.0
     # Dollar ticks, e.g. -$200M and +$200M, so the axis title needs no unit
-    step = next((step for step in (10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 5_000) if span / step <= 4), 10_000)
+    step = next((step for step in (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 5_000) if span / step <= 4), 10_000)
     ticks = np.arange(-(span // step) * step, span + step / 2, step)
-    ticktext = [f"{'-' if tick < 0 else '+' if tick > 0 else ''}${abs(tick):,.0f}M" if tick else "$0" for tick in ticks]
+    ticktext = [f"{'-' if tick < 0 else '+' if tick > 0 else ''}{_format_usd_short(abs(tick) * 1e6).replace('.0B', 'B').replace('.0M', 'M')}" if tick else "$0" for tick in ticks]
     fig.update_layout(xaxis_title="TVL change in 30 days", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], tickvals=ticks, ticktext=ticktext, zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
@@ -1038,7 +1062,11 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
         vault_properties = properties.get(vault_id, ())
         property_rows = len(layout_properties(vault_properties, label_width)) if vault_properties else 0
         top = position + (len(lines) * 21 + property_rows * PROPERTY_ROW_HEIGHT) / 2 / unit_pixels
-        fig.add_annotation(text="<br>".join(plain_text(line) for line in lines), xref="paper", yref="y", x=label_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        name_x = label_x
+        if logos.get(vault_id):
+            fig.add_layout_image(source=logos[vault_id], xref="paper", yref="y", x=label_x, y=position, sizex=26 / plot_width, sizey=26 / unit_pixels, xanchor="left", yanchor="middle")
+            name_x += 36 / plot_width
+        fig.add_annotation(text="<br>".join(plain_text(line) for line in lines), xref="paper", yref="y", x=name_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         if vault_properties:
             add_property_rows(fig, vault_properties, theme, label_x, top - (len(lines) * 21 + PROPERTY_ROW_HEIGHT / 2) / unit_pixels, "y", label_width, plot_width, unit_pixels)
     return fig

@@ -30,7 +30,7 @@ import pandas as pd
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.research.vault_metrics import USDollarAmount, _get_trading_strategy_chain_link, _get_trading_strategy_protocol_link
 from eth_defi.types import Percent
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_vault_special_flags
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
 
@@ -268,9 +268,8 @@ def filter_eligible_vaults(
 ) -> pd.DataFrame:
     """Remove vaults that must not appear in any listing.
 
-    Drops blacklisted vaults (this includes vaults with bad flags, see
-    :py:func:`eth_defi.research.vault_metrics.apply_bad_flag_check`), vaults
-    without a known TVL or one-month return, and vaults with stale data.
+    Drops blacklisted vaults, see :py:func:`is_blacklisted`, vaults without a
+    known TVL or one-month return, and vaults with stale data.
 
     :param vaults_df:
         Vault metrics.
@@ -285,7 +284,7 @@ def filter_eligible_vaults(
         Filtered vault metrics.
     """
     stale_before = pd.Timestamp(data_end_at - criteria.max_data_age)
-    mask = (vaults_df["risk"] != BLACKLISTED_RISK) & vaults_df["current_nav"].notna() & vaults_df["one_month_cagr_best"].notna() & (vaults_df["end_date"] >= stale_before)
+    mask = ~is_blacklisted(vaults_df) & vaults_df["current_nav"].notna() & vaults_df["one_month_cagr_best"].notna() & (vaults_df["end_date"] >= stale_before)
     eligible = vaults_df.loc[mask]
     logger.info("Eligible vaults for the report: %d out of %d", len(eligible), len(vaults_df))
     return eligible
@@ -681,15 +680,45 @@ def calculate_tvl_changes(eligible_df: pd.DataFrame, criteria: ReportCriteria) -
         decreases, with ``tvl_start``, ``tvl_end`` and ``tvl_change`` columns
         in USD, sorted from the largest increase to the largest decrease.
     """
+    return _largest_changes(_one_month_tvl_changes(eligible_df), criteria.tvl_change_top_n)
+
+
+def calculate_chain_tvl_changes(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Find the blockchains whose vault TVL changed the most over the last month, in dollars.
+
+    Sums the one-month TVL changes of each chain's vaults, like
+    :py:func:`calculate_tvl_changes` does per vault.
+
+    :param eligible_df:
+        Output of :py:func:`filter_eligible_vaults`.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        The :py:attr:`ReportCriteria.tvl_change_top_n` largest net increases and
+        decreases, indexed by chain name, with ``name``, ``address``,
+        ``tvl_start``, ``tvl_end`` and ``tvl_change`` columns in USD, sorted
+        from the largest increase to the largest decrease.
+    """
+    by_chain = _one_month_tvl_changes(eligible_df).groupby("chain")[["tvl_start", "tvl_end", "tvl_change"]].sum()
+    by_chain = by_chain.assign(name=by_chain.index, address=by_chain.index)
+    return _largest_changes(by_chain, criteria.tvl_change_top_n)
+
+
+def _one_month_tvl_changes(eligible_df: pd.DataFrame) -> pd.DataFrame:
+    """One-month TVL change of each vault; duplicate listings with the same name, chain and change are counted once."""
     one_month = eligible_df["period_results"].apply(find_period, period="1M")
     df = eligible_df.assign(
         tvl_start=one_month.apply(lambda p: p.get("tvl_start")).astype(float),
         tvl_end=one_month.apply(lambda p: p.get("tvl_end")).astype(float),
     ).dropna(subset=["tvl_start", "tvl_end"])
-    df = df.assign(tvl_change=df["tvl_end"] - df["tvl_start"]).drop_duplicates(subset=["name", "chain", "tvl_change"])
-    top = criteria.tvl_change_top_n
-    changes = pd.concat([df.loc[df["tvl_change"] > 0].nlargest(top, "tvl_change"), df.loc[df["tvl_change"] < 0].nsmallest(top, "tvl_change").iloc[::-1]])
-    return changes
+    return df.assign(tvl_change=df["tvl_end"] - df["tvl_start"]).drop_duplicates(subset=["name", "chain", "tvl_change"])
+
+
+def _largest_changes(df: pd.DataFrame, top: int) -> pd.DataFrame:
+    """The largest increases and decreases, from the largest increase to the largest decrease."""
+    return pd.concat([df.loc[df["tvl_change"] > 0].nlargest(top, "tvl_change"), df.loc[df["tvl_change"] < 0].nsmallest(top, "tvl_change").iloc[::-1]])
 
 
 def format_return(net: Percent | None, gross: Percent | None) -> str:
@@ -824,11 +853,31 @@ def render_section_table(section: ReportSection) -> str:
     return "<table>\n<thead>\n<tr>" + header + "</tr>\n</thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
 
 
+def is_blacklisted(vaults_df: pd.DataFrame) -> pd.Series:
+    """Find blacklisted vaults.
+
+    A vault is blacklisted when the export rates it ``Blacklisted``, which
+    includes vaults with bad flags when the export was made (see
+    :py:func:`eth_defi.research.vault_metrics.apply_bad_flag_check`), or when
+    this repository's :py:mod:`eth_defi.vault.flag` gives it a bad flag. The
+    second rule applies blacklist entries added after the export, e.g. by the
+    investability check, right away.
+
+    :param vaults_df:
+        Vault metrics with ``risk``, ``address`` and ``protocol`` columns.
+
+    :return:
+        Boolean series, ``True`` for blacklisted vaults.
+    """
+    flagged = vaults_df.apply(lambda vault: bool(get_vault_special_flags(vault["address"], vault["protocol"]) & BAD_FLAGS) if isinstance(vault["address"], str) else False, axis=1)
+    return (vaults_df["risk"] == BLACKLISTED_RISK) | flagged.astype(bool)
+
+
 def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
     """Select vaults whose TVL history is counted in the market TVL chart.
 
-    Excludes blacklisted vaults, like the website's historical TVL charts, so
-    the totals match the website.
+    Excludes blacklisted vaults, see :py:func:`is_blacklisted`, like the
+    website's historical TVL charts, so the totals match the website.
 
     :param vaults_df:
         All vault metrics.
@@ -836,7 +885,7 @@ def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
     :return:
         Vaults to include.
     """
-    return vaults_df.loc[vaults_df["risk"] != BLACKLISTED_RISK]
+    return vaults_df.loc[~is_blacklisted(vaults_df)]
 
 
 def _group_tvl_history(tvl_history: pd.DataFrame, groups: pd.Series, top_n: int, excluded: str | None = None) -> pd.DataFrame:

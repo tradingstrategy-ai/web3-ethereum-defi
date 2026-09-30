@@ -31,7 +31,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
-from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_vaults_by_chain, select_yield_vaults
+from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
 from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
@@ -354,6 +354,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "chain_tvl",
         "fund_nav",
         "tvl_changes",
+        "chain_tvl_changes",
         "lending_performance",
         "perp_dex_performance",
         "perp_dex_sharpe_performance",
@@ -380,7 +381,7 @@ def test_render_report_charts_without_prices(tmp_path: Path, vaults_df: pd.DataF
     pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0], "total_assets": [1.0]}).to_parquet(empty_prices)
     data = VaultReportData(vaults_df=vaults_df, prices_path=empty_prices)
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out")
-    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "protocol_high_yields", "tvl_changes", "risk_return", "by_chain_best"}
+    assert set(report.chart_paths) == {"chain_yields", "protocol_yields", "protocol_high_yields", "tvl_changes", "chain_tvl_changes", "risk_return", "by_chain_best"}
     assert "lending" in report.context.tables
 
 
@@ -1010,3 +1011,24 @@ def test_split_legend_layout():
     assert annotations["Curator"].y > annotations["Protocol"].y  # Stacked
     assert annotations["<b>BTC</b>"].y == annotations["3.35"].y and annotations["3.35"].x > annotations["<b>BTC</b>"].x  # Benchmarks on one row
     assert annotations["224.46"].y == pytest.approx(annotations["Curator"].y + 22 / 2 / (600 - 40) - 21 / 2 / (600 - 40), abs=0.02)  # Same row
+
+
+def test_chain_tvl_changes(vaults_df: pd.DataFrame):
+    """Chain inflows and outflows sum the one-month TVL changes of each chain's vaults."""
+    criteria = ReportCriteria()
+    eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)
+    by_chain = calculate_chain_tvl_changes(eligible, criteria)
+    base = eligible.loc[eligible["chain"] == "Base"]
+    one_month = base["period_results"].apply(lambda periods: next((p for p in periods or [] if p.get("period") == "1M"), {}))
+    expected = sum(p["tvl_end"] - p["tvl_start"] for p in one_month if "tvl_start" in p)
+    assert by_chain.loc["Base", "tvl_change"] == pytest.approx(expected)
+    assert by_chain.loc["Base", "name"] == "Base"
+
+
+def test_flag_py_blacklist_applies_to_report(vault_records: list[dict]):
+    """A vault blacklisted in flag.py leaves the report even when the export does not rate it Blacklisted yet."""
+    king_rss = make_vault_record("0xf80c0529bd94c773844e459853cd91b9263dd525", chain="Base", one_month_cagr_net=0.3)
+    df = prepare_vault_metrics([*vault_records, king_rss])
+    assert king_rss["risk"] != "Blacklisted"
+    assert king_rss["id"] not in filter_eligible_vaults(df, DATA_END_AT, ReportCriteria()).index
+    assert king_rss["id"] not in select_tvl_history_vaults(df).index

@@ -69,6 +69,7 @@ from eth_defi.vault_report.sections import (
     TOKENISED_FUND,
     ReportCriteria,
     ReportSection,
+    calculate_chain_tvl_changes,
     calculate_chain_tvl_history,
     calculate_chain_yields,
     calculate_fund_nav_history,
@@ -348,7 +349,10 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             f"Excludes blacklisted funds and data points above {format_usd(TVL_OUTLIER_THRESHOLD)}",
             live.format(url="https://tradingstrategy.ai/vaults/funds"),
         ],
-        "tvl_changes": ["A TVL change includes deposits, redemptions and the vault's own returns"],
+        "tvl_changes": [
+            "A TVL change includes deposits, redemptions and the vault's own returns",
+            "Blacklisted vaults and vaults the investability check excluded are left out",
+        ],
         "best": [
             "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
             f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending, RWA and other vaults also need {active}",
@@ -659,7 +663,10 @@ def render_report_charts(
     fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
     tvl_vault_slugs = defi_vaults.loc[defi_vaults["protocol_identified"]].drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
     fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
-    tvl_changes = calculate_tvl_changes(eligible_df, criteria)
+    # Inflows and outflows leave out the vaults the investability check excluded; the TVL totals keep them
+    flow_vaults = apply_check_decisions(eligible_df, excluded)
+    tvl_changes = calculate_tvl_changes(flow_vaults, criteria)
+    chain_tvl_changes = calculate_chain_tvl_changes(flow_vaults, criteria)
     # Curator, protocol and chain under each vault name, with their icons
     vault_properties = {vault_id: make_vault_properties(eligible_df.loc[vault_id], theme, chain_logo) for vault_id in chart_ids | set(tvl_changes.index)}
     # Trimmed logos get icon boxes of their own shape, so every icon sits the same distance from its text
@@ -701,6 +708,11 @@ def render_report_charts(
             create_tvl_change_figure(tvl_changes, theme, vault_properties),
             ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} vaults with the largest increases and the {criteria.tvl_change_top_n} with the largest decreases", "tradingstrategy.ai/vaults"),
         )
+    if len(chain_tvl_changes):
+        figures["chain_tvl_changes"] = (
+            create_tvl_change_figure(chain_tvl_changes, theme, logos={chain: chain_logo(chain) for chain in chain_tvl_changes.index}),
+            ChartPanel("Inflows and outflows by blockchain", f"Net change of all vaults on the {criteria.tvl_change_top_n} blockchains with the largest increases and decreases", "tradingstrategy.ai/vaults/chains"),
+        )
 
     benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
     for section, df in performance_vaults.items():
@@ -725,8 +737,8 @@ def render_report_charts(
         figures["by_chain_best"] = (
             create_chain_best_figure(chain_chart_vaults, theme, {chain: chain_logo(chain) for chain in chain_chart_vaults["chain"].unique()}, tbill_latest),
             ChartPanel(
-                "The best-performing vault on each chain",
-                f"Large dot: the best vault · small dots: the runners-up · at least {format_usd(criteria.chain_min_tvl)} TVL",
+                "The two best-performing vaults on each chain",
+                f"Large dots: the two best vaults · small dots: the runners-up · at least {format_usd(criteria.chain_min_tvl)} TVL",
                 "tradingstrategy.ai/vaults/chains",
             ),
         )
@@ -734,7 +746,7 @@ def render_report_charts(
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
     figures["risk_return"] = (
         create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
-        ChartPanel("Risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
+        ChartPanel("Volatility risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
     )
 
     chart_dir = output_dir / "charts"

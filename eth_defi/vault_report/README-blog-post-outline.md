@@ -75,9 +75,9 @@ pile automatically. No report change is needed.
 - **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts, the average yield charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults instead.
 - **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
 
-- **Investability check:** an agent checks the vaults the rankings would show, see [README-vault-report.md](./README-vault-report.md#investability-check). Vaults that are not investable in practice, such as Morpho or Euler vaults with suspicious collateral or vaults without exit liquidity, are left out of every ranking, chart and the hero image, and the next vaults move up. The TVL summaries and inflows and outflows keep them. Version 1 covers Morpho, Euler and 40acres; more protocols will follow.
+- **Investability check:** an agent checks the vaults the rankings would show, see [README-vault-report.md](./README-vault-report.md#investability-check). Vaults that are not investable in practice, such as Morpho or Euler vaults with suspicious collateral or vaults without exit liquidity, are left out of every ranking, chart, the hero image and the inflows and outflows, and the next vaults move up. The TVL totals keep them. Version 1 covers Morpho, Euler and 40acres; more protocols will follow.
 
-- **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
+- **Eligibility:** blacklisted vaults, rated Blacklisted in the export or given a bad flag in `eth_defi/vault/flag.py` since, and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
 - **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
 - **Table thresholds:** at least $100k TVL. Lending, RWA and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
@@ -98,7 +98,7 @@ pile automatically. No report change is needed.
 | 6 | Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
 | 6b | Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | ✏️ Comment on the trend |
 | 7 | Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | ✏️ Comment on the trend |
-| 8 | Inflows and outflows | The **10 largest TVL increases and decreases over 30 days**, in dollars | ✏️ Explain the largest moves |
+| 8 | Inflows and outflows | The **10 largest vault TVL increases and decreases over 30 days**, in dollars, then the same by blockchain: the net change of all vaults on each chain. A single change more than three times the next is drawn off scale | ✏️ Explain the largest moves |
 | 9 | The best-performing vaults | Treasury bill caption: how many yield vaults beat the T-bill, and their median return | ✏️ Comment on the top vaults |
 | 9.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
 | 9.1b | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
@@ -106,10 +106,10 @@ pile automatically. No report change is needed.
 | 9.3 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 9.4 | ↳ Other vaults | Performance chart and table, **by return** | — |
 | 9.5 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 9.6 | ↳ Best-performing vaults on each chain | Chart of the best vault and runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
+| 9.6 | ↳ Best-performing vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
 | 10 | The best-performing tokenised funds | Performance chart and table, by return | — |
 | 11 | The best-performing new vaults | Table: launched in the last 60 days, at least $15k TVL | — |
-| 12 | Risk and return | Bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
+| 12 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
 | 12b | Excluded vaults in this report | Table of vaults the investability check removed from the rankings: vault, protocol, suspicious item, reason | ✏️ Resolve uncertain vaults |
 | 13 | Partners | Copied from the previous post | — |
 | 14 | Next steps | Copied from the previous post | — |

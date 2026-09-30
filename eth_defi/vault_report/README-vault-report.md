@@ -156,7 +156,7 @@ short, the post has:
   TVL, against the T-bill;
 - stablecoin TVL by DeFi vault protocol and by blockchain, and stablecoin NAV
   by tokenised fund, over 12 months;
-- inflows and outflows: the largest 30-day TVL changes in dollars;
+- inflows and outflows: the largest 30-day TVL changes in dollars, by vault and by blockchain;
 - the best-performing vaults, split into lending, real-world asset (RWA), perp
   DEX by return, perp DEX by Sharpe ratio and other vaults, and AMM pools, each
   with a performance chart and a table, and the best vaults on each chain;
@@ -173,8 +173,9 @@ performance charts, the average yield charts and the risk and return chart leave
 out Dangerous or worse vaults as well, while the tables keep them. The image does not state these
 filters; its footer shows only the minimum TVL and the data date.
 
-All listings exclude blacklisted vaults and vaults whose data is more than a
-week older than the report date. Performance charts draw the 90-day equity
+All listings exclude blacklisted vaults, rated Blacklisted in the export or
+given a bad flag in `eth_defi/vault/flag.py` since, and vaults whose data is
+more than a week older than the report date. Performance charts draw the 90-day equity
 curves, in percent, of the top vaults of each group by three-month return in one
 chart with a shared axis, so they can be compared directly. The legend and the
 benchmark line ends show annualised returns over each line's span, computed
@@ -292,8 +293,8 @@ is rendered:
 4. If exclusions make the lists shorter than shown, the next vaults are
    checked in another round, up to three rounds.
 5. Excluded vaults leave every ranking, chart, the T-bill caption and the hero
-   image, and are listed in the *Excluded vaults in this report* section. They
-   stay in the TVL summaries and the inflows and outflows, which report where
+   image, and the inflows and outflows, and are listed in the *Excluded vaults
+   in this report* section. They stay in the TVL totals, which report where
    money is, not where to invest. `uncertain` vaults stay in the report with an
    editor callout.
 
