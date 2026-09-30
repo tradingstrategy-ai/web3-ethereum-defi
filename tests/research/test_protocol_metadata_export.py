@@ -11,13 +11,20 @@ HTTP_OK = 200
 REQUEST_TIMEOUT = 30
 
 
-def test_frankencoin_protocol_metadata_description():
-    """Frankencoin protocol metadata uses the public Swiss franc description."""
+def test_frankencoin_protocol_metadata_description() -> None:
+    """Export Frankencoin's target-peg and equity product descriptions.
+
+    Preserve the public distinction between ZCHF's intended peg and the
+    loss-bearing FCS equity product when exporting protocol metadata.
+
+    :return: ``None`` after checking the exported descriptions.
+    """
     metadata = build_metadata_json(METADATA_DIR / "frankencoin.yaml", public_url="")
 
-    assert metadata["short_description"] == "Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc."
+    assert metadata["short_description"] == "Frankencoin issues ZCHF, a decentralised stablecoin designed to track the Swiss franc."
     assert "decentralised Swiss franc stablecoin" in metadata["long_description"]
     assert "Pay with digital Swiss francs" in metadata["long_description"]
+    assert "Frankencoin Shares (FCS)" in metadata["long_description"]
 
 
 def test_atoma_protocol_metadata_highlights_transparency_dashboard():

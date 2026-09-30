@@ -51,6 +51,14 @@ the reads captured from the Lagoon lifecycle and selected Guard paths. It
 reduces cold archive reads but is not an exhaustive cache of every test at this
 block; cache misses still use the configured provider.
 
+`mainnet/26089593/` is the fixed Ethereum snapshot for
+`tests/erc_4626/vault_protocol/test_frankencoin_shares.py`. FCS was deployed
+at block 25,852,506, after the canonical Ethereum midnight block. The seed was
+captured on 2026-09-30 with CI-pinned Anvil `v1.3.2`, after the complete FCS
+fork group passed and Anvil closed gracefully. It includes FCS, FPS Equity and
+ZCHF contract code and storage for accounting, redemption and scanner metadata;
+archive bootstrap checks and uncaptured reads still use configured providers.
+
 The BSC midnight seed contains the BUSD contract code, the unlocked historical
 holder account, and the metadata and balance slots used by
 `tests/rpc/test_anvil.py`. Bootstrap checks still reach the configured provider,

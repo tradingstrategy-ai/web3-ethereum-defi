@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Track Frankencoin Shares equity with Ethereum address classification, protocol curation, equity and underlying lending/RWA strategy tags, revenue-stream documentation and a targeted metadata and price backfill (2026-09-30).
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
 - fix: Retry Derive v3 transient application error 9002 with bounded exponential backoff instead of failing live vault-listing reads immediately (2026-09-28).
 - fix: List Kamui's three permissioned Lagoon vaults through one chain-aware address registry, bypass their inapplicable generic Deposit-event threshold, and refresh their onchain whitelist and unofficial metadata (2026-09-28).

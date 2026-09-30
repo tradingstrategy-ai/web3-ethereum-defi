@@ -100,6 +100,10 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Hyperliquidity Provider (HLP).
     liquidity_provider = "liquidity_provider"
 
+    #: Supplies loss-bearing protocol equity and participates in net income.
+    #: Example vault: Frankencoin Shares (FCS).
+    protocol_equity = "protocol_equity"
+
     #: Actively makes markets by supplying liquidity through an automated
     #: market maker.
     #: Example vault: gTrade (Gains Network USDC).
@@ -194,6 +198,10 @@ class StrategyTagMetadata(TypedDict):
 #: Descriptions are deliberately brief so API consumers can display them in a
 #: summary table without truncating the activity being described.
 STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
+    StrategyTag.protocol_equity: {
+        "label": "Protocol equity",
+        "description": "Supplies loss-bearing capital to a protocol and participates in its net income and losses.",
+    },
     StrategyTag.unknown: {
         "label": "Unknown strategy",
         "description": "The investment approach is unknown.",
