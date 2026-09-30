@@ -1208,6 +1208,43 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # - NetNet credit docs: https://docs.netnet.capital/credit
     # - Robinhood stock tokens: https://docs.robinhood.com/chain/stock-tokens/
     "0x99347d5f70d3838763f6bddcf80304c8aa953b57": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Liquity Hub (Euler Earn on Ethereum, curator K3 Capital)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``).
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC: uncertain, low confidence. Only 0.014% of
+    # the $135k assets is redeemable (about $19) and the pool's median utilisation over
+    # 30 days is 99.997%. The pool accepts K3's own sBOLD, BOLD and expired Pendle
+    # PT-sBOLD tokens (the PTs have $0 DEX liquidity, BOLD has about $10M); the protocol
+    # is real, but no served withdrawals could be verified.
+    #
+    # To decide: whether the pool is permanently fully borrowed (exclude for exit
+    # liquidity) or only tight. TVL about $135k.
+    #
+    # - https://tradingstrategy.ai/vaults/liquity-hub-3
+    # - https://etherscan.io/address/0xc6137bc1378c2396051e06417704d31615f77cb9
+    # - Euler app: https://app.euler.finance/lend/0xc6137BC1378c2396051e06417704d31615F77Cb9?network=1
+    # - sBOLD: https://liquity.org/blog/sbold---the-on-chain-defi-savings-account
+    "0xc6137bc1378c2396051e06417704d31615f77cb9": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # JPEG Trading x Tenbin RWAs (Euler EVK pool on Ethereum, curator JPEG Trading)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``).
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC: uncertain, low confidence. The pool lends
+    # only against Tenbin tGLD, which has about $2.7k of DEX liquidity, and has 0%
+    # redeemable liquidity and 100% median utilisation over 30 days. The sibling Euler
+    # Earn vault 0x018b86a8... is already under review for the same pool.
+    #
+    # To decide: whether tGLD has a working primary-market redemption and whether the
+    # pool is permanently fully borrowed. TVL about $152k.
+    #
+    # - https://tradingstrategy.ai/vaults/jpeg-trading-x-tenbin-rwas-2
+    # - https://etherscan.io/address/0xb57320b253363bf749d5ce6e66592fdc74cce6f7
+    # - Euler app: https://app.euler.finance/lend/0xb57320b253363bf749D5CE6e66592FDC74cce6f7?network=1
+    # - tGLD: https://pharos.watch/stablecoin/tgld-tenbin/
+    "0xb57320b253363bf749d5ce6e66592fdc74cce6f7": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
     # JPEG Trading x Tenbin RWAs (Euler Earn on Ethereum, curator JPEG Trading)
     #
     # Added 2026-09-30 as review_needed by the vault report investability check
@@ -1228,6 +1265,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Not the same vault as the other JPEG Trading x Tenbin RWAs Euler pool that both runs
     # excluded. To decide: whether the tGLD pool is permanently stuck or only temporarily
     # fully borrowed. TVL about $156k.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Facts unchanged: 97% of assets in the tGLD pool, 2.6% redeemable, 0%
+    # idle over 14 days, 100% utilisation median; tGLD has $2.7k of DEX liquidity. No
+    # served withdrawals could be verified, and the sibling pool 0xb57320b2... shows the
+    # same pattern.
     #
     # - https://tradingstrategy.ai/vaults/jpeg-trading-x-tenbin-rwas-3
     # - https://etherscan.io/address/0x018b86a893f57a632f90c4a8308353ac938adc01
@@ -1276,6 +1319,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # To decide: fix the protocol classification (Lista Moolah), then review the PT-sUSDai
     # market. TVL about $1.74M.
     #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. The Euler Earn probe still fails on withdrawQueue(uint256) decoding, so
+    # redeemable liquidity is unknown; 14-day idle share 0% and utilisation 100%. Fix the
+    # protocol classification first.
+    #
     # - https://tradingstrategy.ai/vaults/rockawayx-pt-yield
     # - https://bscscan.com/address/0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2
     # - Lista DAO lending: https://lista.org/lending
@@ -1298,6 +1346,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # To decide: whether the near-zero redeemable liquidity is temporary. HypurrFi Earn
     # USDC allocates to this pool. TVL about $310k.
     #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Redeemable liquidity 0.0025% of assets, idle cash up to 29% within 14
+    # days, median utilisation 87%. Collateral accepted by the pool is mostly liquid HYPE
+    # assets, but several accepted tokens (PT-kHYPE, hwHYPE, sUSN, FXRP, syzUSD) have no
+    # DEX liquidity. Whether withdrawals were served could not be verified.
+    #
     # - https://tradingstrategy.ai/vaults/clearstar-yield-6
     # - https://hyperevmscan.io/address/0xf9bb65e113418292d1a3555515fbd64637a0be18
     # - Euler app: https://app.euler.finance/lend/0xf9bb65e113418292d1a3555515fbd64637a0be18?network=999
@@ -1319,6 +1373,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # against Midas tokens issued for the curator, with $0 DEX liquidity and 87-90%
     # utilisation; the editor should decide.
     #
+    # Sonnet 5.5 run, 2026-09-30 19:50 UTC: uncertain, medium confidence. Facts unchanged:
+    # 80% lent against mHyperBTC and 20% against mHYPER, both $0 DEX liquidity, markets
+    # 87-90% utilised, 20.9% redeemable. Morpho still lists the vault without warnings.
+    # Still undecided whether NAV-priced issuer tokens are acceptable collateral.
+    #
     # To decide: whether lending against the curator's own NAV-priced funds is acceptable.
     # TVL about $1.55M.
     #
@@ -1328,6 +1387,25 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # - mHYPER: https://app.rwa.xyz/assets/mHYPER
     # - Hyperithm NAV update: https://phemex.com/news/article/hyperithm-updates-midas-vaults-nav-confirms-no-drawdowns-75413
     "0x777791c4d6dc2ce140d00d2828a7c93503c67777": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # YieldNest Max Vaults (Euler EVK pool on Ethereum, curator YieldNest)
+    #
+    # Added 2026-09-30 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``) as
+    # review_needed. Sonnet 5.5 run, 2026-09-30 19:50 UTC: uncertain, medium confidence.
+    # The pool has had 100% utilisation for the last 30 days and redeemable liquidity is
+    # 0.00% of its $1.2M assets (idle about $0.000001). Its collateral are YieldNest
+    # ynRWAx and ynUSDx, fixed-maturity vaults (ynRWAx matures 15 October 2026) with a
+    # Curve secondary market. YieldNest documents instant or queued withdrawals, but no
+    # withdrawals served by this pool could be confirmed, so a new depositor may have to
+    # wait for borrowers to repay.
+    #
+    # To decide: whether the borrowers repay at maturity and whether recent withdrawals were served.
+    #
+    # - https://tradingstrategy.ai/vaults/yieldnest-max-vaults
+    # - https://etherscan.io/address/0x7fab04ff2717d9a6b71a51c56c29697179597d40
+    # - Euler app: https://app.euler.finance/lend/0x7fab04ff2717d9a6b71a51c56c29697179597d40?network=1
+    # - ynRWAx: https://tradingstrategy.ai/vaults/yieldnest-rwa-max
+    "0x7fab04ff2717d9a6b71a51c56c29697179597d40": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
     # K3 Isolated syzUSD-USDT0 (Euler EVK pool on Monad, curator K3 Capital)
     #
     # Added 2026-09-30 as review_needed by the vault report investability check
@@ -1447,6 +1525,16 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # To decide: blacklist as illiquid, or accept Morini's NAV-priced tokens. TVL about
     # $1.06M.
     #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain,
+    # medium confidence. Morpho API reports $81 of vault liquidity on $1.06M, unlisted
+    # vault. About 72% ($771k) is lent against Morini CarryTradeUSDTRYLeverage and 28%
+    # ($293k) against Morini StockMarketTRBasisTrade, both vault-share tokens of Morini
+    # Capital (Piku Finance) with no DEX pairs, priced through a Chainlink-adapter feed
+    # proxy (Morpho oracle contracts are the standard MorphoChainlinkOracleV2, but the
+    # feeds are issuer-operated). The collateral is a real, documented product rather than
+    # a scam, so not blacklisted; to decide whether a depositor can exit without a
+    # penalised force-deallocation.
+    #
     # - https://tradingstrategy.ai/vaults/alpha-usdc-forex-v2
     # - https://etherscan.io/address/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
     # - Morpho app: https://app.morpho.org/ethereum/vault/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
@@ -1472,6 +1560,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # The runs read the same pool differently. To decide: whether its illiquidity is
     # temporary. TVL about $254k.
     #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Redeemable liquidity 0.003% of assets with 0% idle over 14 days and 100%
+    # utilisation median; the vault allocates to the Clearstar Yield pool above, so the
+    # verdicts must match.
+    #
     # - https://tradingstrategy.ai/vaults/hypurrfi-earn-usdc
     # - https://hyperevmscan.io/address/0xf868a2b30854fe13e26f7ab7a92609ccb6b9c0e1
     # - Euler app: https://app.euler.finance/earn/0xf868a2b30854fe13e26f7ab7a92609ccb6b9c0e1?network=999
@@ -1494,6 +1587,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     #
     # To decide: check how the export values JPYC-denominated vaults; if it counts JPYC at
     # $1, fix the valuation rather than flag the vault. Reported TVL about $1.63M.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain,
+    # medium confidence. The Morpho API now reports total assets of $10.3k, fully liquid,
+    # against $1.63M in our export, which confirms the export overstates TVL (JPYC counted
+    # at $1). The vault itself looks safe; the valuation needs fixing.
     #
     # - https://tradingstrategy.ai/vaults/steakhouse-paotech-jpyc-3
     # - https://polygonscan.com/address/0xbeef0f82e269760429be6255fa00821b7e4b592a
