@@ -19,6 +19,8 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_BY_ADMIN,
     REDEMPTION_CLOSED_BY_ADMIN,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
@@ -287,6 +289,20 @@ class PlutusVault(ERC4626Vault):
         We estimate one month lock-up for modelling purposes based on the discussion with Plutus in Discord.
         """
         return datetime.timedelta(days=30)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return Plutus' non-binding redemption-settlement estimate.
+
+        Plutus windows are manually controlled and no onchain deadline exists
+        for the upgraded Hedge Vault's asynchronous redemption fulfilment.
+        """
+        # TODO pending real data: 14 days average delay estimated from 30 days cycle.
+        return WithdrawalPeriod(
+            min_period=None,
+            max_period=None,
+            delay_type=WithdrawalDelayType.delay,
+            estimated_settlement=datetime.timedelta(days=14),
+        )
 
     def get_link(self, referral: str | None = None) -> str:
         # No vault pages
