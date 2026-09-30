@@ -5,9 +5,9 @@ The post body is Ghost-compatible HTML:
 - Tables are wrapped in ``<!--kg-card-begin: html-->`` comments, which
   Ghost imports as raw HTML cards
 - Charts are Ghost image cards
-- Parts that need a human editor (intro, community news, commentary) are
-  yellow callout cards starting with ``EDITOR:`` or ``TODO:``; delete them before
-  publishing. Callouts hold inline text only.
+- The post has no editor callouts. The parts the editor writes (the month's
+  highlight, the report content updates, community news and commentary, the
+  feature image) are listed in the editor workflow of ``README-vault-report.md``.
 
 Evergreen sections (*About the report*, *Partners*, *Next steps*) are copied
 from the previous report post, so edits made in Ghost carry over month to month.
@@ -72,9 +72,6 @@ class SectionTemplate:
 
     #: (chart key in :py:attr:`PostContext.charts`, alt text) pairs shown above the table
     charts: tuple[tuple[str, str], ...] = ()
-
-    #: Text of an editor callout, or empty
-    editor_note: str = ""
 
     #: Heading level, 2 for sections and 3 for subsections
     level: int = 2
@@ -170,7 +167,7 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by return",
         heading_id="best-performing-perp-dex-vaults",
         subject="the best-performing perp DEX vaults",
-        intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which make markets, provide liquidity or trade. Their returns are volatile, so they are compared with BTC and ETH rather than the T-bill. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
+        intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which are discretionary, directional algorithmic or market making vaults. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
         benchmark="BTC and ETH",
     ),
     BestSection(
@@ -215,7 +212,6 @@ SECTION_TEMPLATES = (
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
         # No introduction and no T-bill caption: the heading leads straight to its subsections
-        editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
     SectionTemplate(
@@ -257,7 +253,6 @@ SECTION_TEMPLATES = (
         heading="Yield by protocol, high yield",
         intro=f'<p>The protocols paying the highest average yield. High yields usually come with higher risk, so check where the yield comes from before investing. The <a href="{VAULTS_URL}/yield-protocol">vault yield by protocol</a> chart compares the yields of every protocol.</p>',
         charts=(("protocol_high_yields", "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill"),),
-        editor_note="Comment on the highest-yielding protocols and where their yield comes from.",
         level=3,
     ),
     SectionTemplate(
@@ -266,7 +261,6 @@ SECTION_TEMPLATES = (
         heading="Yield by blockchain",
         intro=f'<p>Which blockchains pay the most on stablecoins. Browse the vaults of each chain on the <a href="{VAULTS_URL}/chains">blockchains page</a>.</p>',
         charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
-        editor_note="Comment on the chains paying the most and the least.",
         level=3,
     ),
     SectionTemplate(
@@ -280,7 +274,7 @@ SECTION_TEMPLATES = (
         key="tvl",
         heading_id="vaults-and-tokenised-funds-tvl",
         heading="Vaults and tokenised funds TVL",
-        intro=f'<p>How much money stablecoin vaults and tokenised funds hold, by protocol, blockchain and fund, and where it moved over the last 30 days. The <a href="{VAULTS_URL}/historical-tvl-stablecoin">stablecoin TVL</a> chart has the full history.</p>',
+        intro=f'<p>How much money stablecoin vaults and tokenised funds hold, by protocol, blockchain and fund, over the last 12 months. The <a href="{VAULTS_URL}/historical-tvl-stablecoin">stablecoin TVL</a> chart has the full history.</p>',
         group=True,
     ),
     SectionTemplate(
@@ -289,7 +283,6 @@ SECTION_TEMPLATES = (
         heading="Stablecoin TVL by DeFi vault protocol",
         intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">live chart</a> has the full history.</p>',
         charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
-        editor_note="Comment on the TVL trend: which protocols grew or shrank.",
         level=3,
     ),
     SectionTemplate(
@@ -298,7 +291,6 @@ SECTION_TEMPLATES = (
         heading="Stablecoin TVL by blockchain",
         intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">live chart</a> has the full history.</p>',
         charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
-        editor_note="Comment on the TVL trend: which blockchains grew or shrank.",
         level=3,
     ),
     SectionTemplate(
@@ -307,19 +299,29 @@ SECTION_TEMPLATES = (
         heading="Stablecoin NAV by tokenised fund",
         intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds page</a> for the live data.</p>',
         charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
-        editor_note="Comment on the tokenised fund trend: which funds grew or shrank.",
         level=3,
     ),
     SectionTemplate(
-        key="tvl_changes",
+        key="flows",
         heading_id="inflows-and-outflows",
         heading="Inflows and outflows",
-        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. The <a href="{VAULTS_URL}/high-tvl">high TVL vaults</a> page ranks the vaults with at least $2M TVL.</p>',
-        charts=(
-            ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
-            ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
-        ),
-        editor_note="Explain the largest moves if known, e.g. a new fund launch or a redemption.",
+        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. A TVL change includes deposits, redemptions and the returns the vaults earned. Browse all vaults and their current TVL on the <a href="{VAULTS_URL}">vaults page</a>.</p>',
+        group=True,
+    ),
+    SectionTemplate(
+        key="tvl_changes",
+        heading_id="inflows-and-outflows-by-vault",
+        heading="Inflows and outflows by vault",
+        intro=f'<p>The vaults with the largest TVL increases and decreases, in dollars. The <a href="{VAULTS_URL}/high-tvl">high TVL vaults</a> page ranks the vaults with at least $2M TVL.</p>',
+        charts=(("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="chain_tvl_changes",
+        heading_id="inflows-and-outflows-by-blockchain",
+        heading="Inflows and outflows by blockchain",
+        intro=f'<p>The net TVL change of all vaults on each blockchain, for the blockchains with the largest increases and decreases. The <a href="{VAULTS_URL}/chains">blockchains page</a> shows the TVL of every chain.</p>',
+        charts=(("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),),
         level=3,
     ),
 )
@@ -349,9 +351,6 @@ class PostContext:
 
     #: Recent changelog entries offered to the editor for the report content updates section
     changelog_entries: list[str] = field(default_factory=list)
-
-    #: Section key -> extra editor note HTML, e.g. about the investability check
-    editor_notes: dict[str, str] = field(default_factory=dict)
 
     #: Latest podcast episodes, newest first; the section is left out when empty
     podcasts: list[PodcastEpisode] = field(default_factory=list)
@@ -453,25 +452,6 @@ def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords:
     return entries
 
 
-def _editor_note(inner_html: str, label: str = "EDITOR") -> str:
-    """Create a yellow Ghost callout card for editor instructions.
-
-    Ghost keeps only inline markup, such as ``<code>`` and ``<b>``, in a
-    callout card: block elements such as lists are flattened into one run of text.
-
-    :param inner_html:
-        Instruction HTML, inline elements only.
-
-    :param label:
-        Bold label, ``EDITOR`` for instructions or ``TODO`` for text the editor writes in place.
-
-    :return:
-        Callout card HTML.
-    """
-    assert "<ul>" not in inner_html and "<p>" not in inner_html, "Ghost callout cards hold inline text only"
-    return f'<div class="kg-card kg-callout-card kg-callout-card-yellow"><div class="kg-callout-emoji">✏️</div><div class="kg-callout-text"><b>{label}:</b> {inner_html}</div></div>'
-
-
 def _image(src: str, alt: str) -> str:
     """Create a Ghost image card.
 
@@ -528,9 +508,6 @@ def build_post_html(context: PostContext) -> str:
 
     parts = [
         f"<p>In this monthly report, we examine the best-performing USD-denominated DeFi vaults across blockchains, {month} edition.</p>",
-        _editor_note("Write a one or two sentence intro with the highlight of the month. Delete all EDITOR notes before publishing."),
-        # The header image is chosen by the editor; the bundle's hero.png is a ready-made option
-        _editor_note("Add the post's feature image in the post settings. The report bundle has a ready-made <code>hero.png</code>, and <code>hero-square.png</code> for X."),
         TABLE_OF_CONTENTS,
         _evergreen("about-the-report"),
         '<h2 id="report-content-updates">Report content updates</h2>',
@@ -543,15 +520,13 @@ def build_post_html(context: PostContext) -> str:
     else:
         parts.append("<p>We have updated the report as follows:</p>")
 
-    # The figures are generated; the narrative of what changed is written by the editor.
-    # The changelog candidates are in report.json, as Ghost callouts cannot hold a list.
+    # The figures are generated; the editor writes what changed under the opening sentence,
+    # with the changelog candidates in report.json. The post has no editor callouts.
     parts += [
-        _editor_note("Summarise the notable new integrations since the previous report as bullet points. Candidates from the changelog are listed in <code>report.json</code> (<code>changelog_entries</code>).", label="TODO"),
         "<p>These benchmarks include:</p>",
         _bullets([_bold_numbers(html.escape(stat)) for stat in context.stats]),
         f'<h2 id="defi-vault-community-news">DeFi vault community news, {month}</h2>',
         f'<p>Highlights of what happened in the DeFi vault industry in the last month. Read more news and research on our <a href="{BLOG_URL}">blog</a>.</p>',
-        _editor_note("Add community news as <code>h3</code> subsections: new vault launches, partnerships, incidents, Trading Strategy product news."),
     ]
 
     # News before the data analytics sections
@@ -574,10 +549,6 @@ def build_post_html(context: PostContext) -> str:
         elif not _has_content(template):
             continue
         parts += [f'<h{template.level} id="{template.heading_id}">{template.heading}</h{template.level}>', template.intro]
-        if template.editor_note:
-            parts.append(_editor_note(template.editor_note))
-        if template.key in context.editor_notes:
-            parts.append(_editor_note(context.editor_notes[template.key]))
         parts.append(_bullets(context.criteria_notes.get(template.key, [])))
         parts += [_image(context.charts[chart_key], alt) for chart_key, alt in template.charts if chart_key in context.charts]
         if template.key in context.tables:
@@ -607,7 +578,6 @@ def build_preview_html(title: str, post_html: str, feature_image: str | None = N
     img { max-width: 100%; }
     table { border-collapse: collapse; font-size: 13px; margin: 1em 0; }
     th, td { border-bottom: 1px solid #e6e5e1; padding: 4px 8px; }
-    .kg-callout-card-yellow { background: #fcf4e3; border-radius: 6px; padding: 1em; display: flex; gap: 0.6em; margin: 1em 0; }
     figcaption { text-align: center; color: #52514e; font-size: 14px; }
     """
     feature = f'<img src="{html.escape(feature_image)}" alt="">' if feature_image else ""

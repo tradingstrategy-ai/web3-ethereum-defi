@@ -90,13 +90,13 @@ Every data section and subsection opens with an introduction paragraph that expl
 
 | # | Heading | Content | Editor input |
 |---|---|---|---|
-| — | *Intro paragraph* | One generated sentence | ✏️ The month's highlight |
+| — | *Intro paragraph* | One generated sentence | The month's highlight |
 | — | *Table of contents* | `<div id="table-of-contents"></div>` in an HTML card, filled by the Ghost theme from the headings, as in the earlier posts | — |
 | 1 | About the report | Copied from the previous post, without empty paragraphs | — |
-| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | ✏️ TODO: the new integrations; changelog candidates are in `report.json` |
-| 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
+| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | The new integrations, under the opening sentence; changelog candidates are in `report.json` |
+| 3 | DeFi vault community news, {Month} | — | News as `h3` subsections |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
-| 4 | The best-performing vaults | Section notes on the table ranking and format only: no introduction and no T-bill caption | ✏️ Comment on the top vaults; the check's exclusions and undecided vaults |
+| 4 | The best-performing vaults | Section notes on the table ranking and format only: no introduction and no T-bill caption | Comment on the top vaults; the check's exclusions and undecided vaults |
 | 4.1 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
 | 4.2 | ↳ Lending vaults | Performance chart and table, **by return** | — |
 | 4.3 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
@@ -107,16 +107,18 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
 | 5 | Yield by chain and protocol | How to read the dot plots | — |
 | 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
-| 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
-| 5.3 | ↳ Yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
+| 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | Where the yield comes from |
+| 5.3 | ↳ Yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | Comment |
 | 6 | Risk and return | Chart titled *Volatility risk and return of stablecoin vaults*: a bubble scatter of 3M volatility against 3M return for the yield vaults and the perp DEX vaults, coloured by strategy, with all perp DEX vaults as one *Perpetual futures* category. Vaults are not labelled. Both axes fit the 1st–99th percentile of vaults and outliers beyond them are left out, without an off-scale marker; vaults with no share price movement are left out | — |
 | 7 | Vaults and tokenised funds TVL | — | — |
-| 7.1 | ↳ Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
-| 7.2 | ↳ Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | ✏️ Comment on the trend |
-| 7.3 | ↳ Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | ✏️ Comment on the trend |
-| 7.4 | ↳ Inflows and outflows | The **10 largest vault TVL increases and decreases over 30 days**, in dollars, then the same by blockchain: the net change of all vaults on each chain. A single change more than three times the next is drawn off scale | ✏️ Explain the largest moves |
-| 8 | Partners | Copied from the previous post | — |
-| 9 | Next steps | Copied from the previous post | — |
+| 7.1 | ↳ Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | Comment on the trend |
+| 7.2 | ↳ Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | Comment on the trend |
+| 7.3 | ↳ Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | Comment on the trend |
+| 8 | Inflows and outflows | Introduction only | Explain the largest moves |
+| 8.1 | ↳ Inflows and outflows by vault | The **10 largest vault TVL increases and decreases over 30 days**, in dollars. A single change more than three times the next is drawn off scale | — |
+| 8.2 | ↳ Inflows and outflows by blockchain | The same by blockchain: the net change of all vaults on each chain | — |
+| 9 | Partners | Copied from the previous post | — |
+| 10 | Next steps | Copied from the previous post | — |
 
 The average yield charts (sections 5.1 to 5.3) show:
 - each vault as a small dot and the TVL-weighted average as a large dot;
@@ -133,14 +135,16 @@ them; keep them when changing the templates in `post.py` or the notes in
 
 **Structure**
 
-- Opening paragraph, an ✏️ callout for the month's highlight, an ✏️ callout
-  to add the feature image, then the Ghost table of contents card.
+- Opening paragraph, then the Ghost table of contents card.
+- The post has no editor callouts ("post-it" boxes). What the editor writes
+  is listed in the *Editor input* column above and in the editor workflow of
+  `README-vault-report.md`.
 - *About the report*, *Report content updates*, *DeFi vault community news*
   and *Latest podcasts* come before the data sections. *About the report*,
   *Partners* and *Next steps*, the call to action, are copied from the
   previous post.
 - Data sections in this order: *The best-performing vaults*, *Yield by chain and protocol*,
-  *Risk and return*, *Vaults and tokenised funds TVL*. See the outline table
+  *Risk and return*, *Vaults and tokenised funds TVL*, *Inflows and outflows*. See the outline table
   for their subsections.
 - *New vaults*, *Vaults on each chain* and *Tokenised funds* are subsections
   of *The best-performing vaults*, named like the other subsections (no
@@ -150,8 +154,10 @@ them; keep them when changing the templates in `post.py` or the notes in
 - *Yield by chain and protocol* holds *Yield by protocol, high TVL*, *Yield by protocol,
   high yield* and *Yield by blockchain*, in that order.
 - *Vaults and tokenised funds TVL* holds the TVL by protocol, TVL by
-  blockchain and NAV by tokenised fund charts, with *Inflows and outflows* as
-  its last subsection.
+  blockchain and NAV by tokenised fund charts.
+- *Inflows and outflows* is the last data section, with the subsections
+  *Inflows and outflows by vault* and *Inflows and outflows by blockchain*,
+  one chart each.
 - A grouping heading appears only when one of its subsections has content.
 - The post never lists the excluded vaults. They go to a dated Markdown file
   in `eth_defi/vault_report/excluded-vaults/`, committed with the report's
@@ -163,9 +169,9 @@ them; keep them when changing the templates in `post.py` or the notes in
   to the matching tradingstrategy.ai page or glossary entry, except *The
   best-performing vaults*, which has no introduction and no T-bill caption
   and goes straight to its subsections.
-- *Report content updates*: the generated figures stay, the narrative of new
-  integrations is a ✏️ TODO callout for the editor. The changelog candidates
-  go to `report.json`, not into the post.
+- *Report content updates*: the generated figures stay; the editor writes the
+  new integrations under the opening sentence. The changelog candidates go
+  to `report.json`, not into the post.
 - Statistics are plain counts: "29 blockchains and 116 vault protocols",
   "5,647 stablecoin-denominated vaults, of which 4,255 have up-to-date data",
   "Combined TVL of the vaults is $36.5B". No qualifiers such as "identified"
@@ -188,7 +194,9 @@ them; keep them when changing the templates in `post.py` or the notes in
   column is headed "3M history".
 - Vault links go to `https://tradingstrategy.ai/vaults/…`, never the old
   `/trading-view/` paths, and table vault names link to the vault page.
-- Ghost callout cards hold inline text only: a list goes after the callout.
+- The perp DEX introduction describes the vaults as "discretionary,
+  directional algorithmic or market making vaults" and does not explain the
+  BTC and ETH benchmarks.
 - UK English, sentence case headings, "onchain" without a hyphen.
 
 **Charts**
@@ -230,7 +238,7 @@ them; keep them when changing the templates in `post.py` or the notes in
 | Low-volatility performance chart removed | Covered by the lending section |
 | Performance small multiples replaced with one shared chart per section | Equity curves can only be compared on the same axis |
 | Stablecoin TVL by blockchain added | The same money as the protocol chart, by where it lives |
-| Best-performing vaults first, then average yield, risk and return, and the TVL charts with inflows and outflows last | Readers come for the rankings; the market overview follows |
+| Best-performing vaults first, then average yield, risk and return, the TVL charts, and inflows and outflows last | Readers come for the rankings; the market overview follows |
 | Best-performing introduction, T-bill caption, denomination list and chart-repeating section notes removed | Shorter post; the charts already say it |
 | *Other vaults* section removed; new vaults first; tables show current TVL only, as `$1.2M` | A shorter, more readable post |
 | Latest podcasts added before the data sections | Promotes the podcast episodes to report readers |

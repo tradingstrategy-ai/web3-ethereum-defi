@@ -26,7 +26,6 @@ Output bundle layout::
 import dataclasses
 import datetime
 import functools
-import html
 import json
 import logging
 import shutil
@@ -478,26 +477,23 @@ def run_report_checks(comparable_df: pd.DataFrame, data: VaultReportData, output
     )
 
 
-def make_check_editor_notes(result: CheckResult | None) -> dict[str, str]:
-    """Editor notes about the investability check.
+def log_check_summary(result: CheckResult | None) -> None:
+    """Tell the operator what the investability check left for the editor.
+
+    The post has no editor callouts, so the check's outcome goes to the log;
+    the dated excluded vaults file records it for the editor.
 
     :param result:
         Check result, or ``None`` when the check did not run.
-
-    :return:
-        Section key -> editor note HTML.
     """
     if result is None:
-        return {"best": "This report was generated <b>without the investability check</b>. Run it with <code>VAULT_CHECK_AGENT</code> before publishing, see README-vault-report.md."}
-    notes = []
-    if result.excluded:
-        notes.append(f"The investability check left {len(result.excluded)} vaults out of this post; they are listed with their reasons in the dated <code>excluded-vaults</code> Markdown file, not in the post. Review the evidence before publishing.")
+        logger.warning("The report was generated without the investability check; run it with VAULT_CHECK_AGENT before publishing, see README-vault-report.md")
+        return
+    logger.info("The investability check left %d vaults out of the post", len(result.excluded))
     if result.uncertain:
-        names = ", ".join(html.escape(candidate.name) for candidate in result.uncertain)
-        notes.append(f"The check could not decide on: {names}. They are still in the report; resolve them before publishing.")
+        logger.warning("The check could not decide on %d vaults, which stay in the report; resolve them before publishing: %s", len(result.uncertain), ", ".join(candidate.name for candidate in result.uncertain))
     if result.unchecked:
-        notes.append(f"{len(result.unchecked)} in-scope vaults in the top lists were not checked before the round limit.")
-    return {"best": " ".join(notes)} if notes else {}
+        logger.warning("%d in-scope vaults in the top lists were not checked before the round limit", len(result.unchecked))
 
 
 def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, ReportSection]:
@@ -836,7 +832,7 @@ def generate_monthly_vault_report(
             excluded_vaults_path = excluded_vaults_dir / excluded_vaults_path.name
             excluded_vaults_path.write_text(excluded_markdown)
         logger.info("Excluded vaults written to %s", excluded_vaults_path)
-    editor_notes = make_check_editor_notes(check_result)
+    log_check_summary(check_result)
 
     chart_paths, hero_path = {}, None
     if render_charts:
@@ -853,7 +849,6 @@ def generate_monthly_vault_report(
         criteria_notes=make_criteria_notes(criteria),
         previous=previous,
         changelog_entries=changelog_entries or [],
-        editor_notes=editor_notes,
         podcasts=podcasts or [],
         podcast_images={key: path.relative_to(output_dir).as_posix() for key, path in podcast_image_paths.items()},
     )

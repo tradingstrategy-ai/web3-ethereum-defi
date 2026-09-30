@@ -82,8 +82,8 @@ The Admin API key was added on 2026-09-30. `test_ghost_admin_api_draft` (see
 draft was created and then updated in place with `GHOST_OVERWRITE_DRAFT=true`.
 Reading the draft back through the Admin API showed every heading, image,
 table, callout and the table of contents intact. Ghost callout cards keep only
-inline markup: a list inside a callout is flattened into one run of text, so
-lists go after the callout.
+inline markup: a list inside a callout is flattened into one run of text. The
+post no longer has callouts.
 
 The Ghost site is private and the blog frontend renders only published posts,
 so the draft can be read only in the Ghost editor. Check the first branded post
@@ -326,8 +326,8 @@ is rendered:
    (`EXCLUDED_VAULTS_DIR`) and to the bundle, with the undecided vaults and a
    summary of the run; commit it with the report's pull request and post it as
    a PR comment. They stay in the TVL totals, which report where
-   money is, not where to invest. `uncertain` vaults stay in the report with an
-   editor callout, and the agent records each of them in `flag.py` with
+   money is, not where to invest. `uncertain` vaults stay in the report and are listed in
+   the log and the excluded vaults file, and the agent records each of them in `flag.py` with
    `VaultFlag.review_needed`, see [Vaults under review](#vaults-under-review).
 
 The check files go to the report bundle: `vault-check-candidates-N.json`,
@@ -418,7 +418,7 @@ and the JSONL stream written to the transcript. Read
 | `VAULT_CHECK_TIMEOUT` | `60` | Agent timeout per round, in minutes |
 | `MAX_WORKERS` | `8` | Parallel onchain probes |
 
-Without the check, the post gets an editor callout saying the top lists were
+Without the check, the script logs a warning saying the top lists were
 not checked.
 
 To check the lists without rendering the report, or to probe a single vault:
@@ -448,8 +448,8 @@ then commit it in a pull request of its own.
 
 ### Review workflow
 
-1. Read the dated `excluded-vaults` Markdown file and the check's callout
-   under *The best-performing vaults* in the draft.
+1. Read the dated `excluded-vaults` Markdown file and the check's summary in
+   the script log.
 2. Check the evidence of any surprising decision in
    `vault-check-decisions-N.json`.
 3. To overrule the agent, write an overrides file and rerun on the same data
@@ -467,11 +467,12 @@ then commit it in a pull request of its own.
 2. Open the draft in Ghost Admin using the editor link the script prints.
 3. Add the feature image in the post settings; `hero.png` in the bundle is a
    ready-made option.
-4. Fill in the yellow `EDITOR:` and `TODO:` callouts: the intro highlight, the
-   report content updates narrative (changelog candidates are in `report.json`,
-   `changelog_entries`; the figures are generated), community news and
-   comments on the top vaults, the TVL trends by protocol and by blockchain and
-   the largest inflows and outflows. Then delete the callouts.
+4. Write the editor's parts; the post has no placeholders for them: a one or
+   two sentence highlight after the opening paragraph, the new integrations
+   under the *Report content updates* opening sentence (changelog candidates
+   are in `report.json`, `changelog_entries`; the figures are generated),
+   community news as `h3` subsections, and, where useful, comments on the top
+   vaults, the yields, the TVL trends and the largest inflows and outflows.
 5. Review the investability check, see [Review workflow](#review-workflow),
    and commit any `flag.py` blacklist and `review_needed` entries separately.
 6. Review the tables. Unusual entries, such as capped `>9,999%` returns or

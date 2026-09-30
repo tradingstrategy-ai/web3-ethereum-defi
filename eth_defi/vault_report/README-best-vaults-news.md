@@ -26,14 +26,12 @@ The skeleton keeps the structure of the earlier posts:
 - the data sections, each with an introduction paragraph linking to the live
   pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
   charts and tables: *The best-performing vaults*, *Yield by chain and protocol*, *Risk and
-  return*, and *Vaults and tokenised funds TVL* with the inflows and outflows
-  last;
+  return*, *Vaults and tokenised funds TVL*, and *Inflows and outflows* last;
 - *Partners* and *Next steps*, the call to action, copied from the previous
   post so the editor's wording carries over month to month.
 
-Yellow ✏️ **EDITOR** and **TODO** callouts mark the parts a human writes; the
-editor replaces them and deletes the callouts before publishing. The feature
-image is also left for the editor. An agent-driven investability check removes
+The post has no editor callouts; the parts a human writes are listed in the
+editor workflow below. The feature image is also left for the editor. An agent-driven investability check removes
 vaults that are not investable in practice before anything is ranked, see
 *Investability check* in `README-vault-report.md`. The post does not list
 them: a dated Markdown file in `eth_defi/vault_report/excluded-vaults/` records
@@ -145,7 +143,7 @@ The pipeline then, in `report.publish_report_draft()`:
 - uploads the charts, the hero image and the podcast logos to Ghost;
 - creates the post with `?source=html`, so Ghost converts the HTML into its
   editor cards: the table of contents, tables and podcast cards are HTML cards
-  (`<!--kg-card-begin: html-->`), and editor notes are yellow callout cards;
+  (`<!--kg-card-begin: html-->`);
 - leaves the feature image empty for the editor, `hero.png` in the bundle being
   a ready-made option, and writes the editor link to `report.json` and the
   script output.
@@ -218,6 +216,7 @@ The steps:
 1. Run the exporter with the investability check and the Admin API key.
 2. Review the check's `uncertain` decisions and any new `flag.py` blacklist
    entries; commit the reviewed entries.
-3. Open the draft from the editor link, fill in the ✏️ callouts, delete them,
-   and publish from Ghost.
+3. Open the draft from the editor link, write the highlight, the new
+   integrations, the community news and any commentary, add the feature
+   image, and publish from Ghost.
 4. Attach `hero-square.png` when posting on X.

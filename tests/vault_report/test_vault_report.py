@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import sys
 import time
 from pathlib import Path
@@ -324,8 +325,9 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "<!--kg-card-begin: html-->" in post_html
     assert "https://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-august-2026" in post_html
     assert 'Thanks <a href="https://example.com">Example</a>' in post_html
-    # The narrative is a TODO for the editor; the changelog candidates are in the manifest
-    assert "<b>TODO:</b> Summarise the notable new integrations" in post_html and "Add Foo vault support" not in post_html
+    # The post has no editor callouts; the changelog candidates are in the manifest
+    assert "kg-callout" not in post_html and "EDITOR:" not in post_html and "TODO:" not in post_html
+    assert "Add Foo vault support" not in post_html
     assert json.loads((tmp_path / "out" / "report.json").read_text())["changelog_entries"] == ["Add Foo vault support (2026-09-01)"]
     assert "Vault 0xcc" not in post_html  # Blacklisted
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
@@ -884,7 +886,6 @@ def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFr
     post_html = (tmp_path / "out" / "post.html").read_text()
     # Excluded vaults are not listed in the post, but in a dated Markdown record in the bundle and the repository
     assert "Vault 0xaa" not in post_html and "excluded-vaults-in-this-report" not in post_html
-    assert "The investability check left 1 vaults out of this post" in post_html
     markdown = report.excluded_vaults_path.read_text()
     assert report.excluded_vaults_path.name.endswith("-excluded-vaults.md") and (tmp_path / "out" / report.excluded_vaults_path.name).exists()
     assert "Vault 0xaa" in markdown and "<script>alert(1)</script> no market" in markdown  # Plain text in a Markdown cell, never rendered into the post
@@ -898,12 +899,14 @@ def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFr
     assert rerun.vault_checks.excluded == frozenset({"1-0xaa"})
 
 
-def test_report_without_check_has_editor_note(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
-    """Without the check, the post tells the editor so."""
+def test_report_without_check_warns(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path, caplog: pytest.LogCaptureFixture):
+    """Without the check, the operator is warned in the log; the post has no editor callout."""
     data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
-    generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False)
+    with caplog.at_level(logging.WARNING):
+        generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False)
+    assert "without the investability check" in caplog.text
     post_html = (tmp_path / "out" / "post.html").read_text()
-    assert "without the investability check" in post_html
+    assert "without the investability check" not in post_html
     assert "excluded-vaults-in-this-report" not in post_html
 
 
