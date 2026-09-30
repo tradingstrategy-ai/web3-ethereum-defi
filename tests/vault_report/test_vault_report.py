@@ -960,12 +960,13 @@ def test_legacy_vault_links_rewritten():
         make_vault_record("0x81", trading_strategy_link="https://tradingstrategy.ai/trading-view/vaults/foo"),
         make_vault_record("0x82", trading_strategy_link="https://tradingstrategy.ai/trading-view/base/vaults/bar"),
         make_vault_record("0x83"),
+        make_vault_record("0x84", trading_strategy_link=None, vault_slug="baz-vault"),
     ]
     assert canonical_vault_urls('<a href="https://tradingstrategy.ai/trading-view/vaults">vaults page</a>') == '<a href="https://tradingstrategy.ai/vaults">vaults page</a>'
     assert canonical_vault_urls("https://tradingstrategy.ai/trading-view/ethereum/vaults") == "https://tradingstrategy.ai/vaults/chains/ethereum"
     assert canonical_vault_urls("https://tradingstrategy.ai/trading-view/ethereum/uniswap-v3") == "https://tradingstrategy.ai/trading-view/ethereum/uniswap-v3"  # Not a vault page
     links = prepare_vault_metrics(records)["trading_strategy_link"].tolist()
-    assert links == ["https://tradingstrategy.ai/vaults/foo", "https://tradingstrategy.ai/vaults/bar", "https://tradingstrategy.ai/vaults/0x83"]
+    assert links == ["https://tradingstrategy.ai/vaults/foo", "https://tradingstrategy.ai/vaults/bar", "https://tradingstrategy.ai/vaults/0x83", "https://tradingstrategy.ai/vaults/baz-vault"]  # A missing link is built from the slug
 
 
 def test_chart_text_is_escaped():

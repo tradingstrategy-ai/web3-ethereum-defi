@@ -30,7 +30,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
-from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
+from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount, _get_trading_strategy_vault_link
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, canonical_vault_urls, classify_vault, find_period, is_identified_protocol
 
@@ -200,7 +200,9 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     - ``group``: lending, perpetual futures DEX, tokenised fund or other, see
       :py:func:`eth_defi.vault_report.sections.classify_vault`
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
-    - ``trading_strategy_link``: legacy vault page URLs rewritten, see :py:func:`~eth_defi.vault_report.sections.canonical_vault_urls`
+    - ``trading_strategy_link``: legacy vault page URLs rewritten, see
+      :py:func:`~eth_defi.vault_report.sections.canonical_vault_urls`, and a
+      missing link built from ``vault_slug``, so every table links the vault name to its page
 
     TVL values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
     come from broken share tokens and are set to ``NaN``.
@@ -218,8 +220,14 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     for column in ("start_date", "end_date"):
         # Naive UTC, also if the export ever adds a time zone suffix
         df[column] = pd.to_datetime(df[column], utc=True).dt.tz_localize(None)
-    if "trading_strategy_link" in df.columns:
-        df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url) if isinstance(url, str) else url)
+    if "trading_strategy_link" not in df.columns:
+        df["trading_strategy_link"] = None
+    df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url) if isinstance(url, str) else url)
+    # Every table links the vault name to its page: build a missing link from the vault slug, like the exporter
+    missing = ~df["trading_strategy_link"].apply(lambda url: isinstance(url, str) and url.startswith("https://"))
+    if missing.any() and "vault_slug" in df.columns:
+        df.loc[missing, "trading_strategy_link"] = df.loc[missing, "vault_slug"].apply(lambda slug: _get_trading_strategy_vault_link(slug) if isinstance(slug, str) and slug else None)
+        logger.warning("%d vaults had no page link in the export; built from their vault slug", int(missing.sum()))
 
     df["one_month_cagr_best"] = _pick_net(df, "one_month_cagr")
     df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")
