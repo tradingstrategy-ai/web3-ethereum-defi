@@ -324,7 +324,10 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     post_html = (tmp_path / "out" / "post.html").read_text()
     assert "<!--kg-card-begin: html-->" in post_html
     assert "https://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-august-2026" in post_html
-    assert 'Thanks <a href="https://example.com">Example</a>' in post_html
+    # Partners are named by organisation from post.PARTNERS, not copied from the previous post
+    assert 'Thanks <a href="https://example.com">Example</a>' not in post_html
+    assert '<a href="https://x.com/@arbitrumdao_gov">Arbitrum DAO</a>' in post_html and ">@arbitrumdao_gov<" not in post_html
+    assert '<a href="https://quants.space/">Quants Spaces</a> for getting this report together' in post_html
     # The post has no editor callouts; the changelog candidates are in the manifest
     assert "kg-callout" not in post_html and "EDITOR:" not in post_html and "TODO:" not in post_html
     assert "Add Foo vault support" not in post_html

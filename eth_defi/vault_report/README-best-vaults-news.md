@@ -27,8 +27,9 @@ The skeleton keeps the structure of the earlier posts:
   pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
   charts and tables: *The best-performing vaults*, *Yield by chain and protocol*, *Risk and
   return*, *Vaults and tokenised funds TVL*, and *Inflows and outflows* last;
-- *Partners* and *Next steps*, the call to action, copied from the previous
-  post so the editor's wording carries over month to month.
+- *Partners*, naming each partner organisation with a link, from `PARTNERS`
+  in `post.py`, and *Next steps*, the call to action, copied from the
+  previous post so the editor's wording carries over month to month.
 
 The post has no editor callouts; the parts a human writes are listed in the
 editor workflow below. The feature image is also left for the editor. An agent-driven investability check removes

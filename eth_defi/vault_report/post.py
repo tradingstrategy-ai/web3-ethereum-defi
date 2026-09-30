@@ -9,8 +9,10 @@ The post body is Ghost-compatible HTML:
   highlight, the report content updates, community news and commentary, the
   feature image) are listed in the editor workflow of ``README-vault-report.md``.
 
-Evergreen sections (*About the report*, *Partners*, *Next steps*) are copied
-from the previous report post, so edits made in Ghost carry over month to month.
+Evergreen sections (*About the report*, *Next steps*) are copied from the
+previous report post, so edits made in Ghost carry over month to month. The
+*Partners* section is rendered from :py:data:`PARTNERS`, so partners are named
+by organisation, not by X handle.
 
 The section order, headings, introductions and notes follow the *Writing
 rules* in ``README-blog-post-outline.md``: keep them when changing the
@@ -42,10 +44,41 @@ GLOSSARY_URL = "https://tradingstrategy.ai/glossary"
 TABLE_OF_CONTENTS = '<!--kg-card-begin: html-->\n<div id="table-of-contents"></div>\n<!--kg-card-end: html-->'
 
 
+#: Report partners as (organisation name, link), thanked in the *Partners* section.
+#: Maintained here rather than copied from the previous post, so the names stay
+#: organisation names, not X handles; edit this list when the partners change.
+PARTNERS = (
+    ("Arbitrum DAO", "https://x.com/@arbitrumdao_gov"),
+    ("Envio", "https://x.com/@envio_indexer"),
+    ("dRPC", "https://x.com/@dRPCorg"),
+    ("IPOR", "https://x.com/@ipor_io"),
+    ("Goldsky", "https://x.com/@goldskyio"),
+    ("IceCreamSwap", "https://x.com/@icecream_swap"),
+    ("GRVT", "https://x.com/@grvt_io"),
+    ("Orderly Network", "https://x.com/@OrderlyNetwork"),
+    ("Lagoon Finance", "https://x.com/@lagoon_finance"),
+    ("Webacy", "https://x.com/mywebacy"),
+    ("Quants Spaces", "https://quants.space/"),
+)
+
+
+def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) -> str:
+    """Render the *Partners* section, thanking each partner by name with a link.
+
+    :param partners:
+        (organisation name, link) pairs.
+
+    :return:
+        Section HTML.
+    """
+    links = [f'<a href="{html.escape(url)}">{html.escape(name)}</a>' for name, url in partners]
+    names = ", ".join(links[:-1]) + f" and {links[-1]}" if len(links) > 1 else "".join(links)
+    return f'<h2 id="partners">Partners</h2><p>We want to thank our partners {names} for getting this report together.</p>'
+
+
 #: Evergreen sections used when there is no previous post to copy them from, by heading id
 DEFAULT_EVERGREEN_SECTIONS = {
     "about-the-report": ('<h2 id="about-the-report">About the report</h2><p>In this post, we examine the performance of DeFi vaults. Vaults can be considered "self-custodial investment strategies" in traditional finance: vaults are smart contracts that enable users to deposit funds from their cryptocurrency wallets and trade a predefined strategy with investors\' money.</p>'),
-    "partners": '<h2 id="partners">Partners</h2><p>We want to thank our partners for getting this report together.</p>',
     "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Visit our <a href="https://tradingstrategy.ai/vaults">vaults page</a> for real-time dashboards. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
 }
 
@@ -554,7 +587,7 @@ def build_post_html(context: PostContext) -> str:
         if template.key in context.tables:
             parts.append(f"<!--kg-card-begin: html-->\n{context.tables[template.key]}\n<!--kg-card-end: html-->")
 
-    parts += [_evergreen("partners"), _evergreen("next-steps")]
+    parts += [render_partners_section(), _evergreen("next-steps")]
     return "\n".join(part for part in parts if part)
 
 

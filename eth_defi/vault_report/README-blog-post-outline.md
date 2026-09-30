@@ -117,7 +117,7 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 8 | Inflows and outflows | Introduction only | Explain the largest moves |
 | 8.1 | ↳ Inflows and outflows by vault | The **10 largest vault TVL increases and decreases over 30 days**, in dollars. A single change more than three times the next is drawn off scale | — |
 | 8.2 | ↳ Inflows and outflows by blockchain | The same by blockchain: the net change of all vaults on each chain | — |
-| 9 | Partners | Copied from the previous post | — |
+| 9 | Partners | Each partner by organisation name with a link, from `PARTNERS` in `post.py` | Update `PARTNERS` when the partners change |
 | 10 | Next steps | Copied from the previous post | — |
 
 The average yield charts (sections 5.1 to 5.3) show:
@@ -140,9 +140,10 @@ them; keep them when changing the templates in `post.py` or the notes in
   is listed in the *Editor input* column above and in the editor workflow of
   `README-vault-report.md`.
 - *About the report*, *Report content updates*, *DeFi vault community news*
-  and *Latest podcasts* come before the data sections. *About the report*,
-  *Partners* and *Next steps*, the call to action, are copied from the
-  previous post.
+  and *Latest podcasts* come before the data sections. *About the report*
+  and *Next steps*, the call to action, are copied from the previous post.
+  *Partners* names each partner by organisation, never by X handle, with a
+  link; the list is `PARTNERS` in `post.py`.
 - Data sections in this order: *The best-performing vaults*, *Yield by chain and protocol*,
   *Risk and return*, *Vaults and tokenised funds TVL*, *Inflows and outflows*. See the outline table
   for their subsections.

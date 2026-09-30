@@ -36,7 +36,8 @@ are reused. The script:
    logos from the website. All are optional: an outage leaves them out of the charts.
 4. Reads the previous report post with the Ghost Content API
    (`GHOST_CONTENT_API_URL`, `GHOST_CONTENT_API_KEY`). The new post links back to it
-   and copies its *About the report*, *Partners* and *Next steps* sections.
+   and copies its *About the report* and *Next steps* sections. *Partners* is
+   rendered from `PARTNERS` in `post.py`.
    Changelog entries added since its publication are offered to the editor.
    The same API reads the four latest
    [podcast](https://tradingstrategy.ai/podcast) episodes for the *Latest
