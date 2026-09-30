@@ -137,8 +137,8 @@ class LegendEntry:
     #: Curator, protocol and chain drawn with their icons under the label
     properties: tuple[VaultProperty, ...] = ()
 
-    #: Keep the stacked layout in a split legend, e.g. for benchmarks, see :py:func:`add_logo_legend`
-    stacked: bool = False
+    #: Draw the entry on one row: its logo, label and detail, e.g. for benchmarks, see :py:func:`add_logo_legend`
+    inline: bool = False
 
 
 def to_rgba(colour: str, alpha: float) -> str:
@@ -359,18 +359,25 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     line_pixels, gap_pixels = 22, 18
     swatch_pixels = (26, 64)
     logo_pixels = 76
-    text_pixels = 112 if any(entry.logo_uri for entry in entries) else 76
+    # One-row entries draw their logo in the text column, so only the others need a logo column
+    text_pixels = 112 if any(entry.logo_uri for entry in entries if not entry.inline) else 76
+    inline_icon = PROPERTY_ICON_SIZE + 1
     text_width = fig.layout.margin.r - text_pixels - 20
     layouts = []
     widest = 0.0
     # In the split layout the properties column starts after the widest detail, so the columns line up across entries
-    split_entries = [entry for entry in entries if split and not entry.stacked]
+    split_entries = [entry for entry in entries if split and not entry.inline]
     detail_column = max((_measure_text(re.sub("<[^>]+>", "", entry.detail), 17) for entry in split_entries if entry.detail), default=0.0) + 24
     # Stacked properties share one icon slot, as wide as the widest icon, so their texts line up
     icon_slot = max((prop.icon_size[0] for entry in split_entries for prop in entry.properties if prop.logo_uri), default=0.0)
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
-        entry_split = split and not entry.stacked
+        entry_split = split and not entry.inline
+        if entry.inline:
+            detail_width = _measure_text(re.sub("<[^>]+>", "", entry.detail), 17) if entry.detail else 0.0
+            widest = max(widest, inline_icon + PROPERTY_ICON_GAP + _measure_text(entry.label, 17, bold=True) + 12 + detail_width)
+            layouts.append((entry, [entry.label], line_pixels + gap_pixels))
+            continue
         property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
         property_widths = [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths = [_measure_text(line, 17, bold=True) for line in lines]
@@ -412,12 +419,24 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         # The swatch and the logo sit next to the first line
         first_line = y - line_pixels / 2 / plot_height
         fig.add_shape(type="line", xref="paper", yref="paper", x0=paper_x(swatch_pixels[0]), x1=paper_x(swatch_pixels[1]), y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
+        if entry.inline:
+            # [logo] [label] [detail] on the swatch's row
+            label_x = text_x
+            if entry.logo_uri:
+                fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=text_x, y=first_line, sizex=inline_icon / plot_width, sizey=inline_icon / plot_height, xanchor="left", yanchor="middle")
+                label_x += (inline_icon + PROPERTY_ICON_GAP) / plot_width
+            fig.add_annotation(text=f"<b>{plain_text(entry.label)}</b>", xref="paper", yref="paper", x=label_x, y=first_line, xanchor="left", yanchor="middle", showarrow=False, font={"size": 17, "color": theme.text})
+            if entry.detail:
+                detail_x = label_x + (_measure_text(entry.label, 17, bold=True) + 12) / plot_width
+                fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=detail_x, y=first_line, xanchor="left", yanchor="middle", showarrow=False, font={"size": 17, "color": theme.muted_text})
+            y -= pitch / plot_height
+            continue
         if entry.logo_uri:
             fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=paper_x(logo_pixels), y=first_line, sizex=30 / plot_width, sizey=30 / plot_height, xanchor="left", yanchor="middle")
         label = "<br>".join(f"<b>{plain_text(line)}</b>" for line in lines)
         fig.add_annotation(text=label, xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
-        entry_split = split and not entry.stacked
+        entry_split = split and not entry.inline
         if entry.detail:
             fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
             if not entry_split:
@@ -714,8 +733,8 @@ def create_performance_figure(
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
-        # Benchmark logos use the same small icon row as the vaults' curator, protocol and chain
-        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=highlight_number(describe(performance), theme, performance.iloc[-1]), properties=(VaultProperty("Benchmark", logo),), stacked=True))
+        # Benchmarks are one row: logo, name and value
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo_uri=logo, dash=BENCHMARK_DASHES[name], detail=highlight_number(describe(performance), theme, performance.iloc[-1]), inline=True))
         # The line end shows the benchmark logo and value; the name is only needed without a logo
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))

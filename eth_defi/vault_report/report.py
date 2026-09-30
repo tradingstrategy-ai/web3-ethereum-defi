@@ -37,6 +37,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
 from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image, render_logo_tile
@@ -235,12 +236,13 @@ def make_vault_properties(vault: pd.Series, theme: ChartTheme, chain_logo: Calla
 
     The curator is left out when the vault has none or when it is the
     protocol itself, e.g. a protocol curating its own vaults, and the chain
-    when it has the protocol's name, e.g. a native perp DEX chain. Protocol and
+    when it belongs to the protocol: a native perp DEX chain such as
+    Hyperliquid's Hypercore, or a chain with the protocol's name. Protocol and
     curator logos come from the vault metadata, chain logos from the website.
 
     :param vault:
         Vault metrics row with ``curator_name``, ``curator_slug``, ``protocol_label``,
-        ``protocol_slug``, ``protocol_identified`` and ``chain``.
+        ``protocol_slug``, ``protocol_identified``, ``chain`` and ``chain_id``.
 
     :param theme:
         Chart theme, for logo variants.
@@ -257,8 +259,8 @@ def make_vault_properties(vault: pd.Series, theme: ChartTheme, chain_logo: Calla
     if isinstance(curator, str) and curator.strip() and curator_slug != vault["protocol_slug"] and curator.strip().lower() != protocol.lower():
         properties.append(VaultProperty(curator.strip(), load_protocol_logo_uri(curator_slug if isinstance(curator_slug, str) else None, theme)))
     properties.append(VaultProperty(protocol, load_protocol_logo_uri(vault["protocol_slug"], theme) if vault["protocol_identified"] else None))
-    # Native perp DEX chains share the protocol's name, e.g. GRVT on GRVT, so the chain is shown once
-    if vault["chain"].strip().lower() != protocol.lower():
+    # A native perp DEX chain belongs to its protocol, e.g. Hyperliquid on Hypercore or GRVT on GRVT, so the protocol is shown once
+    if vault["chain_id"] not in PERP_DEX_NATIVE_CHAIN_IDS and vault["chain"].strip().lower() != protocol.lower():
         properties.append(VaultProperty(vault["chain"], chain_logo(vault["chain"])))
     return tuple(properties)
 
