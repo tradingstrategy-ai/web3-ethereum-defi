@@ -29,7 +29,7 @@ from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_pr
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
-from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
+from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
@@ -329,6 +329,9 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     # New vaults, the per-chain table and the tokenised funds are subsections of the best-performing vaults, in this order
     subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
     assert [post_html.index(heading) for heading in subsections] == sorted(post_html.index(heading) for heading in subsections)
+    # The Ghost theme's table of contents follows the opening, as in the earlier posts, and figures are bold
+    assert post_html.index('<div id="table-of-contents"></div>') < post_html.index('<h2 id="about-the-report">')
+    assert "<li>The report data is dated <strong>" in post_html
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
@@ -1039,3 +1042,16 @@ def test_flag_py_blacklist_applies_to_report(vault_records: list[dict]):
     assert king_rss["risk"] != "Blacklisted"
     assert king_rss["id"] not in filter_eligible_vaults(df, DATA_END_AT, ReportCriteria()).index
     assert king_rss["id"] not in select_tvl_history_vaults(df).index
+
+
+def test_every_section_introduces_itself_with_website_links():
+    """Every data section and subsection opens with a paragraph linking to tradingstrategy.ai."""
+    for template in SECTION_TEMPLATES:
+        assert template.intro.startswith("<p>"), template.heading
+        assert 'href="https://tradingstrategy.ai/' in template.intro, template.heading
+
+
+def test_evergreen_sections_drop_empty_paragraphs():
+    """Empty paragraphs left by the Ghost editor are not copied from the previous post."""
+    previous = '<h2 id="about-the-report">About the report</h2><p>Text</p><p></p><p> </p><h2 id="next">'
+    assert extract_section_html(previous, "about-the-report") == '<h2 id="about-the-report">About the report</h2><p>Text</p>'

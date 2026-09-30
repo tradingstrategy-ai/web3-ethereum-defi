@@ -85,11 +85,14 @@ pile automatically. No report change is needed.
 
 ## Outline
 
+Every data section and subsection opens with an introduction paragraph that explains what it shows and links to the matching live page or glossary entry on tradingstrategy.ai. *Next steps*, copied from the previous post, is the call to action at the end.
+
 | # | Heading | Content | Editor input |
 |---|---|---|---|
 | — | *Intro paragraph* | One generated sentence | ✏️ The month's highlight |
-| 1 | About the report | Copied from the previous post | — |
-| 2 | Report content updates | Data statistics: chains, protocols, vault count, TVL, stablecoins | ✏️ New integrations; changelog candidates are listed |
+| — | *Table of contents* | `<div id="table-of-contents"></div>` in an HTML card, filled by the Ghost theme from the headings, as in the earlier posts | — |
+| 1 | About the report | Copied from the previous post, without empty paragraphs | — |
+| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | ✏️ New integrations; changelog candidates are listed |
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
 | 4 | Average yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |

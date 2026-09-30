@@ -9,7 +9,9 @@ built by copy-pasting output from the
 
 The pipeline generates the data-driven parts: tables, branded charts, a social
 hero image and statistics. The editor writes the monthly news and commentary in
-Ghost Admin and publishes the post.
+Ghost Admin and publishes the post. For the goal of the skeleton, the
+architecture, and how drafts are previewed in a GitHub pull request comment and
+created in Ghost, see [`README-best-vaults-news.md`](README-best-vaults-news.md).
 
 ## Running
 

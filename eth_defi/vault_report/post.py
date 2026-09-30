@@ -26,6 +26,15 @@ from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, OTHER, PE
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
 
+#: Vault pages on the website, linked from the section introductions
+VAULTS_URL = "https://tradingstrategy.ai/vaults"
+
+#: Glossary on the website, linked from the section introductions
+GLOSSARY_URL = "https://tradingstrategy.ai/glossary"
+
+#: Ghost theme placeholder that the theme fills with a table of contents of the post headings, as in the earlier reports
+TABLE_OF_CONTENTS = '<!--kg-card-begin: html-->\n<div id="table-of-contents"></div>\n<!--kg-card-end: html-->'
+
 
 #: Evergreen sections used when there is no previous post to copy them from, by heading id
 DEFAULT_EVERGREEN_SECTIONS = {
@@ -113,6 +122,9 @@ class BestSection:
     #: Live page on the website, without ``https://``, for the chart footer
     link: str = "tradingstrategy.ai/vaults"
 
+    #: Introduction paragraph HTML, with links to the website
+    intro: str = ""
+
     @property
     def chart_key(self) -> str:
         """Key of the performance chart in :py:attr:`PostContext.charts`."""
@@ -127,7 +139,7 @@ class BestSection:
     def template(self) -> "SectionTemplate":
         """The post section of this group."""
         alt = f"90-day performance of {self.subject} against {self.benchmark}"
-        return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, charts=((self.chart_key, alt),), level=3)
+        return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, intro=self.intro, charts=((self.chart_key, alt),), level=3)
 
 
 #: Best-performing vault sections: subsections of the best-performing vaults, in display order
@@ -140,6 +152,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-lending-vaults",
         subject="the best-performing lending vaults",
         description="Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol",
+        intro=f'<p>Vaults that supply stablecoins to <a href="{GLOSSARY_URL}/lending-protocol">lending protocols</a> such as Morpho and Euler, and earn the interest borrowers pay. See all <a href="{VAULTS_URL}/strategies/lending">lending vaults</a>.</p>',
     ),
     BestSection(
         key="rwa",
@@ -148,6 +161,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-rwa-vaults",
         subject="the best-performing RWA vaults",
         description="Vaults investing in, lending against or financing real-world assets, such as private credit, trade finance and royalties, identified by their strategy",
+        intro=f'<p>Vaults that invest in, lend against or finance <a href="{GLOSSARY_URL}/rwa">real-world assets</a>, such as private credit, trade finance and royalties. See all <a href="{VAULTS_URL}/strategies/rwa">RWA vaults</a>.</p>',
     ),
     BestSection(
         key="perp_dex",
@@ -156,6 +170,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-perp-dex-vaults",
         subject="the best-performing perp DEX vaults",
         description="Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults",
+        intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which make markets, provide liquidity or trade. Their returns are volatile, so they are compared with BTC and ETH rather than the T-bill. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
         benchmark="BTC and ETH",
     ),
     BestSection(
@@ -165,6 +180,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-perp-dex-vaults-by-sharpe",
         subject="perp DEX vaults with the best Sharpe ratio",
         description="The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones",
+        intro=f'<p>The same vaults ranked by their three-month <a href="{GLOSSARY_URL}/sharpe">Sharpe ratio</a>, the return per unit of volatility. The ranking rewards steady returns over high but volatile ones; see <a href="{GLOSSARY_URL}/risk-adjusted-return">risk-adjusted return</a>.</p>',
         benchmark="BTC and ETH",
         metric="three_months_sharpe_best",
         measure="sharpe",
@@ -177,6 +193,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-other-vaults",
         subject="other best-performing vaults",
         description="Yield aggregators, trading and other vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults",
+        intro=f'<p>Yield aggregators, trading and other vaults outside the groups above. Browse the vaults by <a href="{VAULTS_URL}/strategies">strategy</a>.</p>',
     ),
     BestSection(
         key="amm",
@@ -185,6 +202,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-amm-pools",
         subject="the best-performing AMM pools",
         description="GMX GM and GLV pools and the Curve-based YieldBasis pools: their returns include the price moves of the pooled assets, so they are ranked separately",
+        intro=f'<p><a href="{GLOSSARY_URL}/amm">AMM</a> liquidity pools, such as GMX GM and GLV pools and YieldBasis pools, earn trading fees, but their returns also move with the prices of the pooled crypto assets. See all <a href="{VAULTS_URL}/strategies/amm">AMM vaults</a>.</p>',
         show_min_tvl=True,
     ),
     BestSection(
@@ -194,6 +212,7 @@ BEST_SECTIONS = (
         heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
         description="Traditional money market, treasury and credit funds brought onchain",
+        intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p>',
         show_min_tvl=True,
         link="tradingstrategy.ai/vaults/funds",
     ),
@@ -206,6 +225,7 @@ SECTION_TEMPLATES = (
         key="chain_yields",
         heading_id="average-yield-by-blockchain",
         heading="Average yield by blockchain",
+        intro=f'<p>Which blockchains pay the most on stablecoins. Each dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return of the vaults on the chain, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>. Browse the vaults of each chain on the <a href="{VAULTS_URL}/chains">blockchains page</a>.</p>',
         charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
         editor_note="Comment on the chains paying the most and the least.",
     ),
@@ -213,12 +233,14 @@ SECTION_TEMPLATES = (
         key="protocol_yields",
         heading_id="average-yield-by-protocol-high-tvl",
         heading="Average yield by protocol, high TVL",
+        intro=f'<p>The same comparison for the largest vault protocols by TVL, which hold most of the stablecoin deposits. See all <a href="{VAULTS_URL}/protocols">vault protocols</a>.</p>',
         charts=(("protocol_yields", "Stablecoin vault yield of the largest protocols against the US Treasury bill"),),
     ),
     SectionTemplate(
         key="protocol_high_yields",
         heading_id="average-yield-by-protocol-high-yield",
         heading="Average yield by protocol, high yield",
+        intro=f'<p>The protocols paying the highest average yield. High yields usually come with higher risk, so check where the yield comes from before investing. The <a href="{VAULTS_URL}/yield-protocol">vault yield by protocol</a> chart compares the yields of every protocol.</p>',
         charts=(("protocol_high_yields", "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill"),),
         editor_note="Comment on the highest-yielding protocols and where their yield comes from.",
     ),
@@ -226,6 +248,7 @@ SECTION_TEMPLATES = (
         key="protocol_tvl",
         heading_id="stablecoin-tvl-by-defi-vault-protocol",
         heading="Stablecoin TVL by DeFi vault protocol",
+        intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">live chart</a> has the full history.</p>',
         charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
         editor_note="Comment on the TVL trend: which protocols grew or shrank.",
     ),
@@ -233,6 +256,7 @@ SECTION_TEMPLATES = (
         key="chain_tvl",
         heading_id="stablecoin-tvl-by-blockchain",
         heading="Stablecoin TVL by blockchain",
+        intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">live chart</a> has the full history.</p>',
         charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
         editor_note="Comment on the TVL trend: which blockchains grew or shrank.",
     ),
@@ -240,6 +264,7 @@ SECTION_TEMPLATES = (
         key="fund_nav",
         heading_id="stablecoin-nav-by-tokenised-fund",
         heading="Stablecoin NAV by tokenised fund",
+        intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds page</a> for the live data.</p>',
         charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
         editor_note="Comment on the tokenised fund trend: which funds grew or shrank.",
     ),
@@ -247,7 +272,7 @@ SECTION_TEMPLATES = (
         key="tvl_changes",
         heading_id="inflows-and-outflows",
         heading="Inflows and outflows",
-        intro="<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days.</p>",
+        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. See the <a href="{VAULTS_URL}/high-tvl">largest vaults</a> for their current TVL.</p>',
         charts=(
             ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
             ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
@@ -258,16 +283,23 @@ SECTION_TEMPLATES = (
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>The best-performing vaults of the month: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults, AMM pools, new vaults, the best vaults on each chain and tokenised funds.</p>",
+        intro=f'<p>The vaults with the best annualised one-month returns, net of fees where fee data is available, in groups of similar strategies: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults, AMM pools, new vaults, the best vaults on each chain and tokenised funds. A high return alone does not make a good investment, so compare the volatility, TVL and risk of each vault on its page. Browse all vaults on the <a href="{VAULTS_URL}">vaults page</a>.</p>',
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
     *(section.template for section in BEST_SECTIONS if section.group != TOKENISED_FUND),
-    SectionTemplate(key="new", heading_id="best-performing-new-vaults", heading="New vaults", level=3),
+    SectionTemplate(
+        key="new",
+        heading_id="best-performing-new-vaults",
+        heading="New vaults",
+        intro=f'<p>The best-performing vaults launched recently. Their short history makes their returns less reliable, so treat them as vaults to watch. See all <a href="{VAULTS_URL}/new-vaults">new vaults</a>.</p>',
+        level=3,
+    ),
     SectionTemplate(
         key="by_chain",
         heading_id="best-performing-vaults-on-each-chain",
         heading="Vaults on each chain",
+        intro=f'<p>The best-performing vaults on each blockchain, for investors who stay on one chain. The <a href="{VAULTS_URL}/chains">blockchains page</a> lists the vaults of every chain.</p>',
         charts=(("by_chain_best", "The two best-performing vaults on each chain"),),
         level=3,
     ),
@@ -276,14 +308,14 @@ SECTION_TEMPLATES = (
         key="risk_return",
         heading_id="risk-and-return",
         heading="Risk and return",
-        intro="<p>Higher returns usually come with higher volatility. Vaults above and to the left of the crowd offer better returns for their risk.</p>",
+        intro=f'<p>Higher returns usually come with higher <a href="{GLOSSARY_URL}/volatility">volatility</a>. Vaults above and to the left of the crowd offer better returns for their risk. The <a href="{VAULTS_URL}/yield-risk">vault yield and risk</a> chart compares the returns of all vaults with their risk ratings.</p>',
         charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
     SectionTemplate(
         key="excluded",
         heading_id="excluded-vaults-in-this-report",
         heading="Excluded vaults in this report",
-        intro=("<p>The vaults below would have ranked or been charted in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols.</p>"),
+        intro=(f'<p>The vaults below would have ranked or been charted in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols. Vaults with known problems are listed on the <a href="{VAULTS_URL}/blacklisted">blacklisted vaults</a> page.</p>'),
     ),
 )
 
@@ -380,8 +412,9 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
     match = re.search(rf'<h2 id="{re.escape(heading_id)}">.*?(?=<h2 |$)', post_html, flags=re.DOTALL)
     if not match:
         return None
-    # Previous posts may link to vault pages at their old /trading-view/ paths
-    return canonical_vault_urls(strip_ghost_ref(match.group(0))).strip()
+    # Previous posts may link to vault pages at their old /trading-view/ paths,
+    # and the Ghost editor leaves empty paragraphs behind
+    return re.sub(r"<p>\s*</p>", "", canonical_vault_urls(strip_ghost_ref(match.group(0)))).strip()
 
 
 def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords: tuple[str, ...] = ("vault", "protocol")) -> list[str]:
@@ -457,6 +490,18 @@ def _bullets(items: list[str]) -> str:
     return "<ul>" + "".join(f"<li>{item}</li>" for item in items) + "</ul>" if items else ""
 
 
+def _bold_numbers(text: str) -> str:
+    """Bold the figures in a summary statistics bullet point, as in the earlier reports.
+
+    :param text:
+        HTML-escaped text, e.g. ``29 blockchains and 116 identified vault protocols``.
+
+    :return:
+        HTML with dates, dollar amounts and counts in ``<strong>``.
+    """
+    return re.sub(r"(\d{4}-\d{2}-\d{2}|\$?\d[\d,.]*[kMB]?)", r"<strong>\1</strong>", text)
+
+
 def build_post_html(context: PostContext) -> str:
     """Render the report post body.
 
@@ -475,6 +520,7 @@ def build_post_html(context: PostContext) -> str:
     parts = [
         f"<p>In this monthly report, we examine the best-performing USD-denominated DeFi vaults across blockchains, {month} edition.</p>",
         _editor_note("Write a one or two sentence intro with the highlight of the month. Delete all EDITOR notes before publishing."),
+        TABLE_OF_CONTENTS,
         _evergreen("about-the-report"),
         '<h2 id="report-content-updates">Report content updates</h2>',
     ]
@@ -490,9 +536,9 @@ def build_post_html(context: PostContext) -> str:
     parts += [
         _editor_note(f"Summarise the notable new integrations as bullet points here.{candidates}"),
         "<p>These benchmarks include:</p>",
-        _bullets([html.escape(stat) for stat in context.stats]),
+        _bullets([_bold_numbers(html.escape(stat)) for stat in context.stats]),
         f'<h2 id="defi-vault-community-news">DeFi vault community news, {month}</h2>',
-        "<p>Highlights of what happened in the DeFi vault industry in the last month.</p>",
+        f'<p>Highlights of what happened in the DeFi vault industry in the last month. Read more news and research on our <a href="{BLOG_URL}">blog</a>.</p>',
         _editor_note("Add community news as <code>h3</code> subsections: new vault launches, partnerships, incidents, Trading Strategy product news."),
     ]
 
