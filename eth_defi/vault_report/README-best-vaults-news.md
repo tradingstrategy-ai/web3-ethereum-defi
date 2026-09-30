@@ -26,14 +26,19 @@ The skeleton keeps the structure of the earlier posts:
 - *DeFi vault community news* and *Latest podcasts* before the data sections;
 - the data sections, each with an introduction paragraph linking to the live
   pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
-  charts and tables;
+  charts and tables: *The best-performing vaults*, *Average yield*, *Risk and
+  return*, and *Vaults and tokenised funds TVL* with the inflows and outflows
+  last;
 - *Partners* and *Next steps*, the call to action, copied from the previous
   post so the editor's wording carries over month to month.
 
-Yellow ✏️ **EDITOR** callouts mark the parts a human writes; the editor
-replaces them and deletes the callouts before publishing. An agent-driven
-investability check removes vaults that are not investable in practice before
-anything is ranked, see *Investability check* in `README-vault-report.md`.
+Yellow ✏️ **EDITOR** and **TODO** callouts mark the parts a human writes; the
+editor replaces them and deletes the callouts before publishing. The feature
+image is also left for the editor. An agent-driven investability check removes
+vaults that are not investable in practice before anything is ranked, see
+*Investability check* in `README-vault-report.md`. The post does not list
+them: a dated Markdown file in `eth_defi/vault_report/excluded-vaults/` records
+them, and it is also posted as a comment on the report's pull request.
 
 ## Architecture
 
@@ -140,8 +145,9 @@ The pipeline then, in `report.publish_report_draft()`:
 - creates the post with `?source=html`, so Ghost converts the HTML into its
   editor cards: the table of contents, tables and podcast cards are HTML cards
   (`<!--kg-card-begin: html-->`), and editor notes are yellow callout cards;
-- sets the hero image as the feature image, and writes the editor link to
-  `report.json` and the script output.
+- leaves the feature image empty for the editor, `hero.png` in the bundle being
+  a ready-made option, and writes the editor link to `report.json` and the
+  script output.
 
 Safety rules, see `GhostAdminClient.fetch_writable_draft()`:
 

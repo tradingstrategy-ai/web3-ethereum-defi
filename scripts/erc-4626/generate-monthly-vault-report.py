@@ -43,6 +43,8 @@ Environment variables:
   decisions to reuse, e.g. a previous run's report bundle
 - ``VAULT_CHECK_OVERRIDES``: JSON file of hand-written decisions that override the agent
 - ``VAULT_CHECK_TIMEOUT``: agent timeout per round in minutes, default 60
+- ``EXCLUDED_VAULTS_DIR``: where the dated Markdown record of the vaults the check left out is
+  written, default ``eth_defi/vault_report/excluded-vaults`` in the repository; a copy goes to the bundle
 - ``MAX_WORKERS``: parallel threads for the check's onchain probes, default 8
 - ``LOG_LEVEL``: default ``info``
 """
@@ -68,6 +70,9 @@ logger = logging.getLogger(__name__)
 
 #: Repository changelog, used to suggest report content updates
 CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
+
+#: Where the dated Markdown records of the vaults the investability check left out are written, in the repository
+EXCLUDED_VAULTS_DIR = Path(__file__).resolve().parents[2] / "eth_defi" / "vault_report" / "excluded-vaults"
 
 #: Maximum changelog entries offered to the editor
 MAX_CHANGELOG_ENTRIES = 15
@@ -182,6 +187,7 @@ def main() -> None:
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
         vault_checks=VaultCheckSettings.from_env(),
         podcasts=podcasts,
+        excluded_vaults_dir=_env_path("EXCLUDED_VAULTS_DIR") or EXCLUDED_VAULTS_DIR,
     )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]
@@ -196,6 +202,8 @@ def main() -> None:
     else:
         print("GHOST_DRAFT=false: no Ghost draft created")
 
+    if report.excluded_vaults_path:
+        print(f"Excluded vaults: {report.excluded_vaults_path}")
     print(f"Report: {report.title}")
     print(f"Local preview: {output_dir / 'preview.html'}")
 

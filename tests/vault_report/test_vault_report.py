@@ -324,7 +324,9 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "<!--kg-card-begin: html-->" in post_html
     assert "https://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-august-2026" in post_html
     assert 'Thanks <a href="https://example.com">Example</a>' in post_html
-    assert "Add Foo vault support" in post_html
+    # The narrative is a TODO for the editor; the changelog candidates are in the manifest
+    assert "<b>TODO:</b> Summarise the notable new integrations" in post_html and "Add Foo vault support" not in post_html
+    assert json.loads((tmp_path / "out" / "report.json").read_text())["changelog_entries"] == ["Add Foo vault support (2026-09-01)"]
     assert "Vault 0xcc" not in post_html  # Blacklisted
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
     assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "other": 1, "tokenised_funds": 1, "new": 1, "by_chain": 6}
@@ -334,6 +336,8 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     # New vaults, the per-chain table and the tokenised funds are subsections of the best-performing vaults, in this order
     subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
     assert [post_html.index(heading) for heading in subsections] == sorted(post_html.index(heading) for heading in subsections)
+    # Without charts the average yield and TVL groups have no content, so their headings are left out too
+    assert 'id="average-yield"' not in post_html and 'id="vaults-and-tokenised-funds-tvl"' not in post_html
     # The Ghost theme's table of contents follows the opening, as in the earlier posts, and figures are bold
     assert post_html.index('<div id="table-of-contents"></div>') < post_html.index('<h2 id="about-the-report">')
     assert "<li>The report data is dated <strong>" in post_html
@@ -857,15 +861,18 @@ def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFr
     settings = VaultCheckSettings(agent="claude", repository_root=tmp_path)
     (tmp_path / "eth_defi" / "vault").mkdir(parents=True)
     (tmp_path / "eth_defi" / "vault" / "flag.py").write_text("")
-    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, vault_checks=settings)
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False, check_sparklines=False, vault_checks=settings, excluded_vaults_dir=tmp_path / "excluded-vaults")
 
     assert report.vault_checks.excluded == frozenset({"1-0xaa"})
+    assert report.excluded_vaults_path.parent == tmp_path / "excluded-vaults"
     assert all("1-0xaa" not in section.vaults_df.index for section in report.sections.values())
     post_html = (tmp_path / "out" / "post.html").read_text()
-    assert '<h2 id="excluded-vaults-in-this-report">' in post_html
-    excluded_section = post_html[post_html.index("excluded-vaults-in-this-report") :]
-    assert "Vault 0xaa" in excluded_section and "Vault 0xaa" not in post_html[: post_html.index("excluded-vaults-in-this-report")]
-    assert "<script>" not in post_html and "&lt;script&gt;" in excluded_section
+    # Excluded vaults are not listed in the post, but in a dated Markdown record in the bundle and the repository
+    assert "Vault 0xaa" not in post_html and "excluded-vaults-in-this-report" not in post_html
+    assert "The investability check left 1 vaults out of this post" in post_html
+    markdown = report.excluded_vaults_path.read_text()
+    assert report.excluded_vaults_path.name.endswith("-excluded-vaults.md") and (tmp_path / "out" / report.excluded_vaults_path.name).exists()
+    assert "Vault 0xaa" in markdown and "<script>alert(1)</script> no market" in markdown  # Plain text in a Markdown cell, never rendered into the post
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
     assert manifest["vault_checks"]["excluded"][0]["vault_id"] == "1-0xaa"
     assert (tmp_path / "out" / "tables" / "excluded.csv").exists()

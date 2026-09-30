@@ -92,7 +92,7 @@ from eth_defi.vault_report.sections import (
     select_yield_vaults,
 )
 from eth_defi.vault_report.theme import ASSETS_DIR, DARK_THEME, ChartTheme
-from eth_defi.vault_report.vault_checks import CheckResult, VaultCheckSettings, apply_check_decisions, candidate_depth, excluded_rows, render_excluded_table, run_vault_checks, summarise_checks
+from eth_defi.vault_report.vault_checks import CheckResult, VaultCheckSettings, apply_check_decisions, candidate_depth, excluded_rows, render_excluded_vaults_markdown, run_vault_checks, summarise_checks
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +188,9 @@ class GeneratedReport:
     #: Podcast guest logos and service icons -> PNG path in the bundle,
     #: keyed like :py:attr:`eth_defi.vault_report.post.PostContext.podcast_images`
     podcast_image_paths: dict[str, Path] = field(default_factory=dict)
+
+    #: Dated Markdown record of the vaults the investability check left out, or ``None`` without the check
+    excluded_vaults_path: Path | None = None
 
 
 def format_usd(value: USDollarAmount) -> str:
@@ -507,13 +510,13 @@ def make_check_editor_notes(result: CheckResult | None) -> dict[str, str]:
         return {"best": "This report was generated <b>without the investability check</b>. Run it with <code>VAULT_CHECK_AGENT</code> before publishing, see README-vault-report.md."}
     notes = []
     if result.excluded:
-        notes.append("Review the evidence of each exclusion in <code>report.json</code> (<code>vault_checks.excluded</code>) and the <code>vault-check-decisions-*.json</code> files before publishing.")
+        notes.append(f"The investability check left {len(result.excluded)} vaults out of this post; they are listed with their reasons in the dated <code>excluded-vaults</code> Markdown file, not in the post. Review the evidence before publishing.")
     if result.uncertain:
         names = ", ".join(html.escape(candidate.name) for candidate in result.uncertain)
         notes.append(f"The check could not decide on: {names}. They are still in the report; resolve them before publishing.")
     if result.unchecked:
         notes.append(f"{len(result.unchecked)} in-scope vaults in the top lists were not checked before the round limit.")
-    return {"excluded": " ".join(notes)} if notes else {}
+    return {"best": " ".join(notes)} if notes else {}
 
 
 def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, ReportSection]:
@@ -780,6 +783,7 @@ def generate_monthly_vault_report(
     check_sparklines: bool = True,
     vault_checks: VaultCheckSettings | None = None,
     podcasts: list[PodcastEpisode] | None = None,
+    excluded_vaults_dir: Path | None = None,
 ) -> GeneratedReport:
     """Generate the report tables, charts and post body into a local bundle.
 
@@ -819,6 +823,11 @@ def generate_monthly_vault_report(
         :py:func:`eth_defi.vault_report.podcasts.fetch_latest_podcast_episodes`.
         ``None`` or empty leaves the section out.
 
+    :param excluded_vaults_dir:
+        Directory, e.g. in the repository, for the dated Markdown record of the
+        vaults the investability check left out. A copy is always written to
+        the bundle.
+
     :return:
         Generated report description.
     """
@@ -847,11 +856,18 @@ def generate_monthly_vault_report(
         (output_dir / "tables" / f"{key}.html").write_text(tables[key])
         section.vaults_df[CSV_COLUMNS].to_csv(output_dir / "tables" / f"{key}.csv", index=False)
 
+    # Excluded vaults are not listed in the post: a dated Markdown document records them
+    excluded_vaults_path = None
     if check_result is not None:
-        excluded_table = render_excluded_table(check_result)
-        if excluded_table:
-            tables["excluded"] = excluded_table
-            pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
+        pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
+        excluded_markdown = render_excluded_vaults_markdown(check_result, data_end_at, make_report_title(make_month_label(data_end_at)))
+        excluded_vaults_path = output_dir / f"{data_end_at:%Y-%m-%d}-excluded-vaults.md"
+        excluded_vaults_path.write_text(excluded_markdown)
+        if excluded_vaults_dir is not None:
+            excluded_vaults_dir.mkdir(parents=True, exist_ok=True)
+            excluded_vaults_path = excluded_vaults_dir / excluded_vaults_path.name
+            excluded_vaults_path.write_text(excluded_markdown)
+        logger.info("Excluded vaults written to %s", excluded_vaults_path)
     editor_notes = make_check_editor_notes(check_result)
 
     chart_paths, hero_path = {}, None
@@ -888,6 +904,7 @@ def generate_monthly_vault_report(
         hero_path=hero_path,
         vault_checks=check_result,
         podcast_image_paths=podcast_image_paths,
+        excluded_vaults_path=excluded_vaults_path,
     )
 
     post_html = build_post_html(context)
@@ -961,6 +978,8 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "excerpt": report.excerpt,
         "data_end_at": report.data_end_at.isoformat(),
         "stats": report.context.stats,
+        "changelog_entries": report.context.changelog_entries,
+        "excluded_vaults": str(report.excluded_vaults_path) if report.excluded_vaults_path else None,
         "sections": {key: len(section.vaults_df) for key, section in report.sections.items()},
         "charts": report.context.charts,
         "hero": report.hero_path.relative_to(report.output_dir).as_posix() if report.hero_path else None,
@@ -984,8 +1003,8 @@ def publish_report_draft(
 ) -> GhostPost:
     """Upload the images and create the Ghost draft post.
 
-    The hero image becomes the post's feature image. The draft is never
-    published automatically. An existing draft with the same slug is replaced
+    The feature image is left empty for the editor to choose; the bundle's
+    ``hero.png`` is a ready-made option. The draft is never published automatically. An existing draft with the same slug is replaced
     only with ``overwrite_draft``, as replacing it loses manual edits made in Ghost.
 
     :param report:
@@ -1006,7 +1025,6 @@ def publish_report_draft(
     # Fail before uploading images if the draft cannot be written
     admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft)
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
-    feature_image = admin_client.upload_image(report.hero_path) if report.hero_path else None
     podcast_image_urls = {key: admin_client.upload_image(path) for key, path in report.podcast_image_paths.items()}
     post = admin_client.create_or_update_draft(
         title=report.title,
@@ -1014,8 +1032,8 @@ def publish_report_draft(
         html=build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls)),
         custom_excerpt=report.excerpt,
         tags=tags,
-        feature_image=feature_image,
-        feature_image_alt=f"The best-performing stablecoin vaults, {report.context.month_label}",
+        # The editor picks the feature image; hero.png in the bundle is a ready-made option
+        feature_image=None,
         overwrite_draft=overwrite_draft,
     )
     write_report_manifest(report, post, admin_client.get_editor_url(post))

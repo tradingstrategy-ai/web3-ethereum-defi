@@ -14,6 +14,7 @@ from the previous report post, so edits made in Ghost carry over month to month.
 
 import datetime
 import html
+import itertools
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,6 +76,9 @@ class SectionTemplate:
 
     #: Include the section even without a table or chart
     always: bool = False
+
+    #: A heading that groups the subsections after it: included when any of them is
+    group: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -222,64 +226,6 @@ BEST_SECTIONS = (
 #: Data sections in display order, see ``README-blog-post-outline.md``
 SECTION_TEMPLATES = (
     SectionTemplate(
-        key="chain_yields",
-        heading_id="average-yield-by-blockchain",
-        heading="Average yield by blockchain",
-        intro=f'<p>Which blockchains pay the most on stablecoins. Each dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return of the vaults on the chain, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>. Browse the vaults of each chain on the <a href="{VAULTS_URL}/chains">blockchains page</a>.</p>',
-        charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
-        editor_note="Comment on the chains paying the most and the least.",
-    ),
-    SectionTemplate(
-        key="protocol_yields",
-        heading_id="average-yield-by-protocol-high-tvl",
-        heading="Average yield by protocol, high TVL",
-        intro=f'<p>The same comparison for the largest vault protocols by TVL, which hold most of the stablecoin deposits. See all <a href="{VAULTS_URL}/protocols">vault protocols</a>.</p>',
-        charts=(("protocol_yields", "Stablecoin vault yield of the largest protocols against the US Treasury bill"),),
-    ),
-    SectionTemplate(
-        key="protocol_high_yields",
-        heading_id="average-yield-by-protocol-high-yield",
-        heading="Average yield by protocol, high yield",
-        intro=f'<p>The protocols paying the highest average yield. High yields usually come with higher risk, so check where the yield comes from before investing. The <a href="{VAULTS_URL}/yield-protocol">vault yield by protocol</a> chart compares the yields of every protocol.</p>',
-        charts=(("protocol_high_yields", "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill"),),
-        editor_note="Comment on the highest-yielding protocols and where their yield comes from.",
-    ),
-    SectionTemplate(
-        key="protocol_tvl",
-        heading_id="stablecoin-tvl-by-defi-vault-protocol",
-        heading="Stablecoin TVL by DeFi vault protocol",
-        intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">live chart</a> has the full history.</p>',
-        charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
-        editor_note="Comment on the TVL trend: which protocols grew or shrank.",
-    ),
-    SectionTemplate(
-        key="chain_tvl",
-        heading_id="stablecoin-tvl-by-blockchain",
-        heading="Stablecoin TVL by blockchain",
-        intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">live chart</a> has the full history.</p>',
-        charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
-        editor_note="Comment on the TVL trend: which blockchains grew or shrank.",
-    ),
-    SectionTemplate(
-        key="fund_nav",
-        heading_id="stablecoin-nav-by-tokenised-fund",
-        heading="Stablecoin NAV by tokenised fund",
-        intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds page</a> for the live data.</p>',
-        charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
-        editor_note="Comment on the tokenised fund trend: which funds grew or shrank.",
-    ),
-    SectionTemplate(
-        key="tvl_changes",
-        heading_id="inflows-and-outflows",
-        heading="Inflows and outflows",
-        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. The <a href="{VAULTS_URL}/high-tvl">high TVL vaults</a> page ranks the vaults with at least $2M TVL.</p>',
-        charts=(
-            ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
-            ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
-        ),
-        editor_note="Explain the largest moves if known, e.g. a new fund launch or a redemption.",
-    ),
-    SectionTemplate(
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
@@ -305,6 +251,39 @@ SECTION_TEMPLATES = (
     ),
     *(section.template for section in BEST_SECTIONS if section.group == TOKENISED_FUND),
     SectionTemplate(
+        key="average_yields",
+        heading_id="average-yield",
+        heading="Average yield",
+        intro=f'<p>The average yield of stablecoin vaults by protocol and by blockchain. In each chart a small dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>.</p>',
+        group=True,
+    ),
+    SectionTemplate(
+        key="protocol_yields",
+        heading_id="average-yield-by-protocol-high-tvl",
+        heading="Yield by protocol, high TVL",
+        intro=f'<p>The largest vault protocols by TVL, which hold most of the stablecoin deposits. See all <a href="{VAULTS_URL}/protocols">vault protocols</a>.</p>',
+        charts=(("protocol_yields", "Stablecoin vault yield of the largest protocols against the US Treasury bill"),),
+        level=3,
+    ),
+    SectionTemplate(
+        key="protocol_high_yields",
+        heading_id="average-yield-by-protocol-high-yield",
+        heading="Yield by protocol, high yield",
+        intro=f'<p>The protocols paying the highest average yield. High yields usually come with higher risk, so check where the yield comes from before investing. The <a href="{VAULTS_URL}/yield-protocol">vault yield by protocol</a> chart compares the yields of every protocol.</p>',
+        charts=(("protocol_high_yields", "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill"),),
+        editor_note="Comment on the highest-yielding protocols and where their yield comes from.",
+        level=3,
+    ),
+    SectionTemplate(
+        key="chain_yields",
+        heading_id="average-yield-by-blockchain",
+        heading="Yield by blockchain",
+        intro=f'<p>Which blockchains pay the most on stablecoins. Browse the vaults of each chain on the <a href="{VAULTS_URL}/chains">blockchains page</a>.</p>',
+        charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
+        editor_note="Comment on the chains paying the most and the least.",
+        level=3,
+    ),
+    SectionTemplate(
         key="risk_return",
         heading_id="risk-and-return",
         heading="Risk and return",
@@ -312,10 +291,50 @@ SECTION_TEMPLATES = (
         charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
     ),
     SectionTemplate(
-        key="excluded",
-        heading_id="excluded-vaults-in-this-report",
-        heading="Excluded vaults in this report",
-        intro=(f'<p>The vaults below would have ranked or been charted in this report, but we left them out because they are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. They were found by an AI-assisted review of onchain positions and public sources, checked by our editors. This review covers Morpho, Euler and 40acres vaults so far and will be extended to other protocols. Vaults with known problems are listed on the <a href="{VAULTS_URL}/blacklisted">blacklisted vaults</a> page.</p>'),
+        key="tvl",
+        heading_id="vaults-and-tokenised-funds-tvl",
+        heading="Vaults and tokenised funds TVL",
+        intro=f'<p>How much money stablecoin vaults and tokenised funds hold, by protocol, blockchain and fund, and where it moved over the last 30 days. The <a href="{VAULTS_URL}/historical-tvl-stablecoin">stablecoin TVL</a> chart has the full history.</p>',
+        group=True,
+    ),
+    SectionTemplate(
+        key="protocol_tvl",
+        heading_id="stablecoin-tvl-by-defi-vault-protocol",
+        heading="Stablecoin TVL by DeFi vault protocol",
+        intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">live chart</a> has the full history.</p>',
+        charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
+        editor_note="Comment on the TVL trend: which protocols grew or shrank.",
+        level=3,
+    ),
+    SectionTemplate(
+        key="chain_tvl",
+        heading_id="stablecoin-tvl-by-blockchain",
+        heading="Stablecoin TVL by blockchain",
+        intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">live chart</a> has the full history.</p>',
+        charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
+        editor_note="Comment on the TVL trend: which blockchains grew or shrank.",
+        level=3,
+    ),
+    SectionTemplate(
+        key="fund_nav",
+        heading_id="stablecoin-nav-by-tokenised-fund",
+        heading="Stablecoin NAV by tokenised fund",
+        intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds page</a> for the live data.</p>',
+        charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
+        editor_note="Comment on the tokenised fund trend: which funds grew or shrank.",
+        level=3,
+    ),
+    SectionTemplate(
+        key="tvl_changes",
+        heading_id="inflows-and-outflows",
+        heading="Inflows and outflows",
+        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. The <a href="{VAULTS_URL}/high-tvl">high TVL vaults</a> page ranks the vaults with at least $2M TVL.</p>',
+        charts=(
+            ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
+            ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
+        ),
+        editor_note="Explain the largest moves if known, e.g. a new fund launch or a redemption.",
+        level=3,
     ),
 )
 
@@ -451,7 +470,7 @@ def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords:
     return entries
 
 
-def _editor_note(inner_html: str) -> str:
+def _editor_note(inner_html: str, label: str = "EDITOR") -> str:
     """Create a yellow Ghost callout card for editor instructions.
 
     Ghost keeps only inline markup, such as ``<code>`` and ``<b>``, in a
@@ -460,11 +479,14 @@ def _editor_note(inner_html: str) -> str:
     :param inner_html:
         Instruction HTML, inline elements only.
 
+    :param label:
+        Bold label, ``EDITOR`` for instructions or ``TODO`` for text the editor writes in place.
+
     :return:
         Callout card HTML.
     """
     assert "<ul>" not in inner_html and "<p>" not in inner_html, "Ghost callout cards hold inline text only"
-    return f'<div class="kg-card kg-callout-card kg-callout-card-yellow"><div class="kg-callout-emoji">✏️</div><div class="kg-callout-text"><b>EDITOR:</b> {inner_html}</div></div>'
+    return f'<div class="kg-card kg-callout-card kg-callout-card-yellow"><div class="kg-callout-emoji">✏️</div><div class="kg-callout-text"><b>{label}:</b> {inner_html}</div></div>'
 
 
 def _image(src: str, alt: str) -> str:
@@ -524,6 +546,8 @@ def build_post_html(context: PostContext) -> str:
     parts = [
         f"<p>In this monthly report, we examine the best-performing USD-denominated DeFi vaults across blockchains, {month} edition.</p>",
         _editor_note("Write a one or two sentence intro with the highlight of the month. Delete all EDITOR notes before publishing."),
+        # The header image is chosen by the editor; the bundle's hero.png is a ready-made option
+        _editor_note("Add the post's feature image in the post settings. The report bundle has a ready-made <code>hero.png</code>, and <code>hero-square.png</code> for X."),
         TABLE_OF_CONTENTS,
         _evergreen("about-the-report"),
         '<h2 id="report-content-updates">Report content updates</h2>',
@@ -536,11 +560,10 @@ def build_post_html(context: PostContext) -> str:
     else:
         parts.append("<p>We have updated the report as follows:</p>")
 
-    # Ghost callout cards hold inline text only, so the candidate list follows the callout as a normal list
-    candidates = " The candidates from the changelog since the previous report are listed below: edit them into the summary and delete the rest." if context.changelog_entries else ""
+    # The figures are generated; the narrative of what changed is written by the editor.
+    # The changelog candidates are in report.json, as Ghost callouts cannot hold a list.
     parts += [
-        _editor_note(f"Summarise the notable new integrations as bullet points here.{candidates}"),
-        _bullets([html.escape(entry) for entry in context.changelog_entries]),
+        _editor_note("Summarise the notable new integrations since the previous report as bullet points. Candidates from the changelog are listed in <code>report.json</code> (<code>changelog_entries</code>).", label="TODO"),
         "<p>These benchmarks include:</p>",
         _bullets([_bold_numbers(html.escape(stat)) for stat in context.stats]),
         f'<h2 id="defi-vault-community-news">DeFi vault community news, {month}</h2>',
@@ -556,8 +579,16 @@ def build_post_html(context: PostContext) -> str:
             f"<!--kg-card-begin: html-->\n{render_podcast_episodes(context.podcasts, context.podcast_images)}\n<!--kg-card-end: html-->",
         ]
 
-    for template in SECTION_TEMPLATES:
-        if not template.always and template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):
+    def _has_content(template: SectionTemplate) -> bool:
+        return template.always or template.key in context.tables or any(chart_key in context.charts for chart_key, _ in template.charts)
+
+    for index, template in enumerate(SECTION_TEMPLATES):
+        if template.group:
+            # A grouping heading is shown when any subsection up to the next heading of its level is
+            subsections = itertools.takewhile(lambda sub: sub.level > template.level, SECTION_TEMPLATES[index + 1 :])
+            if not any(_has_content(sub) for sub in subsections):
+                continue
+        elif not _has_content(template):
             continue
         parts += [f'<h{template.level} id="{template.heading_id}">{template.heading}</h{template.level}>', template.intro]
         if template.key in context.captions:

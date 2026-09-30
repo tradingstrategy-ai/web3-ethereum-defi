@@ -15,7 +15,7 @@ adds. The pipeline that generates the post is described in
 | Title | The best-performing stablecoin vaults, {Month YYYY} |
 | Slug | `the-best-performing-stablecoin-vaults-{month}-{yyyy}` |
 | Excerpt | The best stablecoin yield in DeFi, {Month YYYY} report. |
-| Feature image | 1200×630 hero: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Dangerous or worse risk ratings, returns above 400%, volatility above 50% and vaults the investability check excluded |
+| Feature image | Left empty for the editor. The bundle's `hero.png` is a ready-made option, 1200×630: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Dangerous or worse risk ratings, returns above 400%, volatility above 50% and vaults the investability check excluded |
 | Social image for X | `hero-square.png`, 1080×1080, attached by hand when posting |
 
 ## Vault groups
@@ -92,32 +92,33 @@ Every data section and subsection opens with an introduction paragraph that expl
 | — | *Intro paragraph* | One generated sentence | ✏️ The month's highlight |
 | — | *Table of contents* | `<div id="table-of-contents"></div>` in an HTML card, filled by the Ghost theme from the headings, as in the earlier posts | — |
 | 1 | About the report | Copied from the previous post, without empty paragraphs | — |
-| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | ✏️ New integrations; changelog candidates are listed |
+| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | ✏️ TODO: the new integrations; changelog candidates are in `report.json` |
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
-| 4 | Average yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
-| 5 | Average yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
-| 5b | Average yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
-| 6 | Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
-| 6b | Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | ✏️ Comment on the trend |
-| 7 | Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | ✏️ Comment on the trend |
-| 8 | Inflows and outflows | The **10 largest vault TVL increases and decreases over 30 days**, in dollars, then the same by blockchain: the net change of all vaults on each chain. A single change more than three times the next is drawn off scale | ✏️ Explain the largest moves |
-| 9 | The best-performing vaults | Treasury bill caption: how many yield vaults beat the T-bill, and their median return | ✏️ Comment on the top vaults |
-| 9.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
-| 9.1b | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
-| 9.2 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
-| 9.3 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
-| 9.4 | ↳ Other vaults | Performance chart and table, **by return** | — |
-| 9.5 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 9.6 | ↳ New vaults | Table: launched in the last 60 days, at least $15k TVL | — |
-| 9.7 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
-| 9.8 | ↳ Tokenised funds | Performance chart and table, by return | — |
-| 10 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
-| 10b | Excluded vaults in this report | Table of vaults the investability check removed from the rankings: vault, protocol, suspicious item, reason | ✏️ Resolve uncertain vaults |
-| 11 | Partners | Copied from the previous post | — |
-| 12 | Next steps | Copied from the previous post | — |
+| 4 | The best-performing vaults | Treasury bill caption: how many yield vaults beat the T-bill, and their median return | ✏️ Comment on the top vaults; the check's exclusions and undecided vaults |
+| 4.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
+| 4.2 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
+| 4.3 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
+| 4.4 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
+| 4.5 | ↳ Other vaults | Performance chart and table, **by return** | — |
+| 4.6 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
+| 4.7 | ↳ New vaults | Table: launched in the last 60 days, at least $15k TVL | — |
+| 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
+| 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
+| 5 | Average yield | How to read the dot plots | — |
+| 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
+| 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
+| 5.3 | ↳ Yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
+| 6 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
+| 7 | Vaults and tokenised funds TVL | — | — |
+| 7.1 | ↳ Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
+| 7.2 | ↳ Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | ✏️ Comment on the trend |
+| 7.3 | ↳ Stablecoin NAV by tokenised fund | Stacked weekly NAV over 12 months, the 7 largest funds and Other; a fund on several chains under one name counts once | ✏️ Comment on the trend |
+| 7.4 | ↳ Inflows and outflows | The **10 largest vault TVL increases and decreases over 30 days**, in dollars, then the same by blockchain: the net change of all vaults on each chain. A single change more than three times the next is drawn off scale | ✏️ Explain the largest moves |
+| 8 | Partners | Copied from the previous post | — |
+| 9 | Next steps | Copied from the previous post | — |
 
-The average yield charts (sections 4, 5 and 5b) show:
+The average yield charts (sections 5.1 to 5.3) show:
 - each vault as a small dot and the TVL-weighted average as a large dot;
 - the US 3M T-bill as a dashed line;
 - a right-hand column with the average, its difference to the T-bill in percentage points, and the TVL.
@@ -142,8 +143,9 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 | Low-volatility performance chart removed | Covered by the lending section |
 | Performance small multiples replaced with one shared chart per section | Equity curves can only be compared on the same axis |
 | Stablecoin TVL by blockchain added | The same money as the protocol chart, by where it lives |
+| Best-performing vaults first, then average yield, risk and return, and the TVL charts with inflows and outflows last | Readers come for the rankings; the market overview follows |
 | Latest podcasts added before the data sections | Promotes the podcast episodes to report readers |
-| Excluded vaults in this report added | The investability check removes vaults that are not investable in practice; readers see which and why |
+| Excluded vaults listed in a dated Markdown file and a PR comment, not in the post | Editors and reviewers see which vaults were left out and why, and the repository keeps the record; the post stays on the rankings |
 
 ## Decisions to confirm
 

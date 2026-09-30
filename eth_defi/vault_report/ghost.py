@@ -394,7 +394,8 @@ class GhostAdminClient:
             Tag names.
 
         :param feature_image:
-            URL of an uploaded image, used as the post's feature and social sharing image.
+            URL of an uploaded image, used as the post's feature and social sharing image,
+            or ``None`` for no feature image.
 
         :param feature_image_alt:
             Alternative text of the feature image.
@@ -410,8 +411,9 @@ class GhostAdminClient:
             post_data["custom_excerpt"] = custom_excerpt
         if tags:
             post_data["tags"] = [{"name": t} for t in tags]
+        # Always sent, so replacing a draft also clears a feature image set by an earlier run
+        post_data["feature_image"] = feature_image
         if feature_image:
-            post_data["feature_image"] = feature_image
             post_data["feature_image_alt"] = feature_image_alt
 
         existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft)

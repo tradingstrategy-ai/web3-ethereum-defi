@@ -48,7 +48,8 @@ are reused. The script:
    `hero-square.png`, `charts/*.png`, `tables/*.csv`, the podcast images in
    `podcasts/` and the investability check files `vault-check-*`.
 7. Uploads the charts, the podcast images and the hero image to Ghost and
-   creates an unpublished **draft** post, with the hero as its feature image.
+   creates an unpublished **draft** post. The feature image is left for the
+   editor; `hero.png` in the bundle is a ready-made option.
    The script never publishes. This needs `GHOST_ADMIN_API_KEY`; without a
    usable key the script stops at startup, before any download, unless
    `GHOST_DRAFT=false` asks for the local bundle only.
@@ -172,18 +173,21 @@ described in [README-blog-post-outline.md](./README-blog-post-outline.md). In
 short, the post has:
 
 - the four latest podcast episodes;
-- average yield dot plots for the 10 largest blockchains, the 10 largest
-  protocols by TVL and the 10 highest-yielding protocols with at least $150k
-  TVL, against the T-bill;
-- stablecoin TVL by DeFi vault protocol and by blockchain, and stablecoin NAV
-  by tokenised fund, over 12 months;
-- inflows and outflows: the largest 30-day TVL changes in dollars, by vault and by blockchain;
 - the best-performing vaults, split into lending, real-world asset (RWA), perp
   DEX by return, perp DEX by Sharpe ratio and other vaults, and AMM pools, each
   with a performance chart and a table, then new vaults, the best vaults on
   each chain and tokenised funds;
+- average yield: dot plots for the 10 largest protocols by TVL, the 10
+  highest-yielding protocols with at least $150k TVL and the 10 largest
+  blockchains, against the T-bill;
 - a risk and return scatter;
-- the vaults the investability check excluded.
+- vaults and tokenised funds TVL: stablecoin TVL by DeFi vault protocol and by
+  blockchain and stablecoin NAV by tokenised fund over 12 months, and last the
+  inflows and outflows, the largest 30-day TVL changes in dollars, by vault and
+  by blockchain.
+
+The post does not list the vaults the investability check excluded: they are
+recorded in a dated Markdown file, see [Investability check](#investability-check).
 
 The hero image shows the top 5 yield vaults with their curator, protocol and
 chain, 90-day price sparklines and the return as a large number: 1200×630 for
@@ -314,8 +318,12 @@ is rendered:
 4. If exclusions make the lists shorter than shown, the next vaults are
    checked in another round, up to three rounds.
 5. Excluded vaults leave every ranking, chart, the T-bill caption and the hero
-   image, and the inflows and outflows, and are listed in the *Excluded vaults
-   in this report* section. They stay in the TVL totals, which report where
+   image, and the inflows and outflows. They are not listed in the post but in
+   a dated Markdown file, `{date}-excluded-vaults.md`, written to
+   `eth_defi/vault_report/excluded-vaults/` in the repository
+   (`EXCLUDED_VAULTS_DIR`) and to the bundle, with the undecided vaults and a
+   summary of the run; commit it with the report's pull request and post it as
+   a PR comment. They stay in the TVL totals, which report where
    money is, not where to invest. `uncertain` vaults stay in the report with an
    editor callout, and the agent records each of them in `flag.py` with
    `VaultFlag.review_needed`, see [Vaults under review](#vaults-under-review).
@@ -438,8 +446,8 @@ then commit it in a pull request of its own.
 
 ### Review workflow
 
-1. Read the *Excluded vaults in this report* table and the `uncertain`
-   callouts in the draft.
+1. Read the dated `excluded-vaults` Markdown file and the check's callout
+   under *The best-performing vaults* in the draft.
 2. Check the evidence of any surprising decision in
    `vault-check-decisions-N.json`.
 3. To overrule the agent, write an overrides file and rerun on the same data
@@ -455,15 +463,18 @@ then commit it in a pull request of its own.
 
 1. Run the script in the last week of the month.
 2. Open the draft in Ghost Admin using the editor link the script prints.
-3. Fill in the yellow `EDITOR:` callouts: the intro highlight, report content
-   updates (changelog candidates are listed in the callout), community news and
+3. Add the feature image in the post settings; `hero.png` in the bundle is a
+   ready-made option.
+4. Fill in the yellow `EDITOR:` and `TODO:` callouts: the intro highlight, the
+   report content updates narrative (changelog candidates are in `report.json`,
+   `changelog_entries`; the figures are generated), community news and
    comments on the top vaults, the TVL trends by protocol and by blockchain and
    the largest inflows and outflows. Then delete the callouts.
-4. Review the investability check, see [Review workflow](#review-workflow),
+5. Review the investability check, see [Review workflow](#review-workflow),
    and commit any `flag.py` blacklist and `review_needed` entries separately.
-5. Review the tables. Unusual entries, such as capped `>9,999%` returns or
+6. Review the tables. Unusual entries, such as capped `>9,999%` returns or
    leveraged tokens, deserve a comment or a vault note.
-6. Publish, then share the post. Attach `hero-square.png` when posting on X.
+7. Publish, then share the post. Attach `hero-square.png` when posting on X.
 
 ## Tests
 

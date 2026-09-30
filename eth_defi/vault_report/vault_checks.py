@@ -26,7 +26,6 @@ by the agent, for review.
 import ast
 import datetime
 import hashlib
-import html
 import json
 import logging
 import math
@@ -844,30 +843,72 @@ def _list_order(candidate: CheckCandidate) -> tuple[str, int]:
     return name, int(rank or 0)
 
 
-def render_excluded_table(result: CheckResult) -> str | None:
-    """Render the "Excluded vaults in this report" table.
+def _markdown_cell(text: str | None) -> str:
+    """Make agent-written text safe for one Markdown table cell."""
+    return re.sub(r"\s+", " ", text or "").replace("|", "\\|").strip()
 
-    All agent-supplied text is escaped as plain text; evidence URLs stay in
-    the report manifest.
+
+def _markdown_vault(candidate: CheckCandidate) -> str:
+    """Vault name linked to its tradingstrategy.ai page, for a Markdown table."""
+    name = _markdown_cell(candidate.name or candidate.address).replace("[", "\\[").replace("]", "\\]")
+    return f"[{name}]({candidate.link})" if candidate.link and re.match(r"^https://\S+$", candidate.link) else name
+
+
+def render_excluded_vaults_markdown(result: CheckResult, data_end_at: datetime.datetime, report_title: str) -> str:
+    """Render the vaults the investability check left out of a report, as a dated Markdown document.
+
+    The blog post does not list excluded vaults. This document is the record
+    of what was left out and why, for the editor, the pull request review and
+    the repository history. Agent-written text is flattened into plain table
+    cells; the evidence URLs stay in the decisions files and ``report.json``.
 
     :param result:
         Check result.
 
+    :param data_end_at:
+        Report data date.
+
+    :param report_title:
+        Title of the report post.
+
     :return:
-        HTML table, or ``None`` when nothing was excluded.
+        Markdown document.
     """
-    rows = result.excluded_candidates
-    if not rows:
-        return None
-    body = []
-    for candidate in rows:
-        decision = result.decisions[candidate.vault_id]
-        name = html.escape(candidate.name or candidate.address)
-        vault = f'<a href="{html.escape(candidate.link)}">{name}</a>' if candidate.link and re.match(r"^https://", candidate.link) else name
-        # Curators reuse vault names across chains, e.g. Re7 Labs Cluster
-        chain = f" ({html.escape(candidate.chain)})" if candidate.chain else ""
-        body.append(f"<tr><td>{vault}{chain}</td><td>{html.escape(candidate.protocol or '')}</td><td>{html.escape(decision.suspicious_item or '')}</td><td>{html.escape(decision.reason or '')}</td></tr>")
-    return "<table>\n<thead><tr><th>Vault</th><th>Protocol</th><th>Suspicious item</th><th>Reason</th></tr></thead>\n<tbody>\n" + "\n".join(body) + "\n</tbody>\n</table>"
+    lines = [
+        f"# Excluded vaults, {data_end_at:%Y-%m-%d}",
+        "",
+        f"Vaults the investability check left out of *{report_title}*, with data dated {data_end_at:%Y-%m-%d}. Written {native_datetime_utc_now():%Y-%m-%d %H:%M} UTC by `eth_defi.vault_report.vault_checks`, see `eth_defi/vault_report/README-vault-report.md`.",
+        "",
+        "They would have ranked or been charted, but are not investable in practice: their collateral cannot be valued or sold, their depositors cannot exit, or they show signs of a scam. The check is AI-assisted and not deterministic; review each decision.",
+        "",
+        "## Excluded vaults",
+        "",
+    ]
+    excluded = result.excluded_candidates
+    if excluded:
+        lines += ["| Vault | Chain | Protocol | Suspicious item | Reason | Confidence | Blacklisted in `flag.py` |", "|---|---|---|---|---|---|---|"]
+        for candidate in excluded:
+            decision = result.decisions[candidate.vault_id]
+            lines.append(f"| {_markdown_vault(candidate)} | {_markdown_cell(candidate.chain)} | {_markdown_cell(candidate.protocol)} | {_markdown_cell(decision.suspicious_item)} | {_markdown_cell(decision.reason)} | {_markdown_cell(decision.confidence)} | {'yes, ' + _markdown_cell(decision.vault_flag) if decision.blacklist else 'no'} |")
+    else:
+        lines.append("None.")
+    lines += ["", "## Vaults under review", "", "The check could not decide on these vaults, so they stay in the report. They are recorded in `flag.py` with `VaultFlag.review_needed`.", ""]
+    if result.uncertain:
+        lines += ["| Vault | Chain | Protocol | Reason |", "|---|---|---|---|"]
+        lines += [f"| {_markdown_vault(c)} | {_markdown_cell(c.chain)} | {_markdown_cell(c.protocol)} | {_markdown_cell(result.decisions[c.vault_id].reason)} |" for c in result.uncertain]
+    else:
+        lines.append("None.")
+    counts = Counter(decision.decision for decision in result.decisions.values())
+    lines += [
+        "",
+        "## Check run",
+        "",
+        f"- Rounds: {len(result.rounds)}; decisions: {', '.join(f'{count} {name}' for name, count in sorted(counts.items()))}",
+        f"- In-scope vaults not checked before the round limit: {len(result.unchecked)}",
+        f"- Decision files: {', '.join(f'`{r.decisions_path.name}`' for r in result.rounds)}",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def excluded_rows(result: CheckResult) -> list[dict]:
