@@ -280,9 +280,9 @@ Rules:
 - One record per candidate, no more and no fewer.
 - `category` is one of `suspicious_collateral`, `no_exit_liquidity`, `scam`,
   `broken_data`, `other`; set it for `exclude`, null otherwise.
-- `suspicious_item` is a short phrase naming the problem, for the report
-  table, e.g. "RSS elephanToken collateral" or "100% utilised, no free
-  liquidity".
+- `suspicious_item` is a short phrase naming the problem, shown in the dated
+  excluded vaults Markdown file, e.g. "RSS elephanToken collateral" or "100%
+  utilised, no free liquidity".
 - `reason` is one plain-text sentence a reader understands, without markup.
 - `evidence` lists every source with an ISO `observed_at` timestamp, naive
   UTC. Liquidity evidence must be current, from the facts file or read today.

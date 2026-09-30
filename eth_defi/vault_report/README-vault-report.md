@@ -20,8 +20,9 @@ source .local-test.env && poetry run python scripts/erc-4626/generate-monthly-va
 ```
 
 Without the investability check, a run with cached downloads took about 40
-seconds on 2026-09-29, most of it rendering the 16 charts. With the check,
-which runs an LLM agent, a run took about 32 minutes on 2026-09-26, see
+seconds on 2026-09-29, most of it rendering the charts. With the check, which
+runs an LLM agent, a run with Sonnet 5.5 took about 5 minutes on 2026-09-30;
+with Opus 5.5 it took about 32 minutes on 2026-09-26, see
 [Investability check](#investability-check). Downloads younger than six hours
 are reused. The script:
 
@@ -48,7 +49,7 @@ are reused. The script:
    `post.html`, a browser-viewable `preview.html`, `report.json`, `hero.png`,
    `hero-square.png`, `charts/*.png`, `tables/*.csv`, the podcast images in
    `podcasts/` and the investability check files `vault-check-*`.
-7. Uploads the charts, the podcast images and the hero image to Ghost and
+7. Uploads the charts and the podcast images to Ghost and
    creates an unpublished **draft** post. The feature image is left for the
    editor; `hero.png` in the bundle is a ready-made option.
    The script never publishes. This needs `GHOST_ADMIN_API_KEY`; without a
@@ -82,9 +83,7 @@ The Admin API key was added on 2026-09-30. `test_ghost_admin_api_draft` (see
 [Tests](#tests)) passed against the live site that day, and the September 2026
 draft was created and then updated in place with `GHOST_OVERWRITE_DRAFT=true`.
 Reading the draft back through the Admin API showed every heading, image,
-table, callout and the table of contents intact. Ghost callout cards keep only
-inline markup: a list inside a callout is flattened into one run of text. The
-post no longer has callouts.
+table and the table of contents intact.
 
 The Ghost site is private and the blog frontend renders only published posts,
 so the draft can be read only in the Ghost editor. Check the first branded post
@@ -178,22 +177,24 @@ short, the post has:
   (RWA), perp DEX by return, perp DEX by Sharpe ratio and AMM pools, each with
   a performance chart and a table, then the best vaults on each chain and
   tokenised funds;
-- average yield: dot plots for the 10 largest protocols by TVL, the 10
+- yield by chain and protocol: dot plots for the 10 largest protocols by TVL, the 10
   highest-yielding protocols with at least $150k TVL and the 10 largest
   blockchains, against the T-bill;
 - a risk and return scatter of the yield and perp DEX vaults by strategy;
 - vaults and tokenised funds TVL: stablecoin TVL by DeFi vault protocol and by
-  blockchain and stablecoin NAV by tokenised fund over 12 months, and last the
-  inflows and outflows, the largest 30-day TVL changes in dollars, by vault and
-  by blockchain.
+  blockchain and stablecoin NAV by tokenised fund over 12 months;
+- last, inflows and outflows: the largest 30-day TVL changes in dollars, in
+  the subsections *Inflows and outflows by vault* and *Inflows and outflows by
+  blockchain*.
 
 The post does not list the vaults the investability check excluded: they are
 recorded in a dated Markdown file, see [Investability check](#investability-check).
 
 The hero image shows the top 5 yield vaults with their curator, protocol and
-chain, 90-day price sparklines and the return as a large number: 1200×630 for
-link previews and the Ghost feature image, and a 1080×1080 version for X, which
-shows blog links as square cards. It leaves out vaults above 400% annualised
+chain, 90-day price sparklines and the return as a large number: 1200×630 as
+the social image for link previews and a ready-made feature image the editor
+can pick, and a 1080×1080 version for X, which shows blog links as square
+cards. It leaves out vaults above 400% annualised
 return, above 50% volatility or with a Dangerous or worse risk rating; the
 performance charts, the average yield charts and the risk and return chart leave
 out Dangerous or worse vaults as well, while the tables keep them. The image does not state these
@@ -360,8 +361,8 @@ and its public note says it is under review. Its comment block in `flag.py`
 records each run's decision, date and model, what conflicts, and what a
 reviewer should check. The agent adds one for every `uncertain` vault, or adds
 its finding to an existing entry; the pipeline warns about `uncertain` vaults
-without an entry. The first 17 entries, from the two 2026-09-30 runs, cover
-the vaults either run left `uncertain` and those the runs decided differently.
+without an entry. The first entries, from the two 2026-09-30 runs, cover the
+vaults either run left `uncertain` and those the runs decided differently.
 
 Resolve an entry by replacing the flag with a bad flag, with the evidence in
 its comment, or by removing the entry once the vault is cleared.
@@ -415,7 +416,7 @@ and the JSONL stream written to the transcript. Read
 | `VAULT_CHECK_MODEL` | `claude-sonnet-5-5` for Claude, CLI default for Codex | Model for the agent, e.g. `gpt-6-sol` for Codex |
 | `VAULT_CHECK_EFFORT` | `medium` | Claude CLI thinking effort: `low`, `medium`, `high`, `xhigh` or `max`; mind the token cost |
 | `VAULT_CHECK_DECISIONS` | | Comma-separated bundle directories whose decisions files can be reused |
-| `VAULT_CHECK_OVERRIDES` | | JSON list of editor decision records that replace the agent's |
+| `VAULT_CHECK_OVERRIDES` | | Path to a JSON file with a list of editor decision records that replace the agent's |
 | `VAULT_CHECK_TIMEOUT` | `60` | Agent timeout per round, in minutes |
 | `MAX_WORKERS` | `8` | Parallel onchain probes |
 

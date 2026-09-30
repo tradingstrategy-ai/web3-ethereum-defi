@@ -310,7 +310,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     return {
         "best": [
             "Vaults are ranked by their annualised last one-month returns",
-            f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending and RWA vaults also need {active}",
+            f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools and {format_usd(criteria.new_vault_min_tvl)} for new vaults; lending, RWA and new vaults also need {active}",
             '<a href="https://tradingstrategy.ai/vaults">View the live vault ranking</a>',
         ],
     }

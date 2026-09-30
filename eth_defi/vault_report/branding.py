@@ -7,8 +7,8 @@ rendered by Kaleido first and composited with Pillow afterwards:
   title header, a green corner glow and a brand footer carrying the data
   date and a link to the live chart, so a screenshotted chart still credits us.
 - :py:func:`render_hero_image` draws the social image of the month's top
-  vaults: 1200×630 for link previews and the Ghost feature image, and a square
-  version for posting on X.
+  vaults: 1200×630 as the social image for link previews and a ready-made
+  feature image the editor can pick, and a square version for posting on X.
 
 The look follows the website's chart panels, e.g. ``HistoricalTvlGroupChart.svelte``
 in the frontend: radius 1.5rem, a faint top-left radial glow in the bullish
@@ -27,7 +27,7 @@ from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD,
 
 logger = logging.getLogger(__name__)
 
-#: Social image size used by LinkedIn, Telegram and Facebook link previews, and the Ghost feature image
+#: Social image size used by LinkedIn, Telegram and Facebook link previews; also a ready-made feature image the editor can pick
 HERO_SIZE = (1200, 630)
 
 #: Square social image for X, which shows link previews of the blog as square ``summary`` cards

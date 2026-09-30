@@ -23,10 +23,12 @@ The skeleton keeps the structure of the earlier posts:
 - the introduction sections *About the report* and *Report content updates*,
   with this month's figures in bold: blockchains, protocols, vaults and TVL;
 - *DeFi vault community news* and *Latest podcasts* before the data sections;
-- the data sections, each with an introduction paragraph linking to the live
-  pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
-  charts and tables: *The best-performing vaults*, *Yield by chain and protocol*, *Risk and
-  return*, *Vaults and tokenised funds TVL*, and *Inflows and outflows* last;
+- the data sections with their charts and tables: *The best-performing
+  vaults*, *Yield by chain and protocol*, *Risk and return*, *Vaults and
+  tokenised funds TVL*, and *Inflows and outflows* last. *The best-performing
+  vaults* has no introduction but carries the section notes; each other data
+  section opens with an introduction paragraph linking to the live pages on
+  [tradingstrategy.ai](https://tradingstrategy.ai/vaults);
 - *Partners*, naming each partner organisation with a link, from `PARTNERS`
   in `post.py`, and *Next steps*, the call to action, copied from the
   previous post so the editor's wording carries over month to month.
@@ -141,7 +143,7 @@ The pipeline then, in `report.publish_report_draft()`:
 - checks first that the slug, e.g. `the-best-performing-stablecoin-vaults-september-2026`,
   is free or holds a draft that may be replaced, so nothing is uploaded for a
   run that would fail;
-- uploads the charts, the hero image and the podcast logos to Ghost;
+- uploads the charts and the podcast logos to Ghost;
 - creates the post with `?source=html`, so Ghost converts the HTML into its
   editor cards: the table of contents, tables and podcast cards are HTML cards
   (`<!--kg-card-begin: html-->`);
@@ -163,8 +165,9 @@ While no Admin API key was available, and for reviewers without Ghost access, th
 skeleton was previewed as a comment on the pull request, e.g.
 [the PR #1600 skeleton comment](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1600#issuecomment-5846041620).
 It shows the post in order, with the charts, the first three rows of each
-table, the section notes collapsed and the editor callouts as quotes, followed
-by an editor checklist and a summary of the check run. It is a review aid only:
+table and the section notes collapsed, followed by an editor checklist and a
+summary of the check run. The earlier skeleton comments, made while the post
+still had editor callouts, also showed the callouts as quotes. It is a review aid only:
 Ghost never reads it.
 
 The steps:

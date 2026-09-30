@@ -17,6 +17,7 @@ import pytest
 import requests
 from PIL import Image
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.vault_report.benchmarks import BTC, ETH, fetch_crypto_prices, fetch_treasury_bill_yields
 from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
@@ -121,7 +122,7 @@ def test_treasury_bill_yields_available(tmp_path: Path):
     yields = fetch_treasury_bill_yields(tmp_path)
     assert yields is not None
     assert 0 < yields.iloc[-1] < 0.2
-    assert yields.index[-1] > pd.Timestamp.now() - pd.Timedelta(days=14)
+    assert yields.index[-1] > pd.Timestamp(native_datetime_utc_now()) - pd.Timedelta(days=14)
 
 
 def test_chain_logo_available(tmp_path: Path):
@@ -132,7 +133,7 @@ def test_chain_logo_available(tmp_path: Path):
 
 def test_crypto_benchmark_prices_available(tmp_path: Path):
     """Coinbase serves daily BTC and ETH closes without an API key."""
-    end_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    end_at = native_datetime_utc_now()
     for benchmark in (BTC, ETH):
         prices = fetch_crypto_prices(benchmark, end_at - datetime.timedelta(days=100), end_at, tmp_path)
         assert prices is not None

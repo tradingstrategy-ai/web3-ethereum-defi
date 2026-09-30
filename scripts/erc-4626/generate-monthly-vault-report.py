@@ -31,6 +31,8 @@ Environment variables:
 - ``MIN_TVL``: minimum TVL for the best-performing vault tables, default 100,000 USD
 - ``TOP_N``: vaults per best-performing table, default 20
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
+- ``BROWSER_PATH``: Chrome binary for Kaleido chart rendering, when Chrome was not installed
+  with ``plotly_get_chrome``, see ``eth_defi/vault_report/README-vault-report.md``
 - ``CHART_THEME``: ``dark`` (default, the website look) or ``light``
 - ``CHECK_SPARKLINES``: set ``false`` to leave sparklines out of the tables
 - ``VAULT_CHECK_AGENT``: ``claude`` or ``codex`` to run the investability check

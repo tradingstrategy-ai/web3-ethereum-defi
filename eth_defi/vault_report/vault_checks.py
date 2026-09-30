@@ -35,11 +35,13 @@ import signal
 import subprocess
 import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
 import pandas as pd
+from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.vault.flag import BAD_FLAGS
@@ -115,7 +117,7 @@ class CheckCandidate:
     chain: str
 
     #: Vault address
-    address: str
+    address: HexAddress
 
     #: Protocol name
     protocol: str
@@ -346,8 +348,17 @@ def build_check_candidates(lists: dict[str, pd.DataFrame]) -> dict[str, CheckCan
     return candidates
 
 
-def _optional_float(value) -> float | None:
-    """Convert a possibly missing number to ``float``."""
+def _optional_float(value: float | int | str | None) -> float | None:
+    """Convert a possibly missing number to ``float``.
+
+    The vault export and pandas rows mark missing numbers as ``None`` or NaN.
+
+    :param value:
+        A number, a numeric string, ``None`` or NaN.
+
+    :return:
+        The number as ``float``, or ``None`` when it is missing.
+    """
     return None if value is None or pd.isna(value) else float(value)
 
 
@@ -419,6 +430,25 @@ def parse_decision(record: dict) -> CheckDecision:
     return decision
 
 
+def parse_naive_utc_timestamp(value: str) -> datetime.datetime:
+    """Parse an ISO 8601 timestamp written by the agent into a naive UTC datetime.
+
+    The agent may write ``Z``, an explicit UTC offset such as ``+02:00``, or no
+    offset. Offset timestamps are converted to UTC before the offset is dropped;
+    timestamps without an offset are taken to be UTC already.
+
+    :param value:
+        ISO 8601 timestamp, e.g. ``2026-09-30T12:00:00+02:00``.
+
+    :return:
+        Naive UTC datetime.
+    """
+    parsed = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(datetime.UTC).replace(tzinfo=None)
+    return parsed
+
+
 def read_check_decisions(path: Path, candidates: list[CheckCandidate], candidates_digest: str, data_end_at: datetime.datetime, max_evidence_age: datetime.timedelta = datetime.timedelta(days=7)) -> dict[str, CheckDecision]:
     """Read and validate the agent's decisions for one round.
 
@@ -473,7 +503,7 @@ def read_check_decisions(path: Path, candidates: list[CheckCandidate], candidate
             raise CheckValidationError(f"{decision.vault_id} is in scope but was not checked")
         if decision.category == "no_exit_liquidity":
             for item in decision.evidence:
-                observed = datetime.datetime.fromisoformat(item["observed_at"].replace("Z", "")).replace(tzinfo=None)
+                observed = parse_naive_utc_timestamp(item["observed_at"])
                 if observed < data_end_at - max_evidence_age:
                     raise CheckValidationError(f"{decision.vault_id}: liquidity evidence from {observed} is older than {max_evidence_age}")
     return decisions
@@ -684,6 +714,32 @@ def _find_reusable(round_: CheckRound, candidates: list[CheckCandidate], data_en
 def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datetime.datetime, prices_path: Path | None, output_dir: Path, settings: VaultCheckSettings, facts: dict | None = None) -> tuple[CheckRound, dict[str, CheckDecision]]:
     """Decide one batch of in-scope candidates: reuse earlier decisions or run the agent.
 
+    Writes the round's candidates file, then reuses matching decisions from
+    earlier bundles when possible. Otherwise it probes the candidates, runs the
+    agent CLI and validates its decisions and ``flag.py`` entries.
+
+    :param number:
+        Round number, used in the round file names.
+
+    :param in_scope:
+        In-scope candidates to decide in this round.
+
+    :param data_end_at:
+        Report data date.
+
+    :param prices_path:
+        Vault price Parquet, for the liquidity history.
+
+    :param output_dir:
+        Report bundle; the round files are written here.
+
+    :param settings:
+        Agent and reuse settings.
+
+    :param facts:
+        Precomputed onchain facts by vault id, e.g. from the prescreen, or
+        ``None`` to fetch them.
+
     :return:
         The round's files and its decisions.
     """
@@ -718,7 +774,7 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
 
 
 def run_vault_checks(
-    collect_lists,
+    collect_lists: Callable[[pd.DataFrame], dict[str, pd.DataFrame]],
     comparable_df: pd.DataFrame,
     data_end_at: datetime.datetime,
     prices_path: Path | None,
@@ -732,7 +788,7 @@ def run_vault_checks(
     """Check the report's top lists in rounds until every listed vault is decided.
 
     After the top lists, a deterministic prescreen probes the in-scope vaults
-    of the aggregate charts (average yields, risk and return) with at least
+    of the average yield charts with at least
     ``prescreen_min_tvl`` TVL. The prescreen never excludes a vault itself:
     vaults with suspicion signals, the largest first, go to the agent in a
     final round, at most ``max_escalations`` of them.
@@ -760,7 +816,7 @@ def run_vault_checks(
         Maximum number of top list rounds.
 
     :param aggregate_df:
-        Vaults of the aggregate charts, or ``None`` to skip the prescreen.
+        Vaults of the average yield charts, or ``None`` to skip the prescreen.
 
     :param prescreen_min_tvl:
         Minimum TVL of a vault to prescreen, in US dollars.
@@ -807,7 +863,7 @@ def run_vault_checks(
     if aggregate_df is not None:
         pool = aggregate_df.loc[aggregate_df["protocol_slug"].isin(CHECK_SCOPE.keys()) & (aggregate_df["current_nav"] >= prescreen_min_tvl) & ~aggregate_df.index.isin(list(result.decisions))]
         if len(pool):
-            logger.info("Prescreening %d in-scope vaults of the aggregate charts", len(pool))
+            logger.info("Prescreening %d in-scope vaults of the average yield charts", len(pool))
             screened = build_check_candidates({"aggregate": pool.sort_values("current_nav", ascending=False)})
             facts = fetch_candidate_facts([asdict(candidate) for candidate in screened.values()], prices_path, data_end_at, settings.max_workers)
             flagged = {vault_id: screened[vault_id] for vault_id in screened if facts.get(vault_id) and facts[vault_id].signals}

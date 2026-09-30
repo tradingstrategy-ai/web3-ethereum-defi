@@ -1102,9 +1102,13 @@ def create_risk_return_figure(
     Uses annualised three-month volatility rather than Sharpe, because
     near-zero-volatility lending vaults have Sharpe ratios in the millions.
 
-    Both axes are fitted to the bulk of the vaults, the 1st to 99th percentile,
-    so the dense middle of the market is readable. Vaults outside the axes are
-    left out of the chart. Large bubbles are drawn first and are translucent, so small vaults
+    The axes are fitted to the bulk of the vaults, so the dense middle of the
+    market is readable. The logarithmic x axis runs from 0.01% volatility to
+    twice the 98th percentile volatility, at least 1% and at most 100%. The y
+    axis runs from the 1st percentile return, no higher than 0% and with 2
+    percentage points of room, floored at -15%, to 1.1 times the 99th
+    percentile return, at least three times the T-bill yield and 10%, and at
+    most ``max_return``. Vaults outside the axes are left out of the chart. Large bubbles are drawn first and are translucent, so small vaults
     on top of them stay visible. Unclassified vaults are drawn in a neutral
     colour, so classified strategies stand out. Vaults are not labelled: the
     chart shows strategy categories, not individual vaults.

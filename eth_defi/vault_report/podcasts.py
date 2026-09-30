@@ -44,12 +44,32 @@ PODCAST_SERVICES = {"youtube": "Watch on YouTube", "spotify": "Listen on Spotify
 
 
 def logo_image_key(slug: str) -> str:
-    """Key of a guest logo in the podcast image mapping, see :py:func:`render_podcast_episodes`."""
+    """Key of a guest logo in the podcast image mapping, see :py:func:`render_podcast_episodes`.
+
+    Guest logos and service icons share one mapping from key to uploaded image
+    URL, so each kind of image has its own key prefix.
+
+    :param slug:
+        Curator or protocol slug of the guest, e.g. ``yearn``.
+
+    :return:
+        Mapping key, e.g. ``logo:yearn``.
+    """
     return f"logo:{slug}"
 
 
 def icon_image_key(service: str) -> str:
-    """Key of a listening service icon in the podcast image mapping, e.g. ``icon:youtube``."""
+    """Key of a listening service icon in the podcast image mapping, e.g. ``icon:youtube``.
+
+    Guest logos and service icons share one mapping from key to uploaded image
+    URL, so each kind of image has its own key prefix.
+
+    :param service:
+        Listening service icon name, a key of :py:data:`PODCAST_SERVICES`.
+
+    :return:
+        Mapping key, e.g. ``icon:youtube``.
+    """
     return f"icon:{service}"
 
 

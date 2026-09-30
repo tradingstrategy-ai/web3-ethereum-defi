@@ -13,7 +13,9 @@ Vaults are classified into groups; each group except *Other* is ranked in its ow
 - **Perpetual futures DEX:** Hyperliquid, GRVT, Lighter and other native trading vaults
 - **AMM pools:** GMX GM and GLV pools and Curve-based YieldBasis pools
 - **Tokenised funds:** vaults flagged ``tokenised_fund``, e.g. money market funds
-- **Other:** everything else, e.g. yield aggregators and trading vaults
+- **Other:** everything else, e.g. yield aggregators and trading vaults. It has no
+  section of its own; its vaults appear in the new vaults, per-chain, yield and
+  risk and return sections
 
 Returns are annualised one-month returns, net of fees when fee data is known
 and gross otherwise, shown without a net or gross marker.
@@ -138,7 +140,7 @@ class ReportCriteria:
     #: Maximum age of a vault in the new vaults table
     new_vault_max_age: datetime.timedelta = datetime.timedelta(days=60)
 
-    #: Number of vaults in each performance chart grid
+    #: Number of vaults in each performance chart
     performance_chart_vaults: int = 8
 
     #: Vaults at or above this annualised three-month volatility are compared with BTC and ETH instead of the Treasury bill
@@ -147,7 +149,7 @@ class ReportCriteria:
     #: Vaults with a three-month drawdown at or below this are compared with BTC and ETH instead of the Treasury bill
     crypto_benchmark_max_drawdown: Percent = -0.10
 
-    #: Leave vaults above this annualised one-month return out of the hero image,
+    #: Leave vaults above this annualised three-month return out of the hero image,
     #: where one outlier number would dwarf the others
     chart_max_return: Percent = 4.0
 
@@ -178,7 +180,7 @@ class ReportCriteria:
     #: Minimum TVL per vault to be counted in the average yield charts
     yield_min_vault_tvl: USDollarAmount = 10_000
 
-    #: Exclude outlier vaults above this annualised one-month return from the average yields
+    #: Exclude outlier vaults above this annualised three-month return from the average yields
     yield_max_return: Percent = 4.0
 
     #: Exclude vaults above this annualised three-month volatility from the average yields.

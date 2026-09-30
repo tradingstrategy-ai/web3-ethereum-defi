@@ -113,7 +113,7 @@ class Exposure:
     utilisation: Percent | None = None
 
     #: Collateral token address, if any
-    collateral: str | None = None
+    collateral: HexAddress | None = None
 
     #: Collateral token symbol
     collateral_symbol: str | None = None
@@ -122,14 +122,14 @@ class Exposure:
     collateral_name: str | None = None
 
     #: Price oracle address of the market
-    oracle: str | None = None
+    oracle: HexAddress | None = None
 
     #: Liquidation loan-to-value
     lltv: float | None = None
 
     #: When the collateral is itself an ERC-4626 vault share, the vault's underlying asset;
     #: DEX liquidity is then measured for the underlying asset
-    collateral_underlying: str | None = None
+    collateral_underlying: HexAddress | None = None
 
     #: Largest DEX liquidity of the collateral, or of its underlying asset, in US dollars; ``None`` when unknown
     collateral_dex_liquidity_usd: float | None = None
@@ -208,8 +208,24 @@ def fetch_dex_liquidity_usd(chain_id: int, token: HexAddress | str, timeout: flo
     return max(((pair.get("liquidity") or {}).get("usd") or 0.0 for pair in pairs or []), default=0.0)
 
 
-def _token(web3: Web3, address: str, chain_id: int):
-    """Read token details, or ``None`` when the address is not an ERC-20 token."""
+def _token(web3: Web3, address: HexAddress, chain_id: int) -> TokenDetails | None:
+    """Read token details, or ``None`` when the address is not an ERC-20 token.
+
+    Market collateral and strategy addresses are not always ERC-20 tokens, so a
+    failed read is logged and returns ``None`` instead of raising.
+
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param address:
+        Token address.
+
+    :param chain_id:
+        Chain id of the token.
+
+    :return:
+        Token details, or ``None`` when the address is not an ERC-20 token.
+    """
     try:
         return fetch_erc20_details(web3, address, chain_id=chain_id)
     except CALL_ERRORS as e:
@@ -217,8 +233,23 @@ def _token(web3: Web3, address: str, chain_id: int):
         return None
 
 
-def _read_vault_assets(web3: Web3, vault: Contract, chain_id: int, block: int) -> tuple[TokenDetails, int, float, float]:
+def _fetch_vault_assets(web3: Web3, vault: Contract, chain_id: int, block: int) -> tuple[TokenDetails, int, float, float]:
     """Read a vault's denomination token and its total and idle assets.
+
+    Idle assets are the denomination token balance the vault holds itself,
+    outside its markets or strategies.
+
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param vault:
+        ERC-4626 vault contract.
+
+    :param chain_id:
+        Chain id of the vault.
+
+    :param block:
+        Block number to read at.
 
     :return:
         Denomination token, its decimal scale, total assets and idle assets in token units.
@@ -236,7 +267,7 @@ def _share(assets: float, total_assets: float) -> float:
     return assets / total_assets if total_assets else 0.0
 
 
-def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -> tuple[list[Exposure], float, float]:
+def fetch_morpho_v1_facts(web3: Web3, vault_address: HexAddress, chain_id: int, block: int) -> tuple[list[Exposure], float, float]:
     """Read the markets of a MetaMorpho V1 vault.
 
     For each market on the withdraw queue: the vault's supply position, the
@@ -246,13 +277,25 @@ def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -
 
     See the `MetaMorpho documentation <https://docs.morpho.org/curation/concepts/vault>`__.
 
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param vault_address:
+        Vault address.
+
+    :param chain_id:
+        Chain id of the vault.
+
+    :param block:
+        Block number to read at, so all reads are consistent.
+
     :return:
         Exposures, total assets and idle assets, in denomination token units.
     """
     vault = get_deployed_contract(web3, "morpho/MetaMorpho.json", Web3.to_checksum_address(vault_address))
     # Morpho Blue is not at the same address on every chain, so ask the vault
     morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", vault.functions.MORPHO().call(block_identifier=block))
-    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
+    _asset, scale, total_assets, idle = _fetch_vault_assets(web3, vault, chain_id, block)
 
     exposures = []
     for index in range(vault.functions.withdrawQueueLength().call(block_identifier=block)):
@@ -283,7 +326,7 @@ def probe_morpho_v1(web3: Web3, vault_address: str, chain_id: int, block: int) -
     return exposures, total_assets, idle
 
 
-def probe_euler_earn(web3: Web3, vault_address: str, chain_id: int, block: int) -> tuple[list[Exposure], float, float]:
+def fetch_euler_earn_facts(web3: Web3, vault_address: HexAddress, chain_id: int, block: int) -> tuple[list[Exposure], float, float]:
     """Read the strategies of an Euler Earn vault.
 
     Each strategy is an ERC-4626 vault, usually an Euler EVK lending vault.
@@ -291,11 +334,23 @@ def probe_euler_earn(web3: Web3, vault_address: str, chain_id: int, block: int) 
 
     See the `Euler Earn documentation <https://docs.euler.finance/concepts/core/euler-earn>`__.
 
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param vault_address:
+        Vault address.
+
+    :param chain_id:
+        Chain id of the vault.
+
+    :param block:
+        Block number to read at, so all reads are consistent.
+
     :return:
         Exposures, total assets and idle assets, in denomination token units.
     """
     vault = get_deployed_contract(web3, "euler/EulerEarn.json", Web3.to_checksum_address(vault_address))
-    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
+    _asset, scale, total_assets, idle = _fetch_vault_assets(web3, vault, chain_id, block)
 
     exposures = []
     for index in range(vault.functions.withdrawQueueLength().call(block_identifier=block)):
@@ -313,12 +368,36 @@ def probe_euler_earn(web3: Web3, vault_address: str, chain_id: int, block: int) 
             redeemable = strategy_vault.functions.maxWithdraw(vault.address).call(block_identifier=block) / scale
         share = _share(position_assets, total_assets)
         exposures.append(Exposure(market=strategy, kind="euler_strategy", assets=position_assets, share_of_assets=share, redeemable=min(redeemable, position_assets)))
-        exposures.extend(_euler_collateral(web3, strategy, chain_id, block, share))
+        exposures.extend(_fetch_euler_collateral(web3, strategy, chain_id, block, share))
     return exposures, total_assets, idle
 
 
-def _euler_collateral(web3: Web3, evk_vault: str, chain_id: int, block: int, share: float) -> list[Exposure]:
-    """List the collateral tokens an Euler EVK vault lends against, weighted by the parent's exposure."""
+def _fetch_euler_collateral(web3: Web3, evk_vault: HexAddress, chain_id: int, block: int, share: float) -> list[Exposure]:
+    """List the collateral tokens an Euler EVK vault lends against, weighted by the parent's exposure.
+
+    The EVK ``LTVList()`` names the collateral vaults; each is an ERC-4626
+    vault whose asset is the collateral token. The vault's exposure to each
+    collateral is not known, so every collateral gets the parent's share.
+
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param evk_vault:
+        Euler EVK vault address.
+
+    :param chain_id:
+        Chain id of the vault.
+
+    :param block:
+        Block number to read at.
+
+    :param share:
+        Share of the parent vault's assets in this EVK vault.
+
+    :return:
+        One ``euler_collateral`` exposure per collateral token; empty when the
+        vault has no ``LTVList()``.
+    """
     contract = web3.eth.contract(address=Web3.to_checksum_address(evk_vault), abi=EVK_ABI)
     try:
         collateral_vaults = contract.functions.LTVList().call(block_identifier=block)
@@ -336,17 +415,37 @@ def _euler_collateral(web3: Web3, evk_vault: str, chain_id: int, block: int, sha
     return exposures
 
 
-def probe_simple_pool(web3: Web3, vault_address: str, chain_id: int, block: int, cash_function: bool) -> tuple[list[Exposure], float, float]:
+def fetch_simple_pool_facts(web3: Web3, vault_address: HexAddress, chain_id: int, block: int, cash_function: bool) -> tuple[list[Exposure], float, float]:
     """Read a single-pool lending vault: Euler EVK (``cash()``) or 40acres (idle balance).
+
+    An Euler EVK vault's redeemable liquidity is its ``cash()``, the assets not
+    lent out; other single-pool vaults report their idle balance. Also used as
+    a lower bound for Morpho V2 vaults, whose adapters are not probed yet.
+
+    :param web3:
+        Web3 connection of the vault's chain.
+
+    :param vault_address:
+        Vault address.
+
+    :param chain_id:
+        Chain id of the vault.
+
+    :param block:
+        Block number to read at, so all reads are consistent.
+
+    :param cash_function:
+        Read redeemable liquidity with the EVK ``cash()`` function and list the
+        EVK collateral tokens.
 
     :return:
         No exposures for 40acres, the EVK's collateral tokens otherwise; total assets and redeemable cash.
     """
     vault = get_deployed_contract(web3, "lagoon/IERC4626.json", Web3.to_checksum_address(vault_address))
-    _asset, scale, total_assets, idle = _read_vault_assets(web3, vault, chain_id, block)
+    _asset, scale, total_assets, idle = _fetch_vault_assets(web3, vault, chain_id, block)
     if cash_function:
         cash = web3.eth.contract(address=vault.address, abi=EVK_ABI).functions.cash().call(block_identifier=block) / scale
-        return _euler_collateral(web3, vault_address, chain_id, block, 1.0), total_assets, cash
+        return _fetch_euler_collateral(web3, vault_address, chain_id, block, 1.0), total_assets, cash
     return [], total_assets, idle
 
 
@@ -472,17 +571,17 @@ def fetch_vault_facts(vault_id: str, protocol_slug: str, features: list[str] | N
         block = web3.eth.block_number
         facts.block_number = block
         if probe == "morpho_v1":
-            exposures, total, idle = probe_morpho_v1(web3, address, chain_id, block)
+            exposures, total, idle = fetch_morpho_v1_facts(web3, address, chain_id, block)
             redeemable = idle + sum(exposure.redeemable or 0.0 for exposure in exposures)
         elif probe == "euler_earn":
-            exposures, total, idle = probe_euler_earn(web3, address, chain_id, block)
+            exposures, total, idle = fetch_euler_earn_facts(web3, address, chain_id, block)
             redeemable = idle + sum(exposure.redeemable or 0.0 for exposure in exposures if exposure.kind == "euler_strategy")
         elif probe in ("euler_evk", "forty_acres"):
-            exposures, total, idle = probe_simple_pool(web3, address, chain_id, block, cash_function=probe == "euler_evk")
+            exposures, total, idle = fetch_simple_pool_facts(web3, address, chain_id, block, cash_function=probe == "euler_evk")
             redeemable = idle
         else:
             # Morpho V2: adapters hold the assets, and their liquidity is not read yet; idle is a lower bound
-            exposures, total, idle = probe_simple_pool(web3, address, chain_id, block, cash_function=False)
+            exposures, total, idle = fetch_simple_pool_facts(web3, address, chain_id, block, cash_function=False)
             redeemable = None
             facts.errors.append("Morpho V2 adapter liquidity is not probed; redeemable liquidity is unknown")
         facts.exposures, facts.total_assets, facts.idle_assets, facts.redeemable_assets = exposures, total, idle, redeemable

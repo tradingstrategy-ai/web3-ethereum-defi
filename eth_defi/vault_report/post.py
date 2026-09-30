@@ -240,9 +240,10 @@ BEST_SECTIONS = (
 BEST_TEMPLATES = {section.key: section.template for section in BEST_SECTIONS}
 
 #: Data sections in display order. Follows the *Writing rules* in ``README-blog-post-outline.md``:
-#: the best-performing vaults first, with no introduction or caption, then average yield,
-#: risk and return, and the TVL section with inflows and outflows last. Every other
-#: section opens with an introduction linking to tradingstrategy.ai.
+#: the best-performing vaults first, with no introduction or caption, then yield by chain
+#: and protocol, risk and return, vaults and tokenised funds TVL, and inflows and outflows
+#: last, with its by-vault and by-blockchain subsections. Every other section opens with
+#: an introduction linking to tradingstrategy.ai.
 SECTION_TEMPLATES = (
     SectionTemplate(
         key="best",

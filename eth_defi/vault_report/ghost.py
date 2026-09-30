@@ -256,7 +256,11 @@ class GhostAdminClient:
     """Upload images and manage draft posts with the Ghost Admin API."""
 
     def __init__(self, api_url: str, admin_api_key: str, timeout: float = 60.0) -> None:
-        """
+        """Create an Admin API client after checking the key format.
+
+        The key is validated before any request, so a Content API key or a
+        malformed key fails early without being sent or printed.
+
         :param api_url:
             Ghost site API URL, e.g. ``https://example.ghost.io``.
 

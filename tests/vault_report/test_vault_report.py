@@ -35,7 +35,7 @@ from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, 
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_tvl, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_risk_return_vaults, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
-from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, read_flag_entries, run_check_agent, write_candidates_file
+from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, parse_naive_utc_timestamp, read_check_decisions, read_flag_entries, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
 
 DATA_END_AT = datetime.datetime(2026, 9, 24)
@@ -704,11 +704,11 @@ def test_trim_logos():
     trimmed_uri, aspect = trim_logos({uri})[uri]
     trimmed = Image.open(io.BytesIO(base64.b64decode(trimmed_uri.split(",", 1)[1])))
     assert trimmed.size == (20, 80)
-    assert aspect == 0.25
+    assert aspect == pytest.approx(0.25)
 
     # The icon keeps the row height and its own width; very wide logos are scaled down
-    assert VaultProperty("Ethereum", trimmed_uri, aspect).icon_size == (17 * 0.25, 17)
-    assert VaultProperty("Wide", trimmed_uri, 4.0).icon_size == (34, 8.5)
+    assert VaultProperty("Ethereum", trimmed_uri, aspect).icon_size == pytest.approx((17 * 0.25, 17))
+    assert VaultProperty("Wide", trimmed_uri, 4.0).icon_size == pytest.approx((34, 8.5))
 
 
 def test_wrap_label():
@@ -774,6 +774,8 @@ def test_check_decisions_validation(tmp_path: Path, vaults_df: pd.DataFrame):
         "blacklist without high confidence": lambda: check([_exclusion("1-0xaa", blacklist=True, vault_flag="misleading_valuation", confidence="medium"), valid[1]]),
         "blacklist with a harmless flag": lambda: check([_exclusion("1-0xaa", blacklist=True, vault_flag="trading"), valid[1]]),
         "stale liquidity evidence": lambda: check([_exclusion("1-0xaa", category="no_exit_liquidity", evidence=[{"source": "x", "observed_at": "2026-08-01T00:00:00"}]), valid[1]]),
+        # 01:00 at +02:00 is 23:00 UTC the day before, just older than seven days
+        "stale liquidity evidence with an offset": lambda: check([_exclusion("1-0xaa", category="no_exit_liquidity", evidence=[{"source": "x", "observed_at": "2026-09-17T01:00:00+02:00"}]), valid[1]]),
     }
     for name, failure in failures.items():
         with pytest.raises(CheckValidationError):
@@ -782,6 +784,14 @@ def test_check_decisions_validation(tmp_path: Path, vaults_df: pd.DataFrame):
     path.unlink()
     with pytest.raises(CheckValidationError):
         read_check_decisions(path, candidates, digest, DATA_END_AT)
+
+
+def test_evidence_timestamp_parsing():
+    """Evidence timestamps with a UTC offset are converted to naive UTC, not truncated."""
+    assert parse_naive_utc_timestamp("2026-09-30T12:00:00+02:00") == datetime.datetime(2026, 9, 30, 10, 0)
+    assert parse_naive_utc_timestamp("2026-09-30T12:00:00Z") == datetime.datetime(2026, 9, 30, 12, 0)
+    assert parse_naive_utc_timestamp("2026-09-30T12:00:00") == datetime.datetime(2026, 9, 30, 12, 0)
+    assert parse_naive_utc_timestamp("2026-09-30T12:00:00+02:00").tzinfo is None
 
 
 def test_blacklist_entry_check(tmp_path: Path):
@@ -865,7 +875,7 @@ def test_check_agent_runner(tmp_path: Path):
 
 
 def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """An excluded vault leaves every table and the caption, and is listed in the excluded section."""
+    """An excluded vault leaves every table and is listed in the dated excluded vaults Markdown file."""
     monkeypatch.setattr(vault_checks_module, "fetch_candidate_facts", lambda candidates, prices_path, end_at, max_workers: {})
 
     def fake_agent(command, cwd, log_path, decisions_path, timeout):

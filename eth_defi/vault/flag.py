@@ -509,6 +509,9 @@ REVIEW_NEEDED_EXIT_LIQUIDITY = "Under review: the vault's lending pool has been 
 #: Under review: the vault's reported protocol or TVL may be wrong; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
 REVIEW_NEEDED_DATA_QUALITY = "Under review: the reported protocol or TVL of this vault may be inaccurate. Our automated investability checks have not reached a consistent verdict, so the vault is not blacklisted. Verify the vault onchain before depositing."
 
+#: Under review: a review started by a person rather than the investability check; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+REVIEW_NEEDED_MANUAL = "Under review: the Trading Strategy team is reviewing this vault. It is not blacklisted; check its positions and withdrawable liquidity before depositing."
+
 
 #: Protocol-wide flags and notes.
 #:
