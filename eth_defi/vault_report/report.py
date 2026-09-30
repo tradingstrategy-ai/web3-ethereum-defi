@@ -359,7 +359,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         # The new vaults chart subtitle states the age and TVL rules, so the section has no notes
         "risk_return": [
-            "Both axes fit the bulk of the vaults; vaults beyond an axis are drawn as triangles on that edge",
+            "Both axes fit the bulk of the vaults; outliers beyond them are left out",
             "Vaults whose share price did not move over three months are left out",
             "Vaults rated Dangerous or worse are left out",
             unidentified,
@@ -759,9 +759,12 @@ def render_report_charts(
         )
 
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(ranked_df, criteria), criteria))
+    risk_return_figure = create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest)
+    # Count the drawn vaults: outliers beyond the fitted axes are left out
+    drawn = sum(len(trace.x) for trace in risk_return_figure.data)
     figures["risk_return"] = (
-        create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
-        ChartPanel("Volatility risk and return of stablecoin vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
+        risk_return_figure,
+        ChartPanel("Volatility risk and return of stablecoin vaults", f"{drawn} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
     )
 
     chart_dir = output_dir / "charts"

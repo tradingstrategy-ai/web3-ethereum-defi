@@ -617,14 +617,14 @@ def test_risk_return_scales(vaults_df: pd.DataFrame):
     # 0x55 has a flat share price and is dormant
     assert "1-0x55" not in select_moving_vaults(df).index
 
-    # Many ordinary vaults and one 500% outlier: the axis fits the ordinary ones and the outlier is an edge triangle
+    # Many ordinary vaults and one 500% outlier: the axis fits the ordinary ones and the outlier is left out
     many = pd.concat([df.iloc[[0]].assign(three_months_cagr_best=0.03 + i / 1000) for i in range(100)], ignore_index=True)
     many.index = [f"v{i}" for i in range(len(many))]
     many.loc["v99", "three_months_cagr_best"] = 5.0
     fig = create_risk_return_figure(many, {}, DARK_THEME, max_return=1.0, benchmark_yield=0.042)
     assert fig.layout.yaxis.range[1] < 50  # Far below the 500% outlier
-    off_scale = [trace for trace in fig.data if trace.name and trace.name.startswith("Off scale")]
-    assert len(off_scale) == 1 and list(off_scale[0].marker.symbol) == ["triangle-up"]
+    assert sum(len(trace.x) for trace in fig.data) == 99
+    assert not any(trace.name and trace.name.startswith("Off scale") for trace in fig.data)
 
 
 def test_vault_properties(vaults_df: pd.DataFrame):
@@ -1132,4 +1132,6 @@ def test_risk_return_chart_has_perp_dex_category_and_no_vault_labels(vaults_df: 
     moving = vaults.assign(three_months_volatility=0.05, three_months_cagr_best=0.1)
     figure = create_risk_return_figure(moving, {"perpetual_futures": "Perpetual futures"}, DARK_THEME, max_return=4.0, benchmark_yield=0.04)
     assert any(trace.name.startswith("Perpetual futures") for trace in figure.data)
+    # Outliers are left out, without an off-scale entry
+    assert not any(trace.name.startswith("Off scale") for trace in figure.data)
     assert [annotation.text for annotation in figure.layout.annotations] == ["US 3M T-bill 4.0%"]

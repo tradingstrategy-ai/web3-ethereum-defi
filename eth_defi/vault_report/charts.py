@@ -1107,8 +1107,7 @@ def create_risk_return_figure(
 
     Both axes are fitted to the bulk of the vaults, the 1st to 99th percentile,
     so the dense middle of the market is readable. Vaults outside the axes are
-    drawn as triangles on the edge they fall beyond, in one "Off scale" legend
-    entry. Large bubbles are drawn first and are translucent, so small vaults
+    left out of the chart. Large bubbles are drawn first and are translucent, so small vaults
     on top of them stay visible. Unclassified vaults are drawn in a neutral
     colour, so classified strategies stand out. Vaults are not labelled: the
     chart shows strategy categories, not individual vaults.
@@ -1146,15 +1145,16 @@ def create_risk_return_figure(
     y_margin = (y_high - y_low) * 0.03
     y_range = (y_low - y_margin, y_high + y_margin)
 
-    df["x"] = volatility.clip(upper=x_high)
-    df["y"] = returns.clip(lower=y_low, upper=y_high)
-    df["off"] = np.select([returns > y_high, returns < y_low, volatility > x_high], ["triangle-up", "triangle-down", "triangle-right"], "")
+    df["x"] = volatility
+    df["y"] = returns
+    # Outliers beyond the fitted axes are not drawn
+    df["off"] = (returns > y_high) | (returns < y_low) | (volatility > x_high)
     # Bubble area grows with the square root of TVL, capped, so the few multi-billion vaults do not cover the chart
     df["size"] = np.sqrt(df["current_nav"].clip(upper=1e9))
     df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unclassified")
     classified = df.loc[df["category"] != "Unclassified", "category"].value_counts().index[: len(theme.series_colours) - 1].tolist()
     df["category"] = df["category"].where(df["category"].isin(classified) | (df["category"] == "Unclassified"), "Other")
-    on_scale = df.loc[df["off"] == ""].sort_values("size", ascending=False)
+    on_scale = df.loc[~df["off"]].sort_values("size", ascending=False)
 
     fig = go.Figure()
     size_ref = 2.0 * df["size"].max() / (34**2)
@@ -1173,10 +1173,6 @@ def create_risk_return_figure(
                 marker={"size": group["size"], "sizemode": "area", "sizeref": size_ref, "sizemin": 5, "color": to_rgba(colours[category], opacity), "line": {"color": to_rgba(colours[category], 0.9), "width": 1}},
             )
         )
-
-    off_scale = df.loc[df["off"] != ""]
-    if len(off_scale):
-        fig.add_trace(go.Scatter(x=off_scale["x"], y=off_scale["y"], mode="markers", name=f"Off scale ({len(off_scale)})", marker={"size": 13, "symbol": off_scale["off"], "color": theme.text}))
 
     if benchmark_yield is not None:
         fig.add_hline(y=tbill, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
