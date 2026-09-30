@@ -52,8 +52,15 @@ source .local-test.env && \
 
 The script refuses to replace an existing draft. Before setting
 `GHOST_OVERWRITE_DRAFT=true`, read the draft's `updated_at` through the Admin
-API: replace it only if nobody has edited it since the pipeline last wrote
-it. Otherwise stop and ask the user. Never publish.
+API. If it is the pipeline's last write, replace the draft. Opening a draft in
+the Ghost editor re-saves it, so a later `updated_at` alone does not mean an
+edit: compare the draft's text and settings (title, excerpt, tags, feature
+image) with the post the pipeline last sent. Replace it only when they match;
+if anything differs, stop and ask the user. Never publish.
+
+When the investability check must run again, which takes minutes, run it with
+`GHOST_DRAFT=false` first, then check the draft and upload with
+`VAULT_CHECK_AGENT=reuse`, so the draft cannot change unseen during the run.
 
 After the run, read the draft back through the Admin API and check the
 headings, image and table counts, the empty feature image, and that no
