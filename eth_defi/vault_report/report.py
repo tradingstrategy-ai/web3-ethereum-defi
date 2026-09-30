@@ -308,7 +308,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the charts but listed in the tables"
     benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
     chart_ranking = f"The chart shows the top {criteria.performance_chart_vaults} vaults of the group by annualised three-month return, which is steadier than the table's one-month ranking"
-    amm = "AMM pools, such as GMX and YieldBasis pools, are ranked only in their own section below"
+    amm = "AMM pools, such as GMX and YieldBasis pools, are ranked only in their own section"
 
     def best_section_notes(section: BestSection) -> list[str]:
         """Which vaults the section ranks, how its chart picks them and what it compares them against."""

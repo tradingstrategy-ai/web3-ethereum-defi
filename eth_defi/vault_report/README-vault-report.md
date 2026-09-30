@@ -159,8 +159,8 @@ short, the post has:
 - inflows and outflows: the largest 30-day TVL changes in dollars, by vault and by blockchain;
 - the best-performing vaults, split into lending, real-world asset (RWA), perp
   DEX by return, perp DEX by Sharpe ratio and other vaults, and AMM pools, each
-  with a performance chart and a table, and the best vaults on each chain;
-- the best-performing tokenised funds and new vaults;
+  with a performance chart and a table, then new vaults, the best vaults on
+  each chain and tokenised funds;
 - a risk and return scatter;
 - the vaults the investability check excluded.
 

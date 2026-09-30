@@ -326,10 +326,9 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert (tmp_path / "out" / "tables" / "lending.csv").exists()
     assert "5 of the 5 stablecoin yield vaults with at least $100k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
     assert '<h3 id="best-performing-lending-vaults">' in post_html
-    assert '<h2 id="the-best-performing-tokenised-funds">' in post_html
-    # The per-chain table is a subsection of the best-performing vaults, before the tokenised funds
-    assert '<h3 id="the-best-performing-vaults-on-each-chain">' in post_html
-    assert post_html.index("the-best-performing-vaults-on-each-chain") < post_html.index("the-best-performing-tokenised-funds")
+    # New vaults, the per-chain table and the tokenised funds are subsections of the best-performing vaults, in this order
+    subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
+    assert [post_html.index(heading) for heading in subsections] == sorted(post_html.index(heading) for heading in subsections)
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded

@@ -110,12 +110,6 @@ class BestSection:
     #: State the minimum TVL in the criteria notes, for sections outside the shared best-performing notes
     show_min_tvl: bool = False
 
-    #: Heading level, 3 for subsections of the best-performing vaults
-    level: int = 3
-
-    #: Introduction paragraph HTML, or empty
-    intro: str = ""
-
     #: Live page on the website, without ``https://``, for the chart footer
     link: str = "tradingstrategy.ai/vaults"
 
@@ -133,10 +127,11 @@ class BestSection:
     def template(self) -> "SectionTemplate":
         """The post section of this group."""
         alt = f"90-day performance of {self.subject} against {self.benchmark}"
-        return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, intro=self.intro, charts=((self.chart_key, alt),), level=self.level)
+        return SectionTemplate(key=self.key, heading_id=self.heading_id, heading=self.heading, charts=((self.chart_key, alt),), level=3)
 
 
-#: Best-performing vault sections in display order
+#: Best-performing vault sections: subsections of the best-performing vaults, in display order
+#: except that the tokenised funds come last, after the new vaults and the per-chain section
 BEST_SECTIONS = (
     BestSection(
         key="lending",
@@ -195,13 +190,11 @@ BEST_SECTIONS = (
     BestSection(
         key="tokenised_funds",
         group=TOKENISED_FUND,
-        heading="The best-performing tokenised funds",
-        heading_id="the-best-performing-tokenised-funds",
+        heading="Tokenised funds",
+        heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
-        description="Onchain money market, treasury and credit funds",
+        description="Traditional money market, treasury and credit funds brought onchain",
         show_min_tvl=True,
-        level=2,
-        intro="<p>Tokenised funds bring traditional money market, treasury and credit funds onchain.</p>",
         link="tradingstrategy.ai/vaults/funds",
     ),
 )
@@ -265,20 +258,20 @@ SECTION_TEMPLATES = (
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro="<p>The best-performing vaults of the month in six groups: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults and AMM pools, and the best vaults on each chain.</p>",
+        intro="<p>The best-performing vaults of the month: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults, AMM pools, new vaults, the best vaults on each chain and tokenised funds.</p>",
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
-    *(section.template for section in BEST_SECTIONS if section.level == 3),
+    *(section.template for section in BEST_SECTIONS if section.group != TOKENISED_FUND),
+    SectionTemplate(key="new", heading_id="best-performing-new-vaults", heading="New vaults", level=3),
     SectionTemplate(
         key="by_chain",
-        heading_id="the-best-performing-vaults-on-each-chain",
-        heading="Best-performing vaults on each chain",
-        charts=(("by_chain_best", "The best-performing vault on each chain"),),
+        heading_id="best-performing-vaults-on-each-chain",
+        heading="Vaults on each chain",
+        charts=(("by_chain_best", "The two best-performing vaults on each chain"),),
         level=3,
     ),
-    *(section.template for section in BEST_SECTIONS if section.level == 2),
-    SectionTemplate(key="new", heading_id="the-best-performing-new-vaults", heading="The best-performing new vaults"),
+    *(section.template for section in BEST_SECTIONS if section.group == TOKENISED_FUND),
     SectionTemplate(
         key="risk_return",
         heading_id="risk-and-return",

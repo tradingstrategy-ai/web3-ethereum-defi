@@ -106,13 +106,13 @@ pile automatically. No report change is needed.
 | 9.3 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 9.4 | ↳ Other vaults | Performance chart and table, **by return** | — |
 | 9.5 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 9.6 | ↳ Best-performing vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
-| 10 | The best-performing tokenised funds | Performance chart and table, by return | — |
-| 11 | The best-performing new vaults | Table: launched in the last 60 days, at least $15k TVL | — |
-| 12 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
-| 12b | Excluded vaults in this report | Table of vaults the investability check removed from the rankings: vault, protocol, suspicious item, reason | ✏️ Resolve uncertain vaults |
-| 13 | Partners | Copied from the previous post | — |
-| 14 | Next steps | Copied from the previous post | — |
+| 9.6 | ↳ New vaults | Table: launched in the last 60 days, at least $15k TVL | — |
+| 9.7 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
+| 9.8 | ↳ Tokenised funds | Performance chart and table, by return | — |
+| 10 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
+| 10b | Excluded vaults in this report | Table of vaults the investability check removed from the rankings: vault, protocol, suspicious item, reason | ✏️ Resolve uncertain vaults |
+| 11 | Partners | Copied from the previous post | — |
+| 12 | Next steps | Copied from the previous post | — |
 
 The average yield charts (sections 4, 5 and 5b) show:
 - each vault as a small dot and the TVL-weighted average as a large dot;
@@ -133,6 +133,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 | Best-performing large vaults folded into the split tables | The $100k threshold and the TVL column cover large vaults |
 | Separate perp DEX section folded into 9.2 and 9.3 | Part of the split |
 | Tokenised funds section added | Funds such as BlackRock BUIDL move the largest amounts, and readers compare them with DeFi yield |
+| New vaults, vaults on each chain and tokenised funds made subsections of the best-performing vaults, new vaults first | All rankings sit under one heading with the same heading style |
 | Average yield by protocol added; average yield by blockchain limited to the 10 largest chains | Comparable overviews of the largest markets |
 | TVL by protocol split into DeFi vault protocols and tokenised fund NAV | Tokenised funds are a separate market, and their share classes dominated the protocol chart |
 | Low-volatility performance chart removed | Covered by the lending section |
