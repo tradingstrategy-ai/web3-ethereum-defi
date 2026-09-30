@@ -52,12 +52,11 @@ them before any return is compared.
 
 | Section | Unidentified protocol vaults |
 |---|---|
-| Report statistics (vault count, combined TVL) | Included; not counted as identified protocols |
+| Report statistics (vault count, combined TVL) | Included in the vault count and TVL; not counted as vault protocols |
 | Stablecoin TVL by DeFi vault protocol | Included, summed into Other with the protocols outside the top 7 |
 | Stablecoin TVL by blockchain | Included, under their blockchain |
 | Inflows and outflows | Included |
 | Average yield by blockchain and by protocol | Left out |
-| Treasury bill caption | Left out |
 | All best-performing tables and their performance charts, including *Other vaults* | Left out |
 | Best-performing new vaults, per-chain table, risk and return, hero image | Left out |
 
@@ -95,7 +94,7 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL, stablecoins | ✏️ TODO: the new integrations; changelog candidates are in `report.json` |
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
-| 4 | The best-performing vaults | Treasury bill caption: how many yield vaults beat the T-bill, and their median return | ✏️ Comment on the top vaults; the check's exclusions and undecided vaults |
+| 4 | The best-performing vaults | Section notes on the table ranking and format only: no introduction and no T-bill caption | ✏️ Comment on the top vaults; the check's exclusions and undecided vaults |
 | 4.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
 | 4.2 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
 | 4.3 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
@@ -125,6 +124,80 @@ The average yield charts (sections 5.1 to 5.3) show:
 
 Outliers above 400% annualised return or 50% annualised volatility are left out of the averages. The x axis reaches the 90th percentile vault but at most twice the highest average; vault dots beyond it are not drawn but still count in the averages.
 
+## Writing rules
+
+Editorial decisions made while building the report. The generator follows
+them; keep them when changing the templates in `post.py` or the notes in
+`report.make_criteria_notes()`, and ask before breaking one.
+
+**Structure**
+
+- Opening paragraph, an ✏️ callout for the month's highlight, an ✏️ callout
+  to add the feature image, then the Ghost table of contents card.
+- *About the report*, *Report content updates*, *DeFi vault community news*
+  and *Latest podcasts* come before the data sections. *About the report*,
+  *Partners* and *Next steps*, the call to action, are copied from the
+  previous post.
+- Data sections in this order: *The best-performing vaults*, *Average yield*,
+  *Risk and return*, *Vaults and tokenised funds TVL*. See the outline table
+  for their subsections.
+- *New vaults*, *Vaults on each chain* and *Tokenised funds* are subsections
+  of *The best-performing vaults*, named like the other subsections (no
+  "The best-performing …" prefix), with new vaults right after the vault
+  groups.
+- *Average yield* holds *Yield by protocol, high TVL*, *Yield by protocol,
+  high yield* and *Yield by blockchain*, in that order.
+- *Vaults and tokenised funds TVL* holds the TVL by protocol, TVL by
+  blockchain and NAV by tokenised fund charts, with *Inflows and outflows* as
+  its last subsection.
+- A grouping heading appears only when one of its subsections has content.
+- The post never lists the excluded vaults. They go to a dated Markdown file
+  in `eth_defi/vault_report/excluded-vaults/`, committed with the report's
+  pull request and posted as a PR comment.
+
+**Text**
+
+- Every section and subsection opens with an introduction paragraph linking
+  to the matching tradingstrategy.ai page or glossary entry, except *The
+  best-performing vaults*, which has no introduction and no T-bill caption
+  and goes straight to its subsections.
+- *Report content updates*: the generated figures stay, the narrative of new
+  integrations is a ✏️ TODO callout for the editor. The changelog candidates
+  go to `report.json`, not into the post.
+- Statistics are plain counts: "29 blockchains and 116 vault protocols",
+  "5,647 stablecoin-denominated vaults, of which 4,255 have up-to-date data",
+  "Combined TVL of the vaults is $36.5B". No qualifiers such as "identified"
+  or "not blacklisted", and no list of denomination stablecoins. Figures are
+  in bold, as in the earlier posts.
+- Section notes state only what the chart and the table do not show. No note
+  repeats a chart's ranking, TVL minimum, benchmarks or risk filter, which
+  the chart subtitle and legend already give, so the best-performing
+  subsections have no notes of their own.
+- Chart subtitles do not repeat the context: no "top 8", no "over 90 days",
+  no "against benchmarks". The performance chart axis title is "Returns".
+- Vault links go to `https://tradingstrategy.ai/vaults/…`, never the old
+  `/trading-view/` paths, and table vault names link to the vault page.
+- Ghost callout cards hold inline text only: a list goes after the callout.
+- UK English, sentence case headings, "onchain" without a hyphen.
+
+**Charts**
+
+- Vaults are compared in one chart with a shared axis, never small multiples.
+- Legends: the vault name in bold, then the return, then the curator,
+  protocol and chain with icons; the chain is left out when it belongs to the
+  protocol, e.g. Hyperliquid vaults. Benchmarks take one row: logo, name,
+  value.
+- The risk and return chart is titled *Volatility risk and return*.
+- *Vaults on each chain* names the two best vaults on each chain.
+- Inflows and outflows leave out blacklisted and excluded vaults.
+
+**Publishing**
+
+- The feature image is left empty for the editor; `hero.png` is an option.
+- The script creates or replaces an unpublished Ghost draft and never
+  publishes. Replace a draft only when its `updated_at` shows nobody has
+  edited it since the pipeline wrote it.
+
 ## Changes from the earlier outline
 
 | Change | Reason |
@@ -144,6 +217,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 | Performance small multiples replaced with one shared chart per section | Equity curves can only be compared on the same axis |
 | Stablecoin TVL by blockchain added | The same money as the protocol chart, by where it lives |
 | Best-performing vaults first, then average yield, risk and return, and the TVL charts with inflows and outflows last | Readers come for the rankings; the market overview follows |
+| Best-performing introduction, T-bill caption, denomination list and chart-repeating section notes removed | Shorter post; the charts already say it |
 | Latest podcasts added before the data sections | Promotes the podcast episodes to report readers |
 | Excluded vaults listed in a dated Markdown file and a PR comment, not in the post | Editors and reviewers see which vaults were left out and why, and the repository keeps the record; the post stays on the rankings |
 

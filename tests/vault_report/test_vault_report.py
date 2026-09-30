@@ -331,7 +331,13 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
     assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "other": 1, "tokenised_funds": 1, "new": 1, "by_chain": 6}
     assert (tmp_path / "out" / "tables" / "lending.csv").exists()
-    assert "5 of the 5 stablecoin yield vaults with at least $100k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
+    # Writing rules, see README-blog-post-outline.md: plain statistics, no best-performing intro or
+    # T-bill caption, and no subsection notes that repeat what the chart shows
+    assert "beat the 3-month US Treasury bill" not in post_html and "The vaults with the best annualised" not in post_html
+    assert "vault protocols</li>" in post_html and "identified vault protocols" not in post_html
+    assert "have up-to-date data</li>" in post_html and "not blacklisted" not in post_html and "Combined TVL of the vaults is" in post_html
+    assert "largest denomination stablecoins" not in post_html
+    assert "The chart shows the top" not in post_html and "Benchmarks: the 3-month" not in post_html and "left out of the charts but listed in the tables" not in post_html
     assert '<h3 id="best-performing-lending-vaults">' in post_html
     # New vaults, the per-chain table and the tokenised funds are subsections of the best-performing vaults, in this order
     subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
@@ -404,8 +410,7 @@ def test_data_is_escaped_in_post(tmp_path: Path, vault_records: list[dict], pric
     generate_monthly_vault_report(data, output_dir=tmp_path / "out", render_charts=False)
     post_html = (tmp_path / "out" / "post.html").read_text()
     assert "<script>" not in post_html
-    assert "<b>USD</b>" not in post_html
-    assert "&lt;b&gt;USD&lt;/b&gt;" in post_html
+    assert "<b>USD</b>" not in post_html  # The statistics no longer list denominations, but tables still show them escaped
 
 
 def test_choose_correlation_vaults_without_candidates(vaults_df: pd.DataFrame):
@@ -1080,8 +1085,11 @@ def test_review_needed_vault_stays_in_report(vault_records: list[dict]):
 
 
 def test_every_section_introduces_itself_with_website_links():
-    """Every data section and subsection opens with a paragraph linking to tradingstrategy.ai."""
+    """Every data section and subsection opens with a paragraph linking to tradingstrategy.ai, except the best-performing vaults heading."""
     for template in SECTION_TEMPLATES:
+        if template.key == "best":
+            assert not template.intro  # Goes straight to its subsections
+            continue
         assert template.intro.startswith("<p>"), template.heading
         assert 'href="https://tradingstrategy.ai/' in template.intro, template.heading
 

@@ -224,14 +224,14 @@ def calculate_report_stats(vaults_df: pd.DataFrame, eligible_df: pd.DataFrame, d
     :return:
         Plain text bullet points.
     """
+    # Plain counts for readers, without qualifiers such as "identified" or "not blacklisted",
+    # and no list of denomination stablecoins; see the writing rules in README-blog-post-outline.md
     protocol_count = vaults_df.loc[vaults_df["protocol_identified"], "protocol_slug"].nunique()
-    denominations = eligible_df.groupby("normalised_denomination")["current_nav"].sum().sort_values(ascending=False)
     return [
-        f"{vaults_df['chain'].nunique()} blockchains and {protocol_count} identified vault protocols",
+        f"{vaults_df['chain'].nunique()} blockchains and {protocol_count} vault protocols",
         f"The report data is dated {data_end_at.strftime('%Y-%m-%d')}",
-        f"{len(vaults_df):,} stablecoin-denominated vaults, of which {len(eligible_df):,} have up-to-date data and are not blacklisted",
-        f"Combined TVL of the up-to-date vaults is {format_usd(eligible_df['current_nav'].sum())}",
-        f"The largest denomination stablecoins by TVL are {', '.join(denominations.head(8).index)}",
+        f"{len(vaults_df):,} stablecoin-denominated vaults, of which {len(eligible_df):,} have up-to-date data",
+        f"Combined TVL of the vaults is {format_usd(eligible_df['current_nav'].sum())}",
     ]
 
 
@@ -307,21 +307,10 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     live = '<a href="{url}">View the live benchmark</a> to examine the data in real time'
     active = f"at least {criteria.min_events} deposit and redemption events"
     unidentified = "Vaults without an identified protocol, such as generic ERC-4626 vaults, are left out, because their data is often unreliable"
-    # The notes explain what the chart subtitles and axes do not already say
-    chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the charts but listed in the tables"
-    benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
-    chart_ranking = f"The chart shows the top {criteria.performance_chart_vaults} vaults of the group by annualised three-month return, which is steadier than the table's one-month ranking"
+    # The notes say only what the chart and the table do not: no notes repeat a chart's
+    # ranking, TVL minimum, benchmarks or risk filter, which its subtitle and legend show.
+    # The best-performing subsections therefore have no notes of their own.
     amm = "AMM pools, such as GMX and YieldBasis pools, are ranked only in their own section"
-
-    def best_section_notes(section: BestSection) -> list[str]:
-        """Which vaults the section ranks, how its chart picks them and what it compares them against."""
-        notes = [section.description] if section.description else []
-        if section.show_min_tvl:
-            notes.append(f"Minimum {format_usd(group_min_tvl(section.group, criteria))} TVL")
-        notes.append("The legend shows the latest Sharpe ratio" if section.measure == "sharpe" else chart_ranking)
-        if section.benchmark == "their benchmarks":
-            notes.append(benchmarks)
-        return [*notes, chart_risk]
 
     average = [
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
@@ -363,7 +352,6 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/vaults"),
         ],
-        **{section.key: best_section_notes(section) for section in BEST_SECTIONS},
         "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified, amm],
         "risk_return": [
             "Both axes fit the bulk of the vaults; vaults beyond an axis are drawn as triangles on that edge",
@@ -540,31 +528,6 @@ def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -
     for key, section in sections.items():
         logger.info("Section %s: %d vaults", key, len(section.vaults_df))
     return {key: section for key, section in sections.items() if len(section.vaults_df) > 0}
-
-
-def make_benchmark_caption(universe_df: pd.DataFrame, benchmark_yield: float | None, min_tvl: USDollarAmount) -> str | None:
-    """Summarise how many yield vaults beat the Treasury bill.
-
-    Uses the whole ranking universe, not the top of a table, which beats the
-    benchmark by construction.
-
-    :param universe_df:
-        All stablecoin yield vaults above the table thresholds.
-
-    :param benchmark_yield:
-        Latest 3-month US Treasury bill yield as a fraction, or ``None``.
-
-    :param min_tvl:
-        TVL threshold of the universe, for the sentence.
-
-    :return:
-        One sentence, or ``None`` without benchmark data.
-    """
-    if benchmark_yield is None or universe_df.empty:
-        return None
-    returns = universe_df["one_month_cagr_best"]
-    beat = int((returns > benchmark_yield).sum())
-    return f"{beat} of the {len(universe_df)} stablecoin yield vaults with at least {format_usd(min_tvl)} TVL beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month. The median annualised one-month return of all {len(universe_df)} was {returns.median():.1%}."
 
 
 def render_report_charts(
@@ -844,7 +807,6 @@ def generate_monthly_vault_report(
         check_result = run_report_checks(comparable_df, data, output_dir, vault_checks, criteria)
         comparable_df = apply_check_decisions(comparable_df, check_result.excluded)
     excluded = check_result.excluded if check_result else frozenset()
-    ranked_df = exclude_amm_pools(comparable_df, criteria)
     sections = build_report_sections(comparable_df, criteria)
     if check_sparklines:
         sparkline_ids = frozenset(fetch_available_sparklines([vault_id for section in sections.values() for vault_id in section.vaults_df.index]))
@@ -877,8 +839,6 @@ def generate_monthly_vault_report(
 
     podcast_image_paths = prepare_podcast_images(podcasts or [], theme, output_dir)
     month_label = make_month_label(data_end_at)
-    tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
-    best_caption = make_benchmark_caption(select_yield_vaults(ranked_df, criteria), tbill_latest, criteria.min_tvl)
     context = PostContext(
         month_label=month_label,
         stats=calculate_report_stats(data.vaults_df, eligible_df, data_end_at),
@@ -887,7 +847,6 @@ def generate_monthly_vault_report(
         criteria_notes=make_criteria_notes(criteria),
         previous=previous,
         changelog_entries=changelog_entries or [],
-        captions={"best": best_caption} if best_caption else {},
         editor_notes=editor_notes,
         podcasts=podcasts or [],
         podcast_images={key: path.relative_to(output_dir).as_posix() for key, path in podcast_image_paths.items()},

@@ -6,10 +6,15 @@ The post body is Ghost-compatible HTML:
   Ghost imports as raw HTML cards
 - Charts are Ghost image cards
 - Parts that need a human editor (intro, community news, commentary) are
-  yellow callout cards starting with ``EDITOR:``; delete them before publishing
+  yellow callout cards starting with ``EDITOR:`` or ``TODO:``; delete them before
+  publishing. Callouts hold inline text only.
 
 Evergreen sections (*About the report*, *Partners*, *Next steps*) are copied
 from the previous report post, so edits made in Ghost carry over month to month.
+
+The section order, headings, introductions and notes follow the *Writing
+rules* in ``README-blog-post-outline.md``: keep them when changing the
+templates below, and update the rules when a decision changes.
 """
 
 import datetime
@@ -105,9 +110,6 @@ class BestSection:
     #: The ranked vaults in chart titles and alt texts, e.g. ``the best-performing lending vaults``
     subject: str
 
-    #: First criteria note: how the group's vaults are selected, where :py:attr:`intro` does not say it; empty for none
-    description: str
-
     #: What the chart compares the vaults against
     benchmark: str = "their benchmarks"
 
@@ -119,9 +121,6 @@ class BestSection:
 
     #: How the chart subtitle describes the ranking, e.g. ``funds by 3M return``
     ranked_by: str = "by 3M return"
-
-    #: State the minimum TVL in the criteria notes, for sections outside the shared best-performing notes
-    show_min_tvl: bool = False
 
     #: Live page on the website, without ``https://``, for the chart footer
     link: str = "tradingstrategy.ai/vaults"
@@ -155,7 +154,6 @@ BEST_SECTIONS = (
         heading="Lending vaults",
         heading_id="best-performing-lending-vaults",
         subject="the best-performing lending vaults",
-        description="Identified by their strategy or lending protocol",
         intro=f'<p>Vaults that supply stablecoins to <a href="{GLOSSARY_URL}/lending-protocol">lending protocols</a> such as Morpho and Euler, and earn the interest borrowers pay. See all <a href="{VAULTS_URL}/strategies/lending">lending vaults</a>.</p>',
     ),
     BestSection(
@@ -164,7 +162,6 @@ BEST_SECTIONS = (
         heading="Real-world asset (RWA) vaults",
         heading_id="best-performing-rwa-vaults",
         subject="the best-performing RWA vaults",
-        description="Identified by their strategy; RWA vaults without a strategy tag are ranked with lending or other vaults",
         intro=f'<p>Vaults that invest in, lend against or finance <a href="{GLOSSARY_URL}/rwa">real-world assets</a>, such as private credit, trade finance and royalties. See all <a href="{VAULTS_URL}/strategies/rwa">RWA vaults</a>.</p>',
     ),
     BestSection(
@@ -173,7 +170,6 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by return",
         heading_id="best-performing-perp-dex-vaults",
         subject="the best-performing perp DEX vaults",
-        description="",
         intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which make markets, provide liquidity or trade. Their returns are volatile, so they are compared with BTC and ETH rather than the T-bill. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
         benchmark="BTC and ETH",
     ),
@@ -183,7 +179,6 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by Sharpe ratio",
         heading_id="best-performing-perp-dex-vaults-by-sharpe",
         subject="perp DEX vaults with the best Sharpe ratio",
-        description="",
         intro=f'<p>The same vaults ranked by their three-month <a href="{GLOSSARY_URL}/sharpe">Sharpe ratio</a>, the return per unit of volatility. The ranking rewards steady returns over high but volatile ones; see <a href="{GLOSSARY_URL}/risk-adjusted-return">risk-adjusted return</a>.</p>',
         benchmark="BTC and ETH",
         metric="three_months_sharpe_best",
@@ -196,7 +191,6 @@ BEST_SECTIONS = (
         heading="Other vaults",
         heading_id="best-performing-other-vaults",
         subject="other best-performing vaults",
-        description="Vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults",
         intro=f'<p>Yield aggregators, trading and other vaults outside the groups above. Browse the vaults by <a href="{VAULTS_URL}/strategies">strategy</a>.</p>',
     ),
     BestSection(
@@ -205,9 +199,7 @@ BEST_SECTIONS = (
         heading="AMM pools",
         heading_id="best-performing-amm-pools",
         subject="the best-performing AMM pools",
-        description="",
         intro=f'<p><a href="{GLOSSARY_URL}/amm">AMM</a> liquidity pools, such as GMX GM and GLV pools and YieldBasis pools, earn trading fees, but their returns also move with the prices of the pooled crypto assets. See all <a href="{VAULTS_URL}/strategies/amm">AMM vaults</a>.</p>',
-        show_min_tvl=True,
     ),
     BestSection(
         key="tokenised_funds",
@@ -215,21 +207,22 @@ BEST_SECTIONS = (
         heading="Tokenised funds",
         heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
-        description="",
         intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p>',
-        show_min_tvl=True,
         link="tradingstrategy.ai/vaults/funds",
     ),
 )
 
 
-#: Data sections in display order, see ``README-blog-post-outline.md``
+#: Data sections in display order. Follows the *Writing rules* in ``README-blog-post-outline.md``:
+#: the best-performing vaults first, with no introduction or caption, then average yield,
+#: risk and return, and the TVL section with inflows and outflows last. Every other
+#: section opens with an introduction linking to tradingstrategy.ai.
 SECTION_TEMPLATES = (
     SectionTemplate(
         key="best",
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
-        intro=f'<p>The vaults with the best annualised one-month returns, net of fees where fee data is available, in groups of similar strategies: lending vaults, real-world asset (RWA) vaults, perpetual futures DEX vaults by return and by risk-adjusted return, other vaults, AMM pools, new vaults, the best vaults on each chain and tokenised funds. A high return alone does not make a good investment, so compare the volatility, TVL and risk of each vault on its page. Browse all vaults on the <a href="{VAULTS_URL}">vaults page</a>.</p>',
+        # No introduction and no T-bill caption: the heading leads straight to its subsections
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
@@ -355,7 +348,7 @@ class PostContext:
     #: Chart key -> image URL or relative path. Charts that were not rendered are absent.
     charts: dict[str, str]
 
-    #: Section or chart key -> bullet points describing the selection criteria
+    #: Section or chart key -> bullet points describing the selection criteria; only what the chart and table do not show
     criteria_notes: dict[str, list[str]]
 
     #: Previous report post, if found
@@ -363,9 +356,6 @@ class PostContext:
 
     #: Recent changelog entries offered to the editor for the report content updates section
     changelog_entries: list[str] = field(default_factory=list)
-
-    #: Section key -> one data-driven sentence shown after the section introduction, plain text
-    captions: dict[str, str] = field(default_factory=dict)
 
     #: Section key -> extra editor note HTML, e.g. about the investability check
     editor_notes: dict[str, str] = field(default_factory=dict)
@@ -591,8 +581,6 @@ def build_post_html(context: PostContext) -> str:
         elif not _has_content(template):
             continue
         parts += [f'<h{template.level} id="{template.heading_id}">{template.heading}</h{template.level}>', template.intro]
-        if template.key in context.captions:
-            parts.append(f"<p><strong>{html.escape(context.captions[template.key])}</strong></p>")
         if template.editor_note:
             parts.append(_editor_note(template.editor_note))
         if template.key in context.editor_notes:

@@ -21,8 +21,7 @@ The skeleton keeps the structure of the earlier posts:
 - the opening paragraph and the Ghost theme's table of contents
   (`<div id="table-of-contents"></div>` in an HTML card);
 - the introduction sections *About the report* and *Report content updates*,
-  with this month's figures in bold: blockchains, protocols, vaults, TVL and
-  denomination stablecoins;
+  with this month's figures in bold: blockchains, protocols, vaults and TVL;
 - *DeFi vault community news* and *Latest podcasts* before the data sections;
 - the data sections, each with an introduction paragraph linking to the live
   pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
@@ -38,7 +37,9 @@ image is also left for the editor. An agent-driven investability check removes
 vaults that are not investable in practice before anything is ranked, see
 *Investability check* in `README-vault-report.md`. The post does not list
 them: a dated Markdown file in `eth_defi/vault_report/excluded-vaults/` records
-them, and it is also posted as a comment on the report's pull request.
+them, and it is also posted as a comment on the report's pull request. The
+editorial rules the generator follows are listed under *Writing rules* in
+[`README-blog-post-outline.md`](README-blog-post-outline.md#writing-rules).
 
 ## Architecture
 

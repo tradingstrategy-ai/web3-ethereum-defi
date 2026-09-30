@@ -317,7 +317,7 @@ is rendered:
    missing, stale or malformed one.
 4. If exclusions make the lists shorter than shown, the next vaults are
    checked in another round, up to three rounds.
-5. Excluded vaults leave every ranking, chart, the T-bill caption and the hero
+5. Excluded vaults leave every ranking, chart and the hero
    image, and the inflows and outflows. They are not listed in the post but in
    a dated Markdown file, `{date}-excluded-vaults.md`, written to
    `eth_defi/vault_report/excluded-vaults/` in the repository
