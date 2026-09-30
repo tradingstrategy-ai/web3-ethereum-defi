@@ -1893,6 +1893,39 @@ source ~/vault-scanner/vault-rpc.env && \\
 
 After inspecting the dry-run output, omit -e DRY_RUN=true to apply it.
 
+### backfill-frankencoin-shares.py
+
+Seed or refresh the reviewed Ethereum FCS deployment at
+`0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b`. This uses the equity adapter,
+independently of the svZCHF savings TVL repair below. Metadata includes the
+Frankencoin protocol and curator, four maintained strategy tags, reference
+valuation semantics and actual redemption restrictions.
+
+```shell
+source .local-test.env && DRY_RUN=true FRANKENCOIN_SHARES_SCAN_PRICES=false \
+  poetry run python scripts/erc-4626/backfill-frankencoin-shares.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Retain reviewable staged outputs; default `true`. Set `false` to apply. |
+| `FRANKENCOIN_SHARES_SCAN_PRICES` | Include hourly historical prices; default `false`. |
+| `JSON_RPC_ETHEREUM` | Required configured Ethereum RPC providers; archive state is needed for prices. |
+| `HYPERSYNC_API_KEY` | Required configured Hypersync authentication for discovery and timestamp reads. |
+| `VAULT_DB_PATH`, `PARQUET_PATH` | Override shared pipeline metadata and price files. |
+| `TIMESTAMP_CACHE` | Dense cache directory; defaults to `~/.tradingstrategy/block-timestamp`. |
+| `START_BLOCK`, `END_BLOCK` | Optional inclusive/exclusive price bounds; default deployment block 25,852,506 and safe head. |
+| `MAX_WORKERS` | Maximum historical-read workers; default `4`. |
+| `LOG_LEVEL` | Console logging level; default `info`. |
+
+Prices require dense Ethereum timestamps through the end boundary. Existing
+rows outside the target address and range, discovery counts, chain cursors and
+scheduled reader state are retained. Applied runs hold the scanner lock and
+back up metadata. Apply mode rejects a missing metadata database path.
+Stop the persistent scanner first and inspect dry-run outputs
+before applying; see the [protocol documentation](../../docs/source/vaults/frankencoin/index.rst)
+for the production Compose commands.
+
 ### fix-frankencoin-tvl.py
 
 Manual repair script for Frankencoin savings vault TVL in the uncleaned price

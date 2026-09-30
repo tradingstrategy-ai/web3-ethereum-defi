@@ -302,8 +302,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
 #: Particular vaults that are broken, misleading or otherwise problematic.
 #: Users do not want to interact with these and they cause confusion, so we just drop them from reports.
 #:
-#: Lower case address mapping to problem vaults
+#: Lowercase address-specific assessments, including explicit unassessed entries.
 VAULT_SPECIFIC_RISK = {
+    # FCS equity has not been assigned the savings product's technical risk rating.
+    "0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b": None,
     # Kitsune
     # https://arbiscan.io/address/0xe5a4f22fcb8893ba0831babf9a15558b5e83446f#code
     "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultTechnicalRisk.blacklisted,
@@ -532,19 +534,29 @@ VAULT_SPECIFIC_RISK = {
 def get_vault_risk(
     protocol_name: str,
     vault_address: HexAddress | str | None = None,
-    default=None,
+    default: VaultTechnicalRisk | None = None,
 ) -> VaultTechnicalRisk | None:
-    """Get technical and developer risk associated with a particular vault"""
+    """Resolve technical risk, including explicit unassessed overrides.
+
+    Incident flags take precedence over an address-specific assessment. An
+    address mapped to ``None`` remains unassessed instead of inheriting the
+    protocol's default rating.
+
+    :param protocol_name: Protocol label used by the maintained risk matrix.
+    :param vault_address: Optional address for incident and product overrides.
+    :param default: Result for a protocol without a maintained assessment.
+    :return: Technical risk level, or ``None`` when unassessed.
+    """
 
     if vault_address:
+        normalised_address = vault_address.lower()
         # Check for xUSD incidents and other address-specific manual flags.
-        flags = get_vault_special_flags(vault_address, protocol_name)
+        flags = get_vault_special_flags(normalised_address, protocol_name)
         if flags & BAD_FLAGS:
             return VaultTechnicalRisk.blacklisted
 
-        risk = VAULT_SPECIFIC_RISK.get(vault_address.lower())
-        if risk:
-            return risk
+        if normalised_address in VAULT_SPECIFIC_RISK:
+            return VAULT_SPECIFIC_RISK[normalised_address]
 
     return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name, default)
 

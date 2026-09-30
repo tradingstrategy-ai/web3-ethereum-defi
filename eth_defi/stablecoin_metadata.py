@@ -639,6 +639,8 @@ def load_all_stablecoin_metadata(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[
     """Load all stablecoin metadata from YAML files.
 
     Returns a dict mapping symbol to list of StablecoinInfo entries.
+    Separate files sharing a ticker contribute separate entries, so an issuer
+    does not hide another issuer's metadata.
     Cached in-process after first call for the default package data directory.
 
     Files with a ``token_symbols`` list register the same metadata
@@ -689,12 +691,12 @@ def load_all_stablecoin_metadata(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[
             ]
 
         # Register under primary symbol
-        result[symbol] = info_list
+        result.setdefault(symbol, []).extend(info_list)
 
         # Also register under all token_symbols variants
         for variant in data.get("token_symbols", []):
             if variant != symbol:
-                result[variant] = info_list
+                result.setdefault(variant, []).extend(info_list)
 
     if use_cache:
         _cached_metadata = result
