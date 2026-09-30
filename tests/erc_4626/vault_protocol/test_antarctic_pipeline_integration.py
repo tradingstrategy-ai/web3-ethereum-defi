@@ -63,6 +63,9 @@ def test_antarctic_parquet_and_vault_json_pipeline(tmp_path: Path, monkeypatch: 
             row = vaults[f"42161-{deployment.address}"]
             event = max((r for r in records if r.pool_address == deployment.address and r.kind == "AddLiquidity"), key=lambda r: r.block_number)
             assert row["protocol_slug"] == "antarctic"
+            assert row["curator_slug"] == "antarctic"
+            expected_tags = {"liquidity_provider", "market_making", "perpetual_futures"} if deployment.product == "amlp" else {"liquidity_provider"}
+            assert set(row["strategy_tags"]) == expected_tags
             assert row["share_price_source"] == "smart-contract-event"
             assert row["deposit_manager"] is None
             assert row["last_updated_block"] == event.block_number

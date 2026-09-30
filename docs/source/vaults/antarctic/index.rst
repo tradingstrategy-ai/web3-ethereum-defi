@@ -14,7 +14,8 @@ Queued deposit/redemption transaction construction remains unsupported.
 
 The normal all-chain Arbitrum scanner prefills Hypersync event context before
 writing the existing raw price Parquet. Cleaning and JSON publication retain
-actual observation timestamps and sample counts. Unknown historical supply,
+actual observation timestamps and sample counts. Both pools resolve to Antarctic
+as their protocol-managed curator, sharing its protocol feeds and logo. Unknown historical supply,
 fees and unmeasured position exposure remain unknown. For operational details,
 see ``eth_defi/erc_4626/vault_protocol/antarctic/README-Antarctic.md``.
 

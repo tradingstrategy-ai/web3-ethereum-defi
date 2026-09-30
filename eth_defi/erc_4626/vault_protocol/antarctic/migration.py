@@ -34,6 +34,8 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
 
+logger = logging.getLogger(__name__)
+
 
 def parse_antarctic_migration_dry_run(value: str | None) -> bool:
     """Parse the migration mode, defaulting to a non-persistent rehearsal.
@@ -45,9 +47,10 @@ def parse_antarctic_migration_dry_run(value: str | None) -> bool:
     """
     if value is None:
         return True
-    if value.strip().lower() in {"true", "yes", "1"}:
+    value = value.strip().lower()
+    if value in {"true", "yes", "1"}:
         return True
-    if value.strip().lower() in {"false", "no", "0"}:
+    if value in {"false", "no", "0"}:
         return False
     msg = "DRY_RUN must be true or false"
     raise ValueError(msg)
@@ -81,9 +84,6 @@ def fetch_antarctic_metadata_replacements(web3: Web3, database: VaultDatabase, t
         lead = PotentialVaultMatch(chain=ANTARCTIC_CHAIN_ID, address=deployment.address, first_seen_at_block=deployment.deployment_block, first_seen_at=deployment.deployed_at, deposit_count=detection.deposit_count, withdrawal_count=detection.redeem_count, configuration_count=detection.configuration_count)
         replacements[spec] = (old | row, lead)
     return replacements
-
-
-logger = logging.getLogger(__name__)
 
 
 def main() -> None:  # noqa: PLR0914
@@ -120,7 +120,8 @@ def main() -> None:  # noqa: PLR0914
                     logger.info("Copying %s for dry-run rehearsal", path)
                     shutil.copy2(path, staging / path.name)
             prices, context = staging / prices.name, staging / context.name
-        web3 = create_multi_provider_web3(read_json_rpc_url(ANTARCTIC_CHAIN_ID))
+        rpc_url = read_json_rpc_url(ANTARCTIC_CHAIN_ID)
+        web3 = create_multi_provider_web3(rpc_url)
         client = configure_hypersync_from_env(web3).hypersync_client
         if client is None:
             msg = "Antarctic migration requires Hypersync"
@@ -137,7 +138,7 @@ def main() -> None:  # noqa: PLR0914
                 vault.first_seen_at_block = deployment.deployment_block
                 vault.historical_context_path = context
                 vaults.append(vault)
-            result = scan_historical_prices_to_parquet(output_fname=prices, web3=web3, web3factory=MultiProviderWeb3Factory(read_json_rpc_url(ANTARCTIC_CHAIN_ID)), vaults=vaults, token_cache=cache, start_block=min(d.deployment_block for d in ANTARCTIC_DEPLOYMENTS), end_block=end, max_workers=max_workers, frequency="1h", hypersync_client=client, timestamp_cache_file=staging / "block-timestamp" if dry_run else DEFAULT_TIMESTAMP_CACHE_FOLDER, vault_addresses={d.address for d in ANTARCTIC_DEPLOYMENTS})
+            result = scan_historical_prices_to_parquet(output_fname=prices, web3=web3, web3factory=MultiProviderWeb3Factory(rpc_url), vaults=vaults, token_cache=cache, start_block=min(d.deployment_block for d in ANTARCTIC_DEPLOYMENTS), end_block=end, max_workers=max_workers, frequency="1h", hypersync_client=client, timestamp_cache_file=staging / "block-timestamp" if dry_run else DEFAULT_TIMESTAMP_CACHE_FOLDER, vault_addresses={d.address for d in ANTARCTIC_DEPLOYMENTS})
             with AntarcticHistoricalContextStore(context) as store:
                 for deployment in ANTARCTIC_DEPLOYMENTS:
                     store.acknowledge_repair(deployment.address, end)

@@ -13,11 +13,12 @@ from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCE
 from eth_defi.erc_4626.vault_protocol.antarctic import historical_context
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore
+from eth_defi.erc_4626.vault_protocol.antarctic.tags import STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, load_antarctic_settlements
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultHistoricalReader, VaultSpec
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -63,8 +64,12 @@ def test_antarctic_metadata_and_classification(web3: Web3, tmp_path: Path) -> No
             assert row["_share_price_source"].value == "smart-contract-event"
             assert row["Mgmt fee"] is None and row["Perf fee"] is None
         first, second = [AntarcticVault(web3, VaultSpec(42161, d.address)) for d in ANTARCTIC_DEPLOYMENTS]
-        assert first.get_strategy_tags() == {StrategyTag.market_making, StrategyTag.perpetual_futures}
-        assert second.get_strategy_tags() is None
+        assert first.get_strategy_tags() == {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.perpetual_futures}
+        tags = first.get_strategy_tags()
+        tags.clear()
+        assert first.get_strategy_tags() == {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.perpetual_futures}
+        assert second.get_strategy_tags() == {StrategyTag.liquidity_provider}
+        assert lookup_strategy_tags(STRATEGY_TAGS, "0x0000000000000000000000000000000000000000") is None
         assert first.get_historical_reader(False).share_price_change_threshold == 0
         assert VaultHistoricalReader.share_price_change_threshold.fget(first.get_historical_reader(False)) == 0.001  # noqa: PLR2004
     finally:

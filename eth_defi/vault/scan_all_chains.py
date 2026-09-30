@@ -85,6 +85,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore, fetch_and_store_antarctic_history, get_antarctic_historical_context_path
+from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -1212,7 +1213,7 @@ def scan_prices_for_chain(
 
         # Antarctic owns independent event cursors, including quiet ranges.
         # Only instantiated/selected LP tokens may trigger source reads or repair.
-        antarctic_vaults = [vault for vault in vaults if ERC4626Feature.antarctic_like in vault.features]
+        antarctic_vaults = [vault for vault in vaults if isinstance(vault, AntarcticVault)]
         antarctic_prefill = None
         antarctic_repair_rows = 0
         if antarctic_vaults:

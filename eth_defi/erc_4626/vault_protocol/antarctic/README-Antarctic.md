@@ -17,7 +17,7 @@ The initial integration covers exactly these two products on Arbitrum One, chain
 | AMLP | `0x152f5E6142db867f905a68617dBb6408D7993a4b` | `0x98a6aEE58699e4f4E13D8d8d0800e4e9cbBcf8dD` | [AMLP pool](https://www.antarctic.exchange/lp/amlp) |
 | AHLP | `0x5fd22dA8315992dbbD82d5AC1087803ff134C2c4` | `0xc5F9d4b9f68CAAA869317Baa09a233b22940bd9f` | [AHLP pool](https://www.antarctic.exchange/lp/ahlp) |
 
-Both share tokens use 18 decimals. Their denomination is Arbitrum USDT, `0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9`, with six decimals. Treat prices and TVL as USDT-denominated values; a USDT/USD conversion is separate.
+Both share tokens use 18 decimals. The managers name the denomination USDT; the token currently reports symbol `USD₮0`. Its Arbitrum address is `0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9`, with six decimals. Treat prices and TVL as USDT-denominated values; a USDT/USD conversion is separate.
 
 The verified [AMLP manager source](https://arbiscan.io/address/0x98a6aEE58699e4f4E13D8d8d0800e4e9cbBcf8dD#code) and [AHLP manager source](https://arbiscan.io/address/0xc5F9d4b9f68CAAA869317Baa09a233b22940bd9f#code) provide the settlement interfaces. The LP tokens are not ERC-4626 vaults: investigated `asset()` and `totalAssets()` calls reverted. Their ERC-20 identity and supply remain readable.
 
@@ -72,17 +72,17 @@ Arbitrum manager events → Hypersync → Antarctic historical context
 
 Despite the `1h` filename, raw Antarctic prices contain only qualifying event observations. Preserve changes below the common 10-basis-point suppression threshold with an Antarctic-specific zero threshold. Exact repeated prices may be omitted from price Parquet while their source logs remain in context. The common writer has one price per vault/block, so the last canonical event in a block wins; retain every source event in context for auditability.
 
-Use the existing `PriceSource.smart_contract_event` classification. Downstream daily resampling may present the last observed value, but it must not create new measured samples, refresh source timestamps or make an insufficient return period appear available. Unavailable Antarctic period returns and related legacy metrics should be null rather than fabricated zero. Generic perp exposure fields stay unmeasured; onchain LP price support does not imply position visibility.
+Use the existing `PriceSource.smart_contract_event` classification. Daily-return preparation preserves Antarctic’s actual observation timestamps instead of resampling its rows onto calendar days. Period calculations may regularise a curve internally; those interpolated values are not additional measured samples and do not refresh the last source timestamp. Unavailable Antarctic period returns and related legacy metrics should be null rather than fabricated zero. Generic perp exposure fields stay unmeasured; onchain LP price support does not imply position visibility.
 
 ## Scope and operational limits
 
-The initial adapter is read-only. Public deposit/redemption transaction construction stays unsupported. Investigated managers reported a mutable seven-day removal cooldown; refresh the verified getter for metadata rather than promising immediate redemption or hardcoding a permanent duration. Unknown management/performance fees and technical risk classification remain unknown.
+The initial adapter is read-only. Public deposit/redemption transaction construction stays unsupported. Investigated managers reported a mutable seven-day removal cooldown; refresh the verified getter for metadata rather than promising immediate redemption or hardcoding a permanent duration. Unknown management/performance fees and technical risk classification remain unknown. In mixed scans, the live freshness audit counts these contextual readers as unknown conversion because they have no state-backed USD exchange rate; written values remain denomination-token units.
 
 There is no Antarctic API valuation fallback. API chart values can be researched separately, but they must not silently extend the onchain series or turn cumulative returns into annualised APY. Handler-reported values, sparse observations and omitted staking rewards must be visible in the integration notes.
 
 Each selected pool has its own completed-range cursor and bounded overlap replay. On first import, the scanner automatically prefills that pool from its verified manager creation block and repairs only its price rows, even when the shared Arbitrum continuation point is already warm. Successful quiet ranges advance source cursors without inventing prices. Source reads must complete before replacement; pending price repairs survive writer failures. Reorg replay covers the last 512 blocks, so a deeper historical repair requires an explicit operator backfill.
 
-The scoped migration below refreshes existing cached metadata and rehearses a full two-address rewrite. It defaults to dry run and preserves unrelated metadata, prices, context tables and reader state. No common Parquet schema change is required.
+The scoped migration below refreshes existing cached metadata and rehearses a full two-address rewrite. It refreshes strategy tags; curator attribution is resolved from the protocol slug when exporting JSON. It defaults to dry run and preserves unrelated metadata, prices, context tables and reader state. No common Parquet schema change is required.
 
 ## Configuration and migration
 
@@ -103,11 +103,11 @@ DRY_RUN=true MAX_WORKERS=4 HYPERSYNC_RPM=20 poetry run python scripts/erc-4626/b
 
 Dry run takes the pipeline writer lock, copies existing prices and context (including any WAL) into a temporary directory on the same volume, and uses private token and timestamp caches. It checks available disk space and exercises the actual decoder, context store, common price writer and metadata classifier. Original pipeline files are unchanged. `DRY_RUN=false` explicitly applies the same two-address operation; reader state is never reset. Unknown dry-run values are rejected.
 
-Before applying in production, inspect `docker-compose.yml`, stop the persistent scanner, retain backups and use the normal mounted pipeline directory. The one-shot service shares persistent state with the looped service: retain the standard home and mounts. The migration must be the only writer to this context while copying or applying. Context acknowledgement follows atomic price writing, and metadata replacement follows successful source reads. Refresh cleaned prices and JSON with the normal post-processing cycle after applying. The older `migrate-antarctic-vaults.py` entrypoint calls the same implementation. Production application has not been performed by this implementation task.
+Before applying in production, inspect `docker-compose.yml`, stop the persistent scanner, retain backups and use the normal mounted pipeline directory. The one-shot service shares persistent state with the looped service: retain the standard home and mounts. The migration must be the only writer to this context while copying or applying. Context acknowledgement follows atomic price writing, and metadata replacement follows successful source reads. Refresh cleaned prices and JSON with the normal post-processing cycle after applying. Production application has not been performed by this implementation task.
 
 ## Integration coverage and local results
 
-On 2026-09-30, the focused suite passed **172 tests**, including:
+On 2026-09-30, the Antarctic, curator, metrics and price-freshness suite passed **178 tests**, including:
 
 - Real authenticated Arbitrum Hypersync reads for both reviewed settlement transactions, exact raw amounts, timestamps, Decimal prices and replay.
 - A live-source two-product run through the common price writer, cleaner and actual vault JSON builder; every output path is explicitly isolated.
@@ -117,15 +117,28 @@ On 2026-09-30, the focused suite passed **172 tests**, including:
 - Dry-run byte preservation and scoped migration application on copied pipeline fixtures, including recovery of old source rows behind an advanced cursor.
 - Shared `anvil_fork_pool` metadata checks at `ARBITRUM_MIDNIGHT_BLOCK` for both vaults, plus existing Rysk, Flying Tulip, scanner configuration, vault metrics, price freshness and sticky-export regressions.
 
+The shared scanner regression suite separately passed 19 tests, including the YieldBasis adapter without a `features` attribute.
+
 These are local runs using authenticated Envio Arbitrum Hypersync and configured Arbitrum RPC providers (Goldsky/dRPC/Alchemy); credentials are never recorded in fixtures. Live checks are automatically guarded by the required environment variables. Their bounded source ranges take seconds and do not use the CI skip intended for multi-minute discovery scans.
 
 To run the Antarctic checks locally:
 
 ```shell
-source .local-test.env && PYTHONPATH="$PWD" HYPERSYNC_RPM=20 timeout 180 poetry run pytest tests/erc_4626/vault_protocol/test_antarctic*.py tests/vault/test_scan_all_chains_antarctic.py -q
+source .local-test.env && PYTHONPATH="$PWD" HYPERSYNC_RPM=20 timeout 180 poetry run pytest tests/erc_4626/vault_protocol/test_antarctic*.py tests/vault/test_scan_all_chains_antarctic.py tests/vault/test_curator.py tests/vault/test_curator_export.py tests/research/test_vault_metrics.py tests/vault/test_price_freshness.py -q
 ```
 
-Set `TMPDIR` to an owned temporary directory if the shared token-cache directory belongs to another local user. Tests stop before R2 uploads. Record the exact live-test command, date and redacted provider in the eventual pull request comment; production rollout remains a separate operator action.
+Set `TMPDIR` to an owned temporary directory if the shared token-cache directory belongs to another local user. Tests stop before R2 uploads. The pull request records the exact live-test command, date and redacted provider; production rollout remains a separate operator action.
+
+## Protocol, curator and strategy audit
+
+The repository’s `add-vault-protocol`, `add-curator` and `categorise-vault-strategy` skills were checked for both deployments on 2026-09-30:
+
+- Protocol: chain-scoped classification, discovery leads, read-only adapter, fees/risk unknowns, original/formatted logos, feed metadata, API documentation, shared-fork tests and live Hypersync-to-Parquet-to-JSON coverage are present.
+- Curator: both products belong to Antarctic’s documented liquidity system. `curators/antarctic.yaml` aliases the protocol feeder and reuses its logo; no separate third-party curator or legal manager is inferred. The official Medium RSS feed returned HTTP 200 with valid RSS and ten items during the audit.
+- AMLP (`0x152f5e6142db867f905a68617dbb6408d7993a4b`): `liquidity_provider`, `market_making`, `perpetual_futures`, supported by the dual-vault documentation and FAQ.
+- AHLP (`0x5fd22da8315992dbbd82d5ac1087803ff134c2c4`): `liquidity_provider`, supported by its documented role in the exchange’s liquidity system. The hedging label does not establish delta neutrality or the traded instruments; these remain unclassified.
+
+Adapter tests verify that callers cannot mutate the maintained tag mapping. Curator tests cover canonical metadata, descriptions and logo reuse; the pipeline test checks curator attribution in the exported vault JSON.
 
 The [integration plan](../../../../docs/protocol-research/antarctic-vault-integration-plan.md) records the design and prior Kimi K3 plan review. The [research record](../../../../docs/protocol-research/antarctic-0x152f5e6142db867f905a68617dbb6408d7993a4b.md) contains source transactions, API findings and detailed event-frequency evidence.
 
