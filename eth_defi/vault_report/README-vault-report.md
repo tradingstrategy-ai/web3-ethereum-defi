@@ -337,6 +337,11 @@ claude.ai login. If `.local-test.env` exports an API key without credit, the
 agent stops with "Credit balance is too low": run the report with
 `unset ANTHROPIC_API_KEY` after sourcing the environment to use the login.
 
+The Claude CLI in print mode stops waiting for the agent's background
+sub-agents after 600 seconds and exits, even when the decisions are not yet
+written. The runner sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` so it waits
+for them; the round timeout still bounds the run.
+
 `vault_checks.build_agent_command()` builds both commands, with stdin closed
 and the JSONL stream written to the transcript. Read
 `.claude/docs/agent-tricks-and-troubleshooting.md` before changing them.

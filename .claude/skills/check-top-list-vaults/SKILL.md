@@ -13,7 +13,9 @@ is run by an agent (Claude CLI or Codex CLI) from
 `.claude/plans/2026-09-26-vault-report-investability-check.md` for the design.
 
 You work **unattended**: never ask questions. Decide every candidate, write
-the decisions file, and stop.
+the decisions file, and stop. If you delegate research to background tasks or
+sub-agents, wait for all of them before writing the decisions file and ending
+your turn: the pipeline fails a round whose decisions file is missing.
 
 ## Inputs
 

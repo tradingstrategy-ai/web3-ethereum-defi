@@ -528,7 +528,7 @@ def build_agent_prompt(round_: CheckRound) -> str:
     :return:
         Prompt text.
     """
-    return f"Read {SKILL_FILE} and follow it exactly. Candidates: {round_.candidates_path}. Facts: {round_.facts_path}. Write the decisions to {round_.decisions_path}. Copy candidates_digest={round_.candidates_digest} into the decisions file header. Work unattended: do not ask questions, do not commit or push."
+    return f"Read {SKILL_FILE} and follow it exactly. Candidates: {round_.candidates_path}. Facts: {round_.facts_path}. Write the decisions to {round_.decisions_path}. Copy candidates_digest={round_.candidates_digest} into the decisions file header. Work unattended: do not ask questions, do not commit or push. Finish all research, including any background tasks or sub-agents you start, before you end your turn, and write the decisions file last."
 
 
 def build_agent_command(agent: AgentName, prompt: str, model: str | None = None) -> list[str]:
@@ -590,7 +590,10 @@ def run_check_agent(command: list[str], cwd: Path, log_path: Path, decisions_pat
     started = time.monotonic()
     with log_path.open("w") as log, log_path.with_suffix(".err").open("w") as errors:
         # A process group of its own, so a timeout also stops the tools the agent started
-        process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=errors, start_new_session=True)
+        # In print mode the Claude CLI stops waiting for the agent's background sub-agents after 600 s and exits
+        # before the decisions are written; wait for them, bounded by our own timeout
+        environment = os.environ | {"CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS": "0"}
+        process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=errors, start_new_session=True, env=environment)
         while True:
             try:
                 process.wait(timeout=poll_interval)
