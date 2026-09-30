@@ -16,7 +16,7 @@ Vaults are classified into groups, each ranked in its own table:
 - **Other:** everything else, e.g. yield aggregators and trading vaults
 
 Returns are annualised one-month returns, net of fees when fee data is known
-and gross otherwise, marked with ``(n)`` and ``(g)`` respectively.
+and gross otherwise, shown without a net or gross marker.
 """
 
 import datetime
@@ -239,9 +239,6 @@ NUMERIC_COLUMNS = {"3M Sharpe", "Age (y)"}
 
 #: Columns whose values must not wrap onto two lines
 NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL"}
-
-#: Explanation of the table cell formats, shown once above the first table
-TABLE_FORMAT_NOTE = "Returns are annualised: (n) net of fees, (g) gross when fee data is not available. TVL is the current value."
 
 
 @dataclass(slots=True)
@@ -747,6 +744,9 @@ def _largest_changes(df: pd.DataFrame, top: int) -> pd.DataFrame:
 def format_return(net: Percent | None, gross: Percent | None) -> str:
     """Format an annualised return, preferring the net value.
 
+    The net return is shown when fee data exists and the gross return
+    otherwise, without a net or gross marker.
+
     :param net:
         Net return, 0.01 = 1%, or ``None`` when fees are unknown.
 
@@ -754,17 +754,12 @@ def format_return(net: Percent | None, gross: Percent | None) -> str:
         Gross return.
 
     :return:
-        E.g. ``12.3% (n)``, ``8.1% (g)``, ``>9,999% (n)`` for capped values, or ``---``.
+        E.g. ``12.3%``, ``>9,999%`` for capped values, or ``---``.
     """
-
-    def _format(value: Percent, marker: str) -> str:
-        return f"{CAPPED_RETURN_LABEL} ({marker})" if value >= CAPPED_ANNUALISED_RETURN else f"{value:,.1%} ({marker})"
-
-    if pd.notna(net):
-        return _format(net, "n")
-    if pd.notna(gross):
-        return _format(gross, "g")
-    return "---"
+    value = net if pd.notna(net) else gross
+    if pd.isna(value):
+        return "---"
+    return CAPPED_RETURN_LABEL if value >= CAPPED_ANNUALISED_RETURN else f"{value:,.1%}"
 
 
 def format_sharpe(value: float | None) -> str:

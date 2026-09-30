@@ -521,7 +521,7 @@ def render_hero_image(
             spark_half = min(24 if square else 20, row_height * 0.32)
             _draw_sparkline(image, sparklines[vault_id], (spark_left, int(middle - spark_half), spark_right, int(middle + spark_half)), theme.positive)
             draw = ImageDraw.Draw(image)
-        value = format_return(vault["three_months_cagr_net"], vault["three_months_cagr"]).replace(" (n)", "").replace(" (g)", "")
+        value = format_return(vault["three_months_cagr_net"], vault["three_months_cagr"])
         draw.text((width - pad, middle), value, font=value_font, fill=theme.positive, anchor="rm")
     image.alpha_composite(lines_layer)
 

@@ -260,8 +260,8 @@ compares performance. See
 
 ### Tables
 
-- Returns are annualised: (n) net of fees, (g) gross when fee data is not
-  available. The export caps annualised returns at 10,000%, shown as `>9,999%`
+- Returns are annualised, net of fees when fee data is available and gross
+  otherwise, without a marker. The export caps annualised returns at 10,000%, shown as `>9,999%`
   like on the website; ties are ranked by the absolute one-month return.
 - Tables rank by the annualised one-month return, like the website. All charts
   use the steadier annualised three-month return instead, see

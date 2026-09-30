@@ -79,7 +79,7 @@ pile automatically. No report change is needed.
 - **Investability check:** an agent checks the vaults the rankings would show, see [README-vault-report.md](./README-vault-report.md#investability-check). Vaults that are not investable in practice, such as Morpho or Euler vaults with suspicious collateral or vaults without exit liquidity, are left out of every ranking, chart, the hero image and the inflows and outflows, and the next vaults move up. The TVL totals keep them. Version 1 covers Morpho, Euler and 40acres; more protocols will follow.
 
 - **Eligibility:** blacklisted vaults, rated Blacklisted in the export or given a bad flag in `eth_defi/vault/flag.py` since, and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
-- **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
+- **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees when fee data exists and gross otherwise, like the website, shown without a net or gross marker. "By Sharpe" is the three-month Sharpe ratio.
 - **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
 - **Table thresholds:** at least $100k TVL. Lending and RWA vaults, and new vaults, also need at least 10 deposit and redemption events. Tables list the top 20.
 - **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the group by three-month return, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL and that the legend returns are annualised; the legend shows the numbers only, without "ann." or a start date. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. The legend return is computed from the chart's daily prices over each line's span, so it can differ from the export's three-month return that chooses and ranks the vaults. Legend numbers are chart ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
@@ -171,10 +171,16 @@ them; keep them when changing the templates in `post.py` or the notes in
   "Combined TVL of the vaults is $36.5B". No qualifiers such as "identified"
   or "not blacklisted", and no list of denomination stablecoins. Figures are
   in bold, as in the earlier posts.
-- Section notes state only what the chart and the table do not show. No note
-  repeats a chart's ranking, TVL minimum, benchmarks or risk filter, which
-  the chart subtitle and legend already give, so the best-performing
-  subsections, including *New vaults*, have no notes of their own.
+- Only *The best-performing vaults* has section notes, three of them: the
+  one-month ranking, the table TVL minimums and "View the live vault
+  ranking". Every other section and subsection has none: its introduction,
+  chart title, subtitle and legend say what readers need. No notes about
+  unidentified protocols, AMM pools, outlier filters, blacklists or risk
+  filters.
+- Returns carry no net or gross marker: tables show the net return when fee
+  data exists and the gross return otherwise.
+- *Real-world asset (RWA) vaults* has a second introduction paragraph saying
+  the category is new and may still contain misclassifications.
 - Chart subtitles do not repeat the context: no "top 8", no "over 90 days",
   no "against benchmarks". The performance chart axis title is "Returns".
 - Tables show only the current TVL, in a column headed "TVL", with `k`, `M`

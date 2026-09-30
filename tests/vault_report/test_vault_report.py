@@ -227,12 +227,12 @@ def test_tvl_changes(vaults_df: pd.DataFrame):
 
 def test_formatting():
     """Net returns are preferred and extreme Sharpe ratios are capped."""
-    assert format_return(0.1234, 0.2) == "12.3% (n)"
-    assert format_return(None, 0.0) == "0.0% (g)"
+    assert format_return(0.1234, 0.2) == "12.3%"  # Net preferred, no marker
+    assert format_return(None, 0.0) == "0.0%"
     assert format_return(None, None) == "---"
-    assert format_return(100.0, None) == ">9,999% (n)"
-    assert format_return(99.0, None) == "9,900.0% (n)"
-    assert format_return(99.995, None) == "9,999.5% (n)"  # Only the export's 10,000% cap is shown as capped
+    assert format_return(100.0, None) == ">9,999%"
+    assert format_return(99.0, None) == "9,900.0%"
+    assert format_return(99.995, None) == "9,999.5%"  # Only the export's 10,000% cap is shown as capped
     assert format_sharpe(8_205_524.0) == ">100"
     assert format_sharpe(float("nan")) == "---"
 
@@ -331,6 +331,13 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
     assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "tokenised_funds": 1, "new": 1, "by_chain": 6}
     assert (tmp_path / "out" / "tables" / "lending.csv").exists()
+    # Only the best-performing vaults have section notes, returns carry no net or gross marker,
+    # and the RWA section warns that the category is new
+    for removed in ("Perp DEX vaults included", "Vaults without an identified protocol", "counted in Other", "share price did not move", "A TVL change includes", "counted once", "Returns are annualised"):
+        assert removed not in post_html, removed
+    assert "(n)" not in post_html and "(g)" not in post_html
+    assert "View the live vault ranking" in post_html and "View the live benchmark" not in post_html
+    assert "Real-world asset vaults are a new category" in next(t.intro for t in SECTION_TEMPLATES if t.key == "rwa")
     # Tables show the current TVL with k and M suffixes, and no Other vaults section
     assert "TVL</th>" in post_html and "(peak)" not in post_html and "3M history</th>" in post_html
     assert "best-performing-other-vaults" not in post_html

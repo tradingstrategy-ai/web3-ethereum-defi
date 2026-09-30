@@ -162,7 +162,7 @@ BEST_SECTIONS = (
         heading="Real-world asset (RWA) vaults",
         heading_id="best-performing-rwa-vaults",
         subject="the best-performing RWA vaults",
-        intro=f'<p>Vaults that invest in, lend against or finance <a href="{GLOSSARY_URL}/rwa">real-world assets</a>, such as private credit, trade finance and royalties. See all <a href="{VAULTS_URL}/strategies/rwa">RWA vaults</a>.</p>',
+        intro=f'<p>Vaults that invest in, lend against or finance <a href="{GLOSSARY_URL}/rwa">real-world assets</a>, such as private credit, trade finance and royalties. See all <a href="{VAULTS_URL}/strategies/rwa">RWA vaults</a>.</p><p>Real-world asset vaults are a new category and may still contain misclassifications, as we are refining the different RWA categories.</p>',
     ),
     BestSection(
         key="perp_dex",

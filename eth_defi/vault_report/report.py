@@ -56,7 +56,7 @@ from eth_defi.vault_report.charts import (
     select_moving_vaults,
     trim_logos,
 )
-from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
+from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_path, load_protocol_logo_uri
 from eth_defi.vault_report.podcasts import PODCAST_SERVICES, PodcastEpisode, icon_image_key, logo_image_key
@@ -65,7 +65,6 @@ from eth_defi.vault_report.sections import (
     AMM,
     CHAIN_TABLE_COLUMNS,
     CHART_RETURN,
-    TABLE_FORMAT_NOTE,
     TOKENISED_FUND,
     ReportCriteria,
     ReportSection,
@@ -301,7 +300,12 @@ def make_performance_panel(section: BestSection, criteria: ReportCriteria) -> Ch
 
 
 def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
-    """Describe the selection criteria of each section for readers.
+    """Describe the selection criteria of the tables for readers.
+
+    Only *The best-performing vaults* has notes: how its tables rank vaults,
+    their TVL minimums and a link to the live ranking. Every other section
+    relies on its introduction, chart title and subtitle; see the writing
+    rules in ``README-blog-post-outline.md`` before adding a note.
 
     :param criteria:
         Report thresholds.
@@ -309,63 +313,13 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     :return:
         Section key -> bullet point HTML strings.
     """
-    live = '<a href="{url}">View the live benchmark</a> to examine the data in real time'
     active = f"at least {criteria.min_events} deposit and redemption events"
-    unidentified = "Vaults without an identified protocol, such as generic ERC-4626 vaults, are left out, because their data is often unreliable"
-    # The notes say only what the chart and the table do not: no notes repeat a chart's
-    # ranking, TVL minimum, benchmarks or risk filter, which its subtitle and legend show.
-    # The best-performing subsections therefore have no notes of their own.
-    amm = "AMM pools, such as GMX and YieldBasis pools, are ranked only in their own section"
-
-    average = [
-        f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
-        unidentified,
-        amm,
-    ]
     return {
-        "chain_yields": ["Perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/vaults/chains")],
-        "protocol_yields": [f"The {criteria.yield_top_protocols} largest protocols by TVL, each with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/vaults/protocols")],
-        "protocol_high_yields": [
-            f"The {criteria.yield_top_protocols} protocols with the highest TVL-weighted average yield, among all protocols with at least {format_usd(criteria.yield_high_yield_min_protocol_tvl)} TVL",
-            *average,
-            "Small protocols can reach the top with a few vaults; check the TVL column",
-            live.format(url="https://tradingstrategy.ai/vaults/protocols"),
-        ],
-        "protocol_tvl": [
-            "Vaults without an identified protocol, such as generic ERC-4626 vaults, are counted in Other",
-            f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
-            live.format(url="https://tradingstrategy.ai/vaults/historical-tvl-protocol?history=1y"),
-        ],
-        "chain_tvl": [
-            "The same DeFi vaults as the protocol chart, grouped by blockchain; smaller blockchains are counted in Other",
-            f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
-            live.format(url="https://tradingstrategy.ai/vaults/historical-tvl-chain"),
-        ],
-        "fund_nav": [
-            "A fund deployed on several chains under the same name is counted once",
-            f"Excludes blacklisted funds and data points above {format_usd(TVL_OUTLIER_THRESHOLD)}",
-            live.format(url="https://tradingstrategy.ai/vaults/funds"),
-        ],
-        "tvl_changes": [
-            "A TVL change includes deposits, redemptions and the vault's own returns",
-            "Blacklisted vaults and vaults the investability check excluded are left out",
-        ],
         "best": [
             "Vaults are ranked by their annualised last one-month returns",
             f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending and RWA vaults also need {active}",
-            unidentified,
-            TABLE_FORMAT_NOTE,
-            live.format(url="https://tradingstrategy.ai/vaults"),
+            '<a href="https://tradingstrategy.ai/vaults">View the live vault ranking</a>',
         ],
-        # The new vaults chart subtitle states the age and TVL rules, so the section has no notes
-        "risk_return": [
-            "Both axes fit the bulk of the vaults; outliers beyond them are left out",
-            "Vaults whose share price did not move over three months are left out",
-            "Vaults rated Dangerous or worse are left out",
-            unidentified,
-            amm,
-        ],
-        "by_chain": [f"The top {criteria.chain_top_n} performing vaults for each blockchain, perp DEX vaults and tokenised funds included", f"Minimum {format_usd(criteria.chain_min_tvl)} TVL", "The chart ranks by annualised three-month return on a log scale, and leaves out vaults rated Dangerous or worse; the table ranks by one-month return", unidentified, amm, live.format(url="https://tradingstrategy.ai/vaults/chains")],
     }
 
 
