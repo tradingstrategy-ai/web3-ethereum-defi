@@ -741,9 +741,9 @@ def render_report_charts(
         figure = create_performance_figure(performance_series(df), prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure=section.measure, sharpe_window=SHARPE_WINDOW, split_legend=section.measure == "sharpe")
         figures[section.chart_key] = (figure, make_performance_panel(section, criteria))
 
-    # New vaults launched inside the window: each line starts at the vault's first price
+    # New vaults: the window is their age limit, and each line starts at the vault's first price
     if len(new_chart_vaults):
-        figure = create_performance_figure(performance_series(new_chart_vaults), daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos)
+        figure = create_performance_figure(performance_series(new_chart_vaults), daily_prices, benchmark_indices, theme, criteria.new_vault_max_age, benchmark_logos=benchmark_logos)
         figures[NEW_VAULTS_CHART] = (figure, make_new_vaults_panel(criteria))
 
     chain_chart_vaults = select_chain_chart_vaults(ranked_df, criteria)
