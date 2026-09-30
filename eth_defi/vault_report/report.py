@@ -312,7 +312,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
 
     def best_section_notes(section: BestSection) -> list[str]:
         """Which vaults the section ranks, how its chart picks them and what it compares them against."""
-        notes = [section.description]
+        notes = [section.description] if section.description else []
         if section.show_min_tvl:
             notes.append(f"Minimum {format_usd(group_min_tvl(section.group, criteria))} TVL")
         notes.append("The legend shows the latest Sharpe ratio" if section.measure == "sharpe" else chart_ranking)
@@ -354,7 +354,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             "Blacklisted vaults and vaults the investability check excluded are left out",
         ],
         "best": [
-            "Vaults are ranked by their annualised last one-month returns, net of fees (n) when fee data is available and gross (g) otherwise",
+            "Vaults are ranked by their annualised last one-month returns",
             f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending, RWA and other vaults also need {active}",
             unidentified,
             TABLE_FORMAT_NOTE,

@@ -101,7 +101,7 @@ class BestSection:
     #: The ranked vaults in chart titles and alt texts, e.g. ``the best-performing lending vaults``
     subject: str
 
-    #: First criteria note: which vaults the group holds
+    #: First criteria note: how the group's vaults are selected, where :py:attr:`intro` does not say it; empty for none
     description: str
 
     #: What the chart compares the vaults against
@@ -151,7 +151,7 @@ BEST_SECTIONS = (
         heading="Lending vaults",
         heading_id="best-performing-lending-vaults",
         subject="the best-performing lending vaults",
-        description="Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol",
+        description="Identified by their strategy or lending protocol",
         intro=f'<p>Vaults that supply stablecoins to <a href="{GLOSSARY_URL}/lending-protocol">lending protocols</a> such as Morpho and Euler, and earn the interest borrowers pay. See all <a href="{VAULTS_URL}/strategies/lending">lending vaults</a>.</p>',
     ),
     BestSection(
@@ -160,7 +160,7 @@ BEST_SECTIONS = (
         heading="Real-world asset (RWA) vaults",
         heading_id="best-performing-rwa-vaults",
         subject="the best-performing RWA vaults",
-        description="Vaults investing in, lending against or financing real-world assets, such as private credit, trade finance and royalties, identified by their strategy",
+        description="Identified by their strategy; RWA vaults without a strategy tag are ranked with lending or other vaults",
         intro=f'<p>Vaults that invest in, lend against or finance <a href="{GLOSSARY_URL}/rwa">real-world assets</a>, such as private credit, trade finance and royalties. See all <a href="{VAULTS_URL}/strategies/rwa">RWA vaults</a>.</p>',
     ),
     BestSection(
@@ -169,7 +169,7 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by return",
         heading_id="best-performing-perp-dex-vaults",
         subject="the best-performing perp DEX vaults",
-        description="Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults",
+        description="",
         intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which make markets, provide liquidity or trade. Their returns are volatile, so they are compared with BTC and ETH rather than the T-bill. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
         benchmark="BTC and ETH",
     ),
@@ -179,7 +179,7 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by Sharpe ratio",
         heading_id="best-performing-perp-dex-vaults-by-sharpe",
         subject="perp DEX vaults with the best Sharpe ratio",
-        description="The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones",
+        description="",
         intro=f'<p>The same vaults ranked by their three-month <a href="{GLOSSARY_URL}/sharpe">Sharpe ratio</a>, the return per unit of volatility. The ranking rewards steady returns over high but volatile ones; see <a href="{GLOSSARY_URL}/risk-adjusted-return">risk-adjusted return</a>.</p>',
         benchmark="BTC and ETH",
         metric="three_months_sharpe_best",
@@ -192,7 +192,7 @@ BEST_SECTIONS = (
         heading="Other vaults",
         heading_id="best-performing-other-vaults",
         subject="other best-performing vaults",
-        description="Yield aggregators, trading and other vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults",
+        description="Vaults that are not lending, RWA, perp DEX, AMM or tokenised fund vaults",
         intro=f'<p>Yield aggregators, trading and other vaults outside the groups above. Browse the vaults by <a href="{VAULTS_URL}/strategies">strategy</a>.</p>',
     ),
     BestSection(
@@ -201,7 +201,7 @@ BEST_SECTIONS = (
         heading="AMM pools",
         heading_id="best-performing-amm-pools",
         subject="the best-performing AMM pools",
-        description="GMX GM and GLV pools and the Curve-based YieldBasis pools: their returns include the price moves of the pooled assets, so they are ranked separately",
+        description="",
         intro=f'<p><a href="{GLOSSARY_URL}/amm">AMM</a> liquidity pools, such as GMX GM and GLV pools and YieldBasis pools, earn trading fees, but their returns also move with the prices of the pooled crypto assets. See all <a href="{VAULTS_URL}/strategies/amm">AMM vaults</a>.</p>',
         show_min_tvl=True,
     ),
@@ -211,7 +211,7 @@ BEST_SECTIONS = (
         heading="Tokenised funds",
         heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
-        description="Traditional money market, treasury and credit funds brought onchain",
+        description="",
         intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p>',
         show_min_tvl=True,
         link="tradingstrategy.ai/vaults/funds",
@@ -272,7 +272,7 @@ SECTION_TEMPLATES = (
         key="tvl_changes",
         heading_id="inflows-and-outflows",
         heading="Inflows and outflows",
-        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. See the <a href="{VAULTS_URL}/high-tvl">largest vaults</a> for their current TVL.</p>',
+        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. The <a href="{VAULTS_URL}/high-tvl">high TVL vaults</a> page ranks the vaults with at least $2M TVL.</p>',
         charts=(
             ("tvl_changes", "The largest vault TVL increases and decreases over the last 30 days"),
             ("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),
