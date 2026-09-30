@@ -32,7 +32,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
-from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, format_tvl, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
+from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_tvl, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_risk_return_vaults, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
 from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
@@ -1121,3 +1121,15 @@ def test_format_tvl():
     assert format_tvl(999_700) == "$1.0M"
     assert format_tvl(36_500_000_000) == "$36.5B"
     assert format_tvl(float("nan")) == "---"
+
+
+def test_risk_return_chart_has_perp_dex_category_and_no_vault_labels(vaults_df: pd.DataFrame):
+    """Perp DEX vaults are in the risk and return chart as one Perpetual futures category, and no vault is labelled."""
+    criteria = ReportCriteria()
+    vaults = select_risk_return_vaults(select_comparable_vaults(filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)), criteria)
+    perp = vaults.loc[vaults["group"] == PERP_DEX]
+    assert len(perp) and all(tags[0] == "perpetual_futures" for tags in perp["strategy_tags"])
+    moving = vaults.assign(three_months_volatility=0.05, three_months_cagr_best=0.1)
+    figure = create_risk_return_figure(moving, {"perpetual_futures": "Perpetual futures"}, DARK_THEME, max_return=4.0, benchmark_yield=0.04)
+    assert any(trace.name.startswith("Perpetual futures") for trace in figure.data)
+    assert [annotation.text for annotation in figure.layout.annotations] == ["US 3M T-bill 4.0%"]

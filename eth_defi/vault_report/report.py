@@ -87,6 +87,7 @@ from eth_defi.vault_report.sections import (
     select_comparable_vaults,
     select_group,
     select_new_vaults,
+    select_risk_return_vaults,
     select_tvl_history_vaults,
     select_vaults_by_chain,
     select_yield_vaults,
@@ -757,10 +758,10 @@ def render_report_charts(
             ),
         )
 
-    risk_return_vaults = select_moving_vaults(exclude_chart_risks(yield_universe, criteria))
+    risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(ranked_df, criteria), criteria))
     figures["risk_return"] = (
         create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
-        ChartPanel("Volatility risk and return of stablecoin yield vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
+        ChartPanel("Volatility risk and return of stablecoin vaults", f"{len(risk_return_vaults)} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
     )
 
     chart_dir = output_dir / "charts"

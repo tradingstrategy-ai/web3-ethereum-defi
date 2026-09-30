@@ -1099,7 +1099,6 @@ def create_risk_return_figure(
     theme: ChartTheme,
     max_return: float,
     benchmark_yield: float | None = None,
-    label_count: int = 4,
 ) -> Figure:
     """Draw a risk/return bubble scatter of vaults.
 
@@ -1111,10 +1110,8 @@ def create_risk_return_figure(
     drawn as triangles on the edge they fall beyond, in one "Off scale" legend
     entry. Large bubbles are drawn first and are translucent, so small vaults
     on top of them stay visible. Unclassified vaults are drawn in a neutral
-    colour, so classified strategies stand out.
-
-    Labels mark the highest-returning and the largest vaults, stacked
-    vertically so they do not overlap.
+    colour, so classified strategies stand out. Vaults are not labelled: the
+    chart shows strategy categories, not individual vaults.
 
     :param vaults_df:
         Vaults with ``three_months_volatility``, ``three_months_cagr_best``,
@@ -1131,9 +1128,6 @@ def create_risk_return_figure(
 
     :param benchmark_yield:
         Latest US Treasury bill yield as a fraction, drawn as a reference line.
-
-    :param label_count:
-        Number of highest-returning and of largest vaults labelled directly.
 
     :return:
         Plotly figure.
@@ -1196,34 +1190,6 @@ def create_risk_return_figure(
         margin=margin,
         legend={"font": {"size": 17, "color": theme.text}, "x": 1.02, "y": 1, "xanchor": "left", "itemsizing": "constant", "title": {"text": "Strategy", "font": {"color": theme.text}}},
     )
-
-    # Labels for the highest-returning and the largest vaults, stacked so they do not overlap
-    plot_width, plot_height = IMAGE_WIDTH - margin["l"] - margin["r"], 900 - margin["t"] - margin["b"]
-    top_returns = on_scale.nlargest(label_count, "y")
-    largest = on_scale.nlargest(label_count, "current_nav")
-    labelled = pd.concat([top_returns, largest])
-    labelled = labelled.loc[~labelled.index.duplicated()]
-    # The largest vaults sit in the dense middle, so their labels are pulled further out of it
-    in_cluster = set(largest.index) - set(top_returns.index)
-    placed: list[float] = []
-    for vault_id, vault in labelled.assign(py=lambda d: (d["y"] - y_range[0]) / (y_range[1] - y_range[0]) * plot_height).sort_values("py", ascending=False).iterrows():
-        px = (np.log10(vault["x"]) - x_range[0]) / (x_range[1] - x_range[0]) * plot_width
-        label_y = vault["py"] if not placed else min(vault["py"], placed[-1] - 30)
-        placed.append(label_y)
-        right = px < plot_width * 0.7
-        fig.add_annotation(
-            x=np.log10(vault["x"]),
-            y=vault["y"],
-            text=plain_text(shorten_text(vault["name"] or vault["address"], 26)),
-            showarrow=True,
-            arrowcolor=theme.axis,
-            arrowwidth=1,
-            ax=(180 if vault_id in in_cluster else 60) * (1 if right else -1),
-            ay=vault["py"] - label_y,
-            xanchor="left" if right else "right",
-            font={"size": 15, "color": theme.text},
-            bgcolor=to_rgba(theme.surface, 0.75),
-        )
 
     # Decade ticks with a percent sign, instead of Plotly's unlabelled 2 and 5 minor ticks
     x_ticks = [10.0**power for power in range(int(np.floor(x_range[0])), int(np.ceil(x_range[1])) + 1) if x_range[0] <= power <= x_range[1]]

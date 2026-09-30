@@ -109,7 +109,7 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
 | 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
 | 5.3 | ↳ Yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
-| 6 | Risk and return | Chart titled *Volatility risk and return*: a bubble scatter of 3M volatility against 3M return for the yield vaults. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
+| 6 | Risk and return | Chart titled *Volatility risk and return of stablecoin vaults*: a bubble scatter of 3M volatility against 3M return for the yield vaults and the perp DEX vaults, coloured by strategy, with all perp DEX vaults as one *Perpetual futures* category. Vaults are not labelled. Both axes fit the 1st–99th percentile of vaults, with outliers as edge triangles; vaults with no share price movement are left out | — |
 | 7 | Vaults and tokenised funds TVL | — | — |
 | 7.1 | ↳ Stablecoin TVL by DeFi vault protocol | Stacked weekly TVL over 12 months, the 7 largest protocols and Other; tokenised funds excluded | ✏️ Comment on the trend |
 | 7.2 | ↳ Stablecoin TVL by blockchain | Stacked weekly TVL over 12 months of the same DeFi vaults, the 7 largest blockchains and Other; tokenised funds excluded | ✏️ Comment on the trend |
@@ -192,7 +192,9 @@ them; keep them when changing the templates in `post.py` or the notes in
   protocol and chain with icons; the chain is left out when it belongs to the
   protocol, e.g. Hyperliquid vaults. Benchmarks take one row: logo, name,
   value.
-- The risk and return chart is titled *Volatility risk and return*.
+- The risk and return chart is titled *Volatility risk and return of stablecoin
+  vaults*. It shows strategy categories, never individual vault names, and
+  includes the perp DEX vaults as one *Perpetual futures* category.
 - *Vaults on each chain* names the two best vaults on each chain.
 - Inflows and outflows leave out blacklisted and excluded vaults.
 

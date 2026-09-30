@@ -180,7 +180,7 @@ short, the post has:
 - average yield: dot plots for the 10 largest protocols by TVL, the 10
   highest-yielding protocols with at least $150k TVL and the 10 largest
   blockchains, against the T-bill;
-- a risk and return scatter;
+- a risk and return scatter of the yield and perp DEX vaults by strategy;
 - vaults and tokenised funds TVL: stablecoin TVL by DeFi vault protocol and by
   blockchain and stablecoin NAV by tokenised fund over 12 months, and last the
   inflows and outflows, the largest 30-day TVL changes in dollars, by vault and

@@ -446,7 +446,7 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
 def select_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Stablecoin yield vaults: every group except perpetual futures DEX vaults.
 
-    Used for the hero image and the Treasury bill caption.
+    Used for the hero image and as the base of :py:func:`select_risk_return_vaults`.
 
     :param eligible_df:
         Output of :py:func:`filter_eligible_vaults`.
@@ -460,6 +460,29 @@ def select_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> 
     df = eligible_df
     mask = (df["group"] != PERP_DEX) & (df["current_nav"] >= criteria.min_tvl) & ((df["event_count"] >= criteria.min_events) | (df["group"] == TOKENISED_FUND))
     return rank_vaults(df.loc[mask])
+
+
+def select_risk_return_vaults(ranked_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Vaults of the risk and return chart: the yield vaults and the perp DEX vaults.
+
+    Perp DEX vaults need the table TVL minimum but no deposit events, like
+    their tables. Every perp DEX vault is tagged ``perpetual_futures`` first,
+    so the chart shows them as one *Perpetual futures* category whatever
+    their trading style.
+
+    :param ranked_df:
+        Comparable vaults, AMM pools already left out unless included.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Vaults, best first.
+    """
+    is_perp = (ranked_df["group"] == PERP_DEX) & (ranked_df["current_nav"] >= criteria.min_tvl)
+    perp = ranked_df.loc[is_perp].copy()
+    perp["strategy_tags"] = perp["strategy_tags"].apply(lambda tags: ["perpetual_futures", *[tag for tag in (tags if isinstance(tags, list) else []) if tag != "perpetual_futures"]])
+    return rank_vaults(pd.concat([select_yield_vaults(ranked_df, criteria), perp]))
 
 
 def select_new_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:

@@ -274,7 +274,7 @@ SECTION_TEMPLATES = (
         heading_id="risk-and-return",
         heading="Risk and return",
         intro=f'<p>Higher returns usually come with higher <a href="{GLOSSARY_URL}/volatility">volatility</a>. Vaults above and to the left of the crowd offer better returns for their risk. The <a href="{VAULTS_URL}/yield-risk">vault yield and risk</a> chart compares the returns of all vaults with their risk ratings.</p>',
-        charts=(("risk_return", "Risk and return of stablecoin yield vaults"),),
+        charts=(("risk_return", "Volatility risk and return of stablecoin vaults by strategy"),),
     ),
     SectionTemplate(
         key="tvl",
