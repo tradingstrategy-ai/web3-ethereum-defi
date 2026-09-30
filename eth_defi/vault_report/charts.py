@@ -137,6 +137,9 @@ class LegendEntry:
     #: Curator, protocol and chain drawn with their icons under the label
     properties: tuple[VaultProperty, ...] = ()
 
+    #: Keep the stacked layout in a split legend, e.g. for benchmarks, see :py:func:`add_logo_legend`
+    stacked: bool = False
+
 
 def to_rgba(colour: str, alpha: float) -> str:
     """Convert ``#rrggbb`` to a CSS ``rgba()`` colour.
@@ -361,16 +364,17 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     layouts = []
     widest = 0.0
     # In the split layout the properties column starts after the widest detail, so the columns line up across entries
-    detail_column = max((_measure_text(re.sub("<[^>]+>", "", entry.detail), 17) for entry in entries if entry.detail), default=0.0) + 24 if split else 0.0
+    split_entries = [entry for entry in entries if split and not entry.stacked]
+    detail_column = max((_measure_text(re.sub("<[^>]+>", "", entry.detail), 17) for entry in split_entries if entry.detail), default=0.0) + 24
     # Stacked properties share one icon slot, as wide as the widest icon, so their texts line up
-    icon_slot = max((prop.icon_size[0] for entry in entries for prop in entry.properties if prop.logo_uri), default=0.0)
+    icon_slot = max((prop.icon_size[0] for entry in split_entries for prop in entry.properties if prop.logo_uri), default=0.0)
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
-        # A zero width puts every property on a row of its own
-        property_rows = layout_properties(entry.properties, 0 if split else text_width) if entry.properties else []
+        entry_split = split and not entry.stacked
+        property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
         property_widths = [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths = [_measure_text(line, 17, bold=True) for line in lines]
-        if split:
+        if entry_split:
             height = len(lines) * line_pixels + max(line_pixels if entry.detail else 0, len(entry.properties) * PROPERTY_ROW_HEIGHT)
             widths += [detail_column + icon_slot + PROPERTY_ICON_GAP + _measure_text(prop.text) for prop in entry.properties]
         else:
@@ -413,11 +417,12 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         label = "<br>".join(f"<b>{plain_text(line)}</b>" for line in lines)
         fig.add_annotation(text=label, xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
+        entry_split = split and not entry.stacked
         if entry.detail:
             fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
-            if not split:
+            if not entry_split:
                 cursor -= line_pixels / plot_height
-        if entry.properties and split:
+        if entry.properties and entry_split:
             properties_x = text_x + detail_column / plot_width
             for i, prop in enumerate(entry.properties):
                 centre = cursor - (i + 0.5) * PROPERTY_ROW_HEIGHT / plot_height
@@ -710,7 +715,7 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
         # Benchmark logos use the same small icon row as the vaults' curator, protocol and chain
-        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=highlight_number(describe(performance), theme, performance.iloc[-1]), properties=(VaultProperty("Benchmark", logo),)))
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=highlight_number(describe(performance), theme, performance.iloc[-1]), properties=(VaultProperty("Benchmark", logo),), stacked=True))
         # The line end shows the benchmark logo and value; the name is only needed without a logo
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))

@@ -995,10 +995,12 @@ def test_split_legend_layout():
     entries = [
         LegendEntry("1. Vault A", "#ff0000", detail="224.46", properties=(VaultProperty("Curator", icon, 1.0), VaultProperty("Protocol", icon, 2.0))),
         LegendEntry("2. Vault B", "#00ff00", detail="7.2", properties=(VaultProperty("Chain", icon, 1.0),)),
+        LegendEntry("BTC", "#999999", detail="3.35", properties=(VaultProperty("Benchmark", icon, 1.0),), stacked=True),
     ]
     add_logo_legend(fig, entries, DARK_THEME, split=True)
     annotations = {annotation.text: annotation for annotation in fig.layout.annotations}
     assert annotations["Curator"].x > annotations["224.46"].x  # Right of the detail
     assert annotations["Curator"].x == annotations["Protocol"].x == annotations["Chain"].x  # One column, texts aligned
     assert annotations["Curator"].y > annotations["Protocol"].y  # Stacked
+    assert annotations["Benchmark"].x < annotations["Chain"].x and annotations["Benchmark"].y < annotations["3.35"].y  # Benchmarks stay stacked
     assert annotations["224.46"].y == pytest.approx(annotations["Curator"].y + 22 / 2 / (600 - 40) - 21 / 2 / (600 - 40), abs=0.02)  # Same row
