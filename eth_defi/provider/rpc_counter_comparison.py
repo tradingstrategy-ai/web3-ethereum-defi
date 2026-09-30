@@ -18,6 +18,8 @@ def fetch_rpc_counter_window(path: Path, start: datetime.date, end: datetime.dat
     their completed-cycle denominator is deliberately unavailable. Outcome
     counts deduplicate each status within a cycle; a retried cycle may appear
     under both failed and completed. They are not individual attempt counts.
+    Windows filter stored UTC cycle-start dates, not individual request times;
+    snapshot after the included cycles finish.
 
     :param path: Existing checkpointed DuckDB snapshot.
     :param start: Inclusive UTC date.

@@ -242,7 +242,7 @@ token/mapping cache retry, bounded Monad capability measurements and guarded
 manual backfills when publication progress is outstanding. Event discovery
 requires Hypersync and refuses JSON-RPC event fallback.
 
-Local verification after rebase and the first final review: 108 focused tests passed across counter maintenance,
+Local verification after rebase and the first final review: 118 focused tests passed across counter maintenance,
 request accounting, price freshness, reader state, admission/metadata batches,
 queue recovery, discovery caching, timestamp accounting, chain configuration
 and Monad retention. Ruff formatting and changed-file import/undefined-name
@@ -268,5 +268,15 @@ still fail visibly. Documentation now names all common baseline changes and
 migration periods. Broad classifier invalidations are logged, repeated lead-map
 rebuilds are removed, and explicit historical metadata blocks stay pinned.
 The reader-state guide no longer recommends deleting critical state, and its
-helper supports current dictionaries and legacy objects. Final closure review
-and PR publication remain pending at this revision.
+helper supports current dictionaries and legacy objects. The frozen closure review approved with a required narrow fix for the production
+fallback provider's error wrappers and noted a failed-reclassification provenance
+edge case. Both were fixed with actual ``ExtraValueError`` and
+``ProbablyNodeHasNoBlock`` regression coverage. The final bounded Opus 5.5
+review of that delta returned **no blocking findings; both resolved** on
+2026-09-30. It inspected the correct worktree and non-empty committed diff and
+completed with a successful result. This closes the earlier findings; it is not
+a claim that every unrelated retry or provider path was exhaustively reviewed.
+
+Comparison windows use recorded UTC cycle-start dates, not individual request
+execution timestamps. Long scans can cross midnight; take snapshots after the
+included cycles finish and check completion logs before comparing windows.

@@ -3663,7 +3663,10 @@ docker compose up -d vault-scanner-looped
 ```
 
 Use the actual filenames printed by the script. Compare explicit complete UTC
-windows; each end date is exclusive. For example, a seven-day healthy baseline
+windows; each end date is exclusive. The stored date is the cycle-start date,
+not the execution timestamp of each request. Long scans can cross midnight;
+ensure the included cycles finished before taking a comparison snapshot.
+For example, a seven-day healthy baseline
 and a 14-day optimised window after a seven-day migration period:
 
 ```shell
