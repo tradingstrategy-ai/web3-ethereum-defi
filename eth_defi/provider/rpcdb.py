@@ -7,6 +7,7 @@ providers, and persists the aggregate with :class:`RPCUsageDatabase`.
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import threading
 from collections import Counter
@@ -96,6 +97,12 @@ class RPCRequestStats:
     #: Provider-domain, error-code and error-message counts.
     errors: Counter[tuple[str, str, str]] = field(default_factory=Counter)
 
+    #: Additional breakdown of calls; never added to physical totals.
+    operation_calls: Counter[tuple[str, str, str]] = field(default_factory=Counter)
+
+    #: Label applied to new physical attempts through this accumulator.
+    operation: str = "unclassified"
+
     #: Synchronises counter updates between worker threads.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
 
@@ -115,6 +122,7 @@ class RPCRequestStats:
         assert count > 0, f"Count must be positive: {count}"
         with self._lock:
             self.calls[rpc_provider_domain, str(api_call)] += count
+            self.operation_calls[self.operation, rpc_provider_domain, str(api_call)] += count
 
     def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
         """Record JSON-RPC request failures.
@@ -144,9 +152,12 @@ class RPCRequestStats:
 
         assert isinstance(other, RPCRequestStats), f"Expected RPCRequestStats, got {type(other)}"
         other_calls, other_errors = other.export()
+        with other._lock:
+            operations = other.operation_calls.copy()
         with self._lock:
             self.calls.update(other_calls)
             self.errors.update(other_errors)
+            self.operation_calls.update(operations)
 
     def export(self) -> tuple[Counter[tuple[str, str]], Counter[tuple[str, str, str]]]:
         """Take a detached copy of both counter mappings.
@@ -159,18 +170,20 @@ class RPCRequestStats:
         with self._lock:
             return self.calls.copy(), self.errors.copy()
 
-    def __getstate__(self) -> tuple[dict[tuple[str, str], int], dict[tuple[str, str, str], int]]:
+    def __getstate__(self) -> tuple[Any, ...]:
         """Serialise counters without the non-pickleable thread lock."""
 
-        calls, errors = self.export()
-        return dict(calls), dict(errors)
+        with self._lock:
+            return dict(self.calls), dict(self.errors), dict(self.operation_calls), self.operation
 
-    def __setstate__(self, state: tuple[dict[tuple[str, str], int], dict[tuple[str, str, str], int]]) -> None:
+    def __setstate__(self, state: tuple[Any, ...]) -> None:
         """Restore counters and create a process-local thread lock."""
 
-        calls, errors = state
+        calls, errors = state[:2]
         self.calls = Counter(calls)
         self.errors = Counter(errors)
+        self.operation_calls = Counter(state[2]) if len(state) > 2 else Counter()
+        self.operation = state[3] if len(state) > 3 else "unclassified"
         self._lock = threading.Lock()
 
 
@@ -228,6 +241,14 @@ class RPCUsageDatabase:
             )
         """)
 
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS vault_rpc_operation_calls (
+                chain INTEGER, phase VARCHAR, operation VARCHAR, api_call VARCHAR,
+                cycle_started DATE, cycle_number INTEGER, rpc_provider_domain VARCHAR,
+                call_count UBIGINT, items_scanned INTEGER, outcome VARCHAR, metrics VARCHAR
+            )
+        """)
+
     def _require_connection(self) -> duckdb.DuckDBPyConnection:
         """Return the open connection or fail after explicit close.
 
@@ -272,6 +293,7 @@ class RPCUsageDatabase:
         cycle_number: int,
         stats: RPCRequestStats,
         items_scanned: int,
+        metrics: dict | None = None,
     ) -> None:
         """Append one completed scan-attempt aggregate atomically.
 
@@ -292,6 +314,8 @@ class RPCUsageDatabase:
             Physical request and error counters for this attempt only.
         :param items_scanned:
             Non-negative number of logical items submitted during the attempt.
+        :param metrics:
+            Optional phase diagnostics stored only in the separate detail table.
         """
 
         assert chain > 0, f"Invalid EVM chain id: {chain}"
@@ -320,8 +344,19 @@ class RPCUsageDatabase:
                     "INSERT INTO vault_rpc_api_errors VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     error_rows,
                 )
+            with stats._lock:
+                detail_rows = [(chain, phase, operation, method, cycle_started, cycle_number, provider, count, items_scanned, None, None) for (operation, provider, method), count in sorted(stats.operation_calls.items())]
+            if metrics and metrics.get("error"):
+                outcome = "failed"
+            elif metrics and (metrics.get("pending_candidates") or metrics.get("reader_unavailable") or metrics.get("low_activity_unverified") or metrics.get("overdue_vaults") or metrics.get("denomination_unavailable_vaults")):
+                outcome = "degraded"
+            else:
+                outcome = "completed"
+            safe_metrics = {key: value for key, value in (metrics or {}).items() if key not in {"error", "traceback"}}
+            detail_rows.append((chain, phase, "outcome", ZERO_CALL_MARKER, cycle_started, cycle_number, ZERO_CALL_MARKER, 0, items_scanned, outcome, json.dumps(safe_metrics, default=str)))
+            connection.executemany("INSERT INTO vault_rpc_operation_calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", detail_rows)
             connection.execute("COMMIT")
-        except duckdb.Error:
+        except BaseException:
             connection.execute("ROLLBACK")
             raise
 

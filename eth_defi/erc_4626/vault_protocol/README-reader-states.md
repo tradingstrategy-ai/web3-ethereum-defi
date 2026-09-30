@@ -10,8 +10,10 @@ Some vault contracts have methods that:
 - Use excessive gas (e.g., 36M gas for a single call)
 - Are not implemented in certain vault types
 
-The warmup system detects these issues before running historical price scans
-and stores the results in persistent reader state files.
+The optional warmup helper records per-call outcomes in persistent reader state.
+The common historical scanner currently **does not run warmup automatically**:
+its `_run_warmup()` invocation is disabled. An absent outcome means unchecked,
+not healthy. Individual readers handle unavailable contract methods during scans.
 
 ## How it works
 
@@ -23,7 +25,10 @@ Each vault has a [`VaultReaderState`](../vault.py) that tracks:
 - Latest and highest estimated USD TVL, from which the live price-row policy
   derives eligibility (enter at $1,500; leave below $1,000)
 
-The state is persisted to `~/.tradingstrategy/vaults/reader-state.pickle`.
+The all-chain scanner stores serialised state dictionaries keyed by `VaultSpec`
+in `~/.tradingstrategy/vaults/vault-reader-state-1h.pickle`, or the directory
+selected by `PIPELINE_DATA_DIR`. The single-chain price script uses
+`reader-state.pickle` by default and accepts `READER_STATE_DATABASE`.
 
 ## TVL limits and row freshness
 
@@ -41,15 +46,12 @@ observed TVL for eligibility; it cannot establish the vault's current TVL.
 
 ### 2. Warmup phase
 
-Before running historical scans, `scan-prices.py` runs the warmup via `VaultHistoricalReadMulticaller._run_warmup()`:
+`VaultHistoricalReadMulticaller._run_warmup()` remains available for explicit
+checks, but its invocation inside `read_historical()` is commented out.
+Enabling it broadly would add individual RPC reads for untested calls; assess
+that cost and transient-failure handling before changing the scanner.
 
-```python
-# Inside read_historical():
-if stateful:
-    self._run_warmup(readers, end_block)
-```
-
-The warmup:
+When explicitly invoked, warmup:
 1. Gets each reader's supported calls via `get_warmup_calls()`
 2. Checks which calls haven't been tested yet
 3. Tests each untested call individually
@@ -66,28 +68,17 @@ if not self.should_skip_call("maxDeposit"):
 
 ### 4. Examining reader states
 
-Use the helper script to see which calls are broken:
+Use the read-only helper to report **recorded** failures. Its default is the
+all-chain state file; set `READER_STATE_PATH` for a single-chain or legacy file.
+Both current dictionary states and legacy reader objects are supported:
 
 ```bash
 poetry run python scripts/erc-4626/check-reader-states.py
 ```
 
-Output example:
-```
-Loaded 1234 reader states from ~/.tradingstrategy/vaults/reader-state.pickle
-
-Total calls checked across all vaults: 4936
-
-Found 3 broken calls:
-
-+----------+---------------+-------------+--------------------+
-| Chain    | Vault         | Function    | Detected at Block  |
-+----------+---------------+-------------+--------------------+
-| Plasma   | 0xa9C251F8... | maxDeposit  | 12,345,678         |
-| Plasma   | 0xa9C251F8... | totalAssets | 12,345,678         |
-| Arbitrum | 0x1234...     | getLiquidity| 98,765,432         |
-+----------+---------------+-------------+--------------------+
-```
+The report includes full vault addresses, recorded check blocks and counts by
+chain. No recorded failures does not certify unchecked calls. The script makes
+no RPC requests and does not modify reader progress.
 
 ## Supported calls by reader type
 
@@ -133,32 +124,21 @@ so network issues can cause false positives.
 
 ### A call was incorrectly marked as broken
 
-Delete the reader state file and re-run the scan:
-```bash
-rm ~/.tradingstrategy/vaults/reader-state.pickle
-```
+Preserve the reader-state file. Losing it can restart a historical scan from
+deployment and replace existing price rows; old Monad values may be impossible
+to reconstruct. Back up the state using the normal pipeline backup process and
+stop all writers before an address-scoped repair under the `scan-pipeline` lock.
+Remove only the affected entry in that vault's `call_status` mapping, preserving
+its block cursor and all other state. Publish the repaired pickle atomically.
+Current states are dictionaries; older files may contain reader objects.
 
-Or manually edit using Python:
-```python
-import pickle
-from pathlib import Path
-
-path = Path.home() / ".tradingstrategy/vaults/reader-state.pickle"
-with open(path, "rb") as f:
-    states = pickle.load(f)
-
-# Fix a specific vault
-key = (9745, "0xa9C251F8304b1B3Fc2b9e8fcae78D94Eff82Ac66".lower())
-if key in states:
-    states[key].call_status.pop("maxDeposit", None)
-
-with open(path, "wb") as f:
-    pickle.dump(states, f)
-```
+A targeted current-state check should establish whether the method actually
+reverts before repairing an old outcome. Do not automatically treat a transport
+failure as a deterministic contract failure.
 
 ## Known problematic vaults
 
-| Chain | Vault Address | Function | Issue |
+| Chain | Vault address | Function | Issue |
 |-------|---------------|----------|-------|
 | Plasma | 0xa9C251F8304b1B3Fc2b9e8fcae78D94Eff82Ac66 | maxDeposit | Uses 36M gas (entire block limit) |
 

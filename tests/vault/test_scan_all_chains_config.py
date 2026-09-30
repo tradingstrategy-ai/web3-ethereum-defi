@@ -165,3 +165,11 @@ def test_cycle_state_is_provenance_stamped_and_reads_legacy_format(
 
     path.write_text(json.dumps(state))
     assert scan_all_chains.load_cycle_state(path) == state
+
+
+@pytest.mark.parametrize("name", ["Hemi", "Katana"])
+def test_missing_hypersync_chain_keeps_price_scanning(name: str) -> None:
+    """Chains without a configured event indexer explicitly retain price scans."""
+    config = next(config for config in build_chain_configs() if config.name == name)
+    assert config.scan_vaults is False
+    assert config.scan_prices is True

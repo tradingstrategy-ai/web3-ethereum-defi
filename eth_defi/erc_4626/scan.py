@@ -16,14 +16,20 @@ from web3.types import BlockIdentifier
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
+from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
+from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultBase, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
+from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
+from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
 
 logger = logging.getLogger(__name__)
 
@@ -293,12 +299,24 @@ def _fetch_lending_stats(
         "_utilisation": None,
     }
 
-    if not is_lending_protocol(detection.features) or total_assets is None or total_assets <= ACTIVITY_STATUS_MIN_NAV:
+    if not is_lending_protocol(detection.features):
+        return stats
+    if total_assets is None:
+        stats["_lending_fields_unavailable"] = list(stats)
+        return stats
+    if total_assets <= ACTIVITY_STATUS_MIN_NAV:
         return stats
 
-    stats["_available_liquidity"] = _best_effort_vault_read(lambda: vault.fetch_available_liquidity(block_identifier))
-    stats["_utilisation"] = _best_effort_vault_read(lambda: vault.fetch_utilisation_percent(block_identifier))
+    snapshot_reader = getattr(vault, "fetch_lending_snapshot", None)
+    if snapshot_reader is not None and rpc_optimisations_enabled():
+        snapshot = _best_effort_vault_read(lambda: snapshot_reader(total_assets, block_identifier))
+        if snapshot is not None:
+            stats["_available_liquidity"], stats["_utilisation"] = snapshot
+    else:
+        stats["_available_liquidity"] = _best_effort_vault_read(lambda: vault.fetch_available_liquidity(block_identifier))
+        stats["_utilisation"] = _best_effort_vault_read(lambda: vault.fetch_utilisation_percent(block_identifier))
 
+    stats["_lending_fields_unavailable"] = [key for key, value in stats.items() if value is None]
     return stats
 
 
@@ -334,6 +352,7 @@ def create_vault_scan_record(
     detection: ERC4262VaultDetection,
     block_identifier: BlockIdentifier,
     token_cache: TokenDiskCache,
+    metadata_snapshot: dict | None = None,
 ) -> dict:
     """Create a row in the result table.
 
@@ -373,18 +392,29 @@ def create_vault_scan_record(
         "_share_price_source": None,
     }
 
-    vault = create_vault_instance(
-        web3,
-        detection.address,
-        detection.features,
-        token_cache=token_cache,
-        default_block_identifier=block_identifier,
-        current_deposit_permission=getattr(detection, "current_deposit_permission", None),
-    )
+    try:
+        vault = create_vault_instance(
+            web3,
+            detection.address,
+            detection.features,
+            token_cache=token_cache,
+            default_block_identifier=block_identifier,
+            current_deposit_permission=getattr(detection, "current_deposit_permission", None),
+        )
+    except (UnsupportedVaultVersion, Web3Exception, RequestException) as error:
+        if not isinstance(error, UnsupportedVaultVersion) and not is_contract_read_failure(error):
+            raise
+        logger.warning("Metadata deferred for %s: %s", detection.address, error)
+        empty_record["Name"] = f"<broken: {type(error).__name__}>"
+        empty_record["_rpc_failure_category"] = "unsupported"
+        return empty_record
 
     if vault is None:
         # Probably not ERC-4626
         return empty_record
+
+    if isinstance(vault, ERC4626Vault) and metadata_snapshot and metadata_snapshot.get("block") == block_identifier:
+        vault._rpc_metadata_snapshot = metadata_snapshot
 
     try:
         try:
@@ -502,6 +532,7 @@ def create_vault_scan_record(
         #  When calling method: eth_call({'to': '0x463DE7D52bF7C6849ab3630Bb6F999eA0e03ED9F', 'from': '0x0000000000000000000000000000000000000000', 'data': '0x31ee80ca', 'gas': '0x1312d00'}, '0x15259fb')
         record = empty_record.copy()
         record["Name"] = f"<broken: {e.__class__.__name__}>"
+        record["_rpc_failure_category"] = classify_rpc_scan_failure(e)
         logger.warning(
             "Could not read %s %s (%s): %s - %s",
             vault.__class__.__name__,
@@ -522,38 +553,54 @@ def create_vault_scan_record_subprocess(
     web3factory: Web3Factory,
     detection: ERC4262VaultDetection,
     block_number: int,
+    metadata_snapshot: dict | None = None,
+    current_state: bool = False,
 ) -> dict:
-    """Process remaining vault data reads using multiprocessing
+    """Read one metadata candidate using a reusable worker connection.
 
-    - Runs in a subprocess
-    - See :py:func:`create_vault_scan_record`
-    - Because ``Vault`` classes does reads using Python instance objects in serial manner,
-      we want to speed up by doing many vaults parallel
+    Worker-local connections and token caches serve threaded or process callers.
+    Explicit historical blocks stay pinned; current HyperEVM reads refresh the
+    safe head to stay inside its short execution window.
+
+    :param web3factory: Phase-owned factory with optional request accounting.
+    :param detection: Classified vault candidate.
+    :param block_number: Numeric source block, preserved for historical callers.
+    :param metadata_snapshot: Optional raw inputs at the same source block.
+    :param current_state: Permit a fresh HyperEVM head for live metadata only.
+    :return: Metadata row from :py:func:`create_vault_scan_record`.
     """
 
     assert isinstance(detection, ERC4262VaultDetection), f"Expected ERC4262VaultDetection, got {type(detection)}"
 
     # We need to build JSON-RPC connection separately in every thread/process
     web3 = getattr(_subprocess_web3_cache, "web3", None)
-    if web3 is None:
+    factory_identity = getattr(web3factory, "rpc_url", web3factory)
+    if web3 is None or getattr(_subprocess_web3_cache, "factory_identity", None) != factory_identity:
         web3 = _subprocess_web3_cache.web3 = web3factory()
+        _subprocess_web3_cache.factory_identity = factory_identity
 
     rpc_request_stats = getattr(web3factory, "rpc_request_stats", None)
+    metadata_stats = RPCRequestStats(operation="metadata") if rpc_request_stats is not None else None
     set_rpc_request_stats = getattr(web3, "set_rpc_request_stats", None)
     if callable(set_rpc_request_stats):
-        set_rpc_request_stats(rpc_request_stats)
+        set_rpc_request_stats(metadata_stats)
 
     token_cache = getattr(_subprocess_web3_cache, "token_cache", None)
     if token_cache is None:
         token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
 
     try:
+        if current_state and detection.chain == 999:
+            block_number = get_safe_cached_latest_block_number(web3, chain_id=999)
         return create_vault_scan_record(
             web3,
             detection,
             block_number,
             token_cache=token_cache,
+            **({"metadata_snapshot": metadata_snapshot} if metadata_snapshot is not None else {}),
         )
     finally:
         if callable(set_rpc_request_stats):
             set_rpc_request_stats(None)
+        if metadata_stats is not None:
+            rpc_request_stats.merge(metadata_stats)

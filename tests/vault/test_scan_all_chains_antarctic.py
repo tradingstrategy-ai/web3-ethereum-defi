@@ -134,7 +134,13 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
         with AntarcticHistoricalContextStore(tmp_path / "vault-historical-context.duckdb") as store:
             assert store.fetch_cursor(newest.pool_address)[1] == records[-1].block_number
         monkeypatch.setattr(scan_all_chains, "scan_historical_prices_to_parquet", writer)
+        # Persistent failure backoff defers an ordinary tick; an operator can
+        # explicitly retry the repaired writer without discarding source history.
+        deferred = scan_all_chains.run_scan_tick(**options)
+        assert deferred["Arbitrum"].status == "skipped"
+        monkeypatch.setenv("FORCE_RPC_RETRY", "true")
         recovered = scan_all_chains.run_scan_tick(**options)
+        monkeypatch.delenv("FORCE_RPC_RETRY")
         assert recovered["Arbitrum"].status == "success" and recovered["Arbitrum"].price_rows == 1
         with AntarcticHistoricalContextStore(tmp_path / "vault-historical-context.duckdb") as store:
             assert store.fetch_cursor(newest.pool_address)[1] is None

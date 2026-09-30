@@ -1,4 +1,4 @@
-"""Disk cache for immutable per-vault state.
+"""Bounded disk cache for current per-vault token relationships.
 
 Keeps ERC-4626 vault-level state (share token address, denomination/asset
 token address) out of :py:mod:`eth_defi.token`, which is reserved for ERC-20
@@ -10,18 +10,40 @@ extra config file to manage. Key prefixes ``vault-share-token-`` and
 ``vault-denomination-token-`` are distinct from the ERC-20 key format
 ``{chain_id}-{address.lower()}`` so there is no collision risk.
 
-Rationale: ERC-4626 share/asset token addresses are fixed at deployment time,
-so the lead scanner (:py:mod:`eth_defi.erc_4626.lead_scan_core`) can skip the
-``share()``/``asset()`` eth_calls on every loop iteration after the first.
+Relationships are refreshed at least weekly because proxies may change them.
+Legacy entries without observation provenance require one fresh read. Use
+``FORCE_VAULT_TOKEN_MAPPING_REFRESH=true`` to bypass the bounded cache.
 
 See :py:meth:`eth_defi.erc_4626.vault.ERC4626Vault.fetch_share_token_address`
 and :py:meth:`eth_defi.erc_4626.vault.ERC4626Vault.fetch_denomination_token_address`
 for the callers.
 """
 
+import datetime
+import os
 from typing import Any
 
 from eth_typing import HexAddress
+
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.provider.env import rpc_optimisations_enabled
+
+
+def _mapping_is_current(entry: dict | None) -> bool:
+    """Check bounded mapping provenance without changing legacy cache shapes.
+
+    Old cache entries without an observation time require one refresh. Proxy
+    relationships are never assumed permanently immutable.
+
+    :param entry: Cached mapping with optional checked-at timestamp.
+    :return: Whether it is safe to reuse for a current-state scan.
+    """
+    if not entry or os.environ.get("FORCE_VAULT_TOKEN_MAPPING_REFRESH", "false").lower() == "true":
+        return False
+    if not rpc_optimisations_enabled():
+        return True
+    checked_at = entry.get("checked_at")
+    return bool(checked_at) and native_datetime_utc_now() - datetime.datetime.fromisoformat(checked_at) < datetime.timedelta(days=7)
 
 
 def _vault_share_token_key(chain_id: int, vault_address: HexAddress) -> str:
@@ -62,7 +84,7 @@ def get_cached_vault_share_token_address(
     if cache is None:
         return None
     entry = cache.get(_vault_share_token_key(chain_id, vault_address))
-    return entry["address"] if entry else None
+    return entry["address"] if _mapping_is_current(entry) else None
 
 
 def set_cached_vault_share_token_address(
@@ -83,7 +105,7 @@ def set_cached_vault_share_token_address(
     """
     if cache is None:
         return
-    cache[_vault_share_token_key(chain_id, vault_address)] = {"address": share_token_address}
+    cache[_vault_share_token_key(chain_id, vault_address)] = {"address": share_token_address, "checked_at": native_datetime_utc_now().isoformat()}
 
 
 def get_cached_vault_denomination_token_address(
@@ -98,7 +120,7 @@ def get_cached_vault_denomination_token_address(
     if cache is None:
         return None
     entry = cache.get(_vault_denomination_token_key(chain_id, vault_address))
-    return entry["address"] if entry else None
+    return entry["address"] if _mapping_is_current(entry) else None
 
 
 def set_cached_vault_denomination_token_address(
@@ -114,4 +136,4 @@ def set_cached_vault_denomination_token_address(
     """
     if cache is None:
         return
-    cache[_vault_denomination_token_key(chain_id, vault_address)] = {"address": denomination_token_address}
+    cache[_vault_denomination_token_key(chain_id, vault_address)] = {"address": denomination_token_address, "checked_at": native_datetime_utc_now().isoformat()}

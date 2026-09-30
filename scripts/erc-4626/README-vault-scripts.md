@@ -384,10 +384,9 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
 | `LOG_LEVEL` | Optional. Default: WARNING. |
-| `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
-| `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
+| `SCAN_BACKEND` | Optional. `auto` or `hypersync`; both require Hypersync. `rpc` is rejected. |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
-| `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
+| `HYPERSYNC_API_KEY` | Required. API key for indexed event discovery. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
@@ -3523,3 +3522,191 @@ address, name, denomination token and failure reason. Successful rows appear
 first with `Ok` as their failure reason. A second table provides outcome counts
 and percentages. For a mined failed call, the separate **Revert reason** column
 contains the reason replayed on the temporary Anvil fork.
+
+## Reducing and measuring scanner RPC usage
+
+The [RPC reduction plan](../../docs/claude-plans/2026-09-30-vault-scanner-rpc-reduction.md)
+records the incident counts, six changes and acceptance criteria. The rollout
+switch controls the additional request reductions:
+
+| Setting | Behaviour |
+|---------|-----------|
+| `VAULT_RPC_OPTIMISATIONS=false` | Baseline with individual admission and metadata inputs, ordinary classification reads and probe timestamps. |
+| `VAULT_RPC_OPTIMISATIONS=true` | Cache successful node detection, omit unused timestamps, reuse bounded classification/metadata observations, schedule admission before construction, batch ordinary inputs, and reuse Morpho v1/IPOR lending reads. |
+
+Both modes keep crash/backoff fixes, publication receipts, pending metadata
+queues, unavailable-reader diagnostics and prior-qualified coverage. Both also
+use threaded token reads, daily negative-token retries, fresh HyperEVM batch
+heads and daily bounded Monad state-window measurements. This is a baseline
+for **additional flag-controlled savings**, not an unchanged old release or
+issue 1 in isolation. The original backup measures incident-inclusive effects.
+
+Collect seven complete healthy UTC days with the flag off, snapshot them, then
+enable it and recreate `vault-scanner-looped`. Compose and direct all-chain
+script invocations default to `false`; other library and single-chain calls
+default to enabled unless explicitly overridden. Use the same flag for manual
+runs during measurement. Both batch-size settings default to 40 **subcalls**.
+
+HyperEVM retains specialised current-state paths, while explicit historical
+metadata blocks stay pinned. Monad observations cap retries without deleting
+rows before its state boundary. Discovery requires a configured Hypersync
+client and has no RPC event fallback. Hemi and Katana have no endpoint in the
+repository server list, so their configured all-chain discovery is disabled;
+price scans of already known vaults continue. New vault discovery on those
+chains requires adding a supported indexer. Configured RPC providers are retained
+until completion, fallback and invoice measurements support consolidation.
+
+Admission probes use a daily interval for new/unverified vaults, eight hours
+when a verified probe reports at least USD 750, and seven days for mature tiny vaults. Previously
+qualified vaults continue historical scanning. Positive classification has a
+28-day lifetime with address-based jitter; negative classification expires
+weekly. Metadata refreshes weekly, with transient candidates due daily for at most three attempts, then weekly.
+Unsupported versions and persistent negatives leave the pending queue and
+receive weekly checks; changed classification and forced discovery refresh
+bypass that deadline. The
+`rpc-*.json` sidecars live beside the metadata pickle. They can be ignored by
+an older release; preserve them during normal operation. Damaged sidecars fail
+loudly. Classifier-signature changes and forced invalidations are logged; protocol
+additions can refresh the whole catalogue and must be recorded as measurement
+events. Retry deadlines become due at the next scheduler tick. `FORCE_METADATA_REFRESH=true`, `FORCE_CLASSIFICATION_REFRESH=true` and
+`FORCE_VAULT_TOKEN_MAPPING_REFRESH=true` bypass their respective caches;
+`FORCE_RPC_RETRY=true` bypasses a persisted chain deadline for an intentional
+repair. These overrides must be explicitly supplied with Compose `-e`.
+
+### Back up and reset counters
+
+`reset-rpc-counters.py` defaults to a read-only inventory. It does not run a
+scan or make provider calls. Before maintenance, finish the current scanner
+cycle and stop the accounting writer. Inspect `docker compose logs` and ensure
+no manual scanner is running. The script takes the scanner's `scan-pipeline`
+lock and DuckDB's exclusive file lock; it aborts on conflicts. Use the mounted
+one-shot service and override its image entrypoint, which otherwise starts a
+scan.
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info vault-scanner-oneshot \
+  scripts/erc-4626/reset-rpc-counters.py
+```
+
+For an intentional reset, choose one stable ID for the maintenance operation:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e RESET_RPC_COUNTERS=true \
+  -e RPC_COUNTER_RESET_ID=rpc-reduction-2026-09-30 \
+  -e RPC_COUNTER_DEPLOYMENT=rpc-reduction-2026-09-30 \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Replace the example date with the actual deployment date. By default, the
+source is `/root/.tradingstrategy/rpc-tracking.duckdb`. An override uses
+`RPC_TRACKING_DATABASE_PATH`; `PIPELINE_DATA_DIR` selects the shared pipeline
+lock directory. Pass overrides with `-e` to the one-shot service and use the
+same paths as the running scanner. `RPC_COUNTER_BACKUP_DIR` defaults to
+`backups/rpc-counters` beside the database. Keep it on the persistent mount.
+
+The script checkpoints the database and creates an exclusive, date-stamped
+file such as
+`rpc-tracking-before-rpc-reduction-2026-09-30T143000Z.duckdb`. It verifies its
+byte checksum, all table schemas/content digests, grouped totals, dates and
+cycle high-water mark before deleting counters in one transaction. Private
+`.json` and `.completed.json` receipts accompany the backup. Backups use mode
+0600 and are never overwritten or automatically rotated. Copy the backup and
+receipts to the normal off-host backup destination before relying on them.
+
+Critical pipeline pickles, Parquet, scheduling sidecars and dense timestamp
+cache files are hashed before maintenance and rechecked before reset commit.
+This can take time on large caches; progress is logged and no RPCs are made.
+The manifest also accepts `RPC_COUNTER_DEPLOYED_COMMIT` and
+`RPC_COUNTER_DEPLOYED_IMAGE` for deployment provenance; supply them with `-e`.
+
+Only `vault_rpc_api_calls`, `vault_rpc_api_errors` and the new
+`vault_rpc_operation_calls` are cleared. A zero-call reset marker preserves
+the old cycle high-water mark, so numbering continues. Reader state, metadata,
+price Parquet, timestamp caches and scheduler state are untouched. A reset
+receipt is committed inside DuckDB in the same transaction as deletion.
+
+After interruption, rerun **the same `RPC_COUNTER_RESET_ID`**. If it already
+committed, the script verifies the original backup and returns the receipt
+without clearing newer calls. A partial backup remains for diagnosis; a retry
+at a later second creates a new filename. A filename collision aborts. Do not
+restore a counters backup over a live database or invent a new reset ID merely
+to recover an interrupted operation.
+
+### Compare after two and three weeks
+
+After the initial reset, collect seven complete healthy UTC days with
+`VAULT_RPC_OPTIMISATIONS=false`. Take a snapshot before enabling the reductions;
+this is the prospective baseline. Set `VAULT_RPC_OPTIMISATIONS=true` in the
+loaded deployment environment and recreate the scanner with
+`docker compose up -d --force-recreate vault-scanner-looped`.
+
+At 14 and 21 days **after enabling the reductions**, take follow-up snapshots
+using the same idle-writer procedure, with `BACKUP_RPC_COUNTERS=true` and no
+reset. Exclude the first optimised week if it contains mapping refreshes or
+queue/cache migration. In that case day 14 is interim and day 21 can supply
+fourteen steady-state days; delay the verdict if incidents leave fewer than
+two healthy metadata periods. The original pre-reset backup remains the incident-inclusive comparison.
+Use this command for both baseline and follow-up snapshots:
+
+```shell
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e BACKUP_RPC_COUNTERS=true \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Use the actual filenames printed by the script. Compare explicit complete UTC
+windows; each end date is exclusive. For example, a seven-day healthy baseline
+and a 14-day optimised window after a seven-day migration period:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info \
+  -e RPC_COUNTER_BEFORE=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-snapshot-2026-10-08T000100Z.duckdb \
+  -e RPC_COUNTER_AFTER=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-snapshot-2026-10-29T000100Z.duckdb \
+  -e RPC_COUNTER_BEFORE_START=2026-10-01 -e RPC_COUNTER_BEFORE_END=2026-10-08 \
+  -e RPC_COUNTER_AFTER_START=2026-10-15 -e RPC_COUNTER_AFTER_END=2026-10-29 \
+  vault-scanner-oneshot scripts/erc-4626/compare-rpc-counters.py
+```
+
+The comparison is read-only and reports physical requests/day by chain, phase,
+method and provider, deduplicated items/cycles, available completion outcomes,
+and separate operation counts. Outcome rows count cycles containing each
+status; a failed then successful retry can appear under both statuses. These
+are not attempt counts or mutually exclusive categories. The script reports
+items and cycle denominators separately, without inferring successful work
+from legacy counters. Operation detail describes the same requests
+as legacy totals: never add it to them. Old counters cannot establish success
+or invoice costs. Compare billing units using provider invoices separately.
+Inspect freshness warnings, unavailable readers, pending metadata and logs
+alongside rates. Exclude partial deployment days and document cadence, enabled
+chains, queue drainage, incidents and cache warmup. The old incident-heavy
+backup measures incident-inclusive savings; it is not a healthy baseline.
+
+### Real-provider batching check
+
+Run the guarded parity script after loading the usual test secrets. It uses
+three reviewed Ethereum products (sDAI, Morpho v1 and IPOR), pins all comparisons
+to one current numeric block, compares metadata values and eligible TVL probes,
+and writes token caches only into a temporary directory:
+
+```shell
+source .local-test.env
+PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" RPC_PARITY_CHECK=true \
+  poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+```
+
+A successful run logs `PASS` for all three products and the block number.
+The transport-level unit tests separately assert that 40 ordinary TVLs require
+one physical `eth_call`, with equal values and no timestamp requests.
+
+A pending publication journal must be recovered by a normal scanner run before
+a manual backfill can rewrite the shared price file. Successful reader-state
+persistence consumes the journal; damaged critical receipts fail loudly.

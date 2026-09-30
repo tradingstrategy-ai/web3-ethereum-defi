@@ -29,6 +29,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is_stablecoin_like
+from eth_defi.types import Percent
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import VaultFlag
@@ -42,6 +43,9 @@ if TYPE_CHECKING:
 
 #: The exchange rate we use for all unknown denomination tokens
 UNKNOWN_EXCHANGE_RATE = Decimal(0.99)
+
+#: Missing token metadata, distinct from a resolved but unsupported symbol.
+DENOMINATION_UNAVAILABLE_EXCHANGE_RATE = Decimal(0)
 
 #: Protocol reader classes whose guarded fork probes completed a deposit using
 #: their implemented deposit manager.
@@ -348,7 +352,12 @@ class VaultReaderState(BatchCallState):
         """Get the exchange rate for TVL estimation"""
         # TODO: Approx hardcoded rules for now for TVL conversion.
         # Latest add exchange rate orcale.
-        token = self.vault.denomination_token.symbol or ""
+        denomination = self.vault.denomination_token
+        if denomination is None or not denomination.symbol:
+            logger.warning("Denomination unavailable for vault %s; USD TVL is unverified", self.vault_address)
+            return DENOMINATION_UNAVAILABLE_EXCHANGE_RATE
+        token = denomination.symbol
+        self.token_symbol = token
 
         # Try to cover common case ~approx
         if "BTC" in token:
@@ -389,6 +398,10 @@ class VaultReaderState(BatchCallState):
         :return:
             Whether this vault meets the live price-row TVL limits.
         """
+        if self.exchange_rate == DENOMINATION_UNAVAILABLE_EXCHANGE_RATE:
+            # Legacy reader fields provide prior conversion evidence without
+            # adding keys that would break a rollback's serialisation loader.
+            return bool(self.token_symbol and not self.unsupported_token) and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
         return self.exchange_rate != UNKNOWN_EXCHANGE_RATE and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
 
     def should_invoke(
@@ -495,8 +508,16 @@ class VaultReaderState(BatchCallState):
             total_assets = Decimal(0)
 
         exchange_rate = self.exchange_rate
+        if exchange_rate == DENOMINATION_UNAVAILABLE_EXCHANGE_RATE:
+            # Real source progress can advance, but a metadata outage must
+            # neither fabricate USD TVL nor erase previous valid qualification.
+            self.last_call_at = result.timestamp
+            self.last_block = result.block_identifier
+            return
         if exchange_rate == UNKNOWN_EXCHANGE_RATE:
             self.unsupported_token = True
+        else:
+            self.unsupported_token = False
 
         total_assets = total_assets * exchange_rate
 
@@ -1069,6 +1090,10 @@ class ERC4626Vault(VaultBase):
             Denomination token address, or ``None`` if the vault contract is
             broken and did not return a valid address.
         """
+        snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+        if snapshot.get("block") == self.default_block_identifier and "asset" in snapshot:
+            address = convert_uint256_bytes_to_address(snapshot["asset"])
+            return address if address != ZERO_ADDRESS_STR else None
         cacheable = isinstance(self.token_cache, TokenDiskCache) and self.default_block_identifier is None
 
         if cacheable:
@@ -1174,6 +1199,12 @@ class ERC4626Vault(VaultBase):
             pinned ``default_block_identifier``.
         """
         initial_block_identifier = block_identifier
+        snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+        if snapshot.get("block") == self.default_block_identifier:
+            if "share" in snapshot:
+                return convert_uint256_bytes_to_address(snapshot["share"])
+            if snapshot.get("share_reverted"):
+                return self.vault_address
 
         # Cache is only meaningful for live-latest reads on a non-historical-pinned
         # vault instance. _get_block_identifier() resolves "latest" to
@@ -1313,7 +1344,9 @@ class ERC4626Vault(VaultBase):
         :return:
             The vault value in underlyinh token
         """
-        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+        snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+        raw_amount = int.from_bytes(snapshot["totalAssets"], "big") if snapshot.get("block") == block_identifier and "totalAssets" in snapshot else self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+        self._last_total_assets_raw = (block_identifier, raw_amount)
         if self.underlying_token is not None:
             return self.underlying_token.convert_to_decimals(raw_amount)
         return None
@@ -1340,7 +1373,8 @@ class ERC4626Vault(VaultBase):
         """
         assert isinstance(block_identifier, (int, str)), f"Block identifier should be int or str, got {type(block_identifier)}"
         try:
-            raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
+            snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+            raw_amount = int.from_bytes(snapshot["totalSupply"], "big") if snapshot.get("block") == block_identifier and "totalSupply" in snapshot and self.share_token.address.lower() == self.address.lower() else self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
         except BlockNumberOutOfRange as e:
             raise RuntimeError(f"Cannot fetch total supply for block number: {block_identifier} for vault {self}") from e
         return self.share_token.convert_to_decimals(raw_amount)
@@ -1410,6 +1444,29 @@ class ERC4626Vault(VaultBase):
         """
         vault_info = self.fetch_vault_info()
         return vault_info
+
+    def fetch_idle_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
+        """Read the idle balance once for adapters with idle-based utilisation.
+
+        This helper is opt-in: idle assets are not redeemable liquidity for
+        every lending protocol. See the protocol's liquidity documentation.
+
+        :param total_assets: Previously fetched TVL in denomination-token units.
+        :param block_identifier: Numeric block used for both economic inputs.
+        :return: Idle liquidity and fraction allocated, or missing values.
+        """
+        token = self.denomination_token
+        if token is None:
+            return None, None
+        observed = getattr(self, "_last_total_assets_raw", None)
+        if observed is not None and observed[0] == block_identifier and token.convert_to_decimals(observed[1]) == total_assets:
+            total_raw = observed[1]
+        else:
+            # Public callers may supply a TVL without a prior adapter read.
+            # Scanner metadata always uses the observed raw integer above.
+            total_raw = token.convert_to_raw(total_assets)
+        idle_raw = token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+        return token.convert_to_decimals(idle_raw), (total_raw - idle_raw) / total_raw if total_raw else 0.0
 
     def fetch_nav(self, block_identifier=None) -> Decimal:
         """Fetch the most recent onchain NAV value.

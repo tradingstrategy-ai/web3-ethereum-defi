@@ -17,6 +17,7 @@ Override with ``HYPERSYNC_CONCURRENCY`` for higher throughput.
 """
 
 import datetime
+import hashlib
 import json
 import logging
 import logging.handlers
@@ -74,18 +75,18 @@ from eth_defi.erc_4626.lead_discovery_state import (
     save_lead_discovery_state,
     validate_lead_discovery_state,
 )
-from eth_defi.erc_4626.lead_scan_core import scan_leads
+from eth_defi.erc_4626.lead_scan_core import fetch_pending_vault_metadata, scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
 )
-from eth_defi.erc_4626.vault import UNKNOWN_EXCHANGE_RATE, VaultReaderState
+from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, VaultReaderState
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS
+from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore, fetch_and_store_antarctic_history, get_antarctic_historical_context_path
+from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_CURVE_CANONICAL_START_BLOCK
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
-from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS
-from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore, fetch_and_store_antarctic_history, get_antarctic_historical_context_path
-from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -123,8 +124,11 @@ from eth_defi.tokenised_fund.scan import (
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultBase, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
-from eth_defi.vault.historical import scan_historical_prices_to_parquet
+from eth_defi.vault.exception import UnsupportedVaultVersion
+from eth_defi.vault.historical import fetch_monad_historical_state_start_block, scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
+from eth_defi.vault.rpc_batch import fetch_batched_tvl_probes
+from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, fetch_reader_publication_progress, fetch_remaining_state_budget, is_contract_read_failure, is_probe_due, load_rpc_scan_state, record_chain_backoff, record_probe_result, rpc_optimisations_enabled, save_rpc_scan_state
 from eth_defi.vault.settlement_data import (
     VAULT_SETTLEMENT_DATABASE_FILENAME,
     checkpoint_vault_settlement_database_if_exists,
@@ -588,6 +592,9 @@ class ChainResult:
     #: Full traceback string if failed
     traceback_str: str | None = None
 
+    #: Only transient transport/provider failures get immediate whole-chain retries.
+    error_category: str | None = None
+
     #: Scan duration in seconds
     duration: float | None = None
 
@@ -628,11 +635,13 @@ def build_chain_configs() -> list[ChainConfig]:
         ChainConfig("Avalanche", "JSON_RPC_AVALANCHE"),
         ChainConfig("Berachain", "JSON_RPC_BERACHAIN"),
         ChainConfig("Unichain", "JSON_RPC_UNICHAIN", scan_vaults=False),
-        ChainConfig("Hemi", "JSON_RPC_HEMI"),
+        # No configured Hypersync endpoint: retain prices for known vaults.
+        ChainConfig("Hemi", "JSON_RPC_HEMI", scan_vaults=False),
         ChainConfig("Plasma", "JSON_RPC_PLASMA"),
         ChainConfig("Binance", "JSON_RPC_BINANCE"),
         ChainConfig("Mantle", "JSON_RPC_MANTLE"),
-        ChainConfig("Katana", "JSON_RPC_KATANA"),
+        # No configured Hypersync endpoint: retain prices for known vaults.
+        ChainConfig("Katana", "JSON_RPC_KATANA", scan_vaults=False),
         ChainConfig("Ink", "JSON_RPC_INK"),
         ChainConfig("Blast", "JSON_RPC_BLAST"),
         ChainConfig("Soneium", "JSON_RPC_SONEIUM"),
@@ -663,6 +672,7 @@ def scan_vaults_for_chain(
     stats = rpc_request_stats or RPCRequestStats()
     if lead_discovery_state_timeout <= datetime.timedelta(0):
         raise ValueError(f"lead_discovery_state_timeout must be positive, got {lead_discovery_state_timeout}")
+    stats.operation = "discovery_preparation"
     chain_id = None
     items_scanned = 0
     try:
@@ -721,6 +731,9 @@ def scan_vaults_for_chain(
                 yb_token_cache.close()
 
         enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
+        matching_chains = [entry for entry in enabled_chains if get_chain_id_by_name(entry[0]) == chain_id]
+        if matching_chains:
+            enabled_chains = matching_chains
         signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
         state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
 
@@ -763,12 +776,16 @@ def scan_vaults_for_chain(
                     now=cache_now,
                     timeout=lead_discovery_state_timeout,
                     has_metadata_cursor=has_metadata_cursor,
+                    signature_configuration=signature_configuration,
                 )
+                if cache_miss_reason is None and existing_db.last_scanned_block[chain_id] != state.completed_block:
+                    cache_miss_reason = "metadata cursor differs from discovery receipt (restored or interrupted state)"
 
         if cache_miss_reason is None:
             assert existing_db is not None
             assert state is not None
             last_block = existing_db.last_scanned_block[chain_id]
+            pending_candidates = fetch_pending_vault_metadata(web3, rpc_url, vault_db_path, max_workers, stats)
             gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
             if yield_basis_preparation is not None:
                 yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
@@ -794,6 +811,7 @@ def scan_vaults_for_chain(
                 "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
                 "items_scanned": 0,
                 "lead_discovery_cache_hit": True,
+                "pending_candidates": pending_candidates,
             }
 
         logger.info(
@@ -813,8 +831,11 @@ def scan_vaults_for_chain(
             max_display_entries=100,
             rpc_request_stats=stats,
             web3=web3,
+            force_metadata_refresh=force_lead_discovery,
+            force_classification_refresh=force_lead_discovery,
         )
         items_scanned = report.items_scanned
+        pending_candidates = len(load_rpc_scan_state(vault_db_path.parent / f"rpc-pending-metadata-{chain_id}.json"))
 
         gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
         # Reconcile after generic discovery so a broken ERC-4626 candidate
@@ -846,15 +867,19 @@ def scan_vaults_for_chain(
             "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
+            "pending_candidates": pending_candidates,
+            "classification_cache_hits": report.classification_cache_hits,
         }
 
     except Exception as e:
-        logger.exception("Vault scan failed")
+        category = classify_rpc_scan_failure(e)
+        logger.log(logging.WARNING if category == "transient" else logging.ERROR, "Vault scan failed: %s", e, exc_info=category != "transient")
         return False, {
             "chain_id": chain_id,
             "items_scanned": items_scanned,
             "error": str(e),
             "traceback": traceback.format_exc(),
+            "error_category": category,
         }
 
 
@@ -876,11 +901,11 @@ def fetch_current_vault_tvl_usd(vault: VaultBase) -> tuple[Decimal | None, bool]
         reader = vault.get_historical_reader(stateful=True)
         state = reader.reader_state if isinstance(reader.reader_state, VaultReaderState) else VaultReaderState(vault)
         rate = state.exchange_rate
-        if rate == UNKNOWN_EXCHANGE_RATE:
+        if rate in (UNKNOWN_EXCHANGE_RATE, DENOMINATION_UNAVAILABLE_EXCHANGE_RATE):
             return None, True
         nav = vault.fetch_nav()
         return nav * rate, False
-    except (Web3Exception, RequestException, ValueError, TypeError, AttributeError, RuntimeError, ArithmeticError) as error:
+    except (Web3Exception, RequestException, ValueError, RuntimeError, ArithmeticError) as error:
         logger.warning("Cannot verify current USD TVL for %s: %s", vault.address, error)
         return None, False
 
@@ -926,6 +951,7 @@ def scan_prices_for_chain(
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
+    stats.operation = "reader_preparation"
     metrics = {
         "chain_id": None,
         "items_scanned": 0,
@@ -954,6 +980,19 @@ def scan_prices_for_chain(
         if persist_reader_state and reader_state_path.exists():
             reader_states = pickle.load(reader_state_path.open("rb"))
 
+        publication_journal = reader_state_path.with_suffix(".publication.pickle")
+        if persist_reader_state:
+            recovered = fetch_reader_publication_progress(publication_journal, uncleaned_price_path)
+            for spec, state in recovered.items():
+                if (state.get("last_block") or 0) > (reader_states.get(spec, {}).get("last_block") or 0):
+                    reader_states[spec] = state
+            if recovered:
+                with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as output:
+                    pickle.dump(reader_states, output)
+                publication_journal.unlink(missing_ok=True)
+        elif fetch_reader_publication_progress(publication_journal, uncleaned_price_path):
+            raise ValueError("Recover pending committed reader progress with a normal scan before a manual backfill")
+
         # Filter vaults for this chain
         chain_vaults = [v for v in vault_db.rows.values() if v["_detection_data"].chain == chain_id]
         if vault_addresses is not None:
@@ -979,6 +1018,21 @@ def scan_prices_for_chain(
 
         current_end_block = end_block if end_block is not None else web3.eth.block_number
         live_freshness = persist_reader_state and start_block is None
+        if chain_id == 143 and live_freshness:
+            # Measure a bounded recent window once per day/provider, independently
+            # of the incremental reader cursor. No genesis state scan is attempted.
+            boundary_path = vault_db_path.parent / "rpc-state-boundaries.json"
+            boundaries = load_rpc_scan_state(boundary_path)
+            previous_boundary = boundaries.get("143")
+            provider_identity = hashlib.sha256(rpc_url.encode()).hexdigest()
+            if not previous_boundary or previous_boundary.get("provider_identity") != provider_identity or native_datetime_utc_now() - datetime.datetime.fromisoformat(previous_boundary["checked_at"]) >= datetime.timedelta(days=1):
+                probe_start = max(1, current_end_block - int(datetime.timedelta(days=2).total_seconds() / EVM_BLOCK_TIMES[143]))
+                readable_start = fetch_monad_historical_state_start_block(web3, probe_start, current_end_block, report_irrecoverable_gap=False)
+                window = {"checked_at": native_datetime_utc_now().isoformat(), "readable_start_block": readable_start, "head_block": current_end_block, "retention_seconds": (current_end_block - readable_start) * EVM_BLOCK_TIMES[143], "provider_identity": provider_identity, "bounded_measurement": True}
+                web3._vault_historical_state_window = window
+                boundaries["143"] = window
+                save_rpc_scan_state(boundary_path, boundaries)
+                logger.info("Monad executable recent-state window: start=%d, head=%d, observed seconds=%s", readable_start, current_end_block, window["retention_seconds"])
 
         # Create vault instances with filtering
         vaults = []
@@ -986,6 +1040,11 @@ def scan_prices_for_chain(
         low_activity_unverified = 0
         low_activity_qualified_addresses: set[str] = set()
         low_activity_candidates: list[tuple[ERC4262VaultDetection, VaultBase]] = []
+        probe_state_path = vault_db_path.parent / f"rpc-tvl-probes-{chain_id}.json"
+        probe_entries = load_rpc_scan_state(probe_state_path) if live_freshness else {}
+        probe_now = native_datetime_utc_now()
+        cached_probes = 0
+        optimise = rpc_optimisations_enabled() and live_freshness and vault_addresses is None
 
         for row in tqdm(chain_vaults, desc=f"Selecting vaults on chain {chain_id}"):
             detection = row["_detection_data"]
@@ -993,19 +1052,43 @@ def scan_prices_for_chain(
             if VaultSpec(chain_id, detection.address.lower()) in excluded_specs:
                 continue
 
+            spec = VaultSpec(chain_id, detection.address.lower())
+            previous = reader_states.get(spec, {})
+            stored_symbol = (row.get("_denomination_token") or {}).get("symbol")
+            if stored_symbol and not previous.get("token_symbol"):
+                # Existing field only: previous-release readers remain able to
+                # load this state after rollback. Unknown-rate history is excluded.
+                previous["token_symbol"] = stored_symbol
+            previously_qualified = bool(previous.get("token_symbol") and not previous.get("unsupported_token")) and is_meaningful_usd_tvl(previous.get("last_tvl"), previous.get("max_tvl"))
+
+            if previously_qualified:
+                low_activity_qualified_addresses.add(detection.address.lower())
+
             active = detection.address.lower() in HARDCODED_PROTOCOLS or passes_price_scan_activity_filter(detection, MIN_PRICE_SCAN_DEPOSIT_COUNT)
             if not active and not live_freshness:
                 continue
 
-            if active:
+            if not active and previously_qualified:
+                active = True
+                low_activity_qualified_addresses.add(detection.address.lower())
+            elif not active and optimise and not is_probe_due(probe_entries.get(detection.address.lower()), probe_now, previously_qualified):
+                cached_probes += 1
+                continue
+
+            try:
                 vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
-            else:
-                try:
-                    vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
-                except (Web3Exception, RequestException, ValueError, TypeError, AttributeError, RuntimeError, ArithmeticError) as error:
-                    low_activity_unverified += 1
-                    logger.warning("Cannot instantiate low-activity vault %s on chain %d for TVL probe: %s", detection.address, chain_id, error)
-                    continue
+            except (UnsupportedVaultVersion, Web3Exception, RequestException) as error:
+                candidate_transport_failure = not active and classify_rpc_scan_failure(error) == "transient"
+                if not isinstance(error, UnsupportedVaultVersion) and not is_contract_read_failure(error) and not candidate_transport_failure:
+                    raise
+                low_activity_unverified += 1
+                previous = reader_states.get(VaultSpec(chain_id, detection.address.lower()), {})
+                if previous.get("token_symbol") and not previous.get("unsupported_token") and is_meaningful_usd_tvl(previous.get("last_tvl"), previous.get("max_tvl")):
+                    low_activity_qualified_addresses.add(detection.address.lower())
+                logger.warning("Cannot instantiate vault %s on chain %d; deferred: %s", detection.address, chain_id, error)
+                if optimise and not active:
+                    record_probe_result(probe_entries, detection.address.lower(), probe_now, detection.first_seen_at or probe_now, None, "constructor_unavailable")
+                continue
             if vault:
                 vault.first_seen_at_block = detection.first_seen_at_block
                 if detection.features & gmx_features:
@@ -1024,13 +1107,18 @@ def scan_prices_for_chain(
                     low_activity_candidates.append((detection, vault))
 
         if low_activity_candidates:
-            probes = Parallel(n_jobs=max_workers, backend="threading", return_as="generator")(delayed(fetch_current_vault_tvl_usd)(vault) for _detection, vault in low_activity_candidates)
-            for (detection, vault), (tvl_usd, unknown_conversion) in zip(
-                low_activity_candidates,
-                tqdm(probes, total=len(low_activity_candidates), desc=f"Checking low-activity TVL on chain {chain_id}"),
-                strict=True,
-            ):
+            stats.operation = "tvl_admission"
+            candidates_by_address = {vault.address.lower(): detection for detection, vault in low_activity_candidates}
+            if optimise:
+                probes = fetch_batched_tvl_probes([vault for _, vault in low_activity_candidates], web3factory, current_end_block, max_workers)
+            else:
+                probes = Parallel(n_jobs=max_workers, backend="threading", return_as="generator")(delayed(lambda vault: (vault, *fetch_current_vault_tvl_usd(vault)))(vault) for _detection, vault in low_activity_candidates)
+            for vault, tvl_usd, unknown_conversion in tqdm(probes, total=len(low_activity_candidates), desc=f"Checking low-activity TVL on chain {chain_id}"):
+                detection = candidates_by_address[vault.address.lower()]
                 spec = VaultSpec(chain_id, detection.address.lower())
+                if optimise:
+                    record_probe_result(probe_entries, detection.address.lower(), probe_now, detection.first_seen_at or probe_now, str(tvl_usd) if tvl_usd is not None else None, "conversion_unverified" if unknown_conversion else "read_failed" if tvl_usd is None else None)
+                    probe_entries[detection.address.lower()]["source_block"] = current_end_block if chain_id != 999 else None
                 if unknown_conversion:
                     low_activity_unverified += 1
                     logger.info("Sampling low-activity vault %s on chain %d with unknown USD conversion", detection.address, chain_id)
@@ -1047,6 +1135,13 @@ def scan_prices_for_chain(
                 vault.first_seen_at_block = max(vault.first_seen_at_block, current_end_block - lookback_blocks)
                 vaults.append(vault)
 
+        if optimise:
+            save_rpc_scan_state(probe_state_path, probe_entries)
+        metrics["tvl_probe_candidates"] = len(low_activity_candidates) + cached_probes
+        metrics["tvl_probes_due"] = len(low_activity_candidates)
+        metrics["tvl_probes_cached"] = cached_probes
+        logger.info("Admission probes on chain %d: due=%d, cached=%d, qualified=%d, unverified=%d", chain_id, len(low_activity_candidates), cached_probes, low_activity_qualified, low_activity_unverified)
+
         if vault_addresses is not None:
             instantiated_addresses = {vault.address.lower() for vault in vaults}
             if instantiated_addresses != vault_addresses:
@@ -1054,8 +1149,12 @@ def scan_prices_for_chain(
                 message = f"Could not instantiate every selected vault; refusing bounded deletion: {missing}"
                 raise ValueError(message)
 
+        metrics["low_activity_unverified"] = low_activity_unverified
+        instantiated_addresses = {vault.address.lower() for vault in vaults}
+        metrics["reader_unavailable"] = sorted(low_activity_qualified_addresses - instantiated_addresses)
         if len(vaults) == 0:
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
+            metrics["reader_unavailable"] = sorted(low_activity_qualified_addresses)
             return True, {**metrics, "rows_written": 0}
 
         # Configure HyperSync (shares throttle with vault lead discovery)
@@ -1264,6 +1363,7 @@ def scan_prices_for_chain(
         scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
 
         # Scan historical prices
+        stats.operation = "historical_multicall"
         result = scan_historical_prices_to_parquet(
             output_fname=uncleaned_price_path,
             web3=web3,
@@ -1281,21 +1381,33 @@ def scan_prices_for_chain(
             hypersync_client=hypersync_config.hypersync_client,
             rpc_request_stats=stats,
             vault_addresses={vault.address.lower() for vault in vaults},
+            reader_state_journal_path=publication_journal if persist_reader_state else None,
         )
+
+        if chain_id == 143 and result.get("historical_state_window"):
+            boundary_path = vault_db_path.parent / "rpc-state-boundaries.json"
+            boundaries = load_rpc_scan_state(boundary_path)
+            boundaries["143"] = {**boundaries.get("143", {}), **result["historical_state_window"]}
+            save_rpc_scan_state(boundary_path, boundaries)
 
         # Save reader states atomically to avoid corruption on interruption
         if persist_reader_state and result["reader_states"]:
             reader_states.update(result["reader_states"])
             with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
                 pickle.dump(reader_states, f)
+        if persist_reader_state:
+            publication_journal.unlink(missing_ok=True)
 
-        return True, {
+        return not result.get("audit_error"), {
             **metrics,
+            "error": result.get("audit_error"),
+            "error_category": "internal" if result.get("audit_error") else None,
             "rows_written": result["rows_written"] + antarctic_repair_rows,
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
             "overdue_vaults": result["overdue_vaults"],
             "unknown_conversion_vaults": result["unknown_conversion_vaults"],
+            "denomination_unavailable_vaults": result.get("denomination_unavailable_vaults", []),
             "start_block": result["start_block"],
             "end_block": result["end_block"],
             "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
@@ -1306,8 +1418,9 @@ def scan_prices_for_chain(
         }
 
     except Exception as e:
-        logger.exception("Price scan failed")
-        return False, {**metrics, "error": str(e), "traceback": traceback.format_exc()}
+        category = classify_rpc_scan_failure(e)
+        logger.log(logging.WARNING if category == "transient" else logging.ERROR, "Price scan failed: %s", e, exc_info=category != "transient")
+        return False, {**metrics, "error": str(e), "traceback": traceback.format_exc(), "error_category": category}
 
 
 def scan_chain(
@@ -1348,6 +1461,13 @@ def scan_chain(
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
+    backoff_path = vault_db_path.parent / "rpc-chain-backoff.json"
+    backoff = load_rpc_scan_state(backoff_path).get(config.name)
+    if retry_attempt == 0 and not force_lead_discovery and os.environ.get("FORCE_RPC_RETRY", "false").lower() != "true" and backoff and native_datetime_utc_now() < datetime.datetime.fromisoformat(backoff["next_retry_at"]):
+        result.status = "skipped"
+        result.error = "RPC failure backoff until " + backoff["next_retry_at"]
+        logger.warning("%s: %s", config.name, result.error)
+        return result
     price_scan_enabled = scan_prices and config.scan_prices
     if scan_prices and not config.scan_prices:
         logger.info("%s: historical price readers are disabled by the per-chain rollout gate", config.name)
@@ -1369,6 +1489,7 @@ def scan_chain(
                 cycle_number=rpc_cycle_number,
                 stats=stats,
                 items_scanned=int(metrics.get("items_scanned", 0)),
+                metrics=metrics,
             )
         except (duckdb.Error, RuntimeError, AssertionError, TypeError, ValueError):
             logger.exception("Could not persist %s RPC usage for %s", phase, config.name)
@@ -1398,9 +1519,14 @@ def scan_chain(
         result.status = "failed"
         result.error = str(e)
         result.duration = time.time() - start_time
+        result.error_category = "transient"
+        if retry_attempt == 0:
+            record_chain_backoff(backoff_path, config.name, result.error_category)
         return result
 
     # Scan vaults
+    if not config.scan_vaults:
+        logger.info("%s: lead discovery disabled; price scanning uses known vaults", config.name)
     if config.scan_vaults:
         vault_stats = RPCRequestStats()
         vault_success, vault_metrics = scan_vaults_for_chain(
@@ -1425,6 +1551,7 @@ def scan_chain(
         else:
             result.error = vault_metrics.get("error", "Unknown error")
             result.traceback_str = vault_metrics.get("traceback")
+            result.error_category = vault_metrics.get("error_category", "internal")
 
     # Scan prices
     if price_scan_enabled:
@@ -1454,6 +1581,8 @@ def scan_chain(
                 result.end_block = price_metrics.get("end_block")
         else:
             price_error = price_metrics.get("error", "Unknown error")
+            category = price_metrics.get("error_category", "internal")
+            result.error_category = "internal" if "internal" in (result.error_category, category) else category
             price_tb = price_metrics.get("traceback")
             if result.error:
                 result.error += "; " + price_error
@@ -1474,6 +1603,22 @@ def scan_chain(
         result.status = "success"
     else:
         result.status = "failed"
+
+    retention_seconds = None
+    if config.name == "Monad":
+        boundary = load_rpc_scan_state(vault_db_path.parent / "rpc-state-boundaries.json").get("143")
+        if boundary:
+            persisted_states = {}
+            if reader_state_path.exists():
+                with reader_state_path.open("rb") as source:
+                    persisted_states = pickle.load(source)
+            committed_block = max((state.get("last_block") or 0 for spec, state in persisted_states.items() if spec.chain_id == 143), default=0)
+            remaining = fetch_remaining_state_budget(boundary, committed_block or boundary["head_block"], EVM_BLOCK_TIMES[143], native_datetime_utc_now())
+            retention_seconds = max(60, remaining)
+            if remaining <= 0:
+                logger.warning("Monad unread history has exhausted its observed state window; checking for irrecoverable gaps is urgent")
+    if result.status != "failed" or retry_attempt == 0:
+        record_chain_backoff(backoff_path, config.name, result.error_category if result.status == "failed" else None, retention_seconds=retention_seconds)
 
     return result
 
@@ -2868,7 +3013,12 @@ def run_scan_tick(
                 error=str(e),
                 traceback_str=traceback.format_exc(),
                 retry_attempt=0,
+                error_category=classify_rpc_scan_failure(e),
             )
+            try:
+                record_chain_backoff(vault_db_path.parent / "rpc-chain-backoff.json", chain.name, results[chain.name].error_category)
+            except (ValueError, OSError):
+                logger.exception("Cannot persist chain backoff for %s; existing sidecar is preserved", chain.name)
 
         r = results[chain.name]
         if r.status == "success":
@@ -3137,7 +3287,7 @@ def run_scan_tick(
     # Retry passes - retry failed EVM chains (native protocols are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
-        failed_chain_names = [name for name, r in results.items() if r.status == "failed" and name in evm_chain_names]
+        failed_chain_names = [name for name, r in results.items() if r.status == "failed" and r.error_category == "transient" and name in evm_chain_names]
         if not failed_chain_names:
             logger.info("No failed chains to retry")
             break
@@ -3276,6 +3426,8 @@ def main():
     # - log file: always INFO for full diagnostics
     log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
+    # Match Compose baseline behaviour for direct all-chain script invocations.
+    os.environ.setdefault("VAULT_RPC_OPTIMISATIONS", "false")
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "warning"),
     )

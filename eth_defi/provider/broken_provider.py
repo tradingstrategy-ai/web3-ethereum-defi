@@ -212,13 +212,16 @@ def get_safe_cached_latest_block_number(
     - No RPC call are made to
     - Disabled in Anvil configs
 
-    Work around the error on Monad/Arbitrum/dRPC/shitty RPCs:
+    Work around an observed upstream block-availability error:
 
     .. code-block:: none
 
         {'message': 'upstream does not have the requested block yet', 'code': -32603}
 
-    Their internal routing is likely broken and when calling `eth_call` with `latest` the request fails for no reason.
+    Some upstreams reject current-head contract calls while accepting a nearby
+    numeric block. HyperEVM uses a connection-local cache capped at five seconds
+    and a delay capped at ten blocks because HyperCore execution has a short
+    current-state window. Other chains retain the configured cache and delay.
 
     :param chain_id:
         Chain id to use as part of the cache key
@@ -246,7 +249,17 @@ def get_safe_cached_latest_block_number(
 
     now = time.time()
 
-    cached = _latest_delayed_block_number_cache.get(chain_id)
+    # HyperCore-dependent reads have a short execution window. The generic
+    # one-hour/1,000-block delay is unsuitable for chain 999 metadata.
+    if chain_id == 999:
+        blocks = min(blocks, 10)
+        cache_duration = min(cache_duration, 5)
+
+    if chain_id == 999:
+        observation = getattr(web3, "_eth_defi_safe_head_cache", None)
+        cached = observation[2:] if observation is not None and observation[:2] == (web3.provider, blocks) else None
+    else:
+        cached = _latest_delayed_block_number_cache.get(chain_id)
     if cached is not None:
         cached_block, cached_time = cached
         if now - cached_time < cache_duration:
@@ -255,7 +268,10 @@ def get_safe_cached_latest_block_number(
     latest_block = web3.eth.block_number
     safe_block = max(1, latest_block - blocks)
 
-    _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
+    if chain_id == 999:
+        web3._eth_defi_safe_head_cache = (web3.provider, blocks, safe_block, now)
+    else:
+        _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
 
     return safe_block
 

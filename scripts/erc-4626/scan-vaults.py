@@ -9,31 +9,31 @@ Usage:
 .. code-block:: shell
 
     export JSON_RPC_URL=...
-    python scripts/erc-4626/scan-vaults.py
+    poetry run python scripts/erc-4626/scan-vaults.py
 
 Or:
 
 .. code-block:: shell
 
     # TAC
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC MAX_GETLOGS_RANGE=1000 python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC poetry run python scripts/erc-4626/scan-vaults.py
 
     # Arbitrum
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM poetry run python scripts/erc-4626/scan-vaults.py
 
     # Hyperliquid
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID poetry run python scripts/erc-4626/scan-vaults.py
 
     # Mainnet
-    SCAN_BACKEND=rpc LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM poetry run python scripts/erc-4626/scan-vaults.py
 
     # Monad
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_MONAD python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_MONAD poetry run python scripts/erc-4626/scan-vaults.py
 
 
 Or for faster small sample scan limit the end block:
 
-    END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
+    END_BLOCK=5555721 poetry run python scripts/erc-4626/scan-vaults.py
 
 """
 
@@ -51,12 +51,6 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
-
-try:
-    import hypersync
-except ImportError as e:
-    raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
-
 
 logger = logging.getLogger(__name__)
 
@@ -83,27 +77,22 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
     default_log_level = os.environ.get("LOG_LEVEL", "warning")
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "warning"),
-        log_file=Path(f"logs/scan-vaults.log"),
+        log_file=Path("logs/scan-vaults.log"),
     )
 
     logger.info("Using log level: %s", default_log_level)
-    end_block = os.environ.get("END_BLOCK")
+    end_block = int(os.environ["END_BLOCK"]) if os.environ.get("END_BLOCK") else None
 
     os.makedirs(DEFAULT_VAULT_DATABASE.parent, exist_ok=True)
     vault_db_file = DEFAULT_VAULT_DATABASE
 
-    # Debug bad RPCs
-    max_getlogs_range = os.environ.get("MAX_GETLOGS_RANGE", None)
-    if max_getlogs_range:
-        max_getlogs_range = int(max_getlogs_range)
-
-    # Choose a different scan mode
     scan_backend = os.environ.get("SCAN_BACKEND", "auto")
+    if scan_backend not in {"auto", "hypersync"}:
+        raise ValueError("SCAN_BACKEND must be auto or hypersync; RPC event discovery is disabled")
 
     hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
 
-    if scan_backend == "auto":
-        assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
+    assert hypersync_api_key, "HYPERSYNC_API_KEY must be set for vault event discovery"
 
     try:
         web3 = create_multi_provider_web3(JSON_RPC_URL, rpc_request_stats=stats)
@@ -116,7 +105,6 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
             end_block=end_block,
             printer=print,
             backend=scan_backend,
-            max_getlogs_range=max_getlogs_range,
             hypersync_api_key=hypersync_api_key,
             rpc_request_stats=stats,
             web3=web3,

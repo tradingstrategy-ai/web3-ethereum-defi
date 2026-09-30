@@ -1,88 +1,53 @@
 #!/usr/bin/env python
-"""Examine vault reader states and print broken contracts.
+"""Report recorded broken contract calls from persisted vault reader states.
 
-Usage:
-    poetry run python scripts/erc-4626/check-reader-states.py
-
-Environment variables:
-    READER_STATE_PATH: Path to reader state pickle file (optional)
+Use ``poetry run python scripts/erc-4626/check-reader-states.py``. The default
+is the all-chain pipeline's ``vault-reader-state-1h.pickle``; set
+``READER_STATE_PATH`` for another scanner. Reads no contracts or RPC providers.
+See ``eth_defi/erc_4626/vault_protocol/README-reader-states.md`` for limitations.
 """
 
+import logging
 import os
 import pickle
+from collections import Counter
 from pathlib import Path
 
 from tabulate import tabulate
 
 from eth_defi.chain import CHAIN_NAMES
+from eth_defi.utils import setup_console_logging
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.vaultdb import get_pipeline_data_dir
+
+logger = logging.getLogger(__name__)
 
 
-def main():
-    reader_state_path = os.environ.get("READER_STATE_PATH", str(Path.home() / ".tradingstrategy/vaults/reader-state.pickle"))
+def main() -> None:
+    """Read stored call outcomes without modifying reader progress.
 
-    if not Path(reader_state_path).exists():
-        print(f"Reader state file not found: {reader_state_path}")
-        return
+    Current files contain ``VaultSpec`` keys and serialised state dictionaries.
+    Legacy tuple keys and reader objects remain supported. An empty call-status
+    map means no checks were recorded, rather than proof of a healthy contract.
 
-    with open(reader_state_path, "rb") as f:
-        reader_states = pickle.load(f)
-
-    print(f"Loaded {len(reader_states)} reader states from {reader_state_path}\n")
-
-    # Collect broken calls
-    broken_calls = []
-    total_calls_checked = 0
-
-    for (chain_id, vault_address), state in reader_states.items():
-        call_status = getattr(state, "call_status", {})
-        for function_name, (check_block, reverts) in call_status.items():
-            total_calls_checked += 1
-            if reverts:
-                chain_name = CHAIN_NAMES.get(chain_id, f"Chain {chain_id}")
-                broken_calls.append(
-                    {
-                        "Chain": chain_name,
-                        "Chain ID": chain_id,
-                        "Vault": vault_address[:10] + "...",
-                        "Full Address": vault_address,
-                        "Function": function_name,
-                        "Detected at Block": check_block,
-                    }
-                )
-
-    print(f"Total calls checked across all vaults: {total_calls_checked}")
-
-    if not broken_calls:
-        print("\nNo broken calls detected.")
-        return
-
-    print(f"\nFound {len(broken_calls)} broken calls:\n")
-
-    # Summary table
-    headers = ["Chain", "Vault", "Function", "Detected at Block"]
-    rows = [[c["Chain"], c["Vault"], c["Function"], f"{c['Detected at Block']:,}"] for c in broken_calls]
-    print(tabulate(rows, headers=headers, tablefmt="grid"))
-
-    # Group by chain
-    print("\n\nBroken calls by chain:")
-    by_chain = {}
-    for call in broken_calls:
-        chain = call["Chain"]
-        if chain not in by_chain:
-            by_chain[chain] = []
-        by_chain[chain].append(call)
-
-    for chain, calls in sorted(by_chain.items()):
-        print(f"\n{chain}:")
-        for call in calls:
-            print(f"  {call['Full Address']}: {call['Function']}")
-
-    # Summary stats
-    print("\n\nSummary:")
-    print(f"  Total vaults with reader states: {len(reader_states)}")
-    print(f"  Total calls checked: {total_calls_checked}")
-    print(f"  Total broken calls: {len(broken_calls)}")
-    print(f"  Chains with broken calls: {len(by_chain)}")
+    :return: None; logs recorded failures and totals in tables.
+    """
+    setup_console_logging(os.environ.get("LOG_LEVEL", "info"))
+    path = Path(os.environ.get("READER_STATE_PATH", str(get_pipeline_data_dir() / "vault-reader-state-1h.pickle"))).expanduser()
+    with path.open("rb") as source:
+        states = pickle.load(source)
+    logger.info("Loaded %d reader states from %s", len(states), path)
+    failures = []
+    checked = 0
+    for spec, state in states.items():
+        chain_id, address = (spec.chain_id, spec.vault_address) if isinstance(spec, VaultSpec) else spec
+        call_status = state.get("call_status", {}) if isinstance(state, dict) else getattr(state, "call_status", {})
+        checked += len(call_status)
+        failures.extend((CHAIN_NAMES.get(chain_id, str(chain_id)), address, function, block) for function, (block, reverts) in call_status.items() if reverts)
+    logger.info("Recorded broken calls:\n%s", tabulate(failures, headers=["Chain", "Vault address", "Function", "Checked block"]))
+    counts = Counter(row[0] for row in failures)
+    logger.info("Broken calls by chain:\n%s", tabulate(sorted(counts.items()), headers=["Chain", "Broken calls"]))
+    logger.info("Reader states: %d; recorded checks: %d; broken calls: %d. Unchecked calls have unknown status.", len(states), checked, len(failures))
 
 
 if __name__ == "__main__":

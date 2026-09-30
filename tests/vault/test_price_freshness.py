@@ -286,3 +286,36 @@ def test_stateful_quiet_scan_preserves_last_retained_row(tmp_path: Path, monkeyp
     assert stale["overdue_vaults"] == {vault.address: "no_valid_source_observation"}
     assert unavailable["overdue_vaults"] == {vault.address: "reader_unavailable"}
     assert pq.read_table(path, columns=["block_number"])["block_number"].to_pylist() == [1, 2]
+
+
+def test_audit_failure_keeps_published_prices_and_continuation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deterministic final audit failure cannot replay committed samples.
+
+    Save source rows and progress despite an audit-only exception, then resume
+    from the returned state and retain every previously published row.
+    """
+    vault = DummyVault(VaultSpec(1, "0x0000000000000000000000000000000000000005"), DummyToken())
+    start = datetime.datetime(2026, 1, 1)
+
+    def fake_read(self: VaultHistoricalReadMulticaller, vaults: list[DummyVault], start_block: int, end_block: int, **_: object):
+        reader = DummyReader(vault, [])
+        self.readers = {vault.address: reader}
+        for block in range(start_block, end_block):
+            timestamp = start + datetime.timedelta(days=block - 1)
+            self.last_retained_at[vault.address] = timestamp
+            yield reader.make_read(block, timestamp)
+
+    def failed_audit(_state: VaultReaderState) -> bool:
+        raise AttributeError("injected final audit failure")
+
+    monkeypatch.setattr(VaultHistoricalReadMulticaller, "read_historical", fake_read)
+    monkeypatch.setattr(VaultReaderState, "freshness_qualified", property(failed_audit))
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, get_block=lambda block: {"timestamp": int((start + datetime.timedelta(days=block - 1)).replace(tzinfo=datetime.UTC).timestamp())}))
+    path = tmp_path / "prices.parquet"
+    kwargs = dict(output_fname=path, web3=web3, web3factory=None, vaults=[vault], token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), step=1, enforce_live_freshness=True)
+    first = scan_historical_prices_to_parquet(**kwargs, start_block=1, end_block=3, reader_states={})
+    assert first["audit_error"] == "AttributeError: injected final audit failure"
+    assert first["reader_states"][vault.spec]["last_block"] == 2
+    second = scan_historical_prices_to_parquet(**kwargs, end_block=4, reader_states=first["reader_states"])
+    assert second["start_block"] == 3
+    assert pq.read_table(path, columns=["block_number"])["block_number"].to_pylist() == [1, 2, 3]

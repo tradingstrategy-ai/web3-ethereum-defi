@@ -11,7 +11,7 @@ import logging
 import os
 import warnings
 from collections import OrderedDict, defaultdict
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
@@ -24,6 +24,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 
@@ -200,16 +201,29 @@ HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
 # Re-export stablecoin classification from dedicated module for backward compatibility.
 # The actual data now lives in YAML files under eth_defi/data/stablecoins/.
 from eth_defi.stablecoin_metadata import (  # noqa: E402
-    ALL_STABLECOIN_LIKE,
-    STABLECOIN_LIKE,
-    WRAPPED_STABLECOIN_LIKE,
-    YIELD_BEARING_STABLES,
-    StablecoinInfo,
-    is_stablecoin_like,
-    load_all_stablecoin_metadata,
-    normalise_token_symbol,
+    ALL_STABLECOIN_LIKE as ALL_STABLECOIN_LIKE,
 )
-
+from eth_defi.stablecoin_metadata import (
+    STABLECOIN_LIKE as STABLECOIN_LIKE,
+)
+from eth_defi.stablecoin_metadata import (
+    WRAPPED_STABLECOIN_LIKE as WRAPPED_STABLECOIN_LIKE,
+)
+from eth_defi.stablecoin_metadata import (
+    YIELD_BEARING_STABLES as YIELD_BEARING_STABLES,
+)
+from eth_defi.stablecoin_metadata import (
+    StablecoinInfo as StablecoinInfo,
+)
+from eth_defi.stablecoin_metadata import (
+    is_stablecoin_like as is_stablecoin_like,
+)
+from eth_defi.stablecoin_metadata import (
+    load_all_stablecoin_metadata as load_all_stablecoin_metadata,
+)
+from eth_defi.stablecoin_metadata import (
+    normalise_token_symbol as normalise_token_symbol,
+)
 
 #: Some test accounts with funded USDC for Anvil mainnet forking
 #:
@@ -614,6 +628,10 @@ def fetch_erc20_details(
 
     if cache is not None:
         cached = cache.get(key)
+        if cached is not None and not cached.get("symbol"):
+            checked_at = cached.get("checked_at")
+            if checked_at is None or native_datetime_utc_now() - datetime.datetime.fromisoformat(checked_at) >= datetime.timedelta(days=1):
+                cached = None
         if cached is not None:
             return TokenDetails(
                 erc_20,
@@ -724,6 +742,7 @@ def fetch_erc20_details(
             "symbol": symbol,
             "supply": supply,
             "decimals": decimals,
+            "checked_at": native_datetime_utc_now().isoformat(),
         }
     return token_details
 
@@ -951,7 +970,9 @@ class TokenDiskCache(PersistentKeyValueStore):
     def generate_calls(self, chain_id: int, addresses: list[HexAddress]) -> Iterable[EncodedCall]:
         for address in addresses:
             cache_key = TokenDetails.generate_cache_key(chain_id, address)
-            if cache_key not in self:
+            entry = self.get(cache_key)
+            negative_expired = entry is not None and not entry.get("symbol") and (not entry.get("checked_at") or native_datetime_utc_now() - datetime.datetime.fromisoformat(entry["checked_at"]) >= datetime.timedelta(days=1))
+            if entry is None or negative_expired:
                 yield from self.encode_multicalls(address)
             else:
                 logger.debug("Was already cached: %s", address)
@@ -959,6 +980,7 @@ class TokenDiskCache(PersistentKeyValueStore):
     def create_cache_entry(self, call_results: dict[str, EncodedCallResult]) -> dict:
         """Map multicall results to token details data for one address"""
         entry = {}
+        entry["checked_at"] = native_datetime_utc_now().isoformat()
 
         symbol_result = call_results["symbol"]
         entry["address"] = symbol_result.call.address
@@ -1034,6 +1056,8 @@ class TokenDiskCache(PersistentKeyValueStore):
             block_identifier=block_identifier,
             progress_bar_desc=progress_bar_desc,
             max_workers=max_workers,
+            timestamped_results=not rpc_optimisations_enabled(),
+            backend="threading",
         ):
             results_per_address[call_result.call.address][call_result.call.func_name] = call_result
 

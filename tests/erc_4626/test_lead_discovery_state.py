@@ -10,6 +10,7 @@ from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626 import lead_discovery_state
+from eth_defi.erc_4626.classification import create_vault_classifier_signature
 from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch
 from eth_defi.erc_4626.lead_discovery_state import (
     VAULT_METADATA_REFRESH_VERSION,
@@ -24,6 +25,7 @@ from eth_defi.erc_4626.lead_discovery_state import (
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.vault import scan_all_chains
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.rpc_scan_state import save_rpc_scan_state
 from eth_defi.vault.scan_all_chains import ChainConfig
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.yield_basis.vault_catalog import YieldBasisScanPreparation
@@ -241,9 +243,11 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
     assert state.completed_block == FULL_SCAN_BLOCK
 
 
+@pytest.mark.parametrize("cache_mode", ["fresh", "expired", "forced", "version_changed"])
 def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    cache_mode: str,
 ) -> None:
     """Incremental discovery classifies saved leads without replaying historical events."""
 
@@ -261,20 +265,34 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
         last_scanned_block={1: LAST_CACHED_BLOCK},
     ).write(vault_db_path)
 
+    now = native_datetime_utc_now()
+    save_rpc_scan_state(
+        tmp_path / "rpc-classification-1.json",
+        {
+            vault_address.lower(): {
+                "features": ["morpho_like"],
+                "checked_at": now.isoformat(),
+                "expires_at": (now + datetime.timedelta(days=-1 if cache_mode == "expired" else 1)).isoformat(),
+                "classifier_version": "old-version" if cache_mode == "version_changed" else create_vault_classifier_signature(),
+            }
+        },
+    )
+    monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", "true")
     captured: dict[str, object] = {}
 
     class FakeHypersyncVaultDiscover:
         """Capture scanner inputs without contacting HyperSync or an RPC endpoint."""
 
         def __init__(self, *_args: object, **_kwargs: object) -> None:
-            pass
+            self.cached_features = {}
 
         @staticmethod
         def seed_existing_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> None:
             captured["seeded_leads"] = leads
 
-        @staticmethod
-        def scan_vaults(start_block: int, end_block: int) -> LeadScanReport:
+        def scan_vaults(self, start_block: int, end_block: int) -> LeadScanReport:
+            captured["cached_features"] = dict(self.cached_features)
+            captured["current_state"] = self.current_state
             captured["start_block"] = start_block
             captured["end_block"] = end_block
             return LeadScanReport(
@@ -294,7 +312,7 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
         "eth_defi.erc_4626.lead_scan_core.configure_hypersync_from_env",
         lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"),
     )
-    monkeypatch.setattr("eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
 
     report = scan_leads(
         "https://rpc.example",
@@ -303,6 +321,7 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
         end_block=FULL_SCAN_BLOCK,
         web3=fake_web3,
         printer=lambda _message: None,
+        force_classification_refresh=cache_mode == "forced",
     )
 
     assert captured["start_block"] == LAST_CACHED_BLOCK + 1
@@ -311,12 +330,17 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
     assert report.start_block == LAST_CACHED_BLOCK + 1
     assert VaultDatabase.read(vault_db_path).last_scanned_block == {1: FULL_SCAN_BLOCK}
 
+    assert bool(captured["cached_features"]) == (cache_mode == "fresh")
+    assert captured["current_state"] is False
 
+
+@pytest.mark.parametrize("start_block", [1, 100])
 def test_initial_discovery_refuses_json_rpc_event_scan(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    start_block: int,
 ) -> None:
-    """Initial discovery refuses the unsupported genesis-to-head RPC fallback."""
+    """Initial and incremental discovery both refuse RPC event fallback."""
 
     fake_web3 = SimpleNamespace(
         eth=SimpleNamespace(chain_id=1, block_number=FULL_SCAN_BLOCK),
@@ -335,6 +359,7 @@ def test_initial_discovery_refuses_json_rpc_event_scan(
             "https://rpc.example",
             tmp_path / "vault-metadata-db.pickle",
             max_workers=1,
+            start_block=start_block,
             end_block=FULL_SCAN_BLOCK,
             web3=fake_web3,
             printer=lambda _message: None,
@@ -420,7 +445,7 @@ def test_incremental_discovery_rejects_nonadvancing_cursor(
         "eth_defi.erc_4626.lead_scan_core.configure_hypersync_from_env",
         lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"),
     )
-    monkeypatch.setattr("eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
 
     with pytest.raises(RuntimeError, match="did not advance past its scan range"):
         scan_leads(
@@ -433,3 +458,15 @@ def test_incremental_discovery_rejects_nonadvancing_cursor(
         )
 
     assert VaultDatabase.read(vault_db_path).last_scanned_block == {1: LAST_CACHED_BLOCK}
+
+
+def test_legacy_discovery_signature_migrates_without_extending_expiry() -> None:
+    """A broad legacy signature narrows scope while keeping its original TTL."""
+    now = native_datetime_utc_now()
+    _, old = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM"), ("Base", "JSON_RPC_BASE")])
+    signature, current = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM")])
+    state = LeadDiscoveryState(1, "legacy", old, now - datetime.timedelta(days=6), 123)
+    assert validate_lead_discovery_state(state, 1, signature, now, datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=current) is None
+    assert "expired" in validate_lead_discovery_state(state, 1, signature, now + datetime.timedelta(days=1), datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=current)
+    changed = {**current, "vault_metadata_refresh_version": "new"}
+    assert "signature changed" in validate_lead_discovery_state(state, 1, signature, now, datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=changed)

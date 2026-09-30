@@ -29,7 +29,7 @@ from http.client import RemoteDisconnected
 from itertools import islice
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
+from typing import TYPE_CHECKING, Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
@@ -55,6 +55,9 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+
+if TYPE_CHECKING:
+    from hypersync import HypersyncClient
 
 logger = logging.getLogger(__name__)
 
@@ -473,7 +476,7 @@ class MulticallWrapper(abc.ABC):
 
     def __repr__(self):
         """Log output about this call"""
-        raise NotImplementedError(f"Please implement in a subclass")
+        raise NotImplementedError("Please implement in a subclass")
 
     @property
     def contract_address(self) -> HexAddress:
@@ -1586,7 +1589,7 @@ class MultiprocessMulticallReader:
 
         block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
+            "Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
             len(encoded_calls),
             len(filtered_out_calls),
             block_identifier_str,
@@ -1760,11 +1763,11 @@ class MultiprocessMulticallReader:
                         logger.warning("Multicall retry status:\n%s", msg)
 
                         if i < (fallback_attempts - 1):
-                            logger.warning(f"Multicall retryable still failing, but we have retries left.")
+                            logger.warning("Multicall retryable still failing, but we have retries left.")
                             logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
                             continue
 
-                        raise RuntimeError(f"Out of multicall retries, even after dropping multicall batch size to 1 and switching providers, bailing out.\n" + msg) from e
+                        raise RuntimeError("Out of multicall retries, even after dropping multicall batch size to 1 and switching providers, bailing out.\n" + msg) from e
 
         self.calls += 1
 
@@ -2035,7 +2038,7 @@ def read_multicall_historical_stateful(
     all_calls = list(calls.keys())
     logger.info("Per block we need to do %d max calls", len(all_calls))
 
-    assert all(s is not None for s in calls.values()), f"States missing for some calls"
+    assert all(s is not None for s in calls.values()), "States missing for some calls"
 
     # Significant speedup by prefetcing timestamps
     timestamps = fetch_block_timestamps_multiprocess_auto_backend(
@@ -2180,6 +2183,7 @@ def read_multicall_chunked(
     timestamped_results=True,
     backend="loky",
     rpc_request_stats: RPCRequestStats | None = None,
+    refresh_current_block: bool = False,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2336,6 +2340,8 @@ def read_multicall_chunked(
                 timestamp=ts,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
                 rpc_request_stats=rpc_request_stats if backend == "threading" else None,
+                rpc_operation=getattr(rpc_request_stats, "operation", None),
+                refresh_current_block=refresh_current_block,
             )
 
     performed_calls = success_calls = failed_calls = 0
@@ -2410,6 +2416,12 @@ class MulticallHistoricalTask:
     #: Shared parent counter when running under the threading backend.
     rpc_request_stats: RPCRequestStats | None = None
 
+    #: Explicit phase-operation label copied into subprocess counters.
+    rpc_operation: str | None = None
+
+    #: Refresh a safe numeric head per batch for current-state feature probes.
+    refresh_current_block: bool = False
+
     def __post_init__(self):
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -2442,13 +2454,15 @@ def _execute_multicall_subprocess(
     assert task.chain_id
 
     if task.collect_rpc_request_stats:
-        task_rpc_request_stats = RPCRequestStats()
+        source_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
+        task_rpc_request_stats = RPCRequestStats(operation=task.rpc_operation or getattr(source_stats, "operation", "historical_multicall"))
     else:
         task_rpc_request_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
 
-    reader = per_chain_readers.get(task.chain_id)
+    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory))
+    reader = per_chain_readers.get(reader_key)
     if reader is None:
-        reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(
+        reader = per_chain_readers[reader_key] = MultiprocessMulticallReader(
             task.web3factory,
             rpc_request_stats=task_rpc_request_stats,
         )
@@ -2461,14 +2475,16 @@ def _execute_multicall_subprocess(
         # Read block timestamp for this batch
         assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
 
+        block_number = max(1, reader.web3.eth.block_number - 10) if task.refresh_current_block else task.block_number
+
         if task.timestamp is None:
-            timestamp = reader.get_block_timestamp(task.block_number)
+            timestamp = reader.get_block_timestamp(block_number)
         else:
             timestamp = task.timestamp
 
         # Perform multicall to read share prices
         call_results = reader.process_calls(
-            task.block_number,
+            block_number,
             task.calls,
             require_multicall_result=task.require_multicall_result,
             timestamp=timestamp,
@@ -2476,7 +2492,7 @@ def _execute_multicall_subprocess(
 
         # Pass results back to the main process
         return CombinedEncodedCallResult(
-            block_number=task.block_number,
+            block_number=block_number,
             timestamp=timestamp,
             results=[c for c in call_results],
             rpc_request_stats=task_rpc_request_stats if task.collect_rpc_request_stats else None,

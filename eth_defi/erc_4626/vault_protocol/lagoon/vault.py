@@ -44,6 +44,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -546,7 +547,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
                 return LagoonVersion(decoded_version)
             except ValueError as e:
                 message = f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address} on chain {self.chain_id} at block {block_identifier}"
-                raise NotImplementedError(message) from e
+                raise UnsupportedVaultVersion(message) from e
 
         probe_call = EncodedCall.from_keccak_signature(
             function="pendingSilo",

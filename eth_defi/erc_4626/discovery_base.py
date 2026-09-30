@@ -20,7 +20,7 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Type, TypeAlias
+from typing import TYPE_CHECKING, Callable, Type, TypeAlias
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -639,6 +639,9 @@ class LeadScanReport:
     #: Unique candidate addresses submitted to on-chain feature probing
     items_scanned: int = 0
 
+    #: Catalogue candidates reused from finite-lived classification state.
+    classification_cache_hits: int = 0
+
 
 def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[list[HexAddress], dict[str, PotentialVaultMatch], int]:
     """Prepare lead data for the shared feature-probe pass.
@@ -837,6 +840,10 @@ class VaultDiscoveryBase(abc.ABC):
     ):
         self.max_workers = max_workers
         self.existing_leads = {}
+        #: Current-state callers may refresh short-window HyperEVM probe blocks.
+        self.current_state = False
+        self.cached_features: dict[str, tuple[set[ERC4626Feature], datetime.datetime]] = {}
+        self.on_leads_discovered: Callable[[LeadScanReport], None] | None = None
 
     def seed_existing_leads(self, leads: dict[HexAddress, PotentialVaultMatch]):
         """Seed existing leads to continue the scan where we were left last time."""
@@ -927,7 +934,25 @@ class VaultDiscoveryBase(abc.ABC):
                 logger.info("Added hardcoded Asseto vault lead %s", address)
 
         addresses, leads_by_address, factory_lead_count = _prepare_probe_leads(leads)
+        if self.on_leads_discovered is not None:
+            # Persist every lead before advancing the event cursor. Metadata
+            # completion is independent and may be resumed per candidate.
+            self.on_leads_discovered(report)
+        pending_addresses = []
+        for address in addresses:
+            if address.lower() in BROKEN_VAULT_CONTRACTS:
+                continue
+            cached = self.cached_features.get(address.lower())
+            if cached is None or getattr(leads_by_address[address.lower()], "mellow_factory_candidate", None) is not None:
+                pending_addresses.append(address)
+                continue
+            features, checked_at = cached
+            lead = leads_by_address[address.lower()]
+            report.detections[address] = ERC4262VaultDetection(chain=chain, address=address, features=set(features), first_seen_at_block=lead.first_seen_at_block, first_seen_at=lead.first_seen_at, updated_at=checked_at, deposit_count=lead.deposit_count, redeem_count=lead.withdrawal_count, configuration_count=getattr(lead, "configuration_count", 0))
+            report.classification_cache_hits += 1
+        addresses = pending_addresses
         report.items_scanned = len(addresses)
+        logger.info("Classification on chain %d: due=%d cached=%d catalogue=%d", chain, len(addresses), report.classification_cache_hits, len(leads))
         logger.info("Found %d vault leads, of which %d are factory leads", len(leads), factory_lead_count)
         good_vaults = broken_vaults = 0
 
@@ -967,6 +992,7 @@ class VaultDiscoveryBase(abc.ABC):
             block_identifier=end_block,
             max_workers=self.max_workers,
             progress_bar_desc=progress_bar_desc,
+            current_state=self.current_state,
         ):
             if feature_probe.address.lower() in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")

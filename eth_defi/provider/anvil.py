@@ -67,7 +67,7 @@ from decimal import Decimal
 from functools import wraps
 from pathlib import Path
 from subprocess import DEVNULL, PIPE
-from typing import Any, Callable, Concatenate, Optional, ParamSpec, TextIO, Union
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpec, TextIO, Union
 
 import psutil
 import requests
@@ -75,8 +75,12 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
 
+from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig, start_rpc_proxy
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
+
+if TYPE_CHECKING:
+    from eth_defi.hotwallet import HotWallet
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +117,9 @@ ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
 #: This spreads the load across RPC providers and avoids repeatedly hitting
 #: a flaky endpoint across multiple test fixtures.
 _anvil_rpc_state = threading.local()
+
+#: Serialise the first detection on a connection shared by scanner threads.
+_anvil_detection_lock = threading.RLock()
 
 
 @dataclass(slots=True, frozen=True)
@@ -1968,11 +1975,26 @@ def set_balance(web3: Web3, address: str, raw_amount: int) -> int:
     )
 
 
+def invalidate_anvil_detection(web3: Web3) -> None:
+    """Forget node-kind detection after reconnecting or replacing an endpoint.
+
+    Provider replacement is detected automatically; an operator restarting a
+    different node behind an unchanged endpoint can invalidate explicitly.
+
+    :param web3: Connection whose cached successful detection is discarded.
+    :return: None.
+    """
+    with _anvil_detection_lock:
+        web3.__dict__.pop("_eth_defi_anvil_detection", None)
+
+
 def is_anvil(web3: Web3) -> bool:
     """Are we connected to Anvil node.
 
-    You need to change some behavior depending if you are
-    connected to a real node or Anvil simulation.
+    Callers adapt behaviour for a real node or an Anvil simulation. Successful
+    detection is cached per connection and provider identity when scanner RPC
+    optimisations are enabled; failed requests are retried on the next check.
+    Use :py:func:`invalidate_anvil_detection` after restarting a local endpoint.
 
     This can be either
 
@@ -1994,8 +2016,19 @@ def is_anvil(web3: Web3) -> bool:
     :return:
         True if we think we are connected to Anvil
     """
-    # 'anvil/v0.2.0'
-    return "anvil/" in web3.client_version
+    # Cache per connection and provider identity, never per chain ID: a fork
+    # has the same chain ID as its remote upstream. Failed reads are not cached.
+    provider = web3.provider
+    if not rpc_optimisations_enabled():
+        return "anvil/" in web3.client_version
+    identity = (provider, getattr(provider, "endpoint_uri", None))
+    with _anvil_detection_lock:
+        cached = getattr(web3, "_eth_defi_anvil_detection", None)
+        if cached is not None and cached[0] == identity:
+            return cached[1]
+        result = "anvil/" in web3.client_version
+        web3._eth_defi_anvil_detection = (identity, result)
+        return result
 
 
 def is_mainnet_fork(web3: Web3) -> bool:
@@ -2017,7 +2050,7 @@ def create_fork_funded_wallet(
     large_usdc_holder: HexAddress,
     usdc_amount=Decimal("10000"),
     eth_amount=Decimal("10"),
-) -> "eth_defi.hot_wallet.HotWallet":
+) -> "HotWallet":
     """On Anvil forked mainnet, create a wallet with some USDC funds.
 
     - Make a new private key account on a forked mainnet
@@ -2025,9 +2058,9 @@ def create_fork_funded_wallet(
     """
 
     from eth_defi.hotwallet import HotWallet
+    from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
     from eth_defi.token import fetch_erc20_details
     from eth_defi.trace import assert_transaction_success_with_explanation
-    from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 
     assert large_usdc_holder.startswith("0x"), f"Large USDC holder address must start with 0x: {large_usdc_holder}"
 
