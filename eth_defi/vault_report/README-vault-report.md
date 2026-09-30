@@ -173,10 +173,10 @@ described in [README-blog-post-outline.md](./README-blog-post-outline.md). In
 short, the post has:
 
 - the four latest podcast episodes;
-- the best-performing vaults, split into lending, real-world asset (RWA), perp
-  DEX by return, perp DEX by Sharpe ratio and other vaults, and AMM pools, each
-  with a performance chart and a table, then new vaults, the best vaults on
-  each chain and tokenised funds;
+- the best-performing vaults: new vaults first, then lending, real-world asset
+  (RWA), perp DEX by return, perp DEX by Sharpe ratio and AMM pools, each with
+  a performance chart and a table, then the best vaults on each chain and
+  tokenised funds;
 - average yield: dot plots for the 10 largest protocols by TVL, the 10
   highest-yielding protocols with at least $150k TVL and the 10 largest
   blockchains, against the T-bill;
@@ -266,8 +266,10 @@ compares performance. See
 - Tables rank by the annualised one-month return, like the website. All charts
   use the steadier annualised three-month return instead, see
   [README-blog-post-outline.md](./README-blog-post-outline.md#common-rules).
-- "3M price" shows the website's published 90-day sparkline (PNG, so it
+- "3M history" shows the website's published 90-day sparkline (PNG, so it
   survives newsletter email clients). Low-TVL vaults may not have one yet.
+- "TVL" is the current TVL, e.g. `$275k` or `$1.2M`; the CSV files keep the
+  exact current and peak values.
 - Tables have no risk rating column. The technical risk rating is used only to
   leave Dangerous or worse vaults out of the charts.
 

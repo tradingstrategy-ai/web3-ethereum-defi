@@ -27,7 +27,7 @@ from typing import Literal
 
 from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
-from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, OTHER, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls
+from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls
 
 #: Slug prefix of the monthly report posts
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
@@ -186,14 +186,6 @@ BEST_SECTIONS = (
         ranked_by="by 3M Sharpe ratio",
     ),
     BestSection(
-        key="other",
-        group=OTHER,
-        heading="Other vaults",
-        heading_id="best-performing-other-vaults",
-        subject="other best-performing vaults",
-        intro=f'<p>Yield aggregators, trading and other vaults outside the groups above. Browse the vaults by <a href="{VAULTS_URL}/strategies">strategy</a>.</p>',
-    ),
-    BestSection(
         key="amm",
         group=AMM,
         heading="AMM pools",
@@ -226,7 +218,6 @@ SECTION_TEMPLATES = (
         editor_note="Comment on the top vaults of the month.",
         always=True,
     ),
-    *(section.template for section in BEST_SECTIONS if section.group != TOKENISED_FUND),
     SectionTemplate(
         key="new",
         heading_id="best-performing-new-vaults",
@@ -235,6 +226,7 @@ SECTION_TEMPLATES = (
         charts=(("new_performance", "Performance of the best-performing new vaults since their launch against their benchmarks"),),
         level=3,
     ),
+    *(section.template for section in BEST_SECTIONS if section.group != TOKENISED_FUND),
     SectionTemplate(
         key="by_chain",
         heading_id="best-performing-vaults-on-each-chain",

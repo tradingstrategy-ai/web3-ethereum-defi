@@ -209,12 +209,12 @@ class ReportCriteria:
 #: Default columns for vault tables, same as in the previous blog posts
 VAULT_TABLE_COLUMNS = [
     "Vault",
-    "3M price",
+    "3M history",
     "1M ann.",
     "3M ann.",
     "Lifetime ann.",
     "3M Sharpe",
-    "TVL USD (peak)",
+    "TVL",
     "Age (y)",
     "Token",
     "Chain",
@@ -229,7 +229,7 @@ CHAIN_TABLE_COLUMNS = [
     "1M ann.",
     "3M ann.",
     "Lifetime ann.",
-    "TVL USD (peak)",
+    "TVL",
     "Age (y)",
     "Token",
 ]
@@ -238,10 +238,10 @@ CHAIN_TABLE_COLUMNS = [
 NUMERIC_COLUMNS = {"3M Sharpe", "Age (y)"}
 
 #: Columns whose values must not wrap onto two lines
-NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL USD (peak)"}
+NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL"}
 
 #: Explanation of the table cell formats, shown once above the first table
-TABLE_FORMAT_NOTE = "Returns are annualised: (n) net of fees, (g) gross when fee data is not available. TVL shows the current value, with the all-time peak in brackets."
+TABLE_FORMAT_NOTE = "Returns are annualised: (n) net of fees, (g) gross when fee data is not available. TVL is the current value."
 
 
 @dataclass(slots=True)
@@ -763,23 +763,29 @@ def format_sharpe(value: float | None) -> str:
     return f"{value:.2f}"
 
 
-def format_tvl(current: USDollarAmount | None, peak: USDollarAmount | None) -> str:
-    """Format current and peak TVL.
+def format_tvl(current: USDollarAmount | None) -> str:
+    """Format the current TVL for a table cell.
+
+    Tables show the current TVL only, in dollars with ``k``, ``M`` and ``B``
+    suffixes rather than full digits, see the writing rules in
+    ``README-blog-post-outline.md``.
 
     :param current:
         Current TVL.
 
-    :param peak:
-        Peak TVL.
-
     :return:
-        E.g. ``1,234,567 (2,000,000)``.
+        E.g. ``$275k``, ``$1.2M`` or ``$2.1B``.
     """
     if pd.isna(current):
         return "---"
-    if pd.isna(peak):
-        return f"{current:,.0f}"
-    return f"{current:,.0f} ({peak:,.0f})"
+    # Round first, so e.g. $999.7k becomes $1.0M, not $1000k
+    if current >= 999_950_000:
+        return f"${current / 1e9:,.1f}B"
+    if current >= 999_500:
+        return f"${current / 1e6:,.1f}M"
+    if current >= 1_000:
+        return f"${current / 1e3:,.0f}k"
+    return f"${current:,.0f}"
 
 
 def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset()) -> dict[str, str]:
@@ -804,12 +810,12 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
     sparkline = f'<img src="{SPARKLINE_URL.format(vault_id=vault_id)}" width="72" height="18" alt="" style="width:72px;max-width:none;height:18px;vertical-align:middle">' if vault_id in sparkline_ids else ""
     return {
         "Vault": _link(row["name"] or row["address"], row["trading_strategy_link"]),
-        "3M price": sparkline,
+        "3M history": sparkline,
         "1M ann.": html.escape(format_return(row["one_month_cagr_net"], row["one_month_cagr"])),
         "3M ann.": html.escape(format_return(row["three_months_cagr_net"], row["three_months_cagr"])),
         "Lifetime ann.": html.escape(format_return(row["cagr_net"], row["cagr"])),
         "3M Sharpe": html.escape(format_sharpe(row["three_months_sharpe_best"])),
-        "TVL USD (peak)": html.escape(format_tvl(row["current_nav"], row["peak_nav"])),
+        "TVL": html.escape(format_tvl(row["current_nav"])),
         "Age (y)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
         "Token": html.escape(row["denomination"] or ""),
         "Chain": _link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),

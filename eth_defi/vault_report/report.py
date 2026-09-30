@@ -351,7 +351,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         "best": [
             "Vaults are ranked by their annualised last one-month returns",
-            f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending, RWA and other vaults also need {active}",
+            f"Minimum {format_usd(criteria.min_tvl)} TVL in every table, {format_usd(criteria.amm_min_tvl)} for AMM pools; lending and RWA vaults also need {active}",
             unidentified,
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/vaults"),

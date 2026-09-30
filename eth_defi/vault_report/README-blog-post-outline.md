@@ -29,7 +29,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
 | Real-world assets (RWA) | An RWA strategy tag (`RWA_STRATEGY_TAGS`: `rwa`, `rwa_credit`, `rwa_lending`, `rwa_royalties`), e.g. private credit, trade finance and royalty vaults. RWA lending vaults count as RWA, not lending |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
-| Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. Only vaults with an identified protocol are ranked |
+| Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. No section of its own |
 
 ## Unidentified protocols
 
@@ -57,12 +57,14 @@ them before any return is compared.
 | Stablecoin TVL by blockchain | Included, under their blockchain |
 | Inflows and outflows | Included |
 | Average yield by blockchain and by protocol | Left out |
-| All best-performing tables and their performance charts, including *Other vaults* | Left out |
+| All best-performing tables and their performance charts | Left out |
 | Best-performing new vaults, per-chain table, risk and return, hero image | Left out |
 
-The *Other vaults* table is a vault group, see [Vault groups](#vault-groups):
-vaults with an identified protocol that are not lending, RWA, perp DEX, AMM or
-tokenised fund vaults, for example yield aggregators. It is not the Other protocol pile.
+The *Other* vault group, see [Vault groups](#vault-groups), is not the Other
+protocol pile: it holds vaults with an identified protocol that are not
+lending, RWA, perp DEX, AMM or tokenised fund vaults, for example yield
+aggregators. It has no section of its own; its vaults appear in the new
+vaults, per-chain, average yield and risk and return sections.
 
 When a protocol is mapped in the vault metadata, its vaults leave the Other
 pile automatically. No report change is needed.
@@ -79,7 +81,7 @@ pile automatically. No report change is needed.
 - **Eligibility:** blacklisted vaults, rated Blacklisted in the export or given a bad flag in `eth_defi/vault/flag.py` since, and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
 - **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
-- **Table thresholds:** at least $100k TVL. Lending, RWA and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
+- **Table thresholds:** at least $100k TVL. Lending and RWA vaults, and new vaults, also need at least 10 deposit and redemption events. Tables list the top 20.
 - **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the group by three-month return, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL and that the legend returns are annualised; the legend shows the numbers only, without "ann." or a start date. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. The legend return is computed from the chart's daily prices over each line's span, so it can differ from the export's three-month return that chooses and ranks the vaults. Legend numbers are chart ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
 
 ## Outline
@@ -95,13 +97,12 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 3 | DeFi vault community news, {Month} | — | ✏️ News as `h3` subsections |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
 | 4 | The best-performing vaults | Section notes on the table ranking and format only: no introduction and no T-bill caption | ✏️ Comment on the top vaults; the check's exclusions and undecided vaults |
-| 4.1 | ↳ Lending vaults | Performance chart and table, **by return** | — |
-| 4.2 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
-| 4.3 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
-| 4.4 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
-| 4.5 | ↳ Other vaults | Performance chart and table, **by return** | — |
+| 4.1 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
+| 4.2 | ↳ Lending vaults | Performance chart and table, **by return** | — |
+| 4.3 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
+| 4.4 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
+| 4.5 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 4.6 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 4.7 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
 | 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
 | 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
 | 5 | Yield by chain and protocol | How to read the dot plots | — |
@@ -143,8 +144,9 @@ them; keep them when changing the templates in `post.py` or the notes in
   for their subsections.
 - *New vaults*, *Vaults on each chain* and *Tokenised funds* are subsections
   of *The best-performing vaults*, named like the other subsections (no
-  "The best-performing …" prefix), with new vaults right after the vault
-  groups.
+  "The best-performing …" prefix). *New vaults* is the first subsection;
+  *Vaults on each chain* and *Tokenised funds* come after the vault groups.
+- There is no *Other vaults* section.
 - *Yield by chain and protocol* holds *Yield by protocol, high TVL*, *Yield by protocol,
   high yield* and *Yield by blockchain*, in that order.
 - *Vaults and tokenised funds TVL* holds the TVL by protocol, TVL by
@@ -175,6 +177,9 @@ them; keep them when changing the templates in `post.py` or the notes in
   subsections, including *New vaults*, have no notes of their own.
 - Chart subtitles do not repeat the context: no "top 8", no "over 90 days",
   no "against benchmarks". The performance chart axis title is "Returns".
+- Tables show only the current TVL, in a column headed "TVL", with `k`, `M`
+  and `B` suffixes, e.g. `$275k` or `$1.2M`, never full digits. The sparkline
+  column is headed "3M history".
 - Vault links go to `https://tradingstrategy.ai/vaults/…`, never the old
   `/trading-view/` paths, and table vault names link to the vault page.
 - Ghost callout cards hold inline text only: a list goes after the callout.
@@ -218,6 +223,7 @@ them; keep them when changing the templates in `post.py` or the notes in
 | Stablecoin TVL by blockchain added | The same money as the protocol chart, by where it lives |
 | Best-performing vaults first, then average yield, risk and return, and the TVL charts with inflows and outflows last | Readers come for the rankings; the market overview follows |
 | Best-performing introduction, T-bill caption, denomination list and chart-repeating section notes removed | Shorter post; the charts already say it |
+| *Other vaults* section removed; new vaults first; tables show current TVL only, as `$1.2M` | A shorter, more readable post |
 | Latest podcasts added before the data sections | Promotes the podcast episodes to report readers |
 | Excluded vaults listed in a dated Markdown file and a PR comment, not in the post | Editors and reviewers see which vaults were left out and why, and the repository keeps the record; the post stays on the rankings |
 

@@ -32,7 +32,7 @@ from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
 from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
-from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
+from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, format_tvl, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
 from eth_defi.vault_report.vault_checks import RULES_VERSION, SCHEMA_VERSION, SCOPE_VERSION, CheckCandidate, CheckDecision, CheckValidationError, VaultCheckSettings, build_agent_command, build_check_candidates, candidate_depth, check_blacklist_entries, find_unreviewed_uncertain, read_check_decisions, run_check_agent, write_candidates_file
 from eth_defi.vault_report.vault_probes import Exposure, VaultFacts, raise_signals, select_probe
@@ -329,8 +329,11 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert json.loads((tmp_path / "out" / "report.json").read_text())["changelog_entries"] == ["Add Foo vault support (2026-09-01)"]
     assert "Vault 0xcc" not in post_html  # Blacklisted
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
-    assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "other": 1, "tokenised_funds": 1, "new": 1, "by_chain": 6}
+    assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "tokenised_funds": 1, "new": 1, "by_chain": 6}
     assert (tmp_path / "out" / "tables" / "lending.csv").exists()
+    # Tables show the current TVL with k and M suffixes, and no Other vaults section
+    assert "TVL</th>" in post_html and "(peak)" not in post_html and "3M history</th>" in post_html
+    assert "best-performing-other-vaults" not in post_html
     # Writing rules, see README-blog-post-outline.md: plain statistics, no best-performing intro or
     # T-bill caption, and no subsection notes that repeat what the chart shows
     assert "beat the 3-month US Treasury bill" not in post_html and "The vaults with the best annualised" not in post_html
@@ -340,7 +343,7 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "The chart shows the top" not in post_html and "Benchmarks: the 3-month" not in post_html and "left out of the charts but listed in the tables" not in post_html
     assert '<h3 id="best-performing-lending-vaults">' in post_html
     # New vaults, the per-chain table and the tokenised funds are subsections of the best-performing vaults, in this order
-    subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
+    subsections = ['<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
     assert [post_html.index(heading) for heading in subsections] == sorted(post_html.index(heading) for heading in subsections)
     # Without charts the average yield and TVL groups have no content, so their headings are left out too
     assert 'id="yield-by-chain-and-protocol"' not in post_html and 'id="vaults-and-tokenised-funds-tvl"' not in post_html
@@ -375,7 +378,6 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "lending_performance",
         "perp_dex_performance",
         "perp_dex_sharpe_performance",
-        "other_performance",
         "tokenised_funds_performance",
         "new_performance",
         "risk_return",
@@ -1110,3 +1112,12 @@ def test_ghost_admin_api_key_check():
     assert content_key not in str(e.value)
     with pytest.raises(GhostAPIError, match="not an Admin API key"):
         check_ghost_admin_api_key("key:secret")
+
+
+def test_format_tvl():
+    """Table TVL is the current value with k, M and B suffixes, not full digits."""
+    assert format_tvl(274_713) == "$275k"
+    assert format_tvl(1_209_711) == "$1.2M"
+    assert format_tvl(999_700) == "$1.0M"
+    assert format_tvl(36_500_000_000) == "$36.5B"
+    assert format_tvl(float("nan")) == "---"
