@@ -170,11 +170,28 @@ does:
    `VAULT_FLAGS_AND_NOTES`. If it is, leave it and record that in the reason.
 2. Add a module-level message constant near the other messages, e.g.
    `KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."`
-3. Add the entry to `VAULT_FLAGS_AND_NOTES`, with the vault name as a comment
-   on the line above:
+3. Add the entry to `VAULT_FLAGS_AND_NOTES` with an extensive line comment
+   above it, following the *Instructions for adding entries* in the `flag.py`
+   module docstring: the vault name, protocol and chain; the date and that the
+   investability check found it; what is wrong, with the figures you observed;
+   why this flag; and canonical source URLs (the tradingstrategy.ai vault page,
+   the block explorer page of the vault and of any token involved, and the
+   incident reports, forum posts or announcements you relied on). Prefer
+   human-readable pages over API endpoints. A bare address is not accepted:
 
    ```python
-   # King RSS USDC Vault
+   # King RSS USDC Vault (Morpho V1 on Base)
+   #
+   # Added 2026-09-26 by the vault report investability check. The vault lends
+   # about 95% of its assets to one Morpho Blue market against RSS
+   # "elephanToken", which has no DEX market and is priced by a custom oracle;
+   # the market is 100% borrowed and the vault is unlisted on Morpho with
+   # deposits disabled. The reported yield cannot be realised, hence
+   # misleading_valuation.
+   #
+   # - https://tradingstrategy.ai/vaults/king-rss-usdc-vault
+   # - https://basescan.org/address/0xf80c0529bd94c773844e459853cd91b9263dd525
+   # - Collateral without DEX pairs: https://dexscreener.com/base/0x7a305D07B537359cf468eAea9bb176E5308bC337
    "0xf80c0529bd94c773844e459853cd91b9263dd525": (VaultFlag.misleading_valuation, KING_RSS_UNSELLABLE_COLLATERAL),
    ```
 

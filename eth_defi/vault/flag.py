@@ -1,4 +1,34 @@
-"""Vault status flags."""
+"""Vault status flags and notes.
+
+Manual flags and notes for individual vaults and protocols. A bad flag, see
+:py:data:`BAD_FLAGS`, hides a vault on the website and in the data exports.
+
+Instructions for adding entries
+-------------------------------
+
+Every entry added to :py:data:`VAULT_FLAGS_AND_NOTES` must be documented with an
+extensive line comment block directly above it. This applies to humans and to
+AI agents alike, including the ``check-top-list-vaults`` and ``add-vault-note``
+skills. A bare address, or a comment with only the vault name, is not enough.
+The comment block states:
+
+- the vault name, protocol, chain and, when known, curator;
+- when the entry was added and what found the problem, e.g. the vault report
+  investability check, an incident report or a user report;
+- what is wrong, with the figures observed and when, e.g. utilisation,
+  redeemable liquidity or the collateral's market;
+- why this :class:`VaultFlag` was chosen;
+- canonical source URLs for the data: the vault's page on
+  ``https://tradingstrategy.ai/vaults/``, the block explorer page of the vault
+  and of any token or oracle involved, the protocol's app or forum post, and
+  the incident reports or announcements relied on. Prefer human-readable
+  pages over API endpoints.
+
+The note message itself goes in a module-level constant with a ``#:`` comment,
+so it can be shared by vaults with the same problem. See the King RSS USDC
+Vault entry for an example. After changing flags, rerun the vault metadata
+scan, see :class:`VaultFlag`.
+"""
 
 import enum
 
@@ -440,10 +470,16 @@ BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is i
 
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
+#: King RSS USDC Vault lends against a token with no market, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
 KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."
 
+#: Credifi's Euler pool lends against an unsellable credit-line token, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+CREDIFI_UNSECURED_CREDIT_COLLATERAL = "Lends only against Credifi CREDIT, a single-holder bookkeeping token with no market priced at $1 by Credifi's own unverified oracle, so the loans are unsecured credit lines and the collateral cannot be valued or sold."
+
+#: Euler pools left with bad debt by the Stream Finance and Elixir collapse, see their entries in :py:data:`VAULT_FLAGS_AND_NOTES`
 STREAM_ELIXIR_EULER_BAD_DEBT = "Fully borrowed against deUSD, sdeUSD or USDX collateral that collapsed with Stream Finance and Elixir in November 2025; the vault has no cash and withdrawals fail."
 
+#: A vault denominated in the collapsed Stream Finance xUSD, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
 STREAM_XUSD_DENOMINATED = "Denominated in Stream Finance xUSD, which collapsed in November 2025 and trades near $0.02; the reported TVL counts xUSD at $1 and the vault has no borrowers."
 
 
@@ -920,21 +956,171 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
     # VI-USDC-QA_G (Euler on Sonic)
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
-    # King RSS USDC Vault
+    # King RSS USDC Vault (Morpho V1 on Base)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The vault lends about 95% of its assets to one Morpho Blue market against RSS
+    # "elephanToken" (0x7a305D07B537359cf468eAea9bb176E5308bC337), which has no DEX pairs and
+    # is priced by a custom oracle; the market is 100% borrowed. The Morpho API lists the
+    # vault as unlisted with deposits disabled and a short timelock. The reported yield cannot
+    # be realised, hence misleading_valuation.
+    #
+    # - https://tradingstrategy.ai/vaults/king-rss-usdc-vault
+    # - https://basescan.org/address/0xf80c0529bd94c773844e459853cd91b9263dd525
+    # - Collateral without DEX pairs: https://dexscreener.com/base/0x7a305D07B537359cf468eAea9bb176E5308bC337
+    # - Morpho app: https://app.morpho.org/base/vault/0xf80c0529bd94c773844e459853cd91b9263dd525
     "0xf80c0529bd94c773844e459853cd91b9263dd525": (VaultFlag.misleading_valuation, KING_RSS_UNSELLABLE_COLLATERAL),
-    # Re7 Labs Cluster AUSD (Euler on Avalanche)
+    # EVK Vault eUSDC-77 (Credifi, Euler EVK on Base)
+    #
+    # Added 2026-09-30 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool's only collateral is Credifi CREDIT
+    # (0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2), a bookkeeping token with a single holder
+    # and no market, priced at $1 by an unverified oracle
+    # (0x6a63a0F0eF5045cdDE9Ed93995255e60fB8A3265) that the vault's governor deployed. The
+    # loans are unsecured, reputation-based credit lines of up to $3,000 USDC, and the pool
+    # was 100% borrowed with no cash on 2026-09-30 (20,295.68 USDC lent at Base block
+    # 51986384). The collateral cannot be valued or sold, hence misleading_valuation.
+    #
+    # - https://tradingstrategy.ai/vaults/evk-vault-eusdc-77-2
+    # - https://base.blockscout.com/address/0xffAABC0bfbCEc0355129E7653C6F1923eC533B66
+    # - Collateral token: https://base.blockscout.com/token/0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2
+    # - Oracle: https://base.blockscout.com/address/0x6a63a0F0eF5045cdDE9Ed93995255e60fB8A3265
+    # - Collateral without DEX pairs: https://dexscreener.com/base/0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2
+    # - Credifi product: https://credi.fi/
+    "0xffaabc0bfbcec0355129e7653c6f1923ec533b66": (VaultFlag.misleading_valuation, CREDIFI_UNSECURED_CREDIT_COLLATERAL),
+    # Re7 Labs Cluster AUSD (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0x2137568666f12fc5a026f5430ae7194f1c1362ab
+    # - https://snowscan.xyz/address/0x2137568666f12fc5a026f5430ae7194f1c1362ab
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
     "0x2137568666f12fc5a026f5430ae7194f1c1362ab": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # Re7 Labs Cluster USDC (Euler on Avalanche)
+    # Re7 Labs Cluster USDC (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # Depositors report withdrawals failing with E_InsufficientCash on the Euler forum.
+    #
+    # - https://tradingstrategy.ai/vaults/0x39de0f00189306062d79edec6dca5bb6bfd108f9
+    # - https://snowscan.xyz/address/0x39de0f00189306062d79edec6dca5bb6bfd108f9
+    # - Stuck funds on the Euler forum: https://forum.euler.finance/t/re7-labs-cluster-usdc-stuck-funds-e-insufficientcash-avalanche/1760
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
     "0x39de0f00189306062d79edec6dca5bb6bfd108f9": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # Re7 Labs Cluster deUSD (Euler on Avalanche)
+    # Re7 Labs Cluster deUSD (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD, and lends deUSD itself, which Elixir sunset as
+    # collateral. These collapsed with Stream Finance and Elixir in November 2025, and the
+    # pool has been fully borrowed since, with no or almost no cash for withdrawals and a
+    # share price that has barely moved for three months (observed in the September 2026 check
+    # runs). Depositors cannot exit, hence illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0xa45189636c04388adbb4d865100dd155e55682ec
+    # - https://snowscan.xyz/address/0xa45189636c04388adbb4d865100dd155e55682ec
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
     "0xa45189636c04388adbb4d865100dd155e55682ec": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # Keyring zkVerified Cluster USDC (Euler on Avalanche)
+    # Keyring zkVerified Cluster USDC (Euler EVK on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir sdeUSD as collateral. These collapsed with Stream Finance and
+    # Elixir in November 2025, and the pool has been fully borrowed since, with no or almost
+    # no cash for withdrawals and a share price that has barely moved for three months
+    # (observed in the September 2026 check runs). Depositors cannot exit, hence illiquid.
+    #
+    # The pool's interest rate was set to zero, so lenders earn nothing while their funds are
+    # locked.
+    #
+    # - https://tradingstrategy.ai/vaults/keyring-zkverified-cluster
+    # - https://snowscan.xyz/address/0x8f23da78e3f31ab5deb75dc3282198bed630ffde
+    # - Keyring cluster launch: https://thedefiant.io/news/defi/keyring-brings-zero-knowledge-id-layer-to-defi-vaults-on-avalanche
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
     "0x8f23da78e3f31ab5deb75dc3282198bed630ffde": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # Re7 Labs Cluster USD1 (Euler on Binance)
+    # Re7 Labs Cluster USD1 (Euler EVK, Re7 Labs cluster on BNB Chain)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Stables Labs USDX and sUSDX as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0xc41f2ba7102e9f9f2d603eb951f955ae205ed272
+    # - https://bscscan.com/address/0xc41f2ba7102e9f9f2d603eb951f955ae205ed272
+    # - Stables Labs USDX collapse analysis: https://beosin.com/resources/analysis-of-the-stables-labs-usdx-collapse-incident-and-fund-flow-tracing
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
     "0xc41f2ba7102e9f9f2d603eb951f955ae205ed272": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # Re7 Labs Cluster USDT (Euler on Binance)
+    # Re7 Labs Cluster USDT (Euler EVK, Re7 Labs cluster on BNB Chain)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Stables Labs USDX and sUSDX as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0x69a93dbab609266af96f05658b2e22d020de2e19
+    # - https://bscscan.com/address/0x69a93dbab609266af96f05658b2e22d020de2e19
+    # - Stables Labs USDX collapse analysis: https://beosin.com/resources/analysis-of-the-stables-labs-usdx-collapse-incident-and-fund-flow-tracing
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
     "0x69a93dbab609266af96f05658b2e22d020de2e19": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
-    # MEV Capital Sonic Cluster (Euler on Sonic, xUSD)
+    # MEV Capital Sonic Cluster (Euler EVK on Sonic)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The vault is denominated in Stream Finance xUSD
+    # (0x6202b9f02e30e5e1c62cc01e4305450e5d83b926), which collapsed in November 2025 and
+    # traded near $0.02 in September 2026. The vault holds only idle xUSD with no borrowers
+    # and earns nothing, while its TVL counts xUSD at $1, hence depegged_denomination_token.
+    #
+    # - https://tradingstrategy.ai/vaults/mev-capital-sonic-cluster-16
+    # - https://sonicscan.org/address/0xdebdab749330bb976fd10dc52f9a452aaf029028
+    # - xUSD price: https://www.geckoterminal.com/sonic/tokens/0x6202b9f02e30e5e1c62cc01e4305450e5d83b926
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
     "0xdebdab749330bb976fd10dc52f9a452aaf029028": (VaultFlag.depegged_denomination_token, STREAM_XUSD_DENOMINATED),
 }
 
