@@ -12,6 +12,8 @@ from requests.exceptions import ConnectionError
 from eth_defi.erc_4626 import lead_scan_core, scan
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.vault import scan_all_chains
 from eth_defi.vault.base import VaultSpec
@@ -189,7 +191,8 @@ def test_legitimate_missing_economics_clear_previous_values(reclassified: bool) 
 
 
 @pytest.mark.parametrize("optimise", ["true", "false"])
-def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, optimise: str) -> None:
+@pytest.mark.parametrize("failure", [ConnectionError("candidate provider unavailable"), ExtraValueError({"code": -32090, "message": "request rejected"}), ProbablyNodeHasNoBlock("missing state")])
+def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, optimise: str, failure: BaseException) -> None:
     """An unqualified candidate outage leaves a healthy vault's prices runnable."""
     monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", optimise)
     now = datetime.datetime(2026, 9, 30)
@@ -208,7 +211,7 @@ def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path
     def construct(web3: object, address: str, *args: object, **kwargs: object) -> object:
         constructed.append(address)
         if address == detections[0].address:
-            raise ConnectionError("candidate provider unavailable")
+            raise failure
         return good
 
     def writer(**kwargs: object) -> dict:
@@ -225,3 +228,13 @@ def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path
         success, second_metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=tmp_path / "readers.pickle", uncleaned_price_path=tmp_path / "prices.parquet")
         assert success and second_metrics["tvl_probes_cached"] == 1
         assert constructed.count(detections[0].address) == 1
+
+
+def test_failed_reclassification_does_not_certify_old_economics() -> None:
+    """A negative observation cannot relabel retained values as new-protocol data."""
+    now = datetime.datetime(2026, 9, 30)
+    detection = ERC4262VaultDetection(chain=1, address="0x" + "1" * 40, features=set(), first_seen_at_block=1, first_seen_at=now, updated_at=now, deposit_count=0, redeem_count=0)
+    row = {"_detection_data": detection, "_available_liquidity": None, "_utilisation": None, "_lending_fields_unavailable": ["_available_liquidity", "_utilisation"]}
+    observations = {detection.address: {"features": [], "status": "unavailable"}}
+    lead_scan_core._record_metadata_success(row, {"_available_liquidity": Decimal(100)}, {}, observations, 123, "signature", now)
+    assert row["_available_liquidity"] is None

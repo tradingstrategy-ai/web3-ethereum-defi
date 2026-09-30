@@ -14,6 +14,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader import fast_json_rpc, multicall_batcher
 from eth_defi.event_reader.multicall_batcher import MULTICALL_DEPLOY_ADDRESS
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.vault import rpc_batch
@@ -126,7 +127,8 @@ def test_idle_lending_snapshot_reuses_assets_and_balance(recording_factory) -> N
     assert methods.count("eth_call") - before == 1
 
 
-def test_admission_batch_transport_failure_preserves_candidates(recording_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("failure", [ConnectionError("provider unavailable"), ExtraValueError({"code": -32090, "message": "request rejected"})])
+def test_admission_batch_transport_failure_preserves_candidates(recording_factory, monkeypatch: pytest.MonkeyPatch, failure: BaseException) -> None:
     """A failed shared admission read defers candidates without aborting the chain."""
 
     factory, _, _ = recording_factory
@@ -135,7 +137,7 @@ def test_admission_batch_transport_failure_preserves_candidates(recording_factor
     vault.get_historical_reader = lambda stateful: SimpleNamespace(reader_state=VaultReaderState(vault))
 
     def fail_batch(*args: object, **kwargs: object) -> None:
-        raise ConnectionError("provider unavailable")
+        raise failure
 
     monkeypatch.setattr(rpc_batch, "read_multicall_chunked", fail_batch)
     assert list(fetch_batched_tvl_probes([vault], factory, 20_000_000, max_workers=1)) == [(vault, None, False)]

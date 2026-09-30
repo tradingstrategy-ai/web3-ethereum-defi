@@ -19,6 +19,8 @@ from web3.exceptions import Web3Exception
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.vault.base import VaultBase
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
@@ -84,7 +86,7 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
             reader = vault.get_historical_reader(stateful=True)
             state = reader.reader_state if isinstance(reader.reader_state, VaultReaderState) else VaultReaderState(vault)
             return vault, state.exchange_rate
-        except (Web3Exception, RequestException, ValueError, ArithmeticError) as error:
+        except (Web3Exception, RequestException, ProbablyNodeHasNoBlock, ValueError, ArithmeticError) as error:
             logger.warning("Admission conversion unavailable for %s: %s", vault.address, error)
             return vault, None
 
@@ -112,7 +114,7 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
                 else:
                     assets = vault.denomination_token.convert_to_decimals(int.from_bytes(result.result, "big"))
                     yield vault, assets * rates[vault.address.lower()], False
-        except (Web3Exception, RequestException, RuntimeError) as error:
+        except (Web3Exception, RequestException, ExtraValueError, ProbablyNodeHasNoBlock, RuntimeError) as error:
             if classify_rpc_scan_failure(error) != "transient" and not is_contract_read_failure(error):
                 raise
             logger.warning("Admission batch deferred; preserving unverified candidates: %s", error)
@@ -133,7 +135,7 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
             if rate in (UNKNOWN_EXCHANGE_RATE, DENOMINATION_UNAVAILABLE_EXCHANGE_RATE):
                 return vault, None, True
             return vault, vault.fetch_nav() * rate, False
-        except (Web3Exception, RequestException, ValueError, RuntimeError, ArithmeticError) as error:
+        except (Web3Exception, RequestException, ProbablyNodeHasNoBlock, ValueError, RuntimeError, ArithmeticError) as error:
             logger.warning("Specialised admission probe deferred for %s: %s", vault.address, error)
             return vault, None, False
 

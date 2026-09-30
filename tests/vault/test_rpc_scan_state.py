@@ -13,7 +13,9 @@ from web3.exceptions import ContractLogicError, Web3RPCError
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626 import vault_token
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, VaultReaderState
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.anvil import invalidate_anvil_detection, is_anvil
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase
 from eth_defi.token import TokenDetails, TokenDiskCache
 from eth_defi.vault.base import VaultSpec
@@ -205,3 +207,32 @@ def test_price_outcome_reports_partial_unavailable_coverage(tmp_path: Path) -> N
     with RPCUsageDatabase(tmp_path / "counters.duckdb") as database:
         database.record_scan(1, "price_scan", datetime.date(2026, 9, 30), 1, RPCRequestStats(), 2, metrics={"low_activity_unverified": 1})
         assert database._require_connection().execute("SELECT outcome FROM vault_rpc_operation_calls WHERE operation='outcome'").fetchall() == [("degraded",)]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"code": -32090, "message": "request rejected"},
+        {"code": -32000, "message": "header not found"},
+        {"code": -32000, "message": "not enough agreement"},
+    ],
+)
+def test_fallback_provider_payloads_are_transient(payload: dict) -> None:
+    """Production fallback errors retain retry classification through wrappers."""
+    error = ExtraValueError(payload)
+    assert classify_rpc_scan_failure(error) == "transient"
+    assert not is_contract_read_failure(error)
+    exhausted = RuntimeError("Out of multicall retries")
+    exhausted.__cause__ = error
+    assert classify_rpc_scan_failure(exhausted) == "transient"
+
+
+def test_fallback_state_unavailable_and_revert_are_distinct() -> None:
+    """Missing node state is retryable; a Solidity revert is candidate-scoped."""
+    missing = ProbablyNodeHasNoBlock("Node lacked state")
+    assert classify_rpc_scan_failure(missing) == "transient"
+    assert not is_contract_read_failure(missing)
+    revert = ExtraValueError({"code": 3, "message": "execution reverted"})
+    assert is_contract_read_failure(revert)
+    assert classify_rpc_scan_failure(revert) == "internal"
+    assert not is_contract_read_failure(ValueError("unexpected code error"))

@@ -20,6 +20,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.fallback import ExtraValueError
@@ -401,7 +402,7 @@ def create_vault_scan_record(
             default_block_identifier=block_identifier,
             current_deposit_permission=getattr(detection, "current_deposit_permission", None),
         )
-    except (UnsupportedVaultVersion, Web3Exception, RequestException) as error:
+    except (UnsupportedVaultVersion, Web3Exception, RequestException, ExtraValueError, ProbablyNodeHasNoBlock) as error:
         if not isinstance(error, UnsupportedVaultVersion) and not is_contract_read_failure(error):
             raise
         logger.warning("Metadata deferred for %s: %s", detection.address, error)

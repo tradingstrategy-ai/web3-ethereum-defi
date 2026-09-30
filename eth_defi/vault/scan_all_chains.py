@@ -104,8 +104,10 @@ from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_D
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_almost_latest_block_number, verify_archive_node
 from eth_defi.provider.env import read_json_rpc_url
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
@@ -1077,7 +1079,7 @@ def scan_prices_for_chain(
 
             try:
                 vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
-            except (UnsupportedVaultVersion, Web3Exception, RequestException) as error:
+            except (UnsupportedVaultVersion, Web3Exception, RequestException, ExtraValueError, ProbablyNodeHasNoBlock) as error:
                 candidate_transport_failure = not active and classify_rpc_scan_failure(error) == "transient"
                 if not isinstance(error, UnsupportedVaultVersion) and not is_contract_read_failure(error) and not candidate_transport_failure:
                     raise

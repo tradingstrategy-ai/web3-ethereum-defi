@@ -418,11 +418,13 @@ def _record_metadata_success(row: dict[str, Any], previous: dict[str, Any], pend
     address = detection.address.lower()
     pending.pop(address, None)
     features = sorted(feature.name for feature in detection.features)
-    same_protocol = observations.get(address, {}).get("features") == features
+    prior = observations.get(address, {})
+    same_protocol = prior.get("features") == features and prior.get("status") != "unavailable"
     entry = {
         "checked_at": now.isoformat(),
         "next_attempt_at": (now + datetime.timedelta(days=7)).isoformat(),
         "source_block": block,
+        "status": "ok",
         "features": features,
         "classifier_version": classifier_version,
     }

@@ -17,7 +17,10 @@ from requests.exceptions import ConnectionError, HTTPError, Timeout
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, ProviderConnectionError, TimeExhausted, Web3RPCError
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.env import rpc_optimisations_enabled as rpc_optimisations_enabled
+from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.provider.rpcdb import normalise_rpc_error
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +66,17 @@ def classify_rpc_scan_failure(error: BaseException) -> str:
     """
     if isinstance(error, HTTPError):
         return "transient" if error.response is not None and (error.response.status_code == 429 or error.response.status_code >= 500) else "internal"
-    if isinstance(error, (ConnectionError, Timeout, ProviderConnectionError, TimeExhausted)):
+    if isinstance(error, (ConnectionError, Timeout, ProviderConnectionError, TimeExhausted, ProbablyNodeHasNoBlock)):
         return "transient"
     if isinstance(error, RuntimeError) and str(error).startswith("Monad provider cannot read state at requested end block"):
         return "transient"
     if isinstance(error, RuntimeError) and str(error).startswith("Out of multicall retries"):
         return classify_rpc_scan_failure(error.__cause__) if error.__cause__ is not None else "transient"
-    if isinstance(error, Web3RPCError):
-        message = str(error).lower()
+    if isinstance(error, (Web3RPCError, ExtraValueError)):
+        code, message = normalise_rpc_error(error)
+        if code == "-32090":
+            return "transient"
+        message = message.lower()
         if any(marker in message for marker in ("rate limit", "too many requests", "temporarily unavailable", "timeout", "timed out", "connection reset", "upstream unavailable", "header not found", "upstream does not have the requested block yet", "not enough agreement")):
             return "transient"
     return "internal"
@@ -233,7 +239,13 @@ def is_contract_read_failure(error: BaseException) -> bool:
     :param error: Original constructor/reader exception.
     :return: Whether the error describes unavailable contract execution/data.
     """
-    return isinstance(error, (ContractLogicError, BadFunctionCallOutput)) or isinstance(error, Web3RPCError) and any(marker in str(error).lower() for marker in ("execution reverted", "invalid opcode", "out of gas", "vm execution error"))
+    if isinstance(error, (ContractLogicError, BadFunctionCallOutput)):
+        return True
+    if isinstance(error, (Web3RPCError, ExtraValueError)):
+        _code, message = normalise_rpc_error(error)
+        return any(marker in message.lower() for marker in ("execution reverted", "invalid opcode", "out of gas", "vm execution error"))
+    # Missing node state is a provider outcome, not a deterministic contract revert.
+    return False
 
 
 def fetch_remaining_state_budget(boundary: dict, committed_block: int, block_seconds: float, now: datetime.datetime) -> float:
