@@ -101,7 +101,7 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 4.4 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
 | 4.5 | ↳ Other vaults | Performance chart and table, **by return** | — |
 | 4.6 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 4.7 | ↳ New vaults | Table: launched in the last 60 days, at least $15k TVL | — |
+| 4.7 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
 | 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
 | 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
 | 5 | Average yield | How to read the dot plots | — |
@@ -172,7 +172,7 @@ them; keep them when changing the templates in `post.py` or the notes in
 - Section notes state only what the chart and the table do not show. No note
   repeats a chart's ranking, TVL minimum, benchmarks or risk filter, which
   the chart subtitle and legend already give, so the best-performing
-  subsections have no notes of their own.
+  subsections, including *New vaults*, have no notes of their own.
 - Chart subtitles do not repeat the context: no "top 8", no "over 90 days",
   no "against benchmarks". The performance chart axis title is "Returns".
 - Vault links go to `https://tradingstrategy.ai/vaults/…`, never the old

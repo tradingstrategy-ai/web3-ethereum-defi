@@ -274,6 +274,10 @@ def group_min_tvl(group: str, criteria: ReportCriteria) -> USDollarAmount:
     return criteria.amm_min_tvl if group == AMM else criteria.min_tvl
 
 
+#: Chart key of the new vaults performance chart in :py:attr:`eth_defi.vault_report.post.PostContext.charts`
+NEW_VAULTS_CHART = "new_performance"
+
+
 def make_performance_panel(section: BestSection, criteria: ReportCriteria) -> ChartPanel:
     """Header and footer texts of a best-performing section's chart.
 
@@ -352,7 +356,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/vaults"),
         ],
-        "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified, amm],
+        # The new vaults chart subtitle states the age and TVL rules, so the section has no notes
         "risk_return": [
             "Both axes fit the bulk of the vaults; vaults beyond an axis are drawn as triangles on that edge",
             "Vaults whose share price did not move over three months are left out",
@@ -422,6 +426,40 @@ def select_performance_chart_vaults(comparable_df: pd.DataFrame, criteria: Repor
         Chart vaults, best first.
     """
     return select_group(comparable_df, criteria, section.group, by=section.chart_metric).pipe(exclude_chart_risks, criteria).head(depth)
+
+
+def select_new_chart_vaults(new_vaults_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Select the vaults of the new vaults chart.
+
+    The top of the new vaults table, in its order, leaving out Dangerous and
+    worse vaults like every chart. Picking from the table, which the
+    investability check already covers, needs no check list of its own.
+
+    :param new_vaults_df:
+        The new vaults table, see :py:func:`eth_defi.vault_report.sections.select_new_vaults`.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Chart vaults, best first.
+    """
+    return exclude_chart_risks(new_vaults_df, criteria).head(criteria.performance_chart_vaults)
+
+
+def make_new_vaults_panel(criteria: ReportCriteria) -> ChartPanel:
+    """Header and footer texts of the new vaults chart.
+
+    The subtitle carries the selection rules, so the section needs no notes.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Chart panel texts.
+    """
+    subtitle = f"Launched in the last {criteria.new_vault_max_age.days} days, by 1M return, at least {format_usd(criteria.new_vault_min_tvl)} TVL, returns annualised"
+    return ChartPanel("Performance of the best-performing new vaults", subtitle, "tradingstrategy.ai/vaults/new-vaults")
 
 
 def select_hero_vaults(yield_universe: pd.DataFrame, criteria: ReportCriteria, depth: int = 5) -> pd.DataFrame:
@@ -589,15 +627,17 @@ def render_report_charts(
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
     performance_vaults = {section: select_performance_chart_vaults(comparable_df, criteria, section, criteria.performance_chart_vaults) for section in BEST_SECTIONS if section.key in sections}
+    new_chart_vaults = select_new_chart_vaults(sections["new"].vaults_df, criteria) if "new" in sections else empty
     hero_vaults = select_hero_vaults(yield_universe, criteria, HERO_VAULTS)
 
-    chart_ids = set(hero_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
+    chart_ids = set(hero_vaults.index) | set(new_chart_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
     share_prices = read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY)
     daily_prices = calculate_daily_share_prices(share_prices)
     sharpe_prices = calculate_daily_share_prices(share_prices, interpolate=False)
     if daily_prices.empty:
         logger.warning("No price data for the chart vaults in %s, leaving out the performance charts", data.prices_path)
         performance_vaults = {}
+        new_chart_vaults = empty
 
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     benchmark_indices = fetch_benchmark_indices(data.data_end_at - PRICE_HISTORY, data.data_end_at, cache_dir, tbill_yields)
@@ -681,10 +721,9 @@ def render_report_charts(
         )
 
     benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
-    for section, df in performance_vaults.items():
-        if not len(df):
-            continue
-        series = [
+
+    def performance_series(df: pd.DataFrame) -> list[PerformanceSeries]:
+        return [
             PerformanceSeries(
                 vault_id=vault_id,
                 name=vault["name"] or vault["address"],
@@ -693,10 +732,19 @@ def render_report_charts(
             )
             for vault_id, vault in df.iterrows()
         ]
+
+    for section, df in performance_vaults.items():
+        if not len(df):
+            continue
         # The Sharpe ratio uses forward-filled prices like the exported 3M Sharpe, so its latest values match the table
         prices = sharpe_prices if section.measure == "sharpe" else daily_prices
-        figure = create_performance_figure(series, prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure=section.measure, sharpe_window=SHARPE_WINDOW, split_legend=section.measure == "sharpe")
+        figure = create_performance_figure(performance_series(df), prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure=section.measure, sharpe_window=SHARPE_WINDOW, split_legend=section.measure == "sharpe")
         figures[section.chart_key] = (figure, make_performance_panel(section, criteria))
+
+    # New vaults launched inside the window: each line starts at the vault's first price
+    if len(new_chart_vaults):
+        figure = create_performance_figure(performance_series(new_chart_vaults), daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos)
+        figures[NEW_VAULTS_CHART] = (figure, make_new_vaults_panel(criteria))
 
     chain_chart_vaults = select_chain_chart_vaults(ranked_df, criteria)
     if len(chain_chart_vaults):

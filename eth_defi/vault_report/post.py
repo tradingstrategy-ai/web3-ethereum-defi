@@ -232,6 +232,7 @@ SECTION_TEMPLATES = (
         heading_id="best-performing-new-vaults",
         heading="New vaults",
         intro=f'<p>The best-performing vaults launched recently. Their short history makes their returns less reliable, so treat them as vaults to watch. See all <a href="{VAULTS_URL}/new-vaults">new vaults</a>.</p>',
+        charts=(("new_performance", "Performance of the best-performing new vaults since their launch against their benchmarks"),),
         level=3,
     ),
     SectionTemplate(

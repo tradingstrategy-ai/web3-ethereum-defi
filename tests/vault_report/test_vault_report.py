@@ -377,6 +377,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         "perp_dex_sharpe_performance",
         "other_performance",
         "tokenised_funds_performance",
+        "new_performance",
         "risk_return",
         "by_chain_best",
     }
