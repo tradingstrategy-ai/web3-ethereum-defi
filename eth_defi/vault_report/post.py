@@ -246,8 +246,8 @@ SECTION_TEMPLATES = (
     *(section.template for section in BEST_SECTIONS if section.group == TOKENISED_FUND),
     SectionTemplate(
         key="average_yields",
-        heading_id="average-yield",
-        heading="Average yield",
+        heading_id="yield-by-chain-and-protocol",
+        heading="Yield by chain and protocol",
         intro=f'<p>The average yield of stablecoin vaults by protocol and by blockchain. In each chart a small dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>.</p>',
         group=True,
     ),

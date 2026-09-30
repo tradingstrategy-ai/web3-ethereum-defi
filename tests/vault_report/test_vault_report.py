@@ -343,7 +343,7 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     subsections = ['<h3 id="best-performing-lending-vaults">', '<h3 id="best-performing-new-vaults">', '<h3 id="best-performing-vaults-on-each-chain">', '<h3 id="best-performing-tokenised-funds">']
     assert [post_html.index(heading) for heading in subsections] == sorted(post_html.index(heading) for heading in subsections)
     # Without charts the average yield and TVL groups have no content, so their headings are left out too
-    assert 'id="average-yield"' not in post_html and 'id="vaults-and-tokenised-funds-tvl"' not in post_html
+    assert 'id="yield-by-chain-and-protocol"' not in post_html and 'id="vaults-and-tokenised-funds-tvl"' not in post_html
     # The Ghost theme's table of contents follows the opening, as in the earlier posts, and figures are bold
     assert post_html.index('<div id="table-of-contents"></div>') < post_html.index('<h2 id="about-the-report">')
     assert "<li>The report data is dated <strong>" in post_html

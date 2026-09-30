@@ -25,7 +25,7 @@ The skeleton keeps the structure of the earlier posts:
 - *DeFi vault community news* and *Latest podcasts* before the data sections;
 - the data sections, each with an introduction paragraph linking to the live
   pages on [tradingstrategy.ai](https://tradingstrategy.ai/vaults), section notes,
-  charts and tables: *The best-performing vaults*, *Average yield*, *Risk and
+  charts and tables: *The best-performing vaults*, *Yield by chain and protocol*, *Risk and
   return*, and *Vaults and tokenised funds TVL* with the inflows and outflows
   last;
 - *Partners* and *Next steps*, the call to action, copied from the previous

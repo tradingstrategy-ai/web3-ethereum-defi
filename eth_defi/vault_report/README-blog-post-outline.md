@@ -104,7 +104,7 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 4.7 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
 | 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
 | 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
-| 5 | Average yield | How to read the dot plots | — |
+| 5 | Yield by chain and protocol | How to read the dot plots | — |
 | 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
 | 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | ✏️ Where the yield comes from |
 | 5.3 | ↳ Yield by blockchain | Dot plot of the **10 largest blockchains by TVL** | ✏️ Comment |
@@ -138,14 +138,14 @@ them; keep them when changing the templates in `post.py` or the notes in
   and *Latest podcasts* come before the data sections. *About the report*,
   *Partners* and *Next steps*, the call to action, are copied from the
   previous post.
-- Data sections in this order: *The best-performing vaults*, *Average yield*,
+- Data sections in this order: *The best-performing vaults*, *Yield by chain and protocol*,
   *Risk and return*, *Vaults and tokenised funds TVL*. See the outline table
   for their subsections.
 - *New vaults*, *Vaults on each chain* and *Tokenised funds* are subsections
   of *The best-performing vaults*, named like the other subsections (no
   "The best-performing …" prefix), with new vaults right after the vault
   groups.
-- *Average yield* holds *Yield by protocol, high TVL*, *Yield by protocol,
+- *Yield by chain and protocol* holds *Yield by protocol, high TVL*, *Yield by protocol,
   high yield* and *Yield by blockchain*, in that order.
 - *Vaults and tokenised funds TVL* holds the TVL by protocol, TVL by
   blockchain and NAV by tokenised fund charts, with *Inflows and outflows* as
