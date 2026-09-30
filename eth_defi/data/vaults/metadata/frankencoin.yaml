@@ -4,13 +4,14 @@ slug: frankencoin
 # Do not replace it as a low-resolution asset unless a new official smooth
 # brand source is published.
 short_description: |
-  Frankencoin is a stablecoin maintaining 1:1 value with the Swiss franc.
+  Frankencoin issues ZCHF, a decentralised stablecoin designed to track the Swiss franc.
 long_description: |
   Frankencoin is a decentralised Swiss franc stablecoin. Its ZCHF token is designed
-  to keep a 1:1 value with the Swiss franc while remaining transparent, on-chain and
-  usable without relying on a single central issuer.
+  to keep a 1:1 value with the Swiss franc while remaining transparent, onchain and
+  usable without relying on a single central issuer. See the
+  [official protocol documentation](https://docs.frankencoin.com/).
 
-  The protocol is backed by on-chain collateral that can be liquidated when needed
+  The protocol is backed by onchain collateral that can be liquidated when needed
   to protect the value of ZCHF. Frankencoin has been live since 2023 and is deployed
   across multiple blockchains.
 
@@ -27,6 +28,21 @@ long_description: |
   The Frankencoin Savings Vaults wrap the savings module as ERC-20 and ERC-4626
   vault tokens. Users deposit ZCHF and receive svZCHF shares whose value follows
   the savings module yield.
+
+  [Frankencoin Shares (FCS)](https://frankencoin.com/fcs) provide loss-bearing
+  equity participation in the reserve behind ZCHF, alongside time-weighted
+  governance rights. Net protocol income increases the backing capital and
+  losses reduce it. FCS can lose its entire value. The reference valuation,
+  backing capital and secondary-market price are distinct quantities.
+  Its underlying revenue comes from [collateralised ZCHF borrowing fees and
+  position proposals](https://docs.frankencoin.com/positions/open), plus net
+  liquidation results. [Accepted collateral](https://app.frankencoin.com/monitoring/collateral)
+  includes crypto assets and tokenised gold, giving FCS indirect lending and
+  RWA lending exposure. [Savings interest](https://docs.frankencoin.com/savings)
+  is paid from equity and reduces the net income available to shareholders.
+  [Direct redemption](https://docs.frankencoin.com/pool-shares/fcs) depends on
+  the wrapper's underlying voting power and holding duration and applies
+  size- and activity-dependent discounts. Market sales depend on venue liquidity.
 fee_description: |
   Frankencoin Savings Vaults do not have protocol-wide management, performance,
   deposit, or withdrawal fees. Yield accrues through the savings module and is
@@ -35,6 +51,13 @@ fee_description: |
   The savings contracts support an optional per-account referral fee. If a user
   configures a referrer, up to 25% of earned interest can be deducted and paid
   to that referrer. Users can remove or change the referrer.
+
+  FCS has no recurring management or performance fee. Its underlying equity
+  curve applies a 0.3% entry fee and a nominal 0.3% exit fee through the
+  redeemed-share calculation. FCS also applies a variable redemption discount,
+  so the exit cost cannot be represented by a single fixed percentage. See the
+  [equity contract](https://github.com/Frankencoin-ZCHF/Frankencoin/blob/main/contracts/equity/Equity.sol)
+  and [FCS accounting contract](https://github.com/Frankencoin-ZCHF/Frankencoin/blob/main/contracts/equity/shares/FCSMintRedeem.sol).
 links:
   homepage: https://frankencoin.com/
   app: https://app.frankencoin.com/
@@ -42,11 +65,12 @@ links:
   github: https://github.com/Frankencoin-ZCHF/Frankencoin
   documentation: https://docs.frankencoin.com/
   defillama: https://defillama.com/protocol/frankencoin
-  audits:
-  fees:
+  audits: https://www.chainsecurity.com/security-audit/frankencoin-fps2/
+  fees: https://docs.frankencoin.com/pool-shares/fcs
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frankencoin
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frankencoin/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0xDb861830D9Ae2d1fCF99fA0cfd3973de382B0B5b
   - https://etherscan.io/token/0xE5F130253fF137f9917C0107659A4c5262abf6b0
   - https://etherscan.io/token/0x637F00cAb9665cB07d91bfB9c6f3fa8faBFEF8BC
   - https://basescan.org/address/0xa09EBdf8A01b9ef04149319D64F83b9C01a5b585
