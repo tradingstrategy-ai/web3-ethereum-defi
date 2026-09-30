@@ -11,6 +11,7 @@
 
 - **light variant** (for dark backgrounds): `github-avatar-270x270.png` — highest resolution, dark circle on transparent background
 - **dark variant**: not available — the apple-touch-icon is 180x180 on solid white, not suitable
+- **generic variant**: identical to `light.png`, so Hypercore vault protocol and Hyperliquid curator listings show the same Hyperliquid mark regardless of which available variant they select. Both exports read from `formatted_logos/hyperliquid/`.
 
 ## Brand pages checked
 
