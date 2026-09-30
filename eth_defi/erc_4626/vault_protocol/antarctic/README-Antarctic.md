@@ -88,6 +88,10 @@ The scoped migration below refreshes existing cached metadata and rehearses a fu
 
 Normal scanning requires `JSON_RPC_ARBITRUM`, the existing configured Hypersync endpoint and `HYPERSYNC_API_KEY`. Use `HYPERSYNC_RPM` to match the token's quota; local verification used `20` requests per minute. Manager/token identity, the mutable cooldown and minimum deposit are read using the committed verified ABIs. Historical prices require indexed events rather than archive contract state.
 
+Both AMLP and AHLP are enabled through the default Arbitrum discovery and price scan; there is no `SCAN_ANTARCTIC` switch. Docker Compose already passes the RPC and Hypersync settings, defaults `SCAN_PRICES` to `true` for both scanner services, and schedules Arbitrum every eight hours in the looped service. No Compose change is required. Operator overrides must retain Arbitrum in `CHAIN_ORDER` and leave price scanning enabled. When running the Python scanner directly outside Docker, set `SCAN_PRICES=true`; its global default is metadata-only.
+
+The metadata refresh version is bumped for this integration, invalidating existing discovery caches on the next scheduled scan. Cached installations therefore import both new leads without waiting for the seven-day cache expiry. This refresh preserves historical prices and reader state; each pool's event cursor still controls its own historical prefill.
+
 Creation boundaries are recorded in `constants.py`:
 
 | Product | LP creation block | Manager creation block | LP creation time (UTC) |
