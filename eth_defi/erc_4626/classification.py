@@ -16,6 +16,7 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
@@ -388,6 +389,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address in ANTARCTIC_BY_ADDRESS:
+        return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
     if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
         return FRANKENCOIN_HARDCODED_PROTOCOLS[normalised_address] if chain_id == FRANKENCOIN_SHARES_CHAIN_ID else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
@@ -2260,6 +2263,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.antarctic_like in features:
+        from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
+
+        return AntarcticVault(web3, spec, **kwargs)
     elif ERC4626Feature.rysk_premium_like in features:
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
@@ -2782,6 +2789,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,

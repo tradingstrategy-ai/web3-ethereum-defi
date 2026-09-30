@@ -116,6 +116,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Asseto": VaultTechnicalRisk.low,
     # Rysk Premium uses curator-controlled, epoch-priced option-writing pools.
     # The Rysk contracts and the NAV committee process require separate review.
+    "Antarctic": None,
     "Rysk": None,
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.

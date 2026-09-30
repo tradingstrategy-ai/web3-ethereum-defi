@@ -188,6 +188,9 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault. Values use the canonical curator slug after
 #: applying :py:data:`PROTOCOL_CURATOR_SLUG_ALIASES`.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    # Antarctic's reviewed AMLP/AHLP products form the exchange's own liquidity
+    # system: https://docs.antarctic.exchange/technical-framework/hybird-lp-model
+    "antarctic",
     "arcus",
     "atoma",
     "d2-finance",
@@ -231,6 +234,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "antarctic": "Antarctic",
     "arcus": "Arcus",
     "atoma": "Atoma",
     "d2-finance": "D2 Finance",

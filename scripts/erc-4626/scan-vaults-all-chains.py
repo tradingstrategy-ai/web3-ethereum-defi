@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Scan ERC-4626 vaults across all supported chains.
 
+Antarctic AMLP/AHLP perpetual DEX pools run under the Arbitrum EVM scan.
+Their prices use sparse Hypersync subscription settlement events.
+
 - Scan vaults and optionally prices for multiple chains
 - Track success/failure status per chain
 - Retry failed chains automatically

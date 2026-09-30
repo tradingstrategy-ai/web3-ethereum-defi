@@ -83,6 +83,9 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS
+from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore, fetch_and_store_antarctic_history, get_antarctic_historical_context_path
+from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -1011,6 +1014,8 @@ def scan_prices_for_chain(
                     vault.historical_context_path = historical_context_path or get_yield_basis_historical_context_path()
                 elif detection.features & flying_tulip_features:
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
+                elif ERC4626Feature.antarctic_like in detection.features:
+                    vault.historical_context_path = historical_context_path or get_antarctic_historical_context_path()
                 elif ERC4626Feature.rysk_premium_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
                 if active:
@@ -1206,6 +1211,50 @@ def scan_prices_for_chain(
                 context_path=context_path,
             )
 
+        # Antarctic owns independent event cursors, including quiet ranges.
+        # Only instantiated/selected LP tokens may trigger source reads or repair.
+        antarctic_vaults = [vault for vault in vaults if isinstance(vault, AntarcticVault)]
+        antarctic_prefill = None
+        antarctic_repair_rows = 0
+        if antarctic_vaults:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError("Antarctic history requires a configured Hypersync client")
+            current_end_block = min(current_end_block, get_almost_latest_block_number(web3))
+            context_path = historical_context_path or get_antarctic_historical_context_path()
+            antarctic_prefill = fetch_and_store_antarctic_history(
+                web3=web3,
+                hypersync_client=hypersync_config.hypersync_client,
+                pool_start_blocks={vault.address: max(ANTARCTIC_BY_ADDRESS[vault.address.lower()].manager_deployment_block, start_block or 0) for vault in antarctic_vaults},
+                end_block=current_end_block,
+                context_path=context_path,
+            )
+            if antarctic_prefill.repair_from_blocks:
+                # Commit pending late/reorg repairs before the mixed-chain scan.
+                # Keep them pending if the atomic writer fails, including deletions
+                # where an orphaned subscription has no replacement event.
+                repair_vaults = [vault for vault in antarctic_vaults if vault.address in antarctic_prefill.repair_from_blocks]
+                repair = scan_historical_prices_to_parquet(
+                    output_fname=uncleaned_price_path,
+                    web3=web3,
+                    web3factory=web3factory,
+                    vaults=repair_vaults,
+                    token_cache=token_cache,
+                    start_block=min(antarctic_prefill.repair_from_blocks.values()),
+                    end_block=current_end_block,
+                    max_workers=max_workers,
+                    frequency=frequency,
+                    hypersync_client=hypersync_config.hypersync_client,
+                    vault_addresses={vault.address.lower() for vault in repair_vaults},
+                )
+                antarctic_repair_rows = repair["rows_written"]
+                with AntarcticHistoricalContextStore(context_path) as context:
+                    for vault in repair_vaults:
+                        context.acknowledge_repair(vault.address, current_end_block)
+            if len(antarctic_vaults) == len(vaults) and start_block is None:
+                # Context cursors and address-scoped repairs fully own this batch.
+                # An empty cycle must neither restart at deployment nor rewrite it.
+                return True, {**metrics, "items_scanned": len(vaults), "rows_written": antarctic_repair_rows, "end_block": current_end_block, "antarctic_observations_inserted": antarctic_prefill.observations_inserted}
+
         metrics["items_scanned"] = len(vaults)
 
         # Dedicated, activity-filtered or context-withheld vault states must
@@ -1242,7 +1291,7 @@ def scan_prices_for_chain(
 
         return True, {
             **metrics,
-            "rows_written": result["rows_written"],
+            "rows_written": result["rows_written"] + antarctic_repair_rows,
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
             "overdue_vaults": result["overdue_vaults"],
@@ -1253,6 +1302,7 @@ def scan_prices_for_chain(
             "yield_basis_observations_inserted": yield_basis_prefill.observations_inserted if yield_basis_prefill else 0,
             "flying_tulip_source_rows_inserted": flying_tulip_source_rows_inserted,
             "rysk_observations_inserted": rysk_prefill.observations_inserted if rysk_prefill else 0,
+            "antarctic_observations_inserted": antarctic_prefill.observations_inserted if antarctic_prefill else 0,
         }
 
     except Exception as e:

@@ -30,6 +30,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
@@ -3791,6 +3792,10 @@ def _calculate_vault_record_from_arrays(
     lifetime_samples = len(observation_ns)
     age = (lifetime_end_date - lifetime_start_date).days / 365.25
 
+    # Preserve legacy zero defaults for existing protocols. An unavailable
+    # event-only return is unknown, including when fees become known later.
+    unavailable_metric = None if chain_id == ANTARCTIC_CHAIN_ID and vault_address.lower() in ANTARCTIC_BY_ADDRESS else 0
+
     # Legacy: Lifetime metrics
     if lifetime_pm and lifetime_pm.error_reason is None:
         lifetime_return = lifetime_pm.returns_gross
@@ -3798,10 +3803,10 @@ def _calculate_vault_record_from_arrays(
         cagr = lifetime_pm.cagr_gross
         cagr_net = lifetime_pm.cagr_net if known_fee else None
     else:
-        lifetime_return = 0
-        lifetime_return_net = 0 if known_fee else None
-        cagr = 0
-        cagr_net = 0 if known_fee else None
+        lifetime_return = unavailable_metric
+        lifetime_return_net = unavailable_metric if known_fee else None
+        cagr = unavailable_metric
+        cagr_net = unavailable_metric if known_fee else None
 
     # Legacy: three months metrics
     if three_months_pm and three_months_pm.error_reason is None:
@@ -3816,13 +3821,13 @@ def _calculate_vault_record_from_arrays(
         three_months_end = three_months_pm.samples_end_at
         three_months_samples = three_months_pm.raw_samples
     else:
-        three_month_returns = 0
-        three_months_return_net = 0 if known_fee else None
-        three_months_cagr = 0
-        three_months_cagr_net = 0 if known_fee else None
-        three_months_volatility = 0
-        three_months_sharpe = 0
-        three_months_sharpe_net = 0
+        three_month_returns = unavailable_metric
+        three_months_return_net = unavailable_metric if known_fee else None
+        three_months_cagr = unavailable_metric
+        three_months_cagr_net = unavailable_metric if known_fee else None
+        three_months_volatility = unavailable_metric
+        three_months_sharpe = unavailable_metric
+        three_months_sharpe_net = unavailable_metric
         three_months_start = None
         three_months_end = None
         three_months_samples = 0
@@ -3863,10 +3868,10 @@ def _calculate_vault_record_from_arrays(
         one_month_end = one_month_pm.samples_end_at
         one_month_samples = one_month_pm.raw_samples
     else:
-        one_month_returns = 0
-        one_month_returns_net = 0 if known_fee else None
-        one_month_cagr = 0
-        one_month_cagr_net = 0 if known_fee else None
+        one_month_returns = unavailable_metric
+        one_month_returns_net = unavailable_metric if known_fee else None
+        one_month_cagr = unavailable_metric
+        one_month_cagr_net = unavailable_metric if known_fee else None
         one_month_start = None
         one_month_end = None
         one_month_samples = None
@@ -5442,7 +5447,8 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
     withdrawal is not repeated on every filled day. ``_vault_state_observed``
     records whether the final source row for the day contained all three vault
     accounting values; state-delta estimates use it to reject missing or filled
-    state.
+    state. Antarctic subscription rows retain actual source timestamps and
+    sample counts; period analytics regularise their curve separately.
 
     Hourly input with the cleaned Parquet's column types goes through
     :func:`_regularise_daily_with_arrays`, which processes all vaults in one
@@ -5463,14 +5469,26 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
         Reindex that observation directly onto calendar days instead of
         repeating a daily aggregation.
     :return:
-        Daily vault rows with the requested return column.
+        Daily vault rows with the requested return column; Antarctic rows
+        remain at their actual event timestamps.
     """
 
     assert isinstance(df_work, pd.DataFrame)
     assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
+    # Pipeline addresses are normalised lowercase. Split the two event-only
+    # products before the array fast path so neither path manufactures samples.
+    antarctic_mask = (df_work["chain"] == ANTARCTIC_CHAIN_ID) & df_work["address"].str.lower().isin(ANTARCTIC_BY_ADDRESS)
+    observed = df_work.loc[antarctic_mask].copy()
+    if not observed.empty:
+        observed[returns_column] = observed.groupby(["chain", "address"])["share_price"].pct_change(fill_method=None).fillna(0)
+        df_work = df_work.loc[~antarctic_mask]
+        if df_work.empty:
+            return observed
     if not sparse_daily_input and _can_regularise_daily_with_arrays(df_work):
-        return _regularise_daily_with_arrays(df_work, returns_column)
-    return _regularise_daily_per_vault(df_work, returns_column, sparse_daily_input=sparse_daily_input)
+        regular = _regularise_daily_with_arrays(df_work, returns_column)
+    else:
+        regular = _regularise_daily_per_vault(df_work, returns_column, sparse_daily_input=sparse_daily_input)
+    return pd.concat([regular, observed]).sort_index(kind="stable") if not observed.empty else regular
 
 
 def _regularise_daily_per_vault(df_work: pd.DataFrame, returns_column: str, *, sparse_daily_input: bool) -> pd.DataFrame:
@@ -5532,6 +5550,7 @@ def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFram
     """Calculate consecutive calendar-day returns for each vault.
 
     Sparse price observations are forward filled independently per vault.
+    Antarctic retains event timestamps and returns between actual observations.
 
     :param df_work:
         Vault price rows with a ``timestamp`` column and ``chain``, ``address``
@@ -5547,8 +5566,9 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     """Calculate consecutive daily returns under a historical API name.
 
     Despite the function and ``returns_1h`` column names, this compatibility
-    helper resamples to daily frequency. Sparse prices are forward filled so
-    downstream annualised metrics receive consecutive calendar-day returns.
+    helper resamples polled prices to daily frequency. Antarctic retains actual
+    event timestamps and observation-to-observation returns; period analytics
+    regularise its curve separately.
 
     :param df_work:
         Vault price rows indexed by timestamp, with ``chain``, ``address`` and

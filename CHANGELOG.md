@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30).
 - feat: Add Open Standard's live Open USD stablecoin metadata and feed, preserving Origin Dollar as a separate OUSD issuer (2026-09-30).
 - feat: Track Frankencoin Shares equity with Ethereum address classification, protocol curation, equity and underlying lending/RWA strategy tags, revenue-stream documentation and a targeted metadata and price backfill (2026-09-30).
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
