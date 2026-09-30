@@ -812,6 +812,14 @@ def test_check_agent_runner(tmp_path: Path):
     assert "danger-full-access" in build_agent_command("codex", "p")
     assert "WebSearch" in build_agent_command("claude", "p")[build_agent_command("claude", "p").index("--allowedTools") + 1]
 
+    # Claude runs on Sonnet with medium thinking by default, to limit the token spend
+    claude = build_agent_command("claude", "p")
+    assert claude[claude.index("--model") + 1] == "claude-sonnet-5-5"
+    assert claude[claude.index("--effort") + 1] == "medium"
+    claude = build_agent_command("claude", "p", "claude-opus-5-5", "high")
+    assert claude[claude.index("--model") + 1] == "claude-opus-5-5"
+    assert claude[claude.index("--effort") + 1] == "high"
+
 
 def test_excluded_vault_leaves_all_rankings(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path, monkeypatch: pytest.MonkeyPatch):
     """An excluded vault leaves every table and the caption, and is listed in the excluded section."""

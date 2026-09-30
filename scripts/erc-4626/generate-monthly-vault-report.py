@@ -29,7 +29,9 @@ Environment variables:
 - ``VAULT_CHECK_AGENT``: ``claude`` or ``codex`` to run the investability check
   of the top lists, see ``eth_defi/vault_report/README-vault-report.md``;
   ``reuse`` to only reuse earlier decisions; unset or ``none`` to skip the check
-- ``VAULT_CHECK_MODEL``: model override for the check agent CLI
+- ``VAULT_CHECK_MODEL``: model override for the check agent CLI, default
+  ``claude-sonnet-5-5`` for Claude to limit the token spend
+- ``VAULT_CHECK_EFFORT``: Claude CLI thinking effort override, default ``medium``
 - ``VAULT_CHECK_DECISIONS``: comma-separated directories with earlier check
   decisions to reuse, e.g. a previous run's report bundle
 - ``VAULT_CHECK_OVERRIDES``: JSON file of hand-written decisions that override the agent

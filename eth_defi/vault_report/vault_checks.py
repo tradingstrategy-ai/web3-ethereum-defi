@@ -79,6 +79,21 @@ FLAG_FILE = Path("eth_defi/vault/flag.py")
 #: Skill the agent follows
 SKILL_FILE = Path(".claude/skills/check-top-list-vaults/SKILL.md")
 
+# Important: keep the check agent on a mid-tier model with medium thinking.
+# One report run makes up to three agent rounds that each research dozens of
+# vaults with web searches, web fetches, onchain reads and sub-agents, so a run
+# consumes a lot of LLM tokens. The default Claude CLI model (Opus) with high
+# thinking effort costs several times more for no better decisions on this
+# task, and we do not want to overspend. Change these only after comparing
+# the decisions and the token usage of a full run.
+
+#: Claude CLI model for the check agent, pinned to a full model id so a CLI
+#: update moving the ``sonnet`` alias cannot silently change the cost
+CLAUDE_CHECK_MODEL = "claude-sonnet-5-5"
+
+#: Claude CLI thinking effort for the check agent: ``low``, ``medium``, ``high``, ``xhigh`` or ``max``
+CLAUDE_CHECK_EFFORT = "medium"
+
 #: Supported agent CLIs
 AgentName = Literal["claude", "codex"]
 
@@ -199,8 +214,11 @@ class VaultCheckSettings:
     #: Agent CLI, or ``None`` to only reuse existing decisions
     agent: AgentName | None = None
 
-    #: Model override for the agent CLI
+    #: Model override for the agent CLI; Claude CLI defaults to :py:data:`CLAUDE_CHECK_MODEL`
     model: str | None = None
+
+    #: Thinking effort override for Claude CLI, defaults to :py:data:`CLAUDE_CHECK_EFFORT`
+    effort: str | None = None
 
     #: Directories searched for reusable decisions, in addition to the report bundle
     reuse_dirs: list[Path] = field(default_factory=list)
@@ -223,7 +241,7 @@ class VaultCheckSettings:
 
         See the *Investability check* section of ``README-vault-report.md``
         for the variables: ``VAULT_CHECK_AGENT``, ``VAULT_CHECK_MODEL``,
-        ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
+        ``VAULT_CHECK_EFFORT``, ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
         ``VAULT_CHECK_TIMEOUT`` (minutes) and ``MAX_WORKERS``.
 
         :param default_agent:
@@ -240,6 +258,7 @@ class VaultCheckSettings:
         return cls(
             agent=None if agent == "reuse" else agent,
             model=os.environ.get("VAULT_CHECK_MODEL") or None,
+            effort=os.environ.get("VAULT_CHECK_EFFORT") or None,
             reuse_dirs=[Path(path).expanduser() for path in os.environ.get("VAULT_CHECK_DECISIONS", "").split(",") if path],
             overrides_path=Path(overrides).expanduser() if overrides else None,
             timeout=float(os.environ.get("VAULT_CHECK_TIMEOUT", "60")) * 60,
@@ -531,11 +550,13 @@ def build_agent_prompt(round_: CheckRound) -> str:
     return f"Read {SKILL_FILE} and follow it exactly. Candidates: {round_.candidates_path}. Facts: {round_.facts_path}. Write the decisions to {round_.decisions_path}. Copy candidates_digest={round_.candidates_digest} into the decisions file header. Work unattended: do not ask questions, do not commit or push. Finish all research, including any background tasks or sub-agents you start, before you end your turn, and write the decisions file last."
 
 
-def build_agent_command(agent: AgentName, prompt: str, model: str | None = None) -> list[str]:
+def build_agent_command(agent: AgentName, prompt: str, model: str | None = None, effort: str | None = None) -> list[str]:
     """Build the unsandboxed, web-enabled CLI command for the check agent.
 
     - Claude CLI: print mode with web search, web fetch and shell tools,
-      streaming JSON. See the `Claude Code CLI reference <https://docs.anthropic.com/en/docs/claude-code/cli-reference>`__.
+      streaming JSON, on :py:data:`CLAUDE_CHECK_MODEL` with
+      :py:data:`CLAUDE_CHECK_EFFORT` thinking unless overridden, to limit
+      the token spend. See the `Claude Code CLI reference <https://docs.anthropic.com/en/docs/claude-code/cli-reference>`__.
     - Codex CLI: ``--search`` (a top-level flag) for live web search, no sandbox,
       streaming JSONL. See the `Codex CLI documentation <https://developers.openai.com/codex/cli>`__.
 
@@ -548,12 +569,14 @@ def build_agent_command(agent: AgentName, prompt: str, model: str | None = None)
     :param model:
         Optional model override.
 
+    :param effort:
+        Optional Claude CLI thinking effort override; ignored by Codex.
+
     :return:
         Command and arguments.
     """
     if agent == "claude":
-        command = ["claude", "-p", prompt, "--permission-mode", "dontAsk", "--allowedTools", "Bash,Read,Write,Edit,Grep,Glob,WebSearch,WebFetch", "--output-format", "stream-json", "--verbose", "--no-session-persistence"]
-        return command + (["--model", model] if model else [])
+        return ["claude", "-p", prompt, "--model", model or CLAUDE_CHECK_MODEL, "--effort", effort or CLAUDE_CHECK_EFFORT, "--permission-mode", "dontAsk", "--allowedTools", "Bash,Read,Write,Edit,Grep,Glob,WebSearch,WebFetch", "--output-format", "stream-json", "--verbose", "--no-session-persistence"]
     if agent == "codex":
         return ["codex", "--search", "exec", "--json", "--ephemeral", "--sandbox", "danger-full-access", *(["-m", model] if model else []), prompt]
     raise ValueError(f"Unknown agent {agent!r}")
@@ -656,7 +679,7 @@ def _check_round(number: int, in_scope: list[CheckCandidate], data_end_at: datet
         facts = fetch_candidate_facts([asdict(candidate) for candidate in in_scope], prices_path, data_end_at, settings.max_workers)
     round_.facts_path.write_text(json.dumps(facts_to_json({c.vault_id: facts[c.vault_id] for c in in_scope if c.vault_id in facts}), indent=2, default=str))
     logger.info("Round %d: checking %d in-scope vaults with %s", number, len(in_scope), settings.agent)
-    command = build_agent_command(settings.agent, build_agent_prompt(round_), settings.model)
+    command = build_agent_command(settings.agent, build_agent_prompt(round_), settings.model, settings.effort)
     diff_before = show_flag_diff(settings.repository_root)
     run_check_agent(command, settings.repository_root, output_dir / f"vault-check-agent-{number}.jsonl", round_.decisions_path, settings.timeout)
     decisions = read_check_decisions(round_.decisions_path, in_scope, round_.candidates_digest, data_end_at)

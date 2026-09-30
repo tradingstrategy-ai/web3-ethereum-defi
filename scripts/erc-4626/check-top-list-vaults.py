@@ -18,7 +18,7 @@ Example:
 Environment variables:
 
 - ``VAULT_CHECK_AGENT``: ``claude``, ``codex`` or ``reuse``, default ``claude``
-- ``VAULT_CHECK_MODEL``, ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
+- ``VAULT_CHECK_MODEL``, ``VAULT_CHECK_EFFORT``, ``VAULT_CHECK_DECISIONS``, ``VAULT_CHECK_OVERRIDES``,
   ``VAULT_CHECK_TIMEOUT``, ``MAX_WORKERS``: see ``generate-monthly-vault-report.py``
 - ``TOP_VAULTS_JSON``, ``VAULT_PRICES_PARQUET``, ``VAULT_PRO_API_KEY``, ``CACHE_DIR``: report inputs
 - ``OUTPUT_DIR``: where the check files are written, default the report bundle directory

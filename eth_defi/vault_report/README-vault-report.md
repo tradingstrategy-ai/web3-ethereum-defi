@@ -308,7 +308,8 @@ six hours later, usually needs the agent again.
 The agent runs without a sandbox, because it needs web search, X and the
 repository's RPC scripts. It is told to only read, and to write only the
 decisions file and `eth_defi/vault/flag.py`. The September 2026 runs took
-26–32 minutes over three rounds with the Claude CLI.
+26–32 minutes over three rounds with the Claude CLI on its default model,
+Opus 5.5; the check now runs on Sonnet 5.5, see *Agent CLIs*.
 
 The agent is not deterministic. Two runs on 2026-09-26, on data a few hours
 apart, agreed on the clear cases (King RSS, the 40acres pools, the Stream and
@@ -318,13 +319,24 @@ by the other. Check the `uncertain` and borderline decisions each month.
 
 ### Agent CLIs
 
-The Claude CLI, the default:
+The Claude CLI, the default, runs Sonnet 5.5 (`claude-sonnet-5-5`) with
+medium thinking effort:
 
 ```shell
-claude -p "<prompt>" --permission-mode dontAsk \
+claude -p "<prompt>" --model claude-sonnet-5-5 --effort medium \
+    --permission-mode dontAsk \
     --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebSearch,WebFetch" \
     --output-format stream-json --verbose --no-session-persistence
 ```
+
+This is important: a run makes up to three rounds that each research dozens
+of vaults with web searches, onchain reads and sub-agents, so it consumes a lot
+of LLM tokens. Opus with high effort, the CLI default, costs several times more
+for no better decisions here, and we do not want to overspend. The model and
+effort are `CLAUDE_CHECK_MODEL` and `CLAUDE_CHECK_EFFORT` in
+`vault_checks.py`; `VAULT_CHECK_MODEL` and `VAULT_CHECK_EFFORT` override them
+for one run. The model id is pinned rather than the `sonnet` alias, so a CLI
+update cannot change the cost silently.
 
 The Codex CLI:
 
@@ -351,7 +363,8 @@ and the JSONL stream written to the transcript. Read
 | Variable | Default | Meaning |
 |---|---|---|
 | `VAULT_CHECK_AGENT` | `none` | `claude`, `codex`, `reuse` (only reuse saved decisions) or `none` (no check) |
-| `VAULT_CHECK_MODEL` | CLI default | Model for the agent, e.g. `gpt-6-sol` for Codex |
+| `VAULT_CHECK_MODEL` | `claude-sonnet-5-5` for Claude, CLI default for Codex | Model for the agent, e.g. `gpt-6-sol` for Codex |
+| `VAULT_CHECK_EFFORT` | `medium` | Claude CLI thinking effort: `low`, `medium`, `high`, `xhigh` or `max`; mind the token cost |
 | `VAULT_CHECK_DECISIONS` | | Comma-separated bundle directories whose decisions files can be reused |
 | `VAULT_CHECK_OVERRIDES` | | JSON list of editor decision records that replace the agent's |
 | `VAULT_CHECK_TIMEOUT` | `60` | Agent timeout per round, in minutes |
