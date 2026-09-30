@@ -18,8 +18,11 @@ credentials for authenticated access to private endpoints.
 Environment variables (optional, for authenticated endpoints):
 
 - ``GRVT_API_KEY``: API key provisioned via the GRVT UI
-- ``GRVT_PRIVATE_KEY``: Private key for the Ethereum address linked to the API key
-- ``GRVT_TRADING_ACCOUNT_ID``: Trading account ID
+
+The API-key login response is the authority for the authenticated account ID.
+It returns this value in the ``X-Grvt-Account-Id`` response header.  Do not
+configure an account ID separately: an API key is scoped to one GRVT account
+and a manually supplied ID can cause authenticated requests to be rejected.
 
 Rate limiting is thread-safe using SQLite backend, so the session can be
 shared across multiple threads when using ``joblib.Parallel`` or similar.
@@ -33,6 +36,7 @@ from pyrate_limiter import SQLiteBucket
 from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
+from eth_defi.grvt.constants import GRVT_API_URL, GRVT_DEFAULT_REQUESTS_PER_SECOND
 from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
@@ -50,19 +54,19 @@ DEFAULT_RETRIES = 5
 DEFAULT_BACKOFF_FACTOR = 0.5
 
 
-def _authenticate_session(
+def authenticate_grvt_api_key_session(
     session: Session,
     api_url: str,
     api_key: str,
-    private_key: str,
-    trading_account_id: str,
     timeout: float = 30.0,
 ) -> Session:
     """Perform GRVT API key login and set session cookies.
 
     POSTs to ``/auth/api_key/login`` with API key credentials.
     The response sets session cookies for subsequent authenticated requests.
-    Also sets the ``X-Grvt-Account-Id`` header.
+    Also sets the ``X-Grvt-Account-Id`` header from the login response.  GRVT
+    associates each API key with an account, so the response header is the
+    only safe source for subsequent trading API requests.
 
     :param session:
         The requests session to authenticate.
@@ -70,10 +74,6 @@ def _authenticate_session(
         GRVT API base URL.
     :param api_key:
         GRVT API key.
-    :param private_key:
-        GRVT private key for the Ethereum address linked to the API key.
-    :param trading_account_id:
-        GRVT trading account ID.
     :param timeout:
         HTTP request timeout in seconds.
     :return:
@@ -90,8 +90,14 @@ def _authenticate_session(
     response = session.post(login_url, json=payload, timeout=timeout)
     response.raise_for_status()
 
-    # Set the account ID header for all subsequent requests
-    session.headers["X-Grvt-Account-Id"] = trading_account_id
+    account_id = response.headers.get("X-Grvt-Account-Id")
+    if not account_id:
+        error_message = "GRVT API-key login response did not include X-Grvt-Account-Id"
+        raise ValueError(error_message)
+
+    # The API key is scoped to this account.  Reusing a configured account ID
+    # from another key produces an otherwise misleading 403 response.
+    session.headers["X-Grvt-Account-Id"] = account_id
 
     logger.info("Authenticated with GRVT API at %s", api_url)
     return session
@@ -138,9 +144,11 @@ def create_grvt_session(
     :param api_key:
         GRVT API key. Falls back to ``GRVT_API_KEY`` env var.
     :param private_key:
-        GRVT private key. Falls back to ``GRVT_PRIVATE_KEY`` env var.
+        Deprecated compatibility argument. API-key login does not use a
+        private key.
     :param trading_account_id:
-        GRVT trading account ID. Falls back to ``GRVT_TRADING_ACCOUNT_ID`` env var.
+        Deprecated compatibility argument. API-key login derives the account
+        ID from its response.
     :param retries:
         Maximum number of retry attempts for failed requests.
     :param backoff_factor:
@@ -165,8 +173,6 @@ def create_grvt_session(
     :raises AssertionError:
         If ``authenticate=True`` and required credentials are not provided.
     """
-    from eth_defi.grvt.constants import GRVT_API_URL, GRVT_DEFAULT_REQUESTS_PER_SECOND
-
     if api_url is None:
         api_url = GRVT_API_URL
     if requests_per_second is None:
@@ -208,15 +214,12 @@ def create_grvt_session(
     if authenticate:
         if api_key is None:
             api_key = os.environ.get("GRVT_API_KEY")
-        if private_key is None:
-            private_key = os.environ.get("GRVT_PRIVATE_KEY")
-        if trading_account_id is None:
-            trading_account_id = os.environ.get("GRVT_TRADING_ACCOUNT_ID")
 
         assert api_key, "GRVT_API_KEY must be set (pass directly or via environment variable)"
-        assert private_key, "GRVT_PRIVATE_KEY must be set (pass directly or via environment variable)"
-        assert trading_account_id, "GRVT_TRADING_ACCOUNT_ID must be set (pass directly or via environment variable)"
 
-        _authenticate_session(session, api_url, api_key, private_key, trading_account_id, timeout)
+        if private_key is not None or trading_account_id is not None:
+            logger.debug("Ignoring deprecated GRVT private key and trading account ID arguments")
+
+        authenticate_grvt_api_key_session(session, api_url, api_key, timeout)
 
     return session
