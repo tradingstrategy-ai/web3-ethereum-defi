@@ -29,7 +29,7 @@ links:
   documentation: https://docs.antarctic.exchange/
   audits:
   fees: https://docs.antarctic.exchange/faq
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/antarctic
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/antarctic
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/antarctic/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x152f5E6142db867f905a68617dBb6408D7993a4b

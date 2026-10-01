@@ -8,7 +8,7 @@ Deltr API
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/deltr>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/deltr>`__
 
 .. autosummary::
    :toctree: _autosummary_deltr

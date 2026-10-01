@@ -32,7 +32,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/atoma
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/atoma
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/atoma/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c

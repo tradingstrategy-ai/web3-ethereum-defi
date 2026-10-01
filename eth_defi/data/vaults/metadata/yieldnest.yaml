@@ -16,7 +16,7 @@ links:
   documentation: https://docs.yieldnest.finance
   defillama: https://defillama.com/protocol/yieldnest
   audits: https://www.chainsecurity.com/security-audit/yieldnest-protocol
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yieldnest
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/yieldnest
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldnest/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b

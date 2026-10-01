@@ -27,7 +27,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/nashpoint
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/nashpoint
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/nashpoint/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x6ca200319a0d4127a7a473d6891b86f34e312f42

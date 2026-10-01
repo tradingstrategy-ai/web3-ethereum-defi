@@ -14,7 +14,7 @@ DAO-governed with rage quit functionality.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/eth-strategy>`__
 - `Website <https://www.ethstrat.xyz/>`__
 - `Documentation <https://docs.ethstrat.xyz/>`__
 - `GitHub <https://github.com/dangerousfood/ethstrategy>`__

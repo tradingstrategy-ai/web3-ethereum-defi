@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Automate the monthly best-performing stablecoin vaults blog post as an unpublished Ghost draft, with generated tables, branded charts in the website's visual identity, latest podcasts, an AI-assisted investability check, `review_needed` vault flags and a dated excluded-vaults record (2026-10-01).
 - feat: Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30).
 - feat: Add Open Standard's live Open USD stablecoin metadata and feed, preserving Origin Dollar as a separate OUSD issuer (2026-09-30).
 - feat: Track Frankencoin Shares equity with Ethereum address classification, protocol curation, equity and underlying lending/RWA strategy tags, revenue-stream documentation and a targeted metadata and price backfill (2026-09-30).
@@ -259,90 +260,90 @@
 - Add: Archive node verification for `launch_anvil()` / `fork_network_anvil()` - new `archive=True` parameter validates RPC can access historical blocks before forking, with `ArchiveNodeRequired` exception including HTTP response headers for debugging (2026-02-10)
 - Add: Lending protocol utilisation metrics (`available_liquidity`, `utilisation`) for vault scanning and historical readers across Gearbox, Euler, Morpho, IPOR, and Llama Lend protocols (2026-02-09)
 - Fix: Replace deprecated `datetime.utcnow()` and `pd.Timestamp.utcfromtimestamp()` with Python 3.12+ compatible alternatives (2026-02-08)
-- Add: New protocol: [sBOLD](https://tradingstrategy.ai/trading-view/vaults/protocols/sbold) - yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools by K3 Capital (2026-02-08)
+- Add: New protocol: [sBOLD](https://tradingstrategy.ai/vaults/protocols/sbold) - yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools by K3 Capital (2026-02-08)
 - Fix: Multi-chain vault scanner now captures and displays exceptions per chain instead of crashing, with full tracebacks printed before the final dashboard (2026-02-05)
 
 # 0.40
 
 - Update: Relax NumPy version constraint from `<2` to `<3` to allow NumPy 2.x (2026-02-05)
-- Add: New protocol: [BaseVol](https://tradingstrategy.ai/trading-view/vaults/protocols/basevol) - onchain options protocol with AI-managed yield vaults on Base (2026-02-05)
+- Add: New protocol: [BaseVol](https://tradingstrategy.ai/vaults/protocols/basevol) - onchain options protocol with AI-managed yield vaults on Base (2026-02-05)
 - Add: Cloudflare Pages documentation hosting with custom domain `web3-ethereum-defi.tradingstrategy.ai` (2026-02-03)
 - Add: [Derive.xyz](https://www.derive.xyz/) perpetuals and options DEX integration with session key authentication and account balance reading (2026-02-03)
 - Fix: ERC-4626 core result processing gracefully handles missing `total_supply` and `total_assets` calls instead of crashing with asserts (2026-02-02)
 - Fix: Broken vault contracts filtering in `scan_historical_prices_to_parquet` now properly applies to all subsequent code instead of being silently ignored (2026-02-02)
 - Add: Vault state fields (`max_deposit`, `max_redeem`, `deposits_open`, `redemption_open`, `trading`) to historical vault reads with protocol-specific readers for Gains/Ostium, D2 Finance, and Plutus (2026-01-31)
-- Add: New protocol: [Frax Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/frax-finance) - Fraxlend lending pair vault on Ethereum (2026-01-28)
-- Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Ethereum (2026-01-28)
-- Add: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) PoolV3 GHO vault on Ethereum mainnet with `poolQuotaKeeper()` detection for older deployments (2026-01-27)
+- Add: New protocol: [Frax Finance](https://tradingstrategy.ai/vaults/protocols/frax-finance) - Fraxlend lending pair vault on Ethereum (2026-01-28)
+- Add: [YieldFi](https://tradingstrategy.ai/vaults/protocols/yieldfi) yUSD vault on Ethereum (2026-01-28)
+- Add: [Gearbox](https://tradingstrategy.ai/vaults/protocols/gearbox) PoolV3 GHO vault on Ethereum mainnet with `poolQuotaKeeper()` detection for older deployments (2026-01-27)
 - Add: `remove_inactive_lead_time()` function to remove initial inactive period from vault price history where total supply hasn't changed (2026-01-26)
-- Add: New protocol: [Yo](https://tradingstrategy.ai/trading-view/vaults/protocols/yo) - decentralised yield optimisation platform with multi-chain asset allocation on Ethereum (2026-01-24)
-- Add: New protocol: [aarnâ](https://tradingstrategy.ai/trading-view/vaults/protocols/aarna) - Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management on Ethereum (2026-01-23)
-- Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) vyUSD vault on Base and yUSD vault on Ethereum (2026-01-23)
-- Add: New protocol: [Avant](https://tradingstrategy.ai/trading-view/vaults/protocols/avant) - decentralised stablecoin protocol on Avalanche with savUSD staking vault (2026-01-19)
-- Add: New protocol: [Renalta](https://tradingstrategy.ai/trading-view/vaults/protocols/renalta) - yield protocol on Base blockchain with unverified smart contract source code (2026-01-19)
-- Add: New protocol: [infiniFi](https://tradingstrategy.ai/trading-view/vaults/protocols/infinifi) - on-chain fractional reserve banking protocol with siUSD liquid staking vault on Ethereum (2026-01-18)
-- Add: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) spUSDT (Spark Savings USDT) vault on Ethereum (2026-01-18)
-- Add: [Sky](https://tradingstrategy.ai/trading-view/vaults/protocols/sky) sDAI (Savings DAI) vault on Ethereum (2026-01-18)
+- Add: New protocol: [Yo](https://tradingstrategy.ai/vaults/protocols/yo) - decentralised yield optimisation platform with multi-chain asset allocation on Ethereum (2026-01-24)
+- Add: New protocol: [aarnâ](https://tradingstrategy.ai/vaults/protocols/aarna) - Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management on Ethereum (2026-01-23)
+- Add: [YieldFi](https://tradingstrategy.ai/vaults/protocols/yieldfi) vyUSD vault on Base and yUSD vault on Ethereum (2026-01-23)
+- Add: New protocol: [Avant](https://tradingstrategy.ai/vaults/protocols/avant) - decentralised stablecoin protocol on Avalanche with savUSD staking vault (2026-01-19)
+- Add: New protocol: [Renalta](https://tradingstrategy.ai/vaults/protocols/renalta) - yield protocol on Base blockchain with unverified smart contract source code (2026-01-19)
+- Add: New protocol: [infiniFi](https://tradingstrategy.ai/vaults/protocols/infinifi) - on-chain fractional reserve banking protocol with siUSD liquid staking vault on Ethereum (2026-01-18)
+- Add: [Spark](https://tradingstrategy.ai/vaults/protocols/spark) spUSDT (Spark Savings USDT) vault on Ethereum (2026-01-18)
+- Add: [Sky](https://tradingstrategy.ai/vaults/protocols/sky) sDAI (Savings DAI) vault on Ethereum (2026-01-18)
 - Fix: YieldNest protocol detection now uses hardcoded address for ynRWAx vault on Ethereum, with fixed maturity date (15 Oct 2026) and vault-specific notes (2026-01-18)
-- Add: New protocol: [Sentiment](https://tradingstrategy.ai/trading-view/vaults/protocols/sentiment) - decentralised leverage lending protocol with SuperPool vault aggregators on HyperEVM (2026-01-18)
-- Add: New protocol: [Hyperlend](https://tradingstrategy.ai/trading-view/vaults/protocols/hyperlend) - Wrapped HLP vault on HyperEVM for tokenised HyperLiquidity Provider (2026-01-18)
-- Add: New protocol: [USDX Money](https://tradingstrategy.ai/trading-view/vaults/protocols/usdx-money) - synthetic USD stablecoin protocol with sUSDX staking vault (2026-01-16)
-- Add: New protocol: [Fluid](https://tradingstrategy.ai/trading-view/vaults/protocols/fluid) - DeFi liquidity layer by Instadapp with ERC-4626 compliant fToken lending vaults (2026-01-16)
-- Add: New protocol: [HypurrFi](https://tradingstrategy.ai/trading-view/vaults/protocols/hypurrfi) - lending market on HyperEVM for leveraged yield strategies (2026-01-16)
-- Add: New protocol: [Dolomite](https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite) - next-generation DeFi lending and borrowing platform on Arbitrum (2026-01-16)
-- Add: New protocol: [YieldNest](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldnest) - automated liquid restaking with AI-enhanced strategy optimisation on Ethereum and BSC (2026-01-15)
+- Add: New protocol: [Sentiment](https://tradingstrategy.ai/vaults/protocols/sentiment) - decentralised leverage lending protocol with SuperPool vault aggregators on HyperEVM (2026-01-18)
+- Add: New protocol: [Hyperlend](https://tradingstrategy.ai/vaults/protocols/hyperlend) - Wrapped HLP vault on HyperEVM for tokenised HyperLiquidity Provider (2026-01-18)
+- Add: New protocol: [USDX Money](https://tradingstrategy.ai/vaults/protocols/usdx-money) - synthetic USD stablecoin protocol with sUSDX staking vault (2026-01-16)
+- Add: New protocol: [Fluid](https://tradingstrategy.ai/vaults/protocols/fluid) - DeFi liquidity layer by Instadapp with ERC-4626 compliant fToken lending vaults (2026-01-16)
+- Add: New protocol: [HypurrFi](https://tradingstrategy.ai/vaults/protocols/hypurrfi) - lending market on HyperEVM for leveraged yield strategies (2026-01-16)
+- Add: New protocol: [Dolomite](https://tradingstrategy.ai/vaults/protocols/dolomite) - next-generation DeFi lending and borrowing platform on Arbitrum (2026-01-16)
+- Add: New protocol: [YieldNest](https://tradingstrategy.ai/vaults/protocols/yieldnest) - automated liquid restaking with AI-enhanced strategy optimisation on Ethereum and BSC (2026-01-15)
 
 # 0.39
 
 - Add: `get_safe_cached_latest_block_number()` function to work around broken JSON-RPC providers with time-based caching (2026-01-13)
 - Optimisation: Chain-based filtering for `create_probe_calls()` - skips protocol-specific probes on chains where protocols aren't deployed, reducing unnecessary RPC calls (2026-01-13)
-- Add: New protocol: [Accountable Capital](https://tradingstrategy.ai/trading-view/vaults/protocols/accountable) - blockchain-based financial verification vaults on Monad (2026-01-13)
-- Add: New protocol: [Brink](https://tradingstrategy.ai/trading-view/vaults/protocols/brink) - yield-bearing vaults on Mantle with modified ERC-4626 events (2026-01-12)
-- Add: [Morpho Vault V2](https://tradingstrategy.ai/trading-view/vaults/protocols/morpho) adapter-based architecture support (2026-01-12)
+- Add: New protocol: [Accountable Capital](https://tradingstrategy.ai/vaults/protocols/accountable) - blockchain-based financial verification vaults on Monad (2026-01-13)
+- Add: New protocol: [Brink](https://tradingstrategy.ai/vaults/protocols/brink) - yield-bearing vaults on Mantle with modified ERC-4626 events (2026-01-12)
+- Add: [Morpho Vault V2](https://tradingstrategy.ai/vaults/protocols/morpho) adapter-based architecture support (2026-01-12)
 - Fix: GMX CCXT limit order tests and price sanity test flakiness - added `get_mock_oracle_price()` helper for fork tests, fixed ticker cache mutation, and updated examples to use mock oracle prices (2026-01-13)
-- Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Arbitrum (2026-01-12)
-- Add: New vault type: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) Staked msUSD vault on Ethereum (2026-01-12)
-- Add: New protocol: [Singularity Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/singularity-finance) - AI-powered DeFi yield vaults on Base (2026-01-12)
+- Add: [YieldFi](https://tradingstrategy.ai/vaults/protocols/yieldfi) yUSD vault on Arbitrum (2026-01-12)
+- Add: New vault type: [Mainstreet Finance](https://tradingstrategy.ai/vaults/protocols/mainstreet-finance) Staked msUSD vault on Ethereum (2026-01-12)
+- Add: New protocol: [Singularity Finance](https://tradingstrategy.ai/vaults/protocols/singularity-finance) - AI-powered DeFi yield vaults on Base (2026-01-12)
 - Fix: ResourceWarning for unclosed sockets and subprocess handles in `eth_defi.utils` (2026-01-07)
-- Add: New vault type: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) ERC4626 wrapper (sw-earn) on Monad (2026-01-07)
-- Add: New protocol: [Curvance](https://tradingstrategy.ai/trading-view/vaults/protocols/curvance) - next-generation DeFi lending protocol on Monad and other chains (2026-01-07)
-- Add: New protocol: [Resolv](https://tradingstrategy.ai/trading-view/vaults/protocols/resolv) - delta-neutral stablecoin protocol with wstUSR vault (2026-01-07)
-- Add: New protocol: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) - Web3 asset management platform with vyToken vaults (2026-01-07)
-- Add: New vault type: [CAP](https://tradingstrategy.ai/trading-view/vaults/protocols/cap) AaveV3Lender USDC vault on Ethereum (2026-01-07)
+- Add: New vault type: [Spectra](https://tradingstrategy.ai/vaults/protocols/spectra) ERC4626 wrapper (sw-earn) on Monad (2026-01-07)
+- Add: New protocol: [Curvance](https://tradingstrategy.ai/vaults/protocols/curvance) - next-generation DeFi lending protocol on Monad and other chains (2026-01-07)
+- Add: New protocol: [Resolv](https://tradingstrategy.ai/vaults/protocols/resolv) - delta-neutral stablecoin protocol with wstUSR vault (2026-01-07)
+- Add: New protocol: [YieldFi](https://tradingstrategy.ai/vaults/protocols/yieldfi) - Web3 asset management platform with vyToken vaults (2026-01-07)
+- Add: New vault type: [CAP](https://tradingstrategy.ai/vaults/protocols/cap) AaveV3Lender USDC vault on Ethereum (2026-01-07)
 
 # 0.38
 
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
-- Add: New protocol: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
-- Add: New protocol: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) - composable leverage protocol lending pools (2026-01-05)
-- Add: New vault type: [Maple Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/maple) AQRU Pool - Real-World Receivables vault (2026-01-05)
-- Add: New protocol: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
-- Add: New protocol: [Altura](https://tradingstrategy.ai/trading-view/vaults/protocols/altura) - multi-strategy yield protocol on HyperEVM (2026-01-05)
-- Add: New protocol: [Yuzu Money](https://tradingstrategy.ai/trading-view/vaults/protocols/yuzu-money) - overcollateralised stablecoin protocol on Plasma chain (2026-01-05)
-- Add: [cSigma Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance) cSuperior Quality Private Credit vault (2026-01-05)
-- Add: New protocol: [ETH Strategy](https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy) - DeFi treasury protocol with ESPN vault (2026-01-05)
-- Add: New protocol: [ZeroLend](https://tradingstrategy.ai/trading-view/vaults/protocols/zerolend) - multi-chain DeFi lending with Royco integration (2026-01-05)
+- Add: New protocol: [Mainstreet Finance](https://tradingstrategy.ai/vaults/protocols/mainstreet-finance) - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
+- Add: New protocol: [Gearbox](https://tradingstrategy.ai/vaults/protocols/gearbox) - composable leverage protocol lending pools (2026-01-05)
+- Add: New vault type: [Maple Finance](https://tradingstrategy.ai/vaults/protocols/maple) AQRU Pool - Real-World Receivables vault (2026-01-05)
+- Add: New protocol: [Spectra](https://tradingstrategy.ai/vaults/protocols/spectra) USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
+- Add: New protocol: [Altura](https://tradingstrategy.ai/vaults/protocols/altura) - multi-strategy yield protocol on HyperEVM (2026-01-05)
+- Add: New protocol: [Yuzu Money](https://tradingstrategy.ai/vaults/protocols/yuzu-money) - overcollateralised stablecoin protocol on Plasma chain (2026-01-05)
+- Add: [cSigma Finance](https://tradingstrategy.ai/vaults/protocols/csigma-finance) cSuperior Quality Private Credit vault (2026-01-05)
+- Add: New protocol: [ETH Strategy](https://tradingstrategy.ai/vaults/protocols/eth-strategy) - DeFi treasury protocol with ESPN vault (2026-01-05)
+- Add: New protocol: [ZeroLend](https://tradingstrategy.ai/vaults/protocols/zerolend) - multi-chain DeFi lending with Royco integration (2026-01-05)
 - Add: Claude Code skill for identifying vault protocols (2026-01-05)
 - Add: New protocol research: ZeroLend Royco wrapped vault (2026-01-05)
-- Add: New protocol: [Royco Protocol](https://tradingstrategy.ai/trading-view/vaults/protocols/royco) - incentivised ERC-4626 vault wrappers (2026-01-05)
+- Add: New protocol: [Royco Protocol](https://tradingstrategy.ai/vaults/protocols/royco) - incentivised ERC-4626 vault wrappers (2026-01-05)
 - Add: Claude Code support
 - Add: New chain: Monad
-- Add: New protocol: [CAP](https://tradingstrategy.ai/trading-view/vaults/protocols/cap) (Covered Agent Protocol)
-- Add: New protocol: [Foxify](https://tradingstrategy.ai/trading-view/vaults/protocols/foxify) (Sonic chain)
-- Add: New protocol: [Liquid Royalty](https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty) (Berachain)
-- Add: New protocol: [cSigma Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance) (Ethereum)
-- Add: New protocol: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) (Ethereum)
-- Add: New vault type: [Yearn](https://tradingstrategy.ai/trading-view/vaults/protocols/yearn) Morpho Compounder strategy
-- Add: New protocol: [Teller](https://tradingstrategy.ai/trading-view/vaults/protocols/teller) (Base)
-- Add: New protocol: [Deltr](https://tradingstrategy.ai/trading-view/vaults/protocols/deltr) (Ethereum)
-- Add: New protocol: [Upshift](https://tradingstrategy.ai/trading-view/vaults/protocols/upshift) (Ethereum)
-- Add: New protocol: [Sky](https://tradingstrategy.ai/trading-view/vaults/protocols/sky) (Ethereum) - formerly MakerDAO, stUSDS and sUSDS vaults
-- Add: New protocol: [Maple Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/maple) - syrupUSDC and syrupUSDT vaults
-- Add: New protocol: [Centrifuge](https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge) - RWA tokenisation and financing with ERC-7540 liquidity pools
-- Add: New protocol: [Ethena](https://tradingstrategy.ai/trading-view/vaults/protocols/ethena) - sUSDe synthetic dollar staking vault
-- Add: New protocol: [Decentralized USD](https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd) (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
-- Add: New protocol: [Term Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance) - fixed-rate DeFi lending via auction-based matching
-- Add: New protocol: [EulerEarn](https://tradingstrategy.ai/trading-view/vaults/protocols/euler) - Metamorpho-based yield aggregator on Euler Vault Kit
+- Add: New protocol: [CAP](https://tradingstrategy.ai/vaults/protocols/cap) (Covered Agent Protocol)
+- Add: New protocol: [Foxify](https://tradingstrategy.ai/vaults/protocols/foxify) (Sonic chain)
+- Add: New protocol: [Liquid Royalty](https://tradingstrategy.ai/vaults/protocols/liquid-royalty) (Berachain)
+- Add: New protocol: [cSigma Finance](https://tradingstrategy.ai/vaults/protocols/csigma-finance) (Ethereum)
+- Add: New protocol: [Spark](https://tradingstrategy.ai/vaults/protocols/spark) (Ethereum)
+- Add: New vault type: [Yearn](https://tradingstrategy.ai/vaults/protocols/yearn) Morpho Compounder strategy
+- Add: New protocol: [Teller](https://tradingstrategy.ai/vaults/protocols/teller) (Base)
+- Add: New protocol: [Deltr](https://tradingstrategy.ai/vaults/protocols/deltr) (Ethereum)
+- Add: New protocol: [Upshift](https://tradingstrategy.ai/vaults/protocols/upshift) (Ethereum)
+- Add: New protocol: [Sky](https://tradingstrategy.ai/vaults/protocols/sky) (Ethereum) - formerly MakerDAO, stUSDS and sUSDS vaults
+- Add: New protocol: [Maple Finance](https://tradingstrategy.ai/vaults/protocols/maple) - syrupUSDC and syrupUSDT vaults
+- Add: New protocol: [Centrifuge](https://tradingstrategy.ai/vaults/protocols/centrifuge) - RWA tokenisation and financing with ERC-7540 liquidity pools
+- Add: New protocol: [Ethena](https://tradingstrategy.ai/vaults/protocols/ethena) - sUSDe synthetic dollar staking vault
+- Add: New protocol: [Decentralized USD](https://tradingstrategy.ai/vaults/protocols/decentralized-usd) (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
+- Add: New protocol: [Term Finance](https://tradingstrategy.ai/vaults/protocols/term-finance) - fixed-rate DeFi lending via auction-based matching
+- Add: New protocol: [EulerEarn](https://tradingstrategy.ai/vaults/protocols/euler) - Metamorpho-based yield aggregator on Euler Vault Kit
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
@@ -364,24 +365,24 @@
 # 0.35
 
 - Add: Initial skeleton for GMX CCXT adapter
-- Add: New protocol: [Silo Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/silo-finance)
-- Add: New protocol: [Summer.fi Earn](https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi)
-- Add: New protocol: [Curve LLAMMA](https://tradingstrategy.ai/trading-view/vaults/protocols/llamma)
+- Add: New protocol: [Silo Finance](https://tradingstrategy.ai/vaults/protocols/silo-finance)
+- Add: New protocol: [Summer.fi Earn](https://tradingstrategy.ai/vaults/protocols/summer-fi)
+- Add: New protocol: [Curve LLAMMA](https://tradingstrategy.ai/vaults/protocols/llamma)
 - Add: Net/gross vault fee analysis
 - Fixes: Multiple RPC and workaround fixes for reading vault onchain data
 
 # 0.34
 
-- Add: New protocol: [Plutus](https://tradingstrategy.ai/trading-view/vaults/protocols/plutus)
-- Add: New protocol: [D2 Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance)
-- Add: New protocol: [Umami Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/umami)
-- Add: New protocol: [Untangled Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/untangle-finance)
-- Add: New protocol: [Harvest Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance)
-- Add: New protocol: [Yearn Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/yearn)
-- Add: New protocol: [Goat protocol](https://tradingstrategy.ai/trading-view/vaults/protocols/goat-protocol)
-- Add: New protocol: [USDai](https://tradingstrategy.ai/trading-view/vaults/protocols/usdai) protocol and StakedUSDai vault
-- Add: New protocol: [AUTO Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance) (prev. Tokemak)
-- Add: New protocol: [NashPoint](https://tradingstrategy.ai/trading-view/vaults/protocols/nashpoint)
+- Add: New protocol: [Plutus](https://tradingstrategy.ai/vaults/protocols/plutus)
+- Add: New protocol: [D2 Finance](https://tradingstrategy.ai/vaults/protocols/d2-finance)
+- Add: New protocol: [Umami Finance](https://tradingstrategy.ai/vaults/protocols/umami)
+- Add: New protocol: [Untangled Finance](https://tradingstrategy.ai/vaults/protocols/untangle-finance)
+- Add: New protocol: [Harvest Finance](https://tradingstrategy.ai/vaults/protocols/harvest-finance)
+- Add: New protocol: [Yearn Finance](https://tradingstrategy.ai/vaults/protocols/yearn)
+- Add: New protocol: [Goat protocol](https://tradingstrategy.ai/vaults/protocols/goat-protocol)
+- Add: New protocol: [USDai](https://tradingstrategy.ai/vaults/protocols/usdai) protocol and StakedUSDai vault
+- Add: New protocol: [AUTO Finance](https://tradingstrategy.ai/vaults/protocols/auto-finance) (prev. Tokemak)
+- Add: New protocol: [NashPoint](https://tradingstrategy.ai/vaults/protocols/nashpoint)
 - Add: Vault protocol fee classification (internal/external/feeless)
 - Add: Vault fees and net profit calculations
 - Add: `get_block_timestamps_using_hypersync()`

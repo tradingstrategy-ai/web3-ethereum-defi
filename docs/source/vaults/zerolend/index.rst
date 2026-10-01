@@ -14,7 +14,7 @@ vaults to offer additional reward programmes alongside the underlying vault yiel
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/zerolend>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/zerolend>`__
 - `Homepage <https://zerolend.xyz/>`__
 - `Application <https://app.zerolend.xyz/>`__
 - `Documentation <https://docs.zerolend.xyz/>`__

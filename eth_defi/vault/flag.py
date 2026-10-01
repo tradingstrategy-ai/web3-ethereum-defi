@@ -1,4 +1,41 @@
-"""Vault status flags."""
+"""Vault status flags and notes.
+
+Manual flags and notes for individual vaults and protocols. A bad flag, see
+:py:data:`BAD_FLAGS`, hides a vault on the website and in the data exports.
+
+Instructions for adding entries
+-------------------------------
+
+Every entry added to :py:data:`VAULT_FLAGS_AND_NOTES` must be documented with an
+extensive line comment block directly above it. This applies to humans and to
+AI agents alike, including the ``check-top-list-vaults`` and ``add-vault-note``
+skills. A bare address, or a comment with only the vault name, is not enough.
+The comment block states:
+
+- the vault name, protocol, chain and, when known, curator;
+- when the entry was added and what found the problem, e.g. the vault report
+  investability check, an incident report or a user report;
+- what is wrong, with the figures observed and when, e.g. utilisation,
+  redeemable liquidity or the collateral's market;
+- why this :class:`VaultFlag` was chosen;
+- canonical source URLs for the data: the vault's page on
+  ``https://tradingstrategy.ai/vaults/``, the block explorer page of the vault
+  and of any token or oracle involved, the protocol's app or forum post, and
+  the incident reports or announcements relied on. Prefer human-readable
+  pages over API endpoints.
+
+Use :py:attr:`VaultFlag.review_needed` for a vault we are unsure about: it
+is not blacklisted, and its note tells readers the vault is under review. Its
+comment block must also record each check run's decision, the date and the
+model, what conflicts or is missing, and what a reviewer should check to
+decide. When a later run looks at the vault again, add its finding to the same
+comment block rather than a new entry.
+
+The note message itself goes in a module-level constant with a ``#:`` comment,
+so it can be shared by vaults with the same problem. See the King RSS USDC
+Vault entry for an example. After changing flags, rerun the vault metadata
+scan, see :class:`VaultFlag`.
+"""
 
 import enum
 
@@ -128,6 +165,17 @@ class VaultFlag(str, enum.Enum):
 
     #: Vault denomination stablecoin is marked as depegged.
     depegged_denomination_token = "depegged_denomination_token"
+
+    #: A human should review this vault; it is **not** blacklisted.
+    #:
+    #: Use this when there is a credible concern but not enough evidence to
+    #: blacklist, e.g. the vault report investability check left the vault
+    #: ``uncertain``, or its AI-assisted research is not deterministic and
+    #: separate runs reach different decisions. The vault stays visible on the
+    #: website and in the exports; its note tells readers it is under review.
+    #: Deliberately not in :py:data:`BAD_FLAGS`. Replace it with a bad flag, or
+    #: remove the entry, once a human has decided.
+    review_needed = "review_needed"
 
 
 #: Don't touch vaults with these flags
@@ -440,6 +488,33 @@ BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is i
 
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
+#: King RSS USDC Vault lends against a token with no market, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."
+
+#: Credifi's Euler pool lends against an unsellable credit-line token, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+CREDIFI_UNSECURED_CREDIT_COLLATERAL = "Lends only against Credifi CREDIT, a single-holder bookkeeping token with no market priced at $1 by Credifi's own unverified oracle, so the loans are unsecured credit lines and the collateral cannot be valued or sold."
+
+#: Euler pools left with bad debt by the Stream Finance and Elixir collapse, see their entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+STREAM_ELIXIR_EULER_BAD_DEBT = "Fully borrowed against deUSD, sdeUSD or USDX collateral that collapsed with Stream Finance and Elixir in November 2025; the vault has no cash and withdrawals fail."
+
+#: A vault denominated in the collapsed Stream Finance xUSD, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+STREAM_XUSD_DENOMINATED = "Denominated in Stream Finance xUSD, which collapsed in November 2025 and trades near $0.02; the reported TVL counts xUSD at $1 and the vault has no borrowers."
+
+#: Trevee plUSD lends only into an Euler pool that takes collapsed Stream xUSD as collateral, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+TREVEE_PLUSD_XUSD_COLLATERAL = "Lends its whole balance into an Euler pool that accepts collapsed Stream Finance xUSD as collateral; the vault has no redeemable liquidity and withdrawals fail."
+
+#: Under review: collateral without a liquid market, valued by its issuer; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+REVIEW_NEEDED_OFF_MARKET_COLLATERAL = "Under review: the vault lends against collateral without a liquid DEX market, valued by its issuer's NAV or oracle. Our automated investability checks have not reached a consistent verdict, so the vault is not blacklisted. Check the collateral and the withdrawable liquidity before depositing."
+
+#: Under review: the vault's lending pool is often fully borrowed; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+REVIEW_NEEDED_EXIT_LIQUIDITY = "Under review: the vault's lending pool has been almost fully borrowed at times, so withdrawals may have to wait for repayments. Our automated investability checks have not reached a consistent verdict, so the vault is not blacklisted. Check the withdrawable liquidity before depositing."
+
+#: Under review: the vault's reported protocol or TVL may be wrong; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+REVIEW_NEEDED_DATA_QUALITY = "Under review: the reported protocol or TVL of this vault may be inaccurate. Our automated investability checks have not reached a consistent verdict, so the vault is not blacklisted. Verify the vault onchain before depositing."
+
+#: Under review: a review started by a person rather than the investability check; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
+REVIEW_NEEDED_MANUAL = "Under review: the Trading Strategy team is reviewing this vault. It is not blacklisted; check its positions and withdrawable liquidity before depositing."
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -522,7 +597,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xce0b790ae0d8cf91e01f3fb69025e14569b574f3": (VaultFlag.misleading_valuation, MISLEADING_VALUATION),
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
-    # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112
+    # https://tradingstrategy.ai/vaults/borrowable-xusd-deposit-siloid-112
     "0x172a687c397e315dbe56ed78ab347d7743d0d4fa": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Llama Lend IBTC / crvUSD
     "0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d": (VaultFlag.illiquid, HIDDEN_VAULT),
@@ -700,7 +775,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Broken vault?
-    # http://localhost:5173/trading-view/vaults/stablecoins/iusd
+    # http://localhost:5173/vaults/stablecoins/iusd
     "0x36585e7ae4b8a422135618a2c113b8b516067e7a": (VaultFlag.broken, BROKEN_VAULT),
     # Broken vault?
     # Upshift Edge USDC
@@ -721,11 +796,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Foxify vault
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": (VaultFlag.proprietary_trading, FOXIFY_VAULT),
     # KUSDT
-    # http://localhost:5173/trading-view/binance/vaults/gtrade-kusdt
+    # http://localhost:5173/vaults/gtrade-kusdt
     # No idea what's this - unverified
     "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
     # Steakhouse High Yield USDT0 on Arbitrum
-    # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
+    # https://tradingstrategy.ai/vaults/steakhouse-high-yield-usdt0
     "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
     # Static RWA ZeroLend USDC
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (VaultFlag.illiquid, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
@@ -752,9 +827,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x7aca67a6856bf532a7b2dea9b20253f08bc9a85a": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Hemi Clearstar USDC.e
     "0x05c2e246156d37b39a825a25dd08d5589e3fd883": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
-    # https://tradingstrategy.ai/trading-view/vaults/lusd-coin-2
+    # https://tradingstrategy.ai/vaults/lusd-coin-2
     "0x0ddb1ea478f8ef0e22c7706d2903a41e94b1299b": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
-    # https://tradingstrategy.ai/trading-view/vaults/ltether-usd-4
+    # https://tradingstrategy.ai/vaults/ltether-usd-4
     "0x4c8e1656e042a206eef7e8fcff99bac667e4623e": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Harvest: USDC Vault (0x0F6d)
     "0x0f6d1d626fd6284c6c1c1345f30996b89b879689": (VaultFlag.subvault, SUBVAULT),
@@ -914,6 +989,709 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
     # VI-USDC-QA_G (Euler on Sonic)
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
+    # King RSS USDC Vault (Morpho V1 on Base)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The vault lends about 95% of its assets to one Morpho Blue market against RSS
+    # "elephanToken" (0x7a305D07B537359cf468eAea9bb176E5308bC337), which has no DEX pairs and
+    # is priced by a custom oracle; the market is 100% borrowed. The Morpho API lists the
+    # vault as unlisted with deposits disabled and a short timelock. The reported yield cannot
+    # be realised, hence misleading_valuation.
+    #
+    # - https://tradingstrategy.ai/vaults/king-rss-usdc-vault
+    # - https://basescan.org/address/0xf80c0529bd94c773844e459853cd91b9263dd525
+    # - Collateral without DEX pairs: https://dexscreener.com/base/0x7a305D07B537359cf468eAea9bb176E5308bC337
+    # - Morpho app: https://app.morpho.org/base/vault/0xf80c0529bd94c773844e459853cd91b9263dd525
+    "0xf80c0529bd94c773844e459853cd91b9263dd525": (VaultFlag.misleading_valuation, KING_RSS_UNSELLABLE_COLLATERAL),
+    # EVK Vault eUSDC-77 (Credifi, Euler EVK on Base)
+    #
+    # Added 2026-09-30 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool's only collateral is Credifi CREDIT
+    # (0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2), a bookkeeping token with a single holder
+    # and no market, priced at $1 by an unverified oracle
+    # (0x6a63a0F0eF5045cdDE9Ed93995255e60fB8A3265) that the vault's governor deployed. The
+    # loans are unsecured, reputation-based credit lines of up to $3,000 USDC, and the pool
+    # was 100% borrowed with no cash on 2026-09-30 (20,295.68 USDC lent at Base block
+    # 51986384). The collateral cannot be valued or sold, hence misleading_valuation.
+    #
+    # - https://tradingstrategy.ai/vaults/evk-vault-eusdc-77-2
+    # - https://base.blockscout.com/address/0xffAABC0bfbCEc0355129E7653C6F1923eC533B66
+    # - Collateral token: https://base.blockscout.com/token/0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2
+    # - Oracle: https://base.blockscout.com/address/0x6a63a0F0eF5045cdDE9Ed93995255e60fB8A3265
+    # - Collateral without DEX pairs: https://dexscreener.com/base/0x57aE2FEb25B2251bdD87183Ac53F85d30072C2e2
+    # - Credifi product: https://credi.fi/
+    "0xffaabc0bfbcec0355129e7653c6f1923ec533b66": (VaultFlag.misleading_valuation, CREDIFI_UNSECURED_CREDIT_COLLATERAL),
+    # Re7 Labs Cluster AUSD (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0x2137568666f12fc5a026f5430ae7194f1c1362ab
+    # - https://snowscan.xyz/address/0x2137568666f12fc5a026f5430ae7194f1c1362ab
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
+    "0x2137568666f12fc5a026f5430ae7194f1c1362ab": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USDC (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # Depositors report withdrawals failing with E_InsufficientCash on the Euler forum.
+    #
+    # - https://tradingstrategy.ai/vaults/0x39de0f00189306062d79edec6dca5bb6bfd108f9
+    # - https://snowscan.xyz/address/0x39de0f00189306062d79edec6dca5bb6bfd108f9
+    # - Stuck funds on the Euler forum: https://forum.euler.finance/t/re7-labs-cluster-usdc-stuck-funds-e-insufficientcash-avalanche/1760
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
+    "0x39de0f00189306062d79edec6dca5bb6bfd108f9": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster deUSD (Euler EVK, Re7 Labs cluster on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir deUSD and sdeUSD, and lends deUSD itself, which Elixir sunset as
+    # collateral. These collapsed with Stream Finance and Elixir in November 2025, and the
+    # pool has been fully borrowed since, with no or almost no cash for withdrawals and a
+    # share price that has barely moved for three months (observed in the September 2026 check
+    # runs). Depositors cannot exit, hence illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0xa45189636c04388adbb4d865100dd155e55682ec
+    # - https://snowscan.xyz/address/0xa45189636c04388adbb4d865100dd155e55682ec
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
+    "0xa45189636c04388adbb4d865100dd155e55682ec": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Keyring zkVerified Cluster USDC (Euler EVK on Avalanche)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Elixir sdeUSD as collateral. These collapsed with Stream Finance and
+    # Elixir in November 2025, and the pool has been fully borrowed since, with no or almost
+    # no cash for withdrawals and a share price that has barely moved for three months
+    # (observed in the September 2026 check runs). Depositors cannot exit, hence illiquid.
+    #
+    # The pool's interest rate was set to zero, so lenders earn nothing while their funds are
+    # locked.
+    #
+    # - https://tradingstrategy.ai/vaults/keyring-zkverified-cluster
+    # - https://snowscan.xyz/address/0x8f23da78e3f31ab5deb75dc3282198bed630ffde
+    # - Keyring cluster launch: https://thedefiant.io/news/defi/keyring-brings-zero-knowledge-id-layer-to-defi-vaults-on-avalanche
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    # - Elixir USDC recovery portal for lenders: https://www.bankless.com/read/news/elixir-launches-usdc-recovery-portal-for-lenders-impacted-by-stream-insolvency
+    "0x8f23da78e3f31ab5deb75dc3282198bed630ffde": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USD1 (Euler EVK, Re7 Labs cluster on BNB Chain)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Stables Labs USDX and sUSDX as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0xc41f2ba7102e9f9f2d603eb951f955ae205ed272
+    # - https://bscscan.com/address/0xc41f2ba7102e9f9f2d603eb951f955ae205ed272
+    # - Stables Labs USDX collapse analysis: https://beosin.com/resources/analysis-of-the-stables-labs-usdx-collapse-incident-and-fund-flow-tracing
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    "0xc41f2ba7102e9f9f2d603eb951f955ae205ed272": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # Re7 Labs Cluster USDT (Euler EVK, Re7 Labs cluster on BNB Chain)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The pool accepts Stables Labs USDX and sUSDX as collateral. These collapsed with Stream
+    # Finance and Elixir in November 2025, and the pool has been fully borrowed since, with no
+    # or almost no cash for withdrawals and a share price that has barely moved for three
+    # months (observed in the September 2026 check runs). Depositors cannot exit, hence
+    # illiquid.
+    #
+    # - https://tradingstrategy.ai/vaults/0x69a93dbab609266af96f05658b2e22d020de2e19
+    # - https://bscscan.com/address/0x69a93dbab609266af96f05658b2e22d020de2e19
+    # - Stables Labs USDX collapse analysis: https://beosin.com/resources/analysis-of-the-stables-labs-usdx-collapse-incident-and-fund-flow-tracing
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    "0x69a93dbab609266af96f05658b2e22d020de2e19": (VaultFlag.illiquid, STREAM_ELIXIR_EULER_BAD_DEBT),
+    # MEV Capital Sonic Cluster (Euler EVK on Sonic)
+    #
+    # Added 2026-09-26 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``); its decisions
+    # file records the evidence.
+    #
+    # The vault is denominated in Stream Finance xUSD
+    # (0x6202b9f02e30e5e1c62cc01e4305450e5d83b926), which collapsed in November 2025 and
+    # traded near $0.02 in September 2026. The vault holds only idle xUSD with no borrowers
+    # and earns nothing, while its TVL counts xUSD at $1, hence depegged_denomination_token.
+    #
+    # - https://tradingstrategy.ai/vaults/mev-capital-sonic-cluster-16
+    # - https://sonicscan.org/address/0xdebdab749330bb976fd10dc52f9a452aaf029028
+    # - xUSD price: https://www.geckoterminal.com/sonic/tokens/0x6202b9f02e30e5e1c62cc01e4305450e5d83b926
+    # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
+    "0xdebdab749330bb976fd10dc52f9a452aaf029028": (VaultFlag.depegged_denomination_token, STREAM_XUSD_DENOMINATED),
+    # Trevee plUSD (Euler Earn on Plasma)
+    #
+    # Added 2026-09-30 by the vault report investability check. The vault
+    # allocates 100% of its ~$2.90M assets to Euler pool 0x27934d48...
+    # (the TelosC Stream plUSD vault, already flagged above), which accepts
+    # "Staked Stream USD" xUSD as collateral; xUSD collapsed in November 2025 and
+    # has $0 DEX liquidity. At block 33844607 the vault had $0 idle and $0
+    # redeemable assets (0.00% redeemable share), so the reported TVL and yield
+    # cannot be realised and a new depositor cannot exit. Flagged illiquid,
+    # like the other Stream-exposed Euler vaults.
+    #
+    # - https://tradingstrategy.ai/vaults/trevee-plusd
+    # - https://plasmascan.to/address/0x385021b412c9d2dd70823f8b5ff353028a039806
+    # - xUSD collateral: https://plasmascan.to/address/0x6eAf19b2FC24552925dB245F9Ff613157a7dbb4C
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    "0x385021b412c9d2dd70823f8b5ff353028a039806": (VaultFlag.illiquid, TREVEE_PLUSD_XUSD_COLLATERAL),
+    #
+    # Review needed: vaults the 2026-09-30 investability checks could not decide
+    # consistently. VaultFlag.review_needed does not blacklist; see its docstring.
+    #
+    # AlphaGrowth Base RWA (Euler EVK pool on Base, curator AlphaGrowth)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. About 22% of assets was
+    # redeemable. Almost all borrowing, about $452k, is against Re Protocol reUSD (about
+    # $507k posted), a reinsurance-backed token with no DEX market but a primary-market
+    # NAV and a quarterly redemption queue; a small part is against wrapped tokenised SPY
+    # (wtSPYM, about $11.5k).
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. The pool accepts
+    # reUSD and wrapped tokenised stocks with no DEX liquidity; 25% redeemable, but the
+    # collateral pricing could not be verified.
+    #
+    # To decide: whether reUSD's NAV feed and redemption queue make it acceptable
+    # collateral, and whether liquidations can work without a DEX market. TVL about $594k,
+    # 1M return about 15%.
+    #
+    # - https://tradingstrategy.ai/vaults/alphagrowth-base-rwa
+    # - https://basescan.org/address/0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e
+    # - Euler app: https://app.euler.finance/lend/0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e?network=8453
+    # - reUSD: https://pharos.watch/stablecoin/reusd-re-protocol/
+    # - wtSPYM markets: https://dexscreener.com/base/0x31c2c14134e6e3b7ef9478297f199331133fc2d8
+    "0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # NetNet Credit (Morpho V2 on Robinhood Chain, curator NetNet)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. 34% of assets is
+    # lent against wsNET, the curator's own rebasing token, priced by NetNet's bespoke
+    # LoopbackOracle, with about $277k of USDG-side DEX liquidity. The tokenised stock
+    # markets are 100% borrowed and only about 11% of assets could be withdrawn. The vault
+    # is unlisted on Morpho and run by a 1-of-1 Safe, although real borrowers pay the
+    # yield and a treasury-backed price floor covers the wsNET debt.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. Unlisted vault
+    # lending against tokenised stocks with unknown oracles in 100% borrowed markets, and
+    # against wsNET; only 7% withdrawable.
+    #
+    # To decide: whether the curator's own wsNET collateral and 1-of-1 curator Safe are
+    # acceptable. TVL about $1.21M, 1M return about 14.5%.
+    #
+    # - https://tradingstrategy.ai/vaults/netnet-credit
+    # - https://robinhoodchain.blockscout.com/address/0x99347d5f70d3838763f6bddcf80304c8aa953b57
+    # - wsNET oracle: https://robinhoodchain.blockscout.com/address/0xCDE9599059f8Ae6D6B9F33A0aF7877827ec75F16
+    # - Curator Safe: https://robinhoodchain.blockscout.com/address/0x3Bb7A23316f82C0e984fA2E784846d8928a35f42
+    # - NetNet credit docs: https://docs.netnet.capital/credit
+    # - Robinhood stock tokens: https://docs.robinhood.com/chain/stock-tokens/
+    "0x99347d5f70d3838763f6bddcf80304c8aa953b57": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Liquity Hub (Euler Earn on Ethereum, curator K3 Capital)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``).
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC: uncertain, low confidence. Only 0.014% of
+    # the $135k assets is redeemable (about $19) and the pool's median utilisation over
+    # 30 days is 99.997%. The pool accepts K3's own sBOLD, BOLD and expired Pendle
+    # PT-sBOLD tokens (the PTs have $0 DEX liquidity, BOLD has about $10M); the protocol
+    # is real, but no served withdrawals could be verified.
+    #
+    # To decide: whether the pool is permanently fully borrowed (exclude for exit
+    # liquidity) or only tight. TVL about $135k.
+    #
+    # - https://tradingstrategy.ai/vaults/liquity-hub-3
+    # - https://etherscan.io/address/0xc6137bc1378c2396051e06417704d31615f77cb9
+    # - Euler app: https://app.euler.finance/lend/0xc6137BC1378c2396051e06417704d31615F77Cb9?network=1
+    # - sBOLD: https://liquity.org/blog/sbold---the-on-chain-defi-savings-account
+    "0xc6137bc1378c2396051e06417704d31615f77cb9": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # JPEG Trading x Tenbin RWAs (Euler EVK pool on Ethereum, curator JPEG Trading)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``).
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC: uncertain, low confidence. The pool lends
+    # only against Tenbin tGLD, which has about $2.7k of DEX liquidity, and has 0%
+    # redeemable liquidity and 100% median utilisation over 30 days. The sibling Euler
+    # Earn vault 0x018b86a8... is already under review for the same pool.
+    #
+    # To decide: whether tGLD has a working primary-market redemption and whether the
+    # pool is permanently fully borrowed. TVL about $152k.
+    #
+    # - https://tradingstrategy.ai/vaults/jpeg-trading-x-tenbin-rwas-2
+    # - https://etherscan.io/address/0xb57320b253363bf749d5ce6e66592fdc74cce6f7
+    # - Euler app: https://app.euler.finance/lend/0xb57320b253363bf749D5CE6e66592FDC74cce6f7?network=1
+    # - tGLD: https://pharos.watch/stablecoin/tgld-tenbin/
+    "0xb57320b253363bf749d5ce6e66592fdc74cce6f7": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # JPEG Trading x Tenbin RWAs (Euler Earn on Ethereum, curator JPEG Trading)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: exclude, no_exit_liquidity, medium confidence.
+    # 97% of assets sits in a Tenbin tGLD Euler pool
+    # (0xb57320b253363bf749d5ce6e66592fdc74cce6f7) that had been 100% borrowed for 30
+    # days, so only about 2.6% (about $4k) could be withdrawn. tGLD is a pre-launch
+    # synthetic gold token with fewer than 100 holders, KYC-gated redemption and about
+    # $2.7k of DEX liquidity.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. Same figures, 97%
+    # in the tGLD pool at about 100% utilisation, 2.6% redeemable.
+    #
+    # Not the same vault as the other JPEG Trading x Tenbin RWAs Euler pool that both runs
+    # excluded. To decide: whether the tGLD pool is permanently stuck or only temporarily
+    # fully borrowed. TVL about $156k.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Facts unchanged: 97% of assets in the tGLD pool, 2.6% redeemable, 0%
+    # idle over 14 days, 100% utilisation median; tGLD has $2.7k of DEX liquidity. No
+    # served withdrawals could be verified, and the sibling pool 0xb57320b2... shows the
+    # same pattern.
+    #
+    # - https://tradingstrategy.ai/vaults/jpeg-trading-x-tenbin-rwas-3
+    # - https://etherscan.io/address/0x018b86a893f57a632f90c4a8308353ac938adc01
+    # - Euler app: https://app.euler.finance/earn/0x018b86a893f57a632f90c4a8308353ac938adc01?network=1
+    # - tGLD: https://pharos.watch/stablecoin/tgld-tenbin/
+    # - Underlying tGLD pool: https://etherscan.io/address/0xb57320b253363bf749d5ce6e66592fdc74cce6f7
+    "0x018b86a893f57a632f90c4a8308353ac938adc01": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # Edge UltraYield USDC (Morpho on Base, curator UltraYield)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. 82% of assets is lent
+    # against Bedrock uniBTC, thin on Base but with millions of dollars of DEX liquidity
+    # on Ethereum and Optimism, priced by a MorphoChainlinkOracleV2 from a uniBTC/BTC rate
+    # and Chainlink BTC/USD; about 26% withdrawable.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. 83% lent against
+    # uniBTC with only $334 of DEX liquidity on Base; 25% redeemable, listed on Morpho.
+    #
+    # The runs disagree on whether uniBTC liquidity on other chains counts. To decide:
+    # whether liquidations on Base can work with uniBTC's Base liquidity. TVL about $426k.
+    #
+    # - https://tradingstrategy.ai/vaults/edge-ultrayield-usdc-3
+    # - https://basescan.org/address/0x5435bc53f2c61298167cdb11cdf0db2bfa259ca0
+    # - Morpho app: https://app.morpho.org/base/vault/0x5435bc53f2c61298167cdb11cdf0db2bfa259ca0
+    # - uniBTC markets: https://dexscreener.com/search?q=uniBTC
+    "0x5435bc53f2c61298167cdb11cdf0db2bfa259ca0": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # RockawayX PT Yield (labelled Euler Earn, on BNB Chain, curator RockawayX)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. The vault is a
+    # Lista DAO Moolah vault, not Euler Earn, so its protocol label and Euler app link are
+    # wrong. Onchain it held $1.59M USDT with 99.5% in a PT-sUSDai-15OCT2026 market, 87%
+    # utilised, about 13% of assets redeemable; it looks investable once relabelled.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. The Euler Earn
+    # probe failed, so redeemable liquidity was unknown.
+    #
+    # To decide: fix the protocol classification (Lista Moolah), then review the PT-sUSDai
+    # market. TVL about $1.74M.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. The Euler Earn probe still fails on withdrawQueue(uint256) decoding, so
+    # redeemable liquidity is unknown; 14-day idle share 0% and utilisation 100%. Fix the
+    # protocol classification first.
+    #
+    # - https://tradingstrategy.ai/vaults/rockawayx-pt-yield
+    # - https://bscscan.com/address/0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2
+    # - Lista DAO lending: https://lista.org/lending
+    "0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2": (VaultFlag.review_needed, REVIEW_NEEDED_DATA_QUALITY),
+    # Clearstar Yield (Euler EVK pool on HyperEVM, curator Clearstar Labs)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. About 3% of assets was
+    # redeemable, idle cash reached 29% within the last 14 days, and the pool accepts
+    # mostly liquid HYPE, BTC and ETH collateral.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, low confidence. Redeemable
+    # liquidity was 0.003% at the time, although idle cash reached 29% within 14 days;
+    # median utilisation 87%.
+    #
+    # To decide: whether the near-zero redeemable liquidity is temporary. HypurrFi Earn
+    # USDC allocates to this pool. TVL about $310k.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Redeemable liquidity 0.0025% of assets, idle cash up to 29% within 14
+    # days, median utilisation 87%. Collateral accepted by the pool is mostly liquid HYPE
+    # assets, but several accepted tokens (PT-kHYPE, hwHYPE, sUSN, FXRP, syzUSD) have no
+    # DEX liquidity. Whether withdrawals were served could not be verified.
+    #
+    # - https://tradingstrategy.ai/vaults/clearstar-yield-6
+    # - https://hyperevmscan.io/address/0xf9bb65e113418292d1a3555515fbd64637a0be18
+    # - Euler app: https://app.euler.finance/lend/0xf9bb65e113418292d1a3555515fbd64637a0be18?network=999
+    "0xf9bb65e113418292d1a3555515fbd64637a0be18": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # Hyperithm USDC Degen, renamed Hyperithm USDC Apex (Morpho on Ethereum, curator Hyperithm)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. Listed by Morpho
+    # without warnings. It lends against the curator's own Midas mHyperBTC and mHYPER
+    # tokenised funds, which have no DEX pools but are priced by primary-market NAV
+    # through a verified MetaOracleDeviationTimelock and a Chainlink-style oracle; 21%
+    # redeemable.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, medium confidence. All assets lent
+    # against Midas tokens issued for the curator, with $0 DEX liquidity and 87-90%
+    # utilisation; the editor should decide.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:50 UTC: uncertain, medium confidence. Facts unchanged:
+    # 80% lent against mHyperBTC and 20% against mHYPER, both $0 DEX liquidity, markets
+    # 87-90% utilised, 20.9% redeemable. Morpho still lists the vault without warnings.
+    # Still undecided whether NAV-priced issuer tokens are acceptable collateral.
+    #
+    # To decide: whether lending against the curator's own NAV-priced funds is acceptable.
+    # TVL about $1.55M.
+    #
+    # - https://tradingstrategy.ai/vaults/hyperithm-usdc-degen
+    # - https://etherscan.io/address/0x777791c4d6dc2ce140d00d2828a7c93503c67777
+    # - Morpho app: https://app.morpho.org/ethereum/vault/0x777791c4d6dc2ce140d00d2828a7c93503c67777
+    # - mHYPER: https://app.rwa.xyz/assets/mHYPER
+    # - Hyperithm NAV update: https://phemex.com/news/article/hyperithm-updates-midas-vaults-nav-confirms-no-drawdowns-75413
+    "0x777791c4d6dc2ce140d00d2828a7c93503c67777": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # YieldNest Max Vaults (Euler EVK pool on Ethereum, curator YieldNest)
+    #
+    # Added 2026-09-30 by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``) as
+    # review_needed. Sonnet 5.5 run, 2026-09-30 19:50 UTC: uncertain, medium confidence.
+    # The pool has had 100% utilisation for the last 30 days and redeemable liquidity is
+    # 0.00% of its $1.2M assets (idle about $0.000001). Its collateral are YieldNest
+    # ynRWAx and ynUSDx, fixed-maturity vaults (ynRWAx matures 15 October 2026) with a
+    # Curve secondary market. YieldNest documents instant or queued withdrawals, but no
+    # withdrawals served by this pool could be confirmed, so a new depositor may have to
+    # wait for borrowers to repay.
+    #
+    # To decide: whether the borrowers repay at maturity and whether recent withdrawals were served.
+    #
+    # - https://tradingstrategy.ai/vaults/yieldnest-max-vaults
+    # - https://etherscan.io/address/0x7fab04ff2717d9a6b71a51c56c29697179597d40
+    # - Euler app: https://app.euler.finance/lend/0x7fab04ff2717d9a6b71a51c56c29697179597d40?network=1
+    # - ynRWAx: https://tradingstrategy.ai/vaults/yieldnest-rwa-max
+    "0x7fab04ff2717d9a6b71a51c56c29697179597d40": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # K3 Isolated syzUSD-USDT0 (Euler EVK pool on Monad, curator K3 Capital)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. The pool lends against
+    # Yuzu Money's syzUSD, a yield-bearing stablecoin of about $66M market cap with a
+    # primary redemption path and a Balancer pool on Monad; about 8% ($0.55M) redeemable.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, medium confidence. 100% lent
+    # against syzUSD with $0 DEX liquidity on Monad; price source and redemption path not
+    # verified.
+    #
+    # To decide: syzUSD's oracle and redemption path. Monad keeps only recent state, so
+    # check the current state. TVL about $6.74M.
+    #
+    # - https://tradingstrategy.ai/vaults/k3-isolated-syzusd-usdt0
+    # - https://monadscan.com/address/0xcf450973dee1ee41cb708496bf73f34324180035
+    # - Euler app: https://app.euler.finance/lend/0xcf450973dee1ee41cb708496bf73f34324180035?network=143
+    # - syzUSD markets: https://dexscreener.com/monad/0x484be0540aD49f351eaa04eeB35dF0f937D4E73f
+    # - syzUSD: https://www.coingecko.com/en/coins/staked-yuzu-usd
+    # - Yuzu docs: https://yuzu-money.gitbook.io/yuzu-money/yuzu-alpha/staked-yzusd-syzusd
+    "0xcf450973dee1ee41cb708496bf73f34324180035": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Clearstar Reactor (Euler EVK pool on Monad, curator Clearstar Labs)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. The pool lends against
+    # FXRP, Flare's FAssets XRP token priced from XRP and bridged to Monad, so its missing
+    # Monad DEX pools are not a valuation problem; about 7% ($0.42M) redeemable, idle cash
+    # up to 32% in the last 14 days.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, medium confidence. 100% exposed to
+    # FXRP with $0 Monad DEX liquidity; price source not verified.
+    #
+    # To decide: FXRP's oracle on Monad and whether liquidations can work without Monad
+    # DEX liquidity. TVL about $5.8M.
+    #
+    # - https://tradingstrategy.ai/vaults/clearstar-reactor
+    # - https://monadscan.com/address/0x1905eddf5943ef6c92ccf1469bd40fc2cb4a77b0
+    # - Euler app: https://app.euler.finance/lend/0x1905eddf5943ef6c92ccf1469bd40fc2cb4a77b0?network=143
+    # - FXRP markets: https://dexscreener.com/monad/0xCE6170EA245dC8D1f275A710a062b70f125F0110
+    # - FXRP: https://flare.network/news/earnxrp-launches-on-flare-the-first-xrp-denominated-yield-product
+    "0x1905eddf5943ef6c92ccf1469bd40fc2cb4a77b0": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Clearstar Earn USDC (Euler Earn on Monad, curator Clearstar Labs)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. The Earn vault
+    # allocates to Clearstar Reactor, which lends against FXRP, Flare's FAssets XRP token
+    # priced from XRP and bridged to Monad, so its missing Monad DEX pools are not a
+    # valuation problem; about 7% ($0.42M) redeemable, idle cash up to 32% in the last 14
+    # days.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, medium confidence. 100% exposed to
+    # FXRP with $0 Monad DEX liquidity; price source not verified.
+    #
+    # To decide: FXRP's oracle on Monad and whether liquidations can work without Monad
+    # DEX liquidity. TVL about $5.8M.
+    #
+    # - https://tradingstrategy.ai/vaults/clearstar-earn-usdc
+    # - https://monadscan.com/address/0xe1bca19baa63894d374578320551633320436523
+    # - Euler app: https://app.euler.finance/earn/0xe1bca19baa63894d374578320551633320436523?network=143
+    # - FXRP markets: https://dexscreener.com/monad/0xCE6170EA245dC8D1f275A710a062b70f125F0110
+    # - FXRP: https://flare.network/news/earnxrp-launches-on-flare-the-first-xrp-denominated-yield-product
+    "0xe1bca19baa63894d374578320551633320436523": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Clearstar OpenEden Hybond (Euler EVK pool on Ethereum, curator Clearstar Labs)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. The pool lends against
+    # OpenEden HYBOND, a tokenised BNY short-dated high-yield bond fund with a
+    # primary-market NAV and T+4 redemption; about 6.6% redeemable, idle cash up to 26% in
+    # the last 14 days.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: uncertain, medium confidence. 100% lent
+    # against HYBOND with $0 DEX liquidity; primary-market NAV assumed but not verified;
+    # 6.8% redeemable.
+    #
+    # To decide: whether HYBOND's NAV and redemption make it acceptable collateral. TVL
+    # about $2.85M.
+    #
+    # - https://tradingstrategy.ai/vaults/clearstar-openeden-hybond
+    # - https://etherscan.io/address/0xf26c68e6d26f725858e7cc353ee30e43adf0b732
+    # - Euler app: https://app.euler.finance/lend/0xf26c68e6d26f725858e7cc353ee30e43adf0b732?network=1
+    # - HYBOND docs: https://docs.openeden.com/hybond/introduction
+    # - HYBOND announcement: https://openeden.com/news/openeden-bny-hybond-tokenized-high-yield-bond-fund/
+    "0xf26c68e6d26f725858e7cc353ee30e43adf0b732": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Alpha USDC Forex V2 (Morpho V2 on Ethereum, curator AlphaPing)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. Unlisted vault
+    # lending all its assets against Morini's carry and basis trade tokens, which have no
+    # DEX market and an issuer-pushed NAV; about $80 of instant liquidity, so exits need a
+    # penalised force-deallocation. The curator AlphaPing's Alpha USDC Delta V2 vault lost
+    # $18M on collapsed collateral in June 2026.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: exclude, no_exit_liquidity, medium confidence.
+    # Only $81 withdrawable out of $1.06M, lending against leveraged carry-trade strategy
+    # tokens with no DEX pairs.
+    #
+    # To decide: blacklist as illiquid, or accept Morini's NAV-priced tokens. TVL about
+    # $1.06M.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain,
+    # medium confidence. Morpho API reports $81 of vault liquidity on $1.06M, unlisted
+    # vault. About 72% ($771k) is lent against Morini CarryTradeUSDTRYLeverage and 28%
+    # ($293k) against Morini StockMarketTRBasisTrade, both vault-share tokens of Morini
+    # Capital (Piku Finance) with no DEX pairs, priced through a Chainlink-adapter feed
+    # proxy (Morpho oracle contracts are the standard MorphoChainlinkOracleV2, but the
+    # feeds are issuer-operated). The collateral is a real, documented product rather than
+    # a scam, so not blacklisted; to decide whether a depositor can exit without a
+    # penalised force-deallocation.
+    #
+    # - https://tradingstrategy.ai/vaults/alpha-usdc-forex-v2
+    # - https://etherscan.io/address/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
+    # - Morpho app: https://app.morpho.org/ethereum/vault/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
+    # - Morini carry trade token markets: https://dexscreener.com/ethereum/0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326
+    # - Morini Capital: https://morini.capital/
+    # - AlphaPing Delta V2 loss: https://finance.yahoo.com/markets/crypto/articles/morpho-blue-vault-faces-18m-071900390.html
+    "0x153bd1abe60104bd46aa05a27fa12d1346d64a57": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # HypurrFi Earn USDC (Euler Earn on HyperEVM, curator HypurrFi)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: keep, medium confidence. About 3% of assets was
+    # redeemable through its underlying Euler pool (Clearstar Yield), which accepts mostly
+    # liquid HYPE, BTC and ETH collateral and had up to 29% idle cash within 14 days.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: exclude, no_exit_liquidity, medium confidence.
+    # Redeemable liquidity 0.003% of assets at about 100% utilisation for 30 days, with no
+    # idle cash.
+    #
+    # The runs read the same pool differently. To decide: whether its illiquidity is
+    # temporary. TVL about $254k.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain, low
+    # confidence. Redeemable liquidity 0.003% of assets with 0% idle over 14 days and 100%
+    # utilisation median; the vault allocates to the Clearstar Yield pool above, so the
+    # verdicts must match.
+    #
+    # - https://tradingstrategy.ai/vaults/hypurrfi-earn-usdc
+    # - https://hyperevmscan.io/address/0xf868a2b30854fe13e26f7ab7a92609ccb6b9c0e1
+    # - Euler app: https://app.euler.finance/earn/0xf868a2b30854fe13e26f7ab7a92609ccb6b9c0e1?network=999
+    # - Underlying pool: https://tradingstrategy.ai/vaults/clearstar-yield-6
+    "0xf868a2b30854fe13e26f7ab7a92609ccb6b9c0e1": (VaultFlag.review_needed, REVIEW_NEEDED_EXIT_LIQUIDITY),
+    # Steakhouse PaoTech JPYC (Morpho V2 on Polygon, curator Steakhouse Financial)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: exclude, misleading valuation, high confidence.
+    # The reported TVL counts JPYC, a Japanese yen stablecoin trading near $0.0063, at $1:
+    # about 6.8M JPYC was reported as $6.8M although the vault held about $43k, and after
+    # most deposits were withdrawn on 28-29 September about $10k, all idle.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: keep, medium confidence. Fully liquid
+    # according to the Morpho API; the JPYC valuation was not examined.
+    #
+    # To decide: check how the export values JPYC-denominated vaults; if it counts JPYC at
+    # $1, fix the valuation rather than flag the vault. Reported TVL about $1.63M.
+    #
+    # Sonnet 5.5 run, 2026-09-30 19:45 UTC (second review of the same day): uncertain,
+    # medium confidence. The Morpho API now reports total assets of $10.3k, fully liquid,
+    # against $1.63M in our export, which confirms the export overstates TVL (JPYC counted
+    # at $1). The vault itself looks safe; the valuation needs fixing.
+    #
+    # - https://tradingstrategy.ai/vaults/steakhouse-paotech-jpyc-3
+    # - https://polygonscan.com/address/0xbeef0f82e269760429be6255fa00821b7e4b592a
+    # - Morpho app: https://app.morpho.org/polygon/vault/0xbeef0f82e269760429be6255fa00821b7e4b592a
+    "0xbeef0f82e269760429be6255fa00821b7e4b592a": (VaultFlag.review_needed, REVIEW_NEEDED_DATA_QUALITY),
+    # 9Summits Piku Ecosystem USDC (Morpho V2 on Ethereum, curator 9Summits)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. All assets are
+    # lent against Morini CarryTradeUSDTRYLeverage, a Midas token for an offchain Turkish
+    # lira carry trade with no DEX market, priced by a NAV that a single issuer key
+    # pushes; exits depend on Morini funding about $2.5M of pending redemptions, although
+    # past redemptions were paid at that price and about 62% could be withdrawn.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: keep, medium confidence. The Morpho API
+    # reports withdrawable liquidity and the vault is listed.
+    #
+    # To decide: whether Morini's issuer-priced carry trade token is acceptable
+    # collateral. TVL about $619k.
+    #
+    # - https://tradingstrategy.ai/vaults/9summits-piku-ecosystem-usdc-2
+    # - https://etherscan.io/address/0xc30c60de46dec551b96326cbd05592c9245773ef
+    # - Morpho app: https://app.morpho.org/ethereum/vault/0xc30c60de46dec551b96326cbd05592c9245773ef
+    # - Morini carry trade token markets: https://dexscreener.com/ethereum/0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326
+    # - Morini Capital: https://morini.capital/
+    "0xc30c60de46dec551b96326cbd05592c9245773ef": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # InfiniFi Markets (Euler Earn on Ethereum, curator infiniFi)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. 90% of assets sits
+    # in a 99.99% utilised Euler pool that lends only against liUSD-4w, infiniFi's own
+    # locked token with no DEX market, priced by infiniFi's own accounting oracle and slow
+    # to liquidate, so only the idle 9% could be withdrawn; no known exploit or depeg.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: keep, low confidence. The curator's own vault
+    # with 9% redeemable; no scam evidence found.
+    #
+    # To decide: whether lending against the curator's own locked token is acceptable. TVL
+    # about $104k.
+    #
+    # - https://tradingstrategy.ai/vaults/infinifi-markets
+    # - https://etherscan.io/address/0xb4a2fc3adaf3bfa8fcba2a6fdaa200de106b8825
+    # - Euler app: https://app.euler.finance/earn/0xb4a2fc3adaf3bfa8fcba2a6fdaa200de106b8825?network=1
+    # - How infiniFi works: https://hindenrank.com/blog/how-does-infinifi-work
+    "0xb4a2fc3adaf3bfa8fcba2a6fdaa200de106b8825": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
+    # Morini USDC Emerging Yield (Morpho V2 on Ethereum, curated by Morini)
+    #
+    # Added 2026-09-30 as review_needed by the vault report investability check
+    # (``eth_defi.vault_report.vault_checks``, skill ``check-top-list-vaults``). Two runs
+    # on data a few hours apart disagreed or could not decide, so a human must review the
+    # vault before it is blacklisted or cleared.
+    #
+    # Opus 5.5 run, 2026-09-30 09:53 UTC: uncertain, medium confidence. Unlisted vault
+    # curated by a single EOA that appears to be Morini itself, lending about 70% of its
+    # assets against Morini's own carry and basis trade tokens with no DEX market and an
+    # issuer-pushed NAV; past redemptions were paid at that price and about 42% could be
+    # withdrawn.
+    #
+    # Sonnet 5.5 run, 2026-09-30 16:22 UTC: keep, low confidence. Unlisted Morpho V2
+    # vault, 42% of assets withdrawable according to the Morpho API.
+    #
+    # To decide: whether the issuer lending against its own NAV-priced tokens is
+    # acceptable. TVL about $399k.
+    #
+    # - https://tradingstrategy.ai/vaults/morini-usdc-emerging-yield
+    # - https://etherscan.io/address/0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6
+    # - Morpho app: https://app.morpho.org/ethereum/vault/0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6
+    # - Morini carry trade token markets: https://dexscreener.com/ethereum/0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326
+    # - Morini Capital: https://morini.capital/
+    "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6": (VaultFlag.review_needed, REVIEW_NEEDED_OFF_MARKET_COLLATERAL),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

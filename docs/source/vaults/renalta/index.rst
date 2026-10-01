@@ -13,7 +13,7 @@ Renalta is a yield protocol deployed on Base.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/renalta>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/renalta>`__
 - `Homepage <https://renalta.com/>`__
 
 .. autosummary::

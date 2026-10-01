@@ -37,7 +37,17 @@ Add the vault address `VAULT_FLAGS_AND_NOTES`
 - For the message create a Python constant like other messages have in `flag.py`
 - Set the message and flag in the dictionary
 - If the user explicitly did not tell you to use any flag, set flag to `None`
-- Add the vault name as a comment on the above line
+- If the user is unsure whether the vault should be flagged, or AI-assisted
+  research does not reach the same conclusion every time, use
+  `VaultFlag.review_needed`. It does not blacklist the vault; its note tells
+  readers the vault is under review. For a review a person asks for, use the
+  `REVIEW_NEEDED_MANUAL` message constant. The check-specific constants
+  `REVIEW_NEEDED_OFF_MARKET_COLLATERAL`, `REVIEW_NEEDED_EXIT_LIQUIDITY` and
+  `REVIEW_NEEDED_DATA_QUALITY` say the automated investability checks did not
+  agree, so use them only for findings of the vault report investability
+  check. Record in the comment block what is uncertain and what a reviewer
+  should check to decide
+- Add an extensive line comment above the entry, as the *Instructions for adding entries* in the `flag.py` module docstring require: the vault name, protocol and chain, the date, what is wrong and why this flag, and canonical source URLs (the tradingstrategy.ai vault page, the block explorer page, and any announcement or incident report). A bare address or a name-only comment is not enough
 
 ## 3. Format code
 

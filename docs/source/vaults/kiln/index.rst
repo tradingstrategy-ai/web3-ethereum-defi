@@ -23,7 +23,7 @@ be unavailable when the selected underlying protocol lacks available liquidity o
 Links
 -----
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/kiln>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/kiln>`__
 - `Kiln DeFi <https://www.kiln.fi/defi>`__
 - `OmniVault documentation <https://docs.kiln.fi/v1/kiln-products/omnivaults>`__
 - `Contract source and deployments <https://docs.kiln.fi/v1/kiln-products/omnivaults/security/source-code>`__

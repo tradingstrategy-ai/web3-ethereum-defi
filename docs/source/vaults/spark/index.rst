@@ -21,7 +21,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/spark>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/spark>`__
 - `Homepage <https://spark.fi/>`__
 - `Savings page <https://app.spark.fi/savings/mainnet/spusdc>`__
 - `Documentation <https://docs.spark.fi/>`__

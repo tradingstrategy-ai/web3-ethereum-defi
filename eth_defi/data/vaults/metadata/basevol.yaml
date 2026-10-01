@@ -32,7 +32,7 @@ links:
   defillama: https://defillama.com/protocol/basevol
   audits: https://getfailsafe.com/basevol-smart-contract-audit/
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/basevol
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/basevol
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/basevol/index.html
 example_smart_contracts:
   - https://basescan.org/address/0xf1BE2622fd0f34d520Ab31019A4ad054a2c4B1e0

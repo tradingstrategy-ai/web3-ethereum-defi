@@ -24,7 +24,7 @@ links:
   defillama: https://defillama.com/protocol/resolv
   audits: https://docs.resolv.xyz/litepaper/resources/security
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/resolv
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/resolv
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/resolv/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055

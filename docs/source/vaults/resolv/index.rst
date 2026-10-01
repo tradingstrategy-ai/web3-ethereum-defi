@@ -23,7 +23,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/resolv>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/resolv>`__
 - `Homepage <https://resolv.xyz/>`__
 - `Documentation <https://docs.resolv.xyz/>`__
 - `Twitter <https://x.com/ResolvLabs>`__

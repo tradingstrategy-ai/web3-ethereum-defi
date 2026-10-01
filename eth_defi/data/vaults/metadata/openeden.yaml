@@ -20,7 +20,7 @@ links:
   defillama: https://defillama.com/protocol/openeden-tbill
   audits: https://openeden.com/static/Verichains%20Public%20Audit%20Report%20-%20OpenEden%20Vault%20-%20310323.pdf
   fees: https://docs.openeden.com/tbill/fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/openeden
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/openeden
   integration_documentation:
 example_smart_contracts:
   - https://etherscan.io/address/0xdd50c053c096cb04a3e3362e2b622529ec5f2e8a

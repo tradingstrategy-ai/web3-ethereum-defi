@@ -33,7 +33,7 @@ Altura charges a minimal exit fee on instant withdrawals only:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/altura>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/altura>`__
 - `Homepage <https://altura.trade/>`__
 - `App <https://app.altura.trade/>`__
 - `Documentation <https://docs.altura.trade/>`__

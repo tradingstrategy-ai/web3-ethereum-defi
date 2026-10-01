@@ -23,7 +23,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/sbold>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/sbold>`__
 - `Homepage <https://www.k3.capital/>`__
 - `Documentation <https://k3capital.substack.com/>`__
 - `GitHub <https://github.com/K3Capital/sBOLD>`__

@@ -17,7 +17,7 @@ links:
   defillama:
   audits: https://github.com/superstateinc/ustb/tree/main/audits
   fees: https://docs.superstate.com/superstate-funds/ustb
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/superstate
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/superstate
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/superstate/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e

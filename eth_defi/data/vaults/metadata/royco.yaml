@@ -21,7 +21,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/royco
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/royco
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/royco/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95

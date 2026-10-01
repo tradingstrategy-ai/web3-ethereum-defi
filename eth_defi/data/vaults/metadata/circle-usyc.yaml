@@ -20,7 +20,7 @@ links:
   defillama: https://defillama.com/protocol/circle-usyc
   audits:
   fees: https://usyc.docs.hashnote.com/overview/fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/circle-usyc
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/circle-usyc
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usyc/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x136471a34f6ef19fe571effc1ca711fdb8e49f2b

@@ -49,7 +49,7 @@ links:
   defillama: https://defillama.com/protocol/euler
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/euler
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/euler
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/euler/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x1e548CfcE5FCF17247E024eF06d32A01841fF404

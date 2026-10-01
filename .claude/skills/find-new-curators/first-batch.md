@@ -146,7 +146,7 @@ Prepared 2026-05-05 for the `add-curator` skill. Existing curator inventory has 
 - Janus Henderson official release: `https://ir.janushenderson.com/News--Events/news/news-details/2024/Janus-Henderson-to-Partner-with-Anemoy-and-Centrifuge-on-Its-First-Tokenized-Fund/default.aspx`
 - Anemoy JTRSY page: `https://www.anemoy.io/funds/jtrsy`
 - TelosC/Euler external coverage: `https://t.signalplus.com/crypto-news/detail/peckshield-27m-defi-risk-euler-telosc-vaults`
-- Greenhouse Trading Strategy warning: `https://tradingstrategy.ai/trading-view/vaults/greenhouse-usdc`
+- Greenhouse Trading Strategy warning: `https://tradingstrategy.ai/vaults/greenhouse-usdc`
 - Felix Morpho forum: `https://forum.morpho.org/t/introducing-felix-vaults/2047`
 - Kiln Morpho integration docs: `https://docs.kiln.fi/v1/kiln-products/defi/how-to-integrate/morpho-via-kiln-defi`
 - Lista vault docs: `https://docs.bsc.lista.org/introduction/lista-lending/vaults`
@@ -155,10 +155,10 @@ Prepared 2026-05-05 for the `add-curator` skill. Existing curator inventory has 
 - Lista RockawayX-curated PT vault: `https://blog.lista.org/rockawayx-curated-pt-vaults-now-live-on-lista`
 - Concrete audit report: `https://docs.concrete.xyz/assets/files/Zellic-Audit-Report-5dbb9d52d444adcd197dfbaa941a86ab.pdf/`
 - Concrete app snapshot: `https://concretexyz.pro/`
-- Galaxy USDC Quality Trading Strategy page: `https://tradingstrategy.ai/trading-view/vaults/galaxy-usdc-quality`
+- Galaxy USDC Quality Trading Strategy page: `https://tradingstrategy.ai/vaults/galaxy-usdc-quality`
 - TermMax official site: `https://termmax.org/`
 - TermMax vault docs: `https://docs.ts.finance/protocol-mechanisms/components/vault`
-- Mithras Trading Strategy warning: `https://tradingstrategy.ai/trading-view/vaults/mithras`
+- Mithras Trading Strategy warning: `https://tradingstrategy.ai/vaults/mithras`
 - Hakutora / OneKey help centre: `https://help.onekey.so/en/articles/12605538-resolv-season-2-rewards-distributed-to-onekey-app-defi-users`
 - Hakutora Exponential page: `https://exponential.fi/pools/morpho-usd-lending-ethereum/33800868-86e1-4577-b18f-d1f2e5f41a20`
 - Hakutora Morpho curator page: `https://app.morpho.org/curator/hakutora`

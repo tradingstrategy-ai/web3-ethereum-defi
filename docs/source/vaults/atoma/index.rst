@@ -14,7 +14,7 @@ Redemptions use an epoch-based request-and-claim flow through
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/atoma>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/atoma>`__
 - `App <https://app.atoma.fi/>`__
 - `Twitter <https://x.com/atoma_fi>`__
 - `Proxy vault <https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c>`__

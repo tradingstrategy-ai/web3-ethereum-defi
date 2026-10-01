@@ -35,7 +35,7 @@ global operation disable, not an account whitelist. See the `EVK hook design
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/euler>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/euler>`__
 - `Homepage <https://www.euler.finance/>`__
 - `App <https://app.euler.finance/>`__
 - `Documentation <https://docs.euler.finance/>`__

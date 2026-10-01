@@ -10,7 +10,7 @@ Yield Tokens (YT), allowing users to fix rates, trade yield, and earn on liquidi
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/spectra>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/spectra>`__
 - `Homepage <https://www.spectra.finance/>`__
 - `App <https://app.spectra.finance>`__
 - `Documentation <https://docs.spectra.finance/>`__

@@ -52,7 +52,7 @@ links:
   defillama: https://defillama.com/protocol/morpho
   audits: https://docs.morpho.org/security/audits/
   fees: https://docs.morpho.org/curate/tutorials-v2/vault-creation/#fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/morpho
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/morpho
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/morpho/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894

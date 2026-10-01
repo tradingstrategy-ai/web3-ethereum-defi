@@ -16,7 +16,7 @@ The vaults use Diamond proxy (EIP-2535) architecture.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/basevol>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/basevol>`__
 - `Homepage <https://basevol.com/>`__
 - `Documentation <https://basevol.gitbook.io/docs/>`__
 - `Twitter <https://x.com/BaseVolApp>`__

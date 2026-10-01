@@ -97,4 +97,4 @@ elevated because total_supply never recovers to the "correct" level.
 ### Date discovered
 
 2026-03-12, investigating vault
-[goon-edging-2](https://tradingstrategy.ai/trading-view/vaults/goon-edging-2).
+[goon-edging-2](https://tradingstrategy.ai/vaults/goon-edging-2).

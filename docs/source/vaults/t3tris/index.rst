@@ -14,7 +14,7 @@ vault rows with offchain metadata from the T3tris app API.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/t3tris>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/t3tris>`__
 - `Homepage <https://t3tris.finance/>`__
 - `Vault app <https://app.t3tris.finance/vaults>`__
 - `Documentation repository <https://github.com/t3tris-finance/mdoc-t3tris>`__

@@ -462,9 +462,9 @@ def test_get_trading_strategy_links_use_canonical_vault_routes():
         vault_slug="texashedge",
     )
 
-    assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/texashedge"
-    assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/trading-view/vaults/chains/ethereum"
-    assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
+    assert vault_link == "https://tradingstrategy.ai/vaults/texashedge"
+    assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/vaults/chains/ethereum"
+    assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/vaults/chains/hyperliquid"
 
 
 def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_dollars() -> None:

@@ -163,7 +163,7 @@ deducted and paid to that referrer.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/frankencoin>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/frankencoin>`__
 - `Homepage <https://frankencoin.com/>`__
 - `Token and savings vault page <https://frankencoin.com/token/>`__
 - `Documentation <https://docs.frankencoin.com/>`__

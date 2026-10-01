@@ -54,7 +54,7 @@ links:
   defillama:
   audits:
   fees: https://www.sec.gov/Archives/edgar/data/1659326/000119312526217424/d44657d485bpos.htm
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/kinexys
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/kinexys
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/kinexys/index.html
 example_smart_contracts:
   - https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8

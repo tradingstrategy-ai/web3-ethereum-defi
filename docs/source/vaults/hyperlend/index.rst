@@ -24,7 +24,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/hyperlend>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/hyperlend>`__
 - `Homepage <https://hyperlend.finance/>`__
 - `Documentation <https://docs.hyperlend.finance/>`__
 - `wHLP documentation <https://docs.loopingcollective.org/products/wrapped-hlp>`__

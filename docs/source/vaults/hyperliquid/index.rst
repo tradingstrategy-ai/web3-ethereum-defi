@@ -33,7 +33,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/hyperliquid>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/hyperliquid>`__
 - `Homepage <https://hyperliquid.xyz>`__
 - `App <https://app.hyperliquid.xyz/vaults>`__
 - `Documentation <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults>`__

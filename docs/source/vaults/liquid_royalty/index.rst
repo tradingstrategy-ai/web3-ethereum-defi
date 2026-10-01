@@ -23,7 +23,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/liquid-royalty>`__
 - `Homepage <https://www.liquidroyalty.com>`__
 - `Documentation <https://docs.liquidroyalty.com>`__
 - `Github <https://github.com/stratosphere-network/LiquidRoyaltyContracts>`__

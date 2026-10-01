@@ -19,7 +19,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/decentralized-usd>`__
 - `Homepage <https://usdd.io/>`__
 - `Documentation <https://docs.usdd.io/>`__
 - `Twitter <https://x.com/usaborning>`__

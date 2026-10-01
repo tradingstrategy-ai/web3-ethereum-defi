@@ -37,7 +37,7 @@ links:
   defillama: { link to protocol defillama page if any }
   audits: { link to an audits page of protocol or a single audit }
   fees: { link to the page that describes fee structure }
-  trading_strategy: { link to the protocol on the TradingStrategy.ai website, listed here https://tradingstrategy.ai/trading-view/vaults/protocols }
+  trading_strategy: { link to the protocol on the TradingStrategy.ai website, listed here https://tradingstrategy.ai/vaults/protocols }
   integration_documentation: { link to protocol page here https://web3-ethereum-defi.readthedocs.io/vaults/index.html}
   
 # List of links to the vault smart contracts on a blockchain explorer like Etherscan, Routescan.

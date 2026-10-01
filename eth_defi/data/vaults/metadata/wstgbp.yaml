@@ -13,7 +13,7 @@ links:
   defillama:
   audits: https://prototechlabs.dev/
   fees: https://docs.wstgbp.com/guides/mint-redeem
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/wstgbp
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/wstgbp
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/wstgbp/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x57C3571f10767E49C9d7b60feb6c67804783B7aE

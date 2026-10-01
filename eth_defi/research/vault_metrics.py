@@ -746,12 +746,12 @@ def _get_chain_slug(chain_name: str) -> str:
 def _get_trading_strategy_chain_link(chain_name: str) -> str:
     """Get the tradingstrategy.ai vault listing URL for a chain."""
     chain_slug = _get_chain_slug(chain_name)
-    return f"https://tradingstrategy.ai/trading-view/vaults/chains/{chain_slug}"
+    return f"https://tradingstrategy.ai/vaults/chains/{chain_slug}"
 
 
 def _get_trading_strategy_protocol_link(protocol_slug: str) -> str:
     """Get the tradingstrategy.ai vault listing URL for a protocol."""
-    return f"https://tradingstrategy.ai/trading-view/vaults/protocols/{protocol_slug}"
+    return f"https://tradingstrategy.ai/vaults/protocols/{protocol_slug}"
 
 
 def _get_trading_strategy_vault_link(
@@ -769,7 +769,7 @@ def _get_trading_strategy_vault_link(
     :return:
         Canonical Trading Strategy vault page URL.
     """
-    return f"https://tradingstrategy.ai/trading-view/vaults/{vault_slug}"
+    return f"https://tradingstrategy.ai/vaults/{vault_slug}"
 
 
 def create_fee_label(

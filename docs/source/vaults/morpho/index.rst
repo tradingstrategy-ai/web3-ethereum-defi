@@ -44,7 +44,7 @@ removed once Morpho's Robinhood API coverage is complete.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/morpho>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/morpho>`__
 - `Homepage <https://morpho.org/>`__
 - `App <https://app.morpho.org/>`__
 - `Documentation <https://docs.morpho.org/>`__

@@ -526,6 +526,9 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/vault_report/README-vault-report.md` | Monthly best-performing stablecoin vaults blog report — data sources, sections, branded charts, Ghost draft workflow |
+| `eth_defi/vault_report/README-blog-post-outline.md` | Monthly vault report blog post outline — section order, vault groups, selection rules, editor input and open decisions |
+| `eth_defi/vault_report/README-best-vaults-news.md` | Monthly vault report blog post drafts — goal of the skeleton, GitHub PR comment previews, Ghost draft creation, architecture diagram |
 | `eth_defi/yield_basis/README-YieldBasis.md` | YieldBasis LT vault model, valuation and historical pipeline |
 | `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
 | `eth_defi/erc_4626/vault_protocol/antarctic/README-Antarctic.md` | Antarctic perpetual DEX, AMLP/AHLP settlement data and event-based vault support |

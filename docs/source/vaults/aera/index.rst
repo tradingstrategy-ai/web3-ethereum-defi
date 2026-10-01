@@ -23,7 +23,7 @@ vault management fee.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/aera>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/aera>`__
 - `Homepage <https://www.aera.finance/>`__
 - `App <https://app.aera.finance/>`__
 - `Documentation <https://docs.aera.finance/>`__

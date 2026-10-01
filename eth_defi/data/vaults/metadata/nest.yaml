@@ -17,7 +17,7 @@ links:
   defillama: https://defillama.com/protocol/nest
   audits: https://docs.nest.credit/security-and-compliance/audits/
   fees: https://docs.nest.credit/support/faq/
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/nest
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/nest
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/nest/index.html
 example_smart_contracts:
   - https://snowtrace.io/address/0xd258029cf5a177e3306e09fbea63424543a505c0#code

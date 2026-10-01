@@ -12,7 +12,7 @@ YieldNest maintains an active community presence and development roadmap. The pr
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yieldnest>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/yieldnest>`__
 - `Homepage <https://www.yieldnest.finance>`__
 - `Documentation <https://docs.yieldnest.finance>`__
 - `GitHub <https://github.com/yieldnest>`__

@@ -25,7 +25,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/csigma-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/csigma/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e

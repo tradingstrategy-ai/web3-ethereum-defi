@@ -25,7 +25,7 @@ links:
   defillama: https://defillama.com/protocol/ember
   audits: https://ember.so/documents/ember_protocol_audit.pdf
   fees: https://learn.ember.so/ember-protocol/core-concepts
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ember
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/ember
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ember/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4

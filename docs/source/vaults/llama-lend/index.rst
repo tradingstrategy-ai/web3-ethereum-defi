@@ -17,7 +17,7 @@ collateral rather than liquidating fully at a specific liquidation price, enabli
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/llama-lend>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/llama-lend>`__
 - `Homepage <https://curve.fi/>`__
 - `App <https://lend.curve.fi/>`__
 - `Documentation <https://docs.curve.finance/crvUSD/amm/>`__
