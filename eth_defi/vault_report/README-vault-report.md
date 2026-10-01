@@ -23,14 +23,14 @@ Without the investability check, a run with cached downloads took about 40
 seconds on 2026-09-29, most of it rendering the charts. With the check, which
 runs an LLM agent, a run with Sonnet 5.5 took about 5 minutes on 2026-09-30;
 with Opus 5.5 it took about 32 minutes on 2026-09-26, see
-[Investability check](#investability-check). Downloads younger than six hours
+[Investability check](#investability-check). Production downloads younger than one day
 are reused. The script:
 
-1. Downloads the public top vaults JSON (`https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json`).
+1. Refreshes `top_vaults_by_chain.json` directly from the private production R2 bucket.
    This is the same data the [vault dashboard](https://tradingstrategy.ai/vaults) renders, so the report numbers match the website.
-2. Downloads the ~250 MB cleaned vault price Parquet through the Pro
-   [vault datasets](https://tradingstrategy.ai/vaults/datasets) API
-   using `VAULT_PRO_API_KEY`. The charts use it.
+2. Refreshes the ~250 MB `cleaned-vault-prices-1h.parquet` from the same bucket
+   before generating any charts. Missing configuration or a failed refresh
+   aborts the run; old cached data is never used as a fallback.
 3. Downloads the benchmarks: the 3-month US Treasury yield
    ([FRED DGS3MO](https://fred.stlouisfed.org/series/DGS3MO)) and daily BTC and ETH
    closes from Coinbase, the same sources as the website's vault pages, plus chain
@@ -58,6 +58,22 @@ are reused. The script:
 
 See the script docstring for all environment variables.
 
+### Production data refresh
+
+Set `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` to the production private bucket.
+The credentials are `R2_DATA_ENDPOINT_URL`, `R2_DATA_ACCESS_KEY_ID` and
+`R2_DATA_SECRET_ACCESS_KEY`, each falling back to its `R2_VAULT_METADATA_*`
+equivalent, matching the scanner's private exporter. `UPLOAD_PREFIX` is the
+literal production object prefix, normally empty. A Pro API key is no longer
+needed by the script.
+
+Both inputs are cached for **one day from their download time**, under
+`{CACHE_DIR}/downloads/r2/{source digest}/`. The digest separates endpoints,
+buckets and prefixes, and these files are separate from old HTTP downloads and
+the scanner's persistent state. Downloads show progress and replace the cache
+atomically. Remove this report cache directory to force an immediate refresh.
+Changing the downloaded data invalidates the saved investability decisions.
+
 ### Ghost Admin API key
 
 The Content API key (`GHOST_CONTENT_API_KEY`, 26 hex characters) is read-only
@@ -80,6 +96,13 @@ that would lose the editor's work, and it never touches a published post. Delete
 the draft, or set `GHOST_OVERWRITE_DRAFT=true` to regenerate it. With `true`
 the script still refuses a draft edited since its last write, compared with
 the record in `{CACHE_DIR}/ghost-drafts/`; `force` skips that comparison.
+
+To move a waiting draft to the new report month, set `GHOST_DRAFT_SLUG` to its
+existing slug and `GHOST_OVERWRITE_DRAFT=true`. The script updates its title,
+excerpt, slug, tables and charts in place, preserving the post id and editor
+link. The existing draft must pass the same edit protection, and the new slug
+must be free. Unset `GHOST_DRAFT_SLUG` after the rename; subsequent runs find
+the draft by its new month slug.
 
 The Admin API key was added on 2026-09-30. `test_ghost_admin_api_draft` (see
 [Tests](#tests)) passed against the live site that day, and the September 2026
@@ -143,7 +166,8 @@ image tests check sizes and pixel alpha rather than whole-image hashes.
 ### Using local pipeline data
 
 Where the vault pipeline data directory is available, the script can read the
-input files from it instead of downloading them. The directory is
+input files from it instead of downloading them. **Set both paths together**;
+this explicit override bypasses the production freshness check. The directory is
 `~/.tradingstrategy/vaults`, or `PIPELINE_DATA_DIR` when set; see
 `eth_defi.vault.vaultdb.get_pipeline_data_dir()`. The script only reads these files:
 
@@ -343,7 +367,7 @@ The check files go to the report bundle: `vault-check-candidates-N.json`,
 transcript `vault-check-agent-N.jsonl`. A rerun on the same data reuses the
 decisions instead of running the agent again. Each decisions file is tied to
 its candidate lists by a digest, so a rerun after the downloads have refreshed,
-six hours later, usually needs the agent again.
+one day later, usually needs the agent again.
 
 The agent runs without a sandbox, because it needs web search, X and the
 repository's RPC scripts. It is told to only read, and to write only the
@@ -494,6 +518,16 @@ source .local-test.env && poetry run pytest tests/vault_report
 ```
 
 `tests/vault_report/test_vault_report.py` runs offline with synthetic data.
+`tests/vault_report/test_report_data.py` checks the daily production cache,
+source isolation and failed-refresh behaviour. To exercise the actual private
+bucket end-to-end without writing to Ghost:
+
+```shell
+source .local-test.env && poetry run pytest tests/vault_report/test_vault_report_live.py::test_private_r2_vault_report_data
+```
+
+This requires the private R2 configuration above and downloads both production
+inputs into a temporary directory. No credentials are printed.
 `tests/vault_report/test_vault_report_live.py` checks the real data sources (top
 vaults JSON, Pro prices, FRED, chain logos, the latest podcast episodes) and
 the Ghost APIs. Each test is

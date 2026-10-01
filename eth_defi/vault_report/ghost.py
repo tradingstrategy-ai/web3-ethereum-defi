@@ -504,7 +504,7 @@ class GhostAdminClient:
         resp = self.session.delete(self._url(f"posts/{post_id}/"), headers=self._headers(), timeout=self.timeout)
         _raise_for_ghost_error(resp, f"delete post {post_id}")
 
-    def fetch_writable_draft(self, slug: str, *, overwrite_draft: bool = False, last_write: DraftRecord | None = None, force: bool = False) -> GhostPost | None:
+    def fetch_writable_draft(self, slug: str, *, overwrite_draft: bool = False, last_write: DraftRecord | None = None, force: bool = False, existing_slug: str | None = None) -> GhostPost | None:
         """Fetch the existing post for a slug and check a draft can be written there without losing work.
 
         An existing draft is replaced only with ``overwrite_draft``, and only
@@ -524,6 +524,10 @@ class GhostAdminClient:
         :param force:
             Replace an existing draft without comparing it with ``last_write``.
 
+        :param existing_slug:
+            Explicit draft to update and rename, e.g. when moving a waiting
+            September draft to October. Must exist; the new slug must be free.
+
         :return:
             The existing draft to replace, or ``None`` if the slug is free.
 
@@ -531,9 +535,15 @@ class GhostAdminClient:
             A post with the slug has been published or scheduled, or a draft
             exists and may have been edited.
         """
-        existing = self.fetch_post_by_slug(slug)
+        existing = self.fetch_post_by_slug(existing_slug or slug)
         if existing is None:
+            if existing_slug:
+                raise GhostAPIError(f"Draft {existing_slug} does not exist; refusing to create a different post")
             return None
+        if existing_slug and existing_slug != slug:
+            target = self.fetch_post_by_slug(slug)
+            if target is not None and target.id != existing.id:
+                raise GhostAPIError(f"Post {slug} already exists; refusing to rename draft {existing_slug} over it")
         if existing.status != "draft":
             raise GhostAPIError(f"Post {slug} already exists with status {existing.status}; refusing to overwrite it")
         if not overwrite_draft:
@@ -557,6 +567,7 @@ class GhostAdminClient:
         overwrite_draft: bool = False,
         last_write: DraftRecord | None = None,
         force: bool = False,
+        existing_slug: str | None = None,
     ) -> GhostPost:
         """Create a draft post, or replace the body of an existing draft with the same slug.
 
@@ -591,6 +602,10 @@ class GhostAdminClient:
         :param force:
             Replace an existing draft without comparing it with ``last_write``.
 
+        :param existing_slug:
+            Explicit existing draft slug to update in place while changing
+            its slug to ``slug``. Preserves the post id and editor link.
+
         :return:
             The created or updated draft.
         """
@@ -601,7 +616,7 @@ class GhostAdminClient:
             post_data["tags"] = [{"name": t} for t in tags]
         # The feature image is the editor's choice: it is never sent, so replacing a draft keeps it
 
-        existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force)
+        existing = self.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force, existing_slug=existing_slug)
         if existing is None:
             resp = self.session.post(self._url("posts/"), headers=self._headers(), params={"source": "html"}, json={"posts": [post_data]}, timeout=self.timeout)
             _raise_for_ghost_error(resp, f"create draft {slug}")

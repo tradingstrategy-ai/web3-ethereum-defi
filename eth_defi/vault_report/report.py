@@ -1194,6 +1194,7 @@ def publish_report_draft(
     overwrite_draft: bool = False,
     force_overwrite: bool = False,
     draft_record_path: Path | None = None,
+    existing_slug: str | None = None,
 ) -> GhostPost:
     """Upload the images and create the Ghost draft post.
 
@@ -1249,6 +1250,10 @@ def publish_report_draft(
         it at ``{CACHE_DIR}/ghost-drafts/{slug}.json``. Without it, an
         existing draft is replaced only with ``force_overwrite``.
 
+    :param existing_slug:
+        Explicit waiting draft to update and rename to the report's new month.
+        The overwrite and manual edit protections still apply.
+
     :return:
         The Ghost draft post.
 
@@ -1258,7 +1263,7 @@ def publish_report_draft(
     """
     last_write = DraftRecord.load(draft_record_path) if draft_record_path else None
     # Fail before uploading images if the draft cannot be written
-    admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force_overwrite)
+    admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force_overwrite, existing_slug=existing_slug)
     # Every run uploads fresh copies, so a replaced draft never points at the images of an earlier run
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
     podcast_image_urls = {key: admin_client.upload_image(path) for key, path in report.podcast_image_paths.items()}
@@ -1272,6 +1277,7 @@ def publish_report_draft(
         overwrite_draft=overwrite_draft,
         last_write=last_write,
         force=force_overwrite,
+        existing_slug=existing_slug,
     )
     if draft_record_path:
         # Fingerprint the HTML we sent, not Ghost's converted HTML: the fingerprint is designed to be equal

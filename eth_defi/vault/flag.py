@@ -1196,6 +1196,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # collateral, and whether liquidations can work without a DEX market. TVL about $594k,
     # 1M return about 15%.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. 30% of assets
+    # redeemable now and idle liquidity reached 30% within 14 days; collateral includes
+    # wrapped tokenised stocks (wtSPYM, wtMSTR, wtCOIN) with $0 DEX liquidity and reUSD with
+    # $417, valued by oracle rather than a market. No scam evidence; reviewer should check
+    # how the wrapped stock tokens are priced and redeemed.
+    #
     # - https://tradingstrategy.ai/vaults/alphagrowth-base-rwa
     # - https://basescan.org/address/0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e
     # - Euler app: https://app.euler.finance/lend/0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e?network=8453
@@ -1294,6 +1300,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # served withdrawals could be verified, and the sibling pool 0xb57320b2... shows the
     # same pattern.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Facts: 97% of
+    # assets in the pool accepting tGLD ($2.7k DEX liquidity), 2.6% redeemable now but idle
+    # share 0 for 29 days and utilisation about 100%. Sibling EVK vault
+    # 0xb57320b253363bf749d5ce6e66592fdc74cce6f7 has 0% redeemable and was excluded; this
+    # Earn vault still has some liquidity from other strategies, so left undecided.
+    #
     # - https://tradingstrategy.ai/vaults/jpeg-trading-x-tenbin-rwas-3
     # - https://etherscan.io/address/0x018b86a893f57a632f90c4a8308353ac938adc01
     # - Euler app: https://app.euler.finance/earn/0x018b86a893f57a632f90c4a8308353ac938adc01?network=1
@@ -1346,6 +1358,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # redeemable liquidity is unknown; 14-day idle share 0% and utilisation 100%. Fix the
     # protocol classification first.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Probe failed
+    # (withdrawQueue decode error), total assets read as 0 against a candidate TVL of
+    # $1.78M; history shows idle share 0 and utilisation 100% for 31 days. Cannot confirm
+    # either the TVL or the exit liquidity.
+    #
     # - https://tradingstrategy.ai/vaults/rockawayx-pt-yield
     # - https://bscscan.com/address/0xb5a30e1fa2cf3c8dea882124b3ab5a47a27c5dd2
     # - Lista DAO lending: https://lista.org/lending
@@ -1374,6 +1391,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # assets, but several accepted tokens (PT-kHYPE, hwHYPE, sUSN, FXRP, syzUSD) have no
     # DEX liquidity. Whether withdrawals were served could not be verified.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Redeemable
+    # liquidity is 0.001% now, but idle share reached 29% within the last 14 days and median
+    # utilisation is 87%, so the low liquidity is not persistent. Pool accepts many thinly
+    # traded HYPE collateral tokens. Reviewer should re-check liquidity.
+    #
     # - https://tradingstrategy.ai/vaults/clearstar-yield-6
     # - https://hyperevmscan.io/address/0xf9bb65e113418292d1a3555515fbd64637a0be18
     # - Euler app: https://app.euler.finance/lend/0xf9bb65e113418292d1a3555515fbd64637a0be18?network=999
@@ -1400,6 +1422,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # 87-90% utilised, 20.9% redeemable. Morpho still lists the vault without warnings.
     # Still undecided whether NAV-priced issuer tokens are acceptable collateral.
     #
+    # Sonnet 5.5 run, 2026-10-01: uncertain, medium confidence. Facts unchanged: 80% lent
+    # against mHyperBTC and 20% against mHYPER, both $0 DEX liquidity, markets 84-90%
+    # utilised, 21.6% redeemable ($323k of $1.49M). Still undecided whether NAV-priced
+    # issuer tokens are acceptable collateral.
+    #
     # To decide: whether lending against the curator's own NAV-priced funds is acceptable.
     # TVL about $1.55M.
     #
@@ -1420,6 +1447,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Curve secondary market. YieldNest documents instant or queued withdrawals, but no
     # withdrawals served by this pool could be confirmed, so a new depositor may have to
     # wait for borrowers to repay.
+    #
+    # Sonnet 5.5 run, 2026-10-01: uncertain, medium confidence. Facts unchanged: median
+    # utilisation 100% over 29 days, redeemable liquidity 0.00% of $1.2M assets, no served
+    # withdrawals could be confirmed. Both collaterals are YieldNest vaults with USDC as
+    # underlying and about $131M of USDC DEX liquidity at the underlying level, but the
+    # pool's own exit depends on borrowers repaying.
     #
     # To decide: whether the borrowers repay at maturity and whether recent withdrawals were served.
     #
@@ -1557,6 +1590,13 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # a scam, so not blacklisted; to decide whether a depositor can exit without a
     # penalised force-deallocation.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Morpho API shows
+    # $105 of vault liquidity on $959k, unlisted vault, all assets lent to Morini
+    # CarryTradeUSDTRYLeverage and StockMarketTRBasisTrade markets (no DEX pairs, Chainlink-
+    # adapter oracles; the markets themselves are listed and 77-88% utilised). Exits depend
+    # on a penalised forced deallocation, so not excluded; reviewer should check whether
+    # that is acceptable.
+    #
     # - https://tradingstrategy.ai/vaults/alpha-usdc-forex-v2
     # - https://etherscan.io/address/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
     # - Morpho app: https://app.morpho.org/ethereum/vault/0x153bd1abe60104bd46aa05a27fa12d1346d64a57
@@ -1638,6 +1678,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # To decide: whether Morini's issuer-priced carry trade token is acceptable
     # collateral. TVL about $619k.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Morpho API: listed
+    # vault curated by 9Summits, $442k of $530k withdrawable (83%), so exit liquidity is
+    # good. Earlier runs flagged Morini carry-trade collateral without DEX pairs; adapter
+    # positions were not re-read this run, so the collateral share is unverified.
+    #
     # - https://tradingstrategy.ai/vaults/9summits-piku-ecosystem-usdc-2
     # - https://etherscan.io/address/0xc30c60de46dec551b96326cbd05592c9245773ef
     # - Morpho app: https://app.morpho.org/ethereum/vault/0xc30c60de46dec551b96326cbd05592c9245773ef
@@ -1662,6 +1707,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # To decide: whether lending against the curator's own locked token is acceptable. TVL
     # about $104k.
     #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Facts: 90% of
+    # assets in a pool accepting liUSD-4w (infiniFi locked token, $0 DEX liquidity), 9%
+    # redeemable, idle share 0 and pool utilisation about 100% for 29 days. No exploit
+    # found; unchanged from earlier runs.
+    #
     # - https://tradingstrategy.ai/vaults/infinifi-markets
     # - https://etherscan.io/address/0xb4a2fc3adaf3bfa8fcba2a6fdaa200de106b8825
     # - Euler app: https://app.euler.finance/earn/0xb4a2fc3adaf3bfa8fcba2a6fdaa200de106b8825?network=1
@@ -1685,6 +1735,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     #
     # To decide: whether the issuer lending against its own NAV-priced tokens is
     # acceptable. TVL about $399k.
+    #
+    # Sonnet 5.5 run, 2026-10-01 UTC: uncertain, medium confidence. Morpho API:
+    # unlisted, $166k of $399k withdrawable (42%); about 42% lent against
+    # CarryTradeUSDTRYLeverage, 31% against USP, 28% against StockMarketTRBasisTrade (Morini
+    # tokens have no DEX pairs). Exit liquidity is adequate today; collateral valuation
+    # remains the open question.
     #
     # - https://tradingstrategy.ai/vaults/morini-usdc-emerging-yield
     # - https://etherscan.io/address/0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6

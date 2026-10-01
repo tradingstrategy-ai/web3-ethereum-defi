@@ -4,12 +4,12 @@ The report uses the same data as the live
 `vault dashboard <https://tradingstrategy.ai/vaults>`__, so that
 the numbers in a blog post match what readers see on the website:
 
-- Vault metrics (returns, TVL, Sharpe, risk, flags) come from the public
+- Vault metrics (returns, TVL, Sharpe, risk, flags) come from the production
   top vaults JSON export produced by :py:mod:`eth_defi.vault.top_vaults_json`.
 - Share price history for the charts comes from the cleaned vault price
-  Parquet, available through the Pro
-  `vault datasets <https://tradingstrategy.ai/vaults/datasets>`__
-  download API.
+  Parquet. The script downloads both files directly from the private R2
+  bucket with :py:func:`fetch_vault_report_data_from_r2`, using a one-day cache.
+  A failed production refresh aborts generation instead of using stale files.
 
 On the production scanner host both files already exist in the pipeline data
 directory and can be passed as local paths instead of downloading them.
@@ -22,17 +22,24 @@ Other inputs read here:
 - Which vaults have a published sparkline image for the tables' "3M
   history" column, see :py:func:`fetch_available_sparklines`.
 
-Downloads are cached in the report cache directory and reused for
-:py:data:`DEFAULT_CACHE_MAX_AGE`, so rerunning the report while editing does
+Production downloads are cached in the report cache directory and reused for
+:py:data:`DEFAULT_R2_CACHE_MAX_AGE`, so rerunning the report while editing does
 not download the ~250 MB price file again, and the investability check's
 decision files, tied to the input data, stay reusable between reruns.
+
+:py:func:`fetch_vault_report_data` also supports explicit local paths and
+public/Pro API downloads for library callers. Their HTTP cache is separate
+from the script's production cache.
 """
 
 import datetime
+import hashlib
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import duckdb
 import pandas as pd
@@ -43,6 +50,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.cloudflare_r2 import create_r2_client
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount, _get_trading_strategy_vault_link
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, canonical_vault_urls, classify_vault, find_period, is_identified_protocol
@@ -65,6 +73,9 @@ VAULT_PRICES_DOWNLOAD_URL = "https://tradingstrategy.ai/vaults/datasets/download
 #: the investability check's saved decisions stay valid; a rerun after the
 #: refresh usually needs the check again.
 DEFAULT_CACHE_MAX_AGE = datetime.timedelta(hours=6)
+
+#: Production report inputs are refreshed from the private bucket daily.
+DEFAULT_R2_CACHE_MAX_AGE = datetime.timedelta(days=1)
 
 #: Vault flag for perpetual DEX native trading vaults (Hyperliquid, GRVT, Lighter...),
 #: precomputed into the ``is_perp_dex`` column
@@ -351,6 +362,99 @@ def fetch_vault_report_data(
     vaults_df = prepare_vault_metrics(data["vaults"])
     logger.info("Loaded %d vaults from %s, generated at %s", len(vaults_df), top_vaults_json_path, data["generated_at"])
     return VaultReportData(vaults_df=vaults_df, prices_path=prices_path, categories=data.get("categories", {}))
+
+
+def fetch_r2_report_file(
+    client: Any,
+    bucket_name: str,
+    object_key: str,
+    path: Path,
+    max_age: datetime.timedelta = DEFAULT_R2_CACHE_MAX_AGE,
+) -> Path:
+    """Download a private production object, reusing a cache younger than one day.
+
+    Uses the `R2 S3 API <https://developers.cloudflare.com/r2/api/s3/>`__
+    directly, bypassing the website's download caches. Streams to a temporary
+    file with progress logging and replaces the cache only after a complete
+    download. A failed refresh aborts the report, preserving the old file
+    without using it as a fallback.
+
+    :param client:
+        Authenticated S3-compatible R2 client.
+    :param bucket_name:
+        Private production data bucket.
+    :param object_key:
+        Exact production object key.
+    :param path:
+        Local cache path, isolated by bucket, endpoint and object prefix.
+    :param max_age:
+        Maximum time since the local download, rather than the remote modification time.
+    :return:
+        Path to the complete, fresh cached file.
+    """
+    age = get_cache_age(path)
+    if age is not None and datetime.timedelta() <= age < max_age:
+        logger.info("Using cached production %s, download age %s", path, age)
+        return path
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    logger.info("Downloading production s3://%s/%s to %s", bucket_name, object_key, path)
+    response = client.get_object(Bucket=bucket_name, Key=object_key)
+    body = response["Body"]
+    try:
+        with open(tmp_path, "wb") as output, tqdm(total=response["ContentLength"], unit="B", unit_scale=True, desc=f"Downloading {path.name}") as progress:
+            for chunk in body.iter_chunks(chunk_size=1 << 20):
+                output.write(chunk)
+                progress.update(len(chunk))
+        if tmp_path.stat().st_size != response["ContentLength"]:
+            raise RuntimeError(f"Incomplete production download: {object_key}")
+        tmp_path.replace(path)
+    finally:
+        body.close()
+        tmp_path.unlink(missing_ok=True)
+    logger.info("Downloaded production %s, %d bytes, last modified %s", object_key, path.stat().st_size, response.get("LastModified"))
+    return path
+
+
+def fetch_vault_report_data_from_r2(
+    cache_dir: Path,
+    max_age: datetime.timedelta = DEFAULT_R2_CACHE_MAX_AGE,
+) -> VaultReportData:
+    """Refresh both report inputs from the private production R2 bucket.
+
+    Uses the scanner's private exporter configuration and credential fallback
+    order, see :py:mod:`eth_defi.vault.data_file_export`. Both files must be
+    available before generation starts. The cache is separate from public/Pro
+    API downloads and local scanner files, and changing the source selects a
+    different cache. Missing configuration or a failed download is a hard error.
+
+    :param cache_dir:
+        Report download cache; never the scanner's persistent state directory.
+    :param max_age:
+        Reuse production downloads younger than this, default one day.
+    :return:
+        Metrics and price history from the production bucket.
+    :raises RuntimeError:
+        Private R2 configuration is incomplete.
+    """
+    configuration = {
+        "R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME": os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME"),
+        "R2_DATA_ENDPOINT_URL or R2_VAULT_METADATA_ENDPOINT_URL": os.environ.get("R2_DATA_ENDPOINT_URL") or os.environ.get("R2_VAULT_METADATA_ENDPOINT_URL"),
+        "R2_DATA_ACCESS_KEY_ID or R2_VAULT_METADATA_ACCESS_KEY_ID": os.environ.get("R2_DATA_ACCESS_KEY_ID") or os.environ.get("R2_VAULT_METADATA_ACCESS_KEY_ID"),
+        "R2_DATA_SECRET_ACCESS_KEY or R2_VAULT_METADATA_SECRET_ACCESS_KEY": os.environ.get("R2_DATA_SECRET_ACCESS_KEY") or os.environ.get("R2_VAULT_METADATA_SECRET_ACCESS_KEY"),
+    }
+    missing = [name for name, value in configuration.items() if not value]
+    if missing:
+        raise RuntimeError(f"Production vault report R2 download is not configured: {', '.join(missing)}")
+    bucket_name, endpoint_url, access_key_id, secret_access_key = configuration.values()
+    client = create_r2_client(endpoint_url=endpoint_url, access_key_id=access_key_id, secret_access_key=secret_access_key)
+    prefix = os.environ.get("UPLOAD_PREFIX", "")
+    # Old HTTP downloads and different buckets/prefixes must never satisfy this freshness check.
+    source_id = hashlib.sha256(json.dumps([endpoint_url, bucket_name, prefix]).encode()).hexdigest()[:16]
+    production_cache = cache_dir / "r2" / source_id
+    paths = [fetch_r2_report_file(client, bucket_name, f"{prefix}{name}", production_cache / name, max_age=max_age) for name in ("top_vaults_by_chain.json", "cleaned-vault-prices-1h.parquet")]
+    return fetch_vault_report_data(cache_dir, top_vaults_json_path=paths[0], prices_path=paths[1])
 
 
 def read_vault_share_prices(

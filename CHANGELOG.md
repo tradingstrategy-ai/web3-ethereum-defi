@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Refresh monthly Ghost vault report inputs from private production R2 with a one-day cache, update waiting drafts in place across report months, and preserve the published editorial introductions and podcast styling hooks (2026-10-01).
 - feat: Automate the monthly best-performing stablecoin vaults blog post as an unpublished Ghost draft, with generated tables, branded charts in the website's visual identity, latest podcasts, an AI-assisted investability check, `review_needed` vault flags and a dated excluded-vaults record (2026-10-01).
 - feat: Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30).
 - feat: Add Open Standard's live Open USD stablecoin metadata and feed, preserving Origin Dollar as a separate OUSD issuer (2026-09-30).

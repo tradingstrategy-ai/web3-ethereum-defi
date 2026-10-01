@@ -13,13 +13,14 @@ import uuid
 from pathlib import Path
 
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 import requests
 from PIL import Image
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.vault_report.benchmarks import BTC, ETH, fetch_crypto_prices, fetch_treasury_bill_yields
-from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
+from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL, fetch_vault_report_data_from_r2
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_protocol_logo_path
 from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
@@ -30,6 +31,27 @@ GHOST_CONTENT_API_URL = os.environ.get("GHOST_CONTENT_API_URL")
 GHOST_CONTENT_API_KEY = os.environ.get("GHOST_CONTENT_API_KEY")
 GHOST_ADMIN_API_KEY = os.environ.get("GHOST_ADMIN_API_KEY")
 VAULT_PRO_API_KEY = os.environ.get("VAULT_PRO_API_KEY")
+
+
+@pytest.mark.skipif(not os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME"), reason="Private production R2 configuration needed")
+def test_private_r2_vault_report_data(tmp_path: Path) -> None:
+    """Download real production metrics and chart prices using authenticated R2.
+
+    Exercises the generator's complete input refresh without Ghost writes.
+    A second call must reuse the daily cache, preserving the price file's
+    download timestamp. See the `R2 API <https://developers.cloudflare.com/r2/api/s3/>`__.
+
+    :param tmp_path:
+        Isolated cache, ensuring the first call actually contacts production.
+    """
+    data = fetch_vault_report_data_from_r2(tmp_path)
+    assert len(data.vaults_df) > 0
+    assert data.data_end_at > native_datetime_utc_now() - datetime.timedelta(days=7)
+    assert {"id", "timestamp", "share_price"} <= set(pq.read_schema(data.prices_path).names)
+    downloaded_at = data.prices_path.stat().st_mtime_ns
+    cached = fetch_vault_report_data_from_r2(tmp_path)
+    assert cached.prices_path == data.prices_path
+    assert cached.prices_path.stat().st_mtime_ns == downloaded_at
 
 
 def _read_first_bytes(url: str, params: dict | None = None, count: int = 64) -> bytes:

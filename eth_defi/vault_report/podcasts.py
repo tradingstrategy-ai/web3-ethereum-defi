@@ -199,7 +199,9 @@ def render_podcast_episodes(episodes: list[PodcastEpisode], images: dict[str, st
     Each episode is a table row with the guest's logo, the episode title linked
     to its blog post, the promotion text and the YouTube and Spotify links,
     each with the service's icon. A table keeps the logo beside the text in
-    Ghost and in newsletter email clients.
+    Ghost and in newsletter email clients. The website stylesheet controls
+    layout through ``podcast-episodes``, ``podcast-episode-description`` and
+    ``podcast-episode-links``, matching the editor's published markup.
 
     :param episodes:
         Episodes, newest first.
@@ -215,19 +217,19 @@ def render_podcast_episodes(episodes: list[PodcastEpisode], images: dict[str, st
     rows = []
     for episode in episodes:
         logo_src = images.get(logo_image_key(episode.logo_slug)) if episode.logo_slug else None
-        logo = f'<img src="{html.escape(logo_src)}" alt="{html.escape(episode.guest)} logo" width="48" height="48" style="width:48px;height:48px;">' if logo_src else ""
+        logo = f'<img src="{html.escape(logo_src)}" alt="{html.escape(episode.guest)} logo" width="48" height="48">' if logo_src else ""
         links = []
         for service, url in (("youtube", episode.youtube_url), ("spotify", episode.spotify_url)):
             if not url:
                 continue
             icon_src = images.get(icon_image_key(service))
             # The icon is decorative: the link text names the service
-            icon = f'<img src="{html.escape(icon_src)}" alt="" width="16" height="16" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px;">' if icon_src else ""
+            icon = f'<img src="{html.escape(icon_src)}" alt="" width="16" height="16">' if icon_src else ""
             links.append(f'<a href="{html.escape(url)}">{icon}{PODCAST_SERVICES[service]}</a>')
         text = [
             f'<strong><a href="{html.escape(episode.url)}">{html.escape(episode.title)}</a></strong>',
-            html.escape(episode.promotion),
-            " · ".join(links),
+            f'<p class="podcast-episode-description">{html.escape(episode.promotion)}</p>' if episode.promotion else "",
+            f'<div class="podcast-episode-links">{" ".join(links)}</div>' if links else "",
         ]
-        rows.append(f'<tr><td style="width:64px;vertical-align:top;">{logo}</td><td>{"<br>".join(part for part in text if part)}</td></tr>')
-    return '<table class="podcast-episodes">\n<tbody>\n' + "\n".join(rows) + "\n</tbody>\n</table>"
+        rows.append(f"<tr><td>{logo}</td><td>{'\n'.join(part for part in text if part)}</td></tr>")
+    return '<table class="podcast-episodes" aria-label="Latest podcast episodes">\n<tbody>\n' + "\n".join(rows) + "\n</tbody>\n</table>"

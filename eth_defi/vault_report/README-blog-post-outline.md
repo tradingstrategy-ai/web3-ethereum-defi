@@ -166,6 +166,21 @@ them; keep them when changing the templates in `post.py` or the notes in
 
 **Text**
 
+- The opening describes the best-performing DeFi vaults across blockchains
+  and decentralised exchanges for the report month. *About the report*
+  describes vaults as smart contracts that let users deposit funds and execute
+  a predefined strategy with investors' money.
+- *Tokenised funds* explains that vaults and funds use the same smart contract
+  technology with whitelisting; the report treats projects as tokenised funds
+  when there is evidence they have declared themselves as such.
+- *Yield by chain and protocol* opens with the market competition between
+  blockchains and protocols, comparing returns as well as TVL, then explains
+  the dots and the Treasury bill benchmark in a separate paragraph.
+- The podcast table uses `class="podcast-episodes"` and
+  `aria-label="Latest podcast episodes"`. Promotion paragraphs use
+  `podcast-episode-description` and listening links sit inside a
+  `podcast-episode-links` div. Use these stylesheet hooks instead of inline
+  styles, line breaks and separators for the podcast layout.
 - Every section and subsection opens with an introduction paragraph linking
   to the matching tradingstrategy.ai page or glossary entry, except *The
   best-performing vaults*, which has no introduction and no T-bill caption
