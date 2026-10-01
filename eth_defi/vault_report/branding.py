@@ -13,6 +13,20 @@ rendered by Kaleido first and composited with Pillow afterwards:
 The look follows the website's chart panels, e.g. ``HistoricalTvlGroupChart.svelte``
 in the frontend: radius 1.5rem, a faint top-left radial glow in the bullish
 colour, and a 1 px highlight border.
+
+Units: chart panel measures are *design pixels*, laid out for a
+:py:data:`PANEL_WIDTH` wide panel, the same width as the Plotly layouts in
+:py:mod:`eth_defi.vault_report.charts`. :py:func:`compose_chart_panel`
+multiplies them by :py:data:`CHART_SCALE`, the factor Kaleido rendered the
+chart at, so the frame and the chart stay in proportion. The hero images are
+drawn directly in output pixels at their fixed social image sizes.
+
+Pillow's :py:class:`PIL.ImageDraw.ImageDraw` overwrites the pixels of an RGBA
+image instead of blending translucent colours into them, see the
+`Pillow ImageDraw documentation <https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html>`__.
+Translucent elements, such as the glow, the hero card, rank badges and
+separators, are therefore drawn on a transparent layer of their own and
+alpha-composited onto the image.
 """
 
 import logging
@@ -33,16 +47,19 @@ HERO_SIZE = (1200, 630)
 #: Square social image for X, which shows link previews of the blog as square ``summary`` cards
 SQUARE_HERO_SIZE = (1080, 1080)
 
-#: Panel corner radius in pixels, 1.5rem at 2× scale
+#: Panel corner radius in design pixels, echoing the website panels' 1.5rem radius
 PANEL_RADIUS = 36
 
-#: Padding between the panel border and its content: the header text, the chart content and the footer
+#: Padding between the panel border and its content in design pixels: left and right of the header
+#: text, the chart content and the footer, and below the footer logo, see :py:func:`compose_chart_panel`
 PANEL_PADDING = 44
 
-#: Gap between the subtitle and the chart content, and between the chart content and the footer rule
+#: Gap between the subtitle and the chart content, and between the chart content and the footer rule, in design pixels
 PANEL_CONTENT_GAP = 28
 
-#: Width of every chart panel, so charts show at the same scale in the post
+#: Width of every chart panel in design pixels, so charts show at the same scale in the post.
+#: Equal to :py:data:`eth_defi.vault_report.charts.IMAGE_WIDTH`: the Plotly layouts are tuned so
+#: their cropped content is about the inner width, ``PANEL_WIDTH - 2 * PANEL_PADDING``.
 PANEL_WIDTH = 1400
 
 #: Resolution multiplier of the chart panels.
@@ -52,12 +69,18 @@ PANEL_WIDTH = 1400
 #: on high-density screens, e.g. 1400 px designs export 1867 px wide.
 CHART_SCALE = 4 / 3
 
-#: Colour distance from the surface above which a chart pixel counts as content
+#: Alpha, 0-255, of a transparent chart render, or summed RGB distance from the surface of an
+#: opaque one, above which a pixel counts as content. Low enough to keep the faint grid lines and
+#: antialiased text edges, high enough to ignore near-invisible antialiasing haze, which would
+#: otherwise widen the crop by a few pixels, see :py:func:`crop_to_content`.
 CONTENT_THRESHOLD = 6
 
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
     """Load the bundled Inter font.
+
+    The same files that Chrome uses for the Plotly text, so the frame and the
+    chart match, see :py:mod:`eth_defi.vault_report.theme`.
 
     :param size:
         Font size in pixels.
@@ -90,6 +113,11 @@ def _hex_to_rgba(colour: str, alpha: int = 255) -> tuple[int, int, int, int]:
 def _fit_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: float) -> str:
     """Truncate text with an ellipsis to fit a width.
 
+    Used where text cannot wrap: the fixed-size hero images, which have room
+    for one line per vault name and property. Chart panels wrap instead, see
+    :py:func:`_wrap_text`. Characters are removed one at a time, which is fast
+    enough for the short names involved.
+
     :param draw:
         Drawing context.
 
@@ -114,6 +142,10 @@ def _fit_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
 
 def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: float) -> list[str]:
     """Word-wrap text to lines that fit a width.
+
+    A greedy wrap measured with the actual font, for the panel titles and
+    subtitles, so they are shown in full rather than truncated. A single word
+    wider than ``max_width`` is kept on its own line and overflows.
 
     :param draw:
         Drawing context.
@@ -145,6 +177,9 @@ def draw_brand_logo(image: Image.Image, x: int, y: int, height: int, theme: Char
 
     Uses the PNG renders of ``logo-horizontal-ai.svg`` made by
     ``scripts/erc-4626/render-vault-report-logo.py``, because Pillow cannot draw SVG.
+    The render for a theme is named after it, ``logo-horizontal-ai-{theme}.png``,
+    and is about 240 px tall, so it is only ever scaled down. Drawn in the
+    panel footers and the hero image headers.
 
     :param image:
         RGBA image to draw on in place.
@@ -173,6 +208,11 @@ def draw_brand_logo(image: Image.Image, x: int, y: int, height: int, theme: Char
 def _draw_glow(image: Image.Image, theme: ChartTheme, radius: int) -> None:
     """Draw the soft top-left corner glow.
 
+    Imitates the website's top-left CSS radial gradient: a disc of the glow
+    colour centred on the image's top-left corner, so only its lower-right
+    quarter is inside the image, blurred with half its radius into a smooth
+    falloff. The glow colour's low alpha keeps it a hint.
+
     :param image:
         RGBA image to draw on in place.
 
@@ -191,8 +231,16 @@ def _draw_glow(image: Image.Image, theme: ChartTheme, radius: int) -> None:
 def _round_corners(image: Image.Image, theme: ChartTheme, scale: float = 1.0) -> Image.Image:
     """Clip an image to a rounded panel with a highlight border.
 
+    The border is drawn into the image without blending, so its pixels become
+    translucent white on the dark theme and translucent black on the light
+    one, and the page colour behind the image shows through them. The result
+    reads as the website panels' faint 1 px highlight on either theme; it is
+    2 design pixels wide because the design is about twice the display size.
+
+    The clipping mask has hard edges, so the corners are not antialiased.
+
     :param image:
-        Panel image.
+        Panel image. The border is drawn on it in place.
 
     :param theme:
         Chart theme.
@@ -218,7 +266,13 @@ def crop_to_content(image: Image.Image, background: str, threshold: int = CONTEN
 
     Plotly margins leave uneven empty space around axis titles, labels and
     legends. Cropping to the drawn content lets the panel apply the same
-    padding on every side of every chart.
+    padding on every side of every chart. Used by :py:func:`compose_chart_panel`
+    and by ``scripts/erc-4626/render-vault-report-logo.py``.
+
+    Report charts are rendered transparent, see
+    :py:func:`eth_defi.vault_report.charts.render_figure_png`, so the alpha
+    channel decides. An image without any transparent pixel is treated as an
+    opaque render, and its pixels are compared with the background colour.
 
     :param image:
         Chart render on a transparent or uniform background.
@@ -252,6 +306,25 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     left and right, and by :py:data:`PANEL_CONTENT_GAP` above and below, so
     every panel has the same size, scale and margins regardless of its Plotly layout.
 
+    The panel is stacked from the top, in design pixels multiplied by ``scale``:
+
+    - Header: the title, 40 px semibold on a 50 px line pitch from 36 px, then
+      the subtitle, 24 px on a 32 px pitch. Both wrap, and the header grows by
+      a line pitch per extra line.
+    - Chart: the cropped content between two :py:data:`PANEL_CONTENT_GAP` gaps.
+    - Footer, 107 px: a hairline rule, the TradingStrategy.ai logo and the
+      ``footer_note`` on the left, and the ``link`` right-aligned. The logo is
+      41 px tall and ends :py:data:`PANEL_PADDING` above the bottom edge, so
+      the bottom margin matches the side margins.
+
+    Only the height varies between panels: it follows the chart height and the
+    number of header lines. The glow is drawn before the chart, so it shows
+    through the chart's transparent background.
+
+    :py:func:`eth_defi.vault_report.report.render_report_charts` calls this
+    for every chart with the panel texts of the post, writing over the raw
+    Kaleido render.
+
     :param chart_png:
         Chart image rendered with the same theme surface colour.
 
@@ -265,7 +338,7 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         Description of what the chart shows. Long titles and subtitles are word-wrapped.
 
     :param footer_note:
-        Short footer text, e.g. the data date.
+        Short footer text, e.g. ``Data 2026-09-30``.
 
     :param link:
         Live chart URL shown in the footer, without ``https://``.
@@ -286,7 +359,9 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         return round(value * scale)
 
     # The chart content gets the same padding on every side. Content is resized to the panel's inner width,
-    # a few percent at most, because the Plotly layouts are tuned to fill it.
+    # a few percent at most, because the Plotly layouts are tuned to fill it. A larger resize would make
+    # this chart's text visibly larger or smaller than the other panels', hence the warning; the README
+    # asks to keep new layouts within 5% of the inner width.
     content = crop_to_content(Image.open(chart_png).convert("RGBA"), theme.surface)
     pad, gap = px(PANEL_PADDING), px(PANEL_CONTENT_GAP)
     width = px(PANEL_WIDTH)
@@ -296,10 +371,11 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         if abs(resize_ratio - 1) > 0.05:
             logger.warning("Chart %s content is %d px wide, resized by %.0f%% to fit the panel", chart_png, content.width, (resize_ratio - 1) * 100)
         content = content.resize((inner_width, round(content.height * resize_ratio)), Image.Resampling.LANCZOS)
-    # The footer text sits 44 px above the bottom edge, like the other panel margins
+    # Footer: rule at +4, logo from +22 to +63, leaving PANEL_PADDING (44 px) to the bottom edge
     footer_height = px(107)
     title_font, subtitle_font = _font(px(40), bold=True), _font(px(24))
-    # Long titles and subtitles wrap to more lines, and the header grows to fit them
+    # Long titles and subtitles wrap to more lines, and the header grows to fit them.
+    # Any drawing context can measure text; the content image's is at hand.
     measure = ImageDraw.Draw(content)
     title_lines = _wrap_text(measure, title, title_font, width - 2 * pad)
     subtitle_lines = _wrap_text(measure, subtitle, subtitle_font, width - 2 * pad)
@@ -317,7 +393,9 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         draw.text((pad, subtitle_top + px(32) * i), line, font=subtitle_font, fill=theme.muted_text)
 
     footer_top = header_height + chart_height
+    # Footer rule in the axis colour at about 35% alpha: a hairline that separates without competing with the chart
     draw.line((pad, footer_top + px(4), width - pad, footer_top + px(4)), fill=_hex_to_rgba(theme.axis, 90), width=px(1))
+    # The 22 px footer text top at +31 centres it roughly on the 41 px logo
     text_y = footer_top + px(31)
     logo_width = draw_brand_logo(panel, pad, footer_top + px(22), px(41), theme)
     footer_font = _font(px(22))
@@ -334,6 +412,11 @@ def render_logo_tile(logo_path: Path, theme: ChartTheme, output_path: Path, size
     Protocol logos are made for either dark or light backgrounds, and many are
     white. On a tile of the chart panel colour a logo reads the same on the
     dark blog page and in light newsletter emails.
+
+    Used for the guest logos of the *Latest podcasts* section, see
+    :py:func:`eth_defi.vault_report.report.prepare_podcast_images`. The logo
+    fills at most 70% of the tile, keeping its aspect ratio, and the corner
+    radius is a fifth of the tile, like an app icon.
 
     :param logo_path:
         Logo PNG for the theme's surface, see :py:func:`eth_defi.vault_report.logos.load_protocol_logo_path`.
@@ -363,11 +446,18 @@ def render_logo_tile(logo_path: Path, theme: ChartTheme, output_path: Path, size
 def _draw_sparkline(image: Image.Image, values: pd.Series, box: tuple[int, int, int, int], colour: str) -> None:
     """Draw a small price line with a faint fill underneath.
 
+    The prices are scaled to fill the box from their minimum to their maximum,
+    so the line shows the shape of the price history, not its size: a lending
+    vault's 2% rise fills the box like a trading vault's 30%. The return next
+    to the sparkline gives the size. Points are spaced evenly, which equals
+    time spacing for daily prices. Used by :py:func:`render_hero_image`.
+
     :param image:
         RGBA image to draw on.
 
     :param values:
-        Prices in time order.
+        Daily prices in time order. Missing values are dropped; fewer than two
+        points draw nothing, and constant prices draw a line along the bottom.
 
     :param box:
         (left, top, right, bottom) pixel box.
@@ -406,17 +496,42 @@ def render_hero_image(
     large number. Returns are shown as numbers rather than bars, because a
     yield is a rate, not a quantity.
 
+    The image is drawn in output pixels, not scaled design pixels, because
+    the social networks expect these exact sizes. From the top: a header with
+    the brand logo on the left and the month and ``subtitle`` right-aligned,
+    the title, and a rounded card holding the ranking. The card is the panel
+    surface at about 92% opacity, so the page glow tints it slightly. Inside
+    the card, a column header row is followed by up to five equal-height
+    rows; each row has a rank badge, the name with its properties, the
+    sparkline column starting at a fixed fraction of the width, and the
+    right-aligned return. The square version, more than 0.8 times as tall as
+    wide, has room for a taller header and larger fonts.
+
+    Names and properties are truncated to one line rather than wrapped,
+    because the image cannot grow. A row's properties stop when the next icon
+    or text would not fit before the sparkline column.
+
+    The return is the net three-month annualised return when fee data exists
+    and the gross one otherwise, without a marker, like the tables, see
+    :py:func:`eth_defi.vault_report.sections.format_return`.
+
     :param vaults_df:
-        Top vaults in rank order, at most five are drawn.
+        Top vaults in rank order, at most five are drawn, see
+        :py:func:`eth_defi.vault_report.report.select_hero_vaults`. Needs the
+        ``name``, ``address``, ``protocol_label``, ``chain``,
+        ``three_months_cagr_net`` and ``three_months_cagr`` columns, indexed
+        by vault id.
 
     :param sparklines:
-        Vault id -> daily share prices for the sparkline.
+        Vault id -> daily share prices over the 90-day performance window.
+        Vaults without prices are drawn without a sparkline.
 
     :param month_label:
         E.g. ``September 2026``.
 
     :param subtitle:
-        Selection criteria shown in the footer.
+        Minimum TVL and data date, shown under the month label in the header.
+        The column header names the return, so the subtitle does not.
 
     :param theme:
         Chart theme.
@@ -429,8 +544,10 @@ def render_hero_image(
 
     :param properties:
         Vault id -> ``(text, icon)`` pairs in the order curator, protocol, chain,
-        see :py:func:`eth_defi.vault_report.report.make_vault_properties`. Vaults
-        without an entry show their chain and protocol as text.
+        see :py:func:`eth_defi.vault_report.report.make_vault_properties`. The
+        icons are Pillow images, rasterised from the chart logo URIs by
+        :py:func:`eth_defi.vault_report.charts.rasterise_logos`, or ``None``.
+        Vaults without an entry show their protocol and chain as text.
 
     :return:
         ``output_path``.
@@ -453,7 +570,8 @@ def render_hero_image(
     title_font = _font(56 if square else 46, bold=True)
     draw.text((pad, title_top), "Best-performing stablecoin vaults", font=title_font, fill=theme.text)
 
-    # The ranking sits on a rounded card with column headers and hairline row separators
+    # The ranking sits on a rounded card with column headers and hairline row separators.
+    # The card fills the rest of the height, so the five rows share whatever the title leaves.
     card_top = title_top + (110 if square else 78)
     card_bottom = height - (56 if square else 30)
     card = (pad - 20, card_top, width - pad + 20, card_bottom)
@@ -464,11 +582,14 @@ def render_hero_image(
 
     header_height = 44 if square else 38
     rows = vaults_df.head(5)
+    # Rows split the card below the column headers evenly, keeping 8 px of padding at the bottom
     row_height = (card_bottom - card_top - header_height - 8) / max(len(rows), 1)
+    # The sparkline column starts at a fixed fraction of the width; names and properties are truncated before it
     spark_left = int(width * (0.54 if square else 0.575))
     spark_right = spark_left + (190 if square else 220)
     header_font = _font(14)
     header_y = card_top + header_height / 2
+    # "VAULT" lines up with the names after the rank badge; the return header is right-aligned with the returns
     for text, x, anchor in (("VAULT", pad + 52, "lm"), ("90-DAY PRICE", spark_left, "lm"), ("3M RETURN, ANNUALISED", width - pad, "rm")):
         draw.text((x, header_y), text, font=header_font, fill=theme.muted_text, anchor=anchor)
     # Neutral hairlines: white on the dark theme, black on the light one
@@ -478,7 +599,8 @@ def render_hero_image(
     lines_draw = ImageDraw.Draw(lines_layer)
     lines_draw.line((pad, card_top + header_height, width - pad, card_top + header_height), fill=separator, width=1)
 
-    # Top three ranks get gold, silver and bronze rings
+    # Top three ranks get gold, silver and bronze rings with a faint fill of the same colour;
+    # lower ranks get an unfilled ring in the muted text colour
     medals = {1: "#d4af37", 2: "#c0c4cc", 3: "#c8804a"}
     name_font, property_font = _font(28 if square else 25, bold=True), _font(18 if square else 17)
     value_font = _font(40 if square else 34, bold=True)
@@ -501,7 +623,9 @@ def render_hero_image(
         text_right = spark_left - 28
         name_y = middle - (21 if square else 18)
         draw.text((name_x, name_y), _fit_text(draw, vault["name"] or vault["address"], name_font, text_right - name_x), font=name_font, fill=theme.text, anchor="lm")
-        # Curator, protocol and chain under the name, each with its own icon
+        # Curator, protocol and chain under the name, each with its own icon. Icons fit a 38×19 box,
+        # at most twice as wide as tall like the chart property icons. The remaining properties are left
+        # out once an icon (22 px) or at least 40 px of text no longer fits before the sparkline column.
         property_y = middle + (17 if square else 15)
         x = name_x
         for text, icon in properties.get(vault_id, [(vault["protocol_label"], None), (vault["chain"], None)]):
@@ -518,6 +642,7 @@ def render_hero_image(
             draw.text((x, property_y), fitted, font=property_font, fill=theme.muted_text, anchor="lm")
             x += int(draw.textlength(fitted, font=property_font)) + 16
         if vault_id in sparklines:
+            # The sparkline is up to 40 px tall, 48 px on the square image, and shorter when the rows are
             spark_half = min(24 if square else 20, row_height * 0.32)
             _draw_sparkline(image, sparklines[vault_id], (spark_left, int(middle - spark_half), spark_right, int(middle + spark_half)), theme.positive)
             draw = ImageDraw.Draw(image)
@@ -525,5 +650,6 @@ def render_hero_image(
         draw.text((width - pad, middle), value, font=value_font, fill=theme.positive, anchor="rm")
     image.alpha_composite(lines_layer)
 
+    # Social networks do not need transparency, and the page background fills every pixel
     image.convert("RGB").save(output_path, format="PNG", optimize=True)
     return output_path

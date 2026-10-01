@@ -135,18 +135,32 @@ def clean_episode_link(url: str) -> str:
 def parse_podcast_episode(post: GhostPost) -> PodcastEpisode:
     """Read an episode's promotion text, links and guest from its blog post.
 
+    Episode posts are written by hand in Ghost from one template (see the
+    module docstring), so this reads them with regular expressions over the
+    rendered HTML rather than a structured field: Ghost has no custom fields
+    for the listening links. A post that strays from the template still
+    produces an episode, with the missing parts as ``None``; the *Latest
+    podcasts* section then leaves out that link or logo, and a warning tells
+    the operator which post to fix in Ghost.
+
     :param post:
-        Episode post with its HTML body.
+        Episode post with its HTML body, from
+        :py:meth:`~eth_defi.vault_report.ghost.GhostContentClient.fetch_latest_posts`.
 
     :return:
         Parsed episode. Links that are missing from the post are ``None``.
     """
     body = post.html or ""
+    # The template's first paragraph is the promotion text; markup such as links and
+    # bold is dropped because the report renders it as plain text in its own card
     first_paragraph = re.search(r"<p>(.*?)</p>", body, flags=re.DOTALL)
     promotion = html.unescape(re.sub(r"<[^>]+>", "", first_paragraph.group(1))).strip() if first_paragraph else ""
     spotify = SPOTIFY_LINK.search(body)
     youtube = YOUTUBE_LINK.search(body)
     guest_page = GUEST_PAGE_LINK.search(body)
+    # Ghost stores href attributes HTML-escaped (&amp;), so links are unescaped before
+    # their tracking parameters are removed; whitespace in the promotion is collapsed
+    # because the editor's line breaks would otherwise show in the card
     episode = PodcastEpisode(
         title=post.title,
         url=f"{BLOG_URL}/{post.slug}",

@@ -13,6 +13,14 @@
   and cached on disk.
 
 Missing logos are never an error: callers get ``None`` and draw the chart without the logo.
+
+Chart logos are passed around as base64 ``data:`` URIs rather than file paths
+or URLs. Plotly layout images take a URI, and an inline URI makes each figure
+self-contained: Kaleido's headless Chrome draws it without file or network
+access. The URI string also serves as the logo's identity: the report
+collects the URIs of all charted vaults, and
+:py:func:`eth_defi.vault_report.charts.trim_logos` and
+:py:func:`~eth_defi.vault_report.charts.rasterise_logos` key their results by it.
 """
 
 import base64
@@ -41,6 +49,9 @@ CHAIN_LOGO_URL = "https://tradingstrategy.ai/logos/blockchains/{slug}"
 def to_data_uri(data: bytes, mime_type: str) -> str:
     """Encode an image as a data URI for Plotly layout images.
 
+    Encoding is deterministic, so the same file always gives the same URI and
+    logos can be deduplicated by their URI.
+
     :param data:
         Image bytes.
 
@@ -56,8 +67,18 @@ def to_data_uri(data: bytes, mime_type: str) -> str:
 def load_protocol_logo_path(protocol_slug: str | None, theme: ChartTheme) -> Path | None:
     """Find the protocol logo that suits the theme background.
 
+    The variant names describe the logo, not the background: ``light.png`` is
+    a light-coloured logo for dark backgrounds. If the preferred variant is
+    missing, the opposite one is still better than no logo, and
+    ``generic.png`` comes last. Curators are looked up the same way, by their
+    curator slug, because their logos live in the same directory.
+
+    Used directly for the podcast guest tiles, see
+    :py:func:`eth_defi.vault_report.branding.render_logo_tile`, and through
+    :py:func:`load_protocol_logo_uri` for the chart logos.
+
     :param protocol_slug:
-        Protocol slug from the vault metadata.
+        Protocol or curator slug from the vault metadata, ``protocol_slug`` or ``curator_slug``.
 
     :param theme:
         Chart theme; dark themes use ``light.png``, then ``dark.png``, then ``generic.png``.
@@ -74,8 +95,11 @@ def load_protocol_logo_path(protocol_slug: str | None, theme: ChartTheme) -> Pat
 def load_protocol_logo_uri(protocol_slug: str | None, theme: ChartTheme) -> str | None:
     """Load a protocol logo as a data URI.
 
+    Used for the protocol and curator icons under vault names, and for the
+    protocol rows of the average yield and TVL charts.
+
     :param protocol_slug:
-        Protocol slug.
+        Protocol or curator slug.
 
     :param theme:
         Chart theme.
@@ -90,11 +114,22 @@ def load_protocol_logo_uri(protocol_slug: str | None, theme: ChartTheme) -> str 
 def fetch_chain_logo_uri(chain_name: str, cache_dir: Path, timeout: float = 20.0) -> str | None:
     """Download a chain logo from the website, caching it on disk.
 
+    The repository has no chain logo collection, so the website's logo
+    endpoint is the canonical source. A cached file is reused forever; delete
+    the cache directory to pick up a changed logo. Failures are not cached, so
+    a missing logo is tried again on the next run. The content type check
+    rejects anything but SVG, e.g. an HTML error page served with status 200.
+    A network failure is logged as a warning, a chain without a logo only at
+    info level, because many small chains have none.
+
+    :py:func:`eth_defi.vault_report.report.render_report_charts` memoises the
+    result per chain for one run.
+
     :param chain_name:
         Chain name as in the vault metadata, e.g. ``Hypercore``.
 
     :param cache_dir:
-        Logo cache directory.
+        Logo cache directory, ``logos/`` under the report download cache.
 
     :param timeout:
         HTTP timeout in seconds.
@@ -121,6 +156,9 @@ def fetch_chain_logo_uri(chain_name: str, cache_dir: Path, timeout: float = 20.0
 
 def load_benchmark_logo_uri(benchmark: str) -> str | None:
     """Load a benchmark logo as a data URI.
+
+    The performance charts draw it in the legend row of the benchmark and at
+    its line end, see :py:func:`eth_defi.vault_report.charts.create_performance_figure`.
 
     :param benchmark:
         Benchmark name, see :py:mod:`eth_defi.vault_report.benchmarks`.

@@ -21,7 +21,17 @@ Data sources:
 - `Coinbase Exchange candles <https://docs.cdp.coinbase.com/exchange/reference/exchangerestapi_getproductcandles>`__:
   daily BTC-USD and ETH-USD closes, the same source as the website. No API key.
 
-Benchmarks are optional: an outage leaves them out of the charts.
+Benchmarks are optional: an outage leaves them out of the charts. Each
+download falls back to an older cached copy before giving up, so a FRED or
+Coinbase outage on report day rarely matters.
+
+Use in the post: :py:func:`fetch_benchmark_indices` gives the grey benchmark
+lines of the performance charts, and :py:func:`get_latest_yield` the T-bill
+reference line of the average yield and risk and return charts.
+:py:func:`select_benchmarks` picks per vault, and a performance chart draws
+the benchmarks used by at least half of its vaults.
+
+Units: yields are fractions (0.04 = 4%), dates are naive UTC.
 """
 
 import datetime
@@ -41,16 +51,17 @@ logger = logging.getLogger(__name__)
 #: FRED series id of the 3-month Treasury constant maturity yield
 TREASURY_SERIES_ID = "DGS3MO"
 
-#: FRED CSV export of :py:data:`TREASURY_SERIES_ID`
+#: FRED CSV export of :py:data:`TREASURY_SERIES_ID`, the full daily history in percent,
+#: with ``.`` for days without a quote
 TREASURY_CSV_URL = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={TREASURY_SERIES_ID}"
 
 #: Coinbase Exchange public candles endpoint
 COINBASE_CANDLES_URL = "https://api.exchange.coinbase.com/products/{product}/candles"
 
-#: Coinbase returns at most this many candles per request
+#: Coinbase returns at most this many candles per request, so longer ranges are split into chunks
 COINBASE_MAX_CANDLES = 300
 
-#: Benchmark names, used as series keys and chart labels
+#: Benchmark names, used as series keys, chart labels and benchmark logo keys
 TREASURY_BILL = "US 3M T-bill"
 BTC = "BTC"
 ETH = "ETH"
@@ -59,19 +70,29 @@ ETH = "ETH"
 CRYPTO_PRODUCTS = {BTC: "BTC-USD", ETH: "ETH-USD"}
 
 #: Synthetic chain ids of perpetual futures DEXes, from ``isPerpetualFuturesVault.ts``.
-#: HyperEVM (999) is a regular EVM chain and is not included.
+#: Native perp DEX vaults are exported under these made-up chain ids, e.g. 9999 for
+#: Hypercore. HyperEVM (999) is a regular EVM chain and is not included.
 PERP_CHAIN_IDS = frozenset({9999, 325, 9998, 9997, 9995})
 
-#: Stablecoin symbols of GMX GM pools, from ``vault-price-benchmarks.ts``
+#: Stablecoin symbols of GMX GM pools, lower case, from ``vault-price-benchmarks.ts``.
+#: Keep in sync with the frontend, so the report and the website pick the same benchmark for a GM pool.
 GMX_STABLECOIN_SYMBOLS = frozenset({"usdc", "usdc.e", "usdt", "usdt.e", "usdt0", "usde", "susde", "dai", "usdg", "usds", "usdf", "usd1", "gho", "frax", "pyusd", "fdusd", "usdb", "usdx", "usda", "crvusd", "usdd", "lusd", "dola", "usdp", "usd0", "usdn", "usdr", "usdy"})
 
 
 def fetch_treasury_bill_yields(cache_dir: Path, max_age: datetime.timedelta = datetime.timedelta(days=1)) -> pd.Series | None:
     """Fetch daily 3-month Treasury bill yields.
 
+    The risk-free alternative for a stablecoin holder: the yield charts draw
+    it as a reference line, and the performance charts accrue it into a value
+    index, see :py:func:`calculate_treasury_bill_index`. The
+    `FRED DGS3MO series <https://fred.stlouisfed.org/series/DGS3MO>`__ is the
+    same one the website uses and needs no API key.
+
     Downloads the FRED :py:data:`TREASURY_SERIES_ID` CSV at most once per
-    ``max_age``. On a download or parse failure, falls back to an older cached
-    copy, or returns ``None``.
+    ``max_age``; the series updates once per US business day, so a day old
+    copy is current enough. On a download failure the older cached copy is
+    used, and a parse failure returns ``None``, which leaves the T-bill out
+    of the charts instead of stopping the report.
 
     :param cache_dir:
         Download cache directory.
@@ -93,6 +114,7 @@ def fetch_treasury_bill_yields(cache_dir: Path, max_age: datetime.timedelta = da
         return None
 
     try:
+        # The date column is read by position, because its header has changed between FRED export versions
         df = pd.read_csv(io.StringIO(path.read_text()), na_values=["."])
         rates = df.set_index(pd.to_datetime(df.iloc[:, 0]))[TREASURY_SERIES_ID].dropna() / 100
     except (ValueError, KeyError, IndexError) as e:
@@ -108,8 +130,12 @@ def fetch_treasury_bill_yields(cache_dir: Path, max_age: datetime.timedelta = da
 def calculate_treasury_bill_index(yields: pd.Series, end_at: datetime.datetime) -> pd.Series:
     """Turn daily Treasury bill yields into a value index.
 
+    Lets the performance charts draw the T-bill as an equity curve next to
+    vault share prices, measured from the chart start like the vaults.
+
     Accrues each calendar day at the day's yield (``1 + y / 365``), forward
-    filling weekends and holidays, which matches how vault share prices accrue.
+    filling weekends and holidays, which matches how vault share prices accrue
+    every day.
 
     :param yields:
         Output of :py:func:`fetch_treasury_bill_yields`.
@@ -118,7 +144,8 @@ def calculate_treasury_bill_index(yields: pd.Series, end_at: datetime.datetime) 
         Last day of the index.
 
     :return:
-        Daily index starting at 1.0.
+        Daily index indexed by naive UTC date, from the first FRED date to
+        ``end_at``, starting near 1.0 and compounding upwards.
     """
     days = pd.date_range(yields.index.min(), pd.Timestamp(end_at).normalize(), freq="D")
     daily = yields.resample("D").last().reindex(days).ffill()
@@ -127,6 +154,9 @@ def calculate_treasury_bill_index(yields: pd.Series, end_at: datetime.datetime) 
 
 def get_latest_yield(yields: pd.Series) -> Percent:
     """Get the most recent Treasury bill yield.
+
+    The reference line of the average yield charts and the risk and return
+    chart, and the "difference to the T-bill" column of the yield charts.
 
     :param yields:
         Output of :py:func:`fetch_treasury_bill_yields`.
@@ -147,9 +177,16 @@ def fetch_crypto_prices(
 ) -> pd.Series | None:
     """Fetch daily closing prices of BTC or ETH from Coinbase.
 
+    The crypto benchmarks of perp DEX, GMX and volatile vaults, see
+    :py:func:`select_benchmarks`, from the public
+    `Coinbase Exchange candles API <https://docs.cdp.coinbase.com/exchange/reference/exchangerestapi_getproductcandles>`__,
+    the same source as the website's vault pages. No API key.
+
     Requests are split into chunks of :py:data:`COINBASE_MAX_CANDLES` days, and
-    the result is cached as CSV. On a failure, an older cached copy is used if
-    one exists, otherwise ``None`` is returned.
+    the result is cached as CSV. The cache file name contains the date range,
+    so a different report window never reuses a mismatched series. On a
+    failure, an older cached copy of the same range is used if one exists,
+    otherwise ``None`` is returned and the benchmark is left out of the charts.
 
     :param benchmark:
         :py:data:`BTC` or :py:data:`ETH`.
@@ -170,7 +207,8 @@ def fetch_crypto_prices(
         HTTP timeout in seconds.
 
     :return:
-        Daily USD closing prices indexed by naive UTC date, or ``None``.
+        Daily USD closing prices indexed by naive UTC date (the candle's UTC
+        day start), sorted, or ``None``.
     """
     product = CRYPTO_PRODUCTS[benchmark]
     path = cache_dir / f"coinbase-{product.lower()}-{start_at:%Y%m%d}-{end_at:%Y%m%d}.csv"
@@ -186,6 +224,7 @@ def fetch_crypto_prices(
     chunk_start = pd.Timestamp(start_at).normalize()
     last = pd.Timestamp(end_at).normalize()
     try:
+        # Each chunk spans COINBASE_MAX_CANDLES days and the next starts the day after, so no request exceeds the limit
         while chunk_start <= last:
             chunk_end = min(chunk_start + pd.Timedelta(days=COINBASE_MAX_CANDLES - 1), last)
             resp = requests.get(
@@ -203,7 +242,8 @@ def fetch_crypto_prices(
 
     if not candles:
         return None
-    # Candle format: [time, low, high, open, close, volume]
+    # Candle format: [time, low, high, open, close, volume], time in Unix seconds, newest first.
+    # Keyed by timestamp, so a candle returned by two chunks counts once.
     closes = pd.Series({pd.Timestamp(candle[0], unit="s"): float(candle[4]) for candle in candles}, name=benchmark).sort_index()
     path.parent.mkdir(parents=True, exist_ok=True)
     closes.to_csv(path)
@@ -212,6 +252,11 @@ def fetch_crypto_prices(
 
 def _is_gmx_stable_stable_pool(name: str, vault_slug: str) -> bool:
     """Whether a GMX GM swap pool trades two stablecoins.
+
+    A stablecoin-only swap pool has no crypto price exposure, so it is a
+    yield product and compared with the T-bill, like on the website. The
+    pool tokens are parsed from the vault name, as the export has no field
+    for them; ``₮`` in names like ``USD₮0`` is normalised to ``t``.
 
     :param name:
         Vault name, e.g. ``GM swap [USDC-USDT]``.
@@ -236,16 +281,25 @@ def _is_gmx_stable_stable_pool(name: str, vault_slug: str) -> bool:
 def select_benchmarks(vault: pd.Series, min_volatility: Percent, max_drawdown: Percent) -> tuple[str, ...]:
     """Choose the benchmarks a vault is compared with.
 
-    Follows the website's rules (``vault-price-benchmarks.ts``):
+    A benchmark should be the alternative a reader would otherwise hold: the
+    T-bill for a stablecoin yield product, BTC and ETH for a vault whose
+    returns depend on the crypto market. Called per vault in a performance
+    chart; the chart then draws the benchmarks used by at least half of its
+    vaults, see :py:func:`eth_defi.vault_report.charts.create_performance_figure`.
 
-    - perpetual futures vaults and GMX GLV and crypto GM pools: BTC and ETH;
-      GM BTC and ETH pools only their own asset
-    - GMX stablecoin-only swap pools: the Treasury bill
+    Follows the website's rules (``src/lib/top-vaults/vault-price-benchmarks.ts``
+    and ``isPerpetualFuturesVault.ts`` in the frontend), checked in order:
 
-    For other vaults, the rule depends on activity: a vault with three-month
-    volatility at or above ``min_volatility``, or a three-month drawdown at or
-    below ``max_drawdown``, behaves like a trading strategy and is compared
-    with BTC and ETH. Calm yield vaults are compared with the Treasury bill.
+    1. perpetual futures vaults, by flag or synthetic perp DEX chain id: BTC and ETH
+    2. GMX: GLV pools BTC and ETH; stablecoin-only swap pools the Treasury
+       bill; GM BTC and ETH pools only their own asset; other GM pools BTC and ETH
+
+    For other vaults, the website always uses the T-bill. The report adds an
+    activity rule: a vault with three-month volatility at or above
+    ``min_volatility``, or a three-month drawdown at or below
+    ``max_drawdown``, behaves like a trading strategy and is compared with
+    BTC and ETH. Calm yield vaults are compared with the Treasury bill.
+    Missing volatility or drawdown does not trigger the rule.
 
     :param vault:
         Vault metrics row with ``flags``, ``chain_id``, ``protocol_slug``,
@@ -286,6 +340,9 @@ def select_benchmarks(vault: pd.Series, min_volatility: Percent, max_drawdown: P
 def fetch_benchmark_indices(start_at: datetime.datetime, end_at: datetime.datetime, cache_dir: Path, treasury_yields: pd.Series | None) -> dict[str, pd.Series]:
     """Collect all benchmark value series for the performance charts.
 
+    Fetches every benchmark once per report, whichever vaults end up using
+    it, so the charts can be rendered without further network access.
+
     :param start_at:
         First day needed.
 
@@ -299,7 +356,10 @@ def fetch_benchmark_indices(start_at: datetime.datetime, end_at: datetime.dateti
         Output of :py:func:`fetch_treasury_bill_yields`, or ``None``.
 
     :return:
-        Benchmark name -> daily value series. Benchmarks without data are left out.
+        Benchmark name -> daily value series indexed by naive UTC date: the
+        T-bill as a value index, BTC and ETH as USD prices. The charts measure
+        each series as a change from its first value in the chart window, so
+        the units do not matter. Benchmarks without data are left out.
     """
     indices = {}
     if treasury_yields is not None:

@@ -1,26 +1,53 @@
 """Generate the monthly vault report bundle and publish it as a Ghost draft.
 
+This module is the orchestration layer of the monthly "The best-performing
+stablecoin vaults" blog post. It ties together the data loading
+(:py:mod:`~eth_defi.vault_report.data`), the vault selection
+(:py:mod:`~eth_defi.vault_report.sections`), the investability check
+(:py:mod:`~eth_defi.vault_report.vault_checks`), the chart rendering
+(:py:mod:`~eth_defi.vault_report.charts`, :py:mod:`~eth_defi.vault_report.branding`),
+the post templates (:py:mod:`~eth_defi.vault_report.post`) and the Ghost
+client (:py:mod:`~eth_defi.vault_report.ghost`). It is driven by
+``scripts/erc-4626/generate-monthly-vault-report.py``.
+
 Pipeline:
 
-1. :py:func:`eth_defi.vault_report.data.fetch_vault_report_data` loads vault metrics and prices
-2. :py:func:`generate_monthly_vault_report` ranks vaults, renders tables,
-   branded charts and the social hero image, and writes a local output bundle
-3. :py:func:`publish_report_draft` uploads the images to Ghost and creates a
-   draft post, which the editor completes in Ghost Admin
+1. :py:func:`eth_defi.vault_report.data.fetch_vault_report_data` loads the
+   top vaults export (the same JSON the website's vault dashboard renders, so
+   the report numbers match the website) and the cleaned vault price Parquet
+2. :py:func:`generate_monthly_vault_report` filters and ranks the vaults,
+   optionally runs the investability check, renders the tables, branded
+   charts and the social hero images, and writes a local output bundle
+3. :py:func:`publish_report_draft` uploads the images to Ghost and creates or
+   replaces an unpublished draft post, which the editor completes and
+   publishes by hand in Ghost Admin
 
-The post structure is described in ``eth_defi/vault_report/README-blog-post-outline.md``.
+The generation and the publishing are separate steps so the bundle can be
+reviewed locally (``preview.html``, ``GHOST_DRAFT=false``) without Ghost
+credentials, and so a failed upload never forces the minutes-long check and
+rendering to run again.
+
+The post structure and the editorial decisions behind it are described in
+``eth_defi/vault_report/README-blog-post-outline.md``; the operator workflow
+and the Ghost draft safety rules in ``README-vault-report.md`` and
+``README-best-vaults-news.md``.
 
 Output bundle layout::
 
     {output_dir}/
         post.html          Ghost post body, charts referenced by relative paths
         preview.html       Standalone page for reviewing the report in a browser
-        report.json        Title, slug, statistics and file listing
+        report.json        Title, slug, statistics, changelog candidates, check summary and Ghost draft link
         hero.png           1200×630 social image, a ready-made feature image for the editor
         hero-square.png    1080×1080 social image for X
         charts/*.png       Branded chart images
         tables/*.html      Individual tables
         tables/*.csv       Raw metrics of the listed vaults
+        tables/excluded.csv               Vaults the investability check left out, when it ran
+        {date}-excluded-vaults.md         Dated record of the excluded vaults, when the check ran
+        vault-check-*                     Investability check round files, when the check ran
+        podcasts/*.png     Podcast guest logo tiles and listening service icons
+        cache/             Logo and benchmark download cache, unless ``cache_dir`` is given
 """
 
 import dataclasses
@@ -107,11 +134,18 @@ PRICE_HISTORY = PERFORMANCE_WINDOW + SHARPE_WINDOW + datetime.timedelta(days=10)
 #: Vaults in the hero image
 HERO_VAULTS = 5
 
-#: History shown in the TVL by protocol chart
+#: History shown in the TVL by protocol, TVL by blockchain and NAV by tokenised fund charts
 TVL_HISTORY = datetime.timedelta(days=365)
 
 
-#: Raw metrics columns written to the per-section CSV files
+#: Raw metrics columns written to the per-section CSV files.
+#:
+#: The HTML tables show rounded, formatted values; the CSV files keep the
+#: exact export values (both net and gross returns, current and peak TVL,
+#: risk) so the editor and reviewers can check a surprising ranking without
+#: opening the top vaults JSON. Columns come from
+#: :py:func:`eth_defi.vault_report.data.prepare_vault_metrics` and
+#: :py:func:`eth_defi.vault_report.sections.classify_vault` (``group``).
 CSV_COLUMNS = [
     "id",
     "name",
@@ -138,7 +172,16 @@ CSV_COLUMNS = [
 
 @dataclass(slots=True, frozen=True)
 class ChartPanel:
-    """Header and footer texts of a branded chart panel."""
+    """Header and footer texts of a branded chart panel.
+
+    The Plotly figures carry no titles of their own: Kaleido renders only the
+    plot, and :py:func:`eth_defi.vault_report.branding.compose_chart_panel`
+    draws these texts with Pillow into the branded frame, so every chart in
+    the post has the same header, footer and margins whatever its Plotly
+    layout. Following the writing rules in ``README-blog-post-outline.md``,
+    the subtitle carries the selection rules that the title, axes and legend
+    do not show, which is why most sections need no criteria notes.
+    """
 
     #: Panel title, heading case
     title: str
@@ -152,7 +195,15 @@ class ChartPanel:
 
 @dataclass(slots=True)
 class GeneratedReport:
-    """Result of :py:func:`generate_monthly_vault_report`."""
+    """Result of :py:func:`generate_monthly_vault_report`.
+
+    Describes the local bundle and keeps the rendering inputs, so
+    :py:func:`publish_report_draft` can render the same post again with the
+    uploaded Ghost image URLs instead of the bundle's relative paths, without
+    repeating the data processing, the investability check or the chart
+    rendering. The command line script also reads :py:attr:`sections` and
+    :py:attr:`vault_checks` for its summary tables.
+    """
 
     #: Output bundle directory
     output_dir: Path
@@ -214,11 +265,21 @@ def format_usd(value: USDollarAmount) -> str:
 def calculate_report_stats(vaults_df: pd.DataFrame, eligible_df: pd.DataFrame, data_end_at: datetime.datetime) -> list[str]:
     """Create the summary statistics bullet points.
 
+    The bullets open the *Report content updates* section of the post, where
+    :py:func:`eth_defi.vault_report.post.build_post_html` bolds their figures.
+    The blockchain, protocol and vault counts describe the whole export, so
+    readers see the coverage of the dataset; the TVL is summed over the
+    eligible vaults only, so stale, broken and blacklisted vaults do not inflate it.
+
     :param vaults_df:
-        All vault metrics in the top vaults export.
+        All vault metrics in the top vaults export,
+        :py:attr:`eth_defi.vault_report.data.VaultReportData.vaults_df`.
+        Needs the ``chain``, ``protocol_identified`` and ``protocol_slug`` columns.
 
     :param eligible_df:
-        Vaults eligible for listings.
+        Vaults eligible for listings, output of
+        :py:func:`eth_defi.vault_report.sections.filter_eligible_vaults`.
+        Needs the ``current_nav`` column, in USD.
 
     :param data_end_at:
         Report data date.
@@ -227,7 +288,8 @@ def calculate_report_stats(vaults_df: pd.DataFrame, eligible_df: pd.DataFrame, d
         Plain text bullet points.
     """
     # Plain counts for readers, without qualifiers such as "identified" or "not blacklisted",
-    # and no list of denomination stablecoins; see the writing rules in README-blog-post-outline.md
+    # and no list of denomination stablecoins; see the writing rules in README-blog-post-outline.md.
+    # Generic ERC-4626 and unknown protocols are not counted as protocols, but their vaults are counted.
     protocol_count = vaults_df.loc[vaults_df["protocol_identified"], "protocol_slug"].nunique()
     return [
         f"{vaults_df['chain'].nunique()} blockchains and {protocol_count} vault protocols",
@@ -262,6 +324,8 @@ def make_vault_properties(vault: pd.Series, theme: ChartTheme, chain_logo: Calla
     properties = []
     curator, curator_slug = vault.get("curator_name"), vault.get("curator_slug")
     protocol = vault["protocol_label"]
+    # Curator columns are NaN for uncurated vaults; a curator matching the protocol by slug or
+    # by name, e.g. a protocol curating its own vaults, would repeat the same label and logo
     if isinstance(curator, str) and curator.strip() and curator_slug != vault["protocol_slug"] and curator.strip().lower() != protocol.lower():
         properties.append(VaultProperty(curator.strip(), load_protocol_logo_uri(curator_slug if isinstance(curator_slug, str) else None, theme)))
     properties.append(VaultProperty(protocol, load_protocol_logo_uri(vault["protocol_slug"], theme) if vault["protocol_identified"] else None))
@@ -300,11 +364,18 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     relies on its introduction, chart title and subtitle; see the writing
     rules in ``README-blog-post-outline.md`` before adding a note.
 
+    The TVL minimums and the activity requirement are formatted from
+    ``criteria``, so the notes cannot drift from the thresholds
+    :py:func:`eth_defi.vault_report.sections.select_group` and
+    :py:func:`eth_defi.vault_report.sections.select_new_vaults` apply.
+
     :param criteria:
         Report thresholds.
 
     :return:
-        Section key -> bullet point HTML strings.
+        Section key -> bullet point HTML strings. The strings are inserted
+        into the post unescaped, so they may contain links but must not
+        contain data from the export.
     """
     active = f"at least {criteria.min_events} deposit and redemption events"
     return {
@@ -319,10 +390,19 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
 def collect_top_lists(comparable_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, pd.DataFrame]:
     """Collect every top list of the report, with a buffer, for the investability check.
 
-    Uses the same selectors and ranking metrics as the tables
-    (:py:func:`build_report_sections`) and the charts (:py:func:`render_report_charts`),
-    each list extended by :py:attr:`ReportCriteria.check_buffer_ratio`, so
-    enough checked vaults remain after exclusions.
+    The investability check must see every vault a reader could see in a
+    ranking, so this function mirrors the selectors and ranking metrics of
+    the tables (:py:func:`build_report_sections`) and the charts
+    (:py:func:`render_report_charts`) rather than keeping its own candidate
+    rules, which would drift. Each list is extended by
+    :py:attr:`ReportCriteria.check_buffer_ratio`, so enough checked vaults
+    remain to fill the lists after exclusions. When a selector changes in
+    one of those functions, change it here too;
+    ``test_check_candidates_follow_report_selectors`` guards the match.
+
+    :py:func:`eth_defi.vault_report.vault_checks.run_vault_checks` calls this
+    once per check round with the vaults excluded so far dropped, so the next
+    round checks the vaults that move up into the lists.
 
     :param comparable_df:
         Eligible vaults with an identified protocol, excluded vaults already dropped.
@@ -332,17 +412,21 @@ def collect_top_lists(comparable_df: pd.DataFrame, criteria: ReportCriteria) -> 
 
     :return:
         List name -> ranked vaults, e.g. ``table:lending`` or ``chart:hero``.
+        The names appear in the check's candidate files, telling the agent and
+        the reviewer where a vault would be shown.
     """
     ratio = criteria.check_buffer_ratio
     table_depth = candidate_depth(criteria.top_n, ratio)
     chart_depth = candidate_depth(criteria.performance_chart_vaults, ratio)
     chain_depth = candidate_depth(criteria.chain_top_n, ratio)
+    # AMM pools are ranked only in their own best-performing section, see build_report_sections()
     ranked_df = exclude_amm_pools(comparable_df, criteria)
     lists = {}
     for section in BEST_SECTIONS:
         lists[f"table:{section.key}"] = select_group(comparable_df, criteria, section.group, by=section.metric).head(table_depth)
         lists[f"chart:{section.key}"] = select_performance_chart_vaults(comparable_df, criteria, section, chart_depth)
     lists["table:new"] = select_new_vaults(ranked_df, dataclasses.replace(criteria, top_n=table_depth))
+    # Same rule as select_vaults_by_chain(), but deeper per chain for the buffer
     by_chain = rank_vaults(ranked_df.loc[ranked_df["current_nav"] >= criteria.chain_min_tvl])
     lists["table:by_chain"] = by_chain.groupby("chain", sort=False).head(chain_depth)
     lists["chart:by_chain_best"] = select_chain_chart_vaults(ranked_df, dataclasses.replace(criteria, chain_top_n=chain_depth))
@@ -418,6 +502,14 @@ def select_hero_vaults(yield_universe: pd.DataFrame, criteria: ReportCriteria, d
     vaults above :py:attr:`ReportCriteria.hero_max_volatility` and Dangerous
     and worse vaults.
 
+    The hero image is the social preview of the post and a ready-made feature
+    image, seen by people who never open the post and its tables. It
+    therefore shows only calm, stablecoin-yield-like vaults: the filters keep
+    one-off return spikes and trading vaults off the image, which does not
+    state them; its footer shows only the minimum TVL and the data date. The
+    investability check covers this list as ``chart:hero``, see
+    :py:func:`collect_top_lists`.
+
     :param yield_universe:
         Output of :py:func:`eth_defi.vault_report.sections.select_yield_vaults`.
 
@@ -437,7 +529,19 @@ def select_hero_vaults(yield_universe: pd.DataFrame, criteria: ReportCriteria, d
 def run_report_checks(comparable_df: pd.DataFrame, data: VaultReportData, output_dir: Path, settings: VaultCheckSettings, criteria: ReportCriteria) -> CheckResult:
     """Run the investability check on the report's top lists and aggregate charts.
 
-    See :py:func:`eth_defi.vault_report.vault_checks.run_vault_checks`.
+    Some top-ranking vaults are not investable in practice, e.g. a Morpho
+    vault lending against a token with no market, and deciding that needs
+    research outside the export, so an LLM agent runs the
+    ``check-top-list-vaults`` skill, see
+    :py:func:`eth_defi.vault_report.vault_checks.run_vault_checks` and the
+    *Investability check* section of ``README-vault-report.md``.
+
+    This wrapper binds the report's own list selection,
+    :py:func:`collect_top_lists`, and passes the vaults of the average yield
+    charts as ``aggregate_df``: those charts draw every vault as a dot, too
+    many to research one by one, so their largest in-scope vaults are
+    prescreened with onchain probes and only the vaults that raise signals
+    go to the agent.
 
     :param comparable_df:
         Eligible vaults with an identified protocol.
@@ -491,18 +595,29 @@ def log_check_summary(result: CheckResult | None) -> None:
 def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> dict[str, ReportSection]:
     """Select vaults for all report tables.
 
+    One table per best-performing vault group in
+    :py:data:`~eth_defi.vault_report.post.BEST_SECTIONS`, ranked by the
+    group's :py:attr:`~eth_defi.vault_report.post.BestSection.metric`, plus
+    the *New vaults* and *Vaults on each chain* tables. The keys match
+    :py:attr:`eth_defi.vault_report.post.SectionTemplate.key`, so the post
+    template places each table under its heading. The investability check
+    selects its candidates with the same rules, see :py:func:`collect_top_lists`.
+
     :param eligible_df:
         Output of :py:func:`eth_defi.vault_report.sections.select_comparable_vaults`:
-        eligible vaults with an identified protocol.
+        eligible vaults with an identified protocol, with the vaults the
+        investability check excluded already dropped.
 
     :param criteria:
         Report thresholds.
 
     :return:
-        Section key -> section. Sections without vaults are omitted.
+        Section key -> section. Sections without vaults are omitted, which
+        leaves their headings out of the post.
     """
     sections = {section.key: ReportSection(select_group(eligible_df, criteria, section.group, by=section.metric).head(criteria.top_n)) for section in BEST_SECTIONS}
-    # AMM pools are ranked only in their own section unless included
+    # AMM pools move with the prices of their pooled crypto, so they are ranked only in their own
+    # section unless ReportCriteria.include_amm_pools is set
     ranked_df = exclude_amm_pools(eligible_df, criteria)
     sections["new"] = ReportSection(select_new_vaults(ranked_df, criteria))
     sections["by_chain"] = ReportSection(select_vaults_by_chain(ranked_df, criteria), CHAIN_TABLE_COLUMNS, numbered=False)
@@ -524,17 +639,56 @@ def render_report_charts(
 ) -> tuple[dict[str, Path], Path]:
     """Render all branded report charts and the hero images.
 
-    Optional inputs (logos, benchmarks) degrade gracefully: a missing input
-    leaves the element out of the chart.
+    Builds every chart of the post as a Plotly figure with its
+    :py:class:`ChartPanel` texts, then renders them in one batch: Kaleido
+    (headless Chrome, kept running by
+    :py:func:`eth_defi.vault_report.charts.chart_renderer` in the caller)
+    rasterises each plot, and
+    :py:func:`eth_defi.vault_report.branding.compose_chart_panel` frames it
+    with the brand header, footer, data date and live chart link. The chart
+    keys must match the chart keys of
+    :py:data:`eth_defi.vault_report.post.SECTION_TEMPLATES`, which place each
+    chart under its post heading:
+
+    - ``{section}_performance`` and ``new_performance``: 90-day equity curves,
+      or the rolling Sharpe ratio, of the best-performing groups and new
+      vaults against their benchmarks
+    - ``by_chain_best``: the two best vaults on each chain
+    - ``chain_yields``, ``protocol_yields``, ``protocol_high_yields``: the
+      *Yield by chain and protocol* dot plots against the US T-bill
+    - ``risk_return``: the volatility and return scatter
+    - ``protocol_tvl``, ``chain_tvl``, ``fund_nav``: 12-month weekly TVL and NAV
+    - ``tvl_changes``, ``chain_tvl_changes``: the 30-day inflows and outflows
+
+    The vault sets differ on purpose, following ``README-blog-post-outline.md``:
+    performance comparisons use only vaults with an identified protocol that
+    passed the investability check, and leave out Dangerous and worse risk
+    ratings, while the TVL totals use every eligible, non-blacklisted vault so
+    they match the website's TVL charts.
+
+    Data comes from the top vaults export (``eligible_df``, ``data.vaults_df``)
+    for the metrics and from the cleaned price Parquet (``data.prices_path``)
+    for the share price and TVL histories. The Parquet is about 250 MB, so
+    only the chart vaults' rows are read. Optional inputs (logos, BTC and ETH
+    benchmarks, the T-bill yield) degrade gracefully: a missing input leaves
+    the element out of the chart, so a third-party outage does not stop the
+    monthly report. A chart without data is left out, and the post template
+    then leaves out its section.
 
     :param data:
-        Report data, for the price file.
+        Report data, for the price file, the data date, the full vault list
+        and the strategy category labels.
 
     :param eligible_df:
-        Eligible vaults.
+        Eligible vaults, output of
+        :py:func:`eth_defi.vault_report.sections.filter_eligible_vaults`,
+        before the investability check: this function applies ``excluded``
+        itself, because the TVL totals keep the excluded vaults.
 
     :param sections:
-        Output of :py:func:`build_report_sections`.
+        Output of :py:func:`build_report_sections`. Decides which performance
+        charts are drawn, and the new vaults chart is picked from the
+        ``new`` table.
 
     :param criteria:
         Report thresholds.
@@ -567,14 +721,18 @@ def render_report_charts(
     # AMM pools are charted only in their own section unless included
     ranked_df = exclude_amm_pools(comparable_df, criteria)
     yield_universe = select_yield_vaults(ranked_df, criteria)
+    # The yield charts group vaults by protocol label; this maps a label back to its logo slug
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
     performance_vaults = {section: select_performance_chart_vaults(comparable_df, criteria, section, criteria.performance_chart_vaults) for section in BEST_SECTIONS if section.key in sections}
     new_chart_vaults = select_new_chart_vaults(sections["new"].vaults_df, criteria) if "new" in sections else empty
     hero_vaults = select_hero_vaults(yield_universe, criteria, HERO_VAULTS)
 
+    # One filtered Parquet read for every vault that needs a price line, instead of one read per chart
     chart_ids = set(hero_vaults.index) | set(new_chart_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
     share_prices = read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY)
+    # Two daily tables: interpolated prices draw smooth equity curves and sparklines for sparsely
+    # updated vaults, while forward-filled prices reproduce how the export calculates its 3M Sharpe ratio
     daily_prices = calculate_daily_share_prices(share_prices)
     sharpe_prices = calculate_daily_share_prices(share_prices, interpolate=False)
     if daily_prices.empty:
@@ -582,6 +740,7 @@ def render_report_charts(
         performance_vaults = {}
         new_chart_vaults = empty
 
+    # The latest T-bill yield is the risk-free reference line of the dot plots, the scatter and the per-chain chart
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     benchmark_indices = fetch_benchmark_indices(data.data_end_at - PRICE_HISTORY, data.data_end_at, cache_dir, tbill_yields)
 
@@ -592,6 +751,8 @@ def render_report_charts(
     high_yield_protocols = calculate_high_yield_protocols(average_yield_vaults, criteria)
     chain_logo_cache: dict[str, str | None] = {}
 
+    # Chain logos are downloaded from the website and needed by several charts and the vault
+    # properties; memoise them so each chain is fetched, or fails, once per run
     def chain_logo(chain: str) -> str | None:
         if chain not in chain_logo_cache:
             chain_logo_cache[chain] = fetch_chain_logo_uri(chain, cache_dir / "logos")
@@ -600,9 +761,12 @@ def render_report_charts(
     chain_logos = {chain: chain_logo(chain) for chain in chain_yields.index}
     protocol_group_logos = {name: load_protocol_logo_uri(protocol_slugs.get(name), theme) for name in protocol_yields.index.union(high_yield_protocols.index)}
 
+    # TVL history starts from the whole export, not eligible_df, and drops only blacklisted vaults,
+    # like the website's historical TVL charts, so the totals match the website
     tvl_vaults = select_tvl_history_vaults(data.vaults_df)
     tvl_history = read_vault_tvl_history(data.prices_path, list(tvl_vaults.index), start_at=data.data_end_at - TVL_HISTORY, end_at=data.data_end_at)
-    # DeFi vault protocols and tokenised funds are charted separately
+    # Tokenised funds are offchain money market, treasury and credit funds rather than DeFi strategies:
+    # they get their own NAV chart, and the DeFi TVL charts say "tokenised funds excluded"
     is_fund = tvl_vaults["group"] == TOKENISED_FUND
     defi_vaults, fund_vaults = tvl_vaults.loc[~is_fund], tvl_vaults.loc[is_fund]
     defi_history = tvl_history[tvl_history.columns.intersection(defi_vaults.index, sort=False)]
@@ -610,15 +774,20 @@ def render_report_charts(
     protocol_tvl = calculate_protocol_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     chain_tvl = calculate_chain_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
+    # Unidentified protocols are summed into "Other" by the TVL history helpers and get no logo
     tvl_vault_slugs = defi_vaults.loc[defi_vaults["protocol_identified"]].drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
+    # The fund NAV chart labels series by fund name, falling back to the address like the history helper
     fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
-    # Inflows and outflows leave out the vaults the investability check excluded; the TVL totals keep them
+    # Inflows and outflows name individual vaults, so they leave out the vaults the investability check
+    # excluded; the TVL totals keep them because the money is there whether or not we recommend the vault
     flow_vaults = apply_check_decisions(eligible_df, excluded)
     tvl_changes = calculate_tvl_changes(flow_vaults, criteria)
     chain_tvl_changes = calculate_chain_tvl_changes(flow_vaults, criteria)
-    # Curator, protocol and chain under each vault name, with their icons
+    # Built once for every vault any chart names (hero, performance legends, inflows and outflows),
+    # so the curator, protocol and chain labels and their logos are identical across charts
     vault_properties = {vault_id: make_vault_properties(eligible_df.loc[vault_id], theme, chain_logo) for vault_id in chart_ids | set(tvl_changes.index)}
-    # Trimmed logos get icon boxes of their own shape, so every icon sits the same distance from its text
+    # Logo files come with different transparent margins; trimmed logos get icon boxes of their own shape,
+    # so every icon sits the same distance from its text. Logos that fail to trim keep their original URI.
     trimmed_logos = trim_logos({prop.logo_uri for properties in vault_properties.values() for prop in properties if prop.logo_uri})
     vault_properties = {vault_id: tuple(replace(prop, logo_uri=trimmed_logos[prop.logo_uri][0], logo_aspect=trimmed_logos[prop.logo_uri][1]) if prop.logo_uri in trimmed_logos else prop for prop in properties) for vault_id, properties in vault_properties.items()}
 
@@ -665,6 +834,8 @@ def render_report_charts(
 
     benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
 
+    # Each vault picks its own benchmarks, following the website's rules: calm yield vaults against
+    # the T-bill, volatile and perp DEX vaults against BTC and ETH; see README-vault-report.md, Benchmarks
     def performance_series(df: pd.DataFrame) -> list[PerformanceSeries]:
         return [
             PerformanceSeries(
@@ -700,28 +871,33 @@ def render_report_charts(
             ),
         )
 
+    # The scatter needs both axes and the bubble size; dormant vaults would pile up on the log-scale edge
     risk_return_vaults = select_moving_vaults(exclude_chart_risks(select_risk_return_vaults(yield_universe, ranked_df, criteria), criteria)).dropna(subset=["three_months_volatility", "three_months_cagr_best", "current_nav"])
     if not len(risk_return_vaults):
         logger.warning("No vault has three-month volatility and return, leaving out the risk and return chart")
     else:
         risk_return_figure = create_risk_return_figure(risk_return_vaults, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest)
-        # Count the drawn vaults: outliers beyond the fitted axes are left out
+        # The subtitle counts the drawn vaults, not the selection: outliers beyond the fitted axes are left out
         drawn = sum(len(trace.x) for trace in risk_return_figure.data)
         figures["risk_return"] = (
             risk_return_figure,
             ChartPanel("Volatility risk and return of stablecoin vaults", f"{drawn} vaults with at least {format_usd(criteria.min_tvl)} TVL, larger bubbles hold more TVL", "tradingstrategy.ai/vaults/yield-risk"),
         )
 
+    # Rendering in headless Chrome takes most of a run without the investability check, so it runs last
+    # in one batch with a progress bar. The framed panel overwrites the raw Kaleido PNG at the same path.
     chart_dir = output_dir / "charts"
     chart_paths = {}
     for key, (fig, panel) in tqdm(figures.items(), desc="Rendering charts"):
         path = render_figure_png(fig, chart_dir / f"{key}.png", scale=CHART_SCALE)
         chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path, scale=CHART_SCALE)
 
+    # Hero images are drawn with Pillow, not Plotly, at fixed social image sizes
     sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
     sparklines = {vault_id: daily_prices.loc[daily_prices.index >= sparkline_start, vault_id] for vault_id in hero_vaults.index if vault_id in daily_prices.columns}
     # The column header already names the return; the risk and outlier filters are not repeated on the image
     hero_subtitle = f"≥ {format_usd(criteria.min_tvl)} TVL · {data_date}"
+    # The Plotly charts take logo data URIs, some of them SVG, which Pillow cannot draw, so the hero logos are rasterised
     hero_logos = rasterise_logos({prop.logo_uri for vault_id in hero_vaults.index for prop in vault_properties[vault_id] if prop.logo_uri})
     hero_properties = {vault_id: [(prop.text, hero_logos.get(prop.logo_uri)) for prop in vault_properties[vault_id]] for vault_id in hero_vaults.index}
     hero_path = output_dir / "hero.png"
@@ -747,8 +923,33 @@ def generate_monthly_vault_report(
 ) -> GeneratedReport:
     """Generate the report tables, charts and post body into a local bundle.
 
+    The first stage of the monthly workflow; :py:func:`publish_report_draft`
+    is the second. The steps run in this order because each one narrows the
+    input of the next:
+
+    1. Filter the export to eligible vaults (not blacklisted, known TVL and
+       return, data no older than ``max_data_age``) and to comparable vaults
+       (identified protocol). The TVL and activity minimums are applied
+       later, per table, by the selectors.
+    2. Run the investability check, when ``vault_checks`` is given, on the
+       top lists before any table is selected, so an excluded vault never
+       reaches a table, a chart or the hero image, and the next vault moves
+       up instead.
+    3. Select and render the tables, and check which vaults have a published
+       website sparkline for the "3M history" column.
+    4. Record the excluded vaults in a dated Markdown file. The post never
+       lists them; the file is committed with the report's pull request.
+    5. Render the charts and hero images, unless ``render_charts`` is off.
+    6. Copy the podcast images, render ``post.html`` and ``preview.html``
+       with bundle-relative image paths, and write ``report.json``.
+
+    Nothing here talks to the Ghost Admin API, so the bundle can be reviewed
+    in a browser before anything is uploaded, and rerun cheaply with cached
+    downloads and reused check decisions.
+
     :param data:
-        Loaded vault metrics and prices.
+        Loaded vault metrics and prices, output of
+        :py:func:`eth_defi.vault_report.data.fetch_vault_report_data`.
 
     :param output_dir:
         Where to write the bundle. Created if needed.
@@ -757,10 +958,15 @@ def generate_monthly_vault_report(
         Report thresholds. Defaults to :py:class:`~eth_defi.vault_report.sections.ReportCriteria` defaults.
 
     :param previous:
-        The previous report post, for continuity.
+        The previous report post, read with the Ghost Content API. The new
+        post links back to it and copies its evergreen sections, see
+        :py:func:`eth_defi.vault_report.post.build_post_html`. ``None`` uses
+        the default evergreen texts.
 
     :param changelog_entries:
-        Changelog entries to offer to the editor.
+        Changelog entries since the previous report, see
+        :py:func:`eth_defi.vault_report.post.read_changelog_entries`. Written
+        to ``report.json`` for the editor, never into the post.
 
     :param render_charts:
         Render PNG charts and the hero images. Needs Chrome for Kaleido.
@@ -772,7 +978,8 @@ def generate_monthly_vault_report(
         Cache for logos and benchmark data. Defaults to ``{output_dir}/cache``.
 
     :param check_sparklines:
-        Check which vaults have a published sparkline and show them in the tables.
+        Check which vaults have a published sparkline and show them in the
+        tables. Makes one HTTP HEAD request per listed vault to the website; tests turn it off.
 
     :param vault_checks:
         Run the investability check, see :py:mod:`eth_defi.vault_report.vault_checks`.
@@ -793,19 +1000,23 @@ def generate_monthly_vault_report(
     """
     criteria = criteria or ReportCriteria()
     cache_dir = cache_dir or output_dir / "cache"
+    # None when FRED is unreachable and nothing is cached; the charts then leave out the T-bill
     tbill_yields = fetch_treasury_bill_yields(cache_dir)
     (output_dir / "tables").mkdir(parents=True, exist_ok=True)
 
     data_end_at = data.data_end_at
     eligible_df = filter_eligible_vaults(data.vaults_df, data_end_at, criteria)
+    # Unidentified protocols are counted only in the TVL summaries, never ranked; their data is often broken
     comparable_df = select_comparable_vaults(eligible_df)
     check_result = None
     if vault_checks is not None:
         check_result = run_report_checks(comparable_df, data, output_dir, vault_checks, criteria)
         comparable_df = apply_check_decisions(comparable_df, check_result.excluded)
+    # render_report_charts() takes eligible_df and applies the exclusions itself, because the TVL totals keep excluded vaults
     excluded = check_result.excluded if check_result else frozenset()
     sections = build_report_sections(comparable_df, criteria)
     if check_sparklines:
+        # A vault without a published sparkline PNG gets an empty cell instead of a broken image
         sparkline_ids = frozenset(fetch_available_sparklines([vault_id for section in sections.values() for vault_id in section.vaults_df.index]))
         sections = {key: dataclasses.replace(section, sparkline_ids=sparkline_ids) for key, section in sections.items()}
 
@@ -818,13 +1029,16 @@ def generate_monthly_vault_report(
     month_label = make_month_label(data_end_at)
     title = make_report_title(month_label)
 
-    # Excluded vaults are not listed in the post: a dated Markdown document records them
+    # The writing rules keep excluded vaults out of the post; a dated Markdown document records them
+    # for the editor and is posted as a comment on the report's pull request
     excluded_vaults_path = None
     if check_result is not None:
         pd.DataFrame(excluded_rows(check_result)).to_csv(output_dir / "tables" / "excluded.csv", index=False)
         excluded_markdown = render_excluded_vaults_markdown(check_result, data_end_at, title)
         excluded_vaults_path = output_dir / f"{data_end_at:%Y-%m-%d}-excluded-vaults.md"
         excluded_vaults_path.write_text(excluded_markdown)
+        # The repository copy, eth_defi/vault_report/excluded-vaults/ by default, is committed as the
+        # month's audit trail; the reported path then points at it rather than at the temporary bundle
         if excluded_vaults_dir is not None:
             excluded_vaults_dir.mkdir(parents=True, exist_ok=True)
             excluded_vaults_path = excluded_vaults_dir / excluded_vaults_path.name
@@ -834,10 +1048,13 @@ def generate_monthly_vault_report(
 
     chart_paths, hero_path = {}, None
     if render_charts:
+        # One shared headless Chrome for the whole batch instead of one browser per image
         with chart_renderer():
             chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, tbill_yields, excluded)
 
     podcast_image_paths = prepare_podcast_images(podcasts or [], theme, output_dir)
+    # Images are referenced relative to the bundle, so post.html and preview.html work from disk;
+    # publish_report_draft() renders the post again with the uploaded Ghost URLs
     context = PostContext(
         month_label=month_label,
         stats=calculate_report_stats(data.vaults_df, eligible_df, data_end_at),
@@ -875,9 +1092,12 @@ def generate_monthly_vault_report(
 def prepare_podcast_images(episodes: list[PodcastEpisode], theme: ChartTheme, output_dir: Path) -> dict[str, Path]:
     """Write the podcast guests' logos and the service icons into the report bundle.
 
-    The logos come from the protocol and curator logo collection, so the post
+    Images for the *Latest podcasts* section of the post, rendered by
+    :py:func:`eth_defi.vault_report.podcasts.render_podcast_episodes`. The
+    logos come from the protocol and curator logo collection, so the post
     does not depend on the website serving them, and are drawn on dark tiles,
-    see :py:func:`eth_defi.vault_report.branding.render_logo_tile`. The YouTube
+    because many logos are white and would disappear in light newsletter
+    emails, see :py:func:`eth_defi.vault_report.branding.render_logo_tile`. The YouTube
     and Spotify icons are PNG renders of ``assets/podcast/*.svg``.
     :py:func:`publish_report_draft` uploads them to Ghost with the charts.
 
@@ -904,6 +1124,7 @@ def prepare_podcast_images(episodes: list[PodcastEpisode], theme: ChartTheme, ou
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ASSETS_DIR / "podcast" / f"{service}.png", target)
         paths[icon_image_key(service)] = target
+    # A guest may appear in several episodes: render each logo once, in episode order
     for slug in dict.fromkeys(episode.logo_slug for episode in episodes if episode.logo_slug):
         source = load_protocol_logo_path(slug, theme)
         if source is None:
@@ -916,11 +1137,24 @@ def prepare_podcast_images(episodes: list[PodcastEpisode], theme: ChartTheme, ou
 def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None = None, editor_url: str | None = None) -> Path:
     """Write ``report.json`` describing the bundle.
 
+    The machine-readable summary of a run, for the people and tools that
+    finish the post rather than for readers: the editor takes the changelog
+    candidates for *Report content updates* from it, the pull request review
+    comment takes the investability check results from it (see
+    ``README-best-vaults-news.md``), and the Ghost editor link points at the
+    draft to finish. Paths are relative to the
+    bundle, except the excluded vaults record, which may live in the
+    repository.
+
+    Written twice: by :py:func:`generate_monthly_vault_report` without a
+    draft, then again by :py:func:`publish_report_draft` with the draft id,
+    slug and editor link, so a bundle-only run still has a complete manifest.
+
     :param report:
         Generated report.
 
     :param ghost_post:
-        The Ghost draft, if published.
+        The Ghost draft, if one was created or updated.
 
     :param editor_url:
         Ghost Admin editor link of the draft.
@@ -940,6 +1174,7 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "sections": {key: len(section.vaults_df) for key, section in report.sections.items()},
         "charts": report.context.charts,
         "hero": report.hero_path.relative_to(report.output_dir).as_posix() if report.hero_path else None,
+        # render_report_charts() always writes the square image next to hero.png
         "hero_square": "hero-square.png" if report.hero_path else None,
         "previous_report_slug": previous.slug if previous else None,
         "ghost_draft": {"id": ghost_post.id, "slug": ghost_post.slug, "editor_url": editor_url} if ghost_post else None,
@@ -962,12 +1197,36 @@ def publish_report_draft(
 ) -> GhostPost:
     """Upload the images and create the Ghost draft post.
 
-    The feature image is left for the editor to choose; the bundle's
-    ``hero.png`` is a ready-made option. The draft is never published
-    automatically. An existing draft with the same slug is replaced only with
-    ``overwrite_draft``, and only when the record of the pipeline's last write
-    shows nobody has edited it since, because replacing it would lose manual
-    edits made in Ghost. After the write the record is updated.
+    The second stage of the monthly workflow, after
+    :py:func:`generate_monthly_vault_report`. Uses the
+    `Ghost Admin API <https://ghost.org/docs/admin-api/>`__ through
+    :py:class:`~eth_defi.vault_report.ghost.GhostAdminClient`.
+
+    Safety properties, see the *Ghost post draft* section of
+    ``README-best-vaults-news.md``:
+
+    - The draft is never published: publishing is a manual step in Ghost.
+    - A published or scheduled post with the same slug is never touched.
+    - An existing draft with the same slug is replaced only with
+      ``overwrite_draft``, and only when the record of the pipeline's last
+      write shows nobody has edited it since, because replacing it would lose
+      the editor's work in Ghost. ``force_overwrite`` skips the comparison.
+    - The feature image is left for the editor to choose and never sent, so
+      a replaced draft keeps it; the bundle's ``hero.png`` is a ready-made option.
+
+    Order of operations: the overwrite guard runs first, so a refused write
+    fails before any image is uploaded and leaves no orphan images in the
+    Ghost media library. The guard runs again inside
+    :py:meth:`~eth_defi.vault_report.ghost.GhostAdminClient.create_or_update_draft`,
+    right before the write, in case the editor saved the draft during the
+    uploads. The post is then rendered again from the same
+    :py:class:`~eth_defi.vault_report.post.PostContext` with the uploaded
+    image URLs, so the draft and the local ``post.html`` differ only in
+    their image sources.
+
+    After the write the :py:class:`~eth_defi.vault_report.ghost.DraftRecord`
+    is updated, so the next run can tell its own write from an editor's edit,
+    and ``report.json`` gets the draft link.
 
     :param report:
         Output of :py:func:`generate_monthly_vault_report`.
@@ -986,15 +1245,21 @@ def publish_report_draft(
 
     :param draft_record_path:
         JSON record of the pipeline's last write to this draft, see
-        :py:class:`~eth_defi.vault_report.ghost.DraftRecord`. Without it, an
+        :py:class:`~eth_defi.vault_report.ghost.DraftRecord`; the script keeps
+        it at ``{CACHE_DIR}/ghost-drafts/{slug}.json``. Without it, an
         existing draft is replaced only with ``force_overwrite``.
 
     :return:
         The Ghost draft post.
+
+    :raise eth_defi.vault_report.ghost.GhostAPIError:
+        The slug belongs to a published or scheduled post, or to a draft that
+        may not be overwritten, or a Ghost request failed.
     """
     last_write = DraftRecord.load(draft_record_path) if draft_record_path else None
     # Fail before uploading images if the draft cannot be written
     admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force_overwrite)
+    # Every run uploads fresh copies, so a replaced draft never points at the images of an earlier run
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
     podcast_image_urls = {key: admin_client.upload_image(path) for key, path in report.podcast_image_paths.items()}
     body = build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls))
@@ -1009,6 +1274,9 @@ def publish_report_draft(
         force=force_overwrite,
     )
     if draft_record_path:
+        # Fingerprint the HTML we sent, not Ghost's converted HTML: the fingerprint is designed to be equal
+        # for both. updated_at and the feature image come from Ghost's response, so any later save triggers
+        # the text comparison and a feature image the editor adds counts as an edit.
         DraftRecord(post_id=post.id, updated_at=post.updated_at, fingerprint=fingerprint_post_text(body), title=report.title, custom_excerpt=report.excerpt, feature_image=post.feature_image).save(draft_record_path)
     write_report_manifest(report, post, admin_client.get_editor_url(post))
     return post

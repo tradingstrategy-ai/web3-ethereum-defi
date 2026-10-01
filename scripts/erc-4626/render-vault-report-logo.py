@@ -86,6 +86,14 @@ def build_logo_svg(source: str) -> str:
 def render_logo_png(svg: str, text_colour: str, path: Path) -> Path:
     """Render the logo SVG to a transparent PNG with the given wordmark colour.
 
+    Pillow, which draws the panel footers and hero images, cannot read SVG.
+    Rather than add an SVG rasteriser dependency such as cairosvg, the logo is
+    drawn as a Plotly layout image and rendered by Kaleido's headless Chrome,
+    which the charts need anyway, so the PNG matches the browser's rendering of
+    the website logo. The figure is sized to the logo's aspect ratio with a
+    small margin, and the margin is cropped off afterwards, so the PNG holds
+    only the logo and the footer can align it by its edges.
+
     :param svg:
         Logo SVG content.
 
@@ -98,6 +106,7 @@ def render_logo_png(svg: str, text_colour: str, path: Path) -> Path:
     :return:
         ``path``.
     """
+    # Only the wordmark changes colour between themes; the brand mark keeps its own colours
     recoloured = re.sub(r'(class="logotype" fill=")#[0-9A-Fa-f]{6}', rf"\g<1>{text_colour}", svg)
     view_width = float(re.search(r'viewBox="0 0 ([0-9.]+) 60"', svg).group(1))
     fig = go.Figure()

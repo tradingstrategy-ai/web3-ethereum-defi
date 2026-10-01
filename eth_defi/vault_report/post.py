@@ -2,8 +2,9 @@
 
 The post body is Ghost-compatible HTML:
 
-- Tables are wrapped in ``<!--kg-card-begin: html-->`` comments, which
-  Ghost imports as raw HTML cards
+- Tables, the podcast list and the table of contents placeholder are wrapped
+  in ``<!--kg-card-begin: html-->`` comments, which Ghost imports as raw HTML
+  cards, keeping their markup intact
 - Charts are Ghost image cards
 - The post has no editor callouts. The parts the editor writes (the month's
   highlight, the report content updates, community news and commentary, the
@@ -17,6 +18,19 @@ by organisation, not by X handle.
 The section order, headings, introductions and notes follow the *Writing
 rules* in ``README-blog-post-outline.md``: keep them when changing the
 templates below, and update the rules when a decision changes.
+
+The templates are data, not code: :py:data:`BEST_SECTIONS` defines each ranked
+vault group once, and :py:data:`SECTION_TEMPLATES` the order and text of every
+data section. :py:func:`build_post_html` walks the templates and includes a
+section only when its table or one of its charts was generated, so a missing
+input (no prices, a failed benchmark download, an empty group) silently
+removes a section instead of leaving an empty heading in the post.
+
+:py:func:`build_post_html` is called twice per run by
+:py:mod:`eth_defi.vault_report.report`: once with bundle-relative image paths
+for ``post.html`` and the local preview, and once with the uploaded Ghost
+image URLs for the draft. It is a pure function of :py:class:`PostContext`,
+so both renderings have the same text.
 """
 
 import datetime
@@ -31,7 +45,9 @@ from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
 from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls, web_link
 
-#: Slug prefix of the monthly report posts
+#: Slug prefix of the monthly report posts. The Content API finds the previous
+#: report by this prefix, so changing it breaks the month-to-month continuity
+#: of the evergreen sections and the link to the previous report.
 REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
 
 #: Vault pages on the website, linked from the section introductions
@@ -65,6 +81,10 @@ PARTNERS = (
 def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) -> str:
     """Render the *Partners* section, thanking each partner by name with a link.
 
+    Rendered from :py:data:`PARTNERS` every month rather than copied from the
+    previous post like the other evergreen sections, because earlier posts
+    named partners by X handle; the writing rules name them by organisation.
+
     :param partners:
         (organisation name, link) pairs.
 
@@ -76,7 +96,13 @@ def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) ->
     return f'<h2 id="partners">Partners</h2><p>We want to thank our partners {names} for getting this report together.</p>'
 
 
-#: Evergreen sections used when there is no previous post to copy them from, by heading id
+#: Evergreen sections used when there is no previous post to copy them from, by heading id.
+#:
+#: Normally :py:func:`build_post_html` copies these sections from the previous
+#: report, so the editor's wording in Ghost carries over. The defaults cover a
+#: run without the Ghost Content API (local previews, tests) or a previous post
+#: that lacks the heading; the editor can then fix the text in Ghost once and
+#: later reports inherit it.
 DEFAULT_EVERGREEN_SECTIONS = {
     "about-the-report": ('<h2 id="about-the-report">About the report</h2><p>In this post, we examine the performance of DeFi vaults. Vaults can be considered "self-custodial investment strategies" in traditional finance: vaults are smart contracts that enable users to deposit funds from their cryptocurrency wallets and trade a predefined strategy with investors\' money.</p>'),
     "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Visit our <a href="https://tradingstrategy.ai/vaults">vaults page</a> for real-time dashboards. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
@@ -87,9 +113,16 @@ DEFAULT_EVERGREEN_SECTIONS = {
 class SectionTemplate:
     """Static content of one data section of the post.
 
-    A section is included when its table or any of its charts exists. A
-    grouping heading, see :py:attr:`group`, is included when any of its
-    subsections is.
+    :py:func:`build_post_html` renders a section as its heading, introduction,
+    criteria notes, charts and table, in that order. A section is included
+    when its table or any of its charts exists. A grouping heading, see
+    :py:attr:`group`, is included when any of its subsections is, so the post
+    never shows a heading with nothing under it.
+
+    The writing rules give every section an introduction paragraph that
+    links to the matching tradingstrategy.ai page or glossary entry, except
+    *The best-performing vaults*, which goes straight to its subsections;
+    ``test_every_section_introduces_itself_with_website_links`` enforces it.
     """
 
     #: Section key: the table key in :py:attr:`PostContext.tables` and the section notes key
@@ -120,7 +153,14 @@ class BestSection:
 
     The single definition of a best-performing section. The tables, the chart
     selection, the chart panel, the criteria notes and the post section are all
-    derived from it, see :py:data:`BEST_SECTIONS`.
+    derived from it, see :py:data:`BEST_SECTIONS`. Keeping them in one place
+    means a new vault group, or a changed ranking metric, cannot leave the
+    table, the chart and the investability check candidates
+    (:py:func:`eth_defi.vault_report.report.collect_top_lists`) out of step.
+
+    Tables rank by the one-month return like the website's live ranking,
+    while the charts rank by the steadier three-month return, see
+    :py:attr:`chart_metric`, so the two lists of a section may differ.
     """
 
     #: Section key, e.g. ``lending``: the table and criteria notes key
@@ -177,7 +217,9 @@ class BestSection:
 NEW_VAULTS_CHART = "new_performance"
 
 #: Best-performing vault groups, each with a table and a performance chart;
-#: :py:data:`SECTION_TEMPLATES` sets their display order
+#: :py:data:`SECTION_TEMPLATES` sets their display order. Perpetual futures DEX
+#: vaults appear twice, ranked by return and by Sharpe ratio, because a raw
+#: return ranking of trading vaults favours the most volatile ones.
 BEST_SECTIONS = (
     BestSection(
         key="lending",
@@ -367,7 +409,14 @@ SECTION_TEMPLATES = (
 
 @dataclass(slots=True)
 class PostContext:
-    """Everything needed to render the post body."""
+    """Everything needed to render the post body.
+
+    Built by :py:func:`eth_defi.vault_report.report.generate_monthly_vault_report`
+    with bundle-relative image paths, and copied by
+    :py:func:`eth_defi.vault_report.report.publish_report_draft` with the
+    uploaded Ghost image URLs. Only :py:attr:`charts` and
+    :py:attr:`podcast_images` differ between the two.
+    """
 
     #: E.g. ``September 2026``
     month_label: str
@@ -375,7 +424,9 @@ class PostContext:
     #: Summary statistics bullet points for the report content updates section, plain text
     stats: list[str]
 
-    #: Section key -> rendered HTML table. Sections without vaults are absent.
+    #: Section key -> rendered HTML table, see
+    #: :py:func:`eth_defi.vault_report.sections.render_section_table`, which
+    #: escapes the vault data. Sections without vaults are absent.
     tables: dict[str, str]
 
     #: Chart key -> image URL or relative path. Charts that were not rendered are absent.
@@ -384,7 +435,8 @@ class PostContext:
     #: Section or chart key -> bullet points describing the selection criteria; only what the chart and table do not show
     criteria_notes: dict[str, list[str]]
 
-    #: Previous report post, if found
+    #: Previous report post with its HTML body, from the Ghost Content API, if found.
+    #: Source of the evergreen sections and of the "previous report" link.
     previous: GhostPost | None = None
 
     #: Latest podcast episodes, newest first; the section is left out when empty
@@ -434,7 +486,16 @@ def make_report_slug(data_end_at: datetime.datetime) -> str:
 def extract_section_html(post_html: str, heading_id: str) -> str | None:
     """Extract a ``<h2>`` section, up to the next ``<h2>``, from post HTML.
 
-    Ghost ``?ref=...ghost.io`` tracking parameters are removed from the links.
+    Used to carry the evergreen sections (*About the report*, *Next steps*)
+    over from the previous report, so wording the editor improved in Ghost is
+    not lost the next month. The copied HTML is cleaned of what Ghost and
+    older posts leave behind: ``?ref=...ghost.io`` tracking parameters,
+    vault links at their legacy ``/trading-view/`` paths and empty paragraphs.
+
+    A regular expression is enough here, rather than an HTML parser, because
+    Ghost renders headings with the ``id`` as their first attribute and a
+    section ends at the next ``<h2`` or at the end of the post (*Next steps*
+    is the last section).
 
     :param post_html:
         Full post HTML from the Ghost API.
@@ -448,8 +509,6 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
     match = re.search(rf'<h2 id="{re.escape(heading_id)}">.*?(?=<h2 |$)', post_html, flags=re.DOTALL)
     if not match:
         return None
-    # Previous posts may link to vault pages at their old /trading-view/ paths,
-    # and the Ghost editor leaves empty paragraphs behind
     return re.sub(r"<p>\s*</p>", "", canonical_vault_urls(strip_ghost_ref(match.group(0)))).strip()
 
 
@@ -458,7 +517,10 @@ def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords:
 
     Offers the editor a starting point for the *report content updates* section.
     Only ``feat: Add ...`` entries are considered, as refactors and
-    performance work are not interesting to report readers.
+    performance work are not interesting to report readers. The command line
+    script reads entries since the previous report's publication date and
+    passes them to ``report.json``; the post itself never lists them, because
+    the editor picks and rewrites the ones worth telling readers about.
 
     :param changelog_path:
         Path to ``CHANGELOG.md``, entries formatted as ``- feat: Add something (YYYY-MM-DD)``.
@@ -517,8 +579,14 @@ def _bullets(items: list[str]) -> str:
 def _bold_numbers(text: str) -> str:
     """Bold the figures in a summary statistics bullet point, as in the earlier reports.
 
+    The statistics are generated as plain text by
+    :py:func:`eth_defi.vault_report.report.calculate_report_stats`, so they
+    can be logged and stored in ``report.json``; the bolding is presentation
+    and happens only here. ISO dates are matched first, so a date is bolded
+    as one figure rather than as three numbers.
+
     :param text:
-        HTML-escaped text, e.g. ``29 blockchains and 116 identified vault protocols``.
+        HTML-escaped text, e.g. ``29 blockchains and 116 vault protocols``.
 
     :return:
         HTML with dates, dollar amounts and counts in ``<strong>``.
@@ -529,14 +597,43 @@ def _bold_numbers(text: str) -> str:
 def build_post_html(context: PostContext) -> str:
     """Render the report post body.
 
+    The post follows the structure in the *Writing rules* of
+    ``README-blog-post-outline.md``:
+
+    1. Opening paragraph and the Ghost table of contents placeholder
+    2. *About the report*, copied from the previous post
+    3. *Report content updates*: a link to the previous report and the
+       generated statistics; the editor writes the month's integrations
+       under the opening sentence
+    4. *DeFi vault community news*: an introduction only, the editor writes the news
+    5. *Latest podcasts*, when episodes were read
+    6. The data sections of :py:data:`SECTION_TEMPLATES`, each only when it has content
+    7. *Partners*, rendered from :py:data:`PARTNERS`, and *Next steps*,
+       copied from the previous post
+
+    The post has no editor callouts or placeholders: the sections the
+    editor completes are listed in the editor workflow of
+    ``README-vault-report.md`` instead.
+
+    Tables and the podcast list are wrapped in ``<!--kg-card-begin: html-->``
+    comments so Ghost imports each as one raw HTML card and keeps its
+    markup, see
+    :py:meth:`eth_defi.vault_report.ghost.GhostAdminClient.create_or_update_draft`.
+    Charts become Ghost image cards.
+
+    Vault data reaches the HTML already escaped by the table renderer; the
+    criteria notes and the templates are trusted HTML from this repository.
+
     :param context:
-        Report content.
+        Report content. Image references may be bundle-relative paths or
+        uploaded URLs; the text is the same either way.
 
     :return:
         Ghost-compatible post HTML.
     """
     month = html.escape(context.month_label)
 
+    # Copy from the previous post when it has the section, so the editor's wording carries over
     def _evergreen(heading_id: str) -> str:
         section = extract_section_html(context.previous.html or "", heading_id) if context.previous else None
         return section or DEFAULT_EVERGREEN_SECTIONS[heading_id]
@@ -550,6 +647,7 @@ def build_post_html(context: PostContext) -> str:
 
     if context.previous:
         previous_month = context.previous.published_at.strftime("%B %Y")
+        # Link the public blog domain, not the ghost.io URL the API returns
         previous_url = f"{BLOG_URL}/{context.previous.slug}"
         parts.append(f'<p>Since the <a href="{html.escape(previous_url)}">previous report</a> is from {previous_month}, we have updated the report as follows:</p>')
     else:
@@ -564,7 +662,7 @@ def build_post_html(context: PostContext) -> str:
         f'<p>Highlights of what happened in the DeFi vault industry in the last month. Read more news and research on our <a href="{BLOG_URL}">blog</a>.</p>',
     ]
 
-    # News before the data analytics sections
+    # News before the data analytics sections; without the Content API there are no episodes and no section
     if context.podcasts:
         parts += [
             '<h2 id="latest-podcasts">Latest podcasts</h2>',
@@ -577,7 +675,9 @@ def build_post_html(context: PostContext) -> str:
 
     for index, template in enumerate(SECTION_TEMPLATES):
         if template.group:
-            # A grouping heading is shown when any subsection up to the next heading of its level is
+            # A grouping heading is shown when any subsection up to the next heading of its level is.
+            # Subsections are found by position, not by an explicit parent key, so the flat
+            # SECTION_TEMPLATES order is the single source of the post's outline.
             subsections = itertools.takewhile(lambda sub: sub.level > template.level, SECTION_TEMPLATES[index + 1 :])
             if not any(_has_content(sub) for sub in subsections):
                 continue
@@ -595,6 +695,12 @@ def build_post_html(context: PostContext) -> str:
 
 def build_preview_html(title: str, post_html: str, feature_image: str | None = None) -> str:
     """Wrap the post body into a standalone HTML page for local preview.
+
+    Lets the operator and reviewers read the generated post from the bundle
+    with a browser, e.g. with ``GHOST_DRAFT=false`` or when the Ghost site is
+    private. The minimal light stylesheet only makes tables and images
+    readable; it does not reproduce the blog's dark theme, so check the final
+    look in the Ghost editor.
 
     :param title:
         Post title.
