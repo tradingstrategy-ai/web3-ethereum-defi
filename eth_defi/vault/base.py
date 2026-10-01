@@ -1110,6 +1110,17 @@ class VaultHistoricalReader(ABC):
         self.reader_state: BatchCallState | None = None
 
     @property
+    def share_price_change_threshold(self) -> Percent:
+        """Return this reader's sparse share-price comparison threshold.
+
+        Event-only readers may require every exact price change; ordinary
+        readers retain the existing ten-basis-point suppression threshold.
+
+        :return: Non-negative relative suppression threshold.
+        """
+        return DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD
+
+    @property
     def uses_contextual_history(self) -> bool:
         """Return whether this reader supplies protocol-sourced observations.
 

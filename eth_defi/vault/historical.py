@@ -691,7 +691,7 @@ class VaultHistoricalReadMulticaller:
             """
 
             if reader.uses_share_price_equivalence:
-                return current.is_share_price_almost_equal(previous)
+                return current.is_share_price_almost_equal(previous, reader.share_price_change_threshold)
             return current.is_almost_equal(previous)
 
         skipped_results = 0

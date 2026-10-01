@@ -16,10 +16,13 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.frankencoin.constants import FRANKENCOIN_SHARES_ADDRESS, FRANKENCOIN_SHARES_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinSharesVault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
@@ -323,6 +326,7 @@ AAVE_ATOKEN_VAULTS_BY_CHAIN: dict[int, frozenset[HexAddress]] = {
 }
 #: Frankencoin hardcoded classification flags.
 FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankencoin_like} for address in FRANKENCOIN_SAVINGS_VAULTS}
+FRANKENCOIN_HARDCODED_PROTOCOLS[FRANKENCOIN_SHARES_ADDRESS] = {ERC4626Feature.frankencoin_fcs_like}
 
 #: Vault Street hardcoded classification flags.
 #:
@@ -385,6 +389,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address in ANTARCTIC_BY_ADDRESS:
+        return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
+    if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
+        return FRANKENCOIN_HARDCODED_PROTOCOLS[normalised_address] if chain_id == FRANKENCOIN_SHARES_CHAIN_ID else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
 
@@ -2255,6 +2263,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.antarctic_like in features:
+        from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
+
+        return AntarcticVault(web3, spec, **kwargs)
     elif ERC4626Feature.rysk_premium_like in features:
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
@@ -2410,6 +2422,8 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 
         return SparkVault(web3, spec, **kwargs)
+    elif ERC4626Feature.frankencoin_fcs_like in features:
+        return FrankencoinSharesVault(web3, spec, **kwargs)
     elif ERC4626Feature.frankencoin_like in features:
         from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FrankencoinVault
 
@@ -2775,6 +2789,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,

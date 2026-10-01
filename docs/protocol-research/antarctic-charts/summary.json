@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-09-30T12:00:56.129800",
+  "chain_id": 42161,
+  "end_block_exclusive": 510301933,
+  "source": "Hypersync AddLiquidity; last canonical log per block",
+  "equity_basis": "first observed subscription share price = 100; staking excluded",
+  "tvl_basis": "handler-reported pre-batch TVL in USDT; bootstrap zero is unknown",
+  "vaults": [
+    {
+      "product": "AMLP",
+      "address": "0x152f5e6142db867f905a68617dbb6408d7993a4b",
+      "manager": "0x98a6aee58699e4f4e13d8d8d0800e4e9cbbcf8dd",
+      "observations": 522,
+      "first_observed_at": "2025-01-07T05:08:09",
+      "last_observed_at": "2026-09-16T14:11:25",
+      "last_observed_block": 505781464,
+      "last_share_price_usdt": 0.8961048190644889,
+      "share_price_return_percent": -10.389518093551104,
+      "last_reported_tvl_usdt": 6253637.183332
+    },
+    {
+      "product": "AHLP",
+      "address": "0x5fd22da8315992dbbd82d5ac1087803ff134c2c4",
+      "manager": "0xc5f9d4b9f68caaa869317baa09a233b22940bd9f",
+      "observations": 34,
+      "first_observed_at": "2025-07-15T13:48:33",
+      "last_observed_at": "2026-09-10T07:04:17",
+      "last_observed_block": 503631188,
+      "last_share_price_usdt": 1.0197644899638512,
+      "share_price_return_percent": 1.9764489963851162,
+      "last_reported_tvl_usdt": 3182499.724032
+    }
+  ]
+}

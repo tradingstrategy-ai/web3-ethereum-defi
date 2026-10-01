@@ -1,0 +1,20 @@
+# Antarctic curator - reuse the protocol feeder and its logo.
+# The exchange documents AMLP/AHLP as its own liquidity system; no separate
+# third-party curator is disclosed. Reviewed on 2026-09-30.
+feeder-id: antarctic
+name: Antarctic
+role: curator
+canonical-feeder-id: antarctic
+short_description: Antarctic operates a perpetual futures exchange with market-making and hedging liquidity pools.
+long_description: |
+  [Antarctic Exchange](https://www.antarctic.exchange/) operates a perpetual futures exchange.
+  Its [dual-vault liquidity system](https://docs.antarctic.exchange/antarctic-overview/liquidity-provider-protection)
+  comprises AMLP for market-making and AHLP for hedging.
+  The exchange's [hybrid liquidity model](https://docs.antarctic.exchange/technical-framework/hybird-lp-model)
+  combines smart-contract deposits and redemptions with offchain components; no separate
+  third-party curator is disclosed for these products.
+other-links:
+  - title: Antarctic documentation - AMLP and AHLP are the exchange's dual-vault liquidity system
+    url: https://docs.antarctic.exchange/antarctic-overview/liquidity-provider-protection
+  - title: Antarctic documentation - smart-contract settlement and offchain liquidity operations
+    url: https://docs.antarctic.exchange/technical-framework/hybird-lp-model

@@ -32,6 +32,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
@@ -66,6 +67,7 @@ HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 
 #: Protocol deployments that cannot be discovered from supported vault events.
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("Antarctic", ANTARCTIC_HARDCODED_LEADS),
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
     ("Fidelity FDIT", FDIT_HARDCODED_LEADS),

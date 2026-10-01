@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_CHAIN_ID, ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
@@ -16,6 +17,27 @@ from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
+
+
+def test_identify_antarctic_vaults_as_protocol_curated() -> None:
+    """Resolve both reviewed pools to Antarctic's canonical protocol feeder.
+
+    The alias supplies organisation descriptions and reuses the existing logo
+    and feed sources, without inventing a separate third-party manager.
+
+    :return:
+        ``None``. Assertions cover attribution and frontend metadata export.
+    """
+    for deployment in ANTARCTIC_DEPLOYMENTS:
+        assert identify_curator(ANTARCTIC_CHAIN_ID, deployment.product.upper(), "", deployment.address, "antarctic") == "antarctic"
+    assert is_protocol_curator("antarctic")
+    assert get_curator_name("antarctic") == "Antarctic"
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/antarctic.yaml"), public_url="https://example.invalid")
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "antarctic"
+    assert metadata["short_description"] and metadata["long_description"]
+    assert metadata["twitter"] == "https://x.com/Antarctic_EX"
+    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/antarctic/light.png"
 
 
 def test_identify_pallas_vaults_as_protocol_curated() -> None:

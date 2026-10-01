@@ -92,7 +92,7 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
-    assert metadata["short_description"] == "Flying Tulip uses [lending, staking and market-neutral strategies](https://docs.flyingtulip.com/product-suite/ft-usd/) to generate yield and FT rewards for sftUSD holders."
+    assert metadata["short_description"] == "Flying Tulip uses lending, staking and market-neutral strategies to generate yield and FT rewards for sftUSD holders."
     assert "founded by [Andre Cronje]" in metadata["long_description"]
     assert "$200 million private round" in metadata["long_description"]
     assert "0.07%" in metadata["fee_description"]
