@@ -154,6 +154,11 @@ duckdb = {version = "^1.4.2", optional = true}
 feedparser = {version = "^6.0.11", optional = true}
 # X/Twitter API v2 client for tweet collection
 tweepy = {version = "^4.14", optional = true}
+# Parse edited Ghost posts and hand-edited tweet campaign YAML.
+beautifulsoup4 = {version = "^4.14", optional = true}
+PyYAML = {version = "^6.0", optional = true}
+# X-compatible weighted text/emoji/URL validation, ported from twitter-text.
+twitter-text-parser = {version = "^3.0", optional = true}
 # LZ4 decompression for Hyperliquid S3 archive backfill
 lz4 = {version = "^4.3.0", optional = true}
 # Google Sheets sync for Hyperliquid manual vault review workflow
@@ -202,7 +207,7 @@ test = ["pytest-xdist"]
 ccxt = ["ccxt"]
 cloudflare_r2 = ["boto3", "brotli"]
 duckdb = ["duckdb"]
-posts = ["duckdb", "feedparser", "tweepy"]
+posts = ["duckdb", "feedparser", "tweepy", "beautifulsoup4", "PyYAML", "twitter-text-parser"]
 hyperliquid_backfill = ["boto3", "lz4", "duckdb"]
 gsheets = ["gspread"]
 hypersync = ["hypersync"]

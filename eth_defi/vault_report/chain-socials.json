@@ -1,0 +1,99 @@
+{
+  "1": {
+    "name": "Ethereum",
+    "chain_id": 1,
+    "aliases": [
+      "Ethereum"
+    ],
+    "handle": "ethdotorg",
+    "profile": "https://x.com/ethdotorg",
+    "official_source": "https://ethereum.org",
+    "verified_at": null,
+    "user_id": null
+  },
+  "42161": {
+    "name": "Arbitrum",
+    "chain_id": 42161,
+    "aliases": [
+      "Arbitrum"
+    ],
+    "handle": "arbitrum",
+    "profile": "https://x.com/arbitrum",
+    "official_source": "https://arbitrum.foundation",
+    "verified_at": null,
+    "user_id": null
+  },
+  "8453": {
+    "name": "Base",
+    "chain_id": 8453,
+    "aliases": [
+      "Base"
+    ],
+    "handle": "base",
+    "profile": "https://x.com/base",
+    "official_source": "https://base.org",
+    "verified_at": null,
+    "user_id": null
+  },
+  "143": {
+    "name": "Monad",
+    "chain_id": 143,
+    "aliases": [
+      "Monad"
+    ],
+    "handle": "monad",
+    "profile": "https://x.com/monad",
+    "official_source": "https://monad.xyz",
+    "verified_at": null,
+    "user_id": null
+  },
+  "999": {
+    "name": "HyperEVM",
+    "chain_id": 999,
+    "aliases": [
+      "Hyperliquid",
+      "HyperEVM"
+    ],
+    "handle": "hyperliquidx",
+    "profile": "https://x.com/hyperliquidx",
+    "official_source": "https://hyperliquid.xyz",
+    "verified_at": null,
+    "user_id": null
+  },
+  "9999": {
+    "name": "Hypercore",
+    "chain_id": 9999,
+    "aliases": [
+      "Hypercore"
+    ],
+    "handle": "hyperliquidx",
+    "profile": "https://x.com/hyperliquidx",
+    "official_source": "https://hyperliquid.xyz",
+    "verified_at": null,
+    "user_id": null
+  },
+  "9998": {
+    "name": "Lighter",
+    "chain_id": 9998,
+    "aliases": [
+      "Lighter"
+    ],
+    "handle": "Lighter_xyz",
+    "profile": "https://x.com/Lighter_xyz",
+    "official_source": "https://lighter.xyz",
+    "verified_at": null,
+    "user_id": null
+  },
+  "4663": {
+    "name": "Robinhood",
+    "chain_id": 4663,
+    "aliases": [
+      "Robinhood"
+    ],
+    "handle": "RobinhoodApp",
+    "profile": "https://x.com/RobinhoodApp",
+    "official_source": "https://investors.robinhood.com/news-releases/news-release-details/robinhood-reports-second-quarter-2026-results",
+    "verified_at": null,
+    "user_id": null
+  }
+}
