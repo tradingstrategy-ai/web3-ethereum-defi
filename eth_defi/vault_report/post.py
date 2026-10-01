@@ -104,7 +104,7 @@ def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) ->
 #: that lacks the heading; the editor can then fix the text in Ghost once and
 #: later reports inherit it.
 DEFAULT_EVERGREEN_SECTIONS = {
-    "about-the-report": ('<h2 id="about-the-report">About the report</h2><p>In this post, we examine the performance of DeFi vaults. Vaults can be considered "self-custodial investment strategies" in traditional finance: vaults are smart contracts that enable users to deposit funds from their cryptocurrency wallets and trade a predefined strategy with investors\' money.</p>'),
+    "about-the-report": (f'<h2 id="about-the-report">About the report</h2><p>In this post, we examine the performance of <a href="{GLOSSARY_URL}/decentralised-finance" rel="noreferrer">DeFi</a> vaults. Vaults can be considered "self-custodial investment strategies" in traditional finance: smart contracts that let users deposit funds from their cryptocurrency wallets and execute a predefined strategy with investors\' money.</p>'),
     "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Visit our <a href="https://tradingstrategy.ai/vaults">vaults page</a> for real-time dashboards. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
 }
 
@@ -272,7 +272,7 @@ BEST_SECTIONS = (
         heading="Tokenised funds",
         heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
-        intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p>',
+        intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p><p>Often there is no clear distinction between a vault and a tokenised fund. From the technical point of view, both use exactly the same smart contract technology with whitelisting. For the report, we define a project as a tokenised fund if we have found evidence that they have self-declared themselves as a tokenised fund.</p>',
         link="tradingstrategy.ai/vaults/funds",
     ),
 )
@@ -316,7 +316,7 @@ SECTION_TEMPLATES = (
         key="average_yields",
         heading_id="yield-by-chain-and-protocol",
         heading="Yield by chain and protocol",
-        intro=f'<p>The average yield of stablecoin vaults by protocol and by blockchain. In each chart a small dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>.</p>',
+        intro=f'<p>To better understand market competition between blockchains and protocols, we also compare projects by best returns, not just highest TVL.</p><p>In each chart, a small dot is a vault, and the large dot is the <a href="{GLOSSARY_URL}/total-value-locked-tvl">TVL</a>-weighted average annualised three-month return, compared with the 3-month US Treasury bill as the <a href="{GLOSSARY_URL}/risk-free-rate">risk-free rate</a>.</p>',
         group=True,
     ),
     SectionTemplate(
@@ -639,7 +639,7 @@ def build_post_html(context: PostContext) -> str:
         return section or DEFAULT_EVERGREEN_SECTIONS[heading_id]
 
     parts = [
-        f"<p>In this monthly report, we examine the best-performing USD-denominated DeFi vaults across blockchains, {month} edition.</p>",
+        f"<p>In this monthly report, we examine the best-performing DeFi vaults across blockchains and decentralised exchanges for {month}.</p>",
         TABLE_OF_CONTENTS,
         _evergreen("about-the-report"),
         '<h2 id="report-content-updates">Report content updates</h2>',

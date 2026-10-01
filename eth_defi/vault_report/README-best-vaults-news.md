@@ -47,8 +47,8 @@ editorial rules the generator follows are listed under *Writing rules* in
 ```mermaid
 flowchart TD
     subgraph Inputs
-        TV[Top vaults JSON<br/>top-defi-vaults.tradingstrategy.ai]
-        PQ[Cleaned price Parquet<br/>Pro dataset API]
+        TV[Top vaults JSON<br/>private production R2]
+        PQ[Cleaned price Parquet<br/>private production R2]
         BM[T-bill yields,<br/>BTC and ETH prices]
         GC[Ghost Content API<br/>previous post, podcasts]
         FL[eth_defi/vault/flag.py<br/>blacklist and notes]
@@ -109,7 +109,7 @@ about 40 seconds.
 To iterate on the post text or charts without paying for another agent run,
 reuse the decisions of the previous bundle and replace the draft, as long as
 nobody has edited it in Ghost yet. Reuse works while the downloaded data and
-`flag.py` are unchanged: the downloads are cached for six hours, and the
+`flag.py` are unchanged: the production downloads are cached for one day, and the
 decisions are tied to the exact candidate lists by a digest.
 
 ```shell

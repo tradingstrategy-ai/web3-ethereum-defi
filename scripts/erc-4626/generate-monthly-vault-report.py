@@ -17,9 +17,12 @@ Example:
 
 Environment variables:
 
-- ``VAULT_PRO_API_KEY``: Pro vault data API key, to download the vault price Parquet
-- ``TOP_VAULTS_JSON``: use a local top vaults JSON instead of downloading the public one
-- ``VAULT_PRICES_PARQUET``: use a local cleaned vault price Parquet instead of downloading it
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: private production vault data bucket
+- ``R2_DATA_ENDPOINT_URL``, ``R2_DATA_ACCESS_KEY_ID``, ``R2_DATA_SECRET_ACCESS_KEY``:
+  private R2 credentials, each falling back to its ``R2_VAULT_METADATA_*`` equivalent
+- ``UPLOAD_PREFIX``: production object key prefix, default empty
+- ``TOP_VAULTS_JSON``, ``VAULT_PRICES_PARQUET``: explicit local input pair for offline work;
+  both must be set together, bypassing the production download and freshness check
 - ``CACHE_DIR``: download cache, default ``~/.cache/tradingstrategy/vault-report``
 - ``OUTPUT_DIR``: report bundle directory, default ``{CACHE_DIR}/reports/{post slug}``
 - ``GHOST_CONTENT_API_URL``, ``GHOST_CONTENT_API_KEY``: read the previous report post and the latest podcast episodes (optional)
@@ -30,6 +33,8 @@ Environment variables:
 - ``GHOST_OVERWRITE_DRAFT``: ``true`` to replace an existing draft with the same slug if nobody has
   edited it since this pipeline wrote it, compared with the record in ``{CACHE_DIR}/ghost-drafts/``;
   ``force`` to replace it without the comparison
+- ``GHOST_DRAFT_SLUG``: existing waiting draft to update in place and rename to the new report
+  month; requires ``GHOST_OVERWRITE_DRAFT`` and keeps the post id and editor link
 - ``MIN_TVL``: minimum TVL for the best-performing vault tables, default 100,000 USD
 - ``TOP_N``: vaults per best-performing table, default 20
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
@@ -61,7 +66,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault_report.data import fetch_vault_report_data
+from eth_defi.vault_report.data import fetch_vault_report_data, fetch_vault_report_data_from_r2
 from eth_defi.vault_report.ghost import ADMIN_API_KEY_HELP, DraftRecord, GhostAdminClient, GhostAPIError, GhostContentClient
 from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
@@ -175,6 +180,7 @@ def main() -> None:
     # unedited since the pipeline wrote it, "force" in any case
     force_overwrite = os.environ.get("GHOST_OVERWRITE_DRAFT", "").strip().lower() == "force"
     overwrite_draft = force_overwrite or _env_flag("GHOST_OVERWRITE_DRAFT")
+    existing_slug = os.environ.get("GHOST_DRAFT_SLUG")
 
     cache_dir = _env_path("CACHE_DIR") or Path("~/.cache/tradingstrategy/vault-report").expanduser()
     defaults = ReportCriteria()
@@ -183,12 +189,15 @@ def main() -> None:
         top_n=int(os.environ.get("TOP_N", defaults.top_n)),
     )
 
-    data = fetch_vault_report_data(
-        cache_dir=cache_dir / "downloads",
-        top_vaults_json_path=_env_path("TOP_VAULTS_JSON"),
-        prices_path=_env_path("VAULT_PRICES_PARQUET"),
-        api_key=os.environ.get("VAULT_PRO_API_KEY"),
-    )
+    top_vaults_json_path = _env_path("TOP_VAULTS_JSON")
+    prices_path = _env_path("VAULT_PRICES_PARQUET")
+    if top_vaults_json_path is not None or prices_path is not None:
+        if top_vaults_json_path is None or prices_path is None:
+            raise SystemExit("Set TOP_VAULTS_JSON and VAULT_PRICES_PARQUET together for local inputs, or unset both to download production data from R2.")
+        logger.warning("Using explicit local inputs; production data freshness is not checked")
+        data = fetch_vault_report_data(cache_dir / "downloads", top_vaults_json_path=top_vaults_json_path, prices_path=prices_path)
+    else:
+        data = fetch_vault_report_data_from_r2(cache_dir / "downloads")
 
     if admin_client:
         # Check the Admin API login and that the slug is free or a replaceable draft,
@@ -199,9 +208,9 @@ def main() -> None:
         # feature image. Comparing the live draft with it tells an editor's changes apart from Ghost re-saving an
         # opened draft. It lives in the cache directory, outside the bundle, so it survives a new OUTPUT_DIR, and
         # publish_report_draft() rewrites it after every write.
-        draft_record_path = cache_dir / "ghost-drafts" / f"{slug}.json"
+        draft_record_path = cache_dir / "ghost-drafts" / f"{existing_slug or slug}.json"
         try:
-            admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=DraftRecord.load(draft_record_path), force=force_overwrite)
+            admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=DraftRecord.load(draft_record_path), force=force_overwrite, existing_slug=existing_slug)
         except GhostAPIError as e:
             raise SystemExit(f"Cannot create the Ghost draft {slug}: {e}") from None
         logger.info("Ghost Admin API ready, the draft %s will be created at %s", slug, admin_client.api_url)
@@ -246,7 +255,10 @@ def main() -> None:
         print(tabulate([[row["name"], row["protocol"], row["suspicious_item"], row["blacklist"]] for row in excluded], headers=["Excluded vault", "Protocol", "Suspicious item", "Blacklisted"], tablefmt="fancy_grid"))
 
     if admin_client:
-        post = publish_report_draft(report, admin_client, overwrite_draft=overwrite_draft, force_overwrite=force_overwrite, draft_record_path=draft_record_path)
+        post = publish_report_draft(report, admin_client, overwrite_draft=overwrite_draft, force_overwrite=force_overwrite, draft_record_path=draft_record_path, existing_slug=existing_slug)
+        if existing_slug and existing_slug != report.slug:
+            # Future runs use the new month slug and must retain the overwrite protection.
+            DraftRecord.load(draft_record_path).save(cache_dir / "ghost-drafts" / f"{report.slug}.json")
         print(f"Unpublished Ghost draft ready, open it in the Ghost editor: {admin_client.get_editor_url(post)}")
     else:
         print("GHOST_DRAFT=false: no Ghost draft created")

@@ -11,6 +11,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -983,6 +984,9 @@ def test_latest_podcasts_section(tmp_path: Path, vaults_df: pd.DataFrame, prices
     assert '<img src="podcasts/yearn.png" alt="Yearn logo"' in post_html
     assert '<a href="https://open.spotify.com/episode/36SGS7zXb0buGqORsmYqIw"><img src="podcasts/icons/spotify.png" alt=""' in post_html
     assert '<img src="podcasts/icons/youtube.png" alt=""' in post_html
+    assert '<table class="podcast-episodes" aria-label="Latest podcast episodes">' in post_html
+    assert '<p class="podcast-episode-description">' in post_html
+    assert '<div class="podcast-episode-links">' in post_html
     assert (tmp_path / "out" / "podcasts" / "icons" / "youtube.png").exists()
     assert "<script>" not in post_html
     assert (tmp_path / "out" / "podcasts" / "yearn.png").exists()
@@ -1180,3 +1184,60 @@ def test_draft_overwrite_guard():
     with pytest.raises(GhostAPIError, match="no record"):
         client.fetch_writable_draft("s", overwrite_draft=True)
     assert client.fetch_writable_draft("s", overwrite_draft=True, force=True).id == "p1"
+
+
+def test_draft_month_change_updates_same_post(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Changing the report month updates the waiting draft's existing id.
+
+    Title, excerpt, slug and body are sent in a single update with Ghost's
+    current revision timestamp, retaining the manual edit protection.
+
+    :param monkeypatch:
+        Ghost read isolation fixture.
+    """
+    old = GhostPost("p1", "September report", "september", "draft", "<p>Old report</p>", None, "2026-09-30T12:00:00.000Z")
+    record = DraftRecord(old.id, old.updated_at, fingerprint_post_text(old.html), old.title, old.custom_excerpt, old.feature_image)
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
+    monkeypatch.setattr(client, "fetch_post_by_slug", lambda slug: old if slug == "september" else None)
+    client.session = Mock()
+    client.session.put.return_value = FakeResponse(200, {"posts": [{"id": old.id, "slug": "october", "status": "draft"}]})
+
+    post = client.create_or_update_draft("October report", "october", "<p>Fresh report</p>", custom_excerpt="October yield", overwrite_draft=True, last_write=record, existing_slug="september")
+    assert post.id == old.id
+    assert post.slug == "october"
+    client.session.post.assert_not_called()
+    args, kwargs = client.session.put.call_args
+    assert args[0].endswith(f"posts/{old.id}/")
+    assert kwargs["json"]["posts"][0] == {"title": "October report", "slug": "october", "html": "<p>Fresh report</p>", "status": "draft", "custom_excerpt": "October yield", "updated_at": old.updated_at}
+
+
+@pytest.mark.parametrize("problem", ["missing_source", "published_source", "occupied_destination", "edited_source"])
+def test_draft_month_change_refuses_unsafe_update(monkeypatch: pytest.MonkeyPatch, problem: str) -> None:
+    """Month changes cannot create duplicates or overwrite protected posts.
+
+    An explicit source must exist as an unedited draft, and its destination
+    slug must be free. Rejections happen before any Ghost write.
+
+    :param monkeypatch:
+        Ghost read isolation fixture.
+    :param problem:
+        Source or destination condition that must reject the update.
+    """
+    old = GhostPost("p1", "September report", "september", "draft", "<p>Original</p>", None, "2026-09-30T12:00:00.000Z")
+    record = DraftRecord(old.id, old.updated_at, fingerprint_post_text(old.html), old.title, old.custom_excerpt, old.feature_image)
+    source = old
+    if problem == "missing_source":
+        source = None
+    elif problem == "published_source":
+        source = dataclasses.replace(old, status="published")
+    elif problem == "edited_source":
+        source = dataclasses.replace(old, html="<p>Editor changes</p>", updated_at="2026-10-01T12:00:00.000Z")
+    destination = dataclasses.replace(old, id="p2", slug="october") if problem == "occupied_destination" else None
+    client = GhostAdminClient("https://example.ghost.io", FAKE_ADMIN_API_KEY)
+    monkeypatch.setattr(client, "fetch_post_by_slug", lambda slug: source if slug == "september" else destination)
+    client.session = Mock()
+
+    with pytest.raises(GhostAPIError):
+        client.create_or_update_draft("October report", "october", "<p>Fresh</p>", overwrite_draft=True, last_write=record, existing_slug="september")
+    client.session.put.assert_not_called()
+    client.session.post.assert_not_called()

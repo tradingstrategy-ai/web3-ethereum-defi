@@ -30,7 +30,11 @@ the *Writing rules* and, if it affects the workflow, to this skill.
 
 The run needs `GHOST_ADMIN_API_KEY` (an Admin API key, not the read-only
 Content API key) in the secrets file sourced by `.local-test.env`. Never print
-it.
+it. It also needs the private production R2 configuration from
+`README-vault-report.md`: the script refreshes both input files before
+generation, reuses downloads younger than one day, and aborts on a failed
+refresh. Use both `TOP_VAULTS_JSON` and `VAULT_PRICES_PARQUET` together only
+for an explicit local-data run, which bypasses this freshness check.
 
 ```shell
 source .local-test.env && \
@@ -42,7 +46,7 @@ source .local-test.env && \
 - The investability check runs the Claude CLI on Sonnet with medium effort to
   limit the token spend. To iterate on the text or charts, reuse its decisions
   with `VAULT_CHECK_AGENT=reuse VAULT_CHECK_DECISIONS=<previous bundle>`
-  while the downloads are younger than six hours and `flag.py` is unchanged.
+  while the downloads are younger than one day and `flag.py` is unchanged.
 - The agent may add blacklist or `review_needed` entries to
   `eth_defi/vault/flag.py`. Never commit them without the user's review.
 - For template work without Ghost, set `GHOST_DRAFT=false` and open
@@ -64,6 +68,11 @@ it. Never publish.
 When the investability check must run again, which takes minutes, run it with
 `GHOST_DRAFT=false` first, then check the draft and upload with
 `VAULT_CHECK_AGENT=reuse`, so the draft cannot change unseen during the run.
+
+To change the month of a waiting draft, set `GHOST_DRAFT_SLUG` to the old slug
+and `GHOST_OVERWRITE_DRAFT=true`. The script updates and renames that same
+post, with the existing edit protection, then saves a record for the new slug.
+Unset the old slug override after the rename.
 
 After the run, read the draft back through the Admin API and check the
 headings, image and table counts, the empty feature image, and that no
