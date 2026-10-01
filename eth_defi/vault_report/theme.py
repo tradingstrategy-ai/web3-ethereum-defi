@@ -17,6 +17,16 @@ adjacent pairs are not distinguishable with colour vision deficiency.
 
 Charts use the bundled `Inter <https://rsms.me/inter/>`__ font (SIL Open Font
 Licence), the closest freely licensed match to the website's Neue Haas Grotesk.
+The same font files serve two renderers: Kaleido's headless Chrome finds them
+through a private fontconfig file, see
+:py:func:`eth_defi.vault_report.charts.render_figure_png`, and Pillow loads
+them directly for the panel frames, the hero images and the legend text
+measurements, see :py:mod:`eth_defi.vault_report.branding`. Using one font in
+both keeps Pillow's measured text widths equal to what Chrome draws.
+
+The dark theme is the default, because the blog renders posts in dark mode;
+``CHART_THEME=light`` selects the light theme, e.g. for newsletters, see
+``README-vault-report.md``.
 """
 
 from dataclasses import dataclass
@@ -24,28 +34,43 @@ from pathlib import Path
 
 from plotly.graph_objects import Figure
 
-#: Bundled fonts and brand images
+#: Bundled report assets: the Inter fonts, the TradingStrategy.ai logo and its PNG renders,
+#: the benchmark logos and the podcast service icons, see ``README-vault-report.md``
 ASSETS_DIR = Path(__file__).parent / "assets"
 
-#: Font family name registered from :py:data:`ASSETS_DIR`
+#: Font family name Plotly asks Chrome for; Chrome resolves it to the bundled files in
+#: :py:data:`ASSETS_DIR` through the private fontconfig of
+#: :py:func:`eth_defi.vault_report.charts.render_figure_png`
 FONT_FAMILY = "Inter"
 
-#: Font files for Pillow-drawn text
+#: Regular weight for Pillow-drawn text and for measuring Plotly text widths
 FONT_REGULAR = ASSETS_DIR / "fonts" / "Inter-Regular.ttf"
+
+#: Semibold weight for Pillow-drawn titles. It is the only heavier weight bundled, so Chrome
+#: also draws Plotly ``<b>`` text with it, and legend layouts measure bold labels with it.
 FONT_SEMIBOLD = ASSETS_DIR / "fonts" / "Inter-SemiBold.ttf"
 
 
 @dataclass(slots=True, frozen=True)
 class ChartTheme:
-    """Colours and typography for report charts."""
+    """Colours for report charts, panel frames and hero images.
 
-    #: Theme name, ``dark`` or ``light``
+    Colours are CSS strings, ``#rrggbb`` unless noted, because Plotly takes
+    them as is. Pillow code converts them, see
+    :py:func:`eth_defi.vault_report.charts.to_rgba` and the branding helpers,
+    so members that Pillow draws with must stay ``#rrggbb``.
+    """
+
+    #: Theme name, ``dark`` or ``light``. Also selects the logo variants: the brand logo PNG,
+    #: ``logo-horizontal-ai-{name}.png``, and the protocol logo for this background, see
+    #: :py:func:`eth_defi.vault_report.logos.load_protocol_logo_path`
     name: str
 
-    #: Background around the chart panel
+    #: Page colour behind a panel: the background of the hero images, on which the ranking card sits
     page_background: str
 
-    #: Chart panel and plot background
+    #: Chart panel colour. Plotly figures are styled with it but rendered transparent, so the
+    #: panel's own surface and glow show through, see :py:func:`eth_defi.vault_report.charts.render_figure_png`
     surface: str
 
     #: Titles and prominent labels
@@ -54,28 +79,31 @@ class ChartTheme:
     #: Axis labels and secondary text
     muted_text: str
 
-    #: Axis lines and panel border
+    #: Axis lines, zero lines and the panel footer rule
     axis: str
 
-    #: Grid lines
+    #: Grid lines; a translucent ``rgba()`` on the dark theme, so it is used by Plotly only
     grid: str
 
-    #: Categorical series colours in fixed assignment order
+    #: Categorical series colours in fixed assignment order. Charts assign them by rank, so the
+    #: length caps how many vaults or groups one chart can show; the order is the one checked
+    #: for colour vision deficiency, so do not reorder or subset it except from the start
     series_colours: tuple[str, ...]
 
-    #: Positive values and brand accent
+    #: Positive values and the brand accent: gains, above-T-bill averages and the hero returns
     positive: str
 
-    #: Negative values
+    #: Negative values: losses and outflows
     negative: str
 
-    #: Benchmark lines such as US Treasury bills
+    #: US Treasury bill reference lines; amber, so the risk-free rate stands apart from the series colours
     benchmark: str
 
-    #: Low-emphasis neutral for "Other" and unclassified groups
+    #: Low-emphasis neutral for the summed "Other" group of the TVL and risk and return charts
     neutral: str
 
-    #: Top-left panel glow colour, RGBA
+    #: Top-left panel glow colour, RGBA 0-255. The low alpha keeps it a hint of the website's
+    #: radial gradient after the Gaussian blur, see :py:mod:`eth_defi.vault_report.branding`
     glow: tuple[int, int, int, int]
 
 
@@ -131,8 +159,16 @@ def get_theme(name: str) -> ChartTheme:
 def apply_theme(fig: Figure, theme: ChartTheme, width: int, height: int) -> Figure:
     """Apply the theme to a figure.
 
-    Chart titles are not set here: the branded panel draws them, see
-    :py:func:`eth_defi.vault_report.branding.compose_chart_panel`.
+    Sets the font, colours, size and default axes shared by every report
+    chart. Chart titles are not set here: the branded panel draws them, see
+    :py:func:`eth_defi.vault_report.branding.compose_chart_panel`. The
+    margins and right-hand y axis are defaults only; each ``create_*_figure``
+    function in :py:mod:`eth_defi.vault_report.charts` overrides them for its
+    labels and legend, so call this first and adjust the layout afterwards.
+
+    Sizes are design pixels. The 22 px base font is shown at about 11 px in
+    the blog's content column, because charts are designed about twice as
+    wide as they are displayed.
 
     :param fig:
         Figure to style in place.
@@ -141,10 +177,10 @@ def apply_theme(fig: Figure, theme: ChartTheme, width: int, height: int) -> Figu
         Chart theme.
 
     :param width:
-        Image width in pixels.
+        Figure width in design pixels.
 
     :param height:
-        Image height in pixels.
+        Figure height in design pixels.
 
     :return:
         The same figure.

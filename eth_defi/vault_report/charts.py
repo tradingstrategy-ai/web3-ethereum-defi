@@ -14,6 +14,29 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
   with a shared axis, yields as dots on a rate scale, and dollar TVL changes as
   diverging bars
 - Glowing lines for charts with few series, like the website's hero charts
+
+:py:func:`eth_defi.vault_report.report.render_report_charts` builds every
+chart of the post with the ``create_*_figure`` functions, renders it with
+:py:func:`render_figure_png` inside one :py:func:`chart_renderer` session and
+frames it with :py:func:`eth_defi.vault_report.branding.compose_chart_panel`.
+
+Units and coordinates:
+
+- Sizes are *design pixels*. Figures are laid out at
+  :py:data:`IMAGE_WIDTH`, the panel width, and Kaleido exports them at
+  :py:data:`eth_defi.vault_report.branding.CHART_SCALE` for high-density
+  screens, so a layout never needs to know the export resolution.
+- Logos, legends and labels outside the plot area are positioned in Plotly
+  *paper coordinates*: 0-1 spans the plot area, not the figure, so negative x
+  reaches into the left margin and x above 1 into the right margin. Pixel
+  offsets are converted by dividing by the plot area's width or height in
+  pixels, the figure size minus its margins. See the
+  `Plotly layout reference <https://plotly.com/python/reference/layout/>`__.
+- Plotly cannot measure text before rendering, and its legends cannot show
+  images, so custom legends and label columns are laid out in Python. Text
+  widths are measured with Pillow from the same Inter font files that Chrome
+  draws with, see :py:func:`_measure_text`, so the computed layout matches
+  the rendered image.
 """
 
 import base64
@@ -46,13 +69,15 @@ from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD,
 
 logger = logging.getLogger(__name__)
 
-#: Rendered chart width. The blog shows images at 720 px width, so charts are rendered at roughly 2×.
+#: Chart width in design pixels, the same as :py:data:`eth_defi.vault_report.branding.PANEL_WIDTH`.
+#: The blog shows images at about 720 px width, so charts are designed at roughly 2× and their font
+#: sizes are about twice the displayed size.
 IMAGE_WIDTH = 1400
 
-#: Default rendered chart height
+#: Chart height in design pixels; the minimum height of the charts with one row per group, which grow with their rows
 IMAGE_HEIGHT = 800
 
-#: Chrome downloaded by ``plotly_get_chrome`` / ``kaleido_get_chrome`` on Linux
+#: Chrome downloaded by ``plotly_get_chrome`` / ``kaleido_get_chrome`` on Linux, used when ``BROWSER_PATH`` is not set
 CHOREOGRAPHER_CHROME_PATH = Path("~/.local/share/choreographer/deps/chrome-linux64/chrome").expanduser()
 
 #: Width of charts with a logo legend. The legend margin shrinks to the measured legend, so these
@@ -60,26 +85,28 @@ CHOREOGRAPHER_CHROME_PATH = Path("~/.local/share/choreographer/deps/chrome-linux
 #: chart is shown at the same scale, see :py:func:`eth_defi.vault_report.branding.compose_chart_panel`.
 LEGEND_CHART_WIDTH = IMAGE_WIDTH - 70
 
-#: Width of the right margin that holds a logo legend
+#: Right margin, in design pixels, reserved for a logo legend before it is measured. Wide enough for
+#: a 34-character vault name; :py:func:`add_logo_legend` shrinks the margin to the measured legend.
 LEGEND_MARGIN = 480
 
-#: Characters per line of a legend label with a detail or properties; longer vault names wrap
+#: Characters per line of a legend label with a detail or properties; longer vault names wrap. Other
+#: labels, such as protocol names, wrap at 24 characters, so short legends stay narrow.
 LEGEND_LABEL_CHARACTERS = 34
 
 
-#: Font size of the curator, protocol and chain row under a vault name, in pixels
+#: Font size of the curator, protocol and chain row under a vault name, in design pixels
 PROPERTY_FONT_SIZE = 14
 
-#: Icon size in the property row, in pixels
+#: Height of a property icon, in design pixels; a little taller than the 14 px text, so small marks stay legible
 PROPERTY_ICON_SIZE = 17
 
-#: Height of one property row, in pixels
+#: Height of one property row, in design pixels
 PROPERTY_ROW_HEIGHT = 21
 
-#: Gap between a property icon and its text, in pixels
+#: Gap between a property icon and its text, in design pixels
 PROPERTY_ICON_GAP = 6
 
-#: Gap between two properties on the same row, in pixels
+#: Gap between two properties on the same row, in design pixels
 PROPERTY_GAP = 16
 
 #: Widest property icon as a multiple of its height; wider logos are scaled down to fit
@@ -91,13 +118,18 @@ class VaultProperty:
     """A vault property shown under the vault name: its curator, protocol or chain.
 
     Properties are drawn in the order curator, protocol, chain, each with its
-    own icon, see :py:func:`add_property_rows`.
+    own icon, see :py:func:`add_property_rows`. They are made by
+    :py:func:`eth_defi.vault_report.report.make_vault_properties`, which leaves
+    out a curator or chain that repeats the protocol, and their logos are then
+    replaced with trimmed ones by :py:func:`trim_logos`. Used in the
+    performance chart legends, the inflows and outflows chart and, rasterised,
+    the hero image.
     """
 
     #: Label text, e.g. ``Steakhouse Financial``, ``Morpho`` or ``Base``
     text: str
 
-    #: Logo data URI, or ``None`` to draw the text only
+    #: Logo data URI, see :py:mod:`eth_defi.vault_report.logos`, or ``None`` to draw the text only
     logo_uri: str | None = None
 
     #: Logo width divided by its height, after :py:func:`trim_logos` removes its margins
@@ -109,7 +141,11 @@ class VaultProperty:
 
         Icons are :py:data:`PROPERTY_ICON_SIZE` tall; wide logos are
         scaled down to at most :py:data:`PROPERTY_MAX_ICON_ASPECT` times that width.
+        Sizing the box to the trimmed logo's own shape, rather than drawing
+        every logo in a square, puts every icon the same distance from its
+        text. Wordmark-like logos are capped, so they do not dominate the row.
         """
+        # Guard against a degenerate, hair-thin logo whose height would explode
         aspect = max(self.logo_aspect, 0.1)
         width = min(PROPERTY_ICON_SIZE * aspect, PROPERTY_ICON_SIZE * PROPERTY_MAX_ICON_ASPECT)
         return width, width / aspect
@@ -117,21 +153,26 @@ class VaultProperty:
 
 @dataclass(slots=True, frozen=True)
 class LegendEntry:
-    """One entry of a custom chart legend."""
+    """One entry of a custom chart legend, see :py:func:`add_logo_legend`.
 
-    #: Label text
+    The order of the content follows the report's legend rule: the vault name
+    in bold, then its return, then the curator, protocol and chain with icons.
+    """
+
+    #: Label text as plain text; it is escaped and drawn in bold
     label: str
 
-    #: Series colour
+    #: Series colour of the swatch, any CSS colour Plotly accepts
     colour: str
 
-    #: Protocol or chain logo data URI, or ``None``
+    #: Protocol, chain or benchmark logo data URI drawn next to the swatch, or ``None``
     logo_uri: str | None = None
 
-    #: Plotly line dash style of the swatch
+    #: Plotly line dash style of the swatch, so dashed benchmark lines are recognisable
     dash: str = "solid"
 
-    #: Muted last line, e.g. the final return
+    #: Muted line under the label, e.g. the final return. Plotly HTML that is drawn as is, so a
+    #: number can be highlighted with :py:func:`highlight_number`; escape any external text in it
     detail: str | None = None
 
     #: Curator, protocol and chain drawn with their icons under the label
@@ -143,6 +184,10 @@ class LegendEntry:
 
 def to_rgba(colour: str, alpha: float) -> str:
     """Convert ``#rrggbb`` to a CSS ``rgba()`` colour.
+
+    Plotly takes ``rgba()`` strings for translucent lines, fills and markers,
+    such as the glow under a line, the stacked TVL areas and the bubbles of the
+    risk and return chart, while the themes define opaque hex colours.
 
     :param colour:
         Hex colour.
@@ -176,6 +221,10 @@ def plain_text(text: str) -> str:
 def shorten_text(text: str, max_length: int) -> str:
     """Shorten a one-line label with an ellipsis, for labels that must not wrap.
 
+    Used for the vault names in the right-hand column of the per-chain chart,
+    where each row has room for exactly two one-line names. Prefer
+    :py:func:`wrap_label` elsewhere, because the report shows names in full.
+
     :param text:
         Label.
 
@@ -191,6 +240,10 @@ def shorten_text(text: str, max_length: int) -> str:
 def wrap_label(text: str, width: int) -> str:
     """Word-wrap a chart label to Plotly ``<br>`` lines without truncating it.
 
+    Plotly annotations do not wrap text by themselves. Used for the chain and
+    protocol names in the left margin of the dot plots. Each line is escaped,
+    see :py:func:`plain_text`.
+
     :param text:
         Label.
 
@@ -205,6 +258,9 @@ def wrap_label(text: str, width: int) -> str:
 
 def highlight_number(text: str, theme: ChartTheme, value: float | None = None) -> str:
     """Wrap a number in a legend label in bold and an accent colour, so it stands out from the text.
+
+    Chrome draws the ``<b>`` text in the bundled semibold weight. Used for the
+    returns, Sharpe ratios and TVL amounts in legends and label columns.
 
     :param text:
         Formatted number, e.g. ``+22.6%`` or ``$5.5B``.
@@ -225,8 +281,13 @@ def highlight_number(text: str, theme: ChartTheme, value: float | None = None) -
 def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE, bold: bool = False) -> float:
     """Measure text width in pixels with the bundled chart font.
 
+    Plotly reports no text extents before rendering, yet the custom legends
+    must know how wide their labels are to size the right margin and to flow
+    the property rows. Pillow measures with the same Inter files that Chrome
+    draws with, so the measured widths match the rendered text closely.
+
     :param text:
-        Text.
+        Plain text, without Plotly HTML tags: callers strip tags before measuring.
 
     :param size:
         Font size in pixels.
@@ -242,6 +303,12 @@ def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE, bold: bool = False)
 
 def layout_properties(properties: tuple[VaultProperty, ...], width: float) -> list[list[tuple[VaultProperty, float]]]:
     """Flow vault properties into rows that fit a width.
+
+    A greedy line break: each property, icon plus text, goes on the current
+    row if it fits, otherwise it starts a new row. A row always takes its
+    first property, even if it is wider than ``width``. Callers use the row
+    count to size the label block before drawing it, and
+    :py:func:`add_property_rows` draws the same rows.
 
     :param properties:
         Properties in drawing order.
@@ -277,6 +344,14 @@ def add_property_rows(
 ) -> int:
     """Draw a vault's curator, protocol and chain under its name, each with its icon.
 
+    Each property is a layout image and an annotation, placed from the pixel
+    offsets of :py:func:`layout_properties`. The layout is in pixels but
+    Plotly places elements in axis or paper units, so the caller passes the
+    pixels per unit of each axis. Used in two coordinate systems: the legends
+    of :py:func:`add_logo_legend` use paper y, where one unit is the plot
+    height, and the inflows and outflows chart uses data y, where one unit is
+    one bar row, see :py:func:`create_tvl_change_figure`.
+
     :param fig:
         Figure to modify.
 
@@ -290,7 +365,8 @@ def add_property_rows(
         Paper x coordinate of the row start.
 
     :param y:
-        Centre of the first row, in ``yref`` units.
+        Centre of the first row, in ``yref`` units. Further rows go down by
+        :py:data:`PROPERTY_ROW_HEIGHT` each.
 
     :param yref:
         ``paper`` or ``y``.
@@ -324,15 +400,35 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     """Draw a legend with logos in the right margin.
 
     Plotly legends cannot show images, so the legend is drawn with shapes,
-    layout images and annotations. The figure needs a right margin of
-    :py:data:`LEGEND_MARGIN` pixels, and its height and margins must be set
-    before calling this.
+    layout images and annotations. Set the figure size and margins before
+    calling this: the right margin, e.g. :py:data:`LEGEND_MARGIN`, is the
+    room the legend may use, and the plot height is the height it is spread
+    over. Used by the performance charts and the stacked TVL charts.
 
     Labels are drawn in bold and word-wrapped to full length. An entry's
     detail line, e.g. its return, follows the label, and its curator, protocol
     and chain come last with their icons, see :py:func:`add_property_rows`. Entries are spaced
     at least ``row_height`` apart, and further when they need more room; the
-    figure grows taller rather than letting entries overlap.
+    figure grows taller rather than letting entries overlap. Inline entries,
+    the benchmarks, take one row: logo, name and value.
+
+    The layout is computed in pixels in three steps, because Plotly positions
+    the elements in paper coordinates of a plot area whose size depends on
+    the legend:
+
+    1. Measure: wrap every label, measure its lines, detail and property rows
+       with the bundled font, and collect each entry's height and the widest
+       line.
+    2. Fit: shrink the right margin to the widest line, so the plot widens
+       into the unused margin and the cropped chart content spans the panel
+       width like every other chart; then spread the entries over the plot
+       height, growing the figure when they do not fit.
+    3. Draw: convert the pixel positions to paper coordinates, where x = 1 is
+       the right edge of the plot area and the legend lies beyond it.
+
+    Columns, in pixels from the plot's right edge: the swatch line from 26 to
+    64, an optional 30 px logo at 76, and the text at 112, or at 76 when no
+    multi-row entry has a logo.
 
     :param fig:
         Figure to modify.
@@ -344,7 +440,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         Chart theme.
 
     :param top:
-        Paper y coordinate of the first entry.
+        Paper y coordinate of the first entry's first line. All callers use the default, the top of the plot.
 
     :param row_height:
         Minimum paper height of one entry. A legend taller than the plot makes the figure taller.
@@ -355,13 +451,16 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         right. Entries become shorter when they have several properties.
     """
     fig.update_layout(showlegend=False)
-    # Lay the legend out in pixels right of the plot: swatch, optional logo, then the text
+    # Lay the legend out in pixels right of the plot: swatch, optional logo, then the text.
+    # Labels are 17 px on a 22 px line pitch, and entries are at least 18 px apart.
     line_pixels, gap_pixels = 22, 18
     swatch_pixels = (26, 64)
     logo_pixels = 76
     # One-row entries draw their logo in the text column, so only the others need a logo column
     text_pixels = 112 if any(entry.logo_uri for entry in entries if not entry.inline) else 76
     inline_icon = PROPERTY_ICON_SIZE + 1
+    # Property rows flow within the margin as it is before shrinking; the shrunk margin is then at least
+    # as wide as the widest measured row, so no row overflows the figure
     text_width = fig.layout.margin.r - text_pixels - 20
     layouts = []
     widest = 0.0
@@ -370,6 +469,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     detail_column = max((_measure_text(re.sub("<[^>]+>", "", entry.detail), 17) for entry in split_entries if entry.detail), default=0.0) + 24
     # Stacked properties share one icon slot, as wide as the widest icon, so their texts line up
     icon_slot = max((prop.icon_size[0] for entry in split_entries for prop in entry.properties if prop.logo_uri), default=0.0)
+    # Pass 1: measure. layouts holds (entry, label lines, pitch in pixels), widest the widest line in pixels
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=LEGEND_LABEL_CHARACTERS if entry.detail or entry.properties else 24) or [entry.label]
         if entry.inline:
@@ -379,17 +479,19 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
             continue
         widths = [_measure_text(line, 17, bold=True) for line in lines]
         if split:
+            # Under the label, the detail and the stacked properties sit side by side, so the taller column counts
             height = len(lines) * line_pixels + max(line_pixels if entry.detail else 0, len(entry.properties) * PROPERTY_ROW_HEIGHT)
             widths += [detail_column + icon_slot + PROPERTY_ICON_GAP + _measure_text(prop.text) for prop in entry.properties]
         else:
             property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
             height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
+            # A row's width is its last property's offset plus that property's own width
             widths += [offset + (prop.icon_size[0] + PROPERTY_ICON_GAP if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
         widths += [_measure_text(re.sub("<[^>]+>", "", entry.detail), 17)] if entry.detail else []
         widest = max(widest, *widths)
         layouts.append((entry, lines, height + gap_pixels))
 
-    # Shrink the right margin to the legend's measured width, so the plot fills the rest and
+    # Pass 2: fit. Shrink the right margin to the legend's measured width, so the plot fills the rest and
     # every chart's content spans the same width in the panel
     fig.update_layout(margin={"r": min(fig.layout.margin.r, round(text_pixels + widest + 12))})
     plot_width = fig.layout.width - fig.layout.margin.l - fig.layout.margin.r
@@ -401,15 +503,20 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         extra = spare / max(len(layouts) - 1, 1)
         layouts = [(entry, lines, pitch + (extra if i < len(layouts) - 1 else 0)) for i, (entry, lines, pitch) in enumerate(layouts)]
     else:
+        # A minimum pitch keeps short legends evenly spread instead of bunched at the top
         layouts = [(entry, lines, max(row_height * plot_height, pitch)) for entry, lines, pitch in layouts]
+    # Grow the figure, and with it the plot, when the entries do not fit; with the default top=1 this
+    # happens when the summed pitches exceed the plot height
     needed = sum(pitch for _, _, pitch in layouts) - (1 - top) * plot_height
     if needed > plot_height:
         fig.update_layout(height=fig.layout.height + needed - plot_height)
         plot_height = needed
 
     def paper_x(pixels: float) -> float:
+        # Pixels right of the plot area -> paper x, where 1 is the plot's right edge
         return 1 + pixels / plot_width
 
+    # Pass 3: draw. y is the paper y of the current entry's top, moving down by each entry's pitch
     text_x = paper_x(text_pixels)
     # Entries hang from the top of their first line, so wrapped labels grow downwards
     y = top + line_pixels / 2 / plot_height
@@ -439,6 +546,7 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
             if not split:
                 cursor -= line_pixels / plot_height
         if entry.properties and split:
+            # Properties stack one per row right of the detail column, icons centred in a shared slot
             properties_x = text_x + detail_column / plot_width
             for i, prop in enumerate(entry.properties):
                 centre = cursor - (i + 0.5) * PROPERTY_ROW_HEIGHT / plot_height
@@ -455,6 +563,9 @@ def add_glow_line(fig: Figure, x: pd.Index, y: np.ndarray, colour: str, name: st
     """Draw a line with a soft glow underneath, like the website's hero charts.
 
     Use only for charts with one to three lines; glow adds clutter to busy charts.
+    The glow is a second, 14 px wide trace at 18% opacity under the 4 px line,
+    which reads as a halo without Plotly support for blur. Used for the total
+    line over the stacked TVL charts, see :py:func:`create_protocol_tvl_figure`.
 
     :param fig:
         Figure to modify.
@@ -477,15 +588,20 @@ def add_glow_line(fig: Figure, x: pd.Index, y: np.ndarray, colour: str, name: st
 
 @dataclass(slots=True, frozen=True)
 class PerformanceSeries:
-    """One vault in a performance comparison chart."""
+    """One vault in a performance comparison chart.
+
+    Built by :py:func:`eth_defi.vault_report.report.render_report_charts`
+    from the vaults chosen for a best-performing section or for the new vaults
+    chart.
+    """
 
     #: Vault id, a column of the daily prices
     vault_id: str
 
-    #: Vault name
+    #: Vault name, or its address when it has none
     name: str
 
-    #: Curator, protocol and chain shown under the name in the legend
+    #: Curator, protocol and chain shown under the name in the legend, with trimmed logos
     properties: tuple[VaultProperty, ...]
 
     #: Benchmark names the vault is compared with, see :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`
@@ -495,26 +611,34 @@ class PerformanceSeries:
     rank: int | None = None
 
 
-#: Benchmark line dash styles. Benchmarks share one neutral colour, so they do not compete with the vault colours.
+#: Benchmark line dash styles. Benchmarks share one neutral colour, so they do not compete with the vault colours,
+#: and the dash tells them apart. The order is also the order of the benchmark rows in the legend.
 BENCHMARK_DASHES = {TREASURY_BILL: "dash", BTC: "dot", ETH: "dashdot"}
 
 #: Equity index value at the window start. Lines are plotted as an index, so a log axis works, and labelled in equity %.
+#: The index is the value of 100 invested at the window start, so +100% is 200 and -50% is 50, and a log axis
+#: shows equal ratios, such as doubling and halving, as equal distances; percentages around 0 have no logarithm.
 EQUITY_CURVE_BASE = 100
 
-#: Candidate y axis ticks of a log-scale equity chart, as equity index values
+#: Candidate y axis ticks of a log-scale equity chart, as equity index values; the ticks inside the axis range
+#: are used and labelled as returns, e.g. 80 as -20% and 500 as +400%. Plotly's own log ticks would label
+#: the index values, or leave the 2 and 5 minor ticks unlabelled.
 LOG_SCALE_TICKS = (10, 20, 50, 80, 100, 120, 150, 200, 300, 400, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
 
-#: Candidate tick steps of a linear equity chart, in percentage points
+#: Candidate tick steps of a linear equity or Sharpe chart, in percentage points or Sharpe units; the smallest
+#: step giving at most seven intervals is used
 LINEAR_TICK_STEPS = (0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
 
 
 def calculate_period_performance(series: pd.Series, start_at: pd.Timestamp) -> pd.Series:
     """Calculate cumulative performance since a start date.
 
-    A vault that launched after ``start_at`` starts from its first data point.
+    A vault that launched after ``start_at`` starts from its first data point,
+    so every equity curve starts at 0% wherever it starts in time.
 
     :param series:
-        Daily share prices or benchmark values.
+        Daily share prices from :py:func:`eth_defi.vault_report.data.calculate_daily_share_prices`,
+        or benchmark values reindexed to the same days.
 
     :param start_at:
         Start of the period.
@@ -592,14 +716,31 @@ def create_performance_figure(
     When the remaining lines return more than ``log_threshold`` percent, the y
     axis switches to a log scale.
 
+    Use cases: :py:func:`eth_defi.vault_report.report.render_report_charts`
+    draws one chart per best-performing section of the post, over the 90-day
+    performance window, and the new vaults chart, whose window is the new
+    vault age limit. The perp DEX Sharpe ratio section uses ``measure="sharpe"``
+    with the split legend.
+
+    Layout, in design pixels: the figure is :py:data:`LEGEND_CHART_WIDTH`
+    wide, with the y axis title and ticks in a 110 px left margin and the
+    logo legend in the right margin, see :py:func:`add_logo_legend`. The x
+    axis runs 16% of the window past the data date, so the direct labels at
+    the line ends fit inside the plot. Each vault line ends in a dot and a
+    rank badge in its colour, matching the legend numbers; each benchmark line
+    ends in its logo and value. The labels are pushed apart vertically so they
+    never overlap, keeping their order.
     :param series:
         Vaults in table order, at most as many as the theme has series colours.
 
     :param daily_prices:
-        Output of :py:func:`eth_defi.vault_report.data.calculate_daily_share_prices`.
+        Output of :py:func:`eth_defi.vault_report.data.calculate_daily_share_prices`:
+        a daily ``DatetimeIndex`` and one share price column per vault id. Its
+        last day is the end of the chart.
 
     :param benchmark_indices:
-        Output of :py:func:`eth_defi.vault_report.benchmarks.fetch_benchmark_indices`.
+        Output of :py:func:`eth_defi.vault_report.benchmarks.fetch_benchmark_indices`:
+        benchmark name -> daily value series.
 
     :param theme:
         Chart theme.
@@ -645,6 +786,7 @@ def create_performance_figure(
             return calculate_rolling_sharpe(values, sharpe_window).loc[start_at:end_at]
         return calculate_period_performance(values, start_at)
 
+    # Vault id -> line values, in percent or Sharpe units, for the vaults with data in the window
     vaults = {}
     for item in series:
         if item.vault_id not in daily_prices.columns:
@@ -654,13 +796,21 @@ def create_performance_figure(
         if len(line):
             vaults[item.vault_id] = line
 
+    # A benchmark is drawn once if at least half of the vaults are compared with it, so a single volatile vault
+    # among calm ones does not add BTC and ETH. The T-bill has no volatility, so it has no Sharpe ratio.
+    # Equity benchmarks are aligned to the vaults' days; Sharpe ones keep their history before the window
+    # for the rolling calculation.
     wanted = [name for name in BENCHMARK_DASHES if name in benchmark_indices and 2 * sum(name in item.benchmarks for item in series) >= len(series) and not (sharpe and name == TREASURY_BILL)]
     benchmarks = {name: measure_line(benchmark_indices[name] if sharpe else benchmark_indices[name].reindex(daily_prices.index, method="ffill")) for name in wanted}
     benchmarks = {name: line for name, line in benchmarks.items() if len(line)}
 
+    # Off-scale outliers: the reference is the median vault peak, but at least 10% (Sharpe 3) and the highest
+    # benchmark peak, so a calm chart does not flag a modestly better vault. A median of two vaults says
+    # nothing, so outliers need at least three.
     peaks = pd.Series({vault_id: line.max() for vault_id, line in vaults.items()}, dtype=float)
     reference = max([peaks.median(), 3.0 if sharpe else 10.0, *(line.max() for line in benchmarks.values())])
     off_scale = set(peaks.index[peaks > outlier_ratio * reference]) if len(peaks) > 2 else set()
+    # The axis fits the on-scale vaults and the benchmarks
     lines = [*(line for vault_id, line in vaults.items() if vault_id not in off_scale), *benchmarks.values()]
     low, high = (min(line.min() for line in lines), max(line.max() for line in lines)) if lines else (0.0, 0.0)
     # An off-scale line is drawn until it leaves the top, so the bottom of the axis must fit its dips before that
@@ -676,18 +826,22 @@ def create_performance_figure(
     def scale(values: pd.Series) -> np.ndarray:
         return to_axis(values).to_numpy()
 
+    # The 0% equity line, or zero Sharpe, drawn as a reference line and always a tick
     baseline = 0.0 if sharpe else EQUITY_CURVE_BASE
     # Sharpe ratios are drawn on a 0-x scale; negative values are clipped at the bottom edge
     bottom, top = (0.0, high) if sharpe else (to_axis(low), to_axis(high))
+    # 6% headroom, plus a minimum, so near-flat lending curves get a usable range instead of a zero span
     padding = (top - bottom) * 0.06 + 0.2
     if log_scale:
-        # A wiped-out vault reaches 0, which has no logarithm: floor the axis at a 99% loss
+        # Plotly takes log axis ranges as log10 values. The bottom padding is at most 10% of the lowest
+        # value, and a wiped-out vault reaches 0, which has no logarithm: floor the axis at a 99% loss
         y_range = (np.log10(max(bottom - padding, bottom * 0.9, 1.0)), np.log10(top + padding))
     else:
         y_range = (0.0 if sharpe else bottom - padding, top + padding)
 
     def position(value: float) -> float:
-        # Paper y coordinate of a line end, for the end labels
+        # Paper y coordinate of a line end, for the end labels: the plot spans the whole y range, so paper y
+        # is the value's linear position in the range, in log10 units on a log axis
         axis_value = np.log10(to_axis(value)) if log_scale else to_axis(value)
         return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
 
@@ -695,6 +849,7 @@ def create_performance_figure(
         # Latest Sharpe ratio, or the annualised return over the line's own span, capped like the tables
         if sharpe:
             return f"{performance.iloc[-1]:,.2f}"
+        # Compound the line's cumulative return to a year, so vaults younger than the window compare fairly
         days = (performance.index[-1] - performance.index[0]) / pd.Timedelta(days=1)
         if days < 1:
             return "---"
@@ -708,6 +863,7 @@ def create_performance_figure(
         performance = vaults.get(item.vault_id)
         if performance is None:
             continue
+        # Colours follow the table order, the order checked for colour vision deficiency
         colour = theme.series_colours[i]
         rank = item.rank or i + 1
         if item.vault_id in off_scale:
@@ -720,8 +876,10 @@ def create_performance_figure(
         note = " ▲" if item.vault_id in off_scale else ""
         last = vaults[item.vault_id].iloc[-1]
         entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{highlight_number(describe(vaults[item.vault_id]), theme, last)}{note}", properties=item.properties))
+        # The rank badge: the rank number in the surface colour on the series colour
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
+            # The badge sits at the top edge where the line leaves the chart
             fig.add_annotation(text=f"▲ {rank}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
         else:
             fig.add_trace(go.Scatter(x=performance.index[-1:], y=scale(performance)[-1:], mode="markers", marker={"size": 11, "color": colour, "line": {"color": theme.surface, "width": 2}}, showlegend=False, hoverinfo="skip"))
@@ -736,36 +894,46 @@ def create_performance_figure(
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
 
-    # Direct labels right of the line ends, pushed apart so they do not overlap
+    # Direct labels right of the line ends, pushed apart so they do not overlap. labels holds
+    # (paper y of the line end, text, annotation style, logo URI or None). min_gap, 0.042 of the plot height, is
+    # about one badge height with a small gap. Labels are sorted top to bottom and clamped inside the plot.
     min_gap = 0.042
     ordered = sorted(labels, key=lambda label: -label[0])
     positions = [min(max(label[0], 0.02), 0.98) for label in ordered]
-    # Push down from the top, then back up from the bottom, keeping the order
+    # Push down from the top, then back up from the bottom, keeping the order: two passes of a 1D
+    # collision resolution that moves each label as little as needed and keeps the stack inside the plot
     for i in range(1, len(positions)):
         positions[i] = min(positions[i], positions[i - 1] - min_gap)
     if positions:
         positions[-1] = max(positions[-1], 0.02)
     for i in range(len(positions) - 2, -1, -1):
         positions[i] = max(positions[i], positions[i + 1] + min_gap)
+    # Labels start 1.5 days right of the data date; the x axis extends 16% of the window to make room for them
     label_at = end_at + pd.Timedelta(days=1.5)
     x_end = end_at + pd.Timedelta(window) * 0.16
     for y, (_, text, style, logo) in zip(positions, ordered, strict=True):
         if logo:
+            # Layout images need paper x here, so the label date is converted to its fraction of the x range;
+            # the text after the logo is shifted 30 px right of it
             fig.add_layout_image(source=logo, xref="paper", yref="paper", x=(label_at - start_at) / (x_end - start_at), y=y, sizex=0.032, sizey=0.032, xanchor="left", yanchor="middle")
         fig.add_annotation(text=text, x=label_at, xshift=30 if logo else 0, y=y, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
 
+    # 100 px taller than the default, for the legend of up to eight vaults with their properties
     apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT + 100)
     fig.update_layout(margin={"l": 110, "r": LEGEND_MARGIN, "t": 30, "b": 70})
-    # The range leaves room for the end labels; ticks stop at the data date
+    # The range leaves room for the end labels; fortnightly ticks counted back from the data date, so the
+    # last tick is the data date
     ticks = pd.date_range(end=end_at, periods=7, freq="14D")
     fig.update_xaxes(range=[start_at, x_end], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
         fig.update_yaxes(type="log", title="Returns (log scale)")
     else:
+        # Ticks at multiples of the step from the baseline, so 0% or zero Sharpe is always a tick
         step = next((step for step in LINEAR_TICK_STEPS if (y_range[1] - y_range[0]) / step <= 7), LINEAR_TICK_STEPS[-1])
         ticks = list(np.arange(np.ceil((y_range[0] - baseline) / step) * step, y_range[1] - baseline, step) + baseline)
         fig.update_yaxes(title=f"Sharpe ratio, {sharpe_window.days}-day rolling" if sharpe else "Returns")
+    # Equity index ticks are labelled as returns: index 120 is +20%, and the base is a plain 0%
     ticktext = [f"{tick:,.4g}" for tick in ticks] if sharpe else [f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks]
     fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=ticktext)
     fig.update_yaxes(side="left", zeroline=False)
@@ -776,6 +944,9 @@ def create_performance_figure(
 
 def _format_usd_short(value: float) -> str:
     """Format a dollar amount compactly for chart labels.
+
+    The same ``k``, ``M`` and ``B`` style as the report tables, which never
+    show full digits.
 
     :param value:
         Amount in USD, may be negative.
@@ -809,12 +980,41 @@ def create_average_yield_figure(
     gives the average, its difference to the Treasury bill in percentage points,
     and the group's TVL.
 
+    Beating the risk-free rate is the point of a stablecoin vault, so an
+    average dot is green when it is at or above the Treasury bill yield and
+    grey below it, and the bill is drawn as an amber reference line. The
+    vault dots are translucent grey, so dense clusters show as darker areas.
+
+    The x axis fits the averages and most vault dots, so a few outlier vaults
+    do not squeeze the scale. It reaches up to the 90th percentile vault, but
+    at most twice the highest average, and always includes 1.25 times the
+    highest average, 1.5 times the Treasury bill yield and 2%, never beyond
+    ``max_return``. It reaches down to the 5th percentile vault, but no lower
+    than -5%, and always includes 0% and the lowest average. Vault dots
+    outside the axis are left out of the chart but still counted in the
+    averages.
+
+    Use cases: the *Yield by chain and protocol* section of the post, with
+    the largest blockchains, the largest protocols and the highest-yielding
+    protocols, see :py:func:`eth_defi.vault_report.report.render_report_charts`.
+
+    Layout, in design pixels: groups are rows, the highest average at the
+    top, 58 px apart, and the figure grows beyond :py:data:`IMAGE_HEIGHT` for
+    more rows. The 254 px left margin holds each group's logo and wrapped
+    name; the 264 px right margin holds the value column. Both are placed in
+    paper x, negative into the left margin and above 1 into the right one.
+
     :param yields:
-        Output of :py:func:`eth_defi.vault_report.sections.calculate_chain_yields`
-        or :py:func:`~eth_defi.vault_report.sections.calculate_protocol_yields`.
+        Output of :py:func:`eth_defi.vault_report.sections.calculate_chain_yields`,
+        :py:func:`~eth_defi.vault_report.sections.calculate_protocol_yields`
+        or :py:func:`~eth_defi.vault_report.sections.calculate_high_yield_protocols`:
+        indexed by group name, with ``tvl`` in USD and ``avg_return`` as a
+        fraction.
 
     :param vault_returns:
-        Vaults counted in the averages, with the ``group_column`` and ``three_months_cagr_best`` columns.
+        Vaults counted in the averages, indexed by vault id, with the
+        ``group_column`` and ``three_months_cagr_best`` columns, see
+        :py:func:`eth_defi.vault_report.sections.select_average_yield_vaults`.
 
     :param group_column:
         ``chain`` or ``protocol``.
@@ -831,22 +1031,19 @@ def create_average_yield_figure(
     :param max_return:
         Upper limit of the x axis as an annualised return.
 
-    The x axis fits the averages and most vault dots, up to the 90th percentile
-    vault but at most twice the highest average, so a few outlier vaults do not
-    squeeze the scale. Vault dots outside it are left out of the chart but still
-    counted in the averages.
-
     :return:
         Plotly figure.
     """
     logos = logos or {}
+    # Plotly's y axis grows upwards, so sorting ascending puts the highest average at the top.
+    # Row positions are integer y data coordinates.
     df = yields.sort_values("avg_return")
     positions = {group: position for position, group in enumerate(df.index)}
     points = vault_returns.loc[vault_returns[group_column].isin(positions)].copy()
     points["x"] = points[CHART_RETURN] * 100
     points = points.loc[points["x"].notna()]
 
-    # Fit the axis to the averages, the T-bill and the middle 90% of vaults; strip outlier dots beyond it
+    # Fit the axis to the averages, the T-bill and most vaults, see the docstring; strip outlier dots beyond it
     averages = df["avg_return"] * 100
     # The axis reaches the 90th percentile vault, but at most twice the highest average, so the averages stay readable
     highest = float(averages.max())
@@ -855,7 +1052,8 @@ def create_average_yield_figure(
     lower = min(max(float(np.percentile(points["x"], 5)) if len(points) else 0.0, -5.0), float(averages.min()), 0.0)
     points = points.loc[(points["x"] >= lower) & (points["x"] <= upper)]
     span = upper - lower
-    # Deterministic vertical jitter so dots of one group do not sit on top of each other
+    # Deterministic vertical jitter, up to ±0.22 rows, so dots of one group do not sit on top of each other.
+    # A hash of the vault id rather than random numbers keeps the chart identical between runs.
     points["y"] = [positions[group] + ((zlib.crc32(vault_id.encode()) % 1000) / 1000 - 0.5) * 0.44 for vault_id, group in zip(points.index, points[group_column], strict=True)]
 
     fig = go.Figure()
@@ -874,7 +1072,8 @@ def create_average_yield_figure(
 
     height = max(IMAGE_HEIGHT, 140 + 58 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
-    # Margins sized so the labels, the plot and the right column fill the panel width
+    # Margins sized so the labels, the plot and the right column fill the panel width; the y range leaves
+    # 0.7 rows of room below the first row and 0.3 above the last
     fig.update_layout(xaxis_title="3-month yield, annualised", margin={"l": 254, "r": 264, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[lower - span * 0.04, upper + span * 0.04], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
@@ -883,6 +1082,7 @@ def create_average_yield_figure(
         fig.add_shape(type="line", xref="paper", yref="y", x0=0, x1=1, y0=position, y1=position, line={"color": theme.grid, "width": 1}, layer="below")
         logo = logos.get(group)
         if logo:
+            # Paper x in the left margin; the image keeps its aspect ratio within 3% of the plot width and 0.6 rows
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
         fig.add_annotation(text=wrap_label(group, 16), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", align="left", showarrow=False, font={"size": 20, "color": theme.text})
         # Round before formatting so a tiny negative difference does not print as -0.0
@@ -920,6 +1120,15 @@ def create_chain_best_figure(
     column names the two best vaults and their returns. The best vaults range from money
     market yields to capped trading returns, so the return axis is logarithmic.
 
+    A log axis cannot show zero or negative returns, so returns below 0.1%
+    are drawn at that floor, on the left edge. The axis reaches 1.6 times the
+    best return, at least 20%, with decade ticks labelled in percent.
+
+    Used for the *Vaults on each chain* subsection, which names the two best
+    vaults on each chain. The 200 px left margin holds the chain logos and
+    names, and the 390 px right margin the two vault names per row, each
+    shortened to one line so a row's two lines fit its 64 px height.
+
     :param chain_vaults:
         Output of :py:func:`eth_defi.vault_report.sections.select_chain_chart_vaults`,
         with ``chain``, ``name`` and ``three_months_cagr_best`` columns, best first within each chain.
@@ -937,6 +1146,8 @@ def create_chain_best_figure(
         Plotly figure.
     """
     logos = logos or {}
+    # Input is ranked within each chain: the first row is the leader, the second the runner-up shown by name,
+    # the rest are grey dots. Ascending sort puts the chain with the best vault at the top.
     best = chain_vaults.groupby("chain", sort=False).head(1).sort_values(CHART_RETURN)
     second = chain_vaults.groupby("chain", sort=False).nth(1)
     positions = {chain: position for position, chain in enumerate(best["chain"])}
@@ -949,6 +1160,7 @@ def create_chain_best_figure(
     fig = go.Figure()
     for position in positions.values():
         fig.add_shape(type="line", xref="paper", yref="y", x0=0, x1=1, y0=position, y1=position, line={"color": theme.grid, "width": 1}, layer="below")
+    # Drawn from the least to the most important, so the leaders' dots are on top
     fig.add_trace(go.Scatter(x=runners_up["x"], y=runners_up["y"], mode="markers", marker={"size": 11, "color": to_rgba(theme.muted_text, 0.5), "line": {"color": theme.surface, "width": 2}}, hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scatter(x=seconds["x"], y=seconds["y"], mode="markers", marker={"size": 16, "color": to_rgba(theme.positive, 0.55), "line": {"color": theme.surface, "width": 3}}, hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scatter(x=leaders["x"], y=leaders["y"], mode="markers", marker={"size": 20, "color": theme.positive, "line": {"color": theme.surface, "width": 3}}, hoverinfo="skip", showlegend=False))
@@ -986,12 +1198,14 @@ def create_chain_best_figure(
         )
 
     if benchmark_yield is not None:
+        # On a log axis, add_vline takes the data value but an annotation takes its log10
         fig.add_vline(x=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
         fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", x=np.log10(benchmark_yield * 100), xref="x", y=1.0, yref="paper", yanchor="bottom", showarrow=False, font={"size": 18, "color": theme.benchmark})
     return fig
 
 
-#: A TVL change this many times larger than the next one is drawn off scale, see :py:func:`create_tvl_change_figure`
+#: A TVL change this many times larger than the next largest one is drawn off scale, see :py:func:`create_tvl_change_figure`.
+#: For example, one fund share class minting billions would otherwise flatten every other bar.
 TVL_CHANGE_OUTLIER_RATIO = 3
 
 
@@ -1001,8 +1215,29 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     Dollar amounts are quantities, so bars are the right form here: increases
     extend right in green, decreases left in red, with the amount labelled.
 
+    TVL changes include returns as well as deposits and redemptions, because
+    the export's net flow estimates cover too few vaults, see
+    ``README-blog-post-outline.md``. The x axis is symmetric around $0 and
+    fits the largest change, or the second largest when the largest is
+    :py:data:`TVL_CHANGE_OUTLIER_RATIO` times bigger. An off-scale bar is cut
+    just inside the axis edge, and its label gets a ◀ or ▶ arrow.
+
+    Used for the two charts of the *Inflows and outflows* section: by vault,
+    with each vault's curator, protocol and chain under its name, and by
+    blockchain, with a chain logo before each name.
+
+    Layout, in design pixels: one row per vault, 72 px apart, largest increase
+    at the top, the figure growing beyond :py:data:`IMAGE_HEIGHT` for more
+    rows. The 470 px left margin holds the label blocks: the name wrapped at
+    40 characters on 21 px lines, then the property rows, centred vertically
+    on the bar. Label blocks are placed in data y, where one unit is one row,
+    so pixel heights are divided by the pixels per row.
+
     :param changes:
-        Output of :py:func:`eth_defi.vault_report.sections.calculate_tvl_changes`, largest increase first.
+        Output of :py:func:`eth_defi.vault_report.sections.calculate_tvl_changes`
+        or :py:func:`~eth_defi.vault_report.sections.calculate_chain_tvl_changes`,
+        largest increase first, with ``tvl_change`` in USD. Vault rows also
+        need ``name`` and ``address``; chain rows are indexed by chain name.
 
     :param theme:
         Chart theme.
@@ -1018,12 +1253,15 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     """
     properties = properties or {}
     logos = logos or {}
+    # Plotly's y axis grows upwards, so reverse the rows to put the largest increase at the top. Values in $M.
     df = changes.iloc[::-1]
     values = df["tvl_change"] / 1e6
     # A single change far larger than the rest would flatten every other bar: draw it off scale,
     # cut at the axis edge with an arrow, like the outliers of the other charts
     magnitudes = values.abs().sort_values(ascending=False)
     off_scale = len(magnitudes) > 1 and magnitudes.iloc[0] > TVL_CHANGE_OUTLIER_RATIO * magnitudes.iloc[1]
+    # Half the axis width: 25% room beyond the largest on-scale bar for its outside label; an off-scale bar ends
+    # at 97% of it, so the cut is visible inside the plot
     span = float(magnitudes.iloc[1 if off_scale else 0]) * 1.25 if len(magnitudes) else 1.0
     drawn = values.clip(lower=-span * 0.97, upper=span * 0.97) if off_scale else values
     labels = [("+" if value >= 0 else "") + _format_usd_short(change) for value, change in zip(values, df["tvl_change"], strict=True)]
@@ -1038,19 +1276,23 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
             text=labels,
             textposition="outside",
             textfont={"color": theme.text, "size": 17},
+            # Let the amount labels of the longest bars extend past the plot area
             cliponaxis=False,
         )
     )
     height = max(IMAGE_HEIGHT, 120 + 72 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
-    # Dollar ticks, e.g. -$200M and +$200M, so the axis title needs no unit
+    # Dollar ticks, e.g. -$200M and +$200M, so the axis title needs no unit. The smallest step giving at most
+    # four ticks per side, symmetric around $0; ".0" is dropped from round tick values.
     step = next((step for step in (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 5_000) if span / step <= 4), 10_000)
     ticks = np.arange(-(span // step) * step, span + step / 2, step)
     ticktext = [f"{'-' if tick < 0 else '+' if tick > 0 else ''}{_format_usd_short(abs(tick) * 1e6).replace('.0B', 'B').replace('.0M', 'M')}" if tick else "$0" for tick in ticks]
     fig.update_layout(xaxis_title="TVL change in 30 days", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], tickvals=ticks, ticktext=ticktext, zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
-    # Labels in the left margin: the vault name, then its curator, protocol and chain with their icons
+    # Labels in the left margin: the vault name, then its curator, protocol and chain with their icons.
+    # unit_pixels is the height of one row in pixels; the label column starts 0.515 plot widths left of the
+    # plot, about 22 px from the figure edge, and ends 20 px before the plot
     plot_width = IMAGE_WIDTH - fig.layout.margin.l - fig.layout.margin.r
     unit_pixels = (height - fig.layout.margin.t - fig.layout.margin.b) / max(len(df), 1)
     label_x, label_width = -0.515, 0.515 * plot_width - 20
@@ -1058,9 +1300,11 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
         lines = textwrap.wrap(vault["name"] or vault["address"], width=40) or [""]
         vault_properties = properties.get(vault_id, ())
         property_rows = len(layout_properties(vault_properties, label_width)) if vault_properties else 0
+        # Top of the label block, so that the whole block is centred on the bar
         top = position + (len(lines) * 21 + property_rows * PROPERTY_ROW_HEIGHT) / 2 / unit_pixels
         name_x = label_x
         if logos.get(vault_id):
+            # A 26 px logo before the name, which moves 36 px right
             fig.add_layout_image(source=logos[vault_id], xref="paper", yref="y", x=label_x, y=position, sizex=26 / plot_width, sizey=26 / unit_pixels, xanchor="left", yanchor="middle")
             name_x += 36 / plot_width
         fig.add_annotation(text="<br>".join(plain_text(line) for line in lines), xref="paper", yref="y", x=name_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
@@ -1069,7 +1313,8 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     return fig
 
 
-#: Volatility and return below which a vault counts as dormant: its share price has not moved
+#: Annualised volatility, as a fraction, below which a vault with a return under 0.1% counts as dormant:
+#: its share price has not moved, see :py:func:`select_moving_vaults`
 DORMANT_VOLATILITY = 1e-5
 
 
@@ -1344,13 +1589,24 @@ def chart_renderer() -> Iterator[None]:
 def _configure_fonts() -> None:
     """Make the bundled Inter font available to Kaleido's Chrome.
 
+    The website sets its charts in Inter. Kaleido renders Plotly figures in
+    headless Chrome, which silently falls back to whatever sans-serif font the
+    machine has when Inter is missing. Charts would then look different from
+    the website and from one machine to the next, and the legend layout, which
+    measures text with the same Inter files through Pillow (see
+    :py:func:`_measure_text`), would no longer match what Chrome draws.
+
     Chrome on Linux finds fonts through fontconfig. A private configuration
     that includes the system configuration and the bundled font directory is
     written to a temporary directory and selected with ``FONTCONFIG_FILE``,
-    so nothing is installed system-wide. An existing ``FONTCONFIG_FILE`` is respected.
+    so nothing is installed system-wide and no root access is needed on the
+    production host. An existing ``FONTCONFIG_FILE`` is respected, so an
+    operator can point Chrome at another configuration. Must run before
+    Kaleido starts Chrome, because Chrome reads the variable at start-up.
     """
     if os.environ.get("FONTCONFIG_FILE"):
         return
+    # The private cache directory keeps fontconfig from writing to the user's cache
     config_dir = Path(tempfile.mkdtemp(prefix="eth-defi-vault-report-fonts-"))
     (config_dir / "fonts.conf").write_text(
         f"""<?xml version="1.0"?>

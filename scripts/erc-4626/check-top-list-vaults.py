@@ -3,8 +3,14 @@
 Collects the report's top lists with their buffers, probes the in-scope
 vaults, runs the check agent (Claude CLI or Codex CLI) with the
 ``check-top-list-vaults`` skill, and prints the decisions and the resulting
-``flag.py`` blacklist diff. The decision files go to ``OUTPUT_DIR``, where
-``generate-monthly-vault-report.py`` reuses them when run with the same data.
+``flag.py`` diff: blacklist entries for likely scams and ``review_needed``
+entries for undecided vaults, both for the operator to review and commit. The
+decision files go to ``OUTPUT_DIR``, where ``generate-monthly-vault-report.py``
+reuses them when run with the same data.
+
+Use it to run the slow, token-consuming agent once, review its decisions and
+``flag.py`` entries, and then iterate on the post with the report script
+without paying for the agent again.
 
 See ``eth_defi/vault_report/README-vault-report.md``.
 
@@ -43,7 +49,14 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Run the check and print its decisions."""
+    """Run the check and print its decisions.
+
+    Builds the comparable vault universe exactly as the report does, with
+    default :py:class:`~eth_defi.vault_report.sections.ReportCriteria`, so the
+    candidate lists, and their digests, match a later report run on the same
+    data; otherwise the report could not reuse these decisions. The table
+    leaves out ``not_in_scope`` vaults, which the agent never researched.
+    """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     cache_dir = Path(os.environ.get("CACHE_DIR", "~/.cache/tradingstrategy/vault-report")).expanduser()
     data = fetch_vault_report_data(
@@ -55,6 +68,8 @@ def main() -> None:
     output_dir = Path(os.environ["OUTPUT_DIR"]) if os.environ.get("OUTPUT_DIR") else cache_dir / "reports" / make_report_slug(data.data_end_at)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # The report script uses the same defaults; different thresholds would build different
+    # candidate lists and make the saved decisions unusable for the report
     criteria = ReportCriteria()
     settings = VaultCheckSettings.from_env(default_agent="claude")
     assert settings is not None, "VAULT_CHECK_AGENT=none disables the check; use claude, codex or reuse"

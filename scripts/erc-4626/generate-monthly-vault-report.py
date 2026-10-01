@@ -114,6 +114,17 @@ def _env_flag(name: str, default: bool = False) -> bool:
 def create_admin_client() -> GhostAdminClient | None:
     """Create the Ghost Admin API client for the draft post, or stop with instructions.
 
+    Runs first in :py:func:`main`, before any download, because a run with
+    the investability check and chart rendering takes minutes and its only
+    output for the editor is the draft: discovering a missing or wrong key
+    at the end would waste the run, and the agent's token spend. The
+    :py:class:`~eth_defi.vault_report.ghost.GhostAdminClient` constructor
+    validates the key format offline, e.g. rejects a read-only Content API
+    key; the login itself is checked later, once the slug is known. Error
+    messages never include the key.
+
+    See the `Ghost Admin API authentication <https://ghost.org/docs/admin-api/#authentication>`__.
+
     :return:
         The client, or ``None`` when ``GHOST_DRAFT=false`` asks for the local bundle only.
 
@@ -137,11 +148,31 @@ def create_admin_client() -> GhostAdminClient | None:
 
 
 def main() -> None:
-    """Generate the report bundle and the Ghost draft."""
+    """Generate the report bundle and the Ghost draft.
+
+    The steps are ordered so that the cheap checks that can stop the run
+    come before the expensive work:
+
+    1. Validate the Ghost Admin API key offline, before any download.
+    2. Download or reuse the vault data; the data date gives the post slug.
+    3. Log in to the Admin API and check that the slug is free or holds a
+       draft that may be replaced, before the investability check and chart
+       rendering take minutes.
+    4. Read the previous report post, the podcast episodes and the
+       changelog entries since that post, for the editor.
+    5. Run the investability check, if configured, and render the bundle.
+    6. Upload the charts and create or replace the unpublished draft, and
+       record what was written. The script never publishes.
+
+    The operator then reviews the excluded vaults record and the ``flag.py``
+    diff, and the editor completes the draft in Ghost, see
+    ``eth_defi/vault_report/README-vault-report.md``.
+    """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     # Fail before any download when the Ghost draft cannot be created
     admin_client = create_admin_client()
-    # "true" replaces an existing draft only if unedited since the pipeline wrote it, "force" in any case
+    # Replacing a draft can lose the editor's work, so it is opt-in: "true" replaces an existing draft only if it is
+    # unedited since the pipeline wrote it, "force" in any case
     force_overwrite = os.environ.get("GHOST_OVERWRITE_DRAFT", "").strip().lower() == "force"
     overwrite_draft = force_overwrite or _env_flag("GHOST_OVERWRITE_DRAFT")
 
@@ -161,8 +192,13 @@ def main() -> None:
 
     if admin_client:
         # Check the Admin API login and that the slug is free or a replaceable draft,
-        # before the investability check and chart rendering take minutes
+        # before the investability check and chart rendering take minutes.
+        # The slug comes from the data date, so it is known only after the download.
         slug = make_report_slug(data.data_end_at)
+        # What this pipeline last wrote to the draft: its id, update time, body fingerprint, title, excerpt and
+        # feature image. Comparing the live draft with it tells an editor's changes apart from Ghost re-saving an
+        # opened draft. It lives in the cache directory, outside the bundle, so it survives a new OUTPUT_DIR, and
+        # publish_report_draft() rewrites it after every write.
         draft_record_path = cache_dir / "ghost-drafts" / f"{slug}.json"
         try:
             admin_client.fetch_writable_draft(slug, overwrite_draft=overwrite_draft, last_write=DraftRecord.load(draft_record_path), force=force_overwrite)
@@ -170,6 +206,8 @@ def main() -> None:
             raise SystemExit(f"Cannot create the Ghost draft {slug}: {e}") from None
         logger.info("Ghost Admin API ready, the draft %s will be created at %s", slug, admin_client.api_url)
 
+    # The previous post supplies the back link and the copied About the report and Next steps sections; without
+    # the Content API the post is still generated, just without them and without the podcast section
     content_api_url = os.environ.get("GHOST_CONTENT_API_URL")
     content_api_key = os.environ.get("GHOST_CONTENT_API_KEY")
     previous = None

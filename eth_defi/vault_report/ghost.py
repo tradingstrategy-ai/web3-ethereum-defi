@@ -1,12 +1,30 @@
 """Minimal Ghost blog API client for the vault report.
 
 - The `Content API <https://ghost.org/docs/content-api/>`__ is read-only and
-  uses a content API key. We use it to find the previous report post.
+  uses a content API key. We use it to find the previous report post and
+  the latest podcast episodes, see :py:mod:`eth_defi.vault_report.podcasts`.
 - The `Admin API <https://ghost.org/docs/admin-api/>`__ is needed to upload
   images and create draft posts. It uses an ``{id}:{secret}`` admin API key,
   created in Ghost Admin under *Settings → Integrations → Add custom integration*,
   and short-lived JWT tokens signed with the secret, see
   `token authentication <https://ghost.org/docs/admin-api/#token-authentication>`__.
+
+The client is a thin ``requests`` wrapper over the few endpoints the report
+needs; the request parameters that matter for safety (``status: draft``,
+``source=html``, ``updated_at``) are all in this file.
+
+The Admin API client is deliberately unable to publish: every write sends
+``status: draft``. On top of that, :py:meth:`GhostAdminClient.fetch_writable_draft`
+guards the editor's work. It never touches a published or scheduled post,
+and replaces an existing draft only when a :py:class:`DraftRecord` of the
+pipeline's last write shows nobody has edited it since. Because Ghost
+rewrites the HTML it is given, that comparison uses a text fingerprint,
+:py:func:`fingerprint_post_text`, rather than the raw HTML. See the *Ghost
+post draft* section of ``README-best-vaults-news.md`` for the operator's view
+of these rules.
+
+API keys are secrets: no error message or log line includes a key or a URL
+that carries one.
 """
 
 import base64
@@ -28,13 +46,17 @@ from eth_defi.utils import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
-#: Ghost API version header value
+#: Ghost API version the client is written against, sent as the
+#: ``Accept-Version`` header on every request
 GHOST_ACCEPT_VERSION = "v5.0"
 
 #: Public blog base URL; posts live at ``{BLOG_URL}/{slug}``. The Ghost API returns ``ghost.io`` URLs; readers use this domain.
 BLOG_URL = "https://tradingstrategy.ai/blog"
 
-#: Ghost adds this tracking parameter to links in its HTML output
+#: Ghost adds this tracking parameter to outbound links in its HTML output.
+#: HTML and links copied from earlier posts (evergreen sections, podcast
+#: links) would otherwise carry the internal ``ghost.io`` site name into the
+#: new post.
 GHOST_REF_PARAMETER = re.compile(r"([?&])ref=[a-z0-9.-]+\.ghost\.io(&?)")
 
 
@@ -62,7 +84,11 @@ class GhostAPIError(Exception):
 def _raise_for_ghost_error(resp: requests.Response, action: str) -> None:
     """Raise :py:class:`GhostAPIError` with Ghost's error message for a failed response.
 
-    The message does not include the request URL, which may contain the Content API key.
+    ``requests.Response.raise_for_status()`` is not used because its message
+    includes the request URL, which carries the Content API key as a query
+    parameter. Ghost's own ``errors`` list, with its ``message`` and
+    ``context``, is also more useful to the operator than the status line,
+    e.g. when an update is rejected because the draft changed meanwhile.
 
     :param resp:
         Ghost API response.
@@ -121,7 +147,13 @@ def create_ghost_admin_token(admin_api_key: str, now: datetime.datetime | None =
 
     Implements `Ghost token authentication <https://ghost.org/docs/admin-api/#token-authentication>`__:
     HS256 signature with the hex-decoded secret, the key id in the ``kid``
-    header and ``/admin/`` audience.
+    header and ``/admin/`` audience. A JWT with one fixed algorithm is a few
+    lines of standard library code, so the client needs no JWT dependency.
+
+    Ghost rejects tokens that live longer than five minutes, so
+    :py:class:`GhostAdminClient` creates a fresh token for every request
+    rather than tracking expiry across a run that may span the investability
+    check and the image uploads.
 
     :param admin_api_key:
         Admin API key in ``{id}:{secret}`` format.
@@ -139,6 +171,7 @@ def create_ghost_admin_token(admin_api_key: str, now: datetime.datetime | None =
     iat = int(to_unix_timestamp(now))
     header = {"alg": "HS256", "typ": "JWT", "kid": key_id}
     payload = {"iat": iat, "exp": iat + int(ADMIN_TOKEN_LIFETIME.total_seconds()), "aud": "/admin/"}
+    # The secret is hex in the key, but Ghost signs with its raw bytes; compact JSON keeps the token short
     signing_input = _base64url(json.dumps(header, separators=(",", ":")).encode()) + "." + _base64url(json.dumps(payload, separators=(",", ":")).encode())
     signature = hmac.new(bytes.fromhex(secret), signing_input.encode("ascii"), hashlib.sha256).digest()
     return signing_input + "." + _base64url(signature)
@@ -146,7 +179,12 @@ def create_ghost_admin_token(admin_api_key: str, now: datetime.datetime | None =
 
 @dataclass(slots=True)
 class GhostPost:
-    """Subset of Ghost post fields we use."""
+    """Subset of Ghost post fields we use.
+
+    Parsed from both the Content API and the Admin API, which return the same
+    post object shape; see the
+    `Admin API posts reference <https://ghost.org/docs/admin-api/#posts>`__.
+    """
 
     #: Ghost object id
     id: str
@@ -166,7 +204,9 @@ class GhostPost:
     #: Publication time, naive UTC
     published_at: datetime.datetime | None
 
-    #: Last update timestamp as returned by Ghost, needed for updates
+    #: Last update timestamp as returned by Ghost, kept as the raw string: Ghost
+    #: requires it back unchanged on an update to detect a concurrent edit, and
+    #: :py:class:`DraftRecord` compares it by string equality
     updated_at: str | None
 
     #: Post excerpt
@@ -186,6 +226,7 @@ class GhostPost:
             Parsed post.
         """
         published_at = data.get("published_at")
+        # Ghost returns ISO 8601 with a Z or an offset; the repository uses naive UTC datetimes
         if published_at:
             published_at = datetime.datetime.fromisoformat(published_at.replace("Z", "+00:00")).astimezone(datetime.UTC).replace(tzinfo=None)
         return GhostPost(
@@ -211,16 +252,29 @@ def fingerprint_post_text(post_html: str) -> str:
     and whitespace is normalised. The HTML the pipeline sent and the HTML
     Ghost returns for an unedited draft have the same fingerprint.
 
+    The trade-off is deliberate: the fingerprint must never flag Ghost's own
+    rewriting as an edit, or ``GHOST_OVERWRITE_DRAFT=true`` would refuse
+    every regeneration and leave only ``force``, which protects nothing. As
+    a consequence it does not see changes inside raw HTML cards (the tables,
+    the podcast list), swapped images or changed link targets; it does see
+    every change to the text of headings, paragraphs, lists and links, which
+    is where the editor writes. Block boundaries are kept as line breaks, so moving text
+    between paragraphs changes the fingerprint too.
+
     :param post_html:
         Post body HTML.
 
     :return:
         SHA-256 hex digest of the normalised text.
     """
+    # Ghost may reformat the markup inside a raw HTML card, so each card counts only as its position
     text = re.sub(r"<!--kg-card-begin: html-->.*?<!--kg-card-end: html-->", "\n[HTML CARD]\n", post_html, flags=re.DOTALL)
+    # Image sources and attributes change between the bundle, the upload and Ghost's image cards
     text = re.sub(r"<img[^>]*>", "", text)
     # Every block element starts and ends a line, wherever Ghost puts its own line breaks
     text = re.sub(r"</?(p|h[1-6]|li|ul|ol|div|figure|figcaption|blockquote|hr)\b[^>]*>", "\n", text)
+    # Inline tags and attributes (link targets, classes, ids Ghost adds) are dropped; entities are decoded
+    # because Ghost may escape characters differently
     text = html_lib.unescape(re.sub(r"<[^>]+>", "", text))
     lines = [re.sub(r"\s+", " ", line).strip() for line in text.split("\n")]
     return hashlib.sha256("\n".join(line for line in lines if line).encode()).hexdigest()
@@ -392,12 +446,26 @@ class GhostAdminClient:
     def upload_image(self, path: Path) -> str:
         """Upload an image to the Ghost media library.
 
+        The report bundle references charts and podcast images by relative
+        paths, which only work in the local preview. Before the draft is
+        created, :py:func:`~eth_defi.vault_report.report.publish_report_draft`
+        uploads each image here and rebuilds the post with the returned
+        ``storage.ghost.io`` URLs, so the draft is self-contained in Ghost. See
+        the `Admin API images endpoint <https://ghost.org/docs/admin-api/#uploading-an-image>`__.
+
+        Each run uploads new copies, because the media library has no
+        de-duplication by content; replacing a draft therefore leaves the
+        previous run's images in the library.
+
         :param path:
-            Local image file.
+            Local image file. Ghost resizes uploads, so it must be a real image:
+            a hand-made 1×1 PNG is rejected with "Unable to manipulate image".
 
         :return:
             Public URL of the uploaded image.
         """
+        # Ghost picks the image processor from the MIME type; ``ref`` is echoed back and
+        # names the file in Ghost's media library, which helps when tidying old uploads
         content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         with open(path, "rb") as inp:
             resp = self.session.post(
