@@ -500,6 +500,9 @@ STREAM_ELIXIR_EULER_BAD_DEBT = "Fully borrowed against deUSD, sdeUSD or USDX col
 #: A vault denominated in the collapsed Stream Finance xUSD, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
 STREAM_XUSD_DENOMINATED = "Denominated in Stream Finance xUSD, which collapsed in November 2025 and trades near $0.02; the reported TVL counts xUSD at $1 and the vault has no borrowers."
 
+#: Trevee plUSD lends only into an Euler pool that takes collapsed Stream xUSD as collateral, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
+TREVEE_PLUSD_XUSD_COLLATERAL = "Lends its whole balance into an Euler pool that accepts collapsed Stream Finance xUSD as collateral; the vault has no redeemable liquidity and withdrawals fail."
+
 #: Under review: collateral without a liquid market, valued by its issuer; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
 REVIEW_NEEDED_OFF_MARKET_COLLATERAL = "Under review: the vault lends against collateral without a liquid DEX market, valued by its issuer's NAV or oracle. Our automated investability checks have not reached a consistent verdict, so the vault is not blacklisted. Check the collateral and the withdrawable liquidity before depositing."
 
@@ -1152,6 +1155,22 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # - xUSD price: https://www.geckoterminal.com/sonic/tokens/0x6202b9f02e30e5e1c62cc01e4305450e5d83b926
     # - Elixir sunsets deUSD after the Stream Finance unwind: https://www.theblock.co/post/377961/elixir-sunsets-deusd-synthetic-stablecoin-following-stream-finance-unwinding-aims-full-redemptions
     "0xdebdab749330bb976fd10dc52f9a452aaf029028": (VaultFlag.depegged_denomination_token, STREAM_XUSD_DENOMINATED),
+    # Trevee plUSD (Euler Earn on Plasma)
+    #
+    # Added 2026-09-30 by the vault report investability check. The vault
+    # allocates 100% of its ~$2.90M assets to Euler pool 0x27934d48...
+    # (the TelosC Stream plUSD vault, already flagged above), which accepts
+    # "Staked Stream USD" xUSD as collateral; xUSD collapsed in November 2025 and
+    # has $0 DEX liquidity. At block 33844607 the vault had $0 idle and $0
+    # redeemable assets (0.00% redeemable share), so the reported TVL and yield
+    # cannot be realised and a new depositor cannot exit. Flagged illiquid,
+    # like the other Stream-exposed Euler vaults.
+    #
+    # - https://tradingstrategy.ai/vaults/trevee-plusd
+    # - https://plasmascan.to/address/0x385021b412c9d2dd70823f8b5ff353028a039806
+    # - xUSD collateral: https://plasmascan.to/address/0x6eAf19b2FC24552925dB245F9Ff613157a7dbb4C
+    # - Stream and Elixir contagion case study: https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/
+    "0x385021b412c9d2dd70823f8b5ff353028a039806": (VaultFlag.illiquid, TREVEE_PLUSD_XUSD_COLLATERAL),
     #
     # Review needed: vaults the 2026-09-30 investability checks could not decide
     # consistently. VaultFlag.review_needed does not blacklist; see its docstring.
