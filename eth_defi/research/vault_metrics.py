@@ -4369,16 +4369,31 @@ def is_special_vault(
 
 def clean_lifetime_metrics(
     lifetime_data_df: pd.DataFrame,
-    broken_max_nav_value=99_000_000_000,
-    lifetime_min_nav_threshold=100.00,
-    max_annualised_return=3.0,  # 300% max return
-    min_events=25,
-    logger=print,
+    broken_max_nav_value: USDollarAmount = 99_000_000_000,
+    lifetime_min_nav_threshold: USDollarAmount = 100.00,
+    max_annualised_return: Percent = 3.0,
+    min_events: int = 25,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
-    """Clean lifetime data so we have only valid vaults.
+    """Filter lifetime metrics by NAV, activity and available annualised returns.
 
-    - Filter out vaults that have broken records or never saw daylight
-    - See :py:func:`calculate_lifetime_metrics`.
+    Apply the shared analysis filters to records from
+    :py:func:`calculate_lifetime_metrics`. Unavailable CAGR is expected for
+    young vaults and does not remove otherwise eligible absolute returns.
+
+    :param lifetime_data_df:
+        Lifetime records indexed by name or row ID, with numeric or nullable
+        ``cagr``, ``peak_nav`` and ``event_count`` plus protocol/address columns.
+    :param broken_max_nav_value:
+        Maximum accepted lifetime peak assets in denomination units.
+    :param lifetime_min_nav_threshold:
+        Minimum lifetime peak assets in denomination units.
+    :param max_annualised_return:
+        Exclusive upper bound for available CAGR; ``3.0`` means 300%.
+    :param min_events:
+        Minimum discovery events, except for supported special vault families.
+    :param logger:
+        Progress callback.
 
     :return:
         Cleaned lifetime dataframe
@@ -4386,12 +4401,6 @@ def clean_lifetime_metrics(
 
     # Filter FRAX vault with broken interface
     lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
-
-    # Filter out MAAT Stargate V2 USDT
-    # Not sure what's going on with this one and other ones with massive returns.
-    # Rebase token?
-    # Consider 10,000x returns as "valid"
-    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < 10_000]
 
     # Filter out some vaults that report broken NAV
     broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
@@ -4403,14 +4412,14 @@ def clean_lifetime_metrics(
     logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out with too HIGH CAGR
-    broken_mask = lifetime_data_df["cagr"] >= max_annualised_return
+    # Missing CAGR must not discard a young vault with valid absolute returns.
+    broken_mask = (lifetime_data_df["cagr"] >= max_annualised_return).fillna(False)
     logger(f"Vaults abnormally high returns: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
     # Filter out some vaults that have not seen many deposit and redemptions.
     # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
-    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    # because we do not necessarily have onchain deposit/redeem event data for them.
     special_mask = lifetime_data_df.apply(
         lambda row: is_special_vault(row["protocol_slug"], row["address"]),
         axis=1,
@@ -4424,19 +4433,28 @@ def clean_lifetime_metrics(
 def combine_return_columns(
     gross: pd.Series,
     net: pd.Series,
-    new_line=" ",
+    new_line: str = " ",
     mode: Literal["percent", "usd"] = "percent",
     profit_presentation: Literal["split", "net_only"] = "split",
-):
+) -> pd.Series:
     """Create combined net / (gross) returns column for display.
 
-    E.g. 8.3% (10.5%)
+    Display values such as ``8.3% (10.5%)`` while keeping missing values distinct
+    from real zero returns or zero assets. The two input series must share an
+    index; formatting preserves that index.
 
     :param gross:
-        Gross returns series
+        Numeric or nullable gross returns, or peak assets in USD mode.
 
     :param net:
-        Net returns series
+        Numeric or nullable net returns, or current assets in USD mode.
+
+    :param new_line:
+        Separator between the net value and parenthesised gross value.
+    :param mode:
+        Percentage returns or denomination-unit asset values.
+    :param profit_presentation:
+        Show both values, or prefer net with gross as the fallback.
 
     :return:
         Combined string series
@@ -4444,48 +4462,25 @@ def combine_return_columns(
 
     assert gross.index.equals(net.index), f"Gross and net series must have the same index {len(gross)} != {len(net)}"
 
-    def _format_combined_percent(g, n):
-        match profit_presentation:
-            case "split":
-                if n is not None and pd.isna(n) == False:
-                    return f"{n:.1%}{new_line}({g:.1%})"
-                else:
-                    return f"---{new_line}({g:.1%})"
-            case "net_only":
-                if n is not None and pd.isna(n) == False:
-                    return f"{n:.1%} (n)"
-                else:
-                    if g and pd.isna(g) == False:
-                        return f"{g:.1%} (g)"
-                    else:
-                        return "---"
-
-    def _format_combined_usd(g, n):
-        if n:
-            return f"{n:,.0f}{new_line}({g:,.0f})"
-        else:
-            return f"---{new_line}({g:.0f})"
-
-    if mode == "percent":
-        _format_combined = _format_combined_percent
-    else:
-        _format_combined = _format_combined_usd
-
-    return pd.Series([_format_combined(g, n) for g, n in zip(gross, net)], index=gross.index)
+    format_spec = ".1%" if mode == "percent" else ",.0f"
+    gross_text = gross.map(lambda value: format(value, format_spec) if pd.notna(value) else "---").astype("str")
+    net_text = net.map(lambda value: format(value, format_spec) if pd.notna(value) else "---").astype("str")
+    if mode == "percent" and profit_presentation == "net_only":
+        fallback = (gross_text + " (g)").where(gross.notna(), "---")
+        return (net_text + " (n)").where(net.notna(), fallback)
+    return net_text + new_line + "(" + gross_text + ")"
 
 
-def format_lifetime_table(
-    df: pd.DataFrame,
-    add_index=False,
-    add_address=False,
-    add_share_token=False,
-    drop_blacklisted=True,
-    profit_presentation: Literal["split", "net_only"] = "split",
-    html_links=False,
-) -> pd.DataFrame:
+def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address: bool = False, add_share_token: bool = False, drop_blacklisted: bool = True, profit_presentation: Literal["split", "net_only"] = "split", html_links: bool = False) -> pd.DataFrame:  # noqa: FBT001, FBT002 - Preserve the existing positional display options.
     """Format table for human readable output.
 
-    See :py:func:`calculate_lifetime_metrics`
+    Format the numeric and nullable fields from
+    :py:func:`calculate_lifetime_metrics` as display text. Missing returns and
+    risk metrics render as ``---`` rather than suggesting zero performance.
+
+    :param df:
+        Lifetime metric records with numeric or nullable returns, risk metrics
+        and vault metadata columns.
 
     :param add_index:
         Add 1, 2, 3... index column
@@ -4495,8 +4490,14 @@ def format_lifetime_table(
 
         For vault address list copy-pasted.
 
+    :param add_share_token:
+        Include the share-token symbol as a separate column.
+
     :param drop_blacklisted:
         Remove vaults we have manually flagged as troublesome.
+
+    :param profit_presentation:
+        Show net and gross returns together, or only the net return.
 
     :param html_links:
         Wrap Name, Chain, and Protocol values in ``<a>`` tags
@@ -4570,7 +4571,7 @@ def format_lifetime_table(
             return ""
         return ", ".join(str(val) for val in v)
 
-    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}")
+    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}" if pd.notna(x) else "---")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "---")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
@@ -5004,63 +5005,17 @@ def calculate_performance_metrics_for_all_vaults(
         DataFrame with lifetime metrics for each vault, indexed by vault name.
     """
 
-    # Numpy complains about something
-    # - invalid value encountered in reduce
-    # - Boolean Series key will be reindexed to match DataFrame index.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        warnings.simplefilter("ignore", RuntimeWarning)
-        lifetime_data_df = calculate_lifetime_metrics(
-            prices_df,
-            vault_db,
-        )
-
-    lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
-    lifetime_data_df = lifetime_data_df.set_index("name")
-
-    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
-
-    # Verify we no longer have duplicates
-    # display(lifetime_data_df.index)
-    assert not lifetime_data_df.index.dropna().duplicated().any(), f"There are still duplicate names in the index: {lifetime_data_df.index}"
-    logger("Successfully made all vault names unique by appending chain information")
-
+    lifetime_data_df = calculate_lifetime_metrics(prices_df, vault_db).sort_values(by="cagr", ascending=False).set_index("name")
+    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate vault names in the index: {lifetime_data_df.index}"
     logger(f"Calculated lifetime data for {len(lifetime_data_df):,} vaults")
-    logger("Sample entrys of lifetime data:")
-
-    #
-    # Clean data
-    #
-
-    # Filter FRAX vault with broken interface
-    lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
-
-    # Missing CAGR is expected for young vaults with valid absolute returns.
-    cagr = lifetime_data_df["cagr"]
-    lifetime_data_df = lifetime_data_df[cagr.isna() | (cagr < cagr_too_high)]
-
-    # Filter out some vaults that report broken NAV
-    broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
-    logger(f"Vault entries with too high NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have too little NAV (ATH NAV)
-    broken_mask = lifetime_data_df["peak_nav"] <= lifetime_min_nav_threshold
-    logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have not seen many deposit and redemptions.
-    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
-    # because we do not necessarily have onchain deposit/redeem event data for them.
-    special_mask = lifetime_data_df.apply(
-        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
-        axis=1,
+    return clean_lifetime_metrics(
+        lifetime_data_df,
+        broken_max_nav_value=broken_max_nav_value,
+        lifetime_min_nav_threshold=lifetime_min_nav_threshold,
+        max_annualised_return=cagr_too_high,
+        min_events=min_events,
+        logger=logger,
     )
-    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
-    logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    return lifetime_data_df
 
 
 def format_vault_database(

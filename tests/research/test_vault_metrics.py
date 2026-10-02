@@ -9,6 +9,7 @@ from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import MappingProxyType
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -264,9 +265,67 @@ def test_single_observation_keeps_legacy_returns_unavailable(vault_db: VaultData
     :return:
         ``None`` after checking null lifetime and fixed-period exports.
     """
-    metrics = calculate_lifetime_metrics(price_df.iloc[:1], vault_db).iloc[0]
+    metrics_df = calculate_lifetime_metrics(price_df.iloc[:1], vault_db)
+    metrics = metrics_df.iloc[0]
     columns = ("lifetime_return", "cagr", "one_month_returns", "one_month_cagr", "three_months_returns", "three_months_cagr", "three_months_volatility", "three_months_sharpe")
     assert all(metrics[column] is None for column in columns)
+    formatted = format_lifetime_table(metrics_df, drop_blacklisted=False)
+    assert formatted.iloc[0]["3M volatility"] == "---"
+
+
+@pytest.mark.parametrize(
+    ("mode", "presentation", "gross", "net", "expected"),
+    [
+        ("percent", "split", [None, 0.0, 0.1], [None, None, 0.0], ["--- (---)", "--- (0.0%)", "0.0% (10.0%)"]),
+        ("percent", "net_only", [None, 0.0, 0.1], [None, None, 0.0], ["---", "0.0% (g)", "0.0% (n)"]),
+        ("usd", "split", [None, 0.0, 10.0], [None, None, 0.0], ["--- (---)", "--- (0)", "0 (10)"]),
+    ],
+)
+def test_return_display_distinguishes_missing_and_zero_values(
+    mode: Literal["percent", "usd"],
+    presentation: Literal["split", "net_only"],
+    gross: list[float | None],
+    net: list[float | None],
+    expected: list[str],
+) -> None:
+    """Display unavailable metrics without hiding genuine zero returns or assets.
+
+    Percentage and asset presentations preserve the distinction between an
+    unknown value, a known zero and the fallback from net to gross returns.
+
+    :param mode:
+        Percentage-return or asset-value presentation.
+    :param presentation:
+        Combined net/gross or preferred-net presentation.
+    :param gross:
+        Numeric or missing gross returns, or peak assets.
+    :param net:
+        Numeric or missing net returns, or current assets.
+    :param expected:
+        Correct display strings for the supplied observations.
+    :return:
+        ``None`` after checking the rendered text.
+    """
+    actual = vault_metrics.combine_return_columns(pd.Series(gross, dtype=object), pd.Series(net, dtype=object), mode=mode, profit_presentation=presentation)
+    assert actual.tolist() == expected
+
+
+def test_lifetime_cleaning_keeps_nullable_cagr() -> None:
+    """Keep eligible young records when CAGR uses a nullable numeric dtype.
+
+    Nullable comparisons produce an unknown boolean for missing CAGR. The
+    analysis filter must retain that row while rejecting excessive known CAGR.
+
+    :return:
+        ``None`` after checking unavailable, ordinary and excessive returns.
+    """
+    names = ["young", "eligible", "excessive"]
+    metrics = pd.DataFrame(
+        {"cagr": pd.Series([None, 0.1, 5.0], index=names, dtype="Float64"), "peak_nav": [1000.0] * 3, "event_count": [25] * 3, "protocol_slug": ["example"] * 3, "address": ["0x0000000000000000000000000000000000000001"] * 3},
+        index=names,
+    )
+    cleaned = vault_metrics.clean_lifetime_metrics(metrics, logger=lambda _message: None)
+    assert cleaned.index.tolist() == ["young", "eligible"]
 
 
 def test_flat_initial_interval_is_included_in_daily_risk_metrics() -> None:
