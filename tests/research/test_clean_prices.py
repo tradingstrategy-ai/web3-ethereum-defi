@@ -16,6 +16,8 @@ import zstandard as zstd
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
+    DAILY_VAULT_PRICE_VERSION,
+    DAILY_VAULT_PRICE_VERSION_METADATA_KEY,
     approximate_hypercore_share_prices_from_pnl_nav,
     calculate_vault_returns,
     clean_by_tvl,
@@ -78,11 +80,20 @@ def test_clean_vault_price_data(
     vault_db: Path,
     raw_price_df: Path,
     tmp_path: Path,
-):
+) -> None:
     """Test cleaning vault price data.
 
-    - Use raw Hemi prices as test sample
-    - See `extract-uncleaned-price-data-sample.py` for extraction script
+    Clean the pinned raw Hemi snapshot and verify that the daily derivative
+    preserves observations and carries the current observation-policy version.
+
+    :param vault_db:
+        Pickled metadata fixture path.
+    :param raw_price_df:
+        Raw Hemi scanner Parquet fixture path.
+    :param tmp_path:
+        Isolated destination for hourly and daily cleaned files.
+    :return:
+        ``None`` after checking schema, source rows and sidecar metadata.
     """
 
     dst = tmp_path / "cleaned-vault-prices.parquet"
@@ -116,6 +127,7 @@ def test_clean_vault_price_data(
     assert "written_at" in df.columns
 
     assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(dst).metadata
+    assert pq.read_metadata(daily_dst).metadata[DAILY_VAULT_PRICE_VERSION_METADATA_KEY] == DAILY_VAULT_PRICE_VERSION
     hourly = pd.read_parquet(dst)
     expected_daily = materialise_daily_crypto_prices(hourly)
     actual_daily = pd.read_parquet(daily_dst)

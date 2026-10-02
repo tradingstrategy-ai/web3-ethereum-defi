@@ -189,6 +189,106 @@ def test_annualisation_uses_fractional_elapsed_days() -> None:
     assert result.cagr_gross == pytest.approx(1.1 ** (365.25 / 30.5) - 1)
 
 
+def test_zero_initial_price_does_not_publish_a_zero_return(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Withhold returns when the initial observation cannot establish a basis.
+
+    A zero starting NAV followed by a positive price has no defined percentage
+    return. Neither the period nor the legacy export should claim zero profit.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :return:
+        ``None`` after checking period errors and null exported returns.
+    """
+    source = pd.concat([price_df.iloc[:1]] * 2).copy()
+    source.index = pd.to_datetime(["2026-01-01 12:00", "2026-02-01 12:00"])
+    source["share_price"] = [0.0, 1.0]
+    metrics = calculate_lifetime_metrics(source, vault_db).iloc[0]
+    lifetime = vault_metrics.get_period_metrics(metrics["period_results"], "lifetime")
+    assert lifetime.error_reason == "Returns require a non-zero starting share price"
+    assert metrics["lifetime_return"] is None
+    assert metrics["cagr"] is None
+
+
+def test_flat_initial_interval_is_included_in_daily_risk_metrics() -> None:
+    """Treat a flat partial first day consistently with a moving first day.
+
+    Both observed daily intervals contribute to dispersion; omitting the
+    initial zero return would falsely report zero volatility for this curve.
+
+    :return:
+        ``None`` after checking volatility against both observed returns.
+    """
+    prices = pd.Series([100.0, 100.0, 110.0], index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 18:00", "2026-01-02 18:00"]))
+    daily, returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    metrics = calculate_period_metrics("lifetime", fees, fees, prices, daily, returns, prices * 1000, now_=prices.index[-1])
+    assert metrics.volatility == pytest.approx(np.std([0.0, 0.1], ddof=1) * np.sqrt(365))
+
+
+@pytest.mark.parametrize("elapsed", [pd.Timedelta(hours=6), pd.Timedelta(days=30, hours=6)])
+def test_native_and_usd_metrics_align_real_observations(vault_db: VaultDatabase, price_df: pd.DataFrame, elapsed: pd.Timedelta) -> None:
+    """Align native and USD return windows and asset observations.
+
+    Launch-day and mature intraday histories use the same endpoints. USD TVL
+    must use their real observation times rather than midnight state labels.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :param elapsed:
+        Observed holding duration, including its fractional day.
+    :return:
+        ``None`` after checking aligned windows, annualisation and USD assets.
+    """
+    start = pd.Timestamp("2026-01-01 12:00")
+    source = pd.concat([price_df.iloc[:1]] * 2).copy()
+    source.index = pd.DatetimeIndex([start, start + elapsed])
+    source["share_price"] = [1.0, 1.1]
+    source["total_assets"] = [2.0, 3.0]
+    spec = VaultSpec.parse_string(source["id"].iloc[0])
+    metadata = dict(vault_db.rows[spec])
+    metadata["Denomination"] = "ETH"
+    rates = pd.Series(2000.0, index=pd.date_range(start.normalize(), source.index[-1].normalize(), freq="D"))
+    context = CryptoUSDConversionContext(rates_by_family={"eth": rates}, errors_by_family={}, vault_families={spec.as_string_id(): "eth"})
+    metrics = calculate_lifetime_metrics(source.resample("D").last(), {spec: metadata}, price_observations=source, crypto_usd_conversion_context=context).iloc[0]
+    native = vault_metrics.get_period_metrics(metrics["period_results"], "1M")
+    usd = vault_metrics.get_period_metrics(metrics["periodic_metrics_usd"], "1M")
+    assert usd.samples_start_at == native.samples_start_at == start
+    assert usd.period_end_at == native.period_end_at == source.index[-1]
+    assert usd.tvl_start == pytest.approx(4000.0)
+    assert usd.tvl_end == pytest.approx(6000.0)
+    if elapsed >= pd.Timedelta(days=30):
+        assert usd.cagr_gross == pytest.approx(native.cagr_gross)
+    else:
+        assert usd.cagr_gross is native.cagr_gross is None
+
+
+def test_performance_filter_keeps_young_vaults(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Keep young vaults in the analysis helper while CAGR is unavailable.
+
+    NAV and activity thresholds still apply, but a missing annualised return
+    must not discard an otherwise eligible launch-period record.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :return:
+        ``None`` after checking the surviving absolute-return record.
+    """
+    source = pd.concat([price_df.iloc[:1]] * 2).copy()
+    source.index = pd.to_datetime(["2026-01-01 12:00", "2026-01-08 18:00"])
+    source["share_price"] = [1.0, 1.1]
+    metrics = vault_metrics.calculate_performance_metrics_for_all_vaults(vault_db, source, lifetime_min_nav_threshold=0, min_events=0, logger=lambda _message: None)
+    assert len(metrics) == 1
+    assert metrics.iloc[0]["lifetime_return"] == pytest.approx(0.1)
+    assert metrics.iloc[0]["cagr"] is None
+
+
 @pytest.mark.parametrize("crypto_bundle", [False, True])
 def test_arcus_export_uses_real_prices_before_daily_aggregation(vault_db: VaultDatabase, price_df: pd.DataFrame, *, crypto_bundle: bool) -> None:
     """Preserve the GME launch loss through both metric export paths.

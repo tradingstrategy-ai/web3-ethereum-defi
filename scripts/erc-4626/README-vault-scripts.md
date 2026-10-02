@@ -239,8 +239,8 @@ does not use token addresses as an inclusion criterion.
 The bundle is written below the pipeline data directory as
 ``crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`` and its separate JSON
 metadata and sticky state. R2 publication additionally writes the current
-manifest. Its Parquet retains the final observed row for each vault/UTC date
-and each vault's initial observation before the first daily close. A first
+manifest. Its Parquet retains the final valid price row for each vault/UTC date
+and each vault's initial valid observation before the first daily close. A first
 day can therefore contain two rows. Timestamps remain the actual observation
 times, and missing dates are not inserted. It keeps the established
 ``CleanedVaultPriceRow`` columns without adding denomination metadata or a
@@ -253,6 +253,11 @@ and flow calculations use the forward-filled daily closing series. The
 inputs separate: the initial row defines the return basis, while daily states
 take the first day's close and fill calendar gaps. It drops
 cleaned-price columns unused by returns and lifetime metrics before this step.
+Negative or non-finite prices and missing timestamps are excluded from the
+derived daily bundle; raw and hourly source history is preserved. Equal
+timestamps use the final block. The daily sidecar carries an observation-policy
+version: an older or unversioned sidecar falls back to the hourly source even
+if its modification time is newer.
 INFO logs report source read, freshness filtering, daily preparation and metric
 calculation times separately, with row counts and a preparation-end RSS sample.
 ETH and BTC amounts stay in their denomination units. Native admission
@@ -996,7 +1001,11 @@ version change invalidates cached metrics, causing one full recomputation.
 
 The annualisation floor prevents short extrapolations from entering CAGR
 rankings; it is not a claim of statistical sufficiency. Sharpe and volatility
-retain their separate data-quality rules and calendar-day approximation.
+retain their separate data-quality rules and calendar-day approximation. A
+partial first-day interval, including a flat one, contributes one observed
+return to that approximation. Published sample counts refer to valid stored
+observations rather than forward-filled calendar days. Native and USD views
+use the same real observation cutoff whenever exchange rates cover it.
 
 Arcus pTokens retain their first funded observation even before share supply
 changes, and the generic spike filter preserves their observed leveraged NAV

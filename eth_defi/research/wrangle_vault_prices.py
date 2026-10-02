@@ -54,6 +54,12 @@ from eth_defi.version_info import stamp_parquet_schema_metadata
 #: NAV at or below this value counts as a complete Hypercore wipe-out.
 HYPERCORE_ZERO_NAV_EPSILON = 0.000001
 
+#: Sidecar metadata identifying the initial-observation and valid-price policy.
+DAILY_VAULT_PRICE_VERSION_METADATA_KEY = b"daily_vault_price_version"
+
+#: Older sidecars without this version must be rebuilt from hourly prices.
+DAILY_VAULT_PRICE_VERSION = b"2"
+
 #: Fixed UTC interval used to select publishable Hypercore economic checkpoints.
 HYPERCORE_ECONOMIC_CHECKPOINT_INTERVAL = pd.Timedelta(hours=4)
 
@@ -2349,26 +2355,32 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
 
 
 def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
-    """Select real daily closing observations and each vault's first price.
+    """Select valid daily closing observations and each vault's first price.
 
-    The first observation is retained alongside the first day's closing
-    observation so lifetime returns and young-vault charts include that day's
-    movement. Later days retain one closing observation. The exported parquet
-    preserves real timestamps; the crypto bundle regularises these to calendar
+    The first valid observation is retained alongside the first day's final
+    valid observation so lifetime returns and young-vault charts include that
+    day's movement. Later days retain one valid closing observation. Missing
+    timestamps, negative prices and non-finite prices are excluded from this
+    derivative; the original hourly observations remain intact. Same-timestamp
+    prices use the final block instead of creating an ambiguous duplicate.
+    The exported parquet preserves real timestamps; the crypto bundle
+    regularises these to calendar
     days when it calculates metrics: stablecoin vaults with
     :func:`eth_defi.research.vault_metrics.calculate_sparse_daily_returns_for_all_vaults`,
     and ETH/BTC vaults one vault at a time in
     :mod:`eth_defi.vault.crypto_vaults`.
 
     :param prices_df:
-        Cleaned selected-family price rows with timestamp/index, ``id`` and
-        ``share_price`` columns.
+        Cleaned selected-family price rows with naive UTC timestamp/index,
+        string ``id`` and numeric or nullable ``share_price`` columns.
     :return:
         Chronologically sorted, observation-preserving daily price rows using
         the existing cleaned-price schema.
     """
     frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"])
+    share_prices = pd.to_numeric(frame["share_price"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    frame = frame.loc[np.isfinite(share_prices) & (share_prices >= 0) & frame["timestamp"].notna()]
     frame["_utc_date"] = frame["timestamp"].dt.floor("D")
     sort_columns = ["id", "timestamp"]
     if "block_number" in frame.columns:
@@ -2376,7 +2388,9 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     frame = frame.sort_values(sort_columns, kind="stable").reset_index(drop=True)
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
     first = frame.groupby("id", sort=False).head(1)
-    daily = pd.concat((first.loc[~first.index.isin(daily.index)], daily))
+    first_close_times = daily.groupby("id", sort=False)["timestamp"].first()
+    first = first.loc[first["timestamp"] < first["id"].map(first_close_times)]
+    daily = pd.concat((first, daily))
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
     if "returns_1h" in daily.columns:
         # ``returns_1h`` is a legacy name. Crypto Parquet is sparse daily, so
@@ -2402,7 +2416,8 @@ def write_daily_crypto_prices_sidecar(
     cleaned frame is already resident removes that second wide read.  The
     derivative is written to a temporary sibling and verified before replace,
     so an interrupted scan cannot replace a valid previous sidecar with a
-    partial file.
+    partial file. A metadata version prevents readers from reusing a sidecar
+    produced under the previous daily observation policy.
 
     :param prices_df:
         Settlement-annotated cleaned hourly rows with a timestamp index.
@@ -2432,7 +2447,8 @@ def write_daily_crypto_prices_sidecar(
     try:
         os.close(temporary_fd)
         table = pa.Table.from_pandas(daily_prices)
-        table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        metadata = stamp_parquet_schema_metadata(table.schema).metadata or {}
+        table = table.replace_schema_metadata(metadata | {DAILY_VAULT_PRICE_VERSION_METADATA_KEY: DAILY_VAULT_PRICE_VERSION})
         pq.write_table(table, temporary_path, compression="zstd")
         verify_parquet_file(
             temporary_path,

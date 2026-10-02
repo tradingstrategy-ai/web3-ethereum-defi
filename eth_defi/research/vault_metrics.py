@@ -134,6 +134,9 @@ MINIMUM_LIFETIME_CAGR_SAMPLE_DURATION = pd.Timedelta(days=30)
 #: Two real observations establish an absolute return and a launch-day basis.
 MINIMUM_RETURN_OBSERVATIONS = 2
 
+#: The daily bundle may retain its initial observation and first day's close.
+INITIAL_DAY_PRICE_OBSERVATIONS = 2
+
 #: Minimum price observations required before reporting a Sharpe ratio.
 #:
 #: The duration floor alone does not reject a sparse series. Ten prices yield
@@ -2177,9 +2180,18 @@ def _calculate_period_metrics_from_arrays(
 
     # Calculate gross returns
     if share_price_start == 0:
-        returns_gross = 0
-    else:
-        returns_gross = (share_price_end / share_price_start) - 1
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+            share_price_start=share_price_start,
+            share_price_end=share_price_end,
+            error_reason="Returns require a non-zero starting share price",
+        )
+    returns_gross = (share_price_end / share_price_start) - 1
 
     # Do not turn unknown fees into zero fees. ``calculate_net_profit()``
     # deliberately accepts ``None`` for legacy callers, but an exported net
@@ -2270,7 +2282,9 @@ def _calculate_period_metrics_from_arrays(
     # A source observation within the first day precedes that day's closing
     # price. Include that real initial movement instead of discarding it as
     # the undefined return before the first daily bucket.
-    if share_price_start > 0 and daily_samples and period_samples_daily[0] != share_price_start:
+    first_day_end_ns = (samples_start_ns // NANOSECONDS_PER_DAY + 1) * NANOSECONDS_PER_DAY
+    first_day_close = int(np.searchsorted(observation_ns, first_day_end_ns, side="left")) - 1
+    if daily_samples and observation_ns[first_day_close] > samples_start_ns:
         first_day_return = period_samples_daily[0] / share_price_start - 1
         if np.isfinite(first_day_return):
             period_daily_returns = np.r_[first_day_return, period_daily_returns]
@@ -2607,7 +2621,7 @@ def calculate_crypto_usd_period_results(
         share_price_daily=daily_usd,
         daily_returns=daily_returns,
         tvl=usd_tvl,
-        now_=segment_end,
+        now_=usd_sparse.index[-1],
         native_fee_share_price=native_sparse,
         exchange_rate=rate_sparse,
     )
@@ -3787,7 +3801,7 @@ def _calculate_vault_record_from_arrays(
             vault_id=id_val,
             native_share_price_observations=pd.Series(observation_prices, index=pd.DatetimeIndex(observation_times)),
             native_daily_share_prices=pd.Series(daily_prices, index=pd.DatetimeIndex(daily_ns)),
-            native_total_assets=pd.Series(columns["total_assets"], index=pd.DatetimeIndex(vault.timestamps)),
+            native_total_assets=pd.Series(observation_vault.columns["total_assets"], index=pd.DatetimeIndex(observation_vault.timestamps)),
             gross_fee_data=gross_fee_data,
             net_fee_data=net_fee_data,
         )
@@ -3822,9 +3836,9 @@ def _calculate_vault_record_from_arrays(
     lifetime_samples = len(observation_ns)
     age = (lifetime_end_date - lifetime_start_date).total_seconds() / (365.25 * 86400)
 
-    # Preserve legacy zero defaults for existing protocols. An unavailable
-    # event-only return is unknown, including when fees become known later.
-    unavailable_metric = None if chain_id == ANTARCTIC_CHAIN_ID and vault_address.lower() in ANTARCTIC_BY_ADDRESS else 0
+    # A zero initial price cannot establish a return basis. Preserve legacy
+    # zero defaults for other protocols, except unknown event-only returns.
+    unavailable_metric = None if observation_prices[0] == 0 or (chain_id == ANTARCTIC_CHAIN_ID and vault_address.lower() in ANTARCTIC_BY_ADDRESS) else 0
 
     # Legacy: Lifetime metrics
     if lifetime_pm and lifetime_pm.error_reason is None:
@@ -4165,7 +4179,10 @@ def calculate_lifetime_metrics(
     # below then takes each vault's rows as small array slices instead of
     # materialising one pandas DataFrame per vault; see _VaultPriceFrame.
     price_frame = _prepare_vault_price_frame(df)
-    observation_vaults = dict(_iterate_vault_arrays(_prepare_vault_price_frame(price_observations))) if price_observations is not None else None
+    observation_price_frame = _prepare_vault_price_frame(price_observations) if price_observations is not None else None
+    # Keep only source positions for all vaults. Materialise observation arrays
+    # for the current vault instead of retaining a second full set of arrays.
+    observation_positions = price_observations.groupby("id", sort=False).indices if price_observations is not None else None
     vault_count = df["id"].nunique()
 
     # Each vault is an independent export record. A corrupted historical row
@@ -4182,7 +4199,7 @@ def calculate_lifetime_metrics(
                 xerberus_protocols=xerberus_protocols,
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
                 crypto_usd_conversion_context=crypto_usd_conversion_context,
-                price_observations=observation_vaults[vault_id] if observation_vaults is not None else None,
+                price_observations=_select_vault_arrays(observation_price_frame, observation_positions[vault_id]) if observation_price_frame is not None else None,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
             logger.exception("Skipping invalid vault metrics record for %s", vault_id)
@@ -4969,24 +4986,37 @@ def analyse_vault(
 def calculate_performance_metrics_for_all_vaults(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
-    logger=print,
-    lifetime_min_nav_threshold=100.00,
-    broken_max_nav_value=99_000_000_000,
-    cagr_too_high=10_000,
-    min_events=25,
+    logger: Callable[[str], None] = print,
+    lifetime_min_nav_threshold: USDollarAmount = 100.00,
+    broken_max_nav_value: USDollarAmount = 99_000_000_000,
+    cagr_too_high: Percent = 10_000,
+    min_events: int = 25,
 ) -> pd.DataFrame:
     """Calculate performance metrics for each vault.
 
-    - Only applicable to stablecoin vaults as cleaning units are in USD
-    - Clean up idle vaults that have never seen enough events to be considered active
-    - Calculate lifetime returns, CAGR, NAV, etc.
-    - Filter out results with abnormal values
+    Apply NAV, event-count and extreme-CAGR filters to stablecoin vault metrics.
+    Young vaults with valid absolute returns remain eligible while their CAGR
+    is unavailable. This helper expects cleaned price observations; callers
+    requiring daily flow estimates must prepare daily states first.
+
+    :param vault_db:
+        Stablecoin vault metadata keyed by vault identity.
+    :param prices_df:
+        Timestamp-indexed cleaned observations with vault IDs, prices and assets.
+    :param logger:
+        Progress callback.
+    :param lifetime_min_nav_threshold:
+        Minimum lifetime peak assets in denomination units.
+    :param broken_max_nav_value:
+        Maximum accepted lifetime peak assets in denomination units.
+    :param cagr_too_high:
+        Exclusive upper bound for available lifetime CAGR.
+    :param min_events:
+        Minimum discovery events, except for supported special vault families.
 
     :return:
         DataFrame with lifetime metrics for each vault, indexed by vault name.
     """
-
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
 
     # Numpy complains about something
     # - invalid value encountered in reduce
@@ -4996,8 +5026,7 @@ def calculate_performance_metrics_for_all_vaults(
         warnings.simplefilter("ignore", RuntimeWarning)
         lifetime_data_df = calculate_lifetime_metrics(
             prices_df,
-            vaults_by_id,
-            returns_column="returns_1h",
+            vault_db,
         )
 
     lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
@@ -5020,11 +5049,9 @@ def calculate_performance_metrics_for_all_vaults(
     # Filter FRAX vault with broken interface
     lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
 
-    # Filter out MAAT Stargate V2 USDT
-    # Not sure what's going on with this one and other ones with massive returns.
-    # Rebase token?
-    # Consider 10,000x returns as "valid"
-    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < cagr_too_high]
+    # Missing CAGR is expected for young vaults with valid absolute returns.
+    cagr = lifetime_data_df["cagr"]
+    lifetime_data_df = lifetime_data_df[cagr.isna() | (cagr < cagr_too_high)]
 
     # Filter out some vaults that report broken NAV
     broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
@@ -5038,7 +5065,7 @@ def calculate_performance_metrics_for_all_vaults(
 
     # Filter out some vaults that have not seen many deposit and redemptions.
     # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
-    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    # because we do not necessarily have onchain deposit/redeem event data for them.
     special_mask = lifetime_data_df.apply(
         lambda row: is_special_vault(row["protocol_slug"], row["address"]),
         axis=1,
@@ -5566,7 +5593,7 @@ def _regularise_daily_per_vault(df_work: pd.DataFrame, returns_column: str, *, s
                 # The daily bundle deliberately retains one extra launch
                 # observation. Daily states use the close; return endpoints
                 # receive the original rows separately.
-                has_initial_observation = len(duplicates) == MINIMUM_RETURN_OBSERVATIONS and duplicates[0] == observation_days[0] and group.index[0] < group.index[1]
+                has_initial_observation = len(duplicates) == INITIAL_DAY_PRICE_OBSERVATIONS and duplicates[0] == observation_days[0] and group.index[0] < group.index[1]
                 if not has_initial_observation:
                     raise ValueError(f"Duplicate sparse daily observations for {chain_val}-{addr_val} on {duplicates.min().date()} ({len(duplicates)} rows across {duplicates.nunique()} days)")
                 group = group.iloc[1:]

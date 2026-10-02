@@ -1370,7 +1370,7 @@ def main(
 
     # Daily closing prices are appropriate for state-delta flows, but using
     # them as the return endpoints loses the first observation day's PnL.
-    price_observations = prices_df[["id", "share_price", "total_assets", "block_number"]].copy()
+    price_observations = prices_df[["id", "share_price", "total_assets", "block_number"]]
 
     # Free the due-filtered price frame before the memory-peak metrics
     # phase; nothing below needs it.
