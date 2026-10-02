@@ -5,6 +5,7 @@
 
 import datetime
 import os
+from collections.abc import Iterator
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -56,12 +57,14 @@ def test_ondo_hardcoded_classification_and_curator_are_chain_aware() -> None:
 def test_ondo_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
     """Add reviewed issuer share tokens without ERC-4626 flow events."""
 
-    def fake_probe_vaults(chain: int, web3factory: object, addresses: list[str], *, block_identifier: int, max_workers: int, progress_bar_desc: str | None):
+    def fake_probe_vaults(chain: int, web3factory: object, addresses: list[str], *, block_identifier: int, max_workers: int, progress_bar_desc: str | None, current_state: bool) -> Iterator[VaultFeatureProbe]:
         """Return explicit Ondo classifications for registered leads."""
 
         assert chain == ETHEREUM_CHAIN_ID
         assert web3factory is DummyOndoDiscovery.web3factory
         assert set(addresses) == {product.token for product in ONDO_PRODUCTS.values()}
+        # Issuer catalogue discovery uses the selected historical block.
+        assert current_state is False
         for address in addresses:
             yield VaultFeatureProbe(address=address, features={ERC4626Feature.ondo_like})
 

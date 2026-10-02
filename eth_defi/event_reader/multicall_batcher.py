@@ -29,7 +29,7 @@ from http.client import RemoteDisconnected
 from itertools import islice
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
+from typing import TYPE_CHECKING, Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
@@ -56,9 +56,13 @@ from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
+if TYPE_CHECKING:
+    from hypersync import HypersyncClient
+
 logger = logging.getLogger(__name__)
 
-#: Address, arguments tuples
+#: ``(target_address, function_arguments)``: the contract to call and its
+#: positional ABI arguments, before encoding the Multicall payload.
 CallData: TypeAlias = tuple[str | HexAddress, tuple]
 
 #: Default Multicall3 address
@@ -72,7 +76,9 @@ MULTICALL_CHAIN_ADDRESSES = {
 # The muticall small contract seems unable to fetch token balances at blocks preceding
 # the block when it was deployed on a chain. We can thus only use multicall for recent
 # enough blocks.
-# chain id: (block_number, blok_timestamp)
+# Key: chain ID; value: (deployment_block_number, deployment_timestamp).
+# Timestamps are naive UTC; these boundaries keep historical batches from
+# calling Multicall3 before its bytecode existed on the selected chain.
 MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] = {
     1: (14_353_601, datetime.datetime(2022, 3, 9, 16, 17, 56)),
     56: (15_921_452, datetime.datetime(2022, 3, 9, 23, 17, 54)),  # BSC
@@ -473,7 +479,7 @@ class MulticallWrapper(abc.ABC):
 
     def __repr__(self):
         """Log output about this call"""
-        raise NotImplementedError(f"Please implement in a subclass")
+        raise NotImplementedError("Please implement in a subclass")
 
     @property
     def contract_address(self) -> HexAddress:
@@ -1196,12 +1202,13 @@ def pin_fallback_provider_by_host(fallback_provider: FallbackProvider, host_subs
 
 
 class MultiprocessMulticallReader:
-    """An instance created in a subprocess to do calls.
+    """Reusable worker-local connection and retry policy for Multicall reads.
 
-    - Specific to a chain (connection is married with a chain, otherwise stateless)
-    - Initialises the web3 connection at the start of the process
-    - If you try to read using multicall when the contract is not yet deployed (see :py:func:`get_multicall_block_number`)
-      then you get no results
+    The historical name predates the threading backend. Each joblib worker
+    creates its own instance, tied to one chain/provider configuration, so
+    mutable connection and accounting state are not shared between workers.
+    Calls before Multicall deployment yield no results; see
+    :py:func:`get_multicall_block_number` when selecting a historical range.
     """
 
     def __init__(
@@ -1212,10 +1219,13 @@ class MultiprocessMulticallReader:
         too_many_requets_sleep=61.0,
         rpc_request_stats: RPCRequestStats | None = None,
     ):
-        """Create subprocess worker instance.
+        """Create a reader inside its owning thread or process.
+
+        The factory keeps connections local while allowing the phase to provide
+        request accounting from the very first provider-verification request.
 
         :param web3factory:
-            Initialise connection within the subprocess
+            Connection factory, or an already worker-owned Web3 connection.
 
         :param batch_size:
             How many calls we pack into the multicall.
@@ -1310,6 +1320,19 @@ class MultiprocessMulticallReader:
         """Communicate with Multicall3 contract.
 
         - Fail safes for ugly situations
+
+        :param multicall_contract: Bound Multicall3 contract used for execution.
+        :param block_identifier: Source block for all calls in this request.
+        :param batch_size: Maximum encoded subcalls per physical request.
+        :param encoded_calls:
+            Ordered ``(target_address, encoded_calldata)`` tuples. Addresses
+            identify the target contracts; calldata includes each ABI selector
+            and encoded arguments as bytes.
+        :param require_multicall_result: Whether to reject empty return bytes from any subcall.
+        :return:
+            Ordered ``(success, return_data)`` tuples, one per input subcall.
+            success is a boolean; return_data is raw bytes to decode on success
+            or inspect as revert data on failure. Order is preserved across chunks.
         """
         payload_size = 0
         calls_results = []
@@ -1462,7 +1485,8 @@ class MultiprocessMulticallReader:
             archive-state errors.
 
         :param encoded_calls:
-            Exact encoded calls which failed at this block.
+            Exact ``(target_address, encoded_calldata)`` tuples which failed at
+            this block, preserving their order for result-to-call attribution.
 
         :param require_multicall_result:
             Whether to reject an empty Multicall result, passed through unchanged.
@@ -1472,7 +1496,9 @@ class MultiprocessMulticallReader:
             been tried.
 
         :return:
-            Successful Multicall results from one of the other endpoints.
+            ``(success, return_data)`` tuples from one of the other endpoints,
+            in input order. success describes each target subcall, so a served
+            batch may still contain contract reverts; return_data is raw bytes.
 
         :raises MulticallHistoricalDataUnavailable:
             If all configured endpoints fail this block with unavailable
@@ -1586,7 +1612,7 @@ class MultiprocessMulticallReader:
 
         block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
+            "Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
             len(encoded_calls),
             len(filtered_out_calls),
             block_identifier_str,
@@ -1760,11 +1786,11 @@ class MultiprocessMulticallReader:
                         logger.warning("Multicall retry status:\n%s", msg)
 
                         if i < (fallback_attempts - 1):
-                            logger.warning(f"Multicall retryable still failing, but we have retries left.")
+                            logger.warning("Multicall retryable still failing, but we have retries left.")
                             logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
                             continue
 
-                        raise RuntimeError(f"Out of multicall retries, even after dropping multicall batch size to 1 and switching providers, bailing out.\n" + msg) from e
+                        raise RuntimeError("Out of multicall retries, even after dropping multicall batch size to 1 and switching providers, bailing out.\n" + msg) from e
 
         self.calls += 1
 
@@ -1943,7 +1969,7 @@ def read_multicall_historical(
     completed_task_count = 0
 
     try:
-        for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+        for completed_task in worker_processor(delayed(_execute_multicall_in_worker)(task) for task in _task_gen()):
             if rpc_request_stats is not None and completed_task.rpc_request_stats is not None:
                 rpc_request_stats.merge(completed_task.rpc_request_stats)
             completed_task_count += 1
@@ -2035,7 +2061,7 @@ def read_multicall_historical_stateful(
     all_calls = list(calls.keys())
     logger.info("Per block we need to do %d max calls", len(all_calls))
 
-    assert all(s is not None for s in calls.values()), f"States missing for some calls"
+    assert all(s is not None for s in calls.values()), "States missing for some calls"
 
     # Significant speedup by prefetcing timestamps
     timestamps = fetch_block_timestamps_multiprocess_auto_backend(
@@ -2061,7 +2087,7 @@ def read_multicall_historical_stateful(
         if len(chunk) == 0:
             return
 
-        for combined_result in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in chunk):
+        for combined_result in worker_processor(delayed(_execute_multicall_in_worker)(task) for task in chunk):
             if rpc_request_stats is not None and combined_result.rpc_request_stats is not None:
                 rpc_request_stats.merge(combined_result.rpc_request_stats)
             for r in combined_result.results:
@@ -2180,6 +2206,7 @@ def read_multicall_chunked(
     timestamped_results=True,
     backend="loky",
     rpc_request_stats: RPCRequestStats | None = None,
+    refresh_current_block: bool = False,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2336,10 +2363,12 @@ def read_multicall_chunked(
                 timestamp=ts,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
                 rpc_request_stats=rpc_request_stats if backend == "threading" else None,
+                rpc_operation=getattr(rpc_request_stats, "operation", None),
+                refresh_current_block=refresh_current_block,
             )
 
     performed_calls = success_calls = failed_calls = 0
-    for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+    for completed_task in worker_processor(delayed(_execute_multicall_in_worker)(task) for task in _task_gen()):
         if backend == "loky" and rpc_request_stats is not None and completed_task.rpc_request_stats is not None:
             rpc_request_stats.merge(completed_task.rpc_request_stats)
         if progress_bar:
@@ -2376,18 +2405,20 @@ def _create_task_id() -> int:
 
 @dataclass(slots=True, frozen=True)
 class MulticallHistoricalTask:
-    """Pickled task send between multicall reader loop and subprocesses.
+    """Dispatch contract reads and source provenance to a joblib worker.
 
-    Send a batch of calls to a specific block.
+    Threaded workers can share counters; process workers return detached task
+    counters for merging. Keeping the operation label as a scalar avoids
+    transferring accumulated parent history with every historical batch.
     """
 
     #: Track which chain this call belongs to
     chain_id: int
 
-    #: Used to initialise web3 connection in the subprocess
+    #: Factory creates the connection inside its owning worker.
     web3factory: Web3Factory
 
-    #: Block number to sccan
+    #: Requested source block; historical tasks must preserve it.
     block_number: BlockIdentifier
 
     #: Multicalls to perform
@@ -2410,6 +2441,12 @@ class MulticallHistoricalTask:
     #: Shared parent counter when running under the threading backend.
     rpc_request_stats: RPCRequestStats | None = None
 
+    #: Explicit phase-operation label copied into subprocess counters.
+    rpc_operation: str | None = None
+
+    #: Refresh a safe numeric head per batch for current-state feature probes.
+    refresh_current_block: bool = False
+
     def __post_init__(self):
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -2417,24 +2454,27 @@ class MulticallHistoricalTask:
         assert all(isinstance(c, EncodedCall) for c in self.calls), f"Expected list of EncodedCall objects, got {self.calls}"
 
 
-def _execute_multicall_subprocess(
+def _execute_multicall_in_worker(
     task: MulticallHistoricalTask,
 ) -> CombinedEncodedCallResult:
-    """Extract raw JSON-RPC data from a node in.
+    """Execute one Multicall task using worker-local reusable resources.
 
-    - Subprocess entrypoint
-    - This is called by a joblib.Parallel
-    - The subprocess is recycled between different batch jobs
-    - We cache reader Web3 connections between batch jobs
-    - joblib never shuts down this process
+    The chunked and historical readers dispatch here through joblib, using
+    either threads or processes. Worker-local connections amortise provider
+    setup without sharing mutable provider sessions between concurrent tasks.
+    Separate task counters are returned to process callers for one parent-side
+    merge; threaded callers can instead share a phase accumulator directly.
+
+    :param task: Calls, requested block, timestamp and accounting policy.
+    :return: Raw call results with their actual source block and optional stats.
     """
     global _reader_instance
 
     reader: MultiprocessMulticallReader
 
-    # Initialise web3 connection when called for the first time.
-    # We will recycle the same connection instance and it is kept open
-    # until shutdown.
+    # A worker may serve multiple chains and later runs with different RPC
+    # endpoints. Chain ID alone would reuse the wrong provider after failover
+    # configuration changes, so the connection cache also includes the factory.
     per_chain_readers = getattr(_reader_instance, "per_chain_readers", None)
     if per_chain_readers is None:
         per_chain_readers = _reader_instance.per_chain_readers = {}
@@ -2442,13 +2482,18 @@ def _execute_multicall_subprocess(
     assert task.chain_id
 
     if task.collect_rpc_request_stats:
-        task_rpc_request_stats = RPCRequestStats()
+        # Copy only the operation label into a fresh task counter. Returning the
+        # parent's accumulated history from each process would multiply totals
+        # when completed tasks are merged back into the phase accumulator.
+        source_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
+        task_rpc_request_stats = RPCRequestStats(operation=task.rpc_operation or getattr(source_stats, "operation", "historical_multicall"))
     else:
         task_rpc_request_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
 
-    reader = per_chain_readers.get(task.chain_id)
+    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory))
+    reader = per_chain_readers.get(reader_key)
     if reader is None:
-        reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(
+        reader = per_chain_readers[reader_key] = MultiprocessMulticallReader(
             task.web3factory,
             rpc_request_stats=task_rpc_request_stats,
         )
@@ -2461,14 +2506,19 @@ def _execute_multicall_subprocess(
         # Read block timestamp for this batch
         assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
 
+        # Live HyperCore feature probes need a recent executable state block.
+        # Historical callers must keep their requested block: refreshing those
+        # would silently attach current values to historical price observations.
+        block_number = max(1, reader.web3.eth.block_number - 10) if task.refresh_current_block else task.block_number
+
         if task.timestamp is None:
-            timestamp = reader.get_block_timestamp(task.block_number)
+            timestamp = reader.get_block_timestamp(block_number)
         else:
             timestamp = task.timestamp
 
         # Perform multicall to read share prices
         call_results = reader.process_calls(
-            task.block_number,
+            block_number,
             task.calls,
             require_multicall_result=task.require_multicall_result,
             timestamp=timestamp,
@@ -2476,11 +2526,13 @@ def _execute_multicall_subprocess(
 
         # Pass results back to the main process
         return CombinedEncodedCallResult(
-            block_number=task.block_number,
+            block_number=block_number,
             timestamp=timestamp,
             results=[c for c in call_results],
             rpc_request_stats=task_rpc_request_stats if task.collect_rpc_request_stats else None,
         )
     finally:
+        # The provider survives this task. Detach counters on every exit so a
+        # later task cannot write attempts into this already returned result.
         if callable(set_rpc_request_stats):
             set_rpc_request_stats(None)

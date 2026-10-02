@@ -9,38 +9,37 @@ Usage:
 .. code-block:: shell
 
     export JSON_RPC_URL=...
-    python scripts/erc-4626/scan-vaults.py
+    poetry run python scripts/erc-4626/scan-vaults.py
 
 Or:
 
 .. code-block:: shell
 
     # TAC
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC MAX_GETLOGS_RANGE=1000 python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC poetry run python scripts/erc-4626/scan-vaults.py
 
     # Arbitrum
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM poetry run python scripts/erc-4626/scan-vaults.py
 
     # Hyperliquid
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID poetry run python scripts/erc-4626/scan-vaults.py
 
     # Mainnet
-    SCAN_BACKEND=rpc LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM poetry run python scripts/erc-4626/scan-vaults.py
 
     # Monad
-    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_MONAD python scripts/erc-4626/scan-vaults.py
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_MONAD poetry run python scripts/erc-4626/scan-vaults.py
 
 
 Or for faster small sample scan limit the end block:
 
-    END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
+    END_BLOCK=5555721 poetry run python scripts/erc-4626/scan-vaults.py
 
 """
 
 import logging
 import os
 from pathlib import Path
-from urllib.parse import urlparse
 
 import duckdb
 from filelock import Timeout as FileLockTimeout
@@ -50,13 +49,8 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.rpc_scan_state import load_rpc_scan_state
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, get_pipeline_data_dir
-
-try:
-    import hypersync
-except ImportError as e:
-    raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
-
 
 logger = logging.getLogger(__name__)
 
@@ -64,73 +58,75 @@ RESET_LEADS_REMOVED_MESSAGE = "RESET_LEADS has been removed. Use the generated p
 
 assert "RESET_LEADS" not in os.environ, RESET_LEADS_REMOVED_MESSAGE
 
-# Read JSON_RPC_CONFIGURATION from the environment
-JSON_RPC_URL = os.environ.get("JSON_RPC_URL")
-if JSON_RPC_URL is None:
-    try:
-        urlparse(JSON_RPC_URL)
-    except ValueError as e:
-        raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}") from e
-
 
 def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
-    """Run lead discovery while updating outer accounting metadata."""
+    """Run Hypersync discovery with explicit script configuration.
 
-    # How many CPUs / subprocess we use
+    The outer accounting boundary owns failure outcomes and persistence. Keeping
+    this function free of catch-and-reraise wrappers produces one useful failure
+    traceback while retaining partial request counts in its accumulator.
+
+    :param stats: Physical-attempt accumulator shared with discovery workers.
+    :param metrics: Mutable chain identity and scanned-item diagnostics.
+    :return: None; persists discovery through the shared core scanner.
+    """
+
+    json_rpc_url = os.environ.get("JSON_RPC_URL")
+    assert json_rpc_url, "JSON_RPC_URL must be set for vault contract reads"
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
-    # max_workers = 1  # To debug, set workers to 1
 
     default_log_level = os.environ.get("LOG_LEVEL", "warning")
     setup_console_logging(
-        default_log_level=os.environ.get("LOG_LEVEL", "warning"),
-        log_file=Path(f"logs/scan-vaults.log"),
+        default_log_level=default_log_level,
+        log_file=Path("logs/scan-vaults.log"),
     )
 
     logger.info("Using log level: %s", default_log_level)
-    end_block = os.environ.get("END_BLOCK")
+    end_block = int(os.environ["END_BLOCK"]) if os.environ.get("END_BLOCK") else None
 
-    os.makedirs(DEFAULT_VAULT_DATABASE.parent, exist_ok=True)
-    vault_db_file = DEFAULT_VAULT_DATABASE
-
-    # Debug bad RPCs
-    max_getlogs_range = os.environ.get("MAX_GETLOGS_RANGE", None)
-    if max_getlogs_range:
-        max_getlogs_range = int(max_getlogs_range)
-
-    # Choose a different scan mode
-    scan_backend = os.environ.get("SCAN_BACKEND", "auto")
+    # Resolve data and lock paths through the same helper. A relocated pipeline
+    # must not lock one directory while discovery writes the home-directory DB.
+    vault_db_file = get_pipeline_data_dir() / DEFAULT_VAULT_DATABASE.name
+    vault_db_file.parent.mkdir(parents=True, exist_ok=True)
 
     hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
 
-    if scan_backend == "auto":
-        assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
+    assert hypersync_api_key, "HYPERSYNC_API_KEY must be set for vault event discovery"
 
-    try:
-        web3 = create_multi_provider_web3(JSON_RPC_URL, rpc_request_stats=stats)
-        metrics["chain_id"] = web3.eth.chain_id
-        report = scan_leads(
-            json_rpc_urls=JSON_RPC_URL,
-            vault_db_file=vault_db_file,
-            max_workers=max_workers,
-            start_block=None,
-            end_block=end_block,
-            printer=print,
-            backend=scan_backend,
-            max_getlogs_range=max_getlogs_range,
-            hypersync_api_key=hypersync_api_key,
-            rpc_request_stats=stats,
-            web3=web3,
-        )
-        metrics["items_scanned"] = report.items_scanned
-
-        print("All ok")
-    except Exception as e:
-        print("Died with error: %s", e)
-        raise
+    # Both entrypoints expose the same intentional repair override. Fine-grained
+    # library callers use scan_leads() arguments instead of hidden global flags.
+    force_refresh = os.environ.get("FORCE_LEAD_DISCOVERY", "false").lower() == "true"
+    web3 = create_multi_provider_web3(json_rpc_url, rpc_request_stats=stats)
+    metrics["chain_id"] = web3.eth.chain_id
+    report = scan_leads(
+        json_rpc_urls=json_rpc_url,
+        vault_db_file=vault_db_file,
+        max_workers=max_workers,
+        start_block=None,
+        end_block=end_block,
+        printer=print,
+        hypersync_api_key=hypersync_api_key,
+        rpc_request_stats=stats,
+        web3=web3,
+        force_metadata_refresh=force_refresh,
+        force_classification_refresh=force_refresh,
+    )
+    metrics["items_scanned"] = report.items_scanned
+    # A successful discovery return can leave deferred metadata. Match the
+    # all-chain outcome denominator instead of reporting queued work as complete.
+    metrics["pending_candidates"] = len(load_rpc_scan_state(vault_db_file.parent / f"rpc-pending-metadata-{metrics['chain_id']}.json"))
+    logger.info("Vault discovery completed")
 
 
 def main() -> None:
-    """Run lead discovery under the shared pipeline and DuckDB writer lock."""
+    """Run lead discovery under the shared pipeline and DuckDB writer lock.
+
+    This boundary retains partial physical attempts when discovery fails or is
+    cancelled. Accounting failures are logged separately so reporting cannot
+    replace the original scan exception or trigger an expensive discovery replay.
+
+    :return: None; persists and reports the attempted phase before propagating failures.
+    """
 
     pipeline_lock_path = get_pipeline_data_dir() / "scan-pipeline"
     database_path = resolve_rpc_tracking_database_path()
@@ -142,6 +138,13 @@ def main() -> None:
             metrics = {"chain_id": None, "items_scanned": 0}
             try:
                 _run_scan(stats, metrics)
+            except BaseException as error:
+                # Accounting still runs on cancellation or a failed scan. Mark
+                # the outcome with the exception class instead of private provider
+                # text; record_scan drops this marker from persisted metrics.
+                # Propagate the original failure after the finally block.
+                metrics["error"] = type(error).__name__
+                raise
             finally:
                 chain_id = metrics["chain_id"]
                 if chain_id is not None:
@@ -153,6 +156,7 @@ def main() -> None:
                             cycle_number=cycle_number,
                             stats=stats,
                             items_scanned=metrics["items_scanned"],
+                            metrics=metrics,
                         )
                         report = format_rpc_usage_report(database, chain_id, cycle_started, cycle_number)
                         print(report)
@@ -167,6 +171,3 @@ if __name__ == "__main__":
     except FileLockTimeout:
         logger.error("Vault scan pipeline is locked by another scanner; stop it or retry after it finishes")
         raise SystemExit(1) from None
-    except Exception as e:
-        logger.exception("Fatal error: %s", e, exc_info=e)
-        raise e

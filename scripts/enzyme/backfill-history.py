@@ -78,7 +78,7 @@ from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissio
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection, PotentialVaultMatch, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match, create_enzyme_factory_detection, create_enzyme_potential_vault_match
-from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
+from eth_defi.erc_4626.scan import fetch_vault_scan_record_in_worker
 from eth_defi.hypersync.hypersync_timestamp import is_hypersync_retryable_runtime_error
 from eth_defi.hypersync.session import open_hypersync_stream
 from eth_defi.hypersync.utils import configure_hypersync_from_env
@@ -88,9 +88,9 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
+from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
-from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
 logger = logging.getLogger(__name__)
 
@@ -837,7 +837,7 @@ def fetch_enzyme_metadata_records(
         block_identifier=end_block,
     )
     detections = [create_enzyme_detection(candidate, current_deposit_permissions) for candidate in candidates]
-    rows = Parallel(n_jobs=max_workers, backend="threading")(delayed(create_vault_scan_record_subprocess)(web3factory, detection, end_block) for detection in tqdm(detections, desc=f"Reading Enzyme metadata on chain {chain_id}"))
+    rows = Parallel(n_jobs=max_workers, backend="threading")(delayed(fetch_vault_scan_record_in_worker)(web3factory, detection, end_block) for detection in tqdm(detections, desc=f"Reading Enzyme metadata on chain {chain_id}"))
     return list(zip(candidates, rows, strict=True))
 
 

@@ -112,7 +112,7 @@ def test_onyx_hypersync_discovery_updates_persisted_handler_membership() -> None
         assert lead.enzyme_active_deposit_handlers == expected
 
 
-def test_onyx_normal_scanner_injects_batched_permission(monkeypatch) -> None:
+def test_onyx_normal_scanner_injects_batched_permission(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prevent later all-chain scans from reverting migrated Onyx status."""
 
     candidate = EnzymeVaultFactoryCandidate(
@@ -130,9 +130,11 @@ def test_onyx_normal_scanner_injects_batched_permission(monkeypatch) -> None:
     discover = SimpleNamespace(
         web3=SimpleNamespace(eth=SimpleNamespace(chain_id=BASE_CHAIN_ID)),
         web3factory=SimpleNamespace(),
-        max_workers=4,
         fetch_leads=lambda *_args: LeadScanReport(leads={TEST_SHARES_ADDRESS.lower(): lead}),
     )
+    # Use the real base initialiser so the permission-focused stub participates
+    # in the same cursor callback and classification-cache lifecycle as a scanner.
+    VaultDiscoveryBase.__init__(discover, max_workers=4)
     captured_handlers = []
 
     def fake_fetch_permissions(**kwargs):

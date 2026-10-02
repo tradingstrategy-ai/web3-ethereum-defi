@@ -4,6 +4,7 @@ import datetime
 import logging
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from joblib import Parallel, delayed
@@ -15,6 +16,9 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
+
+if TYPE_CHECKING:
+    import hypersync
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,7 @@ def _read_timestamp_subprocess(
     if per_chain_web3 is None:
         per_chain_web3 = _timestamp_instance.per_chain_web3 = {}
 
-    task_rpc_request_stats = RPCRequestStats() if collect_rpc_request_stats else None
+    task_rpc_request_stats = RPCRequestStats(operation="timestamp") if collect_rpc_request_stats else None
 
     web3 = per_chain_web3.get(chain_id)
     if web3 is None:

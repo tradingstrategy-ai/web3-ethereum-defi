@@ -299,6 +299,65 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Symbiotic": VaultTechnicalRisk.low,
 }
 
+#: Reviewed disabled GMX GM markets on Arbitrum One (chain 42161).
+#:
+#: The 2026-10-01 smoke scan found these among 47 overdue vaults. On
+#: 2026-10-02 a real Multicall read of GMX DataStore confirmed
+#: ``getBool(is_market_disabled_key(market)) == True`` for all 14 at block
+#: 510,963,697. This is explicit protocol disablement, not an inference from
+#: old prices, low TVL or a transient provider failure. Each entry below also
+#: records its last positive cached deposit-context valuation observation.
+#:
+#: Source semantics: :func:`eth_defi.gmx.vault_catalog._fetch_market_enabled`
+#: reads the key defined by GMX's canonical ``Keys.sol``:
+#: https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/data/Keys.sol
+#: Investigation and the complete affected-vault inventory:
+#: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1614#issuecomment-5950718827
+#:
+#: One maintained set feeds both report risk overrides and the scanner's
+#: existing contract blacklist. This prevents a disabled product's old TVL
+#: from demanding new source prices, while preserving its saved metadata,
+#: historical prices, source events and reader cursor. Catalogue refreshes
+#: still retain these products, making later protocol re-enablement observable.
+#: If GMX re-enables an entry, review its genuine valuation source and remove
+#: it here to restore both reporting and scanning. Enabled but quiet GMX
+#: products, Antarctic's sparse settlements and unresolved ERC-4626 reads
+#: are deliberately outside this reviewed exclusion.
+REVIEWED_DISABLED_GMX_VAULTS: frozenset[HexAddress] = frozenset(
+    HexAddress(address.lower())
+    for address in {
+        # GM swap [USDC-DAI]; last valuation 2026-01-15 13:36:20 UTC.
+        HexAddress("0xe2fedb9e6139a182b98e7c2688ccfa3e9a53c665"),
+        # GM swap [USDe-USDC]; last valuation 2024-09-19 08:12:47 UTC.
+        HexAddress("0x45ad16aaa28fb66ef74d5ca0ab9751f2817c81a4"),
+        # GM SATS [WBTC-USDC]; last valuation 2026-02-24 14:09:07 UTC.
+        HexAddress("0x8ea4fb801493dad8724f90fb2e279534fa591366"),
+        # GM TON [WETH-USDC]; last valuation 2026-08-31 23:49:17 UTC.
+        HexAddress("0x15c6ebd4175fff9ee3c2615c556fcf62d2d9499c"),
+        # GM BOME [WBTC-USDC]; last valuation 2026-02-14 05:56:22 UTC.
+        HexAddress("0x71237f8c3d1484495a136022e16840b70ff84a69"),
+        # GM MEME [WBTC-USDC]; last valuation 2026-02-24 06:55:21 UTC.
+        HexAddress("0x6cb901cc64c024c3fe4404c940ff9a3acc229d2c"),
+        # GM MEW [WBTC-USDC]; last valuation 2026-02-24 13:07:06 UTC.
+        HexAddress("0x71b7ff592a974e2b501d8a7a11f5c42dcd365244"),
+        # GM MELANIA [WETH-USDC]; last valuation 2026-07-30 18:04:14 UTC.
+        HexAddress("0x12fd1a4bdb96219e637180ff5293409502b2951d"),
+        # GM AI16Z [WBTC-USDC]; last valuation 2026-07-30 11:59:14 UTC.
+        HexAddress("0xd60f1ba6a76979effe706bf090372ebc0a5bf169"),
+        # GM OM [WBTC-USDC]; last valuation 2026-02-18 16:33:43 UTC.
+        HexAddress("0x89eb78679921499632ff16b1be3ee48295cfcd91"),
+        # GM PI [WBTC-USDC]; last valuation 2026-08-22 18:10:47 UTC.
+        HexAddress("0x39ac3c494950a4363d739201ba5a0861265c9ae5"),
+        # GM BRETT [WETH-USDC]; last valuation 2026-02-24 06:34:20 UTC.
+        HexAddress("0x6eee8098dbc106aede99763fa5f955a5bbc42c50"),
+        # GM KTA [WETH-USDC]; last valuation 2026-05-27 02:34:18 UTC.
+        HexAddress("0x970b730b5dd18de53a230ee8f4af088dbc3a6f8d"),
+        # GM IP [WBTC-USDC]; last valuation 2026-06-28 12:30:11 UTC.
+        HexAddress("0x5ff52be1968107d7886a8e9a64874a45c8f5d96a"),
+    }
+)
+
+
 #: Particular vaults that are broken, misleading or otherwise problematic.
 #: Users do not want to interact with these and they cause confusion, so we just drop them from reports.
 #:
@@ -529,6 +588,9 @@ VAULT_SPECIFIC_RISK = {
     "0x2b1264bde2dccfa82a42e4c141094f9dede63537": VaultTechnicalRisk.blacklisted,
     "0x1681f371c88b0655d32e61e83d398c75dcdfcd13": VaultTechnicalRisk.blacklisted,
 }
+
+
+VAULT_SPECIFIC_RISK.update(dict.fromkeys(REVIEWED_DISABLED_GMX_VAULTS, VaultTechnicalRisk.blacklisted))
 
 
 def get_vault_risk(
@@ -789,4 +851,4 @@ _BROKEN_VAULT_CONTRACTS = {
 #: mechanism block above the same addresses in :py:data:`VAULT_SPECIFIC_RISK`,
 #: ``docs/README-hyperevm-hypercore-read-gas.md`` and PR #1536 before adding a
 #: chain 999 address here.
-BROKEN_VAULT_CONTRACTS = {addr.lower() for addr in _BROKEN_VAULT_CONTRACTS}
+BROKEN_VAULT_CONTRACTS = {addr.lower() for addr in _BROKEN_VAULT_CONTRACTS} | REVIEWED_DISABLED_GMX_VAULTS

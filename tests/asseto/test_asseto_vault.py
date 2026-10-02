@@ -161,7 +161,8 @@ def test_asseto_hardcoded_lead_is_added_to_discovery(monkeypatch: pytest.MonkeyP
         block_identifier: int,
         max_workers: int,
         progress_bar_desc: str | None,
-    ):
+        current_state: bool,
+    ) -> Iterator[VaultFeatureProbe]:
         """Return Asseto classification for the only registered AoABT token."""
 
         assert chain == HASHKEY_CHAIN_ID
@@ -170,6 +171,9 @@ def test_asseto_hardcoded_lead_is_added_to_discovery(monkeypatch: pytest.MonkeyP
         assert block_identifier == ASSETO_AOABT_HASHKEY.first_seen_at_block
         assert max_workers == 1
         assert progress_bar_desc is None
+        # Hardcoded historical leads must stay pinned to their discovery block;
+        # only current-state callers may move probes into a recent state window.
+        assert current_state is False
         yield VaultFeatureProbe(address=ASSETO_AOABT_HASHKEY.token, features={ERC4626Feature.asseto_like})
 
     monkeypatch.setattr(discovery_base_module, "probe_vaults", fake_probe_vaults)

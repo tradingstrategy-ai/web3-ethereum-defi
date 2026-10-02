@@ -194,8 +194,13 @@ def validate_lead_discovery_state(
     timeout: datetime.timedelta,
     *,
     has_metadata_cursor: bool,
+    signature_configuration: dict[str, Any] | None = None,
 ) -> str | None:
     """Return a cache-miss reason or ``None`` for a valid state.
+
+    A legacy all-chain signature can migrate to a chain-specific subset while
+    preserving its original expiry, provided the classifier and metadata versions
+    still match. Configuration changes otherwise invalidate the cache.
 
     :param state:
         Deserialised cache state.
@@ -210,6 +215,8 @@ def validate_lead_discovery_state(
     :param has_metadata_cursor:
         Whether the metadata database recorded a completed cursor for this
         chain, including chains whose discovery found zero leads.
+    :param signature_configuration:
+        Current signature inputs for compatibility with a legacy broad signature.
     :return:
         ``None`` for a hit, otherwise a human-readable miss reason.
     """
@@ -217,7 +224,11 @@ def validate_lead_discovery_state(
     if state.chain_id != chain_id:
         return f"state chain id {state.chain_id} does not match {chain_id}"
     if state.signature != signature:
-        return "lead discovery signature changed"
+        old = state.signature_configuration
+        current = signature_configuration
+        compatible_legacy = current is not None and len(old.get("enabled_chains", [])) > 1 and all(old.get(key) == current.get(key) for key in ("lead_detection_function_hash", "vault_metadata_refresh_version")) and all(chain in old["enabled_chains"] for chain in current.get("enabled_chains", []))
+        if not compatible_legacy:
+            return "lead discovery signature changed"
     if not has_metadata_cursor:
         return "vault metadata database has no discovery cursor"
     age = now - state.completed_at

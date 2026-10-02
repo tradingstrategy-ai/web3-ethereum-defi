@@ -159,6 +159,7 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
         block_identifier: int,
         max_workers: int,
         progress_bar_desc: str | None,
+        current_state: bool,
     ) -> Iterable[VaultFeatureProbe]:
         """Return Midas features for the hardcoded Midas lead addresses."""
 
@@ -167,6 +168,8 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
         assert block_identifier == expected_end_block
         assert max_workers == 1
         assert progress_bar_desc is None
+        # Historical discovery must not silently turn into a latest-state probe.
+        assert current_state is False
         assert MIDAS_MTBILL_ETHEREUM.token in addresses
         assert MIDAS_MBASIS_ETHEREUM.token in addresses
 
@@ -602,6 +605,7 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         block_identifier: int,
         max_workers: int,
         progress_bar_desc: str | None,
+        current_state: bool,
     ) -> Iterable[VaultFeatureProbe]:
         """Return Midas features only for mTBILL."""
 
@@ -611,6 +615,8 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         assert block_identifier == MIDAS_MTBILL_ETHEREUM.first_seen_at_block
         assert max_workers == 1
         assert progress_bar_desc is None
+        # Keep the end-to-end export tied to the recorded discovery block.
+        assert current_state is False
 
         yield VaultFeatureProbe(
             address=MIDAS_MTBILL_ETHEREUM.token,

@@ -233,7 +233,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Empty string if not set.
     #:
     #: Example EVM labels: ``"large_tvl"``, ``"small_tvl"``,
-    #: ``"tiny_tvl"``, ``"peaked"``, ``"faded"`` and ``"contextual"``.
+    #: ``"tiny_tvl"``, ``"peaked"``, ``"faded"``, ``"unverified_tvl"``
+    #: and ``"contextual"``. Unknown TVL polls hourly without certifying USD value.
     #: Peaked and faded vaults poll weekly; other vaults at $10,000+
     #: estimated USD TVL poll hourly. This is separate from row retention.
     #:

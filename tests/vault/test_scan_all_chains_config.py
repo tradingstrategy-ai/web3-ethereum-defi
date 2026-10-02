@@ -96,7 +96,7 @@ def test_chain_price_opt_out_overrides_global_switch(monkeypatch: pytest.MonkeyP
     """
     monkeypatch.setenv("JSON_RPC_ARC", "https://arc.example")
 
-    def fake_verify_archive_node(rpc_url: str, _chain_name: str) -> tuple[str, int]:
+    def fake_verify_rpc_provider_capabilities(rpc_url: str, _chain_name: str) -> tuple[str, int]:
         """Return the configured Arc endpoint without a network read."""
 
         return rpc_url, 100
@@ -118,7 +118,7 @@ def test_chain_price_opt_out_overrides_global_switch(monkeypatch: pytest.MonkeyP
 
         pytest.fail("Arc price scanning must remain disabled")
 
-    monkeypatch.setattr(scan_all_chains, "verify_archive_node", fake_verify_archive_node)
+    monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", fake_verify_rpc_provider_capabilities)
     monkeypatch.setattr(scan_all_chains, "scan_vaults_for_chain", fake_scan_vaults_for_chain)
     monkeypatch.setattr(scan_all_chains, "scan_prices_for_chain", fail_price_scan)
 
@@ -165,3 +165,11 @@ def test_cycle_state_is_provenance_stamped_and_reads_legacy_format(
 
     path.write_text(json.dumps(state))
     assert scan_all_chains.load_cycle_state(path) == state
+
+
+@pytest.mark.parametrize("name", ["Hemi", "Katana"])
+def test_missing_hypersync_chain_keeps_price_scanning(name: str) -> None:
+    """Chains without a configured event indexer explicitly retain price scans."""
+    config = next(config for config in build_chain_configs() if config.name == name)
+    assert config.scan_vaults is False
+    assert config.scan_prices is True

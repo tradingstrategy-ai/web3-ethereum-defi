@@ -384,11 +384,11 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
 | `LOG_LEVEL` | Optional. Default: WARNING. |
-| `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
-| `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
+| `SCAN_BACKEND` | Optional shared Hypersync configuration. Use `auto` (default) or `hypersync`; discovery requires a Hypersync client and rejects RPC fallback. |
+| `FORCE_LEAD_DISCOVERY` | Optional. Default: false. Refresh classification and metadata immediately; event discovery always uses Hypersync. |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
-| `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
+| `HYPERSYNC_API_KEY` | Required. API key for indexed event discovery. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Throttling is always on, but the default can exceed your API key's quota: the local Monad check on 2026-10-01 reported a 30-request quota. Set this below the quota reported by the service, leaving room for other scanners sharing the key; that check used 20 RPM. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -915,7 +915,7 @@ scripts live under `scripts/xerberus/`. See
 [`README-xerberus.md`](../../eth_defi/xerberus/README-xerberus.md) for dual-auth
 details (`XERBERUS_API_KEY` + `XERBERUS_API_EMAIL`).
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Set below your API key's actual quota, leaving room for other scanners sharing the key. A local Monad check on 2026-10-01 reported a 30-request quota and used 20 RPM. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by the generic EVM lead and price scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -1359,15 +1359,34 @@ Each EVM chain stores its successful lead and metadata refresh status in
 (lead detection code plus enabled EVM chains) and timestamp are valid, the
 scanner skips lead discovery and reuses `vault-metadata-db.pickle`; price scans
 continue normally. It still verifies the chain ID before selecting the cached
-metadata. A missing, malformed, expired or changed state triggers a
-an incremental event read from the saved cursor, followed by a refresh of every
-persisted vault classification and metadata row. The cache can therefore delay
+metadata. A missing, malformed, expired or changed state triggers an
+incremental event read from the saved cursor, followed by classification and
+metadata refreshes where their separate cache deadlines or code versions
+require them. Missing catalogue rows are rebuilt even if a metadata sidecar
+still marks them fresh. The cache can therefore delay
 a new lead by up to the configured timeout, but it never resets price Parquet
 or reader-state data.
 
 The initial discovery for a chain requires HyperSync. The scanner refuses a
 genesis-to-head JSON-RPC event read rather than putting uncontrolled load on an
 RPC provider.
+
+Routine price selection applies `BROKEN_VAULT_CONTRACTS` before constructing
+adapters or qualifying freshness coverage. These intentionally excluded
+contracts retain their catalogue entries, old prices and saved reader state,
+and the admission log and accounting metrics report the number skipped.
+An address-scoped historical repair that explicitly selects a blacklisted
+contract, or whose activity/adapter filtering leaves a requested address
+without a supplied vault, fails before replacing any rows. This also applies
+when the historical writer is called directly through `scan-prices.py`.
+
+The local Monad check on 2026-10-01 also found three aPriori/ShMonad vaults
+whose asset address is the native-token sentinel `0xEeee…`. The generic
+ERC-20 metadata path leaves their denomination unavailable; their USD TVL
+cannot be verified. This produces a `degraded` accounting outcome even when
+all required vaults have recent prices and the stablecoin JSON export succeeds.
+Native-asset metadata support remains a separate follow-up; do not interpret
+these unverified values as USD TVL.
 
 #### JSON-RPC usage accounting
 
@@ -3199,9 +3218,11 @@ fallback record also carry `stale_export=true` and
 `risk_possibly_stale=true`. Current rows that are old but still present remain
 exported with `stale_current_row=true` and `risk_possibly_stale=true`.
 
-Rows with the exact `Blacklisted` risk label are structurally suppressed and
-are not sticky-replayed. Sticky fallback records that no longer contain a safe
-vault identity are also structurally suppressed instead of being exported.
+Rows with the exact `Blacklisted` risk label remain available in the JSON,
+including safe sticky fallback records, so consumers can retain their identity
+and exclusion status. Rankings and strategy-category aggregates exclude them.
+Sticky fallback records that no longer contain a safe vault identity are
+structurally suppressed instead of being exported.
 
 A corrupt sticky state file aborts the top-vaults export instead of resetting
 qualification history. The post-processing wrapper reports this as `False`, the
@@ -3523,3 +3544,238 @@ address, name, denomination token and failure reason. Successful rows appear
 first with `Ok` as their failure reason. A second table provides outcome counts
 and percentages. For a mined failed call, the separate **Revert reason** column
 contains the reason replayed on the temporary Anvil fork.
+
+## Reducing and measuring scanner RPC usage
+
+The [RPC reduction plan](../../docs/claude-plans/2026-09-30-vault-scanner-rpc-reduction.md)
+records the incident counts, six changes and acceptance criteria. RPC reductions
+are always enabled: successful node detection is cached, unused timestamps are
+omitted, classification and metadata observations have bounded lifetimes,
+admission is scheduled before adapter construction, ordinary inputs are batched,
+and Morpho v1/IPOR lending reads are combined.
+
+Crash/backoff handling, publication receipts, pending metadata queues,
+unavailable-reader diagnostics and prior-qualified coverage remain active.
+Token reads use threads and daily negative retries. HyperEVM batches refresh
+current heads, and Monad state-window measurements remain bounded.
+`fetch_batched_tvl_probes()` and `fetch_metadata_snapshots()` in
+[`eth_defi/vault/rpc_batch.py`](../../eth_defi/vault/rpc_batch.py) take a
+keyword-only `batch_size` argument, defaulting to 40 **encoded subcalls** per
+chunk. Ordinary admission uses one subcall per vault; metadata uses four.
+Scanner call sites use these defaults. Python callers can pass `batch_size=20`
+for a constrained provider; chain limits and Multicall failure handling may
+split chunks further. Batch sizes are configured through these function
+arguments rather than environment variables.
+The scanner has no switch to restore the expensive unoptimised paths.
+
+HyperEVM retains specialised current-state paths, while explicit historical
+metadata blocks stay pinned. Monad observations cap retries without deleting
+rows before its state boundary. Discovery requires a configured Hypersync
+client and has no RPC event fallback. Hemi and Katana have no endpoint in the
+repository server list, so their configured all-chain discovery is disabled;
+price scans of already known vaults continue. New vault discovery on those
+chains requires adding a supported indexer. Configured RPC providers are retained
+until completion, fallback and invoice measurements support consolidation.
+
+Historical readers with no verified USD TVL yet use an hourly cadence labelled
+`unverified_tvl`, independently of admission-probe deadlines. Missing
+denomination metadata can advance genuine source progress while leaving TVL
+unknown; this cadence lets the reader continue without treating unknown TVL
+as zero. Saved qualified TVL remains intact during a metadata outage. A later
+scan with repaired metadata returns to ordinary TVL-based scheduling.
+Tokens that permanently omit their symbol keep the existing unknown-token
+scheduling estimate and inactivity cadence; that estimate cannot qualify USD TVL.
+If an adapter permanently has no denomination object, the hourly fallback
+continues until the adapter supplies an appropriate conversion. Check such
+adapters separately; missing metadata is not evidence of low TVL or inactivity.
+
+The reviewed disabled GMX markets in
+`eth_defi.vault.risk.REVIEWED_DISABLED_GMX_VAULTS` are marked `Blacklisted` for
+reporting and excluded from price-reader selection and indexed valuation-event
+prefill. All 14 Arbitrum entries were confirmed disabled through GMX DataStore at block
+510,963,697 on 2026-10-02; each source entry records its product name and last
+positive cached deposit-context valuation timestamp. Catalogue synchronisation
+continues to retain their metadata and current enablement flags. Existing prices, context
+events and reader state remain available. If a product is re-enabled, verify
+its source observations and remove its reviewed entry to restore reporting and
+scanning. A quiet enabled market or a failed generic conversion alone does not
+justify adding it to this list.
+
+The full GMX backfill script applies the same exclusions before fetching source
+events or choosing addresses for Parquet replacement. An entirely excluded
+chain returns without changing prices or context, allowing the next chain to run.
+
+Admission probes use a daily interval for new/unverified vaults, eight hours
+when a verified probe reports at least USD 750, and seven days for mature tiny vaults. Previously
+qualified vaults continue historical scanning. Positive classification has a
+28-day lifetime with address-based jitter; negative classification expires
+weekly. Metadata refreshes weekly, with transient candidates due daily for at most three attempts, then weekly.
+Unsupported versions and persistent negatives leave the pending queue and
+receive weekly checks; changed classification and forced discovery refresh
+bypass that deadline. The
+`rpc-*.json` sidecars live beside the metadata pickle. They can be ignored by
+an older release; preserve them during normal operation. Damaged sidecars fail
+loudly. Classifier-signature changes and forced invalidations are logged; protocol
+additions can refresh the whole catalogue and must be recorded as measurement
+events. Retry deadlines become due at the next scheduler tick.
+`FORCE_LEAD_DISCOVERY=true` bypasses discovery, classification and metadata
+deadlines for an intentional repair in either scanner entrypoint. Python callers
+can use the documented `scan_leads()` arguments `force_metadata_refresh` and
+`force_classification_refresh` for narrower repairs; classification refresh
+also refreshes metadata. `FORCE_VAULT_TOKEN_MAPPING_REFRESH=true` bypasses
+the separate current token-relationship cache;
+`FORCE_RPC_RETRY=true` bypasses a persisted chain deadline for an intentional
+repair. These overrides must be explicitly supplied with Compose `-e`.
+
+### Back up and reset counters
+
+The script calls `snapshot_and_reset_rpc_counters()`: a snapshot is always
+verified before an optional reset. Its earlier `backup_rpc_counters` import
+remains a compatibility alias. Protected-state hashes verify that prices,
+reader progress and timestamp caches stayed unchanged; they do not back up
+those files. Keep the separate pipeline backup procedure for that purpose.
+
+`reset-rpc-counters.py` defaults to a read-only inventory. It does not run a
+scan or make provider calls. Before maintenance, finish the current scanner
+cycle and stop the accounting writer. Inspect `docker compose logs` and ensure
+no manual scanner is running. The script takes the scanner's `scan-pipeline`
+lock and DuckDB's exclusive file lock; it aborts on conflicts. Use the mounted
+one-shot service and override its image entrypoint, which otherwise starts a
+scan.
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info vault-scanner-oneshot \
+  scripts/erc-4626/reset-rpc-counters.py
+```
+
+For an intentional reset, choose one stable ID for the maintenance operation:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e RESET_RPC_COUNTERS=true \
+  -e RPC_COUNTER_RESET_ID=rpc-reduction-2026-09-30 \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Replace the example date with the actual deployment date. By default, the
+source is `/root/.tradingstrategy/rpc-tracking.duckdb`. An override uses
+`RPC_TRACKING_DATABASE_PATH`; `PIPELINE_DATA_DIR` selects the shared pipeline
+lock directory. Pass overrides with `-e` to the one-shot service and use the
+same paths as the running scanner. `RPC_COUNTER_BACKUP_DIR` defaults to
+`backups/rpc-counters` beside the database. Keep it on the persistent mount.
+
+The script checkpoints the database and creates an exclusive, date-stamped
+file such as
+`rpc-tracking-before-rpc-reduction-2026-09-30T143000Z.duckdb`. It verifies its
+byte checksum, all table schemas/content digests, grouped totals, dates and
+cycle high-water mark before deleting counters in one transaction. Private
+`.json` and `.completed.json` receipts accompany the backup. Backups use mode
+0600 and are never overwritten or automatically rotated. Copy the backup and
+receipts to the normal off-host backup destination before relying on them.
+
+Critical pipeline pickles, Parquet, scheduling sidecars and dense timestamp
+cache files are hashed before maintenance and rechecked before reset commit.
+This can take time on large caches; progress is logged and no RPCs are made.
+The manifest reads the maintenance image's existing version stamp automatically.
+Unstamped source checkouts report null version fields. This identifies the image
+running maintenance; record the actual scanner image and deployment boundary
+from scanner logs separately when selecting comparison windows.
+
+Only `vault_rpc_api_calls`, `vault_rpc_api_errors` and the new
+`vault_rpc_operation_calls` are cleared. A zero-call reset marker preserves
+the old cycle high-water mark, so numbering continues. Reader state, metadata,
+price Parquet, timestamp caches and scheduler state are untouched. A reset
+receipt is committed inside DuckDB in the same transaction as deletion.
+
+After interruption, rerun **the same `RPC_COUNTER_RESET_ID`**. If it already
+committed, the script verifies the original backup and returns the receipt
+without clearing newer calls. A partial backup remains for diagnosis; a retry
+at a later second creates a new filename. A filename collision aborts. Do not
+restore a counters backup over a live database or invent a new reset ID merely
+to recover an interrupted operation.
+
+### Compare after two and three weeks
+
+Preserve the dated pre-deployment backup before resetting counters. After
+starting the updated scanner, take follow-up snapshots at 14 and 21 days using
+the same idle-writer procedure, with `BACKUP_RPC_COUNTERS=true` and no reset.
+Optimisations apply immediately; there is no flag-off measurement period.
+
+Select complete UTC windows with comparable chains, cadence and completed work.
+Use a healthy pre-deployment window from the saved old counters when one is
+available. If old counters contain only incidents or incomplete coverage, report
+that comparison as incident-inclusive and use the first healthy post-deployment
+week as a monitoring baseline for later weeks. That monitoring baseline does not
+measure the effect of enabling optimisations.
+
+Exclude the first deployment week if it contains mapping refreshes or queue/cache
+migration. In that case day 14 is interim and day 21 can supply fourteen
+steady-state days; delay a savings verdict if incidents leave fewer than two
+healthy metadata periods. Use this command for follow-up snapshots:
+
+```shell
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e BACKUP_RPC_COUNTERS=true \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Use the actual filenames printed by the script. Compare explicit complete UTC
+windows; each end date is exclusive. The stored date is the cycle-start date,
+not the execution timestamp of each request. Long scans can cross midnight;
+ensure the included cycles finished before taking a comparison snapshot.
+For example, a seven-day pre-deployment window and a 14-day post-deployment
+window after a seven-day migration period. These filenames and dates are
+illustrative; the September window includes known incidents and must be labelled
+incident-inclusive rather than treated as a healthy baseline:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info \
+  -e RPC_COUNTER_BEFORE=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-before-rpc-reduction-2026-10-01T000100Z.duckdb \
+  -e RPC_COUNTER_AFTER=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-snapshot-2026-10-22T000100Z.duckdb \
+  -e RPC_COUNTER_BEFORE_START=2026-09-24 -e RPC_COUNTER_BEFORE_END=2026-10-01 \
+  -e RPC_COUNTER_AFTER_START=2026-10-08 -e RPC_COUNTER_AFTER_END=2026-10-22 \
+  vault-scanner-oneshot scripts/erc-4626/compare-rpc-counters.py
+```
+
+The comparison is read-only and reports physical requests/day by chain, phase,
+method and provider, deduplicated items/cycles, available completion outcomes,
+and separate operation counts. Outcome rows count cycles containing each
+status; a failed then successful retry can appear under both statuses. These
+are not attempt counts or mutually exclusive categories. The script reports
+items and cycle denominators separately, without inferring successful work
+from legacy counters. Operation detail describes the same requests
+as legacy totals: never add it to them. Old counters cannot establish success
+or invoice costs. Compare billing units using provider invoices separately.
+Inspect freshness warnings, unavailable readers, pending metadata and logs
+alongside rates. Exclude partial deployment days and document cadence, enabled
+chains, queue drainage, incidents and cache warmup. The old incident-heavy
+backup measures incident-inclusive savings; it is not a healthy baseline.
+
+### Real-provider batching check
+
+Run the guarded parity script after loading the usual test secrets. It uses
+three reviewed Ethereum products (sDAI, Morpho v1 and IPOR), pins all comparisons
+to one current numeric block, compares metadata values and eligible TVL probes,
+and writes token caches only into a temporary directory:
+
+```shell
+source .local-test.env
+PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" RPC_PARITY_CHECK=true \
+  poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+```
+
+A successful run logs `PASS` for all three products and the block number.
+The transport-level unit tests separately assert that 40 ordinary TVLs require
+one physical `eth_call`, with equal values and no timestamp requests.
+
+A pending publication journal must be recovered by a normal scanner run before
+a manual backfill can rewrite the shared price file. Successful reader-state
+persistence consumes the journal; damaged critical receipts fail loudly.

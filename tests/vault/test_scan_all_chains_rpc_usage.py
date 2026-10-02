@@ -29,7 +29,7 @@ def test_scan_chain_records_lead_and_price_phases(
     """A chain attempt persists lead and price statistics separately."""
 
     monkeypatch.setenv("JSON_RPC_TEST", "https://rpc.example")
-    monkeypatch.setattr(scan_all_chains, "verify_archive_node", lambda rpc_url, chain_name: (rpc_url, 100))
+    monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", lambda rpc_url, chain_name: (rpc_url, 100))
 
     def fake_scan_vaults_for_chain(*args, rpc_request_stats: RPCRequestStats, **kwargs) -> tuple[bool, dict]:
         """Return deterministic lead accounting."""
@@ -95,7 +95,7 @@ def test_scan_chain_keeps_scan_success_when_accounting_write_fails(
     """An observability write failure does not trigger an expensive re-scan."""
 
     monkeypatch.setenv("JSON_RPC_TEST", "https://rpc.example")
-    monkeypatch.setattr(scan_all_chains, "verify_archive_node", lambda rpc_url, chain_name: (rpc_url, 100))
+    monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", lambda rpc_url, chain_name: (rpc_url, 100))
 
     def fake_scan_vaults_for_chain(*args, rpc_request_stats: RPCRequestStats, **kwargs) -> tuple[bool, dict]:
         """Return one successful phase."""
