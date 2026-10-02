@@ -23,7 +23,7 @@ from eth_defi.erc_4626.classification import create_vault_classifier_signature
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
-from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
+from eth_defi.erc_4626.scan import fetch_vault_scan_record_in_worker
 from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -31,7 +31,7 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.rpc_batch import fetch_metadata_snapshots
-from eth_defi.vault.rpc_scan_state import is_metadata_due, load_rpc_scan_state, record_metadata_failure, rpc_optimisations_enabled, save_rpc_scan_state
+from eth_defi.vault.rpc_scan_state import is_metadata_due, load_rpc_scan_state, record_metadata_failure, save_rpc_scan_state
 from eth_defi.vault.vaultdb import VaultDatabase
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,7 @@ def scan_leads(
 
     :param force_classification_refresh:
         Bypass cached feature observations for an explicit discovery refresh.
+        Also refresh metadata so an operator repair observes consistent inputs.
 
     :param force_metadata_refresh:
         Bypass metadata deadlines for an explicit operator refresh.
@@ -162,8 +163,10 @@ def scan_leads(
     if max_getlogs_range is not None:
         logger.warning("max_getlogs_range is ignored: event discovery uses Hypersync")
 
-    force_classification_refresh = force_classification_refresh or os.environ.get("FORCE_CLASSIFICATION_REFRESH", "false").lower() == "true"
-    force_metadata_refresh = force_metadata_refresh or os.environ.get("FORCE_METADATA_REFRESH", "false").lower() == "true" or os.environ.get("FORCE_CLASSIFICATION_REFRESH", "false").lower() == "true"
+    # Refresh policy belongs to the caller, not the process environment. The
+    # all-chain scheduler and standalone script pass their explicit repair flag;
+    # library callers can independently refresh metadata through the arguments.
+    force_metadata_refresh = force_metadata_refresh or force_classification_refresh
     assert isinstance(vault_db_file, Path)
 
     web3 = web3 or create_multi_provider_web3(json_rpc_urls, rpc_request_stats=rpc_request_stats)
@@ -202,7 +205,8 @@ def scan_leads(
         assert type(end_block) == int
 
     if hypersync_config.hypersync_client:
-        # Create a scanner that uses web3, HyperSync and subprocesses
+        # Hypersync supplies indexed events; Web3 workers read only contract
+        # classification/metadata. Event discovery has no eth_getLogs fallback.
         vault_discover = HypersyncVaultDiscover(
             web3,
             web3factory,
@@ -227,7 +231,12 @@ def scan_leads(
     changed_classifiers = sum(entry.get("classifier_version") != classifier_version for entry in classification_entries.values())
     if changed_classifiers or force_classification_refresh:
         logger.info("Classification invalidation on chain %d: version-changed=%d, forced=%s, current signature=%s", chain_id, changed_classifiers, force_classification_refresh, classifier_version)
-    if rpc_optimisations_enabled() and not force_classification_refresh:
+    if not force_classification_refresh:
+        # Classification provenance is independent of metadata freshness.
+        # Restore valid feature observations into the discoverer's cheap cache
+        # so weekly event scans still update activity without probing every ABI.
+        # A changed implementation signature forces new reads rather than
+        # trusting feature names produced by an older classifier.
         for spec, row in existing_db.rows.items():
             if spec.chain_id != chain_id:
                 continue
@@ -256,6 +265,12 @@ def scan_leads(
         Every unresolved candidate remains in the cumulative lead catalogue.
         Existing metadata and its independent completion state remain intact.
 
+        Hypersync discovery invokes this callback only after fully fetching its
+        event range, before protocol classification can fail. Persisting leads
+        with the cursor prevents a bad adapter from forcing the next scan to
+        replay millions of events. Metadata recovery relies on that cumulative
+        catalogue; an incomplete event range must never advance its cursor.
+
         :param report: Fully fetched event range with cumulative leads.
         :return: None.
         """
@@ -269,8 +284,9 @@ def scan_leads(
 
     printer(f"Chain: {name}: scan range {start_block:,} - {end_block:,}")
 
-    # Perform vault discovery and categorisation,
-    # so we get information which address contains which kind of a vault
+    # Event coverage and classification have separate failure boundaries. The
+    # callback above commits event coverage first; this result then supplies
+    # protocol identities for metadata scheduling and price-reader selection.
     report = vault_discover.scan_vaults(start_block, end_block)
     end_block = report.end_block
     minimum_end_block = max(start_block, last_scanned_block or 0)
@@ -284,6 +300,9 @@ def scan_leads(
         if address in vault_discover.cached_features:
             continue
         days = 7 if ERC4626Feature.broken in detection.features else 28
+        # Stable per-address jitter spreads refreshes over a day after the first
+        # rollout without moving the observation time on every scheduler tick.
+        # Negative classifications expire sooner so repaired contracts recover.
         jitter = int(hashlib.sha256(address.encode()).hexdigest()[:4], 16) % 24
         classification_entries[address] = {"features": sorted(feature.name for feature in detection.features), "checked_at": detection.updated_at.isoformat(), "expires_at": (detection.updated_at + datetime.timedelta(days=days, hours=jitter)).isoformat(), "classifier_version": classifier_version}
     save_rpc_scan_state(classification_path, classification_entries)
@@ -297,8 +316,11 @@ def scan_leads(
     pending = load_rpc_scan_state(pending_path)
     metadata_path = vault_db_file.parent / f"rpc-metadata-{chain_id}.json"
     metadata_entries = load_rpc_scan_state(metadata_path)
-    if rpc_optimisations_enabled():
-        vault_detections = [d for d in vault_detections if force_metadata_refresh or (d.address.lower() in pending and now >= datetime.datetime.fromisoformat(pending[d.address.lower()]["next_attempt_at"])) or (d.address.lower() not in pending and is_metadata_due(metadata_entries.get(d.address.lower()), sorted(feature.name for feature in d.features), classifier_version, now))]
+    # Sidecars are scheduling hints, not proof that metadata still exists.
+    # Restoring an older catalogue can leave newer successful observations
+    # behind; rebuild missing rows immediately so a stale hint cannot withhold
+    # their price readers until the next weekly metadata deadline.
+    vault_detections = [d for d in vault_detections if d.get_spec() not in existing_db.rows or force_metadata_refresh or (d.address.lower() in pending and now >= datetime.datetime.fromisoformat(pending[d.address.lower()]["next_attempt_at"])) or (d.address.lower() not in pending and is_metadata_due(metadata_entries.get(d.address.lower()), sorted(feature.name for feature in d.features), classifier_version, now))]
     # Refresh cheap cumulative activity/classification on every discovered row,
     # independently of the expensive metadata deadline.
     for detection in report.detections.values():
@@ -308,10 +330,16 @@ def scan_leads(
 
     for detection in vault_detections:
         pending[detection.address.lower()] = {**pending.get(detection.address.lower(), {}), "next_attempt_at": now.isoformat(), "features": sorted(feature.name for feature in detection.features)}
+    # Publish the retry queue before any raw-input or adapter RPC. If a batch
+    # fails, the cache-hit path can resume these exact candidates without asking
+    # Hypersync to rediscover the already committed event range.
     save_rpc_scan_state(pending_path, pending)
     if rpc_request_stats is not None:
         rpc_request_stats.operation = "metadata_inputs"
-    snapshots = fetch_metadata_snapshots(vault_detections, web3factory, end_block, max_workers) if rpc_optimisations_enabled() else {}
+    snapshots = fetch_metadata_snapshots(vault_detections, web3factory, end_block, max_workers)
+    # Warm the shared ERC-20 cache from raw asset/share addresses before the
+    # threaded metadata reads. This avoids one token metadata request sequence
+    # per vault when many candidates use the same denomination or share token.
     token_addresses = {d.address for d in vault_detections if d.address.lower() in snapshots}
     token_addresses.update("0x" + value[-20:].hex() for snapshot in snapshots.values() for key, value in snapshot.items() if key in {"asset", "share"} and isinstance(value, bytes) and any(value))
     if token_addresses:
@@ -321,7 +349,7 @@ def scan_leads(
         finally:
             token_cache.close()
     rows = []
-    for row in tqdm(worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block, metadata_snapshot=snapshots.get(d.address.lower()), current_state=current_state) for d in vault_detections), total=len(vault_detections), desc=desc):
+    for row in tqdm(worker_processor(delayed(fetch_vault_scan_record_in_worker)(web3factory, d, end_block, metadata_snapshot=snapshots.get(d.address.lower()), current_state=current_state) for d in vault_detections), total=len(vault_detections), desc=desc):
         detection = row["_detection_data"]
         address = detection.address.lower()
         broken = str(row.get("Name", "")).startswith("<broken")
@@ -335,6 +363,10 @@ def scan_leads(
         rows.append(row)
         existing_db.update_leads_and_rows(chain_id, end_block, {}, {detection.get_spec(): row})
         if len(rows) % 100 == 0:
+            # Catalogue before queue removal: interruption can repeat metadata
+            # for a committed row, but cannot drop a candidate whose row was
+            # never persisted. Separate files provide bounded replay, not a
+            # cross-file transaction. Leads were merged once above, not per row.
             existing_db.write(vault_db_file)
             save_rpc_scan_state(pending_path, pending)
             save_rpc_scan_state(metadata_path, metadata_entries)
@@ -419,6 +451,10 @@ def _record_metadata_success(row: dict[str, Any], previous: dict[str, Any], pend
     pending.pop(address, None)
     features = sorted(feature.name for feature in detection.features)
     prior = observations.get(address, {})
+    # Values from an earlier protocol identity or negative observation cannot
+    # be promoted into fresh economics. Conversely, an explicitly failed lending
+    # read may preserve a prior verified field with a stale marker. Ordinary
+    # None values (non-lending/low-TVL vaults) intentionally clear old economics.
     same_protocol = prior.get("features") == features and prior.get("status") != "unavailable"
     entry = {
         "checked_at": now.isoformat(),
@@ -435,12 +471,17 @@ def _record_metadata_success(row: dict[str, Any], previous: dict[str, Any], pend
     observations[address] = entry
 
 
-def fetch_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: Path, max_workers: int, rpc_request_stats: RPCRequestStats) -> int:
+def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: Path, max_workers: int, rpc_request_stats: RPCRequestStats) -> int:
     """Resume due candidate metadata without repeating event discovery.
 
     Pending leads already exist durably in the legacy catalogue before its
     event cursor advances. Successful rows are committed in bounded batches;
     unsupported candidates retain previous metadata and a finite retry time.
+
+    Called by the all-chain scanner when its event-discovery receipt is still
+    valid. This operation performs network reads and persists catalogue/sidecar
+    updates; it is not a read-only metadata accessor. It uses the current head
+    for due candidates while leaving the event cursor exactly where it was.
 
     :param web3: Phase-owned, verified chain connection.
     :param json_rpc_urls: Environment-supplied fallback configuration.
@@ -462,6 +503,9 @@ def fetch_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: 
     for address, entry in due.items():
         lead = leads.get(address)
         if lead is None:
+            # Restoring an older catalogue can leave newer scheduling hints
+            # behind. A sidecar cannot invent authoritative discovery data;
+            # discard only the orphan hint and let normal discovery rebuild it.
             logger.warning("Discarding orphaned metadata sidecar after state restore: %s-%s", chain_id, address)
             pending.pop(address, None)
             continue
@@ -472,11 +516,11 @@ def fetch_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: 
     factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
     rpc_request_stats.operation = "metadata_inputs"
     block = web3.eth.block_number
-    snapshots = fetch_metadata_snapshots(detections, factory, block, max_workers) if rpc_optimisations_enabled() else {}
+    snapshots = fetch_metadata_snapshots(detections, factory, block, max_workers)
     metadata_path = vault_db_file.parent / f"rpc-metadata-{chain_id}.json"
     metadata_entries = load_rpc_scan_state(metadata_path)
     classifier_version = create_vault_classifier_signature()
-    rows = Parallel(n_jobs=max_workers, backend="threading", return_as="generator")(delayed(create_vault_scan_record_subprocess)(factory, detection, block, metadata_snapshot=snapshots.get(detection.address.lower()), current_state=True) for detection in detections)
+    rows = Parallel(n_jobs=max_workers, backend="threading", return_as="generator")(delayed(fetch_vault_scan_record_in_worker)(factory, detection, block, metadata_snapshot=snapshots.get(detection.address.lower()), current_state=True) for detection in detections)
     for index, row in enumerate(tqdm(rows, total=len(detections), desc="Resuming candidate metadata"), 1):
         address = row["_detection_data"].address.lower()
         if str(row.get("Name", "")).startswith("<broken"):
@@ -487,6 +531,9 @@ def fetch_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: 
             _record_metadata_success(row, database.rows.get(detection.get_spec(), {}), pending, metadata_entries, block, classifier_version, now)
             database.update_leads_and_rows(chain_id, database.last_scanned_block[chain_id], {}, {detection.get_spec(): row})
         if index % 100 == 0:
+            # Match initial discovery's catalogue-first publication order.
+            # Retrying a committed row is safe; losing an uncommitted success
+            # by removing its queue entry first would strand its metadata.
             database.write(vault_db_file)
             save_rpc_scan_state(path, pending)
             save_rpc_scan_state(metadata_path, metadata_entries)
@@ -495,3 +542,8 @@ def fetch_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: 
     save_rpc_scan_state(metadata_path, metadata_entries)
     logger.info("Chain %d metadata candidates remaining: %d", chain_id, len(pending))
     return len(pending)
+
+
+#: Compatibility alias; the canonical name makes persistence and queue draining
+#: explicit rather than suggesting a read-only network accessor.
+fetch_pending_vault_metadata = resume_pending_vault_metadata

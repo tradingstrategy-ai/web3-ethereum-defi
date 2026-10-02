@@ -287,6 +287,23 @@ def test_stateful_quiet_scan_preserves_last_retained_row(tmp_path: Path, monkeyp
     assert unavailable["overdue_vaults"] == {vault.address: "reader_unavailable"}
     assert pq.read_table(path, columns=["block_number"])["block_number"].to_pylist() == [1, 2]
 
+    # An operator's address-scoped repair must fail before the blacklist drops
+    # its reader. Otherwise this unchanged input history could be deleted by
+    # the replacement window despite no replacement observations being read.
+    previous_bytes = path.read_bytes()
+    monkeypatch.setattr("eth_defi.vault.historical.BROKEN_VAULT_CONTRACTS", {vault.address})
+    with pytest.raises(ValueError, match="blacklisted; refusing bounded deletion"):
+        scan_historical_prices_to_parquet(**kwargs, start_block=1, end_block=20, vault_addresses={vault.address})
+    assert path.read_bytes() == previous_bytes
+
+    # The same deletion hazard exists if a caller's activity or adapter filter
+    # supplies no vault while retaining its requested address. Exercise the
+    # direct writer boundary, as scan-prices.py bypasses the all-chain selector.
+    monkeypatch.setattr("eth_defi.vault.historical.BROKEN_VAULT_CONTRACTS", set())
+    with pytest.raises(ValueError, match="no supplied reader; refusing bounded deletion"):
+        scan_historical_prices_to_parquet(**{**kwargs, "vaults": []}, start_block=1, end_block=20, vault_addresses={vault.address})
+    assert path.read_bytes() == previous_bytes
+
 
 def test_audit_failure_keeps_published_prices_and_continuation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A deterministic final audit failure cannot replay committed samples.

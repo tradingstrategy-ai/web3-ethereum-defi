@@ -40,6 +40,10 @@ def main() -> None:
     failures = []
     checked = 0
     for spec, state in states.items():
+        # State files from older releases used tuple keys and reader objects;
+        # the live pipeline now serialises VaultSpec/dict pairs. Interpret both
+        # locally so diagnosing a restored file never requires recreating an
+        # adapter (which can itself perform expensive or failing RPC reads).
         chain_id, address = (spec.chain_id, spec.vault_address) if isinstance(spec, VaultSpec) else spec
         call_status = state.get("call_status", {}) if isinstance(state, dict) else getattr(state, "call_status", {})
         checked += len(call_status)

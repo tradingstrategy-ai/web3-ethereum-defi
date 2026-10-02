@@ -277,7 +277,6 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
             }
         },
     )
-    monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", "true")
     captured: dict[str, object] = {}
 
     class FakeHypersyncVaultDiscover:

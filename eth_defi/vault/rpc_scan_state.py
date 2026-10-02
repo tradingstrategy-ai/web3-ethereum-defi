@@ -2,6 +2,12 @@
 
 Critical reader, metadata and cycle-state schemas remain unchanged. These
 versioned JSON files can be ignored by an older release without losing history.
+
+The all-chain scheduler and lead scanner own these sidecars under the pipeline
+writer lock. Retry/probe files are scheduling hints; verified qualification
+comes from reader history. The publication journal has a stronger role: it
+bridges the two separate price-file and reader-pickle publications so a process
+restart cannot replay already committed prices from an obsolete reader cursor.
 """
 
 import datetime
@@ -18,7 +24,6 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError, ProviderC
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.middleware import ProbablyNodeHasNoBlock
-from eth_defi.provider.env import rpc_optimisations_enabled as rpc_optimisations_enabled
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import normalise_rpc_error
 
@@ -31,7 +36,7 @@ def load_rpc_scan_state(path: Path) -> dict:
     A missing sidecar is normal on initial deployment or rollback.
 
     :param path: Sidecar path under the mounted pipeline directory.
-    :return: Mutable entry mapping, empty only when the file is absent.
+    :return: Mutable entry mapping; absent files start with an empty mapping.
     """
     if not path.exists():
         return {}
@@ -60,6 +65,12 @@ def classify_rpc_scan_failure(error: BaseException) -> str:
 
     Contract reverts do not become whole-chain retry storms. Adapter version
     failures are handled per candidate before they reach this boundary.
+
+    Used by phase boundaries, admission batches and the scheduler's retry gate.
+    Production fallback providers wrap JSON-RPC failures in ExtraValueError;
+    native Web3 error handling alone would miss those transport outcomes. Keep
+    recognition narrow so unrelated ValueError/RuntimeError defects remain
+    visible instead of being deferred indefinitely as provider outages.
 
     :param error: Original phase exception.
     :return: ``transient`` or ``internal``.
@@ -101,9 +112,15 @@ def record_chain_backoff(path: Path, chain: str, category: str | None, now: date
         entries.pop(chain, None)
     else:
         count = entries.get(chain, {}).get("consecutive_failures", 0) + 1
+        # Keep major chains on a shorter ceiling because they carry most live
+        # readers. This deadline only gates a future scheduler tick; it must
+        # never masquerade as a successful scan in the legacy cycle-state file.
         maximum = 8 if chain in {"Ethereum", "Base", "Arbitrum"} else 24
         delay = min(2 ** min(count - 1, 5), maximum) * 3600
         if retention_seconds is not None:
+            # Monad state eviction makes a long retry delay irreversible. Use
+            # half the estimated remaining margin while retaining a minimum
+            # delay to avoid spinning on an already exhausted provider window.
             delay = min(delay, max(60, retention_seconds / 2))
         entries[chain] = {"last_attempt_at": now.isoformat(), "category": category, "consecutive_failures": count, "next_retry_at": (now + datetime.timedelta(seconds=delay)).isoformat()}
         logger.warning("Chain %s deferred until %s (%s, failure %d)", chain, entries[chain]["next_retry_at"], category, count)
@@ -130,6 +147,11 @@ def record_probe_result(entries: dict, address: HexAddress, now: datetime.dateti
     No qualification flag is persisted. Errors have a finite retry deadline;
     previously tiny mature vaults are checked at least weekly.
 
+    Called only for admission candidates. Young vaults can receive their first
+    deposit soon after deployment, so daily probes trade a few reads for timely
+    inclusion. A current meaningful TVL accelerates the next probe, but cannot
+    alone establish the reader-history qualification used by price scanning.
+
     :param entries: Mutable sidecar entries keyed by vault address.
     :param address: Lower-case vault address.
     :param now: Naive UTC observation/attempt time.
@@ -151,6 +173,12 @@ def save_reader_publication_journal(journal_path: Path, temporary_prices: Path, 
     Rename preserves the temporary file's inode, size and nanosecond mtime.
     These identify the exact local publication without hashing a large Parquet.
     An interrupted pre-publication receipt cannot match the previous file.
+
+    The Parquet writer calls this after validating/syncing its temporary file
+    and before os.replace(). The scheduler recovers only a matching published
+    inode, merges reader cursors monotonically, then writes the legacy pickle
+    before consuming the receipt. This is local crash recovery, not a portable
+    restore receipt: copied or subsequently replaced files need not match.
 
     :param journal_path: New sidecar beside the critical reader-state pickle.
     :param temporary_prices: Verified and fsynced Parquet about to be renamed.
@@ -213,6 +241,11 @@ def record_metadata_failure(pending: dict, observations: dict, address: HexAddre
     Transient failures receive up to three daily attempts before weekly checks.
     New classification or explicit force still makes negatives immediately due.
 
+    Initial discovery and queue recovery share this transition. The bounded
+    queue avoids repeatedly constructing a known unsupported adapter on every
+    chain tick, while a negative observation with an expiry permits recovery
+    after a contract upgrade or provider repair without replaying event history.
+
     :param pending: Mutable resumable candidate queue.
     :param observations: Mutable metadata status catalogue.
     :param address: Lower-case vault address.
@@ -248,7 +281,7 @@ def is_contract_read_failure(error: BaseException) -> bool:
     return False
 
 
-def fetch_remaining_state_budget(boundary: dict, committed_block: int, block_seconds: float, now: datetime.datetime) -> float:
+def calculate_remaining_state_budget(boundary: dict, committed_block: int, block_seconds: float, now: datetime.datetime) -> float:
     """Estimate time before unread state is evicted from the measured window.
 
     A fresh capability observation does not reset the age of unscanned history.
@@ -263,3 +296,8 @@ def fetch_remaining_state_budget(boundary: dict, committed_block: int, block_sec
     age = max(0, (now - datetime.datetime.fromisoformat(boundary["checked_at"])).total_seconds())
     unread = max(0, boundary["head_block"] - committed_block) * block_seconds
     return boundary["retention_seconds"] - age - unread
+
+
+#: Compatibility alias; this calculation uses persisted observations and makes
+#: no provider request. Scheduler callers use the explicit calculate_ name.
+fetch_remaining_state_budget = calculate_remaining_state_budget

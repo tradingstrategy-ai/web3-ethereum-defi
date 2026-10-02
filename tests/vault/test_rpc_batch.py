@@ -69,8 +69,14 @@ def recording_factory(monkeypatch: pytest.MonkeyPatch):
     return factory, stats, methods
 
 
-def test_tvl_batch_matches_individual_reads_and_reduces_requests(recording_factory) -> None:
-    """Forty ordinary TVLs have identical values with one physical eth_call."""
+@pytest.mark.parametrize("batch_size", [None, 7], ids=["default", "explicit-partial-chunk"])
+def test_tvl_batch_matches_individual_reads_and_reduces_requests(recording_factory, batch_size: int | None) -> None:
+    """TVLs match direct reads using the default or an explicit chunk limit.
+
+    An uneven explicit limit exercises the final partial chunk through real
+    Multicall encoding. Request counts prove that the argument controls batching
+    without dropping candidates or changing their values.
+    """
     factory, stats, methods = recording_factory
     web3 = factory()
     token = SimpleNamespace(symbol="USDC", convert_to_decimals=lambda raw: Decimal(raw) / Decimal(1_000_000))
@@ -80,24 +86,58 @@ def test_tvl_batch_matches_individual_reads_and_reduces_requests(recording_facto
         vault.get_historical_reader = lambda stateful, vault=vault: SimpleNamespace(reader_state=VaultReaderState(vault))
     individual = {vault.address: vault.fetch_nav() for vault in vaults}
     before = methods.count("eth_call")
-    results = list(fetch_batched_tvl_probes(vaults, factory, 20_000_000, max_workers=1))
+    batch_options = {} if batch_size is None else {"batch_size": batch_size}
+    results = list(fetch_batched_tvl_probes(vaults, factory, 20_000_000, max_workers=1, **batch_options))
+    expected_requests = 1 if batch_size is None else (len(vaults) + batch_size - 1) // batch_size
     assert {vault.address: amount for vault, amount, unknown in results if not unknown} == individual
     assert before == 40
-    assert methods.count("eth_call") - before == 1
+    assert methods.count("eth_call") - before == expected_requests
     assert "eth_getBlockByNumber" not in methods
-    assert stats.calls["rpc.example", "eth_call"] == 41
+    assert stats.calls["rpc.example", "eth_call"] == before + expected_requests
 
 
-def test_metadata_batches_use_raw_shared_inputs(recording_factory) -> None:
-    """Ordinary inputs share batches while specialised chains are excluded."""
+@pytest.mark.parametrize("batch_size", [None, 13], ids=["default", "explicit-split-vault"])
+def test_metadata_batches_use_raw_shared_inputs(recording_factory, batch_size: int | None) -> None:
+    """Metadata snapshots survive chunk boundaries within a vault's inputs.
+
+    Four inputs per vault cannot align with the explicit 13-subcall limit.
+    Exercising real encoding checks that snapshots are assembled correctly
+    across chunks and the documented limit counts subcalls rather than vaults.
+    """
     factory, stats, methods = recording_factory
     detections = [ERC4262VaultDetection(chain=1, address=f"0x{number:040x}", first_seen_at_block=1, first_seen_at=datetime.datetime(2026, 1, 1), features=set(), updated_at=datetime.datetime(2026, 9, 30), deposit_count=100, redeem_count=0) for number in range(1, 41)]
-    snapshots = fetch_metadata_snapshots(detections, factory, 20_000_000, max_workers=1)
+    batch_options = {} if batch_size is None else {"batch_size": batch_size}
+    snapshots = fetch_metadata_snapshots(detections, factory, 20_000_000, max_workers=1, **batch_options)
     assert len(snapshots) == 40
     assert all(snapshot["share_reverted"] for snapshot in snapshots.values())
     assert all(snapshot["block"] == 20_000_000 for snapshot in snapshots.values())
-    assert methods.count("eth_call") == 4
+    assert all({"asset", "totalAssets", "totalSupply", "share_reverted", "block"} == snapshot.keys() for snapshot in snapshots.values())
+    subcall_count = len(detections) * 4
+    expected_requests = 4 if batch_size is None else (subcall_count + batch_size - 1) // batch_size
+    assert methods.count("eth_call") == expected_requests
     assert "eth_getBlockByNumber" not in methods
+
+
+@pytest.mark.parametrize("snapshot_reverted", [False, True])
+def test_share_snapshot_does_not_override_an_explicit_historical_block(recording_factory, snapshot_reverted: bool) -> None:
+    """A metadata default must not change an explicit historical relationship.
+
+    The transport's ordinary vault reverts share(), while a snapshot may hold
+    either a later ERC-7575 token or that revert. Matching reads need no RPC;
+    a different source block must execute the contract regardless of the cached
+    outcome, because a proxy upgrade can change the share-token relationship.
+    """
+    factory, _, methods = recording_factory
+    vault = ERC4626Vault(factory(), VaultSpec(1, "0x" + "1" * 40), default_block_identifier=20_000_000)
+    share_token = "0x" + "b" * 40
+    vault._rpc_metadata_snapshot = {"block": 20_000_000, **({"share_reverted": True} if snapshot_reverted else {"share": eth_abi.encode(["address"], [share_token])})}
+    expected = vault.vault_address if snapshot_reverted else Web3.to_checksum_address(share_token)
+    before = methods.count("eth_call")
+    assert vault.fetch_share_token_address() == expected
+    assert vault.fetch_share_token_address(20_000_000) == expected
+    assert methods.count("eth_call") == before
+    assert vault.fetch_share_token_address(19_999_999) == vault.vault_address
+    assert methods.count("eth_call") == before + 1
 
 
 def test_current_probe_refreshes_numeric_hyperevm_block(recording_factory, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -78,7 +78,7 @@ For legacy conversion evidence, consult the stored denomination address and cach
 
 ## Implementation sequence
 
-Prepare accounting backup/reset/reporting before rollout. Reset at the crash-fixed rollout boundary and collect at least seven complete healthy UTC days with `VAULT_RPC_OPTIMISATIONS=false`, then snapshot before enabling the additional flag-controlled reductions. The implemented baseline includes common coverage/recovery safeguards, HyperEVM head safety, daily Monad boundary measurements and negative-token retries; it does not isolate issue 1 alone. Record this boundary and use the original pre-reset backup only as incident-inclusive context. Keep compatible measurement labels before and after enabling the flag, with unchanged legacy top-level totals. Do not delay an urgent crash fix for larger discovery changes.
+Prepare accounting backup/reset/reporting before deployment. Preserve the dated old counters before reset, then deploy with all request reductions enabled. Record the deployment boundary and compare complete UTC windows at 14 and 21 days with unchanged legacy top-level totals. Select a healthy comparable pre-deployment window when available; otherwise label old-counter comparisons incident-inclusive and use the first healthy post-deployment week only as a monitoring baseline. Do not delay an urgent crash fix to collect an unoptimised baseline.
 
 ### Issue 1 Restore progress and bound retries
 
@@ -112,7 +112,7 @@ Acceptance: after initialisation, repeat metadata reads issue no further client-
 2. For ordinary supported ERC-4626 adapters, use reviewed stored denomination information and batch `totalAssets()` at a numeric safe block subject to the per-batch age limit in issue 3. Keep protocol conversion overrides and dedicated `fetch_nav()` paths for non-standard, contextual and native readers. Identify known HyperCore/oracle-dependent readers through reviewed protocol/address configuration and persisted capability evidence from `ReadFailure`/`-32003` signatures; isolate them from shared ordinary batches without permanently blacklisting a transient failure. Missing mappings, stale implementation identity, failed calls and unknown conversion produce explicit outcomes, not a zero TVL.
 3. Reuse a valid observation already obtained by the same scan before issuing another probe. Proposed cadence: immediately for new candidates; at most daily for unqualified vaults during their first 14 days; at most weekly afterwards when persistently tiny; and no later than the normal chain scan interval for previously qualified or near-threshold vaults. Recent known deposit/configuration activity can make a candidate due, but do not add a new expensive event scan solely to schedule probes. Retain coverage when event information is stale or unavailable.
 4. Qualified vaults remain in historical/freshness scanning between probe refreshes, including in `expected_live_vaults` when unavailable or not due for admission probing. Failed probes must preserve last-known eligibility and become diagnostics with bounded retry. Set a margin so probe scheduling cannot push a previously qualified vault past its real observation deadline. Apply the short-state-window rules in issue 1; a skipped tiny-vault check cannot later recreate unavailable HyperCore or Monad values. This changes the recheck latency for formerly tiny vaults; document the maximum daily/weekly admission latency rather than implying instantaneous qualification.
-5. Make batch size and worker count configurable through environment variables, using the existing Multicall gas/fallback handling. Separate HyperCore-heavy readers and avoid a generic large-batch increase. All threaded `joblib.Parallel` wrappers expose `max_workers`; log candidates, due probes, cache hits, batch sizes, failures and qualification changes.
+5. Expose batch size through documented `batch_size` function arguments defaulting to 40 encoded subcalls, using the existing Multicall gas/fallback handling. Scanner call sites use the defaults; direct Python callers can supply smaller batches for constrained providers. Worker count remains configurable through `MAX_WORKERS`. Separate HyperCore-heavy readers and avoid a generic large-batch increase. All threaded `joblib.Parallel` wrappers expose `max_workers`; log candidates, due probes, cache hits, batch sizes, failures and qualification changes.
 
 Acceptance: ordinary TVL requests scale approximately with due batch count instead of candidate count; batching matches individual reads at the same block; new/meaningful vaults remain represented; unknown conversion and intermittent failures do not remove qualified vaults from overdue reporting; historical boundaries and rows are unchanged.
 
@@ -144,17 +144,17 @@ At the rollout boundary, perform the following sequence:
 1. Inspect the deployed Compose configuration and effective mounted paths. Wait for `vault-scanner-looped` to be idle, stop that service without interrupting a running scan, and confirm the pipeline lock is free. Confirm whether `post-scanner` or another service opens the accounting database; any accounting writer must be idle and closed. Run maintenance through the profile-only oneshot service with an overridden entrypoint, using the same `/root/.tradingstrategy` mount. Do not execute its default scan entrypoint, change `HOME`, or create an unmounted database. Display progress while waiting. If idle/exclusive access cannot be established, abort without mutation.
 2. Acquire `wait_other_writers(PIPELINE_DATA_DIR / 'scan-pipeline')`, the same lock the scanner holds for its accounting connection lifetime. Also require DuckDB exclusive access so an unexpected writer that ignores the pipeline lock causes an abort. Drain completed phase accounting before the reset; do not reset an open connection in another process. Maintenance shares this lock until backup verification and reset have completed.
 3. Checkpoint and close the source accounting database, confirming no live `.wal` remains. Create an exclusive, never-overwritten backup under `/root/.tradingstrategy/backups/rpc-counters/`, named `rpc-tracking-before-rpc-reduction-YYYY-MM-DDTHHMMSSZ.duckdb` using the actual UTC time. For example, a rollout on this date uses `rpc-tracking-before-rpc-reduction-2026-09-30T143000Z.duckdb`. Set private mode 0600. A byte copy is valid only after checkpoint/close; never copy only the main file while a live WAL is present. Keep this dated directory outside rolling-backup rotation; the per-tick backup is not a substitute. Recommend a verified off-host copy for protection against volume loss.
-4. Reopen the backup read-only and verify every table present, including the two legacy tables and any new detail/epoch tables: schemas, canonical row-content digests, row counts, total calls/errors, date range, per-chain/phase/method/provider aggregates and maximum cycle ID must match the source where applicable. Compute SHA-256 and record a companion private date-stamped manifest with verified summaries/digests, source/backup paths, UTC boundary, deployed commit/image, DuckDB version, measurement version and redacted configuration. Preserve errors privately because provider messages can contain sensitive URLs. Flush the backup, manifest and parent directory durably before reset. Any copy, verification, disk-space or checksum failure aborts with the old counters intact.
-5. Reopen the source exclusively and start the reset transaction. Before any schema change or delete, recompute all verified per-table source summaries and canonical row-content digests and compare them with the manifest; also recheck the main-file checksum/size and WAL status captured after checkpoint. Any change since backup, including an append by a writer that ignored the pipeline lock during the closed-file interval, aborts and rolls back with all rows intact. Only after this check, clear `vault_rpc_api_calls`, `vault_rpc_api_errors` and this plan's new operation-detail table if present; leave unrelated tables untouched. Insert an authoritative epoch record containing reset ID, manifest ID, UTC boundary and old maximum cycle in the same transaction. Preserve cycle monotonicity for both upgraded and rolled-back code by inserting one zero-call marker into the legacy calls table: `phase='counter_reset'`, `api_call=ZERO_CALL_MARKER`, `cycle_number=<old maximum>`, `call_count=0`, `items_scanned=0`, and reserved chain/provider values documented in the accounting API. Existing `allocate_cycle()` then still returns a number above the old maximum. Exclude the reset marker from scan/item denominators and reports. The epoch record is the authoritative reset-committed receipt; external completion files are supplementary. No price, metadata, reader, scan-cycle, lead-discovery or timestamp-cache reset is permitted. Existing counter tables stay unconstrained: do not add ART-backed primary/unique indexes or change their positional-insert schema.
+4. Reopen the backup read-only and verify every table present, including the two legacy tables and any new detail/epoch tables: schemas, canonical row-content digests, row counts, total calls/errors, date range, per-chain/phase/method/provider aggregates and maximum cycle ID must match the source where applicable. Compute SHA-256 and record a companion private date-stamped manifest with verified summaries/digests, source/backup paths, UTC boundary, the maintenance image's existing version stamp, DuckDB version, measurement version and redacted configuration. Record the actual scanner deployment/image from its logs separately; the maintenance image may differ. Preserve errors privately because provider messages can contain sensitive URLs. Flush the backup, manifest and parent directory durably before reset. Any copy, verification, disk-space or checksum failure aborts with the old counters intact.
+5. Reopen the source exclusively and start the reset transaction. Before any schema change or delete, recheck the main-file checksum and WAL status captured after checkpoint. Exact unchanged checkpointed bytes cover every table and row, so a third full SQL inventory is unnecessary. Recheck protected state hashes once immediately before commit; any change rolls back the reset without altering critical state. Any change since backup, including an append by a writer that ignored the pipeline lock during the closed-file interval, aborts and rolls back with all rows intact. Only after this check, clear `vault_rpc_api_calls`, `vault_rpc_api_errors` and this plan's new operation-detail table if present; leave unrelated tables untouched. Insert an authoritative epoch record containing reset ID, manifest ID, UTC boundary and old maximum cycle in the same transaction. Preserve cycle monotonicity for both upgraded and rolled-back code by inserting one zero-call marker into the legacy calls table: `phase='counter_reset'`, `api_call=ZERO_CALL_MARKER`, `cycle_number=<old maximum>`, `call_count=0`, `items_scanned=0`, and reserved chain/provider values documented in the accounting API. Existing `allocate_cycle()` then still returns a number above the old maximum. Exclude the reset marker from scan/item denominators and reports. The epoch record is the authoritative reset-committed receipt; external completion files are supplementary. No price, metadata, reader, scan-cycle, lead-discovery or timestamp-cache reset is permitted. Existing counter tables stay unconstrained: do not add ART-backed primary/unique indexes or change their positional-insert schema.
 6. Confirm the calls table contains only the zero-call reset marker, the errors/detail tables are empty, critical state-file hashes are unchanged, the backup is readable and both current and rollback allocators remain monotonic. Restart normal scheduling, observe new non-zero counts and confirm accounting errors do not trigger a price rescan. Make interruption recovery idempotent: read the in-database reset ID before any delete, and never reset a second time merely because an external receipt was lost. Retain maintenance records distinguishing backup prepared, reset committed and verified. A retry with the same reset ID resumes verification; a new reset ID requires a separate intentional maintenance invocation and fresh backup.
 
 The mutation utility and operator instructions are implementation deliverables, not commands to execute during this planning task. Counter reset is a rollout step after the safety checks are implemented and reviewed. If issues are deployed in stages, record every deployment boundary and retain counters between stages; do not repeatedly wipe the measurement window.
 
-After **14 and 21 full UTC days from enabling the reductions**, take further date-stamped, verified snapshots without clearing counters. Compare the original pre-reset evidence and the prospective flag-off baseline separately. These are manual follow-up checkpoints, not scheduled automations. Exclude partial days, incidents and the first optimised week if it contains mapping/cache migration. In that case day 14 is interim, and day 21 can supply two complete steady-state metadata periods. Delay the primary efficiency verdict when staged releases, invalidations or outages leave less comparable data. Use actual deployment, enablement and snapshot dates in each report.
+After **14 and 21 full UTC days from deployment**, take further date-stamped, verified snapshots without clearing counters. Compare against the original pre-reset evidence, separating healthy windows from incidents. These are manual follow-up checkpoints, not scheduled automations. Exclude partial days, incidents and the first deployment week if it contains mapping/cache migration. In that case day 14 is interim, and day 21 can supply two complete steady-state metadata periods. Delay the primary efficiency verdict when deployments, invalidations or outages leave less comparable data. Use actual deployment and snapshot dates in each report.
 
 Comparison rules:
 
-- Exclude partial reset/follow-up and deployment days, and separate the 10–22 September replay incident, the 30 September incident, pre/post-freshness deployment, ordinary scans, metadata-refresh cycles and backfills. The 26–29 September counters cannot establish a comparable baseline for the 30% target. Use the prospective flag-off baseline for that target, with old-counter comparisons as secondary context. Include at least two complete seven-day post-optimisation metadata periods, and record deployments, cache invalidations, downtime and provider changes.
+- Exclude partial reset/follow-up and deployment days, and separate the 10–22 September replay incident, the 30 September incident, pre/post-freshness deployment, ordinary scans, metadata-refresh cycles and backfills. The 26–29 September counters cannot establish a comparable baseline for the 30% target. Assess that target only against a healthy comparable pre-deployment window if one exists; otherwise report incident-inclusive reductions and subsequent monitoring trends without claiming isolated optimisation savings. Include at least two complete seven-day post-optimisation metadata periods, and record deployments, cache invalidations, downtime and provider changes.
 - Compare requests/day, requests/attempt, requests/successful phase and requests/new valid price observation; show completed/skipped/failed/degraded scans beside them. Use optimisation-independent catalogue/metadata population counts and vaults with real rows written as coverage denominators. Show requests/logical scanned item as a diagnostic whose meaning can change when only due candidates are selected, rather than headline savings evidence. A lower total achieved by scanning less or losing coverage is a regression. Old zero-item failures have unavailable item denominators, not zero cost.
 - Count items with a cycle-level `max(items_scanned)` before summing cycles; do not multiply them by method/provider rows or retries. Document the existing probed-lead meaning of `items_scanned`; add due/cache/population detail separately rather than redefining it silently. Aggregate total physical attempts once. Retain comparable old `lead_discovery`/`price_scan` labels and leave both legacy table schemas unchanged because older code inserts positionally. Add operation detail only in a separate table. Report accounting-write failures and allocated/logged cycles with missing rows beside every comparison, so a silent accounting regression cannot appear as savings.
 - Report chain, provider and method savings and the new subphase breakdown: feature probes, metadata, TVL admission probes, reader preparation, historical Multicall and validation/audit. Capture submitted/due/cached candidates and scan outcome prospectively. Mixed-protocol physical requests stay mixed; protocol logical-call counts are a separate measure.
@@ -187,7 +187,7 @@ The final closure review on 2026-09-30 returned **no blocking findings; approve*
 
 ## Implementation record
 
-Implementation addresses issues 1–6 with crash/recovery fixes and staged reductions, separate operation accounting, safe
+Implementation addresses issues 1–6 with crash/recovery fixes and always-enabled reductions, separate operation accounting, safe
 counter snapshots/reset/recovery, read-only dated-window comparisons and a
 manual real-provider parity script. Production commands are in
 [`README-vault-scripts.md`](../../scripts/erc-4626/README-vault-scripts.md).
@@ -216,17 +216,23 @@ no remaining blocking correctness bugs in those eight resolutions. Counter
 maintenance was reviewed in the earlier implementation passes; its protected-state
 hashes and failure recovery also have focused tests.
 
-Compose defaults `VAULT_RPC_OPTIMISATIONS=false` for the seven-day prospective
-baseline. Direct all-chain script calls also default to the baseline setting; other
-library calls default to enabled. Turning the flag on/off does
-not change per-chain discovery signatures. Crash/recovery fixes, unavailable
-conversion diagnostics, negative ERC-20 retries, critical history retention and
-prior-qualified coverage remain active in both modes. Cache sidecars remain
-bounded and rollback-compatible; ordinary batching, admission scheduling,
-classification reuse and unused timestamp elimination are controlled by the
-flag. Provider removal and the 14-/21-day measurement after enabling reductions
-are operational follow-ups. The initial seven healthy days and their snapshot
-precede enabling the flag. Outcome reports count cycles with each status, not
+Updated on 2026-10-01 at the user's request: RPC optimisations are always
+enabled in Compose, direct scripts and library calls. The staged switch and
+its unoptimised branches have been removed. Classification/metadata reuse,
+bounded mapping expiry, node detection caching, admission schedules, shared
+batches and unused timestamp elimination are the normal execution paths.
+Explicit historical blocks stay pinned, specialised protocols retain their
+adapters, and address-scoped repairs bypass routine admission deferrals.
+
+Crash/recovery fixes, unavailable conversion diagnostics, negative ERC-20 retries,
+critical history retention and prior-qualified coverage remain active. Cache
+sidecars remain bounded and rollback-compatible. Counter manifests record the
+always-enabled policy with the deployed commit/image and non-secret cadence
+settings. Provider removal and the 14-/21-day comparisons are operational
+follow-ups. Preserve the pre-deployment backup as the old-counter evidence;
+there is no seven-day flag-off prospective baseline. When a healthy comparable
+old window is unavailable, report incident-inclusive effects separately from
+post-deployment monitoring. Outcome reports count cycles with each status, not
 attempts; one retried cycle can have both failed and completed status.
 
 Manual integration evidence on 2026-09-30: `source .local-test.env &&
@@ -236,6 +242,19 @@ IPOR metadata and eligible admission parity at Ethereum block 26,092,727,
 using isolated temporary token caches and 117 physical requests through
 `edge.goldsky.com` and `lb.drpc.org`. This was a
 manual supplied-provider run, not CI; no production state was touched.
+
+After removing the optimisation switch, the same guarded manual command passed
+again on 2026-10-01 at Ethereum block 26,096,182: sDAI, Morpho v1 and IPOR
+metadata, eligible admission and direct-versus-combined lending economics.
+It used isolated temporary token caches and 119 physical requests through
+`edge.goldsky.com` and `lb.drpc.org`. The script now compares individual adapter
+reads explicitly and does not mutate global optimisation configuration.
+134 focused tests passed after switch removal and review-driven fixes; three
+duplicate flag-off constructor test cases were retired. Regression coverage now
+includes rebuilding catalogue rows missing after a restore despite fresh
+metadata scheduling hints, and address-scoped repairs bypassing routine probe
+deferrals. Claude Opus 5.5 reviewed the changes and approved the final fixes
+with no blocking findings. No production reset or deployment occurred.
 
 Final checks also cover protected-state changes during reset, stale negative
 token/mapping cache retry, bounded Monad capability measurements and guarded
@@ -250,9 +269,8 @@ checks passed, as did `git diff --check`. An isolated CLI smoke check passed
 read-only inventory, reset and same-ID recovery; the next cycle remained 777
 above the original 776. No production maintenance command was executed.
 
-The final simplification pass centralises the rollout switch in the provider
-configuration module and shares metadata-success handling between discovery and
-queue recovery. Retained economic values carry the same stale-field provenance
+The final simplification pass removes the staged rollout switch and shares
+metadata-success handling between discovery and queue recovery. Retained economic values carry the same stale-field provenance
 on both paths. Single-chain examples now require Hypersync and reject the obsolete
 RPC backend before network access. API module lists use their existing autosummary
 blocks. None of these changes establishes production savings or invoice costs.
@@ -264,8 +282,8 @@ addressed with explicit Hemi/Katana discovery opt-outs while retaining known-vau
 prices, candidate-scoped transport deferrals, same-protocol unavailable-field
 provenance, consistent process labels and bounded transient classification.
 Programming errors remain fatal as required by the plan; active-reader outages
-still fail visibly. Documentation now names all common baseline changes and
-migration periods. Broad classifier invalidations are logged, repeated lead-map
+still fail visibly. Documentation records deployment and migration periods separately from
+healthy comparison windows. Broad classifier invalidations are logged, repeated lead-map
 rebuilds are removed, and explicit historical metadata blocks stay pinned.
 The reader-state guide no longer recommends deleting critical state, and its
 helper supports current dictionaries and legacy objects. The frozen closure review approved with a required narrow fix for the production
@@ -280,3 +298,242 @@ a claim that every unrelated retry or provider path was exhaustively reviewed.
 Comparison windows use recorded UTC cycle-start dates, not individual request
 execution timestamps. Long scans can cross midnight; take snapshots after the
 included cycles finish and check completion logs before comparing windows.
+
+
+Simplification audit on 2026-10-01 removed library-global classification and
+metadata refresh variables in favour of documented function arguments and the
+existing script-level `FORCE_LEAD_DISCOVERY` repair override. The standalone
+scanner delegates backend selection to the shared Hypersync configuration
+instead of parsing the same environment setting again; event discovery still
+requires a Hypersync client. Maintenance reads the existing image version
+stamp instead of three operator-supplied provenance variables. Exact source
+checksum/WAL verification replaces a redundant third SQL inventory; protected
+state is hashed before maintenance and once before commit instead of twice
+before commit. Dated backups, readable content verification, transactional reset
+receipts, stable retry IDs and monotonic cycle numbering remain required.
+Standalone failures retain partial counts and a failed outcome, and propagate
+one original traceback instead of multiple catch-and-reraise wrappers.
+
+Specialised admission and direct current-TVL callers now share one helper in
+`eth_defi/vault/rpc_batch.py`, eliminating duplicate implementations of NAV conversion and
+exception policies. The previous all-chain import remains an explicit re-export
+for existing callers.
+
+The simplification review by Claude Opus 5.5 approved with no blocking findings.
+Its follow-ups now have focused regression coverage: a standalone run with
+queued metadata records a degraded outcome, and classification-only repair
+refreshes an existing row even when its metadata deadline has not arrived.
+Failure-marker comments describe the persisted outcome accurately; raw failure
+text is not stored in those diagnostics. Critical reset/recovery safeguards were
+retained after the review checked the removed verification passes.
+
+Final local verification for the simplification and outcome fixes: 142 focused
+scanner/accounting tests passed in 14.22 seconds, and scoped Ruff and diff checks
+passed. An additional 33 focused tests passed after aligning the standalone
+metadata path with `get_pipeline_data_dir()`, the same helper used for its lock.
+The entrypoint test now uses the actual pipeline environment override instead
+of replacing its metadata path, covering the relocated-pipeline case.
+Claude Opus 5.5 confirmed the outcome fixes and the final path correction in
+bounded follow-up reviews, each with a successful result and no blocking findings.
+
+Local Monad smoke check on 2026-10-01 exercised the actual all-chain script
+with `TEST_CHAINS=Monad`, real configured RPC providers and Hypersync. It used
+an isolated copy of the saved 2026-09-22 local metadata, reader state, token
+cache, Monad prices and dense timestamp cache. The production pipeline lock
+was busy, so production state was not copied or changed. Remote publication
+was disabled; the normal cleaner and JSON builder wrote local artefacts.
+
+The first attempt completed discovery but stopped during timestamp fetching:
+Hypersync reported a 30-request quota, below the default 80 RPM, followed by
+temporary DNS failure. Retrying with the existing `HYPERSYNC_RPM=20` setting
+reused completed metadata and cached timestamps. No rate-limit setting was
+added to the code. README guidance now describes the actual quota limitation.
+
+The run exposed a real freshness-selection defect: the existing blacklist's
+Monad test vault retained old qualified TVL and was incorrectly expected to
+have fresh prices despite being excluded by the historical writer. Selection
+now applies that same blacklist before constructing adapters, probing TVL or
+qualifying freshness on every chain, and reports its skipped count. Explicit
+bounded repairs containing blacklisted contracts fail before any replacement,
+including direct historical-writer calls; otherwise excluding their readers
+could delete existing rows without replacement observations. The direct
+writer also rejects requested addresses missing from its supplied vault list,
+covering activity or adapter filtering in `scan-prices.py`. Regression
+coverage forces a real reader-map save and checks unchanged Parquet bytes.
+
+Final local results, including reruns with the corrected code:
+
+- Metadata catalogue: 3,010 to 3,530 entries; 520 new leads.
+- Raw hourly prices: 117,036 to 122,002 rows, including 4,966 new finite
+  share-price observations through 2026-10-01 08:37:17 UTC.
+- All 117,036 original rows were preserved across every original column.
+  All 404 original reader states survived without progress regressions;
+  the resulting reader map contains 457 vaults.
+- Cleaned hourly prices: 68,604 rows. Local JSON: 137 Monad vaults across
+  12 protocols, regenerated at 2026-10-01 09:46:06 UTC.
+- Final freshness audit: zero overdue vaults, seven blacklisted exclusions.
+  Accounting remains explicitly `degraded` for three aPriori/ShMonad vaults
+  with native-token sentinel assets and unavailable ERC-20 denomination
+  metadata. Native-asset metadata support remains a follow-up; these values
+  are not verified USD TVL.
+- The final warm reruns each made 6 discovery and 15 price RPC requests,
+  reusing all 2,962 admission-probe hints. Their much shorter incremental
+  window is not comparable to the initial nine-day catch-up and does not
+  establish invoice savings. The first discovery made 10,914 requests; the
+  failed first price attempt made 3,243, and the catch-up retry made 7,131.
+- Thirty focused recovery, freshness and accounting tests passed, with scoped
+  Ruff and diff checks passing. Sphinx was not built.
+
+The complete local evidence and artefacts are retained under
+`/tmp/vault-rpc-monad-smoke-2026-10-01-090129/`: `verification.json`, separate
+attempt logs, isolated RPC accounting and `state/top_vaults_by_chain.json`.
+The verification report keeps provider domains and error codes but omits raw
+provider error messages, which can contain credentialed URLs.
+
+Claude Opus 5.5 approved the grounded blacklist and direct-writer review after
+the state-preservation test was strengthened. The real rerun's remaining
+`degraded` outcome is the documented native-denomination limitation, not a
+remaining overdue-reader requirement. Its review also prompted accurate
+inclusive-start/exclusive-end documentation and the missing-supplied-vault
+guard described above.
+Its final bounded review of the missing-supplied-vault guard also approved
+with no findings, using the correct worktree and Claude Opus 5.5.
+
+
+Local Arbitrum smoke check on 2026-10-01 exercised the actual all-chain script
+with `TEST_CHAINS=Arbitrum`, supplied RPC providers and Hypersync. Critical
+metadata, reader state, raw prices, token cache, historical context and the
+5.7 GiB dense timestamp cache were copied from the saved local 2026-09-22
+snapshot into `/tmp/vault-rpc-arbitrum-smoke-2026-10-01-132652/`. The production
+pipeline was not changed and remote publication was disabled. Protocol API
+caches used their existing local defaults. Hypersync used the same local
+`HYPERSYNC_RPM=20` override as the Monad check; repository and production
+rate-limit defaults were not changed.
+
+The first attempt exposed a new scheduler bug after successful discovery and
+metadata refresh: a new reader with unavailable denomination metadata advanced
+its source timestamp while retaining `last_tvl=None`. Its next poll compared
+that value with a Decimal and crashed. The nullable-TVL branch now uses an
+explicit `unverified_tvl` hourly cadence without fabricating zero TVL or USD
+qualification. Existing peaked/faded weekly cadences retain priority. Recovery
+uses the same legacy state fields and a fresh reader's conversion estimate.
+
+Claude Opus 5.5's grounded review identified a related cost regression: tokens
+that permanently omit `symbol()` had been treated like temporary denomination
+outages and could be sampled hourly indefinitely. An existing denomination
+object with an empty symbol now follows the established unknown-token estimate
+and inactivity schedule, without qualifying USD TVL. Tests cover both missing
+and empty symbols past the traction period, actual source updates, save/reload,
+metadata recovery and inactive-cadence priority. The related row-schema comments
+and README now describe the labels and distinguish these two cases. Duplicate
+older withdrawal type declarations in the touched base module were removed;
+the fully documented canonical declarations and their behaviour remain intact.
+
+Final Arbitrum results, after the corrected catch-up and short warm repeat:
+
+- Metadata catalogue: 8,398 to 8,443 entries, with 45 new leads and no missing
+  original catalogue entries. Metadata receipts recorded three already-broken
+  IPOR candidates as unavailable; no queued metadata remained.
+- Raw hourly prices: 1,426,767 to 1,445,382 rows, with 18,615 added rows.
+  Of these, 18,062 are after the previous scan head. The other 553 are genuine
+  Antarctic historical observations for newly admitted products.
+  Latest raw observation: 2026-10-01 16:39:30 UTC.
+- All 1,426,767 original rows survived across every original column. All 4,030
+  original reader states survived without cursor regressions; the resulting
+  map contains 4,047 states. Every original row in all seven historical-context
+  tables survived, including all 402,675 original GMX context observations.
+- Cleaned hourly prices: 800,341 rows. Local JSON: 788 Arbitrum vaults across
+  48 protocol slugs, regenerated at 2026-10-01 16:46:49 UTC. JSON uses the normal
+  daily aggregation, whose latest observation is 2026-10-01 00:00:00 UTC; it
+  does not claim the raw hourly timestamp for each public record.
+- Price accounting remains explicitly `degraded` for 47 overdue vaults:
+  38 GMX and two Antarctic products have no sufficiently recent genuine source
+  observations; five Aave wrappers have unavailable share prices; two Real Yield
+  vaults have unusable readers and already had RPC failure hints in the saved
+  baseline. Existing source values are preserved, without fabricated freshness.
+  The final audit also records 22 unavailable-denomination readers. Native-token
+  and permanently missing-denomination adapters remain separate follow-ups.
+- Physical RPC requests by attempt: initial discovery 33,513 and failed price
+  attempt 6,632; corrected catch-up discovery 300 and pricing 24,474; final warm
+  discovery 300 and pricing 640. Both repeat attempts reused all 874 admission
+  hints and the lead refresh receipt. The initial cold classifier examined
+  414,672 encoded subcalls; these are not physical RPC request counts.
+  Across the first two attempts, historical Multicall used 29,961 requests,
+  metadata 22,460, feature probing 10,383 and TVL admission 921. These catch-up
+  and cold-cache counts are not comparable to a short warm interval and do not
+  establish invoice savings. Cached discovery still performs roughly 300
+  preparation/catalogue requests; further consolidation is a useful follow-up.
+- Thirty-five focused state/freshness tests and 48 withdrawal/migration tests
+  passed. Scoped Ruff formatting, F/I checks and diff whitespace checks passed;
+  Sphinx was not built. The final real warm scan completed prices, cleaning and
+  JSON generation with the empty-symbol correction in place.
+
+Claude Opus 5.5 approved the grounded follow-up review with a successful final
+result in the correct worktree and model. Its remaining low-risk note is that
+an adapter permanently lacking a denomination object can retain the hourly
+fallback; this is documented explicitly rather than inferred to mean low TVL.
+The test description now calls this hourly polling, not time-bounded retries.
+Review evidence is retained in
+`/tmp/vault-rpc-arbitrum-unverified-tvl-closure-opus-5-5-review-2026-10-01.jsonl`.
+The run directory contains separate attempt logs, `verification.json`,
+`verification-attempt-2.json`, `context-preservation.json`, isolated RPC
+accounting and `state/top_vaults_by_chain.json`. Reports omit raw provider error
+messages, which may contain credentialed URLs.
+
+
+Reviewed disabled-market cleanup on 2026-10-02 adds only the 14 GMX markets
+explicitly disabled in the Arbitrum inventory. A real DataStore Multicall at
+block 510,963,697 successfully returned `IS_MARKET_DISABLED=true` for every
+candidate. `REVIEWED_DISABLED_GMX_VAULTS` in `eth_defi/vault/risk.py` records
+chain, verification date/block, product names, last positive cached
+deposit-context valuation dates, canonical key semantics and the investigation
+PR comment. One normalised address set feeds the report-risk override and the
+existing scanner blacklist. Enabled quiet markets, Antarctic subscriptions and
+unresolved generic contract reads remain visible as coverage gaps.
+
+Both scheduled GMX source prefill and the full historical GMX backfill exclude
+these entries before indexed event collection or historical-writer selection.
+The full backfill logs the exclusion count, retains the existing no-seeded-
+product configuration error, and safely skips a chain containing only excluded
+products. No new configuration, retry policy or data-reset workflow was added.
+Catalogue synchronisation continues to update enablement so an operator can
+review and remove an entry if the protocol re-enables it. The README explains
+that blacklisted records remain in JSON with their exclusion label, while
+rankings and category aggregates omit them; its earlier structural-suppression
+claim was out of date and has been corrected.
+
+The real isolated Arbitrum rerun completed pricing, cleaning and JSON export.
+It reported 14 explicit exclusions and 33 overdue vaults: exactly the prior
+47-address audit minus the reviewed 14. All 2,251 historical price rows belonging
+to the excluded products were preserved across every pre-exclusion column.
+All 4,047 pre-exclusion reader states survived with non-regressing cursors,
+all metadata records remain, and all original rows in the seven historical-
+context tables remain. All 1,426,767 original baseline price rows also remain.
+The new output contains 1,446,770 raw prices through 2026-10-02 10:29:51 UTC,
+801,126 cleaned hourly rows and 807 JSON records, including all 14 marked
+`Blacklisted`. Hypersync encountered one rate limit and the existing bounded
+retry recovered without a source-history reset. Production state was unchanged.
+
+Initial focused verification passed 109 tests; adding complete reviewed-address
+coverage and scheduled/manual request-scope regressions increased this to 129
+passing tests. The new selector tests cover mixed and entirely excluded
+catalogues, adapter construction, consumed source iterators, bounded replacement
+addresses, actual legacy reader-map merging and stateless manual backfills.
+Scoped Ruff formatting, F/I checks and diff whitespace checks passed.
+
+Evidence: `/tmp/disabled-gmx-market-evidence-2026-10-02.json`,
+`/tmp/vault-rpc-arbitrum-smoke-2026-10-01-132652/disabled-blacklist-verification.json`
+and `context-preservation-after-disabled-blacklist.json` in that run directory.
+Claude Opus 5.5's initial grounded review identified the manual-backfill
+selection regression and missing request-scope coverage; both were addressed
+before completion.
+
+Claude Opus 5.5 approved the final grounded closure after the reviewed-address
+pytest parameters were sorted for deterministic xdist collection. The final
+scope tests also reject unnecessary Hypersync setup in both all-excluded paths
+and token-cache setup in the all-excluded manual path. The affected flag and
+backfill tests passed with two xdist workers (`--dist loadgroup`): 113 tests in
+5.89 seconds. Final review evidence is retained at
+`/tmp/vault-rpc-disabled-gmx-final-opus-5-5-review-2026-10-02.jsonl`, with a
+successful result, the correct worktree and Claude Opus 5.5. No production data,
+remote commits or pull-request content were changed by this cleanup.

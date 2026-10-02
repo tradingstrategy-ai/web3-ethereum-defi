@@ -10,8 +10,8 @@ extra config file to manage. Key prefixes ``vault-share-token-`` and
 ``vault-denomination-token-`` are distinct from the ERC-20 key format
 ``{chain_id}-{address.lower()}`` so there is no collision risk.
 
-Relationships are refreshed at least weekly because proxies may change them.
-Legacy entries without observation provenance require one fresh read. Use
+Relationships expire after seven days because proxies may change them. Legacy
+entries without observation provenance require one fresh read. Use
 ``FORCE_VAULT_TOKEN_MAPPING_REFRESH=true`` to bypass the bounded cache.
 
 See :py:meth:`eth_defi.erc_4626.vault.ERC4626Vault.fetch_share_token_address`
@@ -26,22 +26,21 @@ from typing import Any
 from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.provider.env import rpc_optimisations_enabled
 
 
-def _mapping_is_current(entry: dict | None) -> bool:
-    """Check bounded mapping provenance without changing legacy cache shapes.
+def _can_reuse_cached_mapping(entry: dict | None) -> bool:
+    """Require recent provenance before reusing a vault-token relationship.
 
-    Old cache entries without an observation time require one refresh. Proxy
-    relationships are never assumed permanently immutable.
+    The share/asset accessors call this before doing a contract read. Timeless
+    legacy entries refresh once rather than acquiring a new lifetime simply
+    by being read. An operator refresh bypasses even a recent observation so
+    proxy upgrades can be reflected immediately without deleting the cache.
 
     :param entry: Cached mapping with optional checked-at timestamp.
-    :return: Whether it is safe to reuse for a current-state scan.
+    :return: Whether a recent mapping can be reused without a contract read.
     """
     if not entry or os.environ.get("FORCE_VAULT_TOKEN_MAPPING_REFRESH", "false").lower() == "true":
         return False
-    if not rpc_optimisations_enabled():
-        return True
     checked_at = entry.get("checked_at")
     return bool(checked_at) and native_datetime_utc_now() - datetime.datetime.fromisoformat(checked_at) < datetime.timedelta(days=7)
 
@@ -79,12 +78,12 @@ def get_cached_vault_share_token_address(
         ERC-4626 vault address (the vault itself, not the share token).
 
     :return:
-        Cached share token address, or ``None`` if not cached.
+        Cached share token address, or ``None`` if absent, expired or forced due.
     """
     if cache is None:
         return None
     entry = cache.get(_vault_share_token_key(chain_id, vault_address))
-    return entry["address"] if _mapping_is_current(entry) else None
+    return entry["address"] if _can_reuse_cached_mapping(entry) else None
 
 
 def set_cached_vault_share_token_address(
@@ -102,6 +101,14 @@ def set_cached_vault_share_token_address(
 
     :param cache:
         Any dict-like store, or ``None`` to skip the write.
+    :param chain_id:
+        Chain containing the vault.
+    :param vault_address:
+        Vault whose share-token relationship was verified.
+    :param share_token_address:
+        Verified share token, including the vault itself for ordinary ERC-4626.
+    :return:
+        None; writes the address and its naive UTC observation time.
     """
     if cache is None:
         return
@@ -116,11 +123,16 @@ def get_cached_vault_denomination_token_address(
     """Return cached ERC-4626 ``asset()``/denomination token address for a vault, or None.
 
     See :py:func:`get_cached_vault_share_token_address` for caller semantics.
+
+    :param cache: Dict-like token cache, or None to bypass caching.
+    :param chain_id: Chain containing the vault.
+    :param vault_address: Vault whose asset relationship is being looked up.
+    :return: Cached address, or None when a fresh contract read is required.
     """
     if cache is None:
         return None
     entry = cache.get(_vault_denomination_token_key(chain_id, vault_address))
-    return entry["address"] if _mapping_is_current(entry) else None
+    return entry["address"] if _can_reuse_cached_mapping(entry) else None
 
 
 def set_cached_vault_denomination_token_address(
@@ -133,6 +145,12 @@ def set_cached_vault_denomination_token_address(
 
     Only persist after a definitive answer. See
     :py:func:`set_cached_vault_share_token_address` for the same caveat.
+
+    :param cache: Dict-like token cache, or None to skip the write.
+    :param chain_id: Chain containing the vault.
+    :param vault_address: Vault whose asset relationship was verified.
+    :param denomination_token_address: Verified asset token contract.
+    :return: None; writes the address and its naive UTC observation time.
     """
     if cache is None:
         return

@@ -19,6 +19,7 @@ import duckdb
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.provider.rpcdb import ZERO_CALL_MARKER
+from eth_defi.version_info import VersionInfo
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,12 @@ def _quote_identifier(value: str) -> str:
 
 
 def _file_digest(path: Path) -> str:
-    """Hash a closed database or backup without loading it into memory.
+    """Stream a file checksum for snapshot and conflict verification.
 
-    The source must have been checkpointed and have no outstanding WAL.
+    Maintenance checkpoints the source before its initial copy, then checks
+    the same bytes again after reopening it exclusively but before any write.
+    This helper hashes only the main file; the caller separately rejects WAL
+    presence because a main-file checksum cannot detect uncheckpointed rows.
 
     :param path: Existing file.
     :return: SHA-256 hex digest.
@@ -161,7 +165,7 @@ def _fetch_committed_reset(connection: duckdb.DuckDBPyConnection, reset_id: str)
     return json.loads(row[0]) if row else None
 
 
-def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | None = None, now: datetime.datetime | None = None, protected_paths: tuple[Path, ...] = ()) -> dict:
+def snapshot_and_reset_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | None = None, now: datetime.datetime | None = None, protected_paths: tuple[Path, ...] = ()) -> dict:
     """Create a verified dated snapshot and optionally reset physical counters.
 
     Hold ``wait_other_writers(PIPELINE_DATA_DIR / 'scan-pipeline')`` throughout.
@@ -170,6 +174,14 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
     its backup and returns its receipt without clearing newly accumulated calls.
     No other pipeline files are touched. DuckDB's locking semantics are described
     at https://duckdb.org/docs/stable/connect/concurrency.html.
+
+    The maintenance script selects protected files and owns the pipeline lock;
+    this helper owns only the accounting database. Protected hashes prove those
+    files did not change during maintenance, but are not backups of their data.
+    The dated database copy, pre-reset manifest and transactional reset receipt
+    serve different recovery points: deletion is allowed only after the first
+    two are verified and durable, and the receipt makes a committed reset
+    recoverable even if writing its final JSON acknowledgement fails.
 
     :param database_path: Existing accounting database, never created implicitly.
     :param backup_dir: Private non-rotating snapshot directory.
@@ -187,6 +199,9 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
         raise ValueError("Maintenance timestamps must be naive UTC")
     connection = duckdb.connect(str(database_path))
     try:
+        # Check the stable operation identity before taking another snapshot or
+        # deleting anything. A retry after COMMIT must preserve requests recorded
+        # since that reset, even if the external completion receipt is missing.
         committed = _fetch_committed_reset(connection, reset_id) if reset_id is not None else None
         if committed is not None:
             backup = Path(committed["backup_path"])
@@ -198,6 +213,9 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
                 _write_private_json(completion_path, committed)
             return committed
         protected_digests = fetch_protected_state_digests(protected_paths)
+        # A byte copy is useful only when all committed rows live in the main
+        # file. Close the checkpointed connection before copying it; the later
+        # transaction rechecks this snapshot because DuckDB's lock is released.
         connection.execute("CHECKPOINT")
         inventory = fetch_counter_inventory(connection)
     finally:
@@ -213,6 +231,9 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
     source_hash = _file_digest(database_path)
     source_size = database_path.stat().st_size
     logger.info("Copying checkpointed counter database to %s", backup_path)
+    # Counter errors can contain private provider details. Exclusive creation
+    # with owner-only permissions protects that evidence and refuses timestamp
+    # collisions instead of replacing an operator's earlier recovery point.
     fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as target, database_path.open("rb") as source:
         shutil.copyfileobj(source, target, length=1024 * 1024)
@@ -221,10 +242,18 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
     backup_hash = _file_digest(backup_path)
     if source_hash != backup_hash:
         raise RuntimeError("Source changed during counter backup; reset aborted")
+    # Byte equality alone cannot prove that DuckDB can reopen the backup. Also
+    # compare schemas and canonical row digests, including non-counter tables,
+    # before allowing any destructive step against the source database.
     with duckdb.connect(str(backup_path), read_only=True) as backup:
         backup_inventory = fetch_counter_inventory(backup)
     if inventory != backup_inventory:
         raise RuntimeError("Counter backup content mismatch; reset aborted")
+    # Reuse the image's existing build stamp rather than asking operators to
+    # duplicate it in maintenance-specific environment variables. This identifies
+    # the maintenance image, which can differ from the stopped scanner: its
+    # deployment boundary still comes from scanner logs, not this receipt.
+    # Cadence configuration is allowlisted; RPC URLs and secrets stay out.
     manifest = {
         "version": 1,
         "reset_id": reset_id,
@@ -234,15 +263,17 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
         "backup_sha256": backup_hash,
         "source_size": source_size,
         "duckdb_version": duckdb.__version__,
-        "deployment": os.environ.get("RPC_COUNTER_DEPLOYMENT", "unspecified"),
-        "deployed_commit": os.environ.get("RPC_COUNTER_DEPLOYED_COMMIT", "unspecified"),
-        "deployed_image": os.environ.get("RPC_COUNTER_DEPLOYED_IMAGE", "unspecified"),
+        "maintenance_version": VersionInfo.read_docker_version().as_dict(),
         "measurement_version": 1,
-        "configuration": {key: os.environ.get(key) for key in ("VAULT_RPC_OPTIMISATIONS", "TVL_PROBE_BATCH_SIZE", "METADATA_BATCH_SIZE", "SCAN_CYCLES", "DEFAULT_CYCLE", "LOOP_INTERVAL_SECONDS")},
+        "rpc_optimisations": "always_enabled",
+        "configuration": {key: os.environ.get(key) for key in ("SCAN_CYCLES", "DEFAULT_CYCLE", "LOOP_INTERVAL_SECONDS")},
         "tables": inventory,
         "protected_state_sha256": protected_digests,
         "reset_committed": False,
     }
+    # Publishing and syncing the manifest also syncs the backup directory.
+    # A crash before this point leaves counters intact; a crash afterwards has
+    # a verified dated recovery copy even if the reset transaction never starts.
     _write_private_json(manifest_path, manifest)
     if reset_id is None:
         return manifest
@@ -253,21 +284,35 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
         try:
             # File exclusivity is restored here. A writer may have bypassed the
             # pipeline lock while the source was closed for its byte snapshot.
-            if wal_path.exists() or _file_digest(database_path) != source_hash or database_path.stat().st_size != source_size or fetch_counter_inventory(connection) != inventory:
+            # Exact checkpointed bytes already cover every table and row. A
+            # second full SQL inventory adds no evidence after this checksum
+            # and WAL check, and can make maintenance unnecessarily expensive.
+            if wal_path.exists() or _file_digest(database_path) != source_hash:
                 raise RuntimeError("Counters changed after backup verification; reset aborted")
-            if fetch_protected_state_digests(protected_paths) != protected_digests:
-                raise RuntimeError("Protected pipeline state changed during maintenance; reset aborted")
             maximum_cycle = max((entry.get("max_cycle", 0) for entry in inventory.values()), default=0)
+            # Reset request measurements, not scheduling history. The zero-call
+            # marker preserves MAX(cycle_number) for both old and new allocators;
+            # removing it would make subsequent scans reuse old cycle identities.
             for table in COUNTER_TABLES:
                 if table in inventory:
                     connection.execute(f"DELETE FROM {_quote_identifier(table)}")
             connection.execute("INSERT INTO vault_rpc_api_calls VALUES (0, 'counter_reset', ?, ?, ?, ?, 0, 0)", [ZERO_CALL_MARKER, now.date(), maximum_cycle, ZERO_CALL_MARKER])
+            # Store the authoritative receipt in the deletion transaction. Do
+            # not use ART-backed uniqueness constraints here (DuckDB/Python 3.14
+            # ingestion issue); exclusive maintenance and the earlier ID check
+            # enforce the operation's idempotency at the application boundary.
             connection.execute(f"CREATE TABLE IF NOT EXISTS {RESET_TABLE} (reset_id VARCHAR, committed_at TIMESTAMP, old_max_cycle BIGINT, manifest VARCHAR)")
             connection.execute(f"INSERT INTO {RESET_TABLE} VALUES (?, ?, ?, ?)", [reset_id, now, maximum_cycle, json.dumps(manifest, sort_keys=True)])
+            # Compare once immediately before commit. Rehashing large price and
+            # timestamp files before deletion as well would repeat the same
+            # check; this transaction rolls deletion back if the final check fails.
             if fetch_protected_state_digests(protected_paths) != protected_digests:
                 raise RuntimeError("Protected pipeline state changed before reset commit; reset aborted")
             connection.execute("COMMIT")
         except BaseException:
+            # KeyboardInterrupt and cancellation must roll back too. After an
+            # uncertain commit outcome, the same reset ID is the recovery key;
+            # inventing a new one could clear freshly collected measurements.
             try:
                 connection.execute("ROLLBACK")
             except duckdb.TransactionException:
@@ -280,7 +325,14 @@ def backup_rpc_counters(database_path: Path, backup_dir: Path, reset_id: str | N
             raise RuntimeError("Reset committed but errors remain; reuse the same reset ID for recovery")
     finally:
         connection.close()
+    # This file is an operator acknowledgement, not the commit authority. The
+    # in-database receipt above repairs it on retry after a crash or disk error.
     manifest["reset_committed"] = True
     _write_private_json(backup_path.with_suffix(".completed.json"), manifest)
     logger.info("Counter reset committed; next scanner cycle is %d", maximum_cycle + 1)
     return manifest
+
+
+#: Compatibility name for existing maintenance callers; new callers should use
+#: the name that makes the optional destructive reset explicit.
+backup_rpc_counters = snapshot_and_reset_rpc_counters

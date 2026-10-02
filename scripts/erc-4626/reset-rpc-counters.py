@@ -13,7 +13,7 @@ import duckdb
 from tabulate import tabulate
 
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
-from eth_defi.provider.rpc_counter_maintenance import backup_rpc_counters, fetch_counter_inventory
+from eth_defi.provider.rpc_counter_maintenance import fetch_counter_inventory, snapshot_and_reset_rpc_counters
 from eth_defi.provider.rpcdb import resolve_rpc_tracking_database_path
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -31,7 +31,7 @@ def main() -> None:
     """
     setup_console_logging(os.environ.get("LOG_LEVEL", "info"))
     source = resolve_rpc_tracking_database_path()
-    pipeline_dir = Path(os.environ.get("PIPELINE_DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
+    pipeline_dir = get_pipeline_data_dir()
     backup_dir = Path(os.environ.get("RPC_COUNTER_BACKUP_DIR", str(source.parent / "backups" / "rpc-counters"))).expanduser()
     reset = os.environ.get("RESET_RPC_COUNTERS", "false").lower() == "true"
     snapshot = os.environ.get("BACKUP_RPC_COUNTERS", "false").lower() == "true"
@@ -41,11 +41,16 @@ def main() -> None:
     logger.info("Waiting for the scan-pipeline lock; accounting writers must be idle")
     with wait_other_writers(pipeline_dir / "scan-pipeline", timeout=60):
         if reset or snapshot:
+            # Select critical state from the same mounted pipeline used by the
+            # scanner. Timestamp databases live beside it, not inside it; include
+            # the canonical cache and a relocated pipeline's sibling cache.
+            # These hashes verify non-mutation only: the dated backup contains
+            # the accounting database, not the price/reader/timestamp datasets.
             pipeline_files = {path for pattern in ("*.pickle", "*.parquet", "*state*.json", "rpc-*.json") for path in pipeline_dir.glob(pattern)}
             timestamp_folders = {DEFAULT_TIMESTAMP_CACHE_FOLDER, pipeline_dir.parent / "block-timestamp"}
             timestamp_files = {path for folder in timestamp_folders for path in folder.glob("*.duckdb*")}
             protected_paths = tuple(sorted(pipeline_files | timestamp_files))
-            manifest = backup_rpc_counters(source, backup_dir, reset_id if reset else None, protected_paths=protected_paths)
+            manifest = snapshot_and_reset_rpc_counters(source, backup_dir, reset_id if reset else None, protected_paths=protected_paths)
             logger.info("Verified backup: %s; reset committed: %s", manifest["backup_path"], manifest["reset_committed"])
         else:
             if not source.is_file():

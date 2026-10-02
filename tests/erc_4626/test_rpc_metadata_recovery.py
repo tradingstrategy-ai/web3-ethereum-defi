@@ -7,11 +7,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 from requests.exceptions import ConnectionError
 
 from eth_defi.erc_4626 import lead_scan_core, scan
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
@@ -45,7 +46,7 @@ def test_unsupported_constructor_isolated_and_programming_error_fatal(monkeypatc
 
 def test_pending_metadata_resumes_candidates_without_event_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Restart drains successes and schedules permanent negatives weekly."""
-    monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", "false")
+    monkeypatch.setattr(lead_scan_core, "fetch_metadata_snapshots", lambda *args, **kwargs: {})
     path = tmp_path / "metadata.pickle"
     addresses = ["0x" + "1" * 40, "0x" + "2" * 40]
     first_seen = datetime.datetime(2026, 1, 1)
@@ -64,9 +65,9 @@ def test_pending_metadata_resumes_candidates_without_event_scan(tmp_path: Path, 
         seen.append(detection.address)
         return {"Name": "successful" if detection.address == addresses[0] else "<broken: UnsupportedVaultVersion>", "_detection_data": detection, "_rpc_failure_category": "unsupported", "_lending_fields_unavailable": ["_available_liquidity", "_utilisation"]}
 
-    monkeypatch.setattr(lead_scan_core, "create_vault_scan_record_subprocess", candidate)
+    monkeypatch.setattr(lead_scan_core, "fetch_vault_scan_record_in_worker", candidate)
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=124))
-    assert lead_scan_core.fetch_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
+    assert lead_scan_core.resume_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
     assert seen == addresses
     restored = VaultDatabase.read(path)
     assert restored.last_scanned_block == {1: 123}
@@ -75,8 +76,138 @@ def test_pending_metadata_resumes_candidates_without_event_scan(tmp_path: Path, 
     assert load_rpc_scan_state(tmp_path / "rpc-metadata-1.json")[addresses[0]]["economics_stale"] == ["_available_liquidity", "_utilisation"]
     assert load_rpc_scan_state(pending_path) == {}
     assert load_rpc_scan_state(tmp_path / "rpc-metadata-1.json")[addresses[1]]["status"] == "unavailable"
-    assert lead_scan_core.fetch_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
+    assert lead_scan_core.resume_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
     assert seen == addresses
+
+
+@pytest.mark.parametrize(("missing_row", "force_classification_refresh"), [(True, False), (False, True), (False, False)], ids=["restored-missing-row", "classification-repair", "fresh-existing-row"])
+def test_metadata_schedule_rebuilds_missing_rows_and_honours_classification_repairs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_row: bool, force_classification_refresh: bool) -> None:
+    """Metadata scheduling honours catalogue restores and explicit repairs.
+
+    An operator may restore the metadata pickle without restoring its optional
+    scheduling sidecars. The discovery cursor still owns event progress, but
+    a fresh successful metadata hint must not delay rebuilding the absent row
+    and its eventual price reader. A classification-only repair must also read
+    fresh metadata for an existing row, while an ordinary tick keeps its valid
+    deadline. No contract/indexer request is needed here.
+
+    :param tmp_path: Isolated authoritative catalogue and scheduling hints.
+    :param monkeypatch: Replaces network reads and pins the observation time.
+    :param missing_row: Simulate a restored catalogue without the observed row.
+    :param force_classification_refresh: Explicit library-level classification repair.
+    :return: None; checks worker selection, persisted metadata and event progress.
+    """
+    now = datetime.datetime(2026, 9, 30)
+    detection = ERC4262VaultDetection(chain=1, address="0x" + "1" * 40, features=set(), updated_at=now, first_seen_at_block=1, first_seen_at=now, deposit_count=100, redeem_count=0)
+    lead = PotentialVaultMatch(chain=1, address=detection.address, first_seen_at_block=1, first_seen_at=now, deposit_count=100)
+    path = tmp_path / "metadata.pickle"
+    database = VaultDatabase()
+    database.update_leads_and_rows(1, 123, {detection.address: lead}, {})
+    if not missing_row:
+        database.rows[detection.get_spec()] = {"Name": "Existing", "First seen": now, "_detection_data": detection}
+    database.write(path)
+    monkeypatch.setattr(lead_scan_core, "native_datetime_utc_now", lambda: now)
+    metadata_path = tmp_path / "rpc-metadata-1.json"
+    save_rpc_scan_state(metadata_path, {detection.address: {"checked_at": now.isoformat(), "next_attempt_at": (now + datetime.timedelta(days=7)).isoformat(), "status": "ok", "features": [], "classifier_version": lead_scan_core.create_vault_classifier_signature()}})
+
+    report = LeadScanReport(start_block=124, end_block=125, leads={detection.address: lead}, detections={detection.address: detection})
+    discoverer = SimpleNamespace(cached_features={}, seed_existing_leads=lambda leads: None, scan_vaults=lambda start, end: report)
+    monkeypatch.setattr(lead_scan_core, "HypersyncVaultDiscover", lambda *args, **kwargs: discoverer)
+    monkeypatch.setattr(lead_scan_core, "get_provider_name", lambda provider: "test provider")
+    monkeypatch.setattr(lead_scan_core, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"))
+    monkeypatch.setattr(lead_scan_core, "fetch_metadata_snapshots", lambda *args, **kwargs: {})
+    monkeypatch.setattr(lead_scan_core, "display_vaults_table", lambda *args, **kwargs: None)
+    seen = []
+
+    def fetch_candidate(factory: object, candidate: ERC4262VaultDetection, block: int, **kwargs: object) -> dict:
+        """Return a successful row so this test isolates catalogue scheduling.
+
+        :param factory: Unused worker factory; providers are not contacted.
+        :param candidate: Detection that must bypass the fresh sidecar hint.
+        :param block: Source block chosen by discovery.
+        :param kwargs: Optional worker snapshot/current-state arguments.
+        :return: Minimal serialisable row for persistence and table preparation.
+        """
+        seen.append((candidate.address, block))
+        return {"Name": "Recovered", "First seen": now, "_detection_data": candidate}
+
+    monkeypatch.setattr(lead_scan_core, "fetch_vault_scan_record_in_worker", fetch_candidate)
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=125), provider=object())
+    lead_scan_core.scan_leads("https://rpc.example", path, max_workers=1, end_block=125, web3=web3, printer=lambda message: None, force_classification_refresh=force_classification_refresh)
+    refreshed = missing_row or force_classification_refresh
+    assert seen == ([(detection.address, 125)] if refreshed else [])
+    restored = VaultDatabase.read(path)
+    assert restored.rows[detection.get_spec()]["Name"] == ("Recovered" if refreshed else "Existing")
+    assert restored.last_scanned_block[1] == 125
+    assert not load_rpc_scan_state(tmp_path / "rpc-pending-metadata-1.json")
+
+
+def test_address_scoped_repair_bypasses_not_due_admission_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An explicit price selection must be visited before bounded replacement.
+
+    Routine admission would skip this tiny vault until its next probe deadline.
+    An address-scoped repair must construct and probe it now, while leaving the
+    routine probe sidecar intact. The fake writer verifies that the selected
+    adapter reaches the publication boundary without making provider requests.
+    """
+    now = datetime.datetime(2026, 9, 30)
+    detection = ERC4262VaultDetection(chain=1, address="0x" + "1" * 40, features=set(), updated_at=now, first_seen_at_block=1, first_seen_at=now, deposit_count=0, redeem_count=0)
+    path = tmp_path / "metadata.pickle"
+    VaultDatabase(rows={detection.get_spec(): {"_detection_data": detection}}).write(path)
+    probe_path = tmp_path / "rpc-tvl-probes-1.json"
+    save_rpc_scan_state(probe_path, {detection.address: {"tvl_usd": "0", "next_probe_at": (now + datetime.timedelta(days=7)).isoformat()}})
+    before = probe_path.read_bytes()
+    monkeypatch.setattr(scan_all_chains, "native_datetime_utc_now", lambda: now)
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=123))
+    monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda *args, **kwargs: web3)
+    monkeypatch.setattr(scan_all_chains, "TokenDiskCache", lambda: SimpleNamespace())
+    monkeypatch.setattr(scan_all_chains, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=None))
+    vault = SimpleNamespace(address=detection.address, first_seen_at_block=1, get_spec=detection.get_spec)
+    constructed = []
+    probed = []
+
+    def construct(*args: object, **kwargs: object) -> object:
+        """Record adapter preparation without issuing constructor RPCs.
+
+        :param args: Web3, address and protocol features from the selector.
+        :param kwargs: Optional adapter constructor arguments.
+        :return: The selected test adapter.
+        """
+        constructed.append(args[1])
+        return vault
+
+    def fetch_probes(vaults: list, factory: object, block: int, workers: int) -> list:
+        """Supply verified admission without masking which candidates are due.
+
+        :param vaults: Candidates sent to the shared batch path.
+        :param factory: Unused connection factory.
+        :param block: Actual numeric source block.
+        :param workers: Configured read concurrency.
+        :return: Verified meaningful USD admission outcomes.
+        """
+        probed.extend(vaults)
+        return [(candidate, Decimal(1800), False) for candidate in vaults]
+
+    def writer(**kwargs: object) -> dict:
+        """Verify selection before returning successful publication diagnostics.
+
+        :param kwargs: Writer input, including its bounded vault address subset.
+        :return: Minimal successful scan result; no price file is written.
+        """
+        assert kwargs["vaults"] == [vault]
+        assert kwargs["vault_addresses"] == {detection.address}
+        return {"reader_states": {}, "rows_written": 1, "freshness_rows_written": 0, "freshness_eligible_vaults": 0, "overdue_vaults": {}, "unknown_conversion_vaults": [], "start_block": 1, "end_block": 123}
+
+    monkeypatch.setattr(scan_all_chains, "create_vault_instance", construct)
+    monkeypatch.setattr(scan_all_chains, "fetch_batched_tvl_probes", fetch_probes)
+    monkeypatch.setattr(scan_all_chains, "scan_historical_prices_to_parquet", writer)
+    success, metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=tmp_path / "readers.pickle", uncleaned_price_path=tmp_path / "prices.parquet", vault_addresses={detection.address})
+    assert success
+    assert constructed == [detection.address]
+    assert probed == [vault]
+    assert metrics["tvl_probes_cached"] == 0
+    assert metrics["tvl_probes_due"] == 1
+    assert probe_path.read_bytes() == before
 
 
 @pytest.mark.parametrize("failure", [ConnectionError("provider down"), NotImplementedError("programming error")])
@@ -100,37 +231,85 @@ def test_active_constructor_outage_stays_failed(tmp_path: Path, monkeypatch: pyt
     assert metrics["error_category"] == ("transient" if isinstance(failure, ConnectionError) else "internal")
 
 
-def test_active_unsupported_version_keeps_other_vault_and_prior_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A known unsupported release leaves a good vault and expected coverage."""
+@pytest.mark.parametrize("blacklisted, address_scoped", [(False, False), (True, False), (True, True)])
+def test_price_selection_distinguishes_blacklist_from_unsupported_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blacklisted: bool, address_scoped: bool) -> None:
+    """Preserve required coverage while respecting intentional exclusions.
+
+    A previously meaningful vault with an unsupported adapter still needs a
+    visible freshness failure. A deliberately blacklisted contract must skip
+    construction and freshness admission, as the historical writer cannot read
+    it. The Monad smoke scan exposed this distinction with an old test vault.
+
+    :param tmp_path: Isolated persisted catalogue and reader state directory.
+    :param monkeypatch: Replace provider reads and the publication boundary.
+    :param blacklisted: Whether policy intentionally excludes the old vault.
+    :param address_scoped: Whether a manual repair explicitly selects both vaults.
+    :return: None; selection, coverage and state preservation are asserted.
+    """
     database = VaultDatabase()
     detections = [ERC4262VaultDetection(chain=1, address="0x" + str(number) * 40, features=set(), updated_at=datetime.datetime(2026, 9, 30), first_seen_at_block=1, first_seen_at=datetime.datetime(2026, 1, 1), deposit_count=0 if number == 1 else 100, redeem_count=0) for number in (1, 2)]
     database.rows = {d.get_spec(): {"_detection_data": d} for d in detections}
+    database.rows[detections[0].get_spec()]["_denomination_token"] = {"symbol": "USDC"}
     path = tmp_path / "metadata.pickle"
     database.write(path)
     reader_path = tmp_path / "readers.pickle"
+    old_state = {"last_tvl": Decimal(2000), "max_tvl": Decimal(2000), "last_block": 1}
     with reader_path.open("wb") as output:
-        pickle.dump({detections[0].get_spec(): {"token_symbol": "USDC", "last_tvl": Decimal(2000), "max_tvl": Decimal(2000), "last_block": 1}}, output)
+        pickle.dump({detections[0].get_spec(): old_state}, output)
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=123))
     monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda *args, **kwargs: web3)
     monkeypatch.setattr(scan_all_chains, "TokenDiskCache", lambda: SimpleNamespace())
     monkeypatch.setattr(scan_all_chains, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=None))
     good = SimpleNamespace(address=detections[1].address, first_seen_at_block=1, get_spec=detections[1].get_spec)
+    monkeypatch.setattr(scan_all_chains, "BROKEN_VAULT_CONTRACTS", {detections[0].address} if blacklisted else set())
+    constructed = []
 
-    def construct(web3, address, *args, **kwargs):
+    def construct(web3: object, address: HexAddress, *args: object, **kwargs: object) -> SimpleNamespace:
+        """Expose any attempt to construct the deliberately excluded adapter.
+
+        :param web3: Stub connection supplied by the price selector.
+        :param address: Selected vault contract address.
+        :param args: Unused protocol-feature positional arguments.
+        :param kwargs: Unused cache arguments.
+        :return: The good adapter; the other release is unsupported.
+        """
+        constructed.append(address)
         if address == detections[0].address:
             raise UnsupportedVaultVersion("Lagoon release")
         return good
 
-    def writer(**kwargs):
+    def writer(**kwargs: object) -> dict:
+        """Force the real state-save path after checking freshness selection.
+
+        Returning new progress for the good vault requires the scanner to
+        rewrite the complete reader map, making preservation of the skipped
+        legacy entry observable rather than simply rereading the input file.
+
+        :param kwargs: Selected adapters and required live coverage.
+        :return: New reader progress and synthetic publication diagnostics.
+        """
         assert kwargs["vaults"] == [good]
-        assert kwargs["expected_live_vaults"] == {detections[0].address}
-        return {"reader_states": {}, "rows_written": 1, "freshness_rows_written": 0, "freshness_eligible_vaults": 1, "overdue_vaults": {detections[0].address: "reader_unavailable"}, "unknown_conversion_vaults": [], "start_block": 1, "end_block": 123}
+        assert kwargs["expected_live_vaults"] == (set() if blacklisted else {detections[0].address})
+        return {"reader_states": {detections[1].get_spec(): {"last_block": 123}}, "rows_written": 1, "freshness_rows_written": 0, "freshness_eligible_vaults": int(not blacklisted), "overdue_vaults": {} if blacklisted else {detections[0].address: "reader_unavailable"}, "unknown_conversion_vaults": [], "start_block": 1, "end_block": 123}
 
     monkeypatch.setattr(scan_all_chains, "create_vault_instance", construct)
     monkeypatch.setattr(scan_all_chains, "scan_historical_prices_to_parquet", writer)
-    success, metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=reader_path, uncleaned_price_path=tmp_path / "prices.parquet")
+    success, metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=reader_path, uncleaned_price_path=tmp_path / "prices.parquet", vault_addresses={d.address for d in detections} if address_scoped else None)
+    if address_scoped:
+        assert not success and "blacklisted; refusing bounded deletion" in metrics["error"]
+        assert constructed == []
+        assert not (tmp_path / "prices.parquet").exists()
+        with reader_path.open("rb") as input_file:
+            assert pickle.load(input_file) == {detections[0].get_spec(): old_state}
+        return
     assert success
-    assert metrics["overdue_vaults"] == {detections[0].address: "reader_unavailable"}
+    assert constructed == ([detections[1].address] if blacklisted else [d.address for d in detections])
+    assert metrics["overdue_vaults"] == ({} if blacklisted else {detections[0].address: "reader_unavailable"})
+    assert metrics["blacklisted_vaults"] == int(blacklisted)
+    with reader_path.open("rb") as input_file:
+        saved_states = pickle.load(input_file)
+    assert saved_states[detections[1].get_spec()] == {"last_block": 123}
+    assert saved_states[detections[0].get_spec()] == (old_state if blacklisted else {**old_state, "token_symbol": "USDC"})
 
 
 def test_orphan_metadata_sidecar_is_reconciled_after_restore(tmp_path: Path) -> None:
@@ -140,7 +319,7 @@ def test_orphan_metadata_sidecar_is_reconciled_after_restore(tmp_path: Path) -> 
     pending = tmp_path / "rpc-pending-metadata-1.json"
     save_rpc_scan_state(pending, {"0x" + "1" * 40: {"next_attempt_at": "2026-01-01T00:00:00", "features": []}})
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
-    assert lead_scan_core.fetch_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
+    assert lead_scan_core.resume_pending_vault_metadata(web3, "https://rpc.example", path, 1, RPCRequestStats()) == 0
     assert load_rpc_scan_state(pending) == {}
 
 
@@ -190,11 +369,9 @@ def test_legitimate_missing_economics_clear_previous_values(reclassified: bool) 
     assert "economics_stale" not in observations[detection.address]
 
 
-@pytest.mark.parametrize("optimise", ["true", "false"])
 @pytest.mark.parametrize("failure", [ConnectionError("candidate provider unavailable"), ExtraValueError({"code": -32090, "message": "request rejected"}), ProbablyNodeHasNoBlock("missing state")])
-def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, optimise: str, failure: BaseException) -> None:
+def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: BaseException) -> None:
     """An unqualified candidate outage leaves a healthy vault's prices runnable."""
-    monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", optimise)
     now = datetime.datetime(2026, 9, 30)
     detections = [ERC4262VaultDetection(chain=1, address="0x" + str(number) * 40, features=set(), updated_at=now, first_seen_at_block=1, first_seen_at=now, deposit_count=0 if number == 1 else 100, redeem_count=0) for number in (1, 2)]
     database = VaultDatabase(rows={d.get_spec(): {"_detection_data": d} for d in detections})
@@ -224,10 +401,9 @@ def test_low_activity_constructor_transport_failure_keeps_active_prices(tmp_path
     assert success and metrics["rows_written"] == 1
     assert metrics["low_activity_unverified"] == 1
 
-    if optimise == "true":
-        success, second_metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=tmp_path / "readers.pickle", uncleaned_price_path=tmp_path / "prices.parquet")
-        assert success and second_metrics["tvl_probes_cached"] == 1
-        assert constructed.count(detections[0].address) == 1
+    success, second_metrics = scan_all_chains.scan_prices_for_chain("https://rpc.example", 1, "1h", vault_db_path=path, reader_state_path=tmp_path / "readers.pickle", uncleaned_price_path=tmp_path / "prices.parquet")
+    assert success and second_metrics["tvl_probes_cached"] == 1
+    assert constructed.count(detections[0].address) == 1
 
 
 def test_failed_reclassification_does_not_certify_old_economics() -> None:

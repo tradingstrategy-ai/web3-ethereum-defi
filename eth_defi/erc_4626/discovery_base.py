@@ -61,8 +61,12 @@ from eth_defi.wstgbp.constants import WSTGBP_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
 
+#: ``(chain_id, vault_address, first_block, first_timestamp)`` for a known
+#: deployment not discoverable through supported events; timestamp is naive UTC.
 HardcodedVaultLead: TypeAlias = tuple[int, HexAddress, int, datetime.datetime]
+#: ``(protocol_name, leads)`` groups deployment tuples for discovery diagnostics.
 HardcodedVaultLeadSource: TypeAlias = tuple[str, tuple[HardcodedVaultLead, ...]]
+#: Ordered collection of protocol-name/deployment-tuples pairs.
 HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 
 #: Protocol deployments that cannot be discovered from supported vault events.
@@ -651,7 +655,9 @@ def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[
         or Enzyme vault address.
 
     :return:
-        Probe addresses, lower-case lead lookup and factory lead count.
+        ``(probe_addresses, leads_by_lowercase_address, factory_lead_count)``.
+        The address list contains unique candidates eligible for feature probes;
+        the lookup retains leads needed to build detections after probing.
     """
 
     addresses = []
@@ -842,7 +848,14 @@ class VaultDiscoveryBase(abc.ABC):
         self.existing_leads = {}
         #: Current-state callers may refresh short-window HyperEVM probe blocks.
         self.current_state = False
+        #: Lead-scan core validates provenance/expiry before seeding this map.
+        #: Detection still uses fresh cumulative activity when features are reused.
+        #: Key: lower-case vault address; value: ``(features, checked_at)``, where
+        #: features is the detected feature set and checked_at is naive UTC time
+        #: of the cached classification, not the current event-scan timestamp.
         self.cached_features: dict[str, tuple[set[ERC4626Feature], datetime.datetime]] = {}
+        #: Optional persistence boundary after complete indexed event coverage,
+        #: before fallible classification or adapter metadata reads.
         self.on_leads_discovered: Callable[[LeadScanReport], None] | None = None
 
     def seed_existing_leads(self, leads: dict[HexAddress, PotentialVaultMatch]):
@@ -935,10 +948,16 @@ class VaultDiscoveryBase(abc.ABC):
 
         addresses, leads_by_address, factory_lead_count = _prepare_probe_leads(leads)
         if self.on_leads_discovered is not None:
-            # Persist every lead before advancing the event cursor. Metadata
-            # completion is independent and may be resumed per candidate.
+            # The core callback persists the event cursor together with every
+            # unresolved lead. Doing this before classification means a broken
+            # protocol probe cannot force event replay on the next scheduler tick.
             self.on_leads_discovered(report)
         pending_addresses = []
+        # Reused features are identity observations, not frozen detection rows.
+        # Rebuild detections from the latest cumulative lead activity so deposit
+        # thresholds and price admission remain current while ABI probes expire
+        # independently. Mellow factory hints require their dedicated probe path
+        # to apply factory-specific validation/overrides, so bypass this reuse.
         for address in addresses:
             if address.lower() in BROKEN_VAULT_CONTRACTS:
                 continue

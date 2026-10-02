@@ -13,6 +13,7 @@ Optional environment variables:
 - ``DRY_RUN``: Set to ``true`` to write only temporary files.
 """
 
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -30,7 +31,10 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
+
+logger = logging.getLogger(__name__)
 
 CHAIN_IDS_BY_NAME = {name: chain_id for chain_id, name in GMX_CHAIN_NAMES_BY_ID.items()}
 GMX_BACKFILL_CHAIN_NAMES: tuple[str, ...] = tuple(CHAIN_IDS_BY_NAME)
@@ -69,8 +73,9 @@ def _run_backfill(
     """Backfill one GMX chain from block 1 through its safe head.
 
     The source context and common Parquet replacement share one resolved
-    half-open range. Every seeded GM and GLV product on the chain is included,
-    and hourly buckets are always used.
+    half-open range. Seeded GM and GLV products are included unless explicitly
+    blacklisted, and hourly buckets are always used. Excluded products retain
+    their saved prices and context, including when every product is excluded.
 
     :param chain_name:
         ``arbitrum`` or ``avalanche``.
@@ -92,16 +97,27 @@ def _run_backfill(
     rpc_url = read_json_rpc_url(chain_id)
     web3 = create_multi_provider_web3(rpc_url)
     start_block, end_block = fetch_gmx_full_backfill_range(web3)
-    hypersync = configure_hypersync_from_env(web3)
-    token_cache = TokenDiskCache(token_cache_path) if token_cache_path is not None else TokenDiskCache()
     vault_db = VaultDatabase.read(vault_database)
 
     detections = [row["_detection_data"] for row in vault_db.rows.values() if row["_detection_data"].chain == chain_id and row["_detection_data"].features & GMX_FEATURES]
     if not detections:
         raise RuntimeError(f"No seeded GMX V2 products found for {chain_name}")
+    # Match the scheduled scanner before the expensive genesis-to-head source
+    # fetch. Passing an excluded address to the bounded historical writer
+    # would otherwise abort after prefill, because replacing its saved rows
+    # without a permitted reader cannot safely reconstruct its history.
+    eligible_detections = [detection for detection in detections if detection.address.lower() not in BROKEN_VAULT_CONTRACTS]
+    logger.info("GMX %s backfill: %d products selected, %d blacklisted products skipped", chain_name, len(eligible_detections), len(detections) - len(eligible_detections))
+    detections = eligible_detections
+    if not detections:
+        logger.info("GMX %s backfill has no eligible products; retaining existing prices and context", chain_name)
+        return
     # The full metadata database is large and is not needed during context
     # collection; retain only the selected GMX detection records.
     del vault_db
+
+    hypersync = configure_hypersync_from_env(web3)
+    token_cache = TokenDiskCache(token_cache_path) if token_cache_path is not None else TokenDiskCache()
 
     prefill = fetch_and_store_gmx_historical_share_prices(
         web3=web3,

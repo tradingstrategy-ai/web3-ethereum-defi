@@ -75,7 +75,6 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
 
-from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig, start_rpc_proxy
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 
@@ -1992,8 +1991,8 @@ def is_anvil(web3: Web3) -> bool:
     """Are we connected to Anvil node.
 
     Callers adapt behaviour for a real node or an Anvil simulation. Successful
-    detection is cached per connection and provider identity when scanner RPC
-    optimisations are enabled; failed requests are retried on the next check.
+    detection is cached per connection and provider identity; failed requests
+    are retried on the next check.
     Use :py:func:`invalidate_anvil_detection` after restarting a local endpoint.
 
     This can be either
@@ -2019,8 +2018,6 @@ def is_anvil(web3: Web3) -> bool:
     # Cache per connection and provider identity, never per chain ID: a fork
     # has the same chain ID as its remote upstream. Failed reads are not cached.
     provider = web3.provider
-    if not rpc_optimisations_enabled():
-        return "anvil/" in web3.client_version
     identity = (provider, getattr(provider, "endpoint_uri", None))
     with _anvil_detection_lock:
         cached = getattr(web3, "_eth_defi_anvil_detection", None)

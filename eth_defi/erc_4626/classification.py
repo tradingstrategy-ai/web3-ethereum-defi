@@ -34,7 +34,6 @@ from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registr
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
-from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
@@ -1887,6 +1886,10 @@ def create_vault_classifier_signature() -> str:
 
     Hashing the complete module covers helper and deployment-map edits. The
     explicit version must also be bumped for external dependency/data changes.
+    Comments and formatting are included in this conservative hash too: any
+    change to this file invalidates cached classifications on the next scan.
+    Lead-scan core logs that invalidation as a measurement event, because a
+    catalogue refresh temporarily adds probes to the RPC reduction comparison.
 
     :return: Stable classifier provenance for finite-lived sidecars.
     """
@@ -1904,10 +1907,22 @@ def probe_vaults(
 ) -> Iterable[VaultFeatureProbe]:
     """Perform multicalls against each vault address to extract the features of the vault smart contract.
 
+    Lead discovery calls this only for classifications that lack valid cached
+    provenance. Results are buffered per address because a chunk can contain
+    probes for multiple candidates. A task-local feature-probe counter is merged
+    once into the phase accumulator even if a later chunk fails, preserving the
+    physical cost of partial work without transferring parent counter history.
+
+    :param chain_id: Chain namespace for probe selection and worker verification.
+    :param web3factory: Worker connection factory with optional phase accounting.
+    :param addresses: Candidate vault addresses selected for fresh ABI probes.
+    :param block_identifier: Requested source block for historical/default probes.
+    :param max_workers: Maximum concurrent joblib workers.
+    :param progress_bar_desc: Optional label for observable probe progress.
     :param current_state:
-        Scanner current-state mode: use threaded workers and refresh HyperEVM
-        numeric blocks immediately before each probe batch. Historical callers
-        retain their pinned blocks and multiprocessing backend.
+        Live scans use threads. Live HyperEVM reads refresh a numeric head before
+        each batch to stay within its execution window. Historical callers retain
+        pinned blocks and the multiprocessing backend.
 
     :return:
         Iterator of what vault smart contract features we detected for each potential vault address
@@ -1917,8 +1932,8 @@ def probe_vaults(
 
     probe_calls = list(create_probe_calls(addresses, chain_id=chain_id))
 
-    # Temporary work buffer were we count that all calls to the address have been made,
-    # because results are dropping in one by one
+    # Decode features only once all subcalls have been collected for an address;
+    # batching can split one candidate's ABI probes across multiple chunks.
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
     parent_stats = getattr(web3factory, "rpc_request_stats", None)
@@ -1931,9 +1946,9 @@ def probe_vaults(
             block_identifier=block_identifier,
             progress_bar_desc=progress_bar_desc,
             max_workers=max_workers,
-            backend="threading" if current_state and rpc_optimisations_enabled() else "loky",
+            backend="threading" if current_state else "loky",
             rpc_request_stats=probe_stats,
-            timestamped_results=not rpc_optimisations_enabled(),
+            timestamped_results=False,
             refresh_current_block=current_state and chain_id == 999,
         ):
             address = call_result.call.address

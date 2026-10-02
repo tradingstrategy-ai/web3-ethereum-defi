@@ -183,25 +183,34 @@ def fetch_monad_historical_state_start_block(
 
     multicall = get_multicall_contract(web3)
 
-    def _is_state_available(block_number: int) -> bool:
-        """Probe whether the Multicall deployment executes at a historical block."""
+    def fetch_state_availability(block_number: int) -> bool:
+        """Probe the execution path used by historical vault batches.
+
+        Block headers and events survive Monad state eviction, so checking
+        their existence cannot establish whether a historical eth_call works.
+        Multicall's returned block also guards against an upstream silently
+        serving current state for a requested historical block.
+
+        :param block_number: Requested historical execution block.
+        :return: Whether Multicall executes at that exact block.
+        """
         try:
             received_block_number = multicall.functions.getBlockNumber().call(block_identifier=block_number)
         except (BadFunctionCallOutput, ContractLogicError, ProbablyNodeHasNoBlock):
             return False
         return received_block_number == block_number
 
-    if _is_state_available(start_block):
+    if fetch_state_availability(start_block):
         return start_block
 
-    if not _is_state_available(end_block):
+    if not fetch_state_availability(end_block):
         raise RuntimeError(f"Monad provider cannot read state at requested end block {end_block:,}. Check the RPC provider and {MONAD_HISTORICAL_DATA_DOCUMENTATION_URL}.")
 
     unavailable_block = start_block
     available_block = end_block
     while available_block - unavailable_block > 1:
         candidate_block = (unavailable_block + available_block) // 2
-        if _is_state_available(candidate_block):
+        if fetch_state_availability(candidate_block):
             available_block = candidate_block
         else:
             unavailable_block = candidate_block
@@ -823,15 +832,22 @@ class VaultHistoricalReadMulticaller:
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
 
-    def save_reader_state(self) -> dict[VaultSpec, dict]:
-        """Save the state of all readers.
+    def export_reader_states(self) -> dict[VaultSpec, dict]:
+        """Serialise reader progress without writing any pipeline file.
+
+        The Parquet writer uses this snapshot for its publication journal and
+        returned scan result. The all-chain scheduler owns the later atomic
+        reader-pickle write; separating those responsibilities lets it recover
+        progress after prices publish but before the legacy pickle is updated.
 
         :return:
-            Dictionary keyed by the vault spce
+            Legacy-shaped state dictionaries keyed by :py:class:`VaultSpec`.
         """
 
-        # TODO: Fix class inheritance, etc.
         return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values() if r.reader_state}
+
+    #: Compatibility alias; exporting state does not itself persist a file.
+    save_reader_state = export_reader_states
 
 
 def _proper_fsync(fd: int) -> None:
@@ -951,8 +967,12 @@ def scan_historical_prices_to_parquet(
     :param vault_addresses:
         If set, only delete and rewrite parquet rows for these vault addresses.
 
-        Addresses must be lowercase. When ``None``, all rows for the chain
-        are deleted and rewritten (default behaviour).
+        Addresses are normalised to lowercase. An empty selection or one
+        containing blacklisted contracts or addresses without a supplied vault
+        raises :py:exc:`ValueError` before writing: excluded or missing readers
+        cannot supply replacement observations. When ``None``, chain rows at
+        or after the chosen start block and before the end block are replaced
+        (default behaviour).
 
     :param write_all_samples:
         Write every sampled block even when a vault's values are unchanged.
@@ -992,6 +1012,18 @@ def scan_historical_prices_to_parquet(
         if not vault_addresses:
             raise ValueError("vault_addresses cannot be empty because that would broaden deletion to the whole chain")
         vault_addresses = {address.lower() for address in vault_addresses}
+        # Direct callers such as scan-prices.py bypass the all-chain selector.
+        # Reject an excluded repair target before dropping its reader, otherwise
+        # the bounded replacement below could delete history without new rows.
+        blacklisted_addresses = vault_addresses & BROKEN_VAULT_CONTRACTS
+        if blacklisted_addresses:
+            raise ValueError(f"Selected vaults are blacklisted; refusing bounded deletion: {sorted(blacklisted_addresses)}")
+        # scan-prices.py can drop candidates during its activity/adapter filter
+        # while retaining their requested addresses. Validate that deletion has
+        # a corresponding supplied vault, independently of that caller's policy.
+        missing_addresses = vault_addresses - {vault.vault_address.lower() for vault in vaults}
+        if missing_addresses:
+            raise ValueError(f"Selected vaults have no supplied reader; refusing bounded deletion: {sorted(missing_addresses)}")
 
     logger.info(
         "Vault scan on %s: %s - %s, stateful is %s",
@@ -1278,8 +1310,10 @@ def scan_historical_prices_to_parquet(
             expected_rows=existing_row_count + rows_written,
             expected_schema=writer_schema,
         )
-        # Prepare audit and serialised progress before publishing durable prices.
-        # An audit failure is reported separately and cannot discard committed work.
+        # Audit verified observations before publication while keeping diagnostics
+        # separate from the price data's validity. An audit implementation error
+        # is returned explicitly to the scheduler, but need not discard a valid
+        # completed scan or force its expensive historical reads to run again.
         overdue_vaults: dict[str, str] = {}
         freshness_eligible_vaults = 0
         audit_error = None
@@ -1347,8 +1381,11 @@ def scan_historical_prices_to_parquet(
             audit_error = f"{type(error).__name__}: {error}"
             logger.error("Freshness audit failed on chain %d: %s", chain_id, audit_error, exc_info=True)
         if stateful:
-            # Merge new reader states
-            new_states = reader.save_reader_state()
+            # Serialise progress before the price rename so a serialisation
+            # failure leaves the old output intact. The journal and returned
+            # result use the same legacy state snapshot for normal persistence
+            # and crash recovery; neither advances cursors beyond published data.
+            new_states = reader.export_reader_states()
             logger.info("Total %d updates reader states available", len(new_states))
             if any(not historical_reader.uses_contextual_history for historical_reader in reader.readers.values()):
                 assert len(new_states) > 0, f"Reader states are empty, this is a bug, chain_id: {chain_id}, vaults: {vaults}"
@@ -1358,6 +1395,11 @@ def scan_historical_prices_to_parquet(
             logger.info("Not a stateful scan, do not update states")
 
         if stateful and reader_state_journal_path is not None:
+            # Atomic replacement cannot publish prices and the reader pickle
+            # together. Prepare a receipt bound to this verified temporary
+            # inode first; after rename the scheduler can recover it on restart.
+            # A crash before rename leaves a non-matching receipt, not progress
+            # that would incorrectly skip still-unpublished historical values.
             save_reader_publication_journal(reader_state_journal_path, Path(temp_fname), output_fname, reader_states)
         os.replace(temp_fname, output_fname)
         dir_fd = os.open(str(output_fname.parent), os.O_RDONLY)

@@ -45,7 +45,6 @@ def main() -> None:
     if os.environ.get("RPC_PARITY_CHECK", "false").lower() != "true":
         raise ValueError("Set RPC_PARITY_CHECK=true for the intentional real-provider check")
     rpc_url = os.environ["JSON_RPC_ETHEREUM"]
-    original_rollout = os.environ.get("VAULT_RPC_OPTIMISATIONS")
     setup_console_logging(os.environ.get("LOG_LEVEL", "info"))
     stats = RPCRequestStats(operation="parity")
     web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
@@ -55,20 +54,28 @@ def main() -> None:
     now = native_datetime_utc_now()
     detections = [ERC4262VaultDetection(chain=1, address=Web3.to_checksum_address(address), features=features, first_seen_at_block=1, first_seen_at=now, updated_at=now, deposit_count=100, redeem_count=0) for _, address, features in TARGETS]
     snapshots = fetch_metadata_snapshots(detections, factory, block, max_workers=1)
+    # Separate empty caches prevent the individual path from warming data for
+    # the batched path. Both use the same numeric block so ordinary changes in
+    # live assets cannot be mistaken for batching/decoding regressions.
     with TemporaryDirectory(prefix="vault-rpc-parity-") as temporary:
         caches = [TokenDiskCache(Path(temporary) / f"tokens-{mode}.sqlite") for mode in ("individual", "batch")]
         try:
             for (name, _, _), detection in zip(TARGETS, detections, strict=True):
                 logger.info("Checking %s metadata at Ethereum block %d", name, block)
-                os.environ["VAULT_RPC_OPTIMISATIONS"] = "false"
                 individual = create_vault_scan_record(web3, detection, block, token_cache=caches[0])
-                os.environ["VAULT_RPC_OPTIMISATIONS"] = "true"
                 batched = create_vault_scan_record(web3, detection, block, token_cache=caches[1], metadata_snapshot=snapshots[detection.address.lower()])
                 assert not str(individual["Name"]).startswith("<broken"), name
                 assert not str(batched["Name"]).startswith("<broken"), name
                 for key in ("NAV", "Shares", "Denomination", "Share token", "_available_liquidity", "_utilisation"):
                     assert individual[key] == batched[key], (name, key, individual[key], batched[key])
                 vault = create_vault_instance(web3, detection.address, detection.features, token_cache=caches[1], default_block_identifier=block)
+                # Compare combined lending economics against the adapter's
+                # individual methods explicitly. Production always uses the
+                # combined path now; an environment toggle would no longer give
+                # this integration check an independent economic reference.
+                if detection.features & {ERC4626Feature.morpho_like, ERC4626Feature.ipor_like}:
+                    assert batched["_available_liquidity"] == vault.fetch_available_liquidity(block), name
+                    assert batched["_utilisation"] == vault.fetch_utilisation_percent(block), name
                 if type(vault).fetch_nav is ERC4626Vault.fetch_nav and type(vault).fetch_total_assets is ERC4626Vault.fetch_total_assets:
                     expected = vault.fetch_nav(block) * VaultReaderState(vault).exchange_rate
                     outcomes = list(fetch_batched_tvl_probes([vault], factory, block, max_workers=1))
@@ -78,10 +85,6 @@ def main() -> None:
         finally:
             for cache in caches:
                 cache.close()
-            if original_rollout is None:
-                os.environ.pop("VAULT_RPC_OPTIMISATIONS", None)
-            else:
-                os.environ["VAULT_RPC_OPTIMISATIONS"] = original_rollout
     calls, _errors = stats.export()
     logger.info("Real-provider parity completed: three protocols, block %d; physical requests=%d; provider domains=%s", block, sum(calls.values()), sorted({domain for domain, _method in calls}))
 

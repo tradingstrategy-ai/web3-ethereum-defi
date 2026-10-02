@@ -47,15 +47,3 @@ def read_json_rpc_url(chain: int) -> str:
     if not json_rpc_url:
         raise ValueError(f"Environment variable {env_var} is not set for chain {chain}")
     return json_rpc_url
-
-
-def rpc_optimisations_enabled() -> bool:
-    """Resolve the scanner's staged RPC reduction switch.
-
-    Library calls default to enabled. The all-chain script and Compose default
-    to ``false`` to collect a prospective accounting baseline. Crash recovery
-    and backoff remain enabled independently of this switch.
-
-    :return: Whether batching, probe schedules and classification caching run.
-    """
-    return os.environ.get("VAULT_RPC_OPTIMISATIONS", "true").lower() == "true"

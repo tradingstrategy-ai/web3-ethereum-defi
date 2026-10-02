@@ -47,7 +47,7 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
         monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda *args, **kwargs: web3)  # noqa: ARG005
         monkeypatch.setattr(scan_all_chains, "MultiProviderWeb3Factory", lambda *args, **kwargs: lambda: web3)  # noqa: ARG005
         monkeypatch.setattr(scan_all_chains, "TokenDiskCache", lambda *args, **kwargs: cache)  # noqa: ARG005
-        monkeypatch.setattr(scan_all_chains, "verify_archive_node", lambda rpc, name: (rpc, 510301932))  # noqa: ARG005
+        monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", lambda rpc, name: (rpc, 510301932))  # noqa: ARG005
         monkeypatch.setattr(scan_all_chains, "get_almost_latest_block_number", lambda connection: 510301932)  # noqa: ARG005
         monkeypatch.setattr(scan_all_chains, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=object()))  # noqa: ARG005
         monkeypatch.setenv("JSON_RPC_ARBITRUM", "https://recorded.invalid")

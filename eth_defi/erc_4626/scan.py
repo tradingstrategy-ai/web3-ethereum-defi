@@ -22,7 +22,6 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
-from eth_defi.provider.env import rpc_optimisations_enabled
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
@@ -279,6 +278,14 @@ def _fetch_lending_stats(
 ) -> dict[str, object]:
     """Fetch lending-specific row fields for lending protocols.
 
+    Metadata discovery consumes these fields after NAV is read. Preserve the
+    distinction between a legitimate missing metric (non-lending or below the
+    activity threshold) and an attempted read that failed. The latter carries
+    _lending_fields_unavailable so queue completion can retain prior verified
+    economics with stale provenance instead of silently replacing them with
+    fresh-looking nulls. Only adapters that opt into a common economic snapshot
+    may combine liquidity and utilisation reads.
+
     :param vault:
         Vault adapter instance.
 
@@ -309,7 +316,7 @@ def _fetch_lending_stats(
         return stats
 
     snapshot_reader = getattr(vault, "fetch_lending_snapshot", None)
-    if snapshot_reader is not None and rpc_optimisations_enabled():
+    if snapshot_reader is not None:
         snapshot = _best_effort_vault_read(lambda: snapshot_reader(total_assets, block_identifier))
         if snapshot is not None:
             stats["_available_liquidity"], stats["_utilisation"] = snapshot
@@ -355,12 +362,23 @@ def create_vault_scan_record(
     token_cache: TokenDiskCache,
     metadata_snapshot: dict | None = None,
 ) -> dict:
-    """Create a row in the result table.
+    """Read adapter metadata and assemble one vault catalogue row.
 
-    - Connect to the chain to read further vault metadata via JSON-RPC calls
+    Discovery workers and queue recovery call this at a numeric source block.
+    It returns a record for the caller to persist rather than writing the
+    catalogue itself. Known unsupported contracts become explicit broken rows;
+    transport failures and programming defects must remain visible to the
+    phase boundary. Optional raw snapshots reduce standard input reads without
+    replacing the adapter's protocol-specific validation or economic rules.
 
+    :param web3: Worker-owned connection for the candidate's verified chain.
+    :param detection: Classified candidate, including activity and deployment data.
+    :param block_identifier: Source block for metadata and economic inputs.
+    :param token_cache: Shared token metadata cache, or None to bypass caching.
+    :param metadata_snapshot: Optional raw standard inputs from the same block.
     :return:
-        Dict for human-readable tables, with internal columns prefixed with å underscore
+        Human-readable table fields and private fields prefixed with an underscore.
+        _detection_data retains the typed candidate for catalogue persistence.
     """
 
     empty_record = {
@@ -403,6 +421,9 @@ def create_vault_scan_record(
             current_deposit_permission=getattr(detection, "current_deposit_permission", None),
         )
     except (UnsupportedVaultVersion, Web3Exception, RequestException, ExtraValueError, ProbablyNodeHasNoBlock) as error:
+        # Only recognised contract/version failures belong to this candidate.
+        # Treating arbitrary constructor exceptions as broken metadata would
+        # hide adapter defects or turn a provider outage into a weekly negative.
         if not isinstance(error, UnsupportedVaultVersion) and not is_contract_read_failure(error):
             raise
         logger.warning("Metadata deferred for %s: %s", detection.address, error)
@@ -415,6 +436,9 @@ def create_vault_scan_record(
         return empty_record
 
     if isinstance(vault, ERC4626Vault) and metadata_snapshot and metadata_snapshot.get("block") == block_identifier:
+        # Attach observations only at the source block used to construct the
+        # adapter. Each consuming method still guards its own requested block;
+        # specialised methods are free to bypass these ordinary raw inputs.
         vault._rpc_metadata_snapshot = metadata_snapshot
 
     try:
@@ -546,11 +570,13 @@ def create_vault_scan_record(
         return record
 
 
-#: Handle per-process connections and databases
-_subprocess_web3_cache = threading.local()
+#: Connections and token caches are local to each worker thread (and therefore
+#: also isolated across processes). Shared provider sessions would let concurrent
+#: metadata candidates overwrite one another's attached request counters.
+_metadata_worker_cache = threading.local()
 
 
-def create_vault_scan_record_subprocess(
+def fetch_vault_scan_record_in_worker(
     web3factory: Web3Factory,
     detection: ERC4262VaultDetection,
     block_number: int,
@@ -573,22 +599,28 @@ def create_vault_scan_record_subprocess(
 
     assert isinstance(detection, ERC4262VaultDetection), f"Expected ERC4262VaultDetection, got {type(detection)}"
 
-    # We need to build JSON-RPC connection separately in every thread/process
-    web3 = getattr(_subprocess_web3_cache, "web3", None)
+    # Workers are reused across chains and later scheduler ticks. Cache by
+    # factory endpoint configuration as well as worker identity so a provider
+    # change does not accidentally keep reading through the previous connection.
+    web3 = getattr(_metadata_worker_cache, "web3", None)
     factory_identity = getattr(web3factory, "rpc_url", web3factory)
-    if web3 is None or getattr(_subprocess_web3_cache, "factory_identity", None) != factory_identity:
-        web3 = _subprocess_web3_cache.web3 = web3factory()
-        _subprocess_web3_cache.factory_identity = factory_identity
+    if web3 is None or getattr(_metadata_worker_cache, "factory_identity", None) != factory_identity:
+        web3 = _metadata_worker_cache.web3 = web3factory()
+        _metadata_worker_cache.factory_identity = factory_identity
 
+    # Give each candidate a detached accumulator and merge it once in finally.
+    # Reusing the connection is safe only if its old accounting attachment is
+    # cleared after both success and failure; otherwise retries double count or
+    # attribute the next candidate's reads to an already completed operation.
     rpc_request_stats = getattr(web3factory, "rpc_request_stats", None)
     metadata_stats = RPCRequestStats(operation="metadata") if rpc_request_stats is not None else None
     set_rpc_request_stats = getattr(web3, "set_rpc_request_stats", None)
     if callable(set_rpc_request_stats):
         set_rpc_request_stats(metadata_stats)
 
-    token_cache = getattr(_subprocess_web3_cache, "token_cache", None)
+    token_cache = getattr(_metadata_worker_cache, "token_cache", None)
     if token_cache is None:
-        token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
+        token_cache = _metadata_worker_cache.token_cache = TokenDiskCache()
 
     try:
         if current_state and detection.chain == 999:
@@ -605,3 +637,8 @@ def create_vault_scan_record_subprocess(
             set_rpc_request_stats(None)
         if metadata_stats is not None:
             rpc_request_stats.merge(metadata_stats)
+
+
+#: Compatibility alias for existing integrations. Execution uses worker-local
+#: resources with either joblib backend; it does not require a subprocess.
+create_vault_scan_record_subprocess = fetch_vault_scan_record_in_worker

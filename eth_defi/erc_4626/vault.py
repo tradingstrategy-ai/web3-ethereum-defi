@@ -114,8 +114,9 @@ class ERC4626VaultInfo(VaultInfo):
     asset: HexAddress | None
 
 
-#: What is the reason how often we poll this
-VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl", "tiny_tvl", "first_read", "not_started", "early"]
+#: Persisted diagnostic label for the adaptive historical-reader cadence.
+#: ``unverified_tvl`` records an hourly retry when no USD TVL is known yet.
+VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl", "tiny_tvl", "first_read", "not_started", "early", "unverified_tvl"]
 
 
 class VaultReaderState(BatchCallState):
@@ -200,7 +201,7 @@ class VaultReaderState(BatchCallState):
         self.first_seen_at_block = vault.first_seen_at_block
 
         #: TVL from the last read
-        self.last_tvl: Decimal = None
+        self.last_tvl: Decimal | None = None
         self.last_price: Decimal = None
 
         #: Timestamp of the block of the first successful read of this vault.
@@ -349,14 +350,27 @@ class VaultReaderState(BatchCallState):
 
     @cached_property
     def exchange_rate(self) -> Decimal:
-        """Get the exchange rate for TVL estimation"""
-        # TODO: Approx hardcoded rules for now for TVL conversion.
-        # Latest add exchange rate orcale.
+        """Estimate denomination units in USD using the scanner's token rules.
+
+        Reader qualification and admission probes use this coarse estimate,
+        not a live price oracle. Cache it for this reader instance so repeated
+        historical rows do not repeat token preparation. Missing denomination
+        metadata and an unrecognised symbol have separate sentinels: a
+        temporary metadata outage must not erase prior verified qualification.
+
+        :return: Estimated USD per token, or an explicit unavailable/unknown
+            sentinel. BTC/ETH estimates are fixed heuristics, not market quotes.
+        """
         denomination = self.vault.denomination_token
-        if denomination is None or not denomination.symbol:
+        if denomination is None:
             logger.warning("Denomination unavailable for vault %s; USD TVL is unverified", self.vault_address)
             return DENOMINATION_UNAVAILABLE_EXCHANGE_RATE
-        token = denomination.symbol
+        # An ERC-20 may permanently omit symbol(), and the token cache records
+        # that as an empty symbol. Preserve the existing unknown-token cadence
+        # for these contracts rather than treating them as a temporary metadata
+        # outage and sampling hourly forever. The unknown-rate sentinel cannot
+        # qualify USD freshness, even when the scheduling estimate is large.
+        token = denomination.symbol or ""
         self.token_symbol = token
 
         # Try to cover common case ~approx
@@ -445,6 +459,8 @@ class VaultReaderState(BatchCallState):
         at or above $10,000 poll hourly; those from $1,000 to $10,000 poll
         daily. Tiny vaults poll daily for their first 14 days and weekly
         thereafter. Live row retention uses a separate seven-day interval.
+        Readers with no verified TVL yet use the hourly cadence until a
+        denomination read permits ordinary TVL-based scheduling.
 
         :return:
             Poll-frequency label and minimum interval between calls.
@@ -456,6 +472,14 @@ class VaultReaderState(BatchCallState):
         elif self.faded_at:
             # Poll faded vaults every seven days.
             return "faded", datetime.timedelta(days=7)
+
+        # A new reader can record genuine source progress while denomination
+        # metadata is unavailable, leaving last_tvl unknown. The stateful
+        # Multicall scheduler calls this again after that observation and after
+        # reload. Keep sampling potentially large vaults without inventing zero
+        # TVL or certifying USD qualification from missing metadata.
+        if self.last_tvl is None:
+            return "unverified_tvl", datetime.timedelta(hours=1)
 
         if self.last_tvl < self.tiny_tvl_threshold_rare_read:
             if self.last_call_at - self.first_read_at < datetime.timedelta(days=14):
@@ -1072,9 +1096,9 @@ class ERC4626Vault(VaultBase):
         Results are disk-cached per ``(chain_id, vault_address)`` via
         :py:mod:`eth_defi.erc_4626.vault_token` when the vault was constructed
         with a :py:class:`eth_defi.token.TokenDiskCache` and no pinned
-        ``default_block_identifier``. The denomination token is immutable
-        post-deployment, so the cached value is correct regardless of which
-        block the caller would have asked for.
+        ``default_block_identifier``. Current mappings expire after seven days
+        because proxy upgrades may change relationships. These entries are not
+        evidence of a token relationship at an arbitrary historical block.
 
         Only a **definitive non-null answer** is persisted. The ``None`` path
         taken on revert / broken contract is never cached, matching the
@@ -1175,10 +1199,9 @@ class ERC4626Vault(VaultBase):
         Results are disk-cached per ``(chain_id, vault_address)`` via
         :py:mod:`eth_defi.erc_4626.vault_token` when the vault was constructed
         with a :py:class:`eth_defi.token.TokenDiskCache`. Under normal
-        circumstances the ``block_identifier`` argument is effectively ignored
-        on cache hits — ERC-4626 share tokens are immutable post-deployment,
-        so the cached value is correct regardless of which block the caller
-        asked for.
+        circumstances live reads reuse the current relationship until its
+        seven-day deadline. Explicit historical reads bypass this disk cache
+        because ERC-7575 relationships may change through proxy upgrades.
 
         Only a **definitive answer from the chain** is ever persisted:
         a successful call, or a revert matching
@@ -1200,7 +1223,12 @@ class ERC4626Vault(VaultBase):
         """
         initial_block_identifier = block_identifier
         snapshot = getattr(self, "_rpc_metadata_snapshot", {})
-        if snapshot.get("block") == self.default_block_identifier:
+        # The adapter can also serve an explicit block different from its
+        # metadata default. Reuse batched inputs only for the caller's actual
+        # source block; an earlier share() revert is not proof of the mapping
+        # after a proxy upgrade, nor is a later mapping valid for old history.
+        snapshot_block = self.default_block_identifier if block_identifier == "latest" else block_identifier
+        if snapshot.get("block") == snapshot_block:
             if "share" in snapshot:
                 return convert_uint256_bytes_to_address(snapshot["share"])
             if snapshot.get("share_reverted"):
@@ -1346,6 +1374,9 @@ class ERC4626Vault(VaultBase):
         """
         snapshot = getattr(self, "_rpc_metadata_snapshot", {})
         raw_amount = int.from_bytes(snapshot["totalAssets"], "big") if snapshot.get("block") == block_identifier and "totalAssets" in snapshot else self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+        # (source_block_identifier, raw_total_assets): preserve the exact integer
+        # and its observation block for fetch_idle_lending_snapshot(), avoiding
+        # decimal round-tripping or reusing assets from a different source block.
         self._last_total_assets_raw = (block_identifier, raw_amount)
         if self.underlying_token is not None:
             return self.underlying_token.convert_to_decimals(raw_amount)
@@ -1451,9 +1482,19 @@ class ERC4626Vault(VaultBase):
         This helper is opt-in: idle assets are not redeemable liquidity for
         every lending protocol. See the protocol's liquidity documentation.
 
+        Morpho v1 and IPOR metadata call this after reading total assets, avoiding
+        duplicate idle-balance reads for liquidity and utilisation. Reuse the
+        exact raw assets only when their source block and decimal value match;
+        converting an externally supplied Decimal back to raw units is a fallback
+        for callers that did not first fetch assets through this adapter.
+
         :param total_assets: Previously fetched TVL in denomination-token units.
         :param block_identifier: Numeric block used for both economic inputs.
-        :return: Idle liquidity and fraction allocated, or missing values.
+        :return:
+            ``(idle_liquidity, utilisation)``: a Decimal balance in denomination
+            token units and the fraction of total assets allocated (0 to 1).
+            Both members are None when the denomination token is unavailable;
+            zero total assets produces zero utilisation.
         """
         token = self.denomination_token
         if token is None:

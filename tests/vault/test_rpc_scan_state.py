@@ -38,6 +38,95 @@ def test_unavailable_denomination_preserves_qualified_history() -> None:
     assert set(state.save()) == set(VaultReaderState.SERIALISABLE_ATTRIBUTES)
 
 
+def test_unavailable_denomination_without_prior_tvl_resumes_polling() -> None:
+    """Resume source reads without treating unknown USD TVL as zero.
+
+    The Arbitrum smoke scan reached this state after a new reader advanced its
+    source timestamp without denomination metadata. Exercise the actual read
+    update, scheduling, legacy state reload and later metadata recovery, rather
+    than setting the nullable field directly to reproduce a comparison error.
+
+    :return: None; unknown qualification, hourly polling and recovery are checked.
+    """
+    spec = VaultSpec(1, "0x" + "1" * 40)
+    vault = SimpleNamespace(spec=spec, vault_address=spec.vault_address, first_seen_at_block=1, denomination_token=None)
+    state = VaultReaderState(vault)
+    now = datetime.datetime(2026, 10, 1)
+    state.on_called(SimpleNamespace(timestamp=now, block_identifier=10), Decimal(2000), Decimal(1))
+    assert state.last_tvl is None
+    assert state.last_call_at == now
+    assert not state.freshness_qualified
+    assert state.get_frequency() == ("unverified_tvl", datetime.timedelta(hours=1))
+    assert not state.should_invoke(None, 11, now + datetime.timedelta(minutes=59))
+    assert state.should_invoke(None, 12, now + datetime.timedelta(hours=1))
+
+    saved = state.save()
+    assert set(saved) == set(VaultReaderState.SERIALISABLE_ATTRIBUTES)
+    restored = VaultReaderState(vault)
+    restored.load(saved)
+    assert restored.last_tvl is None
+    assert restored.get_frequency() == ("unverified_tvl", datetime.timedelta(hours=1))
+    assert not restored.freshness_qualified
+    assert restored.should_invoke(None, 13, now + datetime.timedelta(hours=2))
+
+    # Each scan constructs a fresh reader and exchange-rate estimate. Once its
+    # metadata is repaired, the next genuine observation establishes USD TVL
+    # and the normal cadence without rewriting old source timestamps or state.
+    recovered_vault = SimpleNamespace(spec=spec, vault_address=spec.vault_address, first_seen_at_block=1, denomination_token=SimpleNamespace(symbol="USDC"))
+    recovered = VaultReaderState(recovered_vault)
+    recovered.load(saved)
+    recovered.on_called(SimpleNamespace(timestamp=now + datetime.timedelta(hours=3), block_identifier=14), Decimal(2000), Decimal(1))
+    assert recovered.last_tvl == Decimal(2000)
+    assert recovered.freshness_qualified
+    assert recovered.get_frequency() == ("small_tvl", datetime.timedelta(days=1))
+
+
+@pytest.mark.parametrize("symbol", [None, ""])
+def test_symbol_less_denomination_keeps_unknown_token_cadence(symbol: str | None) -> None:
+    """Avoid permanent hourly retries for tokens that do not expose a symbol.
+
+    ERC-20 metadata can be absent by contract design. Unlike an unavailable
+    denomination object, these tokens need the existing unknown-token estimate
+    for scheduling, with USD qualification disabled. A genuine later read must
+    still move an inactive vault to its weekly faded cadence.
+
+    :param symbol: Missing or empty symbol returned by token preparation.
+    :return: None; scheduling and qualification are checked from real updates.
+    """
+    spec = VaultSpec(1, "0x" + "2" * 40)
+    vault = SimpleNamespace(spec=spec, vault_address=spec.vault_address, first_seen_at_block=1, denomination_token=SimpleNamespace(symbol=symbol))
+    state = VaultReaderState(vault)
+    now = datetime.datetime(2026, 10, 1)
+    state.on_called(SimpleNamespace(timestamp=now, block_identifier=10), Decimal(100), Decimal(1))
+    assert state.exchange_rate == UNKNOWN_EXCHANGE_RATE
+    assert state.unsupported_token
+    assert not state.freshness_qualified
+    assert state.get_frequency() == ("early", datetime.timedelta(days=1))
+
+    state.on_called(SimpleNamespace(timestamp=now + state.traction_period + datetime.timedelta(days=1), block_identifier=20), Decimal(100), Decimal(1))
+    assert state.faded_at is not None
+    assert state.get_frequency() == ("faded", datetime.timedelta(days=7))
+    assert not state.freshness_qualified
+
+
+@pytest.mark.parametrize("marker", ["peaked_at", "faded_at"])
+def test_unknown_tvl_preserves_inactive_polling_priority(marker: str) -> None:
+    """Keep saved inactivity hints effective during denomination outages.
+
+    The nullable-TVL guard must follow existing peaked and faded checks so a
+    saved inactive reader cannot acquire a more expensive cadence on reload.
+
+    :param marker: Existing inactivity timestamp field to retain.
+    :return: None; the corresponding weekly cadence is checked.
+    """
+    spec = VaultSpec(1, "0x" + "3" * 40)
+    vault = SimpleNamespace(spec=spec, vault_address=spec.vault_address, first_seen_at_block=1, denomination_token=None)
+    state = VaultReaderState(vault)
+    setattr(state, marker, datetime.datetime(2026, 10, 1))
+    assert state.last_tvl is None
+    assert state.get_frequency() == (marker.removesuffix("_at"), datetime.timedelta(days=7))
+
+
 def test_anvil_detection_connection_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     """Connection/provider replacement never shares a chain-ID cache."""
     calls = []
@@ -162,7 +251,6 @@ def test_plain_rpc_vm_failures_are_contract_outcomes(message: str) -> None:
 
 def test_token_mapping_expiry_and_negative_token_retry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Finite caches refresh legacy mappings and stale unsuccessful token reads."""
-    monkeypatch.setenv("VAULT_RPC_OPTIMISATIONS", "true")
     address = "0x" + "1" * 40
     asset = "0x" + "2" * 40
     now = datetime.datetime(2026, 9, 30)

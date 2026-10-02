@@ -13,6 +13,7 @@ import pytest
 from eth_defi.provider import rpc_counter_maintenance as maintenance
 from eth_defi.provider.rpc_counter_comparison import compare_rpc_counter_windows, fetch_rpc_counter_window
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase
+from eth_defi.version_info import VersionInfo
 
 
 @pytest.fixture()
@@ -27,12 +28,15 @@ def counter_path(tmp_path: Path) -> Path:
     return path
 
 
-def test_reset_verified_backup_and_monotonic_rollback(counter_path: Path, tmp_path: Path) -> None:
+def test_reset_verified_backup_and_monotonic_rollback(counter_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A reset preserves original evidence and old allocator compatibility."""
     unrelated = tmp_path / "reader-state.pickle"
     unrelated.write_bytes(b"critical historical state")
+    version = VersionInfo(commit_hash="test-image-commit")
+    monkeypatch.setattr(maintenance.VersionInfo, "read_docker_version", lambda: version)
     now = datetime.datetime(2026, 9, 30, 15, 0)
-    result = maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "rollout-2026-09-30", now, protected_paths=(unrelated,))
+    result = maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "rollout-2026-09-30", now, protected_paths=(unrelated,))
+    assert result["maintenance_version"] == version.as_dict()
     backup = Path(result["backup_path"])
     assert backup.name == "rpc-tracking-before-rpc-reduction-2026-09-30T150000Z.duckdb"
     assert backup.stat().st_mode & 0o777 == 0o600
@@ -49,7 +53,7 @@ def test_reset_verified_backup_and_monotonic_rollback(counter_path: Path, tmp_pa
         stats = RPCRequestStats()
         stats.record_call("rpc.example", "eth_call", 9)
         database.record_scan(1, "price_scan", now.date(), 777, stats, 1)
-    recovered = maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "rollout-2026-09-30")
+    recovered = maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "rollout-2026-09-30")
     assert recovered["backup_path"] == str(backup)
     with duckdb.connect(str(counter_path), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 9
@@ -60,10 +64,10 @@ def test_reset_verified_backup_and_monotonic_rollback(counter_path: Path, tmp_pa
 def test_snapshot_and_collision_do_not_reset(counter_path: Path, tmp_path: Path) -> None:
     """Snapshot-only operation and timestamp collisions preserve counters."""
     now = datetime.datetime(2026, 9, 30)
-    result = maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", now=now)
+    result = maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", now=now)
     assert not result["reset_committed"]
     with pytest.raises(FileExistsError):
-        maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", now=now)
+        maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", now=now)
     with duckdb.connect(str(counter_path), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 123
 
@@ -81,7 +85,7 @@ def test_append_after_verification_aborts_reset(counter_path: Path, tmp_path: Pa
 
     monkeypatch.setattr(maintenance, "_write_private_json", append_after_manifest)
     with pytest.raises(RuntimeError, match="changed after backup"):
-        maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "concurrent-append")
+        maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "concurrent-append")
     with duckdb.connect(str(counter_path), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 130
         assert connection.execute("SELECT sum(error_count) FROM vault_rpc_api_errors").fetchone()[0] == 1
@@ -110,11 +114,11 @@ else:
         if boundary == "verification" and not str(path).endswith(".completed.json"):
             os._exit(91)
     m._write_private_json = die_receipt
-m.backup_rpc_counters(Path(sys.argv[1]), Path(sys.argv[2]), "interrupted", datetime.datetime(2026, 9, 30))
+m.snapshot_and_reset_rpc_counters(Path(sys.argv[1]), Path(sys.argv[2]), "interrupted", datetime.datetime(2026, 9, 30))
 """
     result = subprocess.run([sys.executable, "-c", code, str(counter_path), str(tmp_path / "backups"), boundary], timeout=60, capture_output=True)
     assert result.returncode == 91, result.stderr.decode()
-    receipt = maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "interrupted", datetime.datetime(2026, 9, 30, 0, 0, 1))
+    receipt = maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "interrupted", datetime.datetime(2026, 9, 30, 0, 0, 1))
     assert receipt["reset_committed"]
     with duckdb.connect(str(receipt["backup_path"]), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 123
@@ -130,7 +134,7 @@ def test_copy_failure_leaves_original_counters(counter_path: Path, tmp_path: Pat
 
     monkeypatch.setattr(maintenance.shutil, "copyfileobj", fail_copy)
     with pytest.raises(OSError, match="no space"):
-        maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "disk-full")
+        maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "disk-full")
     with duckdb.connect(str(counter_path), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 123
 
@@ -161,7 +165,7 @@ def test_protected_state_change_aborts_reset(counter_path: Path, tmp_path: Path,
 
     monkeypatch.setattr(maintenance, "_write_private_json", write_then_change)
     with pytest.raises(RuntimeError, match="Protected pipeline state changed"):
-        maintenance.backup_rpc_counters(counter_path, tmp_path / "backups", "protected-conflict", protected_paths=(protected,))
+        maintenance.snapshot_and_reset_rpc_counters(counter_path, tmp_path / "backups", "protected-conflict", protected_paths=(protected,))
     with duckdb.connect(str(counter_path), read_only=True) as connection:
         assert connection.execute("SELECT sum(call_count) FROM vault_rpc_api_calls").fetchone()[0] == 123
 
