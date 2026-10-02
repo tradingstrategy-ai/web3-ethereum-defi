@@ -67,6 +67,7 @@ from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
 from eth_defi.vault_report.branding import CHART_SCALE, HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image, render_logo_tile
+from eth_defi.vault_report.chart_metadata import fetch_bind_served_images, write_chart_metadata
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
     VaultProperty,
@@ -887,10 +888,26 @@ def render_report_charts(
     # Rendering in headless Chrome takes most of a run without the investability check, so it runs last
     # in one batch with a progress bar. The framed panel overwrites the raw Kaleido PNG at the same path.
     chart_dir = output_dir / "charts"
+    # Frames here are the exact chart selectors, never the adjacent 1M tables.
+    selections = {
+        "chain_yields": (chain_yields, "chain", "avg_return"),
+        "protocol_yields": (protocol_yields.assign(protocol_slug=protocol_slugs.reindex(protocol_yields.index)), "protocol", "avg_return"),
+        "protocol_high_yields": (high_yield_protocols.assign(protocol_slug=protocol_slugs.reindex(high_yield_protocols.index)), "protocol", "avg_return"),
+        "protocol_tvl": (protocol_tvl.tail(1).T.rename(columns=lambda _: "tvl").assign(protocol_slug=tvl_vault_slugs), "protocol", "tvl"),
+        "chain_tvl": (chain_tvl.tail(1).T.rename(columns=lambda _: "tvl"), "chain", "tvl"),
+        "fund_nav": (fund_nav.tail(1).T.rename(columns=lambda _: "nav").assign(manager_slug=fund_vaults.drop_duplicates("name").set_index("name").reindex(columns=["curator_slug"])["curator_slug"]), "fund", "nav"),
+        "tvl_changes": (tvl_changes, "vault", "tvl_change"),
+        "chain_tvl_changes": (chain_tvl_changes, "chain", "tvl_change"),
+        "new_performance": (new_chart_vaults, "vault", "one_month_cagr_best"),
+        "by_chain_best": (chain_chart_vaults, "vault", "three_months_cagr_best"),
+        "risk_return": (risk_return_vaults, "vault", "three_months_cagr_best"),
+    }
+    selections.update({section.chart_key: (frame, "vault", section.chart_metric) for section, frame in performance_vaults.items()})
     chart_paths = {}
     for key, (fig, panel) in tqdm(figures.items(), desc="Rendering charts"):
         path = render_figure_png(fig, chart_dir / f"{key}.png", scale=CHART_SCALE)
         chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path, scale=CHART_SCALE)
+    write_chart_metadata(output_dir, chart_paths, selections, figures)
 
     # Hero images are drawn with Pillow, not Plotly, at fixed social image sizes
     sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
@@ -1266,6 +1283,7 @@ def publish_report_draft(
     admin_client.fetch_writable_draft(report.slug, overwrite_draft=overwrite_draft, last_write=last_write, force=force_overwrite, existing_slug=existing_slug)
     # Every run uploads fresh copies, so a replaced draft never points at the images of an earlier run
     chart_urls = {key: admin_client.upload_image(path) for key, path in tqdm(report.chart_paths.items(), desc="Uploading charts")}
+    fetch_bind_served_images(report.output_dir, chart_urls)
     podcast_image_urls = {key: admin_client.upload_image(path) for key, path in report.podcast_image_paths.items()}
     body = build_post_html(dataclasses.replace(report.context, charts=chart_urls, podcast_images=podcast_image_urls))
     post = admin_client.create_or_update_draft(

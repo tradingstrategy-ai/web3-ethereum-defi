@@ -1,0 +1,820 @@
+{
+  "the_rise_of_tokenised_funds": {
+    "sha256": "39dcb11eeebbca7f8316d117626d502e6f30f0aecb1ab38e4b4f5cf7ce70e0c9",
+    "metric": "Editorial aggregate TVL snapshot",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [],
+    "issues": [
+      "Editorial screenshot shows categories, not three named winners; approve an exclusion or provide chart-specific attribution."
+    ],
+    "suggested_body": "October 2026: tokenised funds add another layer to the onchain vault market, with $6.52B alongside $30.36B in vaults.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "the_rise_of_robinhood_chain": {
+    "sha256": "3fb8c8eff67d3ea9e15fafd610f9e13d3a40738787b1807e4136a7e2e964e840",
+    "metric": "Editorial Robinhood chain TVL snapshot",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Robinhood",
+        "chain_id": 4663,
+        "aliases": [
+          "Robinhood"
+        ],
+        "handle": "RobinhoodApp",
+        "profile": "https://x.com/RobinhoodApp",
+        "official_source": "https://investors.robinhood.com/news-releases/news-release-details/robinhood-reports-second-quarter-2026-results",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Robinhood",
+        "organisation": "Robinhood",
+        "rank": 1
+      }
+    ],
+    "issues": [
+      "Only one named chain in this editorial chart; editor must acknowledge fewer than three tags."
+    ],
+    "suggested_body": "October 2026: Robinhood chain reaches $530.7M in the report’s TVL snapshot. Robinhood\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "new_performance": {
+    "sha256": "5064c0dd7fd6bb61a4fd925a31a7a81e65e030168f95ca41e6b15ee320216f63",
+    "metric": "Chart selection by 1M return; annualised returns in legend",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "entity_id": "1212.Alpha",
+        "name": "1212.Alpha",
+        "organisation": "1212 Capital",
+        "rank": 1,
+        "official_source": "https://www.1212.capital/"
+      },
+      {
+        "name": "SpaceX Hyperliquid Synth",
+        "handle": "syntropia_ai",
+        "profile": "https://x.com/syntropia_ai",
+        "official_source": "https://syntropia.ai",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "SpaceX Hyperliquid Synth",
+        "organisation": "Syntropia",
+        "rank": 2
+      },
+      {
+        "name": "Harvest: USDC Vault (0x904a)",
+        "handle": "harvest_finance",
+        "profile": "https://x.com/harvest_finance",
+        "official_source": "https://harvest.finance/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/harvest_finance",
+        "entity_id": "Harvest: USDC Vault (0x904a)",
+        "organisation": "Harvest Finance",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: 1212 Capital, Syntropia and @harvest_finance lead the new-vault chart by one-month return.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "lending_performance": {
+    "sha256": "43dac0ca76484402fb812298c07e3237c45eaf3b08776f5fae13f423aecb43e9",
+    "metric": "Chart selection by 3M return; annualised returns in legend",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "AlphaGrowth Base RWA",
+        "handle": "alphagrowth1",
+        "profile": "https://x.com/alphagrowth1",
+        "official_source": "https://alphagrowth.io/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "AlphaGrowth Base RWA",
+        "organisation": "AlphaGrowth",
+        "rank": 1
+      },
+      {
+        "name": "Syntropia Boosted",
+        "handle": "syntropia_ai",
+        "profile": "https://x.com/syntropia_ai",
+        "official_source": "https://syntropia.ai",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Syntropia Boosted",
+        "organisation": "Syntropia",
+        "rank": 2
+      },
+      {
+        "name": "Senior ArcadiaV2 Global Dollar",
+        "handle": "ArcadiaFi",
+        "official_source": "https://docs.arcadia.finance/introduction.md",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/ArcadiaFi",
+        "entity_id": "Senior ArcadiaV2 Global Dollar",
+        "organisation": "Arcadia Finance",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: AlphaGrowth, Syntropia and @ArcadiaFi lead the lending-vault chart by three-month return.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "rwa_performance": {
+    "sha256": "d5dd8c20293897e50f80203686b618c49b1c545ed8962f56df67d6d928a4ad48",
+    "metric": "Chart selection by 3M return; annualised returns in legend",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Atoma RWA",
+        "handle": "atoma_fi",
+        "profile": "https://x.com/atoma_fi",
+        "official_source": "https://atoma.fi/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/atoma_fi",
+        "entity_id": "Atoma RWA",
+        "organisation": "Atoma",
+        "rank": 1
+      },
+      {
+        "name": "YieldNest RWA MAX",
+        "handle": "YieldNestFi",
+        "profile": "https://x.com/YieldNestFi",
+        "official_source": "https://www.yieldnest.finance",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://twitter.com/YieldNestFi",
+        "entity_id": "YieldNest RWA MAX",
+        "organisation": "YieldNest",
+        "rank": 2
+      },
+      {
+        "name": "Flint USD",
+        "handle": "syntropia_ai",
+        "profile": "https://x.com/syntropia_ai",
+        "official_source": "https://syntropia.ai",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Flint USD",
+        "organisation": "Syntropia",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @atoma_fi, @YieldNestFi and Syntropia lead the RWA-vault chart by three-month return.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "perp_dex_performance": {
+    "sha256": "b1ad7aafcd6a9ff027e70d67312aa5dbb79dbf74a45fb3b9bfb111206df397d1",
+    "metric": "Chart selection by 3M return; annualised returns in legend",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "entity_id": "Brot",
+        "name": "Brot",
+        "organisation": "Brot",
+        "rank": 1
+      },
+      {
+        "entity_id": "Long LINK Short XRP",
+        "name": "Long LINK Short XRP",
+        "organisation": "Long LINK Short XRP",
+        "rank": 2
+      },
+      {
+        "entity_id": "Portola Strategies",
+        "name": "Portola Strategies",
+        "organisation": "Portola Strategies",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: Brot, Long LINK Short XRP and Portola Strategies lead the perp DEX vault chart by three-month return.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "perp_dex_sharpe_performance": {
+    "sha256": "34a94e73f15cf7366a383cf0d899a3cc740d1e3ca53a5f220b236ddf0d40e4d5",
+    "metric": "Chart selection by 3M Sharpe ratio; legend shows rolling 90-day Sharpe",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "entity_id": "Opportunistic Bundle",
+        "name": "Opportunistic Bundle",
+        "organisation": "Opportunistic Bundle",
+        "rank": 1
+      },
+      {
+        "entity_id": "KangCFA",
+        "name": "KangCFA",
+        "organisation": "KangCFA",
+        "rank": 2,
+        "official_source": null
+      },
+      {
+        "name": "Grvt Liquidity Provider (GLP)",
+        "handle": "grvt_io",
+        "profile": "https://x.com/grvt_io",
+        "official_source": "https://grvt.io",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Grvt Liquidity Provider (GLP)",
+        "organisation": "GRVT",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: Opportunistic Bundle, KangCFA and the GRVT Liquidity Provider lead the perp vault Sharpe chart. GRVT\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "amm_performance": {
+    "sha256": "9fe045fac55d03f8e75ba81b2da58677ef09b67a390dd961088c5b37c51a56fd",
+    "metric": "Chart selection by 3M return; distinct native pool operators",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "GM UNI [UNI-USDC]",
+        "handle": "GMX_IO",
+        "profile": "https://x.com/GMX_IO",
+        "official_source": "https://gmx.io/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "GM UNI [UNI-USDC]",
+        "organisation": "GMX",
+        "rank": 1
+      },
+      {
+        "name": "yb-LP WETH",
+        "handle": "yieldbasis",
+        "profile": "https://x.com/yieldbasis",
+        "official_source": "https://yieldbasis.com/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "yb-LP WETH",
+        "organisation": "YieldBasis",
+        "rank": 2
+      }
+    ],
+    "issues": [
+      "Only two distinct native operators appear; editor must acknowledge fewer than three tags."
+    ],
+    "suggested_body": "October 2026: GMX and YieldBasis lead the AMM pool chart by three-month return, with GM UNI and yb-LP WETH taking the top two slots.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "by_chain_best": {
+    "sha256": "02bc0dd52c5e2e9eb7c562e0c80bca443f525a53329eb9fdb2769d960d4c879d",
+    "metric": "Highest chain-leading vault 3M annualised return; log-scale capped values",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Hypercore",
+        "chain_id": 9999,
+        "aliases": [
+          "Hypercore"
+        ],
+        "handle": "hyperliquidx",
+        "profile": "https://x.com/hyperliquidx",
+        "official_source": "https://hyperliquid.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/hyperliquidx",
+        "entity_id": "Hypercore",
+        "organisation": "Hypercore",
+        "rank": 1
+      },
+      {
+        "name": "Lighter",
+        "chain_id": 9998,
+        "aliases": [
+          "Lighter"
+        ],
+        "handle": "Lighter_xyz",
+        "profile": "https://x.com/Lighter_xyz",
+        "official_source": "https://lighter.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/Lighter_xyz",
+        "entity_id": "Lighter",
+        "organisation": "Lighter",
+        "rank": 2
+      },
+      {
+        "name": "Ethereum",
+        "chain_id": 1,
+        "aliases": [
+          "Ethereum"
+        ],
+        "handle": "ethdotorg",
+        "profile": "https://x.com/ethdotorg",
+        "official_source": "https://ethereum.org",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/ethdotorg",
+        "entity_id": "Ethereum",
+        "organisation": "Ethereum",
+        "rank": 3
+      }
+    ],
+    "issues": [
+      "Chart compares vaults per chain: confirm the explicit choice to tag the three leading chains, rather than unidentified vault curators."
+    ],
+    "suggested_body": "October 2026: Hypercore, Lighter and Ethereum host the highest-return chain-leading vaults in this chart. @hyperliquidx @Lighter_xyz @ethdotorg\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "tokenised_funds_performance": {
+    "sha256": "ebc7cc3a7432306703ff0f4ceaa059165528d9d61ea2a3652a54b56a7a1d1538",
+    "metric": "Chart selection by 3M return; named fund managers",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "entity_id": "Mantle Index Four",
+        "name": "Mantle Index Four",
+        "organisation": "Mantle Guard",
+        "rank": 1,
+        "official_source": "https://mantleguard.com/"
+      },
+      {
+        "entity_id": "AoABTd",
+        "name": "AoABTd",
+        "organisation": "DFZQ / Orient Securities International",
+        "rank": 2,
+        "official_source": "https://www.dfzq.com.hk/"
+      },
+      {
+        "name": "Shift Lighter LLP Wrapper",
+        "handle": "shiftprotocol_",
+        "profile": "https://x.com/shiftprotocol_",
+        "official_source": "https://shiftprotocol.xyz/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Shift Lighter LLP Wrapper",
+        "organisation": "Shift",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: Mantle Guard’s Mantle Index Four, DFZQ’s AoABTd and the Shift Lighter LLP Wrapper lead the tokenised-fund performance chart. Shift\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "protocol_yields": {
+    "sha256": "e3c6f12a18e8e89fd895f805a85bbd594c3fabc04e3dc9f25a473f4e23683e53",
+    "metric": "TVL-weighted 3M annualised average yield among the ten largest protocols",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Maple",
+        "handle": "maplefinance",
+        "profile": "https://x.com/maplefinance",
+        "official_source": "https://maple.finance/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/maplefinance",
+        "entity_id": "Maple",
+        "organisation": "Maple",
+        "rank": 1
+      },
+      {
+        "name": "Ethena",
+        "handle": "ethena",
+        "profile": "https://x.com/ethena",
+        "official_source": "https://ethena.fi/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/ethena",
+        "entity_id": "Ethena",
+        "organisation": "Ethena",
+        "rank": 2
+      },
+      {
+        "name": "Ondo",
+        "handle": "OndoFinance",
+        "profile": "https://x.com/OndoFinance",
+        "official_source": "https://ondo.finance/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Ondo",
+        "organisation": "Ondo",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @maplefinance (4.9%), @ethena (4.3%) and Ondo (3.7%) lead average yields among the report’s largest protocols.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "protocol_high_yields": {
+    "sha256": "a93fb0d73f5f00a1c1bdc95b040ec5bef8439af12b550ada8bdbdffcdb7f7824",
+    "metric": "TVL-weighted 3M annualised average yield; at least $150k TVL",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Enzyme",
+        "handle": "enzymefinance",
+        "official_source": "https://enzyme.finance",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/enzymefinance",
+        "entity_id": "Enzyme",
+        "organisation": "Enzyme",
+        "rank": 1
+      },
+      {
+        "name": "Yuzu Money",
+        "handle": "YuzuMoneyX",
+        "profile": "https://x.com/YuzuMoneyX",
+        "official_source": "https://yuzu.money/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/YuzuMoneyX",
+        "entity_id": "Yuzu Money",
+        "organisation": "Yuzu Money",
+        "rank": 2
+      },
+      {
+        "name": "Axis",
+        "handle": "AxisFDN",
+        "profile": "https://x.com/AxisFDN",
+        "official_source": "https://www.axis.to/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/AxisFDN",
+        "entity_id": "Axis",
+        "organisation": "Axis",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @enzymefinance, @YuzuMoneyX and @AxisFDN lead the high-yield protocol chart, at 59.9%, 27.4% and 22.3% annualised.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "chain_yields": {
+    "sha256": "e3fc7d56f4a073c089d90acbbd1ba08a8f9bfc3dc2de841fb10e17018598e99e",
+    "metric": "TVL-weighted 3M annualised average yield among the ten largest chains",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Lighter",
+        "chain_id": 9998,
+        "aliases": [
+          "Lighter"
+        ],
+        "handle": "Lighter_xyz",
+        "profile": "https://x.com/Lighter_xyz",
+        "official_source": "https://lighter.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/Lighter_xyz",
+        "entity_id": "Lighter",
+        "organisation": "Lighter",
+        "rank": 1
+      },
+      {
+        "name": "Hypercore",
+        "chain_id": 9999,
+        "aliases": [
+          "Hypercore"
+        ],
+        "handle": "hyperliquidx",
+        "profile": "https://x.com/hyperliquidx",
+        "official_source": "https://hyperliquid.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/hyperliquidx",
+        "entity_id": "Hypercore",
+        "organisation": "Hypercore",
+        "rank": 2
+      },
+      {
+        "name": "Monad",
+        "chain_id": 143,
+        "aliases": [
+          "Monad"
+        ],
+        "handle": "monad",
+        "profile": "https://x.com/monad",
+        "official_source": "https://monad.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/monad",
+        "entity_id": "Monad",
+        "organisation": "Monad",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @Lighter_xyz (17.0%), @hyperliquidx (14.4%) and @monad (7.6%) lead average vault yields by chain.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "risk_return": {
+    "sha256": "4c8ff106b4c1d454c68eb7a575f6fe8add9394667e330dc8c201c2a01d992219",
+    "metric": "Highest 3M annualised return among the 617 actually visible scatter points; not an optimum risk-adjusted portfolio",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Reproduced the original 2026-10-01 scatter and branded PNG using preserved R2 metadata, original excluded-vault decisions and identical selector/axis filters. Re-rendered PNG SHA-256 matches Ghost-served bytes exactly. Ranked the visible vault ids by three_months_cagr_best; no adjacent table or current dashboard ranking used.",
+    "winners": [
+      {
+        "name": "HyperTwin - Growi HF 2x",
+        "handle": null,
+        "profile": null,
+        "official_source": "https://t.me/HyperTwin",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "9999-0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66",
+        "organisation": "HyperTwin",
+        "curator_slug": "hypertwin",
+        "three_months_cagr_best": 0.8785902868043656,
+        "three_months_volatility": 0.21655520032697462,
+        "rank": 1
+      },
+      {
+        "entity_id": "9999-0xe67dbf2d051106b42104c1a6631af5e5a458b682",
+        "name": "Overdose",
+        "organisation": "Overdose",
+        "curator_slug": "unattributed:9999-0xe67dbf2d051106b42104c1a6631af5e5a458b682",
+        "three_months_cagr_best": 0.8264333084318367,
+        "three_months_volatility": 0.8070684245873682,
+        "rank": 2
+      },
+      {
+        "entity_id": "9999-0xfdb03a2574e9e7d1c77d9ed752d99cdf25c3db25",
+        "name": "我爱小姐",
+        "organisation": "我爱小姐",
+        "curator_slug": "unattributed:9999-0xfdb03a2574e9e7d1c77d9ed752d99cdf25c3db25",
+        "three_months_cagr_best": 0.8044351498942119,
+        "three_months_volatility": 0.17474846746328548,
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: HyperTwin’s Growi HF 2x, Overdose and 我爱小姐 have the highest returns among the visible risk-return points; volatility remains part of the comparison.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026",
+    "source_data_sha256": "03959cccf5ab62eec4b70a19e0abec3bc709e8bc4d70bf8080a3a789d97b2b88",
+    "reconstructed_image_sha256": "4c8ff106b4c1d454c68eb7a575f6fe8add9394667e330dc8c201c2a01d992219",
+    "visible_points": 617
+  },
+  "protocol_tvl": {
+    "sha256": "9b393a3af0b6e345563cc924392595ef701e7894e794070791a6b575b527cd0e",
+    "metric": "Latest plotted weekly TVL; tokenised funds and Other excluded from winner ranking",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Morpho",
+        "handle": "MorphoLabs",
+        "profile": "https://x.com/MorphoLabs",
+        "official_source": "https://morpho.org/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Morpho",
+        "organisation": "Morpho",
+        "rank": 1
+      },
+      {
+        "name": "Sky",
+        "handle": "SkyEcosystem",
+        "profile": "https://x.com/SkyEcosystem",
+        "official_source": "https://sky.money/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Sky",
+        "organisation": "Sky",
+        "rank": 2
+      },
+      {
+        "name": "Centrifuge",
+        "handle": "centrifuge",
+        "profile": "https://x.com/centrifuge",
+        "official_source": "https://centrifuge.io/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Centrifuge",
+        "organisation": "Centrifuge",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: Morpho ($5.4B), Sky ($4.8B) and Centrifuge ($2.0B) are the largest named protocols in the vault TVL chart.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "chain_tvl": {
+    "sha256": "549525b42481661d8474ecd3a4bd8b53a226c6ab2ece7cae16216c9937bc883b",
+    "metric": "Latest plotted weekly vault TVL; tokenised funds excluded",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Ethereum",
+        "chain_id": 1,
+        "aliases": [
+          "Ethereum"
+        ],
+        "handle": "ethdotorg",
+        "profile": "https://x.com/ethdotorg",
+        "official_source": "https://ethereum.org",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/ethdotorg",
+        "entity_id": "Ethereum",
+        "organisation": "Ethereum",
+        "rank": 1
+      },
+      {
+        "name": "Base",
+        "chain_id": 8453,
+        "aliases": [
+          "Base"
+        ],
+        "handle": "base",
+        "profile": "https://x.com/base",
+        "official_source": "https://base.org",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/base",
+        "entity_id": "Base",
+        "organisation": "Base",
+        "rank": 2
+      },
+      {
+        "name": "Arbitrum",
+        "chain_id": 42161,
+        "aliases": [
+          "Arbitrum"
+        ],
+        "handle": "arbitrum",
+        "profile": "https://x.com/arbitrum",
+        "official_source": "https://arbitrum.foundation",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/arbitrum",
+        "entity_id": "Arbitrum",
+        "organisation": "Arbitrum",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @ethdotorg ($18.2B), @base ($3.4B) and @arbitrum ($1.3B) lead the vault TVL chart by blockchain.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "fund_nav": {
+    "sha256": "59d47f7d1b01e6a8f781435eb4006b1e0c2cadd43e805c37fcf25b401f538295",
+    "metric": "Latest plotted weekly NAV; named fund managers; Total and Other excluded",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Ondo U.S. Dollar Yield",
+        "handle": "OndoFinance",
+        "profile": "https://x.com/OndoFinance",
+        "official_source": "https://ondo.finance/",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Ondo U.S. Dollar Yield",
+        "organisation": "Ondo",
+        "rank": 1
+      },
+      {
+        "entity_id": "BCAP",
+        "name": "BCAP",
+        "organisation": "Blockchain Capital",
+        "rank": 2,
+        "official_source": "https://www.blockchaincapital.com/"
+      },
+      {
+        "name": "JPMorgan OnChain Liquidity-Token Money Market Fund",
+        "handle": "jpmorgan",
+        "profile": "https://x.com/jpmorgan",
+        "official_source": "https://www.jpmorgan.com",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/jpmorgan",
+        "entity_id": "JPMorgan OnChain Liquidity-Token Money Market Fund",
+        "organisation": "J.P. Morgan",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: Ondo U.S. Dollar Yield ($1.2B), Blockchain Capital’s BCAP ($978.2M) and JPMorgan’s money market fund ($768.6M) lead named fund NAV. Ondo @jpmorgan\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "tvl_changes": {
+    "sha256": "fe86ded343962a59286987f76e936fe1f8a1fc0492876da7e6c215234d0e8df7",
+    "metric": "30-day TVL increase; first vault for each distinct attributable curator/operator",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Staked USDai",
+        "handle": "USDai_Official",
+        "profile": "https://x.com/USDai_Official",
+        "official_source": "https://usd.ai/",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/USDai_Official",
+        "entity_id": "Staked USDai",
+        "organisation": "USD.AI USDai",
+        "rank": 1
+      },
+      {
+        "name": "Steakhouse USDG",
+        "handle": "SteakhouseFi",
+        "profile": "https://x.com/SteakhouseFi",
+        "official_source": "https://steakhouse.financial",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/SteakhouseFi",
+        "entity_id": "Steakhouse USDG",
+        "organisation": "Steakhouse Financial",
+        "rank": 2
+      },
+      {
+        "name": "Gauntlet USDC Prime",
+        "handle": "gauntlet_xyz",
+        "profile": "https://x.com/gauntlet_xyz",
+        "official_source": "https://www.gauntlet.xyz",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://twitter.com/gauntlet_xyz",
+        "entity_id": "Gauntlet USDC Prime",
+        "organisation": "Gauntlet",
+        "rank": 3
+      }
+    ],
+    "issues": [
+      "Confirm native Staked USDai operator attribution; chart labels show USDai, with no separate curator."
+    ],
+    "suggested_body": "October 2026: @USDai_Official, @SteakhouseFi and @gauntlet_xyz lead vault TVL increases, adding $132.1M, $106.9M and $90.8M.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  },
+  "chain_tvl_changes": {
+    "sha256": "fd9e03ab773c5cc32cee0c56ea66d7701db8da01975d72ec5a07509a1a1bae14",
+    "metric": "Net 30-day vault TVL increase by chain",
+    "period": "Chart dated 2026-10-01; window as printed in chart subtitle",
+    "selection_method": "Manual reading of the served chart labels, bound to SHA-256; ranking follows the printed selection metric, not the adjacent table or recomputed live data",
+    "winners": [
+      {
+        "name": "Arbitrum",
+        "chain_id": 42161,
+        "aliases": [
+          "Arbitrum"
+        ],
+        "handle": "arbitrum",
+        "profile": "https://x.com/arbitrum",
+        "official_source": "https://arbitrum.foundation",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/arbitrum",
+        "entity_id": "Arbitrum",
+        "organisation": "Arbitrum",
+        "rank": 1
+      },
+      {
+        "name": "Base",
+        "chain_id": 8453,
+        "aliases": [
+          "Base"
+        ],
+        "handle": "base",
+        "profile": "https://x.com/base",
+        "official_source": "https://base.org",
+        "verified_at": "2026-10-01T00:00:00Z",
+        "user_id": null,
+        "verification_method": "official_link",
+        "verification_note": "Primary official source links/names this account: https://x.com/base",
+        "entity_id": "Base",
+        "organisation": "Base",
+        "rank": 2
+      },
+      {
+        "name": "Robinhood",
+        "chain_id": 4663,
+        "aliases": [
+          "Robinhood"
+        ],
+        "handle": "RobinhoodApp",
+        "profile": "https://x.com/RobinhoodApp",
+        "official_source": "https://investors.robinhood.com/news-releases/news-release-details/robinhood-reports-second-quarter-2026-results",
+        "verified_at": null,
+        "user_id": null,
+        "entity_id": "Robinhood",
+        "organisation": "Robinhood",
+        "rank": 3
+      }
+    ],
+    "issues": [],
+    "suggested_body": "October 2026: @arbitrum (+$209.7M), @base (+$124.9M) and Robinhood (+$42.9M) lead net vault TVL increases by chain.\nhttps://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026"
+  }
+}

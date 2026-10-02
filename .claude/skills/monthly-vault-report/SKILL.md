@@ -93,3 +93,7 @@ gh pr comment <pr> --body-file eth_defi/vault_report/excluded-vaults/<date>-excl
 Give the user the Ghost editor link the script prints, the excluded and
 undecided vault counts, any `flag.py` changes awaiting review, and anything
 you could not verify.
+
+## Scheduled chart tweets
+
+For tweet campaigns, follow `eth_defi/vault_report/README-tweets.md`. Read back the final edited Ghost post, use image-bound chart evidence instead of adjacent table rankings, edit `tweet-plan.md`, and publish its exact bodies and immutable chart images as the first PR review comment when requested. Keep entries draft until manual wording and winner review. Launch only an explicitly approved compiled digest; the shared account ledger persists across revisions.

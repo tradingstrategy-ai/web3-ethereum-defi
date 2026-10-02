@@ -36,3 +36,8 @@ Run it with ``scripts/erc-4626/generate-monthly-vault-report.py``. See
    eth_defi.vault_report.vault_probes
    eth_defi.vault_report.vault_checks
    eth_defi.vault_report.report
+
+   eth_defi.vault_report.chart_metadata
+   eth_defi.vault_report.tweet_plan
+   eth_defi.vault_report.twitter
+   eth_defi.vault_report.tweet_scheduler

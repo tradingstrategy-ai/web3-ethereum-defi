@@ -471,7 +471,7 @@ description = "Screen-scraping library"
 optional = true
 python-versions = ">=3.7.0"
 groups = ["main"]
-markers = "extra == \"data\" or extra == \"docs\""
+markers = "extra == \"data\" or extra == \"docs\" or extra == \"posts\""
 files = [
     {file = "beautifulsoup4-4.14.3-py3-none-any.whl", hash = "sha256:0918bfe44902e6ad8d57732ba310582e98da931428d231a5ecb9e7c703a735bb"},
     {file = "beautifulsoup4-4.14.3.tar.gz", hash = "sha256:6292b1c5186d356bba669ef9f7f051757099565ad9ada5dd630bd9de5fa7fb86"},
@@ -7432,7 +7432,7 @@ description = "YAML parser and emitter for Python"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"data\""
+markers = "extra == \"data\" or extra == \"posts\""
 files = [
     {file = "PyYAML-6.0.3-cp38-cp38-macosx_10_13_x86_64.whl", hash = "sha256:c2514fceb77bc5e7a2f7adfaa1feb2fb311607c9cb518dbc378688ec73d8292f"},
     {file = "PyYAML-6.0.3-cp38-cp38-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9c57bb8c96f6d1808c030b1687b9b5fb476abaa47f0db9c0101f5e9f394e97f4"},
@@ -8863,7 +8863,7 @@ description = "A modern CSS selector implementation for Beautiful Soup."
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"data\" or extra == \"docs\""
+markers = "extra == \"data\" or extra == \"docs\" or extra == \"posts\""
 files = [
     {file = "soupsieve-2.8.3-py3-none-any.whl", hash = "sha256:ed64f2ba4eebeab06cc4962affce381647455978ffc1e36bb79a545b91f45a95"},
     {file = "soupsieve-2.8.3.tar.gz", hash = "sha256:3267f1eeea4251fb42728b6dfb746edc9acaffc4a45b27e19450b676586e8349"},
@@ -9538,6 +9538,19 @@ dev = ["coverage (>=4.4.2)", "coveralls (>=2.1.0)", "tox (>=3.21.0)"]
 test = ["urllib3 (<2)", "vcrpy (>=1.10.3)"]
 
 [[package]]
+name = "twitter-text-parser"
+version = "3.0.0"
+description = "A library to parse or validate Twitter texts properly"
+optional = true
+python-versions = ">=3.7,<4.0"
+groups = ["main"]
+markers = "extra == \"posts\""
+files = [
+    {file = "twitter_text_parser-3.0.0-py3-none-any.whl", hash = "sha256:b36bd22e147db2234e79c73b021f10c3073e8c54f22b68c31696239b6917cdd3"},
+    {file = "twitter_text_parser-3.0.0.tar.gz", hash = "sha256:9426e4fb9393c8c1adfb36ff5d91495ff4524782e85f80748f6ae0bc1efffcda"},
+]
+
+[[package]]
 name = "typer"
 version = "0.24.1"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -10179,10 +10192,10 @@ duckdb = ["duckdb"]
 gsheets = ["gspread"]
 hyperliquid-backfill = ["boto3", "duckdb", "lz4"]
 hypersync = ["hypersync"]
-posts = ["duckdb", "feedparser", "tweepy"]
+posts = ["PyYAML", "beautifulsoup4", "duckdb", "feedparser", "tweepy", "twitter-text-parser"]
 test = ["pytest-xdist"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "dec389b828311fd09128df867716ac67ea42da50affe125c3c480348a7211a91"
+content-hash = "56a13ba5004f56ca814310f9f03a911cf126593e3279f42bcbaf71ba54db5f46"

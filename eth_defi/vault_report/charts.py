@@ -939,6 +939,8 @@ def create_performance_figure(
     fig.update_yaxes(side="left", zeroline=False)
     fig.add_hline(y=baseline, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)), split=split_legend)
+    # Preserve the actual drawn selection for social-campaign provenance.
+    fig.update_layout(meta={"vault_ids": list(vaults)})
     return fig
 
 
@@ -1439,6 +1441,7 @@ def create_risk_return_figure(
     x_ticks = [10.0**power for power in range(int(np.floor(x_range[0])), int(np.ceil(x_range[1])) + 1) if x_range[0] <= power <= x_range[1]]
     fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=list(x_range), tickvals=x_ticks, ticktext=[f"{tick:g}%" for tick in x_ticks])
     fig.update_yaxes(side="left", range=list(y_range), ticksuffix="%", zeroline=True, zerolinecolor=theme.axis)
+    fig.update_layout(meta={"vault_ids": list(on_scale.index)})
     return fig
 
 

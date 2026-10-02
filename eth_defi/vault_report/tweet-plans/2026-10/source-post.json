@@ -1,0 +1,796 @@
+{
+  "id": "6abd4520cd7f370001b8d2e5",
+  "slug": "the-best-performing-stablecoin-vaults-october-2026",
+  "title": "The best-performing stablecoin vaults, October 2026",
+  "url": "https://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-october-2026",
+  "status": "published",
+  "updated_at": "2026-10-01T11:46:52.000Z",
+  "published_at": "2026-10-01T10:45:29",
+  "fetched_at": "2026-10-01T14:01:21.756382",
+  "html_digest": "a0b1e408576b1a67c888c2b5b7ad8b60220bacab1d0ca8ce9e3b67a930c0260e",
+  "charts": [
+    {
+      "key": "the_rise_of_tokenised_funds",
+      "heading": "The rise of tokenised funds",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/image-1.png",
+      "alt": "The rise of tokenised funds",
+      "context": "",
+      "width": 2838,
+      "height": 2042,
+      "format": "PNG",
+      "sha256": "39dcb11eeebbca7f8316d117626d502e6f30f0aecb1ab38e4b4f5cf7ce70e0c9",
+      "path": "charts/the_rise_of_tokenised_funds.png"
+    },
+    {
+      "key": "the_rise_of_robinhood_chain",
+      "heading": "The rise of Robinhood chain",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/image-2.png",
+      "alt": "The rise of Robinhood chain",
+      "context": "",
+      "width": 2000,
+      "height": 1146,
+      "format": "PNG",
+      "sha256": "3fb8c8eff67d3ea9e15fafd610f9e13d3a40738787b1807e4136a7e2e964e840",
+      "path": "charts/the_rise_of_robinhood_chain.png"
+    },
+    {
+      "key": "new_performance",
+      "heading": "New vaults",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/new_performance.png",
+      "alt": "Performance of the best-performing new vaults since their launch against their benchmarks",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 Arcus GLD (5x Short) >9,999% >9,999% >9,999% --- $34k 0.01 USDG Robinhood Arcus 2 Arcus SPCX (3x Long) 1,835.9% 1,835.9% 1,835.9% --- $85k 0.02 USDG Robinhood Arcus 3 BTC (3x Long) 1,329.4% 189.5% 189.5% 1.40 $82k 0.10 USDG Robinhood Arcus 4 1212.Alpha 241.2% 273.9% 273.9% 3.40 $1.6M 0.11 USDC Ethereum Lagoon Finance 5 BTC (1x Long) 178.7% 112.2% 112.2% 2.55 $32k 0.10 USDG Robinhood Arcus 6 HOOD (3x Long) 112.9% -87.0% -87.0% 0.18 $293k 0.10 USDG Robinhood Arcus 7 Arcus GME (5x Short) 104.4% 104.4% 104.4% --- $89k 0.02 USDG Robinhood Arcus 8 SpaceX Hyperliquid Synth 99.7% 192.0% 192.0% 3.17 $16k 0.10 USDC Hyperliquid Lagoon Finance 9 Harvest: USDC Vault (0x904a) 23.6% 17.5% 17.5% 6.16 $860k 0.15 USDC Base Harvest Finance 10 Staked USDx 22.3% 22.3% 22.3% 82.58 $36.4M 0.07 USDx Ethereum Axis 11 ArcadiaV2 Global Dollar Debt 21.2% 21.2% 21.2% 67.47 $92k 0.06 USDG Robinhood Arcadia Finance 12 Glasgow Cosmic by Ryllo 18.7% 18.7% 18.7% >100 $106k 0.08 USDC Monad Accountable 13 Nest Liquid Credit Vault 17.7% 17.7% 17.7% 54.38 $1.4M 0.07 USDC Ethereum Nest 14 Senior ArcadiaV2 Global Dollar 15.4% 15.4% 15.4% 49.27 $109k 0.06 USDG Robinhood Arcadia Finance 15 Vectis UltraX Arb 14.9% 14.9% 14.9% 11.61 $744k 0.05 USDC Ethereum Accountable 16 SharpByte RWA Ecosystem Vault 14.8% 12.7% 12.7% 8.29 $1.3M 0.15 USDC Ethereum Upshift 17 SPICE Credit 13.8% 13.5% 13.5% >100 $1.1M 0.14 USDC Ethereum Accountable 18 Salt Markets Alpha 12.0% 12.2% 12.2% >100 $5.5M 0.14 USDC Monad Accountable 19 Barker H1 Vault 11.6% 14.4% 14.4% 7.93 $43k 0.11 USDC Hyperliquid Barker 20 Axis Origin USDx 11.6% 9.1% 9.1% 8.94 $26.4M 0.16 USDx Ethereum Upshift",
+      "width": 1867,
+      "height": 1500,
+      "format": "PNG",
+      "sha256": "5064c0dd7fd6bb61a4fd925a31a7a81e65e030168f95ca41e6b15ee320216f63",
+      "path": "charts/new_performance.png"
+    },
+    {
+      "key": "lending_performance",
+      "heading": "Lending vaults",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/lending_performance.png",
+      "alt": "90-day performance of the best-performing lending vaults against their benchmarks",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 Syntropia Boosted 18.2% 15.5% 15.3% 7.69 $275k 0.96 USDC Ethereum Lagoon Finance 2 K3 Capital USDai Market 17.4% 9.9% 7.6% 6.17 $287k 1.01 USDai Plasma Euler 3 Llama Lend CRV / crvUSD 16.9% 9.5% 11.3% 8.61 $280k 2.50 crvUSD Arbitrum Llama Lend 4 Senior ArcadiaV2 Global Dollar 15.4% 15.4% 15.4% 49.27 $109k 0.06 USDG Robinhood Arcadia Finance 5 K3 Capital Prime Market 15.0% 9.7% 6.1% 7.32 $297k 2.04 USDT Ethereum Euler 6 AlphaGrowth Base RWA 14.8% 15.9% 9.0% 23.96 $652k 0.94 USDC Base Euler 7 Fraxlend Interest Bearing FRAX (Staked Frax Ether) - 16 13.0% 9.0% 7.4% 6.08 $916k 3.62 FRAX Ethereum Frax 8 Alpha USDC Forex V2 12.6% 10.5% 8.8% 50.87 $1.1M 0.59 USDC Ethereum Morpho 9 InfiniFi Markets 12.5% 11.2% 8.8% 63.02 $104k 0.42 USDC Ethereum Euler 10 ArcadiaV2 USD Coin Debt 12.5% 11.7% 12.5% 67.44 $2.0M 2.53 USDC Base Arcadia Finance 11 EURCV Prime 11.8% 6.2% 3.4% 5.38 $103k 1.01 EURCV Ethereum Morpho 12 DeltaUSD HyperLiquid USDN Funding Arb 11.7% 10.0% 16.1% 10.21 $1.1M 1.13 USDT Ethereum Lagoon Finance 13 Syntropia USDC Core 11.7% 10.0% 10.9% 8.09 $1.1M 0.97 USDC Ethereum Lagoon Finance 14 JPEG Trading x Tenbin RWAs 11.4% 10.6% 9.9% 22.83 $156k 0.28 USDC Ethereum Euler 15 Morini USDC Emerging Yield 11.3% 11.3% 11.3% 38.44 $399k 0.06 USDC Ethereum Morpho 16 K3 Capital USDai Cluster 11.1% 6.1% 5.2% 5.39 $474k 1.09 USDC Arbitrum Euler 17 Fraxlend Interest Bearing FRAX (FXB_4_DEC312026) - 24 10.9% 12.7% 6.4% 53.53 $355k 2.67 FRAX Ethereum Frax 18 K3 Capital Prime Market 10.4% 8.6% 5.5% 50.87 $2.2M 2.11 USDC Ethereum Euler 19 EDGE UltraYield USDC 10.1% 11.8% 5.9% 7.91 $217k 0.84 USDC Monad Gearbox 20 Curvance AUSD 9.8% 7.7% 8.3% 41.99 $1.1M 0.85 AUSD Monad Curvance",
+      "width": 1867,
+      "height": 1506,
+      "format": "PNG",
+      "sha256": "43dac0ca76484402fb812298c07e3237c45eaf3b08776f5fae13f423aecb43e9",
+      "path": "charts/lending_performance.png"
+    },
+    {
+      "key": "rwa_performance",
+      "heading": "Real-world asset (RWA) vaults",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/rwa_performance.png",
+      "alt": "90-day performance of the best-performing RWA vaults against their benchmarks",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 Atoma RWA 8.1% 30.4% 30.4% 8.91 $194k 0.20 USDC Arbitrum Atoma 2 ALAR SailOut Royalty 7.9% -7.0% 39.7% -2.42 $1.6M 0.67 USDe Berachain Liquid Royalty 3 Gami USDC 7.6% 7.3% 8.3% 37.50 $8.9M 0.89 USDC Ethereum Lagoon Finance 4 1212.Stable 7.4% 7.3% 7.3% 7.90 $1.7M 0.46 USDC Ethereum Lagoon Finance 5 KPK USDC LiquidLane 5.6% 5.7% 5.7% >100 $1.0M 0.16 USDC Ethereum Symbiotic 6 3F x Steakhouse USDC 4.4% 4.7% 3.8% >100 $15.9M 0.69 USDC Ethereum Morpho 7 Coinshift Conservative USPC 2.9% 2.4% 5.0% 18.25 $7.5M 0.41 USDC Ethereum Lagoon Finance 8 YieldNest RWA MAX 0.0% 8.3% 7.4% 5.53 $9.2M 1.30 USDC Ethereum YieldNest 9 Flint USD -12.1% 7.5% 2.9% 1.59 $704k 0.30 USDC Ethereum Lagoon Finance 10 Frankencoin Shares -40.7% -40.7% -40.7% --- $751k 0.01 ZCHF Ethereum Frankencoin",
+      "width": 1867,
+      "height": 1505,
+      "format": "PNG",
+      "sha256": "d5dd8c20293897e50f80203686b618c49b1c545ed8962f56df67d6d928a4ad48",
+      "path": "charts/rwa_performance.png"
+    },
+    {
+      "key": "perp_dex_performance",
+      "heading": "Perpetual futures DEX vaults by return",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/perp_dex_performance.png",
+      "alt": "90-day performance of the best-performing perp DEX vaults against BTC and ETH",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 DOEZOE >9,999% 1,407.6% 146.4% 2.27 $116k 1.33 USDC Hypercore Hyperliquid 2 Brob >9,999% >9,999% >9,999% 5.67 $1.4M 0.55 USDC Hypercore Hyperliquid 3 Guinea Pool >9,999% 1,194.9% 0.7% 2.67 $195k 1.10 USDC Lighter Lighter 4 BredoStrategy >9,999% 4,811.6% 52.2% 3.74 $6.0M 0.62 USDC Hypercore Hyperliquid 5 Long LINK Short XRP >9,999% >9,999% -98.1% 3.43 $2.8M 1.19 USDC Hypercore Hyperliquid 6 Portola Strategies >9,999% >9,999% >9,999% 5.72 $215k 0.06 USDC Hypercore Hyperliquid 7 DailyTradeAI Low risk 7,571.1% 544.8% -58.7% 1.91 $137k 2.13 USDC Hypercore Hyperliquid 8 CVTB 4,903.8% 160.1% -71.0% 1.40 $229k 0.52 USDC Hypercore Hyperliquid 9 FLEXIBLE POOL 3,579.2% 5,609.0% 115.5% 4.34 $116k 0.95 USDC Lighter Lighter 10 Enjoyooor V3 2,479.4% 3,209.3% 173.1% 3.71 $2.6M 0.46 USDC Hypercore Hyperliquid 11 korea wins again 2,134.4% -65.3% -64.5% -0.85 $157k 0.27 USDC Hypercore Hyperliquid 12 Christ is King 1,336.0% 1,185.8% 1,185.8% 4.34 $124k 0.10 USDC Lighter Lighter 13 Delta_01 1,281.5% 304.5% 131.1% 2.96 $916k 2.09 USDC Hypercore Hyperliquid 14 Fund Inception 1,176.6% 251.2% -5.1% 3.25 $165k 0.81 USDC Hypercore Hyperliquid 15 Aquila Chrysaetos 913.5% 488.0% 64.7% 4.42 $117k 1.15 USDC Hypercore Hyperliquid 16 Value token strategy 911.8% 1,467.0% 156.0% 3.88 $335k 0.63 USDC Hypercore Hyperliquid 17 Jade Lotus Capital 597.1% 550.1% 62.9% 2.26 $868k 1.34 USDC Hypercore Hyperliquid 18 Elsewhere 573.5% 366.8% -13.6% 2.54 $681k 2.23 USDC Hypercore Hyperliquid 19 Bitcoin Moving Average Long/Short 548.7% -31.3% -28.3% -0.09 $2.4M 0.98 USDC Hypercore Hyperliquid 20 BULBUL2DAO 539.5% -2.6% 72.3% 0.26 $419k 1.79 USDC Hypercore Hyperliquid",
+      "width": 1867,
+      "height": 1557,
+      "format": "PNG",
+      "sha256": "b1ad7aafcd6a9ff027e70d67312aa5dbb79dbf74a45fb3b9bfb111206df397d1",
+      "path": "charts/perp_dex_performance.png"
+    },
+    {
+      "key": "perp_dex_sharpe_performance",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/perp_dex_sharpe_performance.png",
+      "alt": "90-day performance of perp DEX vaults with the best Sharpe ratio against BTC and ETH",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 Opportunistic Bundle 10.7% 10.8% 10.2% >100 $1.0M 0.33 USDT Grvt GRVT 2 KangCFA 8.9% 8.7% 8.5% 39.98 $1.9M 0.71 USDT Grvt GRVT 3 Grvt Liquidity Provider (GLP) 10.5% 10.8% 14.2% 31.00 $13.5M 0.93 USDT Grvt GRVT 4 Fire Liquidity Provider 21.2% 21.6% 31.5% 14.58 $2.0M 0.36 USDT Hibachi Hibachi 5 PF1 65.8% 42.0% 40.7% 8.38 $497k 1.29 USDC Hypercore Hyperliquid 6 Lighter Ethereum Liquidity Provider (LLP) 13.9% 17.4% 111.2% 7.65 $83.4M 1.69 USDC Lighter Lighter 7 FuturAI Labs - High Sharpe, Low Volatility 13.5% 9.5% 9.5% 7.47 $161k 0.59 USDC Hypercore Hyperliquid 8 Lighter Robinhood Liquidity Provider (LLP) 255.3% 1,650.5% 1,459.3% 7.40 $2.0M 0.25 USDG Lighter Lighter 9 Stratwise Multi-Asset Public 52.8% 34.1% 34.1% 6.73 $186k 0.21 USDC Hypercore Hyperliquid 10 Hyperliquidity Provider (HLP) 3.8% 3.5% 32.9% 5.92 $183.0M 3.39 USDC Hypercore Hyperliquid 11 Protocol Vault 7.3% 4.6% 10.7% 5.82 $8.6M 1.31 USDT ApeX ApeX 12 Portola Strategies >9,999% >9,999% >9,999% 5.72 $215k 0.06 USDC Hypercore Hyperliquid 13 Brob >9,999% >9,999% >9,999% 5.67 $1.4M 0.55 USDC Hypercore Hyperliquid 14 BTC vs ALTS and NEWS/DIPS 0.0% 0.0% 84.2% 5.35 $409k 0.97 USDC Lighter Lighter 15 Candle Effect v2 51.5% 26.2% 44.8% 4.50 $116k 0.33 USDC Lighter Lighter 16 Aquila Chrysaetos 913.5% 488.0% 64.7% 4.42 $117k 1.15 USDC Hypercore Hyperliquid 17 Christ is King 1,336.0% 1,185.8% 1,185.8% 4.34 $124k 0.10 USDC Lighter Lighter 18 FLEXIBLE POOL 3,579.2% 5,609.0% 115.5% 4.34 $116k 0.95 USDC Lighter Lighter 19 Robonet - Allora Woodpecker 8.7% 22.4% 31.8% 4.28 $100k 0.25 USDT Hibachi Hibachi 20 JizzJazz 413.6% 265.2% 37.4% 4.11 $229k 2.46 USDC Hypercore Hyperliquid",
+      "width": 1867,
+      "height": 1549,
+      "format": "PNG",
+      "sha256": "34a94e73f15cf7366a383cf0d899a3cc740d1e3ca53a5f220b236ddf0d40e4d5",
+      "path": "charts/perp_dex_sharpe_performance.png"
+    },
+    {
+      "key": "amm_performance",
+      "heading": "AMM pools",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/amm_performance.png",
+      "alt": "90-day performance of the best-performing AMM pools against their benchmarks",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 GM UNI [UNI-USDC] >9,999% 1,388.2% 39.7% 4.05 $1.1M 3.01 USDC Arbitrum GMX 2 GM AVAX [WAVAX-USDC] 3,249.2% 288.6% 32.9% 3.84 $3.8M 3.01 USDC Avalanche GMX 3 GLV [WAVAX-USDC] 2,913.1% 332.7% 4.0% 4.05 $1.0M 1.99 USDC Avalanche GMX 4 GM LINK [LINK-USDC] 486.4% 414.2% 52.2% 4.38 $3.6M 3.01 USDC Arbitrum GMX 5 GM SOL [SOL-USDC] 276.9% 176.0% 82.1% 3.53 $5.2M 3.01 USDC Arbitrum GMX 6 GM ETH [WETH-WETH] 276.1% 476.7% -2.6% 4.10 $19.0M 2.47 USDC Arbitrum GMX 7 yb-LP WETH 186.2% 705.1% 125.0% 3.74 $29.0M 0.34 USD Ethereum YieldBasis 8 GM BTC [WBTC-WBTC] 160.8% 226.8% 11.9% 3.43 $10.1M 2.47 USDC Arbitrum GMX 9 yb-LP cbBTC 153.5% 323.5% 31.3% 4.02 $29.8M 0.34 USD Ethereum YieldBasis 10 GM ETH [WETH-USDC] 129.1% 176.7% 29.0% 3.82 $48.8M 3.01 USDC Arbitrum GMX 11 GM ETH [WETH.e-USDC] 128.0% 259.3% 38.7% 3.48 $1.3M 2.96 USDC Avalanche GMX 12 GLV [WETH-USDC] 121.6% 177.7% 18.3% 3.87 $15.1M 2.07 USDC Arbitrum GMX 13 GM XRP [WETH-USDC] 115.9% 135.5% 24.9% 3.53 $4.5M 2.99 USDC Arbitrum GMX 14 yb-LP tBTC 88.7% 252.0% 12.8% 4.43 $20.6M 0.34 USD Ethereum YieldBasis 15 yb-LP WBTC 80.4% 231.1% 15.5% 4.31 $38.2M 0.34 USD Ethereum YieldBasis 16 GM BTC [WBTC-USDC] 74.0% 96.3% 38.2% 3.58 $59.1M 3.01 USDC Arbitrum GMX 17 GM HYPE [WBTC-USDC] 65.1% 103.5% 12.4% 4.58 $2.2M 1.57 USDC Arbitrum GMX 18 GLV [WBTC-USDC] 57.7% 104.7% 24.1% 3.86 $12.5M 2.05 USDC Arbitrum GMX 19 GM ZEC [WBTC-USDC] 55.4% 102.2% 20.8% 2.41 $2.3M 0.77 USDC Arbitrum GMX 20 GM BTC [BTC.b-USDC] 43.0% 95.3% 48.4% 3.51 $1.1M 3.01 USDC Avalanche GMX",
+      "width": 1867,
+      "height": 1532,
+      "format": "PNG",
+      "sha256": "9fe045fac55d03f8e75ba81b2da58677ef09b67a390dd961088c5b37c51a56fd",
+      "path": "charts/amm_performance.png"
+    },
+    {
+      "key": "by_chain_best",
+      "heading": "Vaults on each chain",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/by_chain_best.png",
+      "alt": "The two best-performing vaults on each chain",
+      "context": "Chain Protocol Vault 1M ann. 3M ann. Lifetime ann. TVL Age (y) Token ApeX ApeX Protocol Vault 7.3% 4.6% 10.7% $8.6M 1.31 USDT Arbitrum Enzyme Prime CORE 5 166.3% 269.9% 66.0% $460k 0.65 USDC Arbitrum D2 Finance HYPE++ 53.2% 15.5% 25.9% $8.7M 1.86 USDC Arbitrum Royco Royco Junior Tranche sUSDai 32.7% 21.0% 15.5% $103k 0.52 sUSDai Avalanche Accountable Travessia Tauri Vault 17.9% 16.8% 16.8% $109k 0.20 USDt Avalanche Nest Nest BlackOpal LiquidStone II Vault 10.9% 11.3% 11.3% $5.3M 0.19 USDC Avalanche Asseto AoABTd 10.5% 18.1% 5.5% $15.5M 0.80 USDT.e Base D2 Finance HYPE++ Base 53.2% 15.5% 9.5% $2.1M 0.92 USDC Base Harvest Finance Harvest: USDC Vault (0xC777) 40.0% 20.7% 12.0% $1.8M 1.37 USDC Base Harvest Finance Harvest: USDC Vault (0x904a) 23.6% 17.5% 17.5% $860k 0.15 USDC Berachain Liquid Royalty ALAR SailOut Royalty 7.9% -7.0% 39.7% $1.6M 0.67 USDe Berachain Dolomite Dolomite: USDC.e 3.6% 3.9% 3.9% $1.9M 1.65 USDC.e Berachain Dolomite Dolomite: USD₮0 3.6% 4.0% 4.7% $659k 1.64 USD₮0 Binance Nest Nest BlackOpal LiquidStone II Vault 10.4% 11.1% 11.1% $32.2M 0.25 USDT Binance Euler RockawayX PT Yield 5.9% 5.8% 4.8% $1.8M 0.45 USDT Binance Euler K3 Capital ASTERLIQUID 4.0% 4.2% 6.7% $113k 0.99 USDT Ethereum Enzyme Wonder Labs Fund I 1,331.3% 1,039.5% -38.1% $403k 1.11 USDT Ethereum Enzyme ABD Multi-strategy 1,221.1% 858.4% -12.2% $339k 0.99 USDT Ethereum Enzyme M-S 01 1,006.6% 784.8% -1.2% $236k 0.91 USDT Gnosis Frankencoin Frankencoin Savings Vault 3.4% 3.4% 3.3% $1.1M 1.04 ZCHF Gnosis Aave Wrapped Aave EURe 2.2% 2.3% 3.2% $5.9M 0.98 EURe Grvt GRVT Opportunistic Bundle 10.7% 10.8% 10.2% $1.0M 0.33 USDT Grvt GRVT Grvt Liquidity Provider (GLP) 10.5% 10.8% 14.2% $13.5M 0.93 USDT Grvt GRVT KangCFA 8.9% 8.7% 8.5% $1.9M 0.71 USDT Hibachi Hibachi Fire Liquidity Provider 21.2% 21.6% 31.5% $2.0M 0.36 USDT Hibachi Hibachi Growi Alpha Vault 19.9% 20.6% 25.1% $247k 0.57 USDT Hibachi Hibachi Robonet - Allora Woodpecker 8.7% 22.4% 31.8% $100k 0.25 USDT Hypercore Hyperliquid DOEZOE >9,999% 1,407.6% 146.4% $116k 1.33 USDC Hypercore Hyperliquid Brob >9,999% >9,999% >9,999% $1.4M 0.55 USDC Hypercore Hyperliquid BredoStrategy >9,999% 4,811.6% 52.2% $6.0M 0.62 USDC Hyperliquid D2 Finance HYPE++ Hyperliquid 53.2% 15.5% 10.7% $2.1M 1.11 USD₮0 Hyperliquid Morpho Felix USDe 8.9% 7.5% 7.2% $274k 1.39 USDe Hyperliquid Morpho Felix USDT0 (Frontier) 8.6% 7.0% 7.3% $277k 1.20 USD₮0 Katana Morpho Gauntlet USDT 7.0% 3.0% 1.2% $111k 1.24 vbUSDT Katana Morpho Clearstar Reactor USDT 5.3% 3.5% 3.5% $950k 0.20 vbUSDT Katana Morpho Yearn OG USDT 3.7% 3.0% 3.0% $1.2M 0.23 vbUSDT Lighter Lighter Guinea Pool >9,999% 1,194.9% 0.7% $195k 1.10 USDC Lighter Lighter FLEXIBLE POOL 3,579.2% 5,609.0% 115.5% $116k 0.95 USDC Lighter Lighter Christ is King 1,336.0% 1,185.8% 1,185.8% $124k 0.10 USDC Mantle Securitize Mantle Index Four 143.8% 518.9% -23.1% $165.2M 0.95 USD Monad Accountable Glasgow Cosmic by Ryllo 18.7% 18.7% 18.7% $106k 0.08 USDC Monad Accountable aHYPER Looping Vault 18.4% 26.2% 19.4% $7.8M 0.40 USDC Monad Accountable Hyperithm Delta Neutral Vault 12.1% 14.8% 11.1% $90.5M 0.71 USDC Optimism Llama Lend Llama Lend wstETH / USDC 6.2% 4.5% 3.9% $102k 0.28 USDC Optimism Morpho Gauntlet USDC Prime 3.9% 4.7% 2.9% $747k 0.94 USDC Optimism Midas Ether.fi Liquid RWA 3.8% 5.9% 6.2% $37.5M 0.32 USDC Plasma Yuzu Money Yuzu Protection Pool 26.2% 27.4% 21.7% $5.9M 0.96 USDT0 Plasma Euler K3 Capital USDai Market 17.4% 9.9% 7.6% $287k 1.01 USDai Plasma Euler K3 Capital USDai Market 7.0% 6.1% 4.9% $612k 1.00 USDT0 Polygon Enzyme Artemis Trust 192.8% 296.2% 5.6% $130k 2.80 USDC Polygon Fluid Fluid (PoS) Tether USD 5.4% 5.0% 2.6% $514k 1.56 USDT0 Polygon Fluid Fluid USD Coin 5.3% 2.8% 2.2% $215k 1.55 USDC Robinhood Arcus HOOD (3x Long) 112.9% -87.0% -87.0% $293k 0.10 USDG Robinhood Arcadia Finance Senior ArcadiaV2 Global Dollar 15.4% 15.4% 15.4% $109k 0.06 USDG Robinhood Accountable Meridian Liquidity Provider 4.9% 7.0% 7.0% $2.2M 0.16 USDe Sonic Flying Tulip Staked Flying Tulip USD 12.3% 9.0% 3.9% $453k 0.55 ftUSD Sonic Silo Finance Borrowable xUSD Deposit, SiloId: 118 0.0% 0.0% 0.1% $2.1M 1.32 xUSD Tempo Morpho Sentora pathUSD 0.4% 0.2% 0.1% $37.2M 0.39 pathUSD Tempo Morpho Gauntlet pathUSD Prime 0.2% 0.1% 0.0% $281k 0.37 pathUSD",
+      "width": 1867,
+      "height": 2360,
+      "format": "PNG",
+      "sha256": "02bc0dd52c5e2e9eb7c562e0c80bca443f525a53329eb9fdb2769d960d4c879d",
+      "path": "charts/by_chain_best.png"
+    },
+    {
+      "key": "tokenised_funds_performance",
+      "heading": "Tokenised funds",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/tokenised_funds_performance.png",
+      "alt": "90-day performance of the best-performing tokenised funds against their benchmarks",
+      "context": "Vault 3M history 1M ann. 3M ann. Lifetime ann. 3M Sharpe TVL Age (y) Token Chain Protocol 1 Mantle Index Four 143.8% 518.9% -23.1% 3.45 $165.2M 0.95 USD Mantle Securitize 2 BCAP 15.7% 3.9% 3.9% 1.57 $979.5M 0.22 USD Ethereum Securitize 3 AoABTd 10.5% 18.1% 5.5% 3.11 $15.5M 0.80 USDT.e Avalanche Asseto 4 Shift Lighter LLP Wrapper 9.2% 15.0% 15.0% 2.97 $201k 0.15 USDC Arbitrum Shift 5 Shift Extended Basis USD 8.1% 6.5% 6.5% 3.25 $141k 0.16 USDC Base Shift 6 Securitize Tokenized AAA CLO Fund 4.7% 5.3% 4.4% 13.92 $103.7M 0.78 USD Ethereum Securitize 7 ChinaAMC USD Digital Money Market Fund Class I USD 4.0% 4.3% 4.0% 11.90 $553.5M 1.13 USD Ethereum Libeara 8 Ondo Short-Term U.S. Government Bond Fund 3.8% 3.5% 3.7% 17.30 $132.2M 1.51 USD Ethereum Ondo 9 CashPlus 3.7% 3.9% 4.0% 16.94 $552k 0.99 USD Ethereum Asseto 10 US Yield Coin 3.7% 3.3% 3.6% 17.55 $42.6M 2.09 USDC Ethereum Circle USYC 11 Superstate Short Duration US Government Securities Fund 3.6% 3.6% 3.9% 99.93 $569.3M 1.81 USD Ethereum Superstate 12 Ondo U.S. Dollar Yield 3.6% 3.8% 4.4% 23.76 $1.2B 2.91 USD Ethereum Ondo 13 Hamilton Lane SCOPE Securitize Tokenized Feeder Fund LP 3.5% 4.3% 5.2% 7.08 $188k 1.04 USD Ethereum Securitize 14 Fidelity USD Digital Liquidity Fund-Acc 3.5% 3.4% 3.3% 19.82 $25.6M 0.40 USD Ethereum Sygnum 15 OpenEden T-Bills 3.3% 3.4% 4.3% 15.03 $20.7M 2.95 USDC Ethereum OpenEden 16 Midas US Treasury Bill Token 2.6% 3.0% 0.0% 16.51 $72.7M 2.70 USD Ethereum Midas 17 Midas US Treasury Bill Token 2.6% 3.1% 3.4% 15.12 $365k 1.88 USD Base Midas 18 JPMorgan OnChain Liquidity-Token Money Market Fund 0.0% 0.0% 0.0% --- $598.4M 0.23 USD Ethereum Kinexys 19 VanEck Treasury Fund 0.0% 0.0% 0.0% --- $20.2M 1.36 USD Ethereum Securitize 20 BOSERA LIQUIDITY INCOME FUND SP 0.0% 0.0% 0.0% --- $103.6M 0.92 USD Ethereum Libeara",
+      "width": 1867,
+      "height": 1576,
+      "format": "PNG",
+      "sha256": "ebc7cc3a7432306703ff0f4ceaa059165528d9d61ea2a3652a54b56a7a1d1538",
+      "path": "charts/tokenised_funds_performance.png"
+    },
+    {
+      "key": "protocol_yields",
+      "heading": "Yield by protocol, high TVL",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/protocol_yields.png",
+      "alt": "Stablecoin vault yield of the largest protocols against the US Treasury bill",
+      "context": "",
+      "width": 1867,
+      "height": 1384,
+      "format": "PNG",
+      "sha256": "e3c6f12a18e8e89fd895f805a85bbd594c3fabc04e3dc9f25a473f4e23683e53",
+      "path": "charts/protocol_yields.png"
+    },
+    {
+      "key": "protocol_high_yields",
+      "heading": "Yield by protocol, high yield",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/protocol_high_yields.png",
+      "alt": "Stablecoin vault yield of the highest-yielding protocols against the US Treasury bill",
+      "context": "",
+      "width": 1867,
+      "height": 1370,
+      "format": "PNG",
+      "sha256": "a93fb0d73f5f00a1c1bdc95b040ec5bef8439af12b550ada8bdbdffcdb7f7824",
+      "path": "charts/protocol_high_yields.png"
+    },
+    {
+      "key": "chain_yields",
+      "heading": "Yield by blockchain",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/chain_yields.png",
+      "alt": "Stablecoin vault yield on the largest blockchains against the US Treasury bill",
+      "context": "",
+      "width": 1867,
+      "height": 1370,
+      "format": "PNG",
+      "sha256": "e3fc7d56f4a073c089d90acbbd1ba08a8f9bfc3dc2de841fb10e17018598e99e",
+      "path": "charts/chain_yields.png"
+    },
+    {
+      "key": "risk_return",
+      "heading": "Risk and return",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/risk_return.png",
+      "alt": "Volatility risk and return of stablecoin vaults by strategy",
+      "context": "",
+      "width": 1867,
+      "height": 1474,
+      "format": "PNG",
+      "sha256": "4c8ff106b4c1d454c68eb7a575f6fe8add9394667e330dc8c201c2a01d992219",
+      "path": "charts/risk_return.png"
+    },
+    {
+      "key": "protocol_tvl",
+      "heading": "Stablecoin TVL by DeFi vault protocol",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/protocol_tvl.png",
+      "alt": "Stablecoin TVL by DeFi vault protocol",
+      "context": "",
+      "width": 1867,
+      "height": 1368,
+      "format": "PNG",
+      "sha256": "9b393a3af0b6e345563cc924392595ef701e7894e794070791a6b575b527cd0e",
+      "path": "charts/protocol_tvl.png"
+    },
+    {
+      "key": "chain_tvl",
+      "heading": "Stablecoin TVL by blockchain",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/chain_tvl.png",
+      "alt": "Stablecoin TVL by blockchain",
+      "context": "",
+      "width": 1867,
+      "height": 1368,
+      "format": "PNG",
+      "sha256": "549525b42481661d8474ecd3a4bd8b53a226c6ab2ece7cae16216c9937bc883b",
+      "path": "charts/chain_tvl.png"
+    },
+    {
+      "key": "fund_nav",
+      "heading": "Stablecoin NAV by tokenised fund",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/fund_nav.png",
+      "alt": "Stablecoin NAV by tokenised fund",
+      "context": "",
+      "width": 1867,
+      "height": 1359,
+      "format": "PNG",
+      "sha256": "59d47f7d1b01e6a8f781435eb4006b1e0c2cadd43e805c37fcf25b401f538295",
+      "path": "charts/fund_nav.png"
+    },
+    {
+      "key": "tvl_changes",
+      "heading": "Inflows and outflows by vault",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/tvl_changes.png",
+      "alt": "The largest vault TVL increases and decreases over the last 30 days",
+      "context": "",
+      "width": 1867,
+      "height": 2387,
+      "format": "PNG",
+      "sha256": "fe86ded343962a59286987f76e936fe1f8a1fc0492876da7e6c215234d0e8df7",
+      "path": "charts/tvl_changes.png"
+    },
+    {
+      "key": "chain_tvl_changes",
+      "heading": "Inflows and outflows by blockchain",
+      "url": "https://storage.ghost.io/c/c6/d9/c6d9ffb5-c9c2-4127-9dd5-12f60693d847/content/images/2026/10/chain_tvl_changes.png",
+      "alt": "The largest net TVL increases and decreases by blockchain over the last 30 days",
+      "context": "",
+      "width": 1867,
+      "height": 2291,
+      "format": "PNG",
+      "sha256": "fd9e03ab773c5cc32cee0c56ea66d7701db8da01975d72ec5a07509a1a1bae14",
+      "path": "charts/chain_tvl_changes.png"
+    }
+  ],
+  "ignored_images": [
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Latest podcasts"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "New vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Lending vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Real-world asset (RWA) vaults"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by return"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Perpetual futures DEX vaults by Sharpe ratio"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "AMM pools"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    },
+    {
+      "reason": "table, podcast or missing image URL",
+      "heading": "Tokenised funds"
+    }
+  ],
+  "digest": "7b1264c0fa30a1ede2281c433238ab047f5eb797fcdefad15ca062fdba9b1bf2"
+}
