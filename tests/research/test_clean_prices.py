@@ -307,6 +307,28 @@ def test_remove_inactive_lead_time():
     assert len(vault2_rows) == 1  # row at index 3 (200)
 
 
+def test_arcus_preserves_funded_history_before_share_supply_changes() -> None:
+    """Preserve funded pToken prices before the next share-supply change.
+
+    Initial zero supply remains inactive, but funded observations must survive
+    even when subsequent market moves occur without another deposit.
+
+    :return:
+        ``None``; validates the three retained numeric price observations.
+    """
+    frame = pd.DataFrame(
+        {
+            "id": ["arcus"] * 4,
+            "protocol": ["Arcus"] * 4,
+            "total_supply": [0, 104.999132, 104.999132, 105.112491],
+            "share_price": [0, 96.606690, 92.0, 88.349833],
+        },
+        index=pd.date_range("2026-09-24", periods=4, freq="h"),
+    )
+    result = remove_inactive_lead_time(frame, logger=lambda _: None)
+    assert result["share_price"].tolist() == [96.606690, 92.0, 88.349833]
+
+
 def test_remove_inactive_lead_time_with_duplicate_timestamps():
     """Keep the correct rows when a vault has repeated observation timestamps.
 
@@ -1316,6 +1338,29 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     assert all(v is None for v in evm_rows.column("account_pnl").to_pylist())
     assert all(v is None for v in evm_rows.column("leader_fraction").to_pylist())
     assert all(v is None for v in evm_rows.column("hypercore_source").to_pylist())
+
+
+@pytest.mark.parametrize(("protocol", "expected"), [("Arcus", 60.0), ("Morpho", 100.0)])
+def test_outlier_repair_preserves_leveraged_ptoken_moves(protocol: str, expected: float) -> None:
+    """Preserve leveraged pToken moves while retaining generic spike repair.
+
+    Use the same numeric price path for Arcus and a generic lending vault so
+    the exception cannot disable repair for unrelated protocols.
+
+    :param protocol:
+        Protocol classification carried by the cleaned price rows.
+    :param expected:
+        Expected middle share price after repair.
+    :return:
+        ``None``; validates the cleaned prices and original audit prices.
+    """
+    prices = pd.DataFrame(
+        {"id": ["4663-0xvault"] * 3, "protocol": [protocol] * 3, "share_price": [100.0, 60.0, 100.0]},
+        index=pd.date_range("2026-09-24", periods=3, freq="h", name="timestamp"),
+    )
+    result = fix_outlier_share_prices(prices, logger=lambda _: None, look_back_hours=1, look_ahead_hours=1)
+    assert result["share_price"].tolist() == [100.0, expected, 100.0]
+    assert result["raw_share_price"].tolist() == [100.0, 60.0, 100.0]
 
 
 def test_fix_outlier_ipor_tau_yield_bond_spike():

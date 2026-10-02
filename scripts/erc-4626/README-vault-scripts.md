@@ -240,15 +240,18 @@ The bundle is written below the pipeline data directory as
 ``crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`` and its separate JSON
 metadata and sticky state. R2 publication additionally writes the current
 manifest. Its Parquet retains the final observed row for each vault/UTC date
-rather than inventing missing dates. It keeps the established
+and each vault's initial observation before the first daily close. A first
+day can therefore contain two rows. Timestamps remain the actual observation
+times, and missing dates are not inserted. It keeps the established
 ``CleanedVaultPriceRow`` columns without adding denomination metadata or a
 crypto-specific return column. The legacy ``returns_1h`` column is recomputed
 between consecutive exported observations: it is a sparse return, not an
 hourly or guaranteed one-day return, and existing TVL-filtered rows remain
-zeroed. Lifetime metrics use the normal forward-filled daily share-price
-series. The [private metadata builder](../../eth_defi/vault/crypto_vaults.py)
-prepares stablecoin metrics directly from these sparse daily rows in memory,
-filling calendar gaps without repeating the daily aggregation. It drops
+zeroed. Absolute returns and CAGR use real observation endpoints. Daily risk
+and flow calculations use the forward-filled daily closing series. The
+[private metadata builder](../../eth_defi/vault/crypto_vaults.py) keeps these
+inputs separate: the initial row defines the return basis, while daily states
+take the first day's close and fill calendar gaps. It drops
 cleaned-price columns unused by returns and lifetime metrics before this step.
 INFO logs report source read, freshness filtering, daily preparation and metric
 calculation times separately, with row counts and a preparation-end RSS sample.
@@ -979,6 +982,45 @@ therefore depend on observation cadence. For an otherwise eligible flat period,
 the common export uses zero for volatility and null for Sharpe, because Sharpe
 is mathematically undefined without volatility. Sharpe is also null for
 periods shorter than 14 days or with fewer than 10 daily prices.
+
+Absolute returns use the first and last valid real observations, including
+the first day's movement before its daily close. They are available with two
+observations with a non-zero starting price. A young vault's fixed-period
+absolute return covers its available observations, which can be shorter than
+the requested lookback; the period's sample timestamps identify that span.
+Annualised returns are null until a fixed lookback has its full requested
+history; lifetime CAGR requires 30 days. The elapsed-time calculation
+includes fractional days. Each period includes `annualisation_error_reason`
+when absolute returns exist but annualisation is withheld. A calculation
+version change invalidates cached metrics, causing one full recomputation.
+
+The annualisation floor prevents short extrapolations from entering CAGR
+rankings; it is not a claim of statistical sufficiency. Sharpe and volatility
+retain their separate data-quality rules and calendar-day approximation.
+
+Arcus pTokens retain their first funded observation even before share supply
+changes, and the generic spike filter preserves their observed leveraged NAV
+moves. Daily bundles also keep the initial observation before the first day's
+close so new vaults can publish charts on their first day. Every detected
+Arcus pToken automatically receives
+`directional_leverage` and `perpetual_futures` strategy tags, including products
+without an address-specific display name. Existing metadata can be updated
+with `migrate-vault-strategy-tags.py` after deployment; stop the persistent
+scanner, inspect a dry run, apply the migration and restart the scanner. A
+normal post-processing run then regenerates metrics and charts from existing
+raw prices without a historical RPC rescan or reader-state changes.
+
+After deploying the updated scanner image, perform this repair with the
+scanner stopped. Inspect the dry-run migration output before applying it;
+the entrypoint override runs maintenance against the existing mounted state.
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'python scripts/erc-4626/post-process-prices.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+```
 
 #### Lifetime metrics benchmark
 
@@ -2295,8 +2337,8 @@ checks its age; use `post-process-prices.py` when the current scan must be
 cleaned and validated before publication.
 
 A vault is eligible when its denomination is a supported stablecoin, ETH or
-BTC family and its first and latest finite share-price observations span at
-least 14 days. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
+BTC family and it has two valid share-price observations at distinct timestamps,
+including on its first trading day. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
 BTC) are successfully published at most once every 72 hours; high-TVL vaults
 are considered on every invocation. The persistent
 `sparkline-export-state.json` file records cadence, input hashes and bounded
@@ -2306,7 +2348,7 @@ conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
 
 Every published chart has a 90-day horizontal axis ending on the vault's own
-latest observation day. A vault with 14–89 days of history is drawn on the
+latest observation timestamp. A vault with less than 90 days of history is drawn on the
 right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
 is still rendered from its own history. The exporter publishes one 100 × 25
@@ -2353,7 +2395,7 @@ It groups source rows once into contiguous vault slices and saves state after
 each batch. Earlier process-only rendering gave little full-run benefit because
 preparation and eligibility checks remained in the parent.
 The completion log's `insufficient_history` count now reports supported vaults
-without 14 days of finite share-price history; they are not counted as eligible.
+without two valid observations at distinct timestamps; they are not counted as eligible.
 
 On the same 15,340-vault input, forced full exports without uploads measured:
 
@@ -3304,7 +3346,7 @@ poetry run python scripts/erc-4626/vault-price-stats.py
 
 ### render-sparkline.py
 
-Render one vault with the same 14-day eligibility and fixed 90-day axis as the
+Render one vault with the same two-observation eligibility and fixed 90-day axis as the
 production exporter, then open the PNG in a browser. Set `VAULT_ID` to override
 the example vault. If `R2_SPARKLINE_BUCKET_NAME` is configured, the script also
 uploads the PNG under a `test-<vault-id>.png` object name.

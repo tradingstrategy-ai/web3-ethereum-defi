@@ -401,6 +401,8 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
     Stablecoin rows are derived from the existing standard cleaned Parquet;
     ETH/BTC rows are cleaned from raw data. The result retains the final real
     observation for each vault and UTC day.
+    It also retains each vault's first observation before its first daily
+    close, preserving the lifetime-return basis and same-day chart eligibility.
     It does not forward fill the exported rows; the shared lifetime-metrics
     calculation forward fills only its internal calendar-day series.
 
@@ -837,11 +839,10 @@ def _build_native_crypto_metrics(
     records: list[pd.Series] = []
     for vault_id, group in tqdm(grouped_vaults, desc="Calculating native crypto metrics", total=grouped_vaults.ngroups):
         try:
-            # The old full-frame route keeps one midnight row per observed day,
-            # then forward-fills calendar gaps. Reproduce that semantic on the
-            # projected metric columns only; this avoids resampling the full
-            # object-heavy source frame while preserving lifetime sample counts.
+            # Daily rows supply the flow/state calculations; real observations
+            # preserve the return endpoints and actual sample count.
             group = group.sort_index(kind="stable")
+            price_observations = group[["id", "share_price", "total_assets", "block_number"]].copy()
             group = group.resample("D").last().ffill()
             group["id"] = str(vault_id)
             record = calculate_vault_record(
@@ -850,6 +851,7 @@ def _build_native_crypto_metrics(
                 vault_id=str(vault_id),
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
                 crypto_usd_conversion_context=crypto_usd_conversion_context,
+                price_observations=price_observations,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
             logger.exception("Skipping invalid native crypto metrics record for %s", vault_id)
@@ -997,6 +999,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         metric_columns = [column for column in stable_prices_df.columns if column not in UNUSED_METRIC_PRICE_COLUMNS]
         metric_prices_df = stable_prices_df.loc[:, metric_columns]
         daily_stable_prices_df = calculate_sparse_daily_returns_for_all_vaults(metric_prices_df)
+        price_observations = stable_prices_df[["id", "share_price", "total_assets", "block_number"]].copy()
         logger.info(
             "Crypto stablecoin daily preparation: %d source rows, %d daily rows, %d of %d columns in %.2fs, RSS %.2f GiB",
             len(stable_prices_df),
@@ -1012,10 +1015,11 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
             daily_stable_prices_df,
             stable_vault_rows,
             stablecoin_rate_feeder=stablecoin_rate_feeder,
+            price_observations=price_observations,
         )
         logger.info("Crypto stablecoin lifetime metrics: %d vaults in %.2fs", len(stable_metrics_df), time.perf_counter() - metric_started_at)
         # Free the daily stablecoin frame before the native metrics phase.
-        del daily_stable_prices_df
+        del daily_stable_prices_df, price_observations
         free_memory()
     logger.info("Calculated stablecoin crypto metrics in %.2fs", time.perf_counter() - stable_metrics_started)
 

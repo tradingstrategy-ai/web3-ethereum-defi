@@ -239,7 +239,14 @@ def test_crypto_price_build_filters_native_rows(tmp_path: Path, monkeypatch: pyt
 
 
 def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
-    """Daily output keeps actual last rows without adding columns or dates."""
+    """Keep initial and daily closing rows with the existing price schema.
+
+    Repeated timestamps use block order for the daily close. The first price
+    remains a separate real observation, and missing dates are not invented.
+
+    :return:
+        ``None``; validates source timestamps, block numbers and columns.
+    """
     prices = pd.DataFrame(
         {
             "id": ["1-0xvault", "1-0xvault", "1-0xvault", "1-0xvault"],
@@ -258,13 +265,39 @@ def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
 
     result = materialise_daily_crypto_prices(prices)
 
-    assert result.index.tolist() == [pd.Timestamp("2026-01-01 15:00:00"), pd.Timestamp("2026-01-03 09:00:00")]
-    assert result["block_number"].tolist() == [12, 13]
+    assert result.index.tolist() == [pd.Timestamp("2026-01-01 10:00:00"), pd.Timestamp("2026-01-01 15:00:00"), pd.Timestamp("2026-01-03 09:00:00")]
+    assert result["block_number"].tolist() == [10, 12, 13]
     assert result.columns.tolist() == ["id", "block_number", "share_price"]
 
 
+def test_daily_materialisation_keeps_baselines_with_shared_timestamps() -> None:
+    """Preserve each vault's initial price when timestamp labels are shared.
+
+    Row selection must use vault identity and source position so another
+    vault's closing timestamp cannot mask the launch observation.
+
+    :return:
+        ``None``; validates the retained price path and row count.
+    """
+    prices = pd.DataFrame(
+        {"id": ["a", "a", "b"], "share_price": [100.0, 80.0, 1.0]},
+        index=pd.to_datetime(["2026-09-24 12:00", "2026-09-24 18:00", "2026-09-24 12:00"]),
+    )
+    prices.index.name = "timestamp"
+    result = materialise_daily_crypto_prices(prices)
+    assert result.loc[result["id"] == "a", "share_price"].tolist() == [100.0, 80.0]
+    assert len(result) == len(prices)
+
+
 def test_daily_materialisation_recomputes_sparse_returns() -> None:
-    """Legacy returns describe consecutive exported observations and honour TVL filtering."""
+    """Recalculate sparse returns while honouring existing TVL filtering.
+
+    The launch observation makes the first day's movement measurable, while
+    filtered rows retain their existing zero-return compatibility behaviour.
+
+    :return:
+        ``None``; validates returns between the exported observations.
+    """
     prices = pd.DataFrame(
         {
             "id": ["1-0xvault"] * 4,
@@ -284,7 +317,7 @@ def test_daily_materialisation_recomputes_sparse_returns() -> None:
 
     result = materialise_daily_crypto_prices(prices)
 
-    assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.25, 0.0])
+    assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.2, 0.25, 0.0])
 
 
 def test_crypto_builder_uses_fresh_daily_sidecar_and_rejects_stale_one(tmp_path: Path) -> None:

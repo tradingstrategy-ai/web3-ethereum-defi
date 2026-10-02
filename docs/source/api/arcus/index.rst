@@ -3,8 +3,10 @@ Arcus API
 
 Arcus pToken vaults are detected on Robinhood Chain through the reviewed
 ``bridgeVault()`` selector and read with the generic ERC-4626 interface. The
-address-scoped overlay supplies reviewed BTC and HOOD product copy. The public
-Arcus market catalogue is deliberately not used: exchange-market data is not
+address-scoped overlay supplies reviewed BTC and HOOD product copy. The
+strategy resolver classifies every detected pToken as directional leverage and
+perpetual futures without maintaining a separate address registry. The Arcus
+market catalogue is deliberately not used: exchange-market data is not
 pToken accounting data. See :doc:`the Arcus vault documentation
 </vaults/arcus/index>` for product and contract references.
 
@@ -13,5 +15,6 @@ pToken accounting data. See :doc:`the Arcus vault documentation
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.arcus.constants
+   eth_defi.erc_4626.vault_protocol.arcus.tags
    eth_defi.erc_4626.vault_protocol.arcus.offchain_data
    eth_defi.erc_4626.vault_protocol.arcus.vault

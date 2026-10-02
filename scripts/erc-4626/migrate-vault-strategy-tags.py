@@ -44,6 +44,7 @@ from eth_defi.apex.tags import get_strategy_tags as get_apex_strategy_tags
 from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
+from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.axis.tags import STRATEGY_TAGS as AXIS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.centrifuge.tags import STRATEGY_TAGS as CENTRIFUGE_STRATEGY_TAGS
@@ -216,6 +217,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
 )
 
 EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
+    ERC4626Feature.arcus_like: get_arcus_strategy_tags,
     ERC4626Feature.symbiotic_like: partial(lookup_strategy_tags, SYMBIOTIC_STRATEGY_TAGS),
     ERC4626Feature.securitize_like: partial(lookup_strategy_tags, SECURITIZE_STRATEGY_TAGS),
     ERC4626Feature.ipor_like: partial(lookup_strategy_tags, IPOR_STRATEGY_TAGS),

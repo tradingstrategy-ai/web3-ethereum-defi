@@ -47,6 +47,7 @@ from eth_defi.research.vault_metrics import (
     prepare_daily_share_price_series,
     resample_returns,
 )
+from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
@@ -129,6 +130,111 @@ def test_period_metrics_rejects_empty_share_price_series_cleanly() -> None:
 
     assert result.error_reason == "Vault has no usable share-price observations"
     assert result.raw_samples == 0
+
+
+@pytest.mark.parametrize("period", ["1M", "3M", "lifetime"])
+def test_launch_returns_are_absolute_without_annualised_ranking_signals(period: str) -> None:
+    """Keep launch-week absolute returns without annualised ranking signals.
+
+    Incomplete fixed windows and short lifetime histories still expose the
+    observed gain, together with the reason annualisation is withheld.
+
+    :param period:
+        Requested fixed lookback or lifetime period.
+    :return:
+        ``None`` after checking the absolute and annualised return fields.
+    """
+    prices = pd.Series([100.0, 111.1264819464673], index=pd.to_datetime(["2026-09-24 12:00", "2026-10-01 19:00"]))
+    daily, returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    result = calculate_period_metrics(period, fees, fees, prices, daily, returns, prices * 1000, now_=prices.index[-1])
+    assert result.error_reason is None
+    assert result.returns_gross == pytest.approx(0.11126481946467304)
+    assert result.cagr_gross is None
+    assert result.cagr_net is None
+    assert result.annualisation_error_reason
+
+
+def test_same_day_observations_keep_absolute_return() -> None:
+    """Retain the first trading day's observed loss.
+
+    The initial price establishes both the absolute return and drawdown
+    basis before a full day or an annualisation window is available.
+
+    :return:
+        ``None`` after checking launch-day returns and drawdown.
+    """
+    prices = pd.Series([100.0, 80.0], index=pd.to_datetime(["2026-09-24 12:00", "2026-09-24 18:00"]))
+    daily, returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    result = calculate_period_metrics("lifetime", fees, fees, prices, daily, returns, prices * 1000, now_=prices.index[-1])
+    assert result.returns_gross == pytest.approx(-0.2)
+    assert result.max_drawdown == pytest.approx(-0.2)
+    assert result.cagr_gross is None
+
+
+def test_annualisation_uses_fractional_elapsed_days() -> None:
+    """Use the complete elapsed time when annualising returns.
+
+    Intraday endpoint times must retain the fractional day in a 30.5-day
+    holding period rather than inflating CAGR by rounding down.
+
+    :return:
+        ``None`` after checking CAGR against the elapsed-time formula.
+    """
+    prices = pd.Series([100.0, 110.0], index=pd.to_datetime(["2026-01-01 00:00", "2026-01-31 12:00"]))
+    daily, returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    result = calculate_period_metrics("lifetime", fees, fees, prices, daily, returns, prices * 1000, now_=prices.index[-1])
+    assert result.cagr_gross == pytest.approx(1.1 ** (365.25 / 30.5) - 1)
+
+
+@pytest.mark.parametrize("crypto_bundle", [False, True])
+def test_arcus_export_uses_real_prices_before_daily_aggregation(vault_db: VaultDatabase, price_df: pd.DataFrame, *, crypto_bundle: bool) -> None:
+    """Preserve the GME launch loss through both metric export paths.
+
+    Four onchain-verified production observations reproduce the sign reversal
+    caused by dropping the initial price before daily aggregation.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :param crypto_bundle:
+        Whether to exercise the sparse private daily price bundle.
+    :return:
+        ``None`` after checking endpoints, returns, tags and drawdown.
+    """
+    spec = VaultSpec(4663, "0x1a596466cb593bee293be8366d9ce493582189c2")
+    metadata = dict(next(iter(vault_db.rows.values())))
+    metadata.update(Name="Arcus GME (5x Short)", Address=spec.vault_address, Protocol="Arcus", Denomination="USDG", _strategy_tags=None)
+    metadata["_detection_data"] = replace(metadata["_detection_data"], chain=4663, address=spec.vault_address, features={ERC4626Feature.arcus_like})
+    times = pd.to_datetime(["2026-09-24 12:10:57", "2026-09-24 16:36:28", "2026-09-24 18:37:08", "2026-10-01 19:24:45"])
+    source = pd.concat([price_df.iloc[:1]] * 4).copy()
+    source.index = times
+    source["id"] = spec.as_string_id()
+    source["chain"] = spec.chain_id
+    source["address"] = spec.vault_address
+    source["share_price"] = [96.606690, 88.349833, 76.246850, 84.730442]
+    source["block_number"] = [71359229, 71517629, 71589629, 77623230]
+    source["total_supply"] = [104.999132, 105.112491, 105.366829, 1147.696450]
+    source["total_assets"] = source["share_price"] * source["total_supply"]
+    if crypto_bundle:
+        source.index.name = "timestamp"
+        source = materialise_daily_crypto_prices(source)
+    daily = calculate_sparse_daily_returns_for_all_vaults(source) if crypto_bundle else calculate_hourly_returns_for_all_vaults(source)
+    metrics = calculate_lifetime_metrics(daily, {spec: metadata}, price_observations=source).iloc[0]
+    assert metrics["lifetime_return"] == pytest.approx(-0.12293401212690346)
+    assert metrics["first_updated_at"] == times[0]
+    assert metrics["first_updated_block"] == 71359229  # noqa: PLR2004 - Verified production block.
+    assert metrics["last_updated_at"] == times[-1]
+    assert metrics["lifetime_samples"] == len(source)
+    assert metrics["one_month_cagr"] is None
+    assert metrics["three_months_cagr"] is None
+    assert metrics["strategy_tags"] == ["directional_leverage", "perpetual_futures"]
+    lifetime = vault_metrics.get_period_metrics(metrics["period_results"], "lifetime")
+    assert lifetime.max_drawdown == pytest.approx(-0.2107497938289782)
+    assert lifetime.ranking_overall is None
 
 
 def test_usd_period_fee_path_does_not_charge_performance_fee_on_eth_appreciation() -> None:
@@ -278,11 +384,28 @@ def test_sparse_daily_return_preparation_matches_resampling() -> None:
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 
 
-def test_sparse_daily_return_preparation_rejects_duplicate_days() -> None:
-    """Reject input that does not satisfy the daily sidecar contract."""
+@pytest.mark.parametrize(
+    "timestamps",
+    [
+        ["2026-01-01 12:00", "2026-01-01 12:00"],
+        ["2026-01-01 12:00", "2026-01-02 12:00", "2026-01-02 23:00"],
+        ["2026-01-01 12:00", "2026-01-01 18:00", "2026-01-01 23:00"],
+    ],
+)
+def test_sparse_daily_return_preparation_rejects_duplicate_days(timestamps: list[str]) -> None:
+    """Reject ambiguous observations in the sparse daily bundle.
+
+    Only the initial observation and its distinct first-day close may share
+    a day. Other duplicates would hide prices during daily regularisation.
+
+    :param timestamps:
+        Invalid timestamp sequence for one vault's price observations.
+    :return:
+        ``None`` after checking that regularisation rejects the sequence.
+    """
     rows = pd.DataFrame(
-        {"chain": [1, 1], "address": ["0xaaa", "0xaaa"], "share_price": [1.0, 1.1]},
-        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 23:00"]),
+        {"chain": [1] * len(timestamps), "address": ["0xaaa"] * len(timestamps), "share_price": [1.0] * len(timestamps)},
+        index=pd.to_datetime(timestamps),
     )
 
     with pytest.raises(ValueError, match="Duplicate sparse daily observations"):
@@ -915,12 +1038,22 @@ def price_df() -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
-# TODO: Rechecl data here
 def test_calculate_lifetime_metrics(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
-):
-    """Test lifetime metrics calculation."""
+) -> None:
+    """Check lifetime metrics against the pinned Hemi price snapshot.
+
+    The snapshot exercises fractional-day annualisation, insufficient fixed
+    lookbacks and the initial observation's contribution to risk metrics.
+
+    :param vault_db:
+        Metadata fixture containing the Hemi vaults in the price snapshot.
+    :param price_df:
+        Timestamp-indexed Hemi observations with prices and accounting state.
+    :return:
+        ``None`` after checking the exported metrics and rankings.
+    """
 
     hemi_vaults = [row for row in vault_db.values() if row["_detection_data"].chain == 43111]
     assert len(hemi_vaults) > 0, "No Hemi vaults found in test data"
@@ -938,7 +1071,7 @@ def test_calculate_lifetime_metrics(
 
     sample_row = metrics.set_index("id").loc["43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"]
     assert sample_row["chain"] == "Hemi"
-    assert sample_row["years"] == pytest.approx(0.11225188227241616)
+    assert sample_row["years"] == pytest.approx(0.1137348847821127)
     assert sample_row["name"] == "Clearstar USDC.e"
 
     assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
@@ -961,21 +1094,22 @@ def test_calculate_lifetime_metrics(
     assert sample_row["share_token_decimals"] == 18
 
     assert sample_row["lifetime_return"] == pytest.approx(0.002758)
-    assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
-    assert sample_row["cagr_net"] == pytest.approx(0.02483940718068034)
+    assert sample_row["cagr"] == pytest.approx(0.024511586033353794)
+    assert sample_row["cagr_net"] == pytest.approx(0.024511586033353794)
 
-    # Three months metrics - the test data spans ~41 days, which fits within 3M tolerance
-    assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
-    assert sample_row["three_months_cagr_net"] == pytest.approx(0.02483940718068034)
+    # The 41-day history supports absolute returns and risk metrics, but
+    # cannot establish a three-month annualised return.
+    assert pd.isna(sample_row["three_months_cagr"])
+    assert sample_row["three_months_cagr_net"] is None
     # Sparse change-only observations are expanded to consecutive calendar
     # days before annualising the risk metrics.
-    assert sample_row["three_months_sharpe"] == pytest.approx(16.510952815481623)
-    assert sample_row["three_months_sharpe_net"] == pytest.approx(16.510952815481623)
+    assert sample_row["three_months_sharpe"] == pytest.approx(16.22943922726163)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(16.22943922726163)
 
     assert sample_row["one_month_returns"] == pytest.approx(0.0018523254977500514)
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0018523254977500514)
-    assert sample_row["one_month_cagr"] == pytest.approx(0.022786946472187264)
-    assert sample_row["one_month_cagr_net"] == pytest.approx(0.022786946472187264)
+    assert sample_row["one_month_cagr"] == pytest.approx(0.02210391100632525)
+    assert sample_row["one_month_cagr_net"] == pytest.approx(0.02210391100632525)
 
     assert sample_row["features"] == ["morpho_like"]
     assert sample_row["protocol_slug"] == "morpho"
@@ -1091,6 +1225,13 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
     1. Create six calendar days from three event-observed GMX prices.
     2. Calculate the forward-filled risk metrics used by the vault report.
     3. Confirm volatility remains measurable but the insufficient history has no Sharpe.
+
+    :param vault_db:
+        Metadata fixture used to construct an event-observed GMX record.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :return:
+        ``None`` after checking absolute returns and sparse risk metrics.
     """
 
     address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
@@ -1125,8 +1266,6 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
         available_metrics = (
             period.returns_gross,
             period.returns_net,
-            period.cagr_gross,
-            period.cagr_net,
             period.volatility,
             period.max_drawdown,
             period.tvl_start,
@@ -1135,6 +1274,9 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
             period.tvl_high,
         )
         assert all(value is not None and pd.notna(value) for value in available_metrics), period.period
+        assert period.cagr_gross is None
+        assert period.cagr_net is None
+        assert period.annualisation_error_reason
 
     assert pd.notna(result["three_months_volatility"])
     assert pd.isna(result["three_months_sharpe"])

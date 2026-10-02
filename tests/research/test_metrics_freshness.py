@@ -19,6 +19,7 @@ from eth_defi.research.metrics_freshness import (
     LOW_TVL_METRICS_MAX_AGE,
     LOW_TVL_THRESHOLD_ETH,
     LOW_TVL_THRESHOLD_USD,
+    VAULT_METRICS_CALCULATION_VERSION,
     VAULT_METRICS_STATE_SCHEMA_VERSION,
     _stagger_offset,  # noqa: PLC2701
     clear_period_rankings,
@@ -55,6 +56,30 @@ def _make_state(now: datetime.datetime, entries: dict[str, str | None]) -> dict:
             "denomination_family": "stablecoin",
         }
     return state
+
+
+def test_metrics_definition_change_forces_one_recomputation(tmp_path: Path) -> None:
+    """Invalidate cached metrics when the calculation definition changes.
+
+    A valid older state triggers recomputation without being treated as corrupt.
+    Saving the new calculation version restores normal cache reuse.
+
+    :param tmp_path:
+        Isolated metrics-state directory.
+    :return:
+        ``None``; validates version invalidation, persistence and no quarantine.
+    """
+    now = datetime.datetime(2026, 10, 2)  # noqa: DTZ001 - Repository timestamps use naive UTC.
+    state = _make_state(now, {"launch-vault": now.isoformat()})
+    state.pop("calculation_version")
+    path = tmp_path / "metrics-state.json"
+    save_metrics_state(state, path)
+    refreshed = load_metrics_state(path, now)
+    assert refreshed["vaults"] == {}
+    assert refreshed["calculation_version"] == VAULT_METRICS_CALCULATION_VERSION
+    save_metrics_state(refreshed, path)
+    assert load_metrics_state(path, now) == refreshed
+    assert not list(tmp_path.glob("*.corrupt-*"))
 
 
 def test_partition_due_vault_ids_rules() -> None:
@@ -350,6 +375,13 @@ def test_crypto_two_run_patch_keeps_previous_record(tmp_path: Path, monkeypatch:
        without a record because it provably cannot enter the export.
     3. Run 3: the freshness state file is deleted; both vaults become due
        again and are recomputed (self-healing from state loss).
+
+    :param tmp_path:
+        Isolated destination for Parquet, JSON and freshness state files.
+    :param monkeypatch:
+        Fixture replacing metric calculation and export configuration.
+    :return:
+        ``None`` after checking recomputation and replay across three runs.
     """
     vault_address = "0x00000000000000000000000000000000000000aa"
     vault_id = f"1-{vault_address}"
@@ -376,7 +408,20 @@ def test_crypto_two_run_patch_keeps_previous_record(tmp_path: Path, monkeypatch:
     ).write(vault_db_path)
 
     def write_prices(path: Path, rows: list[dict]) -> None:
+        """Write fixture observations with source timestamps and block numbers.
+
+        The mock export uses these real observation fields to exercise both
+        daily metric preparation and the separate return endpoint input.
+
+        :param path:
+            Temporary Parquet destination.
+        :param rows:
+            Dictionaries containing timestamps, identifiers and numeric prices.
+        :return:
+            ``None``; writes the fixture Parquet.
+        """
         frame = pd.DataFrame(rows)
+        frame["block_number"] = range(1, len(frame) + 1)
         frame["timestamp"] = pd.to_datetime(frame["timestamp"])
         frame.set_index("timestamp", inplace=True)
         frame.to_parquet(path)
@@ -402,7 +447,21 @@ def test_crypto_two_run_patch_keeps_previous_record(tmp_path: Path, monkeypatch:
 
     mock_calls: list[set[str]] = []
 
-    def fake_calculate_lifetime_metrics(daily_prices_df, vault_db, stablecoin_rate_feeder=None, crypto_usd_conversion_context=None):  # noqa: ARG001
+    def fake_calculate_lifetime_metrics(daily_prices_df: pd.DataFrame, _vault_db: object, **_kwargs: object) -> pd.DataFrame:
+        """Record due vault identifiers and return minimal exportable metrics.
+
+        This fixture isolates freshness and sticky-record replay from metric
+        mathematics while accepting the production export's keyword inputs.
+
+        :param daily_prices_df:
+            Due daily rows with an ``id`` column.
+        :param _vault_db:
+            Unused metadata rows passed by the coordinator.
+        :param _kwargs:
+            Unused optional metric inputs.
+        :return:
+            One fixed-generation metrics record per due vault.
+        """
         vault_ids = set(daily_prices_df["id"].astype(str))
         mock_calls.append(vault_ids)
         records = [
@@ -495,6 +554,13 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
        low-TVL and its state timestamp does not advance.
     3. Run 3: the freshness state file is deleted; both vaults become due
        again (self-healing from state loss).
+
+    :param tmp_path:
+        Isolated destination for price, metadata and freshness state files.
+    :param monkeypatch:
+        Fixture replacing metric calculation and export configuration.
+    :return:
+        ``None`` after checking due-only reads and freshness commits.
     """
     from eth_defi.compat import native_datetime_utc_now
     from eth_defi.vault import top_vaults_json
@@ -533,6 +599,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
             {"id": small_vault_id, "chain": 1, "address": small_vault_address, "share_price": 1.0, "total_assets": 100.0, "timestamp": "2026-09-21 00:00:00"},
         ]
     )
+    prices["block_number"] = range(1, len(prices) + 1)
     prices["timestamp"] = pd.to_datetime(prices["timestamp"])
     prices.set_index("timestamp", inplace=True)
     parquet_path = tmp_path / "prices.parquet"
@@ -545,7 +612,21 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
         post_processor_calls.append("post-processing")
         return set()
 
-    def fake_calculate_lifetime_metrics(returns_df, vault_db, core3_protocols=None, xerberus_pools=None, xerberus_protocols=None):  # noqa: ARG001
+    def fake_calculate_lifetime_metrics(returns_df: pd.DataFrame, _vault_db: object, **_kwargs: object) -> pd.DataFrame:
+        """Capture the due cohort after vault export post-processing.
+
+        Minimal records let the test exercise gate filtering, export admission
+        and cache commits without repeating the metric calculations.
+
+        :param returns_df:
+            Due daily rows with an ``id`` column.
+        :param _vault_db:
+            Unused scanner metadata.
+        :param _kwargs:
+            Unused optional metric inputs.
+        :return:
+            Fixed-generation export records for the selected vaults.
+        """
         assert post_processor_calls
         vault_ids = set(returns_df["id"].astype(str))
         mock_calls.append(vault_ids)

@@ -136,6 +136,27 @@ def test_migrate_vault_strategy_tags_dry_run_preserves_database(tmp_path: Path) 
     assert VaultDatabase.read(vault_db_path).rows[spec]["_strategy_tags"] is None
 
 
+def test_migrate_arcus_family_tags_without_address_registry(tmp_path: Path) -> None:
+    """Repair detected pToken tags without an RPC rescan or address registry.
+
+    Apply the migration to an isolated metadata pickle and repeat it to check
+    that current tags are left unchanged.
+
+    :param tmp_path:
+        Isolated metadata and backup directory.
+    :return:
+        ``None``; validates the persisted tags and idempotent second run.
+    """
+    migration = load_migration_module()
+    spec = VaultSpec(4663, "0x1a596466cb593bee293be8366d9ce493582189c2")
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={spec: {"Protocol": "Arcus", "_detection_data": create_detection(spec, {ERC4626Feature.arcus_like}), "_strategy_tags": None}}).write(path)
+    result = migration.migrate_vault_strategy_tags(path, dry_run=False)
+    assert result.updated_rows == 1
+    assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] == {StrategyTag.directional_leverage, StrategyTag.perpetual_futures}
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
+
+
 def test_migrate_vault_strategy_tags_repairs_legacy_values(tmp_path: Path) -> None:
     """Resolved rows replace legacy string values with current enum tags."""
 

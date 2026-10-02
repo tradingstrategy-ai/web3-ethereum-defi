@@ -1184,6 +1184,10 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
     - Uses exact equality for comparison
     - Skips initial rows with zero or NaN total_supply to find first valid value
 
+    Arcus pTokens are already trading when the first funded observation is
+    recorded. Their NAV can move before another deposit changes share supply,
+    so retain their history from the first positive supply observation.
+
     :param prices_df:
         Price data with 'id' and 'total_supply' columns.
         Assumes data is sorted chronologically within each vault. Timestamp
@@ -1223,6 +1227,7 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
     assert not np.any(same_group & (timestamp_values[1:] < timestamp_values[:-1])), "Vault rows must be chronological before inactive lead-time removal"
     group_ends = np.r_[group_starts[1:], original_row_count]
     total_supply = prices_df["total_supply"]
+    protocols = prices_df["protocol"].to_numpy() if "protocol" in prices_df.columns else None
     valid_supply = total_supply.gt(0).fillna(False).to_numpy(dtype=bool, na_value=False)
     supply_values = total_supply.to_numpy(dtype=object, na_value=np.nan)
     missing_supply = pd.isna(supply_values)
@@ -1251,6 +1256,8 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
         changed[: first_valid - group_start] = False
         changed_positions = np.flatnonzero(changed)
         keep_start = int(changed_positions[0] + group_start) if changed_positions.size else first_valid
+        if protocols is not None and protocols[group_start] == "Arcus":
+            keep_start = first_valid
 
         if keep_start > group_start:
             keep_mask[group_start:keep_start] = False
@@ -1947,6 +1954,10 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
         )
 
     repairable = abnormal & ~np.isnan(next_candidate) & ~np.isnan(prev_candidate) & (prev_candidate != 0) & (next_candidate != 0) & (candidate_pair_change < max_diff)
+    if "protocol" in working.columns:
+        # Leveraged pTokens can make large, real market moves. The generic
+        # neighbour heuristic must not replace their observed contract NAV.
+        repairable &= ~working["protocol"].eq("Arcus").fillna(False).to_numpy(dtype=bool)
     repaired_values = share_values.copy()
     repaired_values[repairable] = (next_candidate[repairable] + prev_candidate[repairable]) / 2
     share_prices_fixed = int(repairable.sum())
@@ -1978,6 +1989,9 @@ def fix_outlier_share_prices(
     corroborate one another. The original value remains available for audit in
     ``raw_share_price``. See the ``check-share-price`` script for individual
     investigations.
+
+    Arcus pTokens retain their observed NAV because leveraged market moves can
+    satisfy the generic anomaly heuristic without being scanner errors.
 
     Case Fluegel DAO:
 
@@ -2335,11 +2349,13 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
 
 
 def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
-    """Select one real end-of-day observation per vault.
+    """Select real daily closing observations and each vault's first price.
 
-    The exported parquet deliberately preserves only real observations. The
-    crypto bundle regularises them to calendar days when it calculates
-    metrics: stablecoin vaults with
+    The first observation is retained alongside the first day's closing
+    observation so lifetime returns and young-vault charts include that day's
+    movement. Later days retain one closing observation. The exported parquet
+    preserves real timestamps; the crypto bundle regularises these to calendar
+    days when it calculates metrics: stablecoin vaults with
     :func:`eth_defi.research.vault_metrics.calculate_sparse_daily_returns_for_all_vaults`,
     and ETH/BTC vaults one vault at a time in
     :mod:`eth_defi.vault.crypto_vaults`.
@@ -2357,8 +2373,10 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     sort_columns = ["id", "timestamp"]
     if "block_number" in frame.columns:
         sort_columns.append("block_number")
-    frame = frame.sort_values(sort_columns, kind="stable")
+    frame = frame.sort_values(sort_columns, kind="stable").reset_index(drop=True)
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
+    first = frame.groupby("id", sort=False).head(1)
+    daily = pd.concat((first.loc[~first.index.isin(daily.index)], daily))
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
     if "returns_1h" in daily.columns:
         # ``returns_1h`` is a legacy name. Crypto Parquet is sparse daily, so

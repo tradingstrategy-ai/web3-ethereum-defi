@@ -26,7 +26,6 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.sparkline import (
-    MIN_SPARKLINE_HISTORY,
     SPARKLINE_BACKGROUND_COLOR,
     SPARKLINE_GRADIENT_ALPHA,
     SPARKLINE_GRADIENT_TOP_COLOR,
@@ -245,7 +244,10 @@ def _vault_symbol_map(vault_db: VaultDatabase) -> dict[str, str | None]:
 
 
 def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> set[str]:
-    """Select supported vaults with finite TVL and sufficient price history.
+    """Select supported vaults with finite TVL and two valid price observations.
+
+    Eligibility requires distinct valid observation timestamps, even within
+    one day. The metadata supplies the supported denomination family.
 
     :param vault_db:
         Vault metadata rows used for denomination-family classification.
@@ -253,7 +255,7 @@ def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> 
         Naive-UTC price rows containing ``id``, ``share_price`` and
         ``total_assets`` columns.
     :return:
-        Canonical IDs with supported denominations, sufficient history and at
+        Canonical IDs with supported denominations, two valid timestamps and at
         least one finite TVL observation.
     """
     required = {"id", "share_price", "total_assets"}
@@ -271,9 +273,11 @@ def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> 
             continue
         share_prices = pd.to_numeric(group["share_price"], errors="coerce")
         assets = pd.to_numeric(group["total_assets"], errors="coerce")
-        finite_share_mask = np.isfinite(share_prices.to_numpy(dtype=float, na_value=np.nan))
+        numeric_prices = share_prices.to_numpy(dtype=float, na_value=np.nan)
+        finite_share_mask = np.isfinite(numeric_prices) & (numeric_prices >= 0) & ~group.index.isna()
         finite_share_times = group.index[finite_share_mask]
-        has_history = bool(finite_share_times.size) and finite_share_times.max() - finite_share_times.min() >= MIN_SPARKLINE_HISTORY
+        span = finite_share_times.max() - finite_share_times.min() if finite_share_times.size else pd.Timedelta(0)
+        has_history = span > pd.Timedelta(0)
         if has_history and np.isfinite(assets.to_numpy(dtype=float, na_value=np.nan)).any():
             included.add(str(vault_id))
     return included
@@ -303,7 +307,7 @@ def prepare_vault_sparklines(prices_df: pd.DataFrame, included_ids: set[str]) ->
         sparkline_data = prepare_sparkline_data(selected.loc[vault_id])
         if sparkline_data is None:
             skipped += 1
-            logger.debug("Skipping sparkline for vault %s: less than %s of finite history", vault_id, MIN_SPARKLINE_HISTORY)
+            logger.debug("Skipping sparkline for vault %s: fewer than two valid observations at distinct timestamps", vault_id)
         else:
             prepared.append((vault_id, sparkline_data))
     return prepared, skipped
@@ -329,7 +333,7 @@ def latest_total_assets_by_id(prices_df: pd.DataFrame, prepared: list[tuple[str,
         except KeyError:
             result[vault_id] = None
             continue
-        chart_end = sparkline_data.end_at + pd.Timedelta(days=1)
+        chart_end = sparkline_data.end_at.normalize() + pd.Timedelta(days=1)
         numeric = pd.to_numeric(rows.loc[rows.index < chart_end], errors="coerce")
         finite_mask = np.isfinite(numeric.to_numpy(dtype=float, na_value=np.nan))
         finite = numeric.iloc[finite_mask].sort_index()
@@ -752,7 +756,7 @@ def _process_vault_for_export(  # noqa: PLR0914
     if not np.isfinite(assets.to_numpy(dtype=float, na_value=np.nan)).any():
         return SparklineVaultWorkResult(vault_id, "excluded")
 
-    chart_end = sparkline_data.end_at + pd.Timedelta(days=1)
+    chart_end = sparkline_data.end_at.normalize() + pd.Timedelta(days=1)
     chart_assets = assets.loc[vault_prices.index < chart_end]
     finite_mask = np.isfinite(chart_assets.to_numpy(dtype=float, na_value=np.nan))
     finite_assets = chart_assets.iloc[finite_mask].sort_index()

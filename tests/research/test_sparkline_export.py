@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import gzip
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -378,7 +379,7 @@ def test_insufficient_history_is_not_counted_as_eligible(tmp_path: Path) -> None
         None.
     """
     _vault_id, vault_db_path, prices_path, state_path, prices = _write_export_inputs(tmp_path, total_assets=10_000.0)
-    prices.iloc[:5].to_parquet(prices_path)
+    prices.iloc[:1].to_parquet(prices_path)
 
     result = sparkline_export.run_sparkline_export(vault_db_path=vault_db_path, prices_path=prices_path, state_path=state_path, force=True, dry_run=True)
 
@@ -387,6 +388,36 @@ def test_insufficient_history_is_not_counted_as_eligible(tmp_path: Path) -> None
     assert result.counters["insufficient_history"] == 1
     assert result.counters["batches"] == 0
     assert json.loads(state_path.read_text(encoding="utf-8"))["vaults"] == {}
+
+
+def test_young_vault_publication_uses_launch_observations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Publish both formats on the first day from the canonical daily bundle.
+
+    The bundle keeps the initial price alongside the daily close. The exporter
+    must use these two observations without a separate hourly price input.
+
+    :param tmp_path:
+        Isolated metadata, price and publication-state paths.
+    :param monkeypatch:
+        Capture R2 uploads without network writes.
+    :return:
+        ``None``; checks eligibility and both published object payloads.
+    """
+    vault_id, vault_db_path, prices_path, state_path, prices = _write_export_inputs(tmp_path, total_assets=10_000.0)
+    prices = prices.iloc[:2].copy()
+    prices.index = pd.to_datetime(["2026-09-24 12:10:57", "2026-09-24 18:37:08"])
+    prices.index.name = "timestamp"
+    prices["share_price"] = [96.606690, 76.246850]
+    prices.to_parquet(prices_path)
+    uploaded: list[dict] = []
+    monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _workers: (object(), "test-bucket"))
+    monkeypatch.setattr(sparkline_export, "upload_bytes_to_r2", lambda **kwargs: uploaded.append(kwargs) or True)
+    result = sparkline_export.run_sparkline_export(vault_db_path=vault_db_path, prices_path=prices_path, state_path=state_path, render_workers=1, upload_workers=1)
+    assert result.success
+    assert result.counters["eligible"] == 1
+    assert result.counters["uploaded"] == sparkline_export.SPARKLINE_FORMAT_COUNT
+    assert {entry["object_name"] for entry in uploaded} == {f"sparkline-90d-{vault_id}.svg", f"sparkline-90d-{vault_id}.png"}
+    assert any(gzip.decompress(entry["payload"]).startswith(b"\x89PNG") for entry in uploaded)
 
 
 def test_invalid_tvl_is_counted_without_rendering(tmp_path: Path) -> None:

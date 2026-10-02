@@ -18,8 +18,21 @@ reviewed snapshot of the deposit fee and profit share published by Arcus's
 public pToken vault API without making runtime API requests. It does not
 advertise a deposit/redeem manager or binding withdrawal time because those
 behaviours have not been certified. The pToken mechanics and automatic
-threshold-based rebalancing are described in Arcus's public product
-announcement; they are not independently inferred from the product labels.
+threshold-based rebalancing are described in Arcus's
+`pToken product announcement <https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus>`__.
+
+Every vault detected as part of this contract family automatically receives
+the ``directional_leverage`` and ``perpetual_futures`` strategy tags. These
+defaults also cover products without an address-specific display overlay.
+USDG denomination describes the accounting currency; it does not establish
+stablecoin-only economic exposure or a lending strategy.
+
+The cleaner retains the first funded pToken observation and preserves large
+leveraged NAV moves instead of replacing them through the generic spike
+heuristic. Published absolute returns start at the first valid stored price,
+which can be later than deployment. Annualised returns require the full
+requested lookback, or 30 days for lifetime CAGR. Sparklines can be published
+from two valid observations at distinct timestamps, including on the first day.
 
 All reviewed pTokens return the same unlabelled EOA from ``manager()``. The
 library displays Arcus as the protocol-level curator and manager for these
@@ -32,5 +45,6 @@ operator behind the generic ``manager()`` address.
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.arcus.constants
+   eth_defi.erc_4626.vault_protocol.arcus.tags
    eth_defi.erc_4626.vault_protocol.arcus.offchain_data
    eth_defi.erc_4626.vault_protocol.arcus.vault
