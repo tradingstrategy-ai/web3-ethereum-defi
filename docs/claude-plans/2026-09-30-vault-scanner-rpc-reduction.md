@@ -537,3 +537,19 @@ backfill tests passed with two xdist workers (`--dist loadgroup`): 113 tests in
 `/tmp/vault-rpc-disabled-gmx-final-opus-5-5-review-2026-10-02.jsonl`, with a
 successful result, the correct worktree and Claude Opus 5.5. No production data,
 remote commits or pull-request content were changed by this cleanup.
+
+CI follow-up on 2026-10-02 reproduced stale test interfaces from the previous
+automated-suite run. Asseto, Midas and Ondo probe fakes now accept and assert
+the historical ``current_state=False`` contract. The Onyx permission stub uses
+the real discovery base initialiser instead of bypassing cursor/cache setup.
+The manifest test classifies its simulated retry as transient and isolates its
+accounting database per test, avoiding xdist locks on an operator state file.
+It also verifies that internal and unclassified failures remain failed without
+consuming a queued successful response or advancing price provenance.
+
+All 20 focused checks passed with two xdist workers, including the real Midas
+fork/export integration. Scoped Ruff and whitespace checks passed. A grounded
+Claude Opus 5.5 review approved the five-file fix in the correct worktree;
+its suggested non-blocking coordinator retry coverage was added before the
+final passing run. These are deterministic test-contract corrections, not
+flaky markers or CI exclusions.
