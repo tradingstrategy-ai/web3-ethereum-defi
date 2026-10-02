@@ -3836,10 +3836,6 @@ def _calculate_vault_record_from_arrays(
     lifetime_samples = len(observation_ns)
     age = (lifetime_end_date - lifetime_start_date).total_seconds() / (365.25 * 86400)
 
-    # A zero initial price cannot establish a return basis. Preserve legacy
-    # zero defaults for other protocols, except unknown event-only returns.
-    unavailable_metric = None if observation_prices[0] == 0 or (chain_id == ANTARCTIC_CHAIN_ID and vault_address.lower() in ANTARCTIC_BY_ADDRESS) else 0
-
     # Legacy: Lifetime metrics
     if lifetime_pm and lifetime_pm.error_reason is None:
         lifetime_return = lifetime_pm.returns_gross
@@ -3847,10 +3843,8 @@ def _calculate_vault_record_from_arrays(
         cagr = lifetime_pm.cagr_gross
         cagr_net = lifetime_pm.cagr_net if known_fee else None
     else:
-        lifetime_return = unavailable_metric
-        lifetime_return_net = unavailable_metric if known_fee else None
-        cagr = unavailable_metric
-        cagr_net = unavailable_metric if known_fee else None
+        # Unavailable metrics must not become a claim of zero performance.
+        lifetime_return = lifetime_return_net = cagr = cagr_net = None
 
     # Legacy: three months metrics
     if three_months_pm and three_months_pm.error_reason is None:
@@ -3865,13 +3859,8 @@ def _calculate_vault_record_from_arrays(
         three_months_end = three_months_pm.samples_end_at
         three_months_samples = three_months_pm.raw_samples
     else:
-        three_month_returns = unavailable_metric
-        three_months_return_net = unavailable_metric if known_fee else None
-        three_months_cagr = unavailable_metric
-        three_months_cagr_net = unavailable_metric if known_fee else None
-        three_months_volatility = unavailable_metric
-        three_months_sharpe = unavailable_metric
-        three_months_sharpe_net = unavailable_metric
+        three_month_returns = three_months_return_net = three_months_cagr = three_months_cagr_net = None
+        three_months_volatility = three_months_sharpe = three_months_sharpe_net = None
         three_months_start = None
         three_months_end = None
         three_months_samples = 0
@@ -3912,10 +3901,7 @@ def _calculate_vault_record_from_arrays(
         one_month_end = one_month_pm.samples_end_at
         one_month_samples = one_month_pm.raw_samples
     else:
-        one_month_returns = unavailable_metric
-        one_month_returns_net = unavailable_metric if known_fee else None
-        one_month_cagr = unavailable_metric
-        one_month_cagr_net = unavailable_metric if known_fee else None
+        one_month_returns = one_month_returns_net = one_month_cagr = one_month_cagr_net = None
         one_month_start = None
         one_month_end = None
         one_month_samples = None

@@ -212,6 +212,63 @@ def test_zero_initial_price_does_not_publish_a_zero_return(vault_db: VaultDataba
     assert metrics["cagr"] is None
 
 
+def test_zero_basis_fixed_periods_do_not_publish_legacy_zero_returns(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Withhold fixed-period fields independently from a valid lifetime basis.
+
+    A vault can start above zero, reach zero and recover. Fixed windows that
+    begin at zero must retain null legacy fields alongside their period error.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :return:
+        ``None`` after checking valid lifetime and invalid fixed-period fields.
+    """
+    end = pd.Timestamp("2026-10-01 18:00")
+    source = pd.concat([price_df.iloc[:1]] * 4).copy()
+    source.index = pd.DatetimeIndex([end - pd.Timedelta(days=180), end - pd.Timedelta(days=90), end - pd.Timedelta(days=30), end])
+    source["share_price"] = [100.0, 0.0, 0.0, 110.0]
+    metrics = calculate_lifetime_metrics(source, vault_db).iloc[0]
+    assert metrics["lifetime_return"] == pytest.approx(0.1)
+    for period in ("1M", "3M"):
+        result = vault_metrics.get_period_metrics(metrics["period_results"], period)
+        assert result.share_price_start == 0
+        assert result.error_reason == "Returns require a non-zero starting share price"
+    columns = (
+        "one_month_returns",
+        "one_month_returns_net",
+        "one_month_cagr",
+        "one_month_cagr_net",
+        "three_months_returns",
+        "three_months_returns_net",
+        "three_months_cagr",
+        "three_months_cagr_net",
+        "three_months_volatility",
+        "three_months_sharpe",
+        "three_months_sharpe_net",
+    )
+    assert all(metrics[column] is None for column in columns)
+
+
+def test_single_observation_keeps_legacy_returns_unavailable(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Withhold legacy returns until a second observation establishes performance.
+
+    One price supplies current assets but cannot establish an absolute return,
+    annualised return or risk series. Those fields must remain unavailable.
+
+    :param vault_db:
+        Metadata fixture supplying the required vault fields.
+    :param price_df:
+        Timestamp-indexed price fixture supplying accounting columns.
+    :return:
+        ``None`` after checking null lifetime and fixed-period exports.
+    """
+    metrics = calculate_lifetime_metrics(price_df.iloc[:1], vault_db).iloc[0]
+    columns = ("lifetime_return", "cagr", "one_month_returns", "one_month_cagr", "three_months_returns", "three_months_cagr", "three_months_volatility", "three_months_sharpe")
+    assert all(metrics[column] is None for column in columns)
+
+
 def test_flat_initial_interval_is_included_in_daily_risk_metrics() -> None:
     """Treat a flat partial first day consistently with a moving first day.
 

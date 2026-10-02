@@ -990,7 +990,9 @@ periods shorter than 14 days or with fewer than 10 daily prices.
 
 Absolute returns use the first and last valid real observations, including
 the first day's movement before its daily close. They are available with two
-observations with a non-zero starting price. A young vault's fixed-period
+observations with a non-zero starting price. Unavailable lifetime and fixed-period
+fields remain null rather than implying zero performance, including when a
+window starts at a zero price. A young vault's fixed-period
 absolute return covers its available observations, which can be shorter than
 the requested lookback; the period's sample timestamps identify that span.
 Annualised returns are null until a fixed lookback has its full requested
