@@ -210,10 +210,11 @@ def test_historical_state_rotation_wraps_from_last_provider_to_first_two(monkeyp
 
     fallback_provider = FakeFallbackProvider()
     reader = object.__new__(multicall_batcher.MultiprocessMulticallReader)
+    reader.chain_id = 42161
     reader.web3 = SimpleNamespace(provider=fallback_provider, eth=SimpleNamespace(chain_id=42_161))
     attempted_indices: list[int] = []
 
-    def fake_call_multicall_with_batch_size(_reader: object, **_kwargs: object) -> list[tuple[bool, bytes]]:
+    def fake_fetch_multicall_with_batch_size(_reader: object, **_kwargs: object) -> list[tuple[bool, bytes]]:
         attempted_indices.append(fallback_provider.currently_active_provider)
         if fallback_provider.currently_active_provider == 0:
             message = "missing trie node"
@@ -222,9 +223,9 @@ def test_historical_state_rotation_wraps_from_last_provider_to_first_two(monkeyp
 
     monkeypatch.setattr(multicall_batcher, "FallbackProvider", FakeFallbackProvider)
     monkeypatch.setattr(multicall_batcher, "get_multicall_contract", lambda *_args, **_kwargs: object())
-    reader.call_multicall_with_batch_size = fake_call_multicall_with_batch_size
+    reader.fetch_multicall_with_batch_size = fake_fetch_multicall_with_batch_size
 
-    result = reader.retry_historical_state_with_provider_rotation(
+    result = reader.fetch_multicall_from_alternate_archives(
         block_identifier=421_460_233,
         batch_size=40,
         encoded_calls=[],

@@ -3886,6 +3886,8 @@ This cannot recover historical HyperCore state that a provider does not serve.
 Deferral is enabled only for the historical price path that preserves saved
 rows. Metadata and feature probes still raise transport failures rather than
 caching them as contract reverts.
+Generic historical callers also retain strict errors by default. Only consumers
+that preserve existing source data should pass `allow_greylist_unavailable=True`.
 
 To exercise real providers without modifying production metadata, prices or
 reader state:
