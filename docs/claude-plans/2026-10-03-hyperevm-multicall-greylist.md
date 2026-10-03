@@ -166,7 +166,7 @@ retain hard failures. Provider restoration runs once after the isolated lane,
 and restoration failure cannot mask completed results or the original failure.
 
 The initial focused regression suite passed **81 tests**. Subsequent cleanup
-and review added coverage; the final suite passed **98 tests** using this command:
+and review added coverage; the final suite passed **99 tests** using this command:
 
 ```shell
 source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run pytest \
@@ -283,7 +283,7 @@ removed; tests now use the actual exhaustion exception and chained cause.
 The final grounded Opus 5.5 pass confirmed all six earlier findings fixed and
 reported no blocking correctness regression. Its remaining logging/statistics
 nits were corrected, and three-provider gas exhaustion and timeout-to-gas
-transitions gained explicit coverage. The final suite passed 98 tests.
+transitions gained explicit coverage. The final suite passed 99 tests.
 
 The final script also passed its manual real-provider run at **20:58 UTC on
 3 October 2026**: ordinary USDt0 reads succeeded at all nine Alchemy/Goldsky/dRPC
