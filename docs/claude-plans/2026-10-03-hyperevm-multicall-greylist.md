@@ -195,3 +195,62 @@ limits above one conservatively defer an entire exhausted batch. An archive
 gap remains a hard error even when reached during gas-error failover. Compare
 production physical counters and coverage after deployment before claiming a
 measured reduction. No production deployment has been performed for this branch.
+
+## Local HyperEVM scan results
+
+On 3 October 2026 at 19:49–19:50 UTC, the branch's normal
+`scan-vaults-all-chains.py` coordinator completed a HyperEVM-only incremental
+scan using private copies of production metadata, price Parquet, reader state,
+TVL/lead caches and the dense chain-999 timestamp cache. `TEST_CHAINS` and
+`CHAIN_ORDER` were `Hyperliquid`, `SCAN_PRICES=true`, `MAX_WORKERS=8`, retries
+at coordinator level were disabled, and post-processing/uploads were skipped.
+Unrelated native vault feeds were disabled. The currency-rate stage also ran
+after the chain scan; its HTTP work is outside these EVM RPC counts.
+Production state, containers and published feeds were not changed.
+
+The scanner selected 746 vaults, accepted 3,806 encoded subcalls across six
+hourly samples from block 47,560,406 to 47,578,406, and wrote 205 price rows.
+The Parquet grew from 22,915,960 to 22,916,165 rows without deleting existing
+rows. All 598 saved HYPED rows, including timestamps and `written_at`, matched
+the baseline with a NaN-aware comparison. HYPED's six unavailable observations
+were deferred: diagnostic invocation/error counters changed, while its stored
+freshness and block cursor did not advance.
+
+| Recorded operation | Physical attempts |
+|---|---:|
+| Regular historical Multicall | 281 |
+| Isolated historical Multicall | 24 |
+| Reader preparation | 30 |
+| Discovery preparation | 6 |
+| Total | 341 |
+
+These are the existing instrumented physical-attempt counters, including
+failures and verification calls within those operations. The 24 isolated
+requests are four HYPED subcalls at each of six blocks; seven other greylist
+entries retained blacklist precedence. Discovery and TVL caches were warm.
+
+Historical work used **305 attempts**, or **50.8 per sampled block**, compared
+with **24,192 attempts / 26 blocks = 930.5 per block** in the earlier production
+scan. This is an observed **94.5% lower attempt rate per sampled block**.
+Normalising by accepted subcalls gives **0.080 versus 0.657 attempts per
+subcall**, an **87.8% reduction**. This is not a controlled A/B experiment:
+different block ranges, scheduled readers, cache warmth and worker counts can
+affect the comparison. The result supports the retry correction and isolation,
+but is not a guaranteed production saving or evidence that fewer providers
+are sufficient. Compare matched production windows after deployment.
+
+No hard chain failure or traceback occurred. Coverage remains degraded for the
+same eight stale-source vaults. Five vaults still lack denominations and 50
+have unverified USD conversion. HYPED's historical Core reads remained
+unavailable. Regular batches also encountered provider gas rejections and
+recovered through bounded fallback; some targets beyond the initial greylist
+may need tracing or bisection. Rejected mixed-batch membership alone is not
+enough evidence to add them. The next useful optimisation is to identify those
+remaining offenders, and consider a cheap chain/provider capability policy
+that avoids repeatedly rediscovering a known unsuitable gas limit without
+conflating it with missing historical state.
+
+Private operator evidence, including the console log, copied baseline,
+operation counters and output comparisons, is retained under
+`/home/mikko/.local/state/hyperevm-scan-2026-10-03/`. Raw logs may contain provider
+diagnostics and are not committed. The branch has still not been deployed.
