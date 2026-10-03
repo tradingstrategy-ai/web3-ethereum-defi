@@ -1,5 +1,7 @@
 # 1.2
 
+- perf: Share GMX PnL deployments across three isolated groups and consolidate fork stop-loss checks while preserving payout and order-history coverage (2026-10-03).
+
 - perf: Consolidate live GMX data checks, reuse isolated trading baselines, bound scanner work, repair cold disk-cache writes and retain complete CI timing and resource reports (2026-10-03).
 - perf: Reduce test load by removing empty and redundant smoke tests, reusing an existing GMX deployment for wallet checks and bounding live Hyperliquid reconstruction to one day (2026-10-03).
 - fix: Disable broken ForgeYields offchain fetching while preserving cached metadata and recognise YieldBasis and Kinexys synthetic USD valuations in scanner admission and freshness (2026-10-03).

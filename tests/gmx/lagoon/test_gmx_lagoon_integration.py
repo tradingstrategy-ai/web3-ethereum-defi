@@ -12,19 +12,11 @@ from decimal import Decimal
 import pytest
 from flaky import flaky
 
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
-from eth_defi.gmx.trading import GMXTrading
-from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 from eth_defi.testing.gmx_lagoon import (
     GMX_EXCHANGE_ROUTER,
@@ -34,8 +26,8 @@ from eth_defi.testing.gmx_lagoon import (
     WETH_ARBITRUM,
     WETH_WHALE,
     LagoonGMXForkEnv,
-    create_cached_lagoon_gmx_fork_env,
     create_lagoon_gmx_fork_env,
+    isolated_lagoon_gmx_fork_env,
 )
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -98,39 +90,13 @@ def lagoon_gmx_fork_env(
     launch = anvil_fork_pool.get_launch(
         os.environ["JSON_RPC_ARBITRUM"],
         ARBITRUM_MIDNIGHT_BLOCK,
+        isolation_group="fork:arbitrum:gmx-lagoon",
         unlocked_addresses=[USDC_WHALE, WETH_WHALE],
         test_request_timeout=100,
         launch_wait_seconds=60,
     )
-    baseline = create_cached_lagoon_gmx_fork_env(launch, _gmx_deployment_baselines)
-    isolation = evm_snapshot_revert(launch, strict=True)
-    next(isolation)
-    try:
-        web3 = create_multi_provider_web3(launch.json_rpc_url, default_http_timeout=(3.0, 100.0))
-        web3.provider.make_request("evm_setNextBlockTimestamp", [web3.eth.get_block("latest")["timestamp"] + 1])
-        vault = LagoonVault(web3, baseline.vault.spec, trading_strategy_module_address=baseline.vault.trading_strategy_module_address, vault_abi=baseline.vault.vault_abi)
-        wallet = HotWallet(baseline.asset_manager_wallet.account)
-        wallet.sync_nonce(web3)
-        config = GMXConfig(web3, user_wallet_address=vault.safe_address)
-        yield LagoonGMXForkEnv(
-            web3=web3,
-            vault=vault,
-            lagoon_wallet=LagoonGMXTradingWallet(vault=vault, asset_manager=wallet, gas_buffer=500_000),
-            asset_manager_wallet=wallet,
-            gmx_config=config,
-            trading=GMXTrading(config),
-            positions=GetOpenPositions(config),
-            anvil_launch=launch,
-            deploy_info=baseline.deploy_info,
-        )
-    finally:
-        try:
-            next(isolation, None)
-        except RuntimeError:
-            # Discard the damaged baseline; the pool will relaunch on next use.
-            _gmx_deployment_baselines.clear()
-            launch.close()
-            raise
+    with isolated_lagoon_gmx_fork_env(launch, _gmx_deployment_baselines) as env:
+        yield env
 
 
 @flaky(max_runs=3, min_passes=1)

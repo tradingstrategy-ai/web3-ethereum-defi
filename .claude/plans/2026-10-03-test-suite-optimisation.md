@@ -44,7 +44,7 @@ The vault suite includes Ember lifecycle at 27.66s, two operator-liquidity refus
 
 ## First batch already implemented
 
-PR #1623 contains only test changes and a changelog entry:
+The initial batch in PR #1623 contained test changes and a changelog entry:
 
 1. Remove `tests/erc_4626/vault_protocol/test_superform.py`: its test body was entirely commented out but still requested a fork fixture.
 2. Remove the assertion-free `test_arbitrum_gmx_fetch_tickers`. The existing endpoint integration retains symbol and numeric-price assertions.
@@ -421,3 +421,60 @@ that the relative-path xdist regression fails on the old writer (four rows
 instead of six). Its residual resource-directory concern was addressed too:
 resolve that directory at configure and verify session resources remain at the
 original path even when a probe leaves its working directory changed.
+
+
+### Completed CI baseline and next implementation batch (2026-10-03)
+
+Published head `d5ee0ddb4` passed all four test workflows. Pytest elapsed was
+main 224.20s, GMX 229.52s, slow 47.82s and vault 117.33s. Relative to the
+recorded master baseline, GMX improved 19.6% and slow improved 69.0%; main was
+7.6% slower and vault roughly unchanged. Worker CPU reports provide a new
+baseline only. Complete phase/resource artifacts were retained after fixing
+relative paths. The [CI comparison comment](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623#issuecomment-5974135099)
+records the runs and remaining bottlenecks.
+
+The next local batch implements the measured GMX PnL setup and fork-order query
+candidates. Seven distinct payout/NAV regressions remain. Their seven private
+deployments become three shared mutable partitions at the canonical block,
+with matching xdist markers, group-specific generation caches, strict snapshot
+restoration and fresh Python adapters. Snapshot creation or strict restoration
+failure clears the affected cache and closes the process. Independent
+deployment and native-fee forwarding retain their own deployments.
+
+Three overlapping create/open/stop-loss cases become one cancellation lifecycle
+with their original shape and dispatch assertions. Nonexistent-key and
+empty-account cases remain. Unjustified cancellation retries are removed; the
+existing dated PnL flakiness history remains. Public indexers cannot see private
+fork transactions, so these local tests use real RPC position/order reads and
+bypass public history. Separate live provider coverage remains, and a focused
+offline regression explicitly exercises the production pending/cache/Subsquid
+merge, increase filtering and execution-key deduplication. This does not claim
+that a mocked history response checks provider availability.
+
+Local before/after: the same two integration modules under four loadgroup
+workers passed 12 cases in 98.45s before and 10 in 65.77s after (33.2% less
+elapsed). Displayed PnL setup total fell from 149.35s to 65.30s; these omit
+sub-second durations suppressed by pytest and are accumulated worker seconds.
+An initial single-group attempt passed 27 checks but regressed elapsed to
+127.60s; three partitions retain parallelism while reducing deployment work.
+The final combined PnL, trading, cancellation, pool and reader run passed 32
+cases in 100.50s with no retry attempts. The history-merge check passed in
+0.10s. Manual tests used the supplied Arbitrum RPC fallback providers
+(redacted), live GMX market/oracle APIs and actual Anvil keeper execution.
+
+This batch is local until published; its CI improvement remains unmeasured.
+Next candidates are the main-suite Ember redemption, Lighter settlement-budget
+and Ostium transaction stages, plus CI checkout/Aave preparation. Preserve
+those distinct lifecycle and budget/security assertions; profile stages before
+changing them. Repeated GMX keeper transaction costs now remain after reducing
+deployment setup.
+
+
+Two grounded read-only Claude CLI Opus 5.5 reviews completed successfully for
+this batch. The first prompted status-aware pending/history assertions and
+explicit offline merge coverage; the final pass found no blocking defects.
+The empty-account exchange fixture is function-scoped, so its strict empty
+history assertion does not inherit the lifecycle cache. Transport errors still
+rely on the pool's next-request liveness probe; four-worker timings should not
+be extrapolated to runs with fewer workers. Formatting and whitespace checks
+passed.

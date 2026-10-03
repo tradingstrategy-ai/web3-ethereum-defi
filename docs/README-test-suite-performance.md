@@ -802,11 +802,11 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 
 ## Remaining rollout
 
-The July infrastructure and October reductions are implemented in code. Confirm
-October changes on CI before expanding mutable deployment sharing. Next,
-profile repeated deployment and transaction stages in the surviving expensive
-lifecycle tests, then extend compatible baselines only where setup savings
-outweigh serialisation. Submodule/setup caching and a shared setup action remain
+The July infrastructure and first October reductions have passed CI. The next
+GMX deployment-sharing batch is validated locally and awaits publication and CI
+measurement. Profile transaction stages in the surviving expensive lifecycle
+tests, and extend compatible baselines only where setup savings outweigh
+serialisation. Submodule/setup caching and a shared setup action remain
 candidates requiring CI measurements. Retain the existing required-check gates.
 
 ## Out of scope
@@ -861,5 +861,38 @@ pool relaunches before the next request.
 
 The follow-up batch is published in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623);
 its checks and recommendation comments record CI acceptance and comparisons.
-At publication, complete-batch CI measurements were pending. Local elapsed-time reductions
-and explicit method-call counts are not suite-wide CPU or HTTP/RPC savings.
+The complete published head ``d5ee0ddb4`` passed all four test workflows.
+Compared with the recorded master baseline, pytest elapsed was 224.20s for main
+(previously 208.46s), 229.52s for GMX (285.59s), 47.82s for slow (154.11s) and
+117.33s for vault (119.42s). Main became slower; vault was roughly unchanged.
+These single observations and local method-call counts are not suite-wide CPU
+or HTTP/RPC savings.
+
+
+### Next GMX deployment batch (2026-10-03)
+
+Seven PnL payout/NAV scenarios now share three independently scheduled mutable
+deployments, each at the canonical Arbitrum midnight block. The pool's optional
+``isolation_group`` must match the collection-time ``xdist_group`` marker. Keep
+a separate deployment cache per group, strict snapshots and fresh Python
+adapters; the trading group and read-only callers retain separate processes.
+Independent deployment and fee-forwarding tests still deploy independently.
+
+Three overlapping CCXT stop-loss checks become one real create/execute/query/
+cancel lifecycle. Order shape, pending-only dispatch and default-position
+dispatch assertions are retained. Private-fork position reads bypass public
+REST/GraphQL indexers and fork-order tests bypass public Subsquid history, since
+those services cannot index local transactions. The RPC reader and DataStore
+calls remain real; market/oracle APIs and separate provider integrations remain
+live. A focused offline regression covers the actual pending/cache/Subsquid
+history merge and duplicate execution suppression.
+
+Using four workers with ``--dist loadgroup``, the same two integration modules
+fell from 12 tests in 98.45s to 10 tests in 65.77s (33.2% less local elapsed
+time). PnL deployment count falls from seven to three; the displayed accumulated
+PnL setup durations fell from 149.35s to 65.30s, excluding sub-second entries
+pytest suppresses. One shared group passed but took 127.60s because it serialised
+all seven cases; three groups avoid that bottleneck. These are warm local
+observations, not CI or CPU reduction claims. The final combined run including
+both Lagoon modules, cancellation and pool/reader regressions passed 32 tests
+in 100.50s; the additional history-merge regression passed in 0.10s.

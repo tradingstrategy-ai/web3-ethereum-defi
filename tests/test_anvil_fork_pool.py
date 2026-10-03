@@ -399,3 +399,39 @@ def test_dispose_survives_close_failure(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: False)
     with pytest.warns(pool_module.WedgedForkRecycledWarning):
         assert pool.get_launch("https://a.example https://b.example", 300) is fresh
+
+
+def test_mutation_groups_reuse_and_recycle_independently(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Separate mutable groups without changing their actual Anvil settings.
+
+    Matching groups reuse a process. A recycled PnL fork must neither close nor
+    replace the trading fork or default read-only partition.
+
+    :param monkeypatch:
+        Restore mocked launch and liveness functions after the test.
+    :return:
+        None; assertions verify independent reuse, recovery and teardown.
+    """
+    pnl, trading, default, replacement = (Mock(json_rpc_url=f"http://localhost:{port}") for port in range(23480, 23484))
+    start = Mock(side_effect=[pnl, trading, default, replacement])
+    monkeypatch.setattr(pool_module, "fork_network_anvil", start)
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda launch: True)
+    pool = AnvilForkPool()
+    rpc = "https://primary.example https://fallback.example"
+    assert pool.get_launch(rpc, 100, isolation_group="pnl", unlocked_addresses=["account"]) is pnl
+    assert pool.get_launch(rpc, 100, isolation_group="pnl", unlocked_addresses=["account"]) is pnl
+    assert pool.get_launch(rpc, 100, isolation_group="trading", unlocked_addresses=["account"]) is trading
+    assert pool.get_launch(rpc, 100, unlocked_addresses=["account"]) is default
+    assert start.call_count == 3
+    assert all("isolation_group" not in call.kwargs for call in start.call_args_list)
+
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda launch: launch is not pnl)
+    with pytest.warns(pool_module.WedgedForkRecycledWarning):
+        assert pool.get_launch(rpc, 100, isolation_group="pnl", unlocked_addresses=["account"]) is replacement
+    assert pool.get_launch(rpc, 100, isolation_group="trading", unlocked_addresses=["account"]) is trading
+    assert pool.get_launch(rpc, 100, unlocked_addresses=["account"]) is default
+    pnl.close.assert_called_once()
+    trading.close.assert_not_called()
+    pool.close_all()
+    for launch in (trading, default, replacement):
+        launch.close.assert_called_once()

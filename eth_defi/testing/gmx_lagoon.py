@@ -5,8 +5,11 @@ contract interactions. Callers own fork lifetime and EVM snapshot isolation.
 """
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
+from unittest.mock import patch
 
 from eth_account import Account
 from eth_utils import to_checksum_address
@@ -18,12 +21,14 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.testing import setup_mock_oracle
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
@@ -254,3 +259,82 @@ def create_cached_lagoon_gmx_fork_env(
         baselines.clear()
         baselines[generation] = baseline
     return baseline
+
+
+@contextmanager
+def gmx_fork_position_reads() -> Iterator[None]:
+    """Read positions from the actual fork instead of public-chain indexers.
+
+    Public REST/GraphQL services cannot index transactions on a private Anvil
+    fork. Return empty results from those two tiers so the unchanged production
+    reader takes its real RPC fallback. Market/oracle APIs and onchain contract
+    calls remain live. Provider integration tests separately exercise the tiers.
+
+    :return:
+        Context with restored reader methods on exit.
+    """
+    with patch.object(GetOpenPositions, "_get_data_via_rest_api", return_value={}), patch.object(GetOpenPositions, "_get_data_via_graphql", return_value={}):
+        yield
+
+
+@contextmanager
+def isolated_lagoon_gmx_fork_env(
+    launch: AnvilLaunch,
+    baselines: dict[tuple[int, float], LagoonGMXForkEnv],
+) -> Iterator[LagoonGMXForkEnv]:
+    """Restore a deployed GMX baseline with fresh Python adapters per test.
+
+    Snapshot after deployment, then discard the process/cache if strict restore
+    fails. Callers obtain the current launch from the pool and co-locate sharers
+    using a matching isolation group. Use real RPC position reads because public
+    indexers cannot observe private-fork transactions.
+
+    :param launch:
+        Liveness-checked pooled process for this mutation group.
+    :param baselines:
+        Per-group deployment cache keyed by actual process generation.
+    :return:
+        Fresh environment isolated from earlier EVM and Python mutations.
+
+    See `Anvil documentation <https://getfoundry.sh/anvil/overview>`__.
+    """
+    baseline = create_cached_lagoon_gmx_fork_env(launch, baselines)
+    isolation = evm_snapshot_revert(launch, strict=True)
+    try:
+        next(isolation)
+    except RuntimeError:
+        baselines.clear()
+        launch.close()
+        raise
+    try:
+        web3 = create_multi_provider_web3(launch.json_rpc_url, default_http_timeout=(3.0, 100.0))
+        web3.provider.make_request("evm_setNextBlockTimestamp", [web3.eth.get_block("latest")["timestamp"] + 1])
+        vault = LagoonVault(web3, baseline.vault.spec, trading_strategy_module_address=baseline.vault.trading_strategy_module_address, vault_abi=baseline.vault.vault_abi)
+        wallet = HotWallet(baseline.asset_manager_wallet.account)
+        wallet.sync_nonce(web3)
+        config = GMXConfig(web3, user_wallet_address=vault.safe_address)
+        with gmx_fork_position_reads():
+            positions = GetOpenPositions(config)
+            assert positions.get_data(vault.safe_address) == {}, "Previous test positions leaked across the baseline"
+            assert not any(fetch_pending_orders(web3, "arbitrum", vault.safe_address)), "Previous test limit orders leaked across the baseline"
+            assert web3.eth.get_balance(vault.safe_address) == 100 * 10**18
+            assert fetch_erc20_details(web3, USDC_ARBITRUM).fetch_balance_of(vault.safe_address) == Decimal(100_000)
+            assert fetch_erc20_details(web3, WETH_ARBITRUM).fetch_balance_of(vault.safe_address) == Decimal(50)
+            yield LagoonGMXForkEnv(
+                web3=web3,
+                vault=vault,
+                lagoon_wallet=LagoonGMXTradingWallet(vault=vault, asset_manager=wallet, gas_buffer=500_000),
+                asset_manager_wallet=wallet,
+                gmx_config=config,
+                trading=GMXTrading(config),
+                positions=positions,
+                anvil_launch=launch,
+                deploy_info=baseline.deploy_info,
+            )
+    finally:
+        try:
+            next(isolation, None)
+        except RuntimeError:
+            baselines.clear()
+            launch.close()
+            raise
