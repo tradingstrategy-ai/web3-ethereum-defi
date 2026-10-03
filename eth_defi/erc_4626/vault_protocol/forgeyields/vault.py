@@ -94,7 +94,8 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
 
-        # Fetch the current denomination-token TVL from the API (cached in-process)
+        # The shared disk snapshot and outage deadline coalesce API requests
+        # across rows and vaults while allowing later scan cycles to recover.
         current_tvl = self.vault.fetch_tvl()
 
         # Only write TVL for near-head rows — the API value is a current

@@ -14,17 +14,19 @@ import datetime
 import json
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
+import requests
 
 import eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata as forgeyields_offchain
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
     fetch_forgeyields_strategies,
     fetch_forgeyields_vault_metadata,
 )
-
 
 #: fyUSDC Ethereum gateway
 FYUSDC_ADDRESS = "0x943109DC7C950da4592d85ebd4Cfed007Af64670"
@@ -69,14 +71,6 @@ MOCK_STRATEGIES_RESPONSE = [
         },
     },
 ]
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """Clear the in-process cache before each test."""
-    forgeyields_offchain._cached_strategies = None
-    yield
-    forgeyields_offchain._cached_strategies = None
 
 
 def _write_mock_cache(tmpdir: str) -> Path:
@@ -132,20 +126,22 @@ def test_fetch_strategies_from_cache():
         assert meta["apy"] == pytest.approx(25.07)
 
 
-def test_fetch_vault_metadata_by_address():
+def test_fetch_vault_metadata_by_address(monkeypatch: pytest.MonkeyPatch):
     """Verify per-vault lookup using mock data.
 
-    1. Populate the in-process cache with mock data
+    1. Supply a cached strategy snapshot with mock data
     2. Look up fyUSDC by its gateway address
     3. Verify name, symbol, and TVL
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_path = _write_mock_cache(tmpdir)
-        # Populate the in-process cache
-        forgeyields_offchain._cached_strategies = fetch_forgeyields_strategies(
+        # Supply a cached strategy snapshot
+        strategies = fetch_forgeyields_strategies(
             cache_path=cache_path,
             max_cache_duration=datetime.timedelta(days=999),
         )
+
+    monkeypatch.setattr(forgeyields_offchain, "fetch_forgeyields_strategies", lambda: strategies)
 
     # 2. Look up
     meta = fetch_forgeyields_vault_metadata(FYUSDC_ADDRESS)
@@ -156,7 +152,7 @@ def test_fetch_vault_metadata_by_address():
     assert meta["tvl_usd"] == Decimal("1085984.11")
 
 
-def test_unknown_address_returns_none():
+def test_unknown_address_returns_none(monkeypatch: pytest.MonkeyPatch):
     """Verify that an unknown address returns None.
 
     1. Populate cache with mock data
@@ -165,11 +161,12 @@ def test_unknown_address_returns_none():
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_path = _write_mock_cache(tmpdir)
-        forgeyields_offchain._cached_strategies = fetch_forgeyields_strategies(
+        strategies = fetch_forgeyields_strategies(
             cache_path=cache_path,
             max_cache_duration=datetime.timedelta(days=999),
         )
 
+    monkeypatch.setattr(forgeyields_offchain, "fetch_forgeyields_strategies", lambda: strategies)
     assert fetch_forgeyields_vault_metadata("0x0000000000000000000000000000000000000001") is None
 
 
@@ -286,3 +283,66 @@ def test_live_api():
     assert FYUSDC_ADDRESS.lower() in strategies
     meta = strategies[FYUSDC_ADDRESS.lower()]
     assert meta["tvl_usd"] > Decimal("10000")
+
+
+@pytest.mark.parametrize("warm_cache", [False, True])
+def test_failed_refresh_is_shared_and_recovers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, warm_cache: bool) -> None:
+    """Concurrent valuation requests make one failed refresh, then recover.
+
+    An expired success snapshot must retain its bytes and age during backoff;
+    a cold cache must also throttle retries without writing an empty success.
+    Expiring the persisted deadline allows a real refresh on the next call.
+    """
+    now = datetime.datetime(2026, 10, 3, 12)
+    file = tmp_path / "forgeyields_strategies.json"
+    if warm_cache:
+        _write_mock_cache(str(tmp_path))
+        old_time = (now - datetime.timedelta(days=3)).replace(tzinfo=datetime.UTC).timestamp()
+        os.utime(file, (old_time, old_time))
+        original = file.read_bytes(), file.stat().st_mtime
+    request = Mock(side_effect=requests.HTTPError("500 Server Error"))
+    monkeypatch.setattr(forgeyields_offchain.requests, "get", request)
+
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        snapshots = list(workers.map(lambda _: fetch_forgeyields_strategies(cache_path=tmp_path, now_=now), range(8)))
+    assert request.call_count == 1
+    if warm_cache:
+        assert all(snapshot[FYUSDC_ADDRESS.lower()]["tvl"] == Decimal("1069435.712178") for snapshot in snapshots)
+        assert (file.read_bytes(), file.stat().st_mtime) == original
+    else:
+        assert snapshots == [{}] * 8
+        assert not file.exists()
+
+    response = Mock()
+    response.json.return_value = MOCK_STRATEGIES_RESPONSE
+    request.side_effect = None
+    request.return_value = response
+    recovered = fetch_forgeyields_strategies(cache_path=tmp_path, now_=now + datetime.timedelta(hours=1))
+    assert recovered[FYUSDC_ADDRESS.lower()]["tvl"] == Decimal("1069435.712178")
+    assert request.call_count == 2
+    assert not file.with_suffix(".retry-after").exists()
+
+
+def test_empty_refresh_preserves_successful_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty API response is unavailable data, not a replacement snapshot."""
+    _write_mock_cache(str(tmp_path))
+    file = tmp_path / "forgeyields_strategies.json"
+    original = file.read_bytes()
+    response = Mock()
+    response.json.return_value = []
+    request = Mock(return_value=response)
+    monkeypatch.setattr(forgeyields_offchain.requests, "get", request)
+    for _ in range(2):
+        result = fetch_forgeyields_strategies(cache_path=tmp_path, max_cache_duration=datetime.timedelta(0))
+        assert result[FYUSDC_ADDRESS.lower()]["tvl"] == Decimal("1069435.712178")
+    assert request.call_count == 1
+    assert file.read_bytes() == original
+
+
+def test_vault_metadata_recovers_after_empty_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A looped process must not retain its initial empty strategy response."""
+    metadata = {"name": "recovered"}
+    request = Mock(side_effect=[{}, {FYUSDC_ADDRESS.lower(): metadata}])
+    monkeypatch.setattr(forgeyields_offchain, "fetch_forgeyields_strategies", request)
+    assert fetch_forgeyields_vault_metadata(FYUSDC_ADDRESS) is None
+    assert fetch_forgeyields_vault_metadata(FYUSDC_ADDRESS) == metadata

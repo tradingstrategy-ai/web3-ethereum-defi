@@ -9,7 +9,8 @@
   ``https://api.forgeyields.com/strategies``
 - We reverse-engineered the API endpoint from the Next.js app at
   ``app.forgeyields.com``
-- Two-level caching: disk (2-day TTL) + in-process dictionary
+- Shared disk cache: two-day metadata TTL, one-hour TVL TTL, and a one-hour
+  failed-refresh cooldown across scanner workers and restarts
 
 API response structure
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -45,13 +46,13 @@ from pathlib import Path
 from typing import TypedDict
 
 import requests
-
-from web3 import Web3
+from atomicwrites import atomic_write
 from eth_typing import HexAddress
-from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from web3 import Web3
+
+from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
-
 
 #: Where we cache fetched ForgeYields metadata files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "forgeyields"
@@ -133,144 +134,115 @@ def _parse_strategy(raw: dict) -> ForgeYieldsVaultMetadata:
     )
 
 
+def _read_cached_strategies(file: Path) -> dict[str, ForgeYieldsVaultMetadata]:
+    """Load the last successful strategy snapshot without changing its age.
+
+    Both normal reads and outage fallback use the same Decimal conversion.
+    A missing snapshot returns an empty mapping; corrupt stored data remains
+    an explicit error instead of being mistaken for a valid zero-TVL response.
+
+    :param file: Shared JSON snapshot written by the strategy fetcher.
+    :return: Strategy metadata keyed by lower-case Ethereum gateway address.
+    """
+    if not file.exists() or file.stat().st_size == 0:
+        return {}
+    with file.open() as source:
+        serialised = json.load(source)
+    for metadata in serialised.values():
+        metadata["tvl_usd"] = Decimal(metadata["tvl_usd"])
+        metadata["tvl"] = Decimal(metadata.get("tvl", "0"))
+    return serialised
+
+
 def fetch_forgeyields_strategies(
     cache_path: Path = DEFAULT_CACHE_PATH,
     api_base_url: str = DEFAULT_API_BASE_URL,
     now_: datetime.datetime | None = None,
     max_cache_duration: datetime.timedelta = datetime.timedelta(days=2),
+    retry_cooldown: datetime.timedelta = datetime.timedelta(hours=1),
 ) -> dict[str, ForgeYieldsVaultMetadata]:
-    """Fetch and cache ForgeYields strategy metadata.
+    """Fetch all ForgeYields strategies with shared outage backoff.
 
-    - Single API call returns all strategies
-    - Indexed by lowercased Ethereum gateway address
-    - Multiprocess safe via file lock
+    ``ForgeYieldsVault.fetch_tvl()`` calls this for each historical valuation,
+    using a one-hour success TTL; metadata callers use two days. An HTTP 500
+    previously left the success snapshot expired, so every subsequent row
+    retried the same failing endpoint. The separate retry deadline bounds
+    failures without touching the successful snapshot's modification time or
+    making stale TVL appear freshly fetched. The existing file lock protects
+    both records across threads, processes and scanner restarts.
 
-    :param cache_path:
-        Directory for cache files (default ``~/.tradingstrategy/cache/forgeyields/``)
+    The source is the `ForgeYields strategies API
+    <https://api.forgeyields.com/strategies>`__. During an outage, callers receive
+    the last successful snapshot or an empty mapping if none exists. Neither
+    an empty API response nor a failed refresh overwrites successful data.
 
-    :param api_base_url:
-        ForgeYields API base URL
-
-    :param now_:
-        Override current time (for testing)
-
-    :param max_cache_duration:
-        How long before refreshing cache (default 2 days)
-
-    :return:
-        Dict mapping lowercased Ethereum gateway address to :py:class:`ForgeYieldsVaultMetadata`
+    :param cache_path: Directory containing the strategy snapshot and retry deadline.
+    :param api_base_url: API origin; the shared request reads ``/strategies``.
+    :param now_: Naive UTC clock override for deterministic tests.
+    :param max_cache_duration: Maximum successful snapshot age; default two days.
+    :param retry_cooldown: Time between failed refresh attempts; default one hour.
+    :return: Metadata keyed by lower-case Ethereum gateway address.
     """
     assert isinstance(cache_path, Path), "cache_path must be Path instance"
-
+    assert retry_cooldown > datetime.timedelta(0), "retry_cooldown must be positive"
     cache_path.mkdir(parents=True, exist_ok=True)
-    file = cache_path / "forgeyields_strategies.json"
-    file = file.resolve()
-
-    file_size = file.stat().st_size if file.exists() else 0
-
-    if not now_:
-        now_ = native_datetime_utc_now()
+    file = (cache_path / "forgeyields_strategies.json").resolve()
+    retry_file = file.with_suffix(".retry-after")
+    now_ = now_ if now_ is not None else native_datetime_utc_now()
 
     with wait_other_writers(file):
-        if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
-            logger.info("Re-fetching ForgeYields strategies from %s", api_base_url)
+        # Inspect freshness after acquiring the lock: another worker may have
+        # refreshed the snapshot while this caller was waiting for its turn.
+        if file.exists() and file.stat().st_size > 0 and now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime) <= max_cache_duration:
+            return _read_cached_strategies(file)
+        if retry_file.exists() and now_ < datetime.datetime.fromisoformat(retry_file.read_text()):
+            logger.debug("ForgeYields refresh deferred until %s", retry_file.read_text())
+            return _read_cached_strategies(file)
 
-            url = f"{api_base_url}/strategies"
-            try:
-                resp = requests.get(url, headers={"Content-Type": "application/json"}, timeout=30)
-                resp.raise_for_status()
-                raw_list = resp.json()
-            except (requests.RequestException, JSONDecodeError) as e:
-                logger.warning("Failed to fetch ForgeYields strategies from %s: %s", url, e)
-                # Fall back to stale cache rather than returning empty
-                if file.exists() and file.stat().st_size > 0:
-                    logger.info("Using stale cache at %s after API failure", file)
-                    try:
-                        serialised = json.load(open(file, "rt"))
-                        result = {}
-                        for k, v in serialised.items():
-                            v["tvl_usd"] = Decimal(v["tvl_usd"])
-                            v["tvl"] = Decimal(v.get("tvl", "0"))
-                            result[k] = v
-                        return result
-                    except (JSONDecodeError, KeyError):
-                        pass
-                return {}
-
-            result: dict[str, ForgeYieldsVaultMetadata] = {}
-            for raw in raw_list:
+        result: dict[str, ForgeYieldsVaultMetadata] = {}
+        url = f"{api_base_url}/strategies"
+        try:
+            response = requests.get(url, headers={"Content-Type": "application/json"}, timeout=30)
+            response.raise_for_status()
+            for raw in response.json():
                 entry = _parse_strategy(raw)
                 if entry["ethereum_gateway"]:
-                    key = entry["ethereum_gateway"].lower()
-                    result[key] = entry
-
-            logger.info("Fetched metadata for %d ForgeYields strategies", len(result))
-
-            if not result:
-                logger.warning("ForgeYields API returned 0 strategies, skipping cache write to avoid poisoning the cache")
-                return {}
-
-            # Serialise — Decimal needs string conversion
-            serialisable = {}
-            for k, v in result.items():
-                sv = dict(v)
-                sv["tvl_usd"] = str(sv["tvl_usd"])
-                sv["tvl"] = str(sv["tvl"])
-                serialisable[k] = sv
-
-            with file.open("wt") as f:
-                json.dump(serialisable, f, indent=2)
-
-            logger.info("Wrote ForgeYields cache %s", file)
-            assert file.stat().st_size > 0, f"File {file} is empty after writing"
-            return result
-
+                    result[entry["ethereum_gateway"].lower()] = entry
+        except (requests.RequestException, JSONDecodeError) as error:
+            logger.warning("ForgeYields refresh failed; retry after %s: %s", now_ + retry_cooldown, error)
         else:
-            timestamp = datetime.datetime.fromtimestamp(file.stat().st_mtime, tz=None)
-            ago = now_ - timestamp
-            logger.info("Using cached ForgeYields strategies from %s, last fetched at %s, ago %s", file, timestamp.isoformat(), ago)
+            if not result:
+                logger.warning("ForgeYields returned no Ethereum strategies; retaining the previous snapshot and retrying after %s", now_ + retry_cooldown)
 
-            if file_size == 0:
-                return {}
+        if not result:
+            # Empty responses are unavailable observations too. Persist only
+            # the deadline, including on a cold cache, so waiting workers and
+            # restarted scanners cannot turn one outage into a request burst.
+            with atomic_write(retry_file, overwrite=True) as output:
+                output.write((now_ + retry_cooldown).isoformat())
+            logger.info("Using the last successful ForgeYields snapshot from %s if available", file)
+            return _read_cached_strategies(file)
 
-            try:
-                serialised = json.load(open(file, "rt"))
-            except JSONDecodeError as e:
-                content = open(file, "rt").read()
-                raise RuntimeError(f"Could not parse ForgeYields cache at {file}, length {len(content)}, content starts with {content[:100]!r}") from e
-
-            # Deserialise Decimal strings back
-            result = {}
-            for k, v in serialised.items():
-                v["tvl_usd"] = Decimal(v["tvl_usd"])
-                v["tvl"] = Decimal(v.get("tvl", "0"))
-                result[k] = v
-            return result
+        serialisable = {key: {**entry, "tvl_usd": str(entry["tvl_usd"]), "tvl": str(entry["tvl"])} for key, entry in result.items()}
+        with atomic_write(file, overwrite=True) as output:
+            json.dump(serialisable, output, indent=2)
+        retry_file.unlink(missing_ok=True)
+        logger.info("Cached %d ForgeYields strategies at %s", len(result), file)
+        return result
 
 
 def fetch_forgeyields_vault_metadata(vault_address: HexAddress) -> ForgeYieldsVaultMetadata | None:
-    """Fetch vault metadata from ForgeYields' offchain strategies API.
+    """Look up an Ethereum gateway using the expiring shared strategies cache.
 
-    - Uses a two-level cache: in-process dict + disk cache
-    - Looks up by the Ethereum gateway address
+    Vault adapters memoise this metadata for their own lifetime. Avoid a
+    process-global dictionary here: looped scanners previously retained an
+    empty initial response forever, even after the API recovered. The shared
+    disk TTL and failed-refresh deadline already bound network requests.
 
-    :param vault_address:
-        Vault contract address (Ethereum TokenGateway)
-
-    :return:
-        Metadata dict or None if the address is not a known ForgeYields gateway
+    :param vault_address: Ethereum TokenGateway contract address.
+    :return: Strategy metadata, or None when the gateway is unavailable.
     """
-    global _cached_strategies
-
-    if _cached_strategies is None:
-        _cached_strategies = fetch_forgeyields_strategies()
-
-    key = vault_address.lower()
-    return _cached_strategies.get(key)
-
-
-#: In-process cache of fetched strategies
-_cached_strategies: dict[str, ForgeYieldsVaultMetadata] | None = None
+    return fetch_forgeyields_strategies().get(vault_address.lower())
 
 
 class ForgeYieldsHistoryEntry(TypedDict):
