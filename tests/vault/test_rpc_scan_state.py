@@ -13,6 +13,7 @@ from web3.exceptions import ContractLogicError, Web3RPCError
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626 import vault_token
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, VaultReaderState
+from eth_defi.event_reader.multicall_batcher import MulticallRetryExhausted
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.anvil import invalidate_anvil_detection, is_anvil
 from eth_defi.provider.fallback import ExtraValueError
@@ -283,7 +284,7 @@ def test_token_mapping_expiry_and_negative_token_retry(tmp_path: Path, monkeypat
 def test_known_provider_availability_errors_are_transient(message: str) -> None:
     """Known current-head/provider consensus failures receive bounded retries."""
     assert classify_rpc_scan_failure(Web3RPCError(message)) == "transient"
-    exhausted = RuntimeError("Out of multicall retries, bailing out")
+    exhausted = MulticallRetryExhausted("Multicall physical-batch retries exhausted")
     exhausted.__cause__ = Web3RPCError(message)
     assert classify_rpc_scan_failure(exhausted) == "transient"
     exhausted.__cause__ = ContractLogicError("execution reverted")
@@ -310,7 +311,7 @@ def test_fallback_provider_payloads_are_transient(payload: dict) -> None:
     error = ExtraValueError(payload)
     assert classify_rpc_scan_failure(error) == "transient"
     assert not is_contract_read_failure(error)
-    exhausted = RuntimeError("Out of multicall retries")
+    exhausted = MulticallRetryExhausted("Multicall physical-batch retries exhausted")
     exhausted.__cause__ = error
     assert classify_rpc_scan_failure(exhausted) == "transient"
 

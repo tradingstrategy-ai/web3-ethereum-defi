@@ -67,7 +67,7 @@ Only three of its selectors are affected, and `totalSupply()` never is:
 | `0x01e1d114` | `totalAssets()` | heavy / reverts historically |
 | `0x07a2d13a` | `convertToAssets(uint256)` | heavy / reverts historically |
 | `0x402d267d` | `maxDeposit(address)` | heavy / reverts historically |
-| `0x18160ddd` | `totalSupply()` | always cheap, always works |
+| `0x18160ddd` | `totalSupply()` | pure EVM storage read; independent of the Core view |
 
 ## Root cause — the vault reads HyperCore through precompiles
 
@@ -311,8 +311,12 @@ rather than adding the full logged batch.
 Each physical batch owns its retries. A successful fallback returns immediately;
 a failing reduced fragment resumes after previously completed fragments. Regular
 results are not replayed because a later isolated target fails. The isolated lane
-allows the initial attempt plus at most two alternate-provider requests, with no
-same-provider retry for a sole provider's one-call gas rejection. The provider is
+allows at most two alternate-provider retry rounds for gas failures, with no
+same-provider retry for a sole provider's one-call gas rejection. At the default
+size one, each round is one aggregate request. Larger explicit limits may split
+a retry into several requests. Timeouts, rate limits and consensus failures
+retain the normal retry budget and backoff; archive gaps still rotate through
+configured providers separately. The provider is
 restored once after the isolated lane so greylist failover does not redirect
 future normal work. If restoration fails verification, the verified backup is
 retained and a warning identifies the failed restoration.
@@ -320,8 +324,13 @@ retained and a warning identifies the failed restoration.
 Only the preservation-aware historical price path opts into an explicit
 `unavailable_error` for exhausted isolated gas failures, distinct from a served
 Solidity revert. Metadata, feature probes and other chunked consumers retain
-hard errors so transport failures cannot poison their caches. Historical readers reject the whole affected
-vault observation before decoding or updating reader state. They preserve saved
+hard errors so transport failures cannot poison their caches. The generic
+historical APIs also default to strict errors; only a caller passing
+`allow_greylist_unavailable=True` accepts unavailable results. The public vault
+reader also defaults to strict errors; the atomic price exporter explicitly opts
+in after taking responsibility for saved-row preservation. Historical price
+readers reject the affected vault observation before advancing source/freshness
+state. They preserve saved
 rows whose `(chain, address, block_number)` keys have no complete successful
 replacement, including unsampled keys. Preserved timestamps and `written_at`
 remain unchanged. Archive gaps, timeouts and malformed replies remain hard
@@ -344,13 +353,14 @@ isolated requests, and verifies a cheap USDt0 `totalSupply()` read. It writes no
 scanner state and does not retry failed mixed payloads. It reports provider hosts
 and raw integers, never credentials or denominated NAV estimates.
 
-At 18:01 UTC on 3 October 2026, Goldsky rejected all three mixed payloads as out of gas, while
+At 18:01 UTC on 3 October 2026, Goldsky rejected all three mixed payloads as out
+of gas, while
 the isolated requests kept the ordinary USDt0 read available at all three blocks.
 Alchemy served every subcall at head but returned Core-dependent failures at
 the two older blocks; dRPC's head mixed payload succeeded but some subsequent
 isolated calls reverted. Earlier checks also saw Core-dependent failures at
-Alchemy's head. These
-results illustrate changing node-local Core availability. Isolation fixes the
+Alchemy's head. These results illustrate changing node-local Core availability.
+Isolation fixes the
 neighbouring batch failure; it does not establish historical Core semantics or
 restore unavailable NAV. The existing source-block attribution is preserved;
 do not use this diagnostic command as a historical data backfill.

@@ -17,19 +17,20 @@ import datetime
 import logging
 import os
 import tempfile
-
-import pyarrow as pa
-
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
 from collections import defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -62,6 +63,11 @@ MONAD_CHAIN_ID = 143
 
 #: Canonical explanation of Monad's provider-dependent historical state window.
 MONAD_HISTORICAL_DATA_DOCUMENTATION_URL = "https://docs.monad.xyz/developer-essentials/historical-data"
+
+#: ERC-4626 valuation selectors: totalAssets(), convertToAssets(uint256), totalSupply().
+#: A served revert of any required field prevents a complete Core-dependent NAV;
+#: optional capacity probes such as maxDeposit() do not invalidate valuation.
+HYPERCORE_REQUIRED_NAV_SELECTORS = frozenset({bytes.fromhex("01e1d114"), bytes.fromhex("07a2d13a"), bytes.fromhex("18160ddd")})
 
 
 #: List of contracts we cannot scan.
@@ -251,11 +257,16 @@ class VaultHistoricalReadMulticaller:
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
         rpc_request_stats: RPCRequestStats | None = None,
+        allow_greylist_unavailable: bool = False,
     ) -> None:
         """Configure the multicall reader and its live-row retention state.
 
         The reader keeps source timestamps in memory for one scan. The Parquet
         writer seeds them from committed rows before the scan begins.
+
+        :param allow_greylist_unavailable:
+            Explicitly enable gas-failure deferral for an exporter preserving
+            unavailable source rows. Public readers remain strict by default.
 
         :param web3factory:
             Factory for worker JSON-RPC connections.
@@ -293,6 +304,7 @@ class VaultHistoricalReadMulticaller:
         self.hypersync_client = hypersync_client
         self.timestamp_cache_file = timestamp_cache_file
         self.rpc_request_stats = rpc_request_stats
+        self.allow_greylist_unavailable = allow_greylist_unavailable
 
         if token_cache is None:
             token_cache = TokenDiskCache()
@@ -742,6 +754,7 @@ class VaultHistoricalReadMulticaller:
                 hypersync_client=self.hypersync_client,
                 timestamp_cache_file=self.timestamp_cache_file,
                 rpc_request_stats=self.rpc_request_stats,
+                allow_greylist_unavailable=self.allow_greylist_unavailable,
             )
             if static_readers
             else ()
@@ -778,9 +791,12 @@ class VaultHistoricalReadMulticaller:
                 # error is neither a Solidity revert nor a fresh zero valuation.
                 # Reviewed Core readers can also return served precompile reverts
                 # when their historical view is absent. Preserve their old rows.
-                greylisted = chain_id == 999 and any(r.call.address.lower() in HYPEREVM_MULTICALL_GREYLIST for r in results)
+                # Preservation is keyed by vault address, not an incidental
+                # helper target. Use the same identity here and in the writer.
+                greylisted = chain_id == 999 and vault_address.lower() in HYPEREVM_MULTICALL_GREYLIST
                 unavailable = next((r.unavailable_error for r in results if r.unavailable_error), None)
-                required_failed = greylisted and any(not r.success and r.call.data[:4].hex() in {"01e1d114", "07a2d13a", "18160ddd"} for r in results)
+                assert unavailable is None or greylisted, f"Unavailable greylisted helper cannot defer unlisted vault {vault_address}; aborting to preserve its saved rows"
+                required_failed = greylisted and any(not r.success and r.call.data[:4] in HYPERCORE_REQUIRED_NAV_SELECTORS for r in results)
                 if unavailable or required_failed:
                     error_count += 1
                     if state:
@@ -801,6 +817,7 @@ class VaultHistoricalReadMulticaller:
                     # Decoding can reveal a partial observation even when the
                     # transport succeeded. Reject it before claiming freshness
                     # and roll back on_called progress made by a protocol reader.
+                    error_count += 1
                     if state and saved_state is not None:
                         state.load(saved_state)
                         state.rpc_error_count += 1
@@ -1045,9 +1062,6 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
-    import pyarrow.compute as pc
-    import pyarrow.parquet as pq
-
     stateful = reader_states is not None
 
     assert isinstance(output_fname, Path)
@@ -1139,6 +1153,9 @@ def scan_historical_prices_to_parquet(
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
         rpc_request_stats=rpc_request_stats,
+        # This atomic writer preserves unreplaced greylisted keys. Standalone
+        # historical readers do not own that preservation step and stay strict.
+        allow_greylist_unavailable=True,
     )
 
     reader_func = read_multicall_historical_stateful if stateful else read_multicall_historical

@@ -1,15 +1,16 @@
 # HyperEVM Multicall greylist design
 
 Branch: `feat-hyperevm-greylist-batches`, created from remote master.
-Implemented in this worktree; not pushed or deployed.
+Implemented and validated locally; production rollout is a separate operation.
 
 ## Goal and evidence
 
 Keep robust HyperEVM contracts on the standard Multicall path while isolating
 reviewed HyperCore-reading contracts into very small requests. Preserve vault
 coverage, source blocks, result identity, reader state and existing price history.
-The latest review recorded 24,192 HyperEVM historical Multicall attempts over
-26 sampled blocks; the exact saving from isolation is not established yet.
+The pre-change review recorded 24,192 HyperEVM historical Multicall attempts over
+26 sampled blocks. The local scan results below show a lower attempt rate;
+matched production savings remain to be established after deployment.
 
 The [gas investigation](../README-hyperevm-hypercore-read-gas.md) establishes that
 Hyperdrive HYPED at `0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e` causes provider-side
@@ -25,7 +26,7 @@ addresses beside the existing Multicall chain policies. Apply it only on chain
 999; the same address on another chain retains normal batching. Membership is
 an execution policy, not a blacklist, risk rating or admission exclusion.
 
-Each entry needs a dated Sphinx line comment identifying the protocol and vault,
+Each entry needs an evidence comment identifying the protocol and vault,
 the failed selectors, the observed provider behaviour, and the investigation
 link. Seed the eight reviewed HyperCore targets documented below. Keep existing blacklists separate; this change does not
 implicitly re-enable unrelated blacklisted vaults.
@@ -38,7 +39,7 @@ is necessary. Start at one; increase to two only with repeatable provider tests.
 ## Execution
 
 Place physical-request planning in `MultiprocessMulticallReader` alongside
-`call_multicall_with_batch_size()`, which serves both historical reads and
+`fetch_multicall_with_batch_size()`, which serves both historical reads and
 `read_multicall_chunked()` callers, including TVL admission and metadata inputs.
 
 1. Keep current block validity and adaptive scheduling filters. Classify only
@@ -71,11 +72,12 @@ batch shrinking or cause the successful fallback to execute again.
 `requireSuccess=False` already represents contract reverts as unsuccessful
 subcall results. Preserve that normal path. A whole-request gas/precompile
 failure requires explicit handling: after bounded attempts for one isolated
-batch, record an unavailable observation with its contract, selector, block,
+batch, preservation-aware price consumers record an unavailable observation with its contract, selector, block,
 provider and reason, and continue other targets. Do not manufacture a successful
 result, a Solidity revert payload or zero TVL. Carry an explicit unavailable
 status through the reader/coverage layer if existing result types cannot represent
-this accurately. Ordinary failures, invalid responses and missing chain-wide
+this accurately. Generic historical callers retain strict errors by default;
+the price exporter opts in explicitly. Ordinary failures, invalid responses and missing chain-wide
 archive state must retain their current hard-error behaviour; do not broadly
 catch `Exception` to make a scan appear successful.
 
@@ -163,7 +165,8 @@ the preservation-aware historical price path; metadata and feature consumers
 retain hard failures. Provider restoration runs once after the isolated lane,
 and restoration failure cannot mask completed results or the original failure.
 
-The focused regression suite passed **81 tests**:
+The initial focused regression suite passed **81 tests**. Subsequent cleanup
+and review added coverage; the final suite passed **98 tests** using this command:
 
 ```shell
 source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run pytest \
@@ -254,3 +257,37 @@ Private operator evidence, including the console log, copied baseline,
 operation counters and output comparisons, is retained under
 `/home/mikko/.local/state/hyperevm-scan-2026-10-03/`. Raw logs may contain provider
 diagnostics and are not committed. The branch has still not been deployed.
+
+## PR cleanup and review follow-up
+
+The cleanup shares archive rotation between initial/reduced attempts, removes
+unused helper arguments and dead comments, replaces repeated retry payload dumps
+with concise warnings, and documents tuple keys and function contracts. Cached
+verified chain identity replaces logging/assertion RPC reads. Network helpers
+use `fetch_` names; the internal worker API now uses `rate_limit_sleep` rather
+than the former misspelt argument. These helper renames have no compatibility
+aliases; repository callers were updated together.
+
+The grounded Opus 5.5 review found that greylisted non-gas failures inherited the
+small gas budget. Only gas symptoms now receive that budget; timeout, rate-limit
+and consensus failures retain normal recovery. Generic historical helpers and
+the public vault reader default to strict errors; only the atomic exporter opts
+in. Deferral and preservation use the vault address consistently, and an
+unavailable greylisted helper routed to an unlisted vault aborts before any saved
+history can be replaced. Required NAV selectors are named and documented.
+
+Tests exercise non-gas recovery/exhaustion, each required served revert, real
+reader-state mutation followed by rollback, and provider restoration while an
+exception propagates. The obsolete string-message exception classifier was
+removed; tests now use the actual exhaustion exception and chained cause.
+The final grounded Opus 5.5 pass confirmed all six earlier findings fixed and
+reported no blocking correctness regression. Its remaining logging/statistics
+nits were corrected, and three-provider gas exhaustion and timeout-to-gas
+transitions gained explicit coverage. The final suite passed 98 tests.
+
+The final script also passed its manual real-provider run at **20:58 UTC on
+3 October 2026**: ordinary USDt0 reads succeeded at all nine Alchemy/Goldsky/dRPC
+provider/block combinations. Alchemy served all head subcalls; dRPC served the
+mixed head payload but only six isolated head subcalls; older Core views remained
+unavailable. Goldsky rejected each mixed payload while the isolated requests
+preserved the control read. This is local manual validation, not CI.

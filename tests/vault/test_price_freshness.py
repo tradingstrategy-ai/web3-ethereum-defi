@@ -388,8 +388,6 @@ def test_hypercore_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatc
 
 def test_hypercore_unavailable_subcall_does_not_decode_or_advance_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """One missing method invalidates the whole vault observation before decoding."""
-    from eth_defi.event_reader.multicall_batcher import EncodedCall
-
     address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
     timestamp = datetime.datetime(2026, 10, 3)
     vault = DummyVault(VaultSpec(999, address), DummyToken())
@@ -409,6 +407,46 @@ def test_hypercore_unavailable_subcall_does_not_decode_or_advance_state(monkeypa
     assert scanner.latest_observed_at == {}
 
 
+@pytest.mark.parametrize("selector", ["01e1d114", "07a2d13a", "18160ddd"])
+def test_hypercore_required_revert_does_not_claim_freshness(monkeypatch: pytest.MonkeyPatch, selector: str) -> None:
+    """Required valuation fields differ from optional reverted capacity probes."""
+    address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    call = EncodedCall("required", address, bytes.fromhex(selector), extra_data={"vault": address})
+
+    def source(**_: object):
+        """Serve a Solidity revert, with no transport unavailable marker."""
+        result = EncodedCallResult(call, False, b"revert", 1, timestamp)
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=[result])
+
+    before = reader.reader_state.last_block
+    assert list(scanner.read_historical([vault], 1, 2, 1, reader_func=source)) == []
+    assert reader.reader_state.last_block == before
+    assert scanner.latest_observed_at == {}
+    assert reader.reader_state.last_rpc_error == "HyperCore observation unavailable"
+
+
+def test_greylisted_helper_cannot_discard_unlisted_vault_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a deferred helper result unless the writer can preserve its vault key."""
+    address = "0x0000000000000000000000000000000000000001"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    call = EncodedCall("helper", "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e", b"", extra_data={"vault": address})
+
+    def source(**_: object):
+        """Route an isolated helper's failed transport to an ordinary vault."""
+        result = EncodedCallResult(call, False, b"", 1, timestamp, unavailable_error="gas accounting unavailable")
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=[result])
+
+    with pytest.raises(AssertionError, match="aborting to preserve its saved rows"):
+        list(scanner.read_historical([vault], 1, 2, 1, reader_func=source))
+
+
 @pytest.mark.parametrize("partial", [False, True], ids=["optional-revert", "partial-valuation"])
 def test_hypercore_optional_revert_and_partial_freshness(monkeypatch: pytest.MonkeyPatch, partial: bool) -> None:
     """Optional reverts retain valid NAV; incomplete decoded NAV never claims freshness."""
@@ -426,6 +464,7 @@ def test_hypercore_optional_revert_and_partial_freshness(monkeypatch: pytest.Mon
 
     def decode(_block: int, _timestamp: datetime.datetime, _results: list) -> VaultHistoricalRead:
         """Model normal decoding and partial TVL discovered after state update."""
+        reader.reader_state.on_called(SimpleNamespace(timestamp=_timestamp, block_identifier=_block), Decimal(2_000), Decimal(1))
         row = reader.make_read(_block, _timestamp)
         if partial:
             row.total_assets = None

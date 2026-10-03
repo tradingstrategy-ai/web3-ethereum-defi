@@ -87,8 +87,6 @@ def classify_rpc_scan_failure(error: BaseException) -> str:
         return "transient"
     if isinstance(error, RuntimeError) and str(error).startswith("Monad provider cannot read state at requested end block"):
         return "transient"
-    if isinstance(error, RuntimeError) and str(error).startswith("Out of multicall retries"):
-        return classify_rpc_scan_failure(error.__cause__) if error.__cause__ is not None else "transient"
     if isinstance(error, (Web3RPCError, ExtraValueError)):
         code, message = normalise_rpc_error(error)
         if code == "-32090":

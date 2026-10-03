@@ -18,7 +18,6 @@ import abc
 import datetime
 import logging
 import os
-import textwrap
 import threading
 import time
 import zlib
@@ -157,10 +156,10 @@ def plan_multicall_batches(
     """
     assert batch_size > 0 and greylist_batch_size > 0
     regular: list[int] = []
-    isolated: dict[str, list[int]] = defaultdict(list)
+    isolated: dict[HexAddress, list[int]] = defaultdict(list)
     for index, (address, _data) in enumerate(encoded_calls):
         if chain_id == 999 and address.lower() in HYPEREVM_MULTICALL_GREYLIST:
-            isolated[address.lower()].append(index)
+            isolated[HexAddress(address.lower())].append(index)
         else:
             regular.append(index)
     for offset in range(0, len(regular), batch_size):
@@ -231,6 +230,21 @@ def is_historical_state_unavailable_error(error: str | Exception) -> bool:
 
     message = str(error).lower()
     return any(clue in message for clue in HISTORICAL_STATE_UNAVAILABLE_MESSAGE_CLUES)
+
+
+def is_multicall_gas_error(error: BaseException) -> bool:
+    """Recognise the documented provider gas symptoms through transport wrappers.
+
+    Only gas rejection warrants the isolated lane's reduced retry budget and
+    optional unavailable result. Timeouts, rate limits and consensus failures
+    retain normal transport recovery even when the target reads HyperCore.
+
+    :param error: Transport exception or wrapper carrying the provider cause.
+    :return: Whether the provider reports gas rejection, including Alchemy's
+        ``BasicOutOfGas`` spelling. This does not identify the responsible target.
+    """
+    message = str(error.__cause__ or error).lower()
+    return "out of gas" in message or "basicoutofgas" in message
 
 
 class MulticallStateProblem(Exception):
@@ -1318,8 +1332,8 @@ def pin_fallback_provider_by_host(fallback_provider: FallbackProvider, host_subs
 class MultiprocessMulticallReader:
     """Reusable worker-local connection and retry policy for Multicall reads.
 
-    The historical name predates the threading backend. Each joblib worker
-    creates its own instance, tied to one chain/provider configuration, so
+    Historical scans use process workers; chunked consumers can use threads.
+    Each joblib worker creates its own instance for a chain/provider setup, so
     mutable connection and accounting state are not shared between workers.
     Calls before Multicall deployment yield no results; see
     :py:func:`get_multicall_block_number` when selecting a historical range.
@@ -1328,12 +1342,12 @@ class MultiprocessMulticallReader:
     def __init__(
         self,
         web3factory: Web3Factory | Web3,
-        batch_size=40,
-        backswitch_threshold=100,
-        too_many_requets_sleep=61.0,
+        batch_size: int = 40,
+        backswitch_threshold: int = 100,
+        rate_limit_sleep: float = 61.0,
         rpc_request_stats: RPCRequestStats | None = None,
         greylist_batch_size: int = 1,
-    ):
+    ) -> None:
         """Create a reader inside its owning thread or process.
 
         The factory keeps connections local while allowing the phase to provide
@@ -1352,6 +1366,10 @@ class MultiprocessMulticallReader:
             default one. Applies only to reviewed HyperEVM greylist entries.
             Normal calls keep their configured batch size; no environment
             setting or additional provider connection is needed.
+        :param backswitch_threshold: Completed tasks before retrying the primary.
+        :param rate_limit_sleep: Seconds to wait after an HTTP 429 response.
+        :param rpc_request_stats: Physical request accumulator for this worker.
+        :return: None.
         """
         if isinstance(web3factory, Web3):
             # Directly passed
@@ -1373,7 +1391,7 @@ class MultiprocessMulticallReader:
             threading.current_thread(),
             name,
         )
-        assert greylist_batch_size > 0
+        assert batch_size > 0 and greylist_batch_size > 0
         self.greylist_batch_size = greylist_batch_size
         self.batch_size = batch_size
 
@@ -1386,50 +1404,53 @@ class MultiprocessMulticallReader:
         #: Try to switch back from the fallback provider to the main provider after this many calls.
         self.backswitch_threshold = backswitch_threshold
 
-        self.too_many_requets_sleep = too_many_requets_sleep
+        self.rate_limit_sleep = rate_limit_sleep
 
-    def __repr__(self):
-        return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
+    def __repr__(self) -> str:
+        return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.chain_id}>"
 
-    def get_block_timestamp(self, block_number: int) -> datetime.datetime:
+    def fetch_block_timestamp(self, block_number: int) -> datetime.datetime:
+        """Fetch one timestamp for callers without a supplied Hypersync timestamp.
+
+        The worker fallback is for isolated reads. Historical scans normally
+        prefetch timestamps through the dense cache and pass them into tasks.
+
+        :param block_number: Exact source block for the fallback RPC read.
+        :return: Naive UTC timestamp from the block header.
+        """
         return get_block_timestamp(self.web3, block_number)
 
-    def get_gas_hint(self, chain_id: int, batch_calls: list[tuple[HexAddress, bytes]]) -> int | None:
-        """Fix non-standard out of gas issues
+    def get_gas_hint(self, chain_id: int) -> int | None:
+        """Choose an explicit gas allowance for chains with unusual execution limits.
 
-        - # https://docs.alchemy.com/reference/gas-limits-for-eth_call-and-eth_estimategas
+        Mantle requires a larger allowance than the provider's default for
+        aggregate reads. See the `provider gas-limit documentation
+        <https://docs.alchemy.com/reference/gas-limits-for-eth_call-and-eth_estimategas>`__.
+
+        :param chain_id: Already verified chain ID; this performs no network read.
+        :return: Explicit transaction gas, or None to use the provider default.
         """
 
         if chain_id == 5000:
-            # Mantle: 1000B gas
-            # Block 61298003
+            # Allowance established for Mantle aggregate reads at block 61298003.
             # Address 0xca11bde05977b3631167028862be2a173976ca11
             return 9_999_000_000_000
-        else:
-            return None
+        return None
 
-    def get_batch_size(self, web3: Web3, chain_id: int, block_identifier: BlockIdentifier) -> int | None:
-        """Fix non-standard out of gas issues.
+    def get_batch_size(self, chain_id: int) -> int:
+        """Apply normal-lane chain limits without shrinking unrelated greylist work.
 
-        TODO: Move these rules to their own module.
+        Mantle and Gnosis retain the existing conservative limit for provider
+        execution constraints. All other chains use the configured normal limit;
+        reviewed HyperEVM targets have a separate planner limit.
+
+        :param chain_id: Already verified chain ID; this performs no network read.
+        :return: Positive maximum encoded subcalls per normal request.
         """
 
-        # provider = web3.provider
-        # if isinstance(provider, FallbackProvider):
-        #    provider = provider.get_active_provider()
-        # name = get_provider_name(provider)
+        return 16 if chain_id in (5000, 100) else self.batch_size
 
-        if chain_id == 5000:
-            # Mantle argh
-            return 16
-        elif chain_id == 100:
-            # Gnosis chain argh
-            return 16
-
-        # Default is 40
-        return self.batch_size
-
-    def call_multicall_with_batch_size(
+    def fetch_multicall_with_batch_size(
         self,
         multicall_contract: Contract,
         block_identifier: BlockIdentifier,
@@ -1437,9 +1458,13 @@ class MultiprocessMulticallReader:
         encoded_calls: list[tuple[HexAddress, bytes]],
         require_multicall_result: bool,
     ) -> list[tuple[bool, bytes]]:
-        """Communicate with Multicall3 contract.
+        """Fetch ordered subcall outputs, retaining completed chunks on failure.
 
-        - Fail safes for ugly situations
+        Recovery may reduce a logical request into several physical requests.
+        Failed transport exceptions carry the completed prefix so the coordinator
+        can resume without replaying paid work. Served subcall reverts remain
+        ordinary outputs, as required by `Multicall3's aggregate interface
+        <https://github.com/mds1/multicall>`__.
 
         :param multicall_contract: Bound Multicall3 contract used for execution.
         :param block_identifier: Source block for all calls in this request.
@@ -1454,17 +1479,13 @@ class MultiprocessMulticallReader:
             success is a boolean; return_data is raw bytes to decode on success
             or inspect as revert data on failure. Order is preserved across chunks.
         """
-        payload_size = 0
         calls_results = []
         chain_id = self.chain_id
 
         for i in range(0, len(encoded_calls), batch_size):
             batch_calls = encoded_calls[i : i + batch_size]
-            # Calculate how many bytes we are going to use
-            payload_size += sum(20 + len(c[1]) for c in batch_calls)
-
             # Fix Mantle out of gas
-            gas = self.get_gas_hint(chain_id=chain_id, batch_calls=batch_calls)
+            gas = self.get_gas_hint(chain_id)
 
             for address, data in batch_calls:
                 assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Contract {address} is broken, cannot call multicall on it."
@@ -1495,10 +1516,6 @@ class MultiprocessMulticallReader:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
 
-                #
-                # When
-                #
-
                 if hasattr(e, "response") and e.response is not None:
                     status_code = e.response.status_code
                 else:
@@ -1521,13 +1538,15 @@ class MultiprocessMulticallReader:
                     f"Addresses: {displayed_addresses[0:15]}... total {len(displayed_addresses)}\n"
                 )
 
-                isolated_gas = chain_id == 999 and all(address.lower() in HYPEREVM_MULTICALL_GREYLIST for address, _data in batch_calls) and "out of gas" in parsed_error.lower()
+                isolated_gas = chain_id == 999 and all(address.lower() in HYPEREVM_MULTICALL_GREYLIST for address, _data in batch_calls) and is_multicall_gas_error(e)
                 if isolated_gas:
                     logger.warning("HyperCore isolated gas rejection: chain=%d block=%s provider=%s target=%s selectors=%s", chain_id, block_identifier, name, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
                 else:
-                    logger.warning("Multicall error:\n%s", textwrap.indent(error_msg, prefix="    "))
-                    for address, data in batch_calls:
-                        logger.warning("Rejected Multicall batch member target=%s selector=%s: %s", address, data[:4].hex(), parsed_error)
+                    # A rejected aggregate does not identify which member caused
+                    # it. Keep retry logs concise and retain full replay details
+                    # in the exception/debug output for a final failure analysis.
+                    logger.warning("Rejected Multicall batch: chain=%d block=%s provider=%s subcalls=%d targets=%s error=%s", chain_id, block_identifier, name, len(batch_calls), sorted(set(addresses))[:8], parsed_error)
+                    logger.debug("Multicall replay diagnostics: %s", error_msg)
 
                 # Check for upstream RPC being broken issues
                 parsed_error = parsed_error.lower()
@@ -1553,13 +1572,13 @@ class MultiprocessMulticallReader:
                         debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
                         last_headers = get_last_headers()
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
 
             calls_results += batch_results
 
         return calls_results
 
-    def retry_historical_state_with_provider_rotation(
+    def fetch_multicall_from_alternate_archives(
         self,
         *,
         block_identifier: BlockIdentifier,
@@ -1647,7 +1666,7 @@ class MultiprocessMulticallReader:
             except ChainIdMismatch as switch_error:
                 logger.warning(
                     "Could not rotate historical multicall at chain %d, block %s to provider %d: %s",
-                    self.web3.eth.chain_id,
+                    self.chain_id,
                     block_identifier,
                     provider_index,
                     switch_error,
@@ -1660,7 +1679,7 @@ class MultiprocessMulticallReader:
             multicall_contract = get_multicall_contract(self.web3, block_identifier=block_identifier)
 
             try:
-                recovered = self.call_multicall_with_batch_size(
+                recovered = self.fetch_multicall_with_batch_size(
                     multicall_contract,
                     block_identifier=block_identifier,
                     batch_size=batch_size,
@@ -1680,7 +1699,7 @@ class MultiprocessMulticallReader:
                 last_error = retry_error
                 logger.warning(
                     "Historical multicall state unavailable at chain %d, block %s from provider %s; continuing provider rotation (%d/%d)",
-                    self.web3.eth.chain_id,
+                    self.chain_id,
                     block_identifier,
                     active_provider_name,
                     rotation_offset + 1,
@@ -1689,7 +1708,7 @@ class MultiprocessMulticallReader:
 
         logger.warning(
             "Historical multicall provider rotation exhausted at chain %d, block %s; attempted providers: %s",
-            self.web3.eth.chain_id,
+            self.chain_id,
             block_identifier,
             attempted_provider_names,
         )
@@ -1710,38 +1729,47 @@ class MultiprocessMulticallReader:
         The planner owns the lane and payload; recovery keeps existing archive
         rotation and consensus handling. Reduced retries carry completed outputs
         forward so a later failing fragment cannot replay an earlier success.
-        Greylisted requests have a smaller bounded recovery budget.
+        Greylisted gas failures have a smaller bounded recovery budget; other
+        transient failures retain normal backoff and retry limits.
 
         :param multicall_contract: Worker-owned Multicall3 binding.
         :param block_identifier: Exact source block; never replaced with latest.
         :param batch_size: Maximum encoded subcalls in this lane.
         :param encoded_calls: Ordered ``(target_address, encoded_calldata)`` inputs.
         :param require_multicall_result: Strict empty-response validation.
-        :param min_fallback_retries: Normal retry minimum, isolated retry maximum.
+        :param min_fallback_retries: Minimum transport recovery budget. Only
+            isolated gas failures use the smaller alternate-provider cap.
         :param greylisted: Whether this request belongs to the isolated lane.
         :return: Ordered ``(success, return_data)`` subcall results.
         """
         assert min_fallback_retries > 0
         chain_id = self.chain_id
-        try:
-            return self.call_multicall_with_batch_size(
-                multicall_contract,
-                block_identifier,
-                batch_size,
-                encoded_calls,
-                require_multicall_result,
-            )
-        except MulticallHistoricalDataUnavailable as error:
+
+        def fetch_with_archive_rotation(limit: int, pending: list[tuple[HexAddress, bytes]]) -> list[tuple[bool, bytes]]:
+            """Serve an unread suffix, rotating archive gaps before gas recovery.
+
+            Initial and reduced attempts share this rule: missing historical
+            state is independent of payload size. A different provider can then
+            fail on gas, in which case its completed prefix reaches the outer
+            retry coordinator through the original transport exception.
+
+            :param limit: Physical request limit for this attempt.
+            :param pending: Ordered ``(target_address, encoded_calldata)`` suffix.
+            :return: Ordered ``(success, return_data)`` outputs for that suffix.
+            """
             try:
-                return self.retry_historical_state_with_provider_rotation(
+                return self.fetch_multicall_with_batch_size(multicall_contract, block_identifier, limit, pending, require_multicall_result)
+            except MulticallHistoricalDataUnavailable as error:
+                return self.fetch_multicall_from_alternate_archives(
                     block_identifier=block_identifier,
-                    batch_size=batch_size,
-                    encoded_calls=encoded_calls,
+                    batch_size=limit,
+                    encoded_calls=pending,
                     require_multicall_result=require_multicall_result,
                     error=error,
                 )
-            except MulticallRetryable as retry_error:
-                last_error = retry_error
+
+        try:
+            return fetch_with_archive_rotation(batch_size, encoded_calls)
         except MulticallRetryable as error:
             last_error = error
 
@@ -1749,54 +1777,35 @@ class MultiprocessMulticallReader:
         remaining = encoded_calls[len(completed) :]
         provider = self.web3.provider
         fallback = provider if isinstance(provider, FallbackProvider) else None
-        if greylisted:
-            # Initial request plus at most two alternate-provider requests.
-            # Reissuing a known gas rejection to the same sole provider cannot
-            # improve a one-subcall request. Avoid per-sample retry storms.
-            retries = min(min_fallback_retries, len(fallback.providers) - 1) if fallback else 0
-        else:
-            retries = max(min_fallback_retries, len(fallback.providers) + 2) if fallback else min_fallback_retries
+        normal_retries = max(min_fallback_retries, len(fallback.providers) + 2) if fallback else min_fallback_retries
+        gas_retries = min(2, len(fallback.providers) - 1) if fallback else 0
         reduced_size = max(batch_size // 3, 1)
         if not greylisted:
             self.last_switch = self.calls
-        for attempt in range(retries):
+        for attempt in range(normal_retries):
             # Generic transport failures still receive the established bounded
             # backoff. Isolated deterministic gas rejections rotate immediately;
             # waiting cannot change the provider's precompile accounting.
-            gas_failure = "out of gas" in str(last_error.__cause__ or last_error).lower()
+            gas_failure = is_multicall_gas_error(last_error)
+            # Evaluate the current cause: a timeout can recover on a provider
+            # that then rejects gas, or a gas rejection can become a timeout.
+            # A sole provider receives no repeated isolated gas probe; genuine
+            # transient outages keep the standard retry/backoff budget.
+            retry_limit = gas_retries if greylisted and gas_failure else normal_retries
+            if attempt >= retry_limit:
+                break
             if not (greylisted and gas_failure):
-                time.sleep(self.too_many_requets_sleep if last_error.status_code == 429 else 2.0 * (attempt + 1))
+                time.sleep(self.rate_limit_sleep if last_error.status_code == 429 else 2.0 * (attempt + 1))
             if fallback:
                 consensus_host = resolve_hyperevm_consensus_failover(chain_id, fallback, last_error)
                 if not (consensus_host and pin_fallback_provider_by_host(fallback, consensus_host)):
                     fallback.switch_provider(log_level=logging.WARNING, randomise=not greylisted, cause="Retry failed physical Multicall batch")
-            logger.warning("Retrying Multicall lane=%s chain=%d block=%s attempt=%d/%d remaining_subcalls=%d limit=%d provider=%s", "greylist" if greylisted else "regular", chain_id, block_identifier, attempt + 1, retries, len(remaining), reduced_size, get_provider_name(provider))
+            logger.warning("Retrying Multicall lane=%s chain=%d block=%s attempt=%d/%d remaining_subcalls=%d limit=%d provider=%s", "greylist" if greylisted else "regular", chain_id, block_identifier, attempt + 1, retry_limit, len(remaining), reduced_size, get_provider_name(provider))
             try:
-                recovered = self.call_multicall_with_batch_size(
-                    multicall_contract,
-                    block_identifier,
-                    reduced_size,
-                    remaining,
-                    require_multicall_result,
-                )
+                recovered = fetch_with_archive_rotation(reduced_size, remaining)
                 # Returning is the success exit. Previously the fallback loop
                 # replayed already successful calls on all remaining providers.
                 return completed + recovered
-            except MulticallHistoricalDataUnavailable as error:
-                try:
-                    recovered = self.retry_historical_state_with_provider_rotation(
-                        block_identifier=block_identifier,
-                        batch_size=reduced_size,
-                        encoded_calls=remaining,
-                        require_multicall_result=require_multicall_result,
-                        error=error,
-                    )
-                    return completed + recovered
-                except MulticallRetryable as retry_error:
-                    completed.extend(retry_error.completed_results)
-                    remaining = remaining[len(retry_error.completed_results) :]
-                    last_error = retry_error
-                    reduced_size = max(reduced_size // 2, 1)
             except MulticallRetryable as error:
                 # A reduced retry can itself contain multiple physical chunks.
                 # Resume after its completed prefix to avoid replaying successful
@@ -1811,27 +1820,32 @@ class MultiprocessMulticallReader:
         self,
         block_identifier: BlockIdentifier,
         calls: list[EncodedCall],
-        require_multicall_result=False,
+        require_multicall_result: bool = False,
         timestamp: datetime.datetime | None = None,
-        min_fallback_retries=5,
+        min_fallback_retries: int = 5,
         allow_greylist_unavailable: bool = False,
-    ) -> Iterable[EncodedCallResult]:
-        """Work a chunk of calls in the subprocess.
+    ) -> Iterator[EncodedCallResult]:
+        """Fetch normal calls before isolated calls and restore original result order.
 
-        - Divide unlimited number of calls to something we think Multicall3 and RPC node can handle
-        - If a single batch fail
+        Chunked consumers and historical workers use this same routing policy.
+        Completed physical batches are never replayed because a later target
+        fails. Transport failures remain strict unless the caller can preserve
+        unavailable observations separately from served Solidity reverts.
 
         :param require_multicall_result:
-            Headache debug flag.
+            Reject empty return bytes, for diagnostics requiring complete replies.
+
+        :param calls:
+            Ordered encoded inputs; duplicate targets retain separate positions.
 
         :param block_identifier:
-            Block number
+            Source block or Web3 block tag; never substituted during recovery.
 
         :param timestamp:
-            Block timestamp
+            Optional prefetched naive UTC source timestamp.
 
         :param min_fallback_retries:
-            Normal minimum bounded retries; isolated targets use at most two.
+            Normal minimum bounded retries; isolated gas failures use at most two.
         :param allow_greylist_unavailable:
             Opt in only for consumers that distinguish provider unavailability
             and preserve saved source data. Metadata, feature and token-cache
@@ -1845,11 +1859,12 @@ class MultiprocessMulticallReader:
         for c in calls:
             assert c.address.lower() not in BROKEN_VAULT_CONTRACTS, f"Contract {c.address} is blacklisted due to known multicall issues. Remove it from the call list."
 
-        # These calls we dropped because they are historical multicalls to later blocks
-        filtered_out_calls = [c for c in calls if not c.is_valid_for_block(block_identifier)]
-
-        # These calls with hit the RPC node
-        filtered_in_calls = [c for c in calls if c.is_valid_for_block(block_identifier)]
+        # First-seen bounds prevent historical calls to contracts not deployed
+        # yet. Partition once so result positions match only eligible inputs.
+        filtered_in_calls = []
+        filtered_out_calls = []
+        for call in calls:
+            (filtered_in_calls if call.is_valid_for_block(block_identifier) else filtered_out_calls).append(call)
         encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in filtered_in_calls]
 
         start = native_datetime_utc_now()
@@ -1888,8 +1903,9 @@ class MultiprocessMulticallReader:
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
         chain_id = self.chain_id
-        batch_size = self.get_batch_size(self.web3, chain_id, block_identifier)
+        batch_size = self.get_batch_size(chain_id)
 
+        # Key: original eligible input index. Value: (success, raw return bytes).
         outputs: dict[int, tuple[bool, bytes]] = {}
         unavailable: dict[int, str] = {}
         provider = self.web3.provider
@@ -1917,16 +1933,14 @@ class MultiprocessMulticallReader:
                             limit,
                             batch_calls,
                             require_multicall_result,
-                            2 if greylisted else min_fallback_retries,
+                            min_fallback_retries,
                             greylisted,
                         )
                     except MulticallRetryExhausted as error:
                         # Only documented target-local gas failures can become missing
                         # observations. Rate limits, archive gaps and malformed replies
                         # remain hard errors so outages cannot silently damage coverage.
-                        last_error = error.__cause__
-                        cause = str(last_error.__cause__ or last_error).lower()
-                        if not allow_greylist_unavailable or not greylisted or "out of gas" not in cause:
+                        if not allow_greylist_unavailable or not greylisted or not is_multicall_gas_error(error):
                             raise
                         reason = "HyperEVM greylisted gas accounting unavailable"
                         logger.warning("%s: chain=%d block=%s target=%s selectors=%s", reason, chain_id, block_identifier, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
@@ -1947,7 +1961,7 @@ class MultiprocessMulticallReader:
                     try:
                         provider.switch_to_provider_index(initial_provider, cause="Restore regular Multicall provider after isolated HyperCore lane")
                     except ChainIdMismatch:
-                        logger.warning("Could not restore primary Multicall provider after isolated lane; retaining verified fallback")
+                        logger.warning("Could not restore prior normal-lane Multicall provider after isolated lane; retaining verified fallback")
         calls_results = [outputs[index] for index in range(len(encoded_calls))]
 
         self.calls += 1
@@ -1994,30 +2008,41 @@ def read_multicall_historical(
     start_block: int,
     end_block: int,
     step: int,
-    max_workers=8,
-    timeout=1800,
+    max_workers: int = 8,
+    timeout: float = 1800,
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
-    require_multicall_result=False,
+    require_multicall_result: bool = False,
     hypersync_client: "HypersyncClient | None" = None,
     timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     rpc_request_stats: RPCRequestStats | None = None,
     greylist_batch_size: int = 1,
-) -> Iterable[CombinedEncodedCallResult]:
-    """Read historical data using multiple threads in parallel for speedup.
+    allow_greylist_unavailable: bool = False,
+) -> Iterator[CombinedEncodedCallResult]:
+    """Fetch stateless historical samples with process-local Multicall workers.
 
-    - Run over period of time (blocks)
-    - Use multicall to harvest data from a single block at a time
-    -
-    - Show a progress bar using :py:mod:`tqdm`
+    Each sampled block becomes an ordered joblib task. Connections are reused
+    inside workers; timestamps can be supplied from the shared Hypersync cache
+    to avoid one header RPC per task. Isolation follows the reviewed target list
+    without altering the requested source block.
 
     :param greylist_batch_size:
         Positive maximum encoded subcalls per reviewed HyperEVM target request,
         default one. Normal targets retain standard batching. This counts
         subcalls rather than vaults and never combines different isolated targets.
 
+    :param allow_greylist_unavailable:
+        Opt in to explicit unavailable results only when the consumer preserves
+        old source observations. Defaults to strict transport errors. The vault
+        price exporter opts in; arbitrary historical callers remain strict.
+
     :param chain_id:
         Which chain we are targeting with calls.
+
+    :param calls: Encoded contract calls reused at each sampled block.
+    :param max_workers: Maximum joblib process workers, default eight.
+    :param timestamp_cache_file: Dense per-chain Hypersync timestamp cache folder.
+    :param rpc_request_stats: Optional accumulator for physical worker attempts.
 
     :param web3factory:
         The connection factory for subprocesses
@@ -2049,6 +2074,7 @@ def read_multicall_historical(
         Optional HyperSync client used to fetch the sampled block timestamps
         through the shared cache. This keeps timestamp reads out of the
         archive JSON-RPC workers.
+    :return: Combined subcall results in sampled block order.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
@@ -2123,7 +2149,7 @@ def read_multicall_historical(
                 timestamp=timestamps[block_number] if timestamps is not None else None,
                 require_multicall_result=require_multicall_result,
                 greylist_batch_size=greylist_batch_size,
-                allow_greylist_unavailable=True,
+                allow_greylist_unavailable=allow_greylist_unavailable,
                 collect_rpc_request_stats=rpc_request_stats is not None,
             )
             logger.debug(
@@ -2166,29 +2192,50 @@ def read_multicall_historical_stateful(
     start_block: int,
     end_block: int,
     step: int,
-    max_workers=8,
-    timeout=1800,
+    max_workers: int = 8,
+    timeout: float = 1800,
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
-    require_multicall_result=False,
-    chunk_size=48,
+    require_multicall_result: bool = False,
+    chunk_size: int = 48,
     hypersync_client: "HypersyncClient | None" = None,
     timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     rpc_request_stats: RPCRequestStats | None = None,
     greylist_batch_size: int = 1,
-) -> Iterable[CombinedEncodedCallResult]:
-    """Read historical data using multicall with reading state and adaptive frequency filtering.
+    allow_greylist_unavailable: bool = False,
+) -> Iterator[CombinedEncodedCallResult]:
+    """Fetch historical samples with adaptive scheduling and bounded state feedback.
 
-    - Allow adaptive frequency with read state
-    - Slower loop than the dumb :py:func:`read_multicall_historical` as it has to maintain state
-    - Because of state, we need to do block by block reading,
-      as we need to evaluate state to see which calls are needed for which block,
-      and the state depends on the result of the previous blocks
+    Each call's reader state chooses its sampling frequency. Process workers
+    handle a chunk of selected blocks, then results reach the caller before the
+    next chunk is scheduled. This balances parallel reads against the need to
+    update TVL, errors and polling frequency from completed source observations.
 
     :param greylist_batch_size:
         Positive maximum encoded subcalls per reviewed HyperEVM target request,
         default one. Normal targets retain standard batching. This counts
         subcalls rather than vaults and never combines different isolated targets.
+
+    :param allow_greylist_unavailable:
+        Opt in only for consumers preserving unavailable source observations.
+        Generic historical callers retain strict transport errors by default;
+        the vault price exporter explicitly enables deferral.
+
+    :param chain_id: Already verified target chain ID.
+    :param web3factory: Worker-local provider connection factory.
+    :param calls: Encoded call to adaptive reader-state mapping.
+    :param start_block: Inclusive first sampled block.
+    :param end_block: Exclusive scan boundary.
+    :param step: Positive block interval between samples.
+    :param max_workers: Maximum joblib process workers, default eight.
+    :param timeout: Seconds before an individual joblib task times out.
+    :param display_progress: Whether to show progress, or a custom label.
+    :param progress_suffix: Optional progress metrics callback.
+    :param require_multicall_result: Reject empty return data for diagnostics.
+    :param hypersync_client: Hypersync client for cached sampled timestamps.
+    :param timestamp_cache_file: Dense per-chain timestamp cache folder.
+    :param rpc_request_stats: Optional physical request accumulator.
+    :return: Combined samples with their adaptive states reattached.
 
     :param chunk_size:
         We guarantee to update the reader state at least this many steps.
@@ -2273,14 +2320,9 @@ def read_multicall_historical_stateful(
 
     last_block = start_block
     total_accepted_calls = total_blocks = 0
-    first_read = True
-
-    # Debug
-    from eth_defi.erc_4626.vault import VaultReaderState
-
     timestamp_end_block = timestamps.get_last_block()
     if timestamp_end_block < end_block:
-        logger.warning(f"Clipping end block by timestamps cache end block {timestamp_end_block:,} < {end_block:,}")
+        logger.warning("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
         # +1 because end_block is used in range(start, end_block, step) which is exclusive
         end_block = timestamp_end_block + 1
 
@@ -2296,9 +2338,9 @@ def read_multicall_historical_stateful(
         total_blocks += 1
         total_accepted_calls += len(accepted_calls)
 
-        # TODO+: Temporary debug, remove later
+        # These counts describe scheduled subcall states, not distinct vaults:
+        # several methods can share one adaptive reader state.
         metrics = Counter()
-        state: VaultReaderState
         for state in calls.values():
             freq_type = state.vault_poll_frequency or "unknown"
             if state.unsupported_token:
@@ -2306,12 +2348,7 @@ def read_multicall_historical_stateful(
             metrics[freq_type] += 1
             metrics["total"] += 1
 
-        logger.debug(
-            f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}\n"
-            # ruff workaround comment
-            f"accepted calls {len(accepted_calls):,}, first batch {first_read}\n"
-            f"state metrics: {pformat(dict(metrics))}"
-        )
+        logger.debug("Scheduling block=%d timestamp=%s available_subcalls=%d accepted_subcalls=%d call_state_metrics=%s", block_number, timestamp, len(all_calls), len(accepted_calls), dict(metrics))
 
         if len(accepted_calls) == 0:
             logger.debug("Block %d has no calls to perform, skipping", block_number)
@@ -2325,7 +2362,7 @@ def read_multicall_historical_stateful(
             timestamp=timestamp,
             require_multicall_result=require_multicall_result,
             greylist_batch_size=greylist_batch_size,
-            allow_greylist_unavailable=True,
+            allow_greylist_unavailable=allow_greylist_unavailable,
             collect_rpc_request_stats=rpc_request_stats is not None,
         )
 
@@ -2343,12 +2380,10 @@ def read_multicall_historical_stateful(
                     progress_bar.set_postfix(suffixes)
 
             for combined_result in _flush_chunk(chunk):
-                logger.debug(f"Updating states for {combined_result.timestamp} {combined_result.block_number:,}")
+                logger.debug("Updating states for timestamp=%s block=%d", combined_result.timestamp, combined_result.block_number)
                 yield combined_result
 
             chunk = []
-
-        first_read = False
 
     logger.info(
         "Total blocks %d, total accepted calls over the period: %d",
@@ -2356,7 +2391,7 @@ def read_multicall_historical_stateful(
         total_accepted_calls,
     )
 
-    logger.info("Last metrics: %s", pformat(dict(metrics)))
+    logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
 
     # Process the remaning uneven chunk
     yield from _flush_chunk(chunk)
@@ -2612,7 +2647,7 @@ class MulticallHistoricalTask:
     #: Fetch timestamp not given.
     #:
     #: Otherwise prefetched
-    timestamp: datetime.datetime = None
+    timestamp: datetime.datetime | None = None
 
     #: Running counter for task ids, for serialisation checks
     task_id: int = field(default_factory=_create_task_id)
@@ -2637,7 +2672,7 @@ class MulticallHistoricalTask:
     #: Refresh a safe numeric head per batch for current-state feature probes.
     refresh_current_block: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
         assert type(self.calls) == list
@@ -2697,7 +2732,9 @@ def _execute_multicall_in_worker(
 
     try:
         # Read block timestamp for this batch
-        assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
+        # Connection construction and provider switches already verify the chain.
+        # Re-checking the immutable identity must not charge every sampled task.
+        assert task.chain_id == reader.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.chain_id}"
 
         # Live HyperCore feature probes need a recent executable state block.
         # Historical callers must keep their requested block: refreshing those
@@ -2705,7 +2742,7 @@ def _execute_multicall_in_worker(
         block_number = max(1, reader.web3.eth.block_number - 10) if task.refresh_current_block else task.block_number
 
         if task.timestamp is None:
-            timestamp = reader.get_block_timestamp(block_number)
+            timestamp = reader.fetch_block_timestamp(block_number)
         else:
             timestamp = task.timestamp
 
