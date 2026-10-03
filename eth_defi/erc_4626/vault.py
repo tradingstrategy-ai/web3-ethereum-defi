@@ -361,6 +361,12 @@ class VaultReaderState(BatchCallState):
         :return: Estimated USD per token, or an explicit unavailable/unknown
             sentinel. BTC/ETH estimates are fixed heuristics, not market quotes.
         """
+        # Contextual USD adapters have already applied their protocol oracle.
+        # Requiring an ERC-20 here incorrectly labels valid observations as
+        # metadata failures in admission, sparse retention and freshness audit.
+        if getattr(self.vault, "synthetic_usd_denomination", False) is True:
+            self.token_symbol = "USD"
+            return Decimal(1)
         denomination = self.vault.denomination_token
         if denomination is None:
             logger.warning("Denomination unavailable for vault %s; USD TVL is unverified", self.vault_address)

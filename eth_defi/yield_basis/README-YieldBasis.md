@@ -60,6 +60,12 @@ must not be merged merely because all three aim to represent Bitcoin.
 
 ## Vaults and volatility risk
 
+The adapter declares synthetic USD accounting to the shared scanner. Its NAV
+and contextual total-assets observations have already applied the market oracle,
+so admission and freshness use an exchange rate of one without looking up an
+ERC-20 denomination. This declaration avoids false missing-token warnings and
+does not change the underlying BTC or ETH volatility exposure.
+
 The deposit asset describes how a user enters; it does not remove continuing
 market exposure. After minting yb-LP, the holder owns a share of a leveraged
 BTC or ETH liquidity position whose protocol plumbing includes borrowed crvUSD.

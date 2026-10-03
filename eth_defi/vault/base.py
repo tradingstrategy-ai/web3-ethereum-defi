@@ -1319,6 +1319,14 @@ class VaultBase(ABC):
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
 
+    #: Whether NAV and historical total_assets already use synthetic USD units.
+    #:
+    #: Contextual adapters such as YieldBasis and Kinexys intentionally have no
+    #: ERC-20 denomination. Scanner admission and freshness conversion must use
+    #: a unit exchange rate for them without inventing a token contract. This
+    #: declaration does not assert that a volatile underlying asset is stable.
+    synthetic_usd_denomination: ClassVar[bool] = False
+
     def __init__(
         self,
         token_cache: dict | None = None,

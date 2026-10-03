@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
@@ -52,6 +53,7 @@ def test_real_yield_basis_catalogue_and_valuation_path() -> None:
         observation = vault.fetch_historical_observation(block_number)
 
         assert vault.fetch_denomination_token_address(block_number) is None
+        assert VaultReaderState(vault).exchange_rate == Decimal(1)
         assert native_price_per_share > 0
         assert asset_usd_price > 0
         assert redemption_asset_per_share > 0

@@ -160,6 +160,10 @@ class YieldBasisVault(VaultBase):
     and deliberately does not emulate ERC-4626 transaction methods.
     """
 
+    #: Context observations and live NAV are already converted to USD by the
+    #: market oracle; an absent ERC-20 denomination is deliberate metadata.
+    synthetic_usd_denomination = True
+
     #: Runtime deposit availability still depends on protocol-specific quotes.
     whitelist_notes = "YieldBasis markets are treated as permissionless by design review; this does not prove that every account currently satisfies pool limits or quote requirements."
 
