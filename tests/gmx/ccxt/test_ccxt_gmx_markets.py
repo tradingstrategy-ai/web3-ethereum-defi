@@ -1,228 +1,126 @@
-"""Tests for reading available markets and their parameters in CCXT format."""
+"""Real backend and disk-cache coverage for CCXT market discovery."""
 
-import tempfile
 from pathlib import Path
-
-import pytest
-from flaky import flaky
+from unittest.mock import patch
 
 from eth_defi.gmx.ccxt.exchange import GMX
+from eth_defi.gmx.core.markets import Markets
 
 
-def test_arbitrum_gmx_fetch_tickers(ccxt_gmx_arbitrum: GMX):
-    """Get all markets of GMX in CCXT format"""
-    gmx = ccxt_gmx_arbitrum
-    tickers = gmx.fetch_tickers()
+def test_load_markets_rest_api_mode(chain_rpc_url: str) -> None:
+    """Load real REST markets without a disk cache or GraphQL fallback.
 
+    Observe the actual REST call and prohibit RPC fallback so a warm cache or
+    another backend cannot mask a broken provider path.
 
-@flaky(max_runs=3, min_passes=1)
-def test_load_markets_rest_api_mode(ccxt_gmx_arbitrum: GMX):
-    """Test loading markets using REST API mode (default).
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
 
-    Makes real API calls to verify REST API market loading.
+    :return:
+        None; assertions validate the behaviour.
     """
-    gmx = ccxt_gmx_arbitrum
-
-    # Force reload to test REST API mode
-    markets = gmx.load_markets(reload=True)
-
-    # Verify markets were loaded
-    assert markets is not None
-    assert isinstance(markets, dict)
-    assert len(markets) > 0
-
-    # Verify market structure (CCXT-compatible)
-    first_symbol = list(markets.keys())[0]
-    market = markets[first_symbol]
-
-    assert "symbol" in market
-    assert "base" in market
-    assert "quote" in market
-    assert "info" in market
-    assert "market_token" in market["info"]
-
-    # Verify REST API-specific fields in info
-    # These come from /markets/info endpoint
-    assert "index_token" in market["info"]
+    gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"disable_market_cache": True})
+    gmx.subsquid = None
+    with patch.object(gmx.api, "get_markets_info", wraps=gmx.api.get_markets_info) as fetch, patch.object(Markets, "get_available_markets", side_effect=AssertionError("Unexpected RPC discovery fallback")):
+        markets = gmx.load_markets()
+        fetch.assert_called_once()
+    assert markets
+    market = next(iter(markets.values()))
+    assert {"symbol", "base", "quote", "info"}.issubset(market)
+    assert {"market_token", "index_token"}.issubset(market["info"])
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_load_markets_graphql_mode(chain_rpc_url):
-    """Test loading markets using GraphQL mode.
+def test_load_markets_graphql_mode(chain_rpc_url: str) -> None:
+    """Load real GraphQL markets and fail if discovery falls back.
 
-    Makes real API calls to verify GraphQL mode still works.
+    Observe GraphQL discovery with its disk cache disabled and prohibit both
+    REST and RPC fallback.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
     """
-    gmx = GMX(
-        params={
-            "rpcUrl": chain_rpc_url,
-            "chainId": 42161,  # Arbitrum
-        },
-        options={"graphql_only": True},
-    )
-
-    markets = gmx.load_markets()
-
-    assert markets is not None
-    assert isinstance(markets, dict)
-    assert len(markets) > 0
+    gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"graphql_only": True, "disable_market_cache": True})
+    assert gmx.subsquid is not None
+    with patch.object(gmx, "_load_markets_from_graphql", wraps=gmx._load_markets_from_graphql) as fetch, patch.object(gmx, "_load_markets_from_rest_api", side_effect=AssertionError("Unexpected REST fallback")), patch.object(Markets, "get_available_markets", side_effect=AssertionError("Unexpected RPC discovery fallback")):
+        assert gmx.load_markets()
+        fetch.assert_called_once()
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_load_markets_rpc_mode(chain_rpc_url):
-    """Test loading markets using RPC mode (fallback).
+def test_load_markets_rpc_mode(chain_rpc_url: str) -> None:
+    """Load real onchain markets with both external discovery backends disabled.
 
-    Makes real RPC calls to verify RPC mode still works when REST API disabled.
+    Observe the onchain reader directly with REST discovery and GraphQL
+    disabled; a non-empty response alone would not prove backend identity.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
     """
-    gmx = GMX(
-        params={
-            "rpcUrl": chain_rpc_url,
-            "chainId": 42161,  # Arbitrum
-        },
-        options={"rest_api_mode": False, "graphql_only": False},
-    )
-
-    markets = gmx.load_markets()
-
-    assert markets is not None
-    assert isinstance(markets, dict)
-    # RPC mode should still load markets
-    assert len(markets) > 0
+    gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"rest_api_mode": False, "disable_market_cache": True})
+    gmx.subsquid = None
+    original = Markets.get_available_markets
+    with patch.object(Markets, "get_available_markets", autospec=True, side_effect=original) as fetch, patch.object(gmx, "_load_markets_from_rest_api", side_effect=AssertionError("Unexpected REST discovery")):
+        assert gmx.load_markets()
+        fetch.assert_called_once()
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_fetch_apy_all_markets(ccxt_gmx_arbitrum: GMX):
-    """Test fetching APY data for all markets.
+def test_fetch_apy_all_markets(chain_rpc_url: str) -> None:
+    """Require non-empty numeric APY data from the actual REST endpoint.
 
-    Makes real API call to /apy endpoint.
+    Keep one real REST success alongside controlled period/mapping regressions.
+    Missing or unmapped provider data must fail this integration check.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
     """
-    gmx = ccxt_gmx_arbitrum
-
-    # Load markets first
-    gmx.load_markets()
-
-    # Fetch APY for all markets (30-day period)
+    gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"disable_market_cache": True})
+    gmx.subsquid = None
     all_apy = gmx.fetch_apy(period="30d")
-
-    # Should return dict mapping symbols to APY values
-    assert all_apy is not None
     assert isinstance(all_apy, dict)
-
-    # Should have at least one market with APY
-    if len(all_apy) > 0:
-        first_symbol = list(all_apy.keys())[0]
-        apy_value = all_apy[first_symbol]
-
-        assert isinstance(apy_value, (int, float))
-        # APY should be reasonable (between -100% and 1000%)
-        assert -1.0 <= apy_value <= 10.0
+    assert all_apy, "Successful APY integration must contain mapped markets"
+    assert all(isinstance(value, (int, float)) for value in all_apy.values())
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_fetch_apy_specific_symbol(ccxt_gmx_arbitrum: GMX):
-    """Test fetching APY for specific market symbol.
+def test_cache_persistence(chain_rpc_url: str, tmp_path: Path) -> None:
+    """Reuse persisted discovery data while retaining fresh disabled-market checks.
 
-    Makes real API call and verifies symbol-specific query.
+    The second instance must not download market metadata. Onchain DataStore
+    validation remains enabled because a cached market can become disabled.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :param tmp_path:
+        Isolated directory for persistent cache files.
+
+    :return:
+        None; assertions validate the behaviour.
     """
-    gmx = ccxt_gmx_arbitrum
+    options = {"market_cache_dir": str(tmp_path)}
+    first = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options=options)
+    first.subsquid = None
+    try:
+        markets = first.load_markets()
+        assert markets
+        assert first._market_cache.get_markets("rest_api")
+    finally:
+        first._market_cache.close()
+    assert (tmp_path / "markets_arbitrum.sqlite").exists()
 
-    # Load markets first
-    gmx.load_markets()
-
-    # Get first available market symbol
-    if len(gmx.markets) == 0:
-        pytest.skip("No markets available")
-
-    symbol = list(gmx.markets.keys())[0]
-
-    # Fetch APY for specific symbol
-    apy = gmx.fetch_apy(symbol=symbol, period="30d")
-
-    # Should return float or None
-    if apy is not None:
-        assert isinstance(apy, (int, float))
-        # APY should be reasonable
-        assert -1.0 <= apy <= 10.0
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_cache_persistence(chain_rpc_url):
-    """Test that disk cache persists across GMX instances.
-
-    Verifies that markets loaded once are cached for subsequent instances.
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cache_dir = Path(tmpdir)
-
-        # First instance - loads and caches markets
-        gmx1 = GMX(
-            params={
-                "rpcUrl": chain_rpc_url,
-                "chainId": 42161,  # Arbitrum
-            },
-            options={"market_cache_dir": str(cache_dir)},
-        )
-
-        markets1 = gmx1.load_markets()
-        assert len(markets1) > 0
-
-        # Create second instance with same cache dir
-        gmx2 = GMX(
-            params={
-                "rpcUrl": chain_rpc_url,
-                "chainId": 42161,  # Arbitrum
-            },
-            options={"market_cache_dir": str(cache_dir)},
-        )
-
-        # Second instance should load from cache (much faster)
-        markets2 = gmx2.load_markets()
-
-        # Should have same markets
-        assert len(markets2) == len(markets1)
-        assert set(markets2.keys()) == set(markets1.keys())
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_rest_api_performance(ccxt_gmx_arbitrum: GMX):
-    """Test that REST API loading is fast (<5 seconds).
-
-    Verifies performance improvement over RPC mode.
-    """
-    import time
-
-    gmx = ccxt_gmx_arbitrum
-
-    # Force reload to measure loading time
-    start_time = time.time()
-    markets = gmx.load_markets(reload=True)
-    elapsed = time.time() - start_time
-
-    # REST API loading should be fast
-    assert elapsed < 30.0, f"REST API loading took {elapsed:.1f}s (expected <30s)"
-
-    # Should still load markets successfully
-    assert len(markets) > 0
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_fetch_apy_different_periods(ccxt_gmx_arbitrum: GMX):
-    """Test fetching APY for different time periods.
-
-    Verifies that all valid periods work correctly.
-    """
-    gmx = ccxt_gmx_arbitrum
-    gmx.load_markets()
-
-    valid_periods = ["1d", "7d", "30d", "90d", "180d", "1y", "total"]
-
-    for period in valid_periods:
-        apy_data = gmx.fetch_apy(period=period)
-
-        # Should return dict
-        assert isinstance(apy_data, dict)
-
-        # May be empty for some periods, but should not error
-        if len(apy_data) > 0:
-            # Check structure of APY values
-            first_symbol = list(apy_data.keys())[0]
-            assert isinstance(apy_data[first_symbol], (int, float))
+    second = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options=options)
+    second.subsquid = None
+    try:
+        with patch.object(second.api, "get_markets_info", side_effect=AssertionError("Market discovery must come from disk")) as fetch, patch.object(second.api, "get_tokens", side_effect=AssertionError("Tokens must come from disk")) as tokens, patch.object(Markets, "get_available_markets", side_effect=AssertionError("Unexpected RPC discovery fallback")):
+            assert set(second.load_markets()) == set(markets)
+            fetch.assert_not_called()
+            tokens.assert_not_called()
+    finally:
+        second._market_cache.close()

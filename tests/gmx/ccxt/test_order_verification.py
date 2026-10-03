@@ -12,7 +12,7 @@ from flaky import flaky
 from eth_defi.gmx.ccxt.errors import GMXOrderFailedException
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.verification import raise_if_order_failed, verify_gmx_order_execution
-from tests.gmx.fork_helpers import (
+from eth_defi.gmx.testing import (
     execute_order_as_keeper,
     extract_order_key_from_receipt,
     fetch_on_chain_oracle_prices,

@@ -15,6 +15,10 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 
 
+# These mutating tests share one historical deployment baseline per worker.
+pytestmark = pytest.mark.xdist_group("fork:base:lagoon-30659990")
+
+
 @flaky.flaky
 def test_lagoon_deposit_redeem(
     web3: Web3,

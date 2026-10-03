@@ -15,11 +15,18 @@ on:
       - 'tests/gmx/**'
       # GMX fixed-block forks depend on these shared helpers and their
       # committed Arbitrum Foundry RPC-cache seed.
-      - 'eth_defi/provider/anvil.py'
-      - 'eth_defi/testing/anvil_fork_pool.py'
-      - 'eth_defi/testing/fork_blocks.py'
-      - 'eth_defi/testing/rpc_cache.py'
-      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'eth_defi/provider/**'
+      - 'eth_defi/testing/**'
+      - 'eth_defi/token.py'
+      - 'eth_defi/abi/**'
+      - 'eth_defi/event_reader/**'
+      - 'eth_defi/hotwallet.py'
+      - 'eth_defi/gas.py'
+      - 'eth_defi/chain.py'
+      - 'eth_defi/erc_4626/vault_protocol/lagoon/**'
+      - 'eth_defi/safe/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
       - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
   pull_request:
@@ -28,11 +35,18 @@ on:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
       # Keep the dedicated suite coupled to its shared fixed-fork machinery.
-      - 'eth_defi/provider/anvil.py'
-      - 'eth_defi/testing/anvil_fork_pool.py'
-      - 'eth_defi/testing/fork_blocks.py'
-      - 'eth_defi/testing/rpc_cache.py'
-      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'eth_defi/provider/**'
+      - 'eth_defi/testing/**'
+      - 'eth_defi/token.py'
+      - 'eth_defi/abi/**'
+      - 'eth_defi/event_reader/**'
+      - 'eth_defi/hotwallet.py'
+      - 'eth_defi/gas.py'
+      - 'eth_defi/chain.py'
+      - 'eth_defi/erc_4626/vault_protocol/lagoon/**'
+      - 'eth_defi/safe/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
       - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
   # The push/PR `paths:` filters above already ensure this workflow only runs
@@ -57,7 +71,7 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}-${{ matrix.python-version }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-${{ matrix.python-version }}
       cancel-in-progress: true
 
     strategy:
@@ -94,8 +108,7 @@ jobs:
       # Using a single installation command to avoid conflicts
       - name: Install dependencies
         run: |
-            poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts -E cloudflare_r2
 
       # Cache the immutable Foundry toolchain binaries. The fork RPC cache is not
       # an Actions cache — it ships in the repo (see below).
@@ -157,7 +170,9 @@ jobs:
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n 4 --dist loadgroup -v -s --capture=no
+          export TEST_TIMINGS_FILE=test-timings.jsonl
+          export TEST_RESOURCES_DIR=test-resources
+          poetry run pytest --junitxml=test-results.xml tests/gmx/ --timeout-method=thread --tb=native -n 4 --dist loadgroup -v -s --capture=no
         env:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
@@ -173,3 +188,14 @@ jobs:
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite
+
+      - name: Upload complete test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: |
+            test-results.xml
+            test-timings*.jsonl
+            test-resources/*.json
+          if-no-files-found: warn

@@ -17,7 +17,7 @@ from ccxt.base.errors import OrderNotFound
 from flaky import flaky
 
 from eth_defi.gmx.ccxt.exchange import GMX
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt
 
 
 def _execute_order(web3, tx_hash: str, refund_address: str | None = None) -> dict:

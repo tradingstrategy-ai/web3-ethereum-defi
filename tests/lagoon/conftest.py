@@ -205,7 +205,7 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 
 @pytest.fixture(scope="session")
 def _lagoon_shared_deployment_cache() -> dict:
-    """Session-level cache of shared Lagoon deployments, keyed by fork URL.
+    """Session-level cache of shared Lagoon deployments, keyed by fork URL and process generation.
 
     One deployment per pooled fork per xdist worker. See
     :func:`shared_automated_lagoon_vault`.
@@ -239,7 +239,7 @@ def shared_automated_lagoon_vault(
     :func:`~eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_automated_lagoon_vault`
     directly in the test body instead (as ``test_lagoon_erc_4626`` etc. do).
     """
-    key = anvil_base_fork.json_rpc_url
+    key = (anvil_base_fork.json_rpc_url, anvil_base_fork.process.pid, anvil_base_fork.process.create_time())
     deploy_info = _lagoon_shared_deployment_cache.get(key)
     if deploy_info is not None:
         return deploy_info

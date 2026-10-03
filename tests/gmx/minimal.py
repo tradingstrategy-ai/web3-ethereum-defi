@@ -30,7 +30,7 @@ from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_ad
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import extract_order_key_from_receipt
+from eth_defi.gmx.testing import extract_order_key_from_receipt
 from eth_defi.abi import get_contract
 
 # ============ Logging ============

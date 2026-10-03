@@ -28,7 +28,7 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
       cancel-in-progress: true
 
     strategy:
@@ -39,8 +39,8 @@ jobs:
     name: Python ${{ matrix.python-version }}
 
     steps:
-      # TODO: we only need contracts/aave-v3-deploy for tests
-      # but there does not seem to be an option to choose which submodules to checkout
+      # Both Aave and Lagoon tests require contract source submodules.
+      # Narrowing checkout needs a complete prerequisite inventory first.
       # https://github.com/actions/checkout
       - uses: actions/checkout@v4
         with:
@@ -53,26 +53,6 @@ jobs:
           node-version: 18
           cache: "npm"
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-
-      #      # pnpm needed to compile Enzyme
-      #      # We need version 7 to be exact.
-      #      - name: Install pnpm
-      #        run: |
-      #          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
-      #          PNPM_HOME="/home/runner/.local/share/pnpm"
-      #          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-      #          echo $PNPM_HOME >> $GITHUB_PATH
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.21.0
-
-      - name: Export PNPM location
-        run: |
-          PNPM_HOME="/home/runner/.local/share/pnpm"
-          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-          echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install poetry (using matrix Python)
         run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
@@ -93,11 +73,7 @@ jobs:
       # its cache dir — so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
-          poetry install
-          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
-
-      - name: Install Ganache
-        run: yarn global add ganache
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts -E cloudflare_r2
 
       # Cache only the pinned toolchain binaries (immutable key). The Anvil fork
       # RPC cache is NOT an Actions cache: the warm fork cache ships in the repo
@@ -126,13 +102,6 @@ jobs:
       - name: Setup Aave v3 for tests
         run: |
           poetry run install-aave-for-testing
-
-      # We also work around race condition for setting up Aave NPM packages.
-      - name: Build needed contracts
-        run: |
-          pnpm --version
-      # Broken with the latest foudry?
-      # make guard in-house safe-integration
 
       # Lagoon source deployment needs soldeer
       - name: Cache Lagoon soldeer deps
@@ -198,7 +167,9 @@ jobs:
           # publish the durations table in the job summary; pipefail keeps the
           # pytest exit code as the step result.
           set -o pipefail
-          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
+          export TEST_TIMINGS_FILE=test-timings.jsonl
+          export TEST_RESOURCES_DIR=test-resources
+          poetry run pytest --junitxml=test-results.xml --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
         env:
           # Hypersync scan tests are disabled on CI by default; enable via
           # workflow_dispatch input or the RUN_HYPERSYNC_TESTS repo variable.
@@ -220,8 +191,6 @@ jobs:
           KEY_NAME: ${{ secrets.KEY_NAME }}
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
-          ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
-          ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
 
       # Publish the pytest slowest-durations table in the job summary so slow
@@ -248,3 +217,14 @@ jobs:
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable
       # minutes and gives lint feedback before tests finish.
+
+      - name: Upload complete test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: |
+            test-results.xml
+            test-timings*.jsonl
+            test-resources/*.json
+          if-no-files-found: warn
