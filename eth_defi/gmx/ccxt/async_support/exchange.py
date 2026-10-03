@@ -1054,7 +1054,7 @@ class GMX(Exchange):
         :rtype: dict
         """
         # Try disk cache first
-        if self._market_cache:
+        if self._market_cache is not None:
             try:
                 cached_markets = self._market_cache.get_markets(
                     loading_mode="rest_api",
@@ -1311,7 +1311,7 @@ class GMX(Exchange):
             self.symbols = list(self.markets.keys())
 
             # Save to disk cache
-            if self._market_cache and self.markets:
+            if self._market_cache is not None and self.markets:
                 try:
                     self._market_cache.set_markets(
                         data=self.markets,
@@ -1741,7 +1741,7 @@ class GMX(Exchange):
 
         # Try disk cache first
         cached_apy = None
-        if self._market_cache:
+        if self._market_cache is not None:
             try:
                 cached_apy = self._market_cache.get_apy(period=period, check_expiry=True)
                 if cached_apy:
@@ -1762,7 +1762,7 @@ class GMX(Exchange):
                 cached_apy = apy_response.get("markets", {}) if isinstance(apy_response, dict) else {}
 
                 # Save to disk cache
-                if self._market_cache and cached_apy:
+                if self._market_cache is not None and cached_apy:
                     try:
                         self._market_cache.set_apy(
                             data=cached_apy,

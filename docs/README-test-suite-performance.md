@@ -824,3 +824,34 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 - A nightly-only workflow *as the sole home* for vault protocol tests — rejected;
   a scheduled/manual run is retained only as a coverage fallback for Lever 3, not
   as the primary trigger.
+
+
+## October 2026 reduction batch
+
+The detailed audit, coverage map and local observations are in the
+[test suite optimisation plan](../.claude/plans/2026-10-03-test-suite-optimisation.md).
+The implementation consolidates the GMX core checks into two live reads per
+module, bounds the Lighter cycle to one pool per deployment, groups Lagoon flow
+checks and pilots one isolated GMX trading baseline per worker. Independent
+Safe deployment, fee-forwarding and PnL regressions retain their coverage.
+
+Every test workflow now uploads JUnit output, complete setup/call/teardown
+JSONL reports and process resource reports, even after failures. Each worker
+writes its own timing file so intermediate flaky attempts are included before
+the plugin suppresses terminal reports. To capture a focused local run:
+
+```shell
+source .local-test.env && TEST_TIMINGS_FILE=/tmp/test-timings.jsonl TEST_RESOURCES_DIR=/tmp/test-resources poetry run pytest tests/gmx/test_available_liquidity.py
+```
+
+Timing records identify the node, worker, phase, outcome and attempt. Resource
+reports separate process CPU from reaped-child CPU, including Anvil and Forge.
+RSS is a process-lifetime high-water mark, not per-test peak memory or the sum of
+concurrent memory. Live children are excluded. The controller can account for
+reaped workers: do not add its child CPU to the workers' own CPU again.
+
+The slow workflow discovers directly marked modules before invoking pytest.
+Main collection validates the complete pre-deselection item list, including
+marks added by other collection hooks. An indirectly marked module missing from
+discovery fails with an actionable error instead of silently losing CI coverage.
+Keep slow markers explicit when adding tests.

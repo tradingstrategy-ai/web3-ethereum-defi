@@ -1192,7 +1192,7 @@ class GMX(ExchangeCompatible):
         """
         try:
             # Check disk cache first
-            if self._market_cache:
+            if self._market_cache is not None:
                 cached_markets = self._market_cache.get_markets("rest_api")
                 if cached_markets is not None:
                     # Re-apply SYMBOL_REMAP so stale cache entries (e.g. "XAUT.v2/USDC:USDC"
@@ -1426,7 +1426,7 @@ class GMX(ExchangeCompatible):
             self.symbols = list(self.markets.keys())
 
             # Save to disk cache
-            if self._market_cache:
+            if self._market_cache is not None:
                 try:
                     self._market_cache.set_markets(
                         markets_dict,
@@ -4168,7 +4168,7 @@ class GMX(ExchangeCompatible):
 
         # Try disk cache first
         cached_apy = None
-        if self._market_cache:
+        if self._market_cache is not None:
             try:
                 cached_apy = self._market_cache.get_apy(period=period, check_expiry=True)
                 if cached_apy:
@@ -4183,7 +4183,7 @@ class GMX(ExchangeCompatible):
                 cached_apy = apy_response.get("markets", {})
 
                 # Save to disk cache
-                if self._market_cache and cached_apy:
+                if self._market_cache is not None and cached_apy:
                     try:
                         self._market_cache.set_apy(
                             data=cached_apy,

@@ -42,12 +42,12 @@ from eth_defi.gmx.testing.oracle import set_mock_token_price
 from eth_defi.gmx.valuation import fetch_gmx_total_equity
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.token import fetch_erc20_details
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
-from tests.gmx.lagoon.test_gmx_lagoon_integration import (
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
+from eth_defi.testing.gmx_lagoon import (
     USDC_ARBITRUM,
     WETH_ARBITRUM,
     LagoonGMXForkEnv,
-    _create_lagoon_gmx_fork_env,
+    create_lagoon_gmx_fork_env,
 )
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ _GAS_REFUND_CEILING_USD = 20.0
 def lagoon_gmx_fork_env(anvil_chain_fork: AnvilLaunch) -> LagoonGMXForkEnv:
     """Initialise Lagoon GMX state on an isolated fixed-block fork.
 
-    Reuses :func:`tests.gmx.lagoon.test_gmx_lagoon_integration._create_lagoon_gmx_fork_env`
+    Reuses :func:`eth_defi.testing.gmx_lagoon.create_lagoon_gmx_fork_env`
     rather than duplicating its ~150 lines of Safe/vault/GMX deployment setup.
     See that module for the full deployment sequence (mock oracle first,
     then Lagoon vault + Safe, then Safe funding, then ``LagoonGMXTradingWallet``
@@ -93,7 +93,7 @@ def lagoon_gmx_fork_env(anvil_chain_fork: AnvilLaunch) -> LagoonGMXForkEnv:
     :param anvil_chain_fork: Fixed-block Arbitrum Anvil fork fixture from ``tests/gmx/conftest.py``.
     :return: Fully wired :class:`LagoonGMXForkEnv`.
     """
-    return _create_lagoon_gmx_fork_env(anvil_chain_fork)
+    return create_lagoon_gmx_fork_env(anvil_chain_fork)
 
 
 def _open_long_and_get_position(env: LagoonGMXForkEnv) -> dict:
@@ -768,7 +768,7 @@ def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv
     # === Check 1: NAV while the position is open, with mixed reserves ===
     safe_usdc_balance = usdc.fetch_balance_of(safe_address)
     safe_weth_balance = weth.fetch_balance_of(safe_address)
-    assert safe_weth_balance > 0, "Lagoon fork env should fund the Safe with WETH dust -- see _create_lagoon_gmx_fork_env"
+    assert safe_weth_balance > 0, "Lagoon fork env should fund the Safe with WETH dust -- see create_lagoon_gmx_fork_env"
 
     equity_while_open = fetch_gmx_total_equity(
         web3=web3,

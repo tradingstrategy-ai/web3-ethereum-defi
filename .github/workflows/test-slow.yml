@@ -22,7 +22,7 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'push'
 
     concurrency:
-      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
       cancel-in-progress: true
 
     strategy:
@@ -53,8 +53,7 @@ jobs:
       # on poetry.lock above), so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
-          poetry install
-          poetry install -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts -E cloudflare_r2
 
       # Slow tests may include Anvil mainnet forks. Keep this version in sync
       # with the main test workflow so both suites exercise the same EVM. Cache
@@ -79,7 +78,11 @@ jobs:
 
       - name: Run slow tests
         run: |
-          poetry run pytest --timeout-method=thread --tb=native -v -s --capture=no --ignore=tests/gmx -m slow
+          export TEST_TIMINGS_FILE=test-timings.jsonl
+          export TEST_RESOURCES_DIR=test-resources
+          PYTHONPATH=. poetry run python scripts/testing/select-slow-tests.py
+          mapfile -t slow_test_files < slow-test-paths.txt
+          poetry run pytest "${slow_test_files[@]}" --junitxml=test-results.xml --timeout-method=thread --tb=native -v -s --capture=no --ignore=tests/gmx -m slow
         env:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
@@ -88,3 +91,14 @@ jobs:
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      - name: Upload complete test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: |
+            test-results.xml
+            test-timings*.jsonl
+            test-resources/*.json
+          if-no-files-found: warn

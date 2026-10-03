@@ -9,6 +9,9 @@ Verifies that the cycle-based loop mode works end-to-end:
 5. Verify vault-metadata-db.pickle contains Lighter vaults
 """
 
+import datetime
+from functools import partial
+
 import json
 import pickle
 from pathlib import Path
@@ -16,6 +19,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from eth_defi.vault import scan_all_chains
 from eth_defi.vault.scan_all_chains import main
 
 
@@ -42,12 +46,18 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setenv("SCAN_HYPERCORE", "false")
     monkeypatch.setenv("SCAN_GRVT", "false")
     monkeypatch.setenv("SCAN_LIGHTER", "true")
+    monkeypatch.setenv("SCAN_DERIVE_V3", "false")
+    monkeypatch.setenv("SCAN_HIBACHI", "false")
+    monkeypatch.setenv("SCAN_APEX", "false")
+    monkeypatch.setenv("SKIP_XERBERUS", "true")
     monkeypatch.setenv("SKIP_CORE3", "true")
     monkeypatch.setenv("SKIP_CURRENCY_RATES", "true")
     monkeypatch.setenv("SKIP_POST_PROCESSING", "true")
     monkeypatch.setenv("MAX_WORKERS", "4")
     monkeypatch.setenv("LOG_LEVEL", "info")
 
+    # Keep the actual provider, scanner and persistence path; bound pool detail work.
+    monkeypatch.setattr(scan_all_chains, "lighter_run_daily_scan", partial(scan_all_chains.lighter_run_daily_scan, max_pools=1))
     main()
 
     # 1. Verify cycle state JSON was written
@@ -58,6 +68,12 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     assert "Lighter Ethereum" in cycle_items, f"Lighter Ethereum not in cycle state: {state}"
     assert "Lighter Robinhood" in cycle_items, f"Lighter Robinhood not in cycle state: {state}"
 
+    assert set(cycle_items) == {"Lighter Ethereum", "Lighter Robinhood"}
+    for deployment in ("Lighter Ethereum", "Lighter Robinhood"):
+        completed_at = datetime.datetime.fromisoformat(cycle_items[deployment])
+        assert completed_at.tzinfo is None
+        assert completed_at <= datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
     # 2. Verify Lighter DuckDB has pools
     duckdb_path = tmp_path / "lighter-pools.duckdb"
     assert duckdb_path.exists(), "Lighter DuckDB not created"
@@ -65,13 +81,14 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     con = duckdb.connect(str(duckdb_path), read_only=True)
     try:
         pool_count = con.execute("SELECT count(*) FROM pool_metadata").fetchone()[0]
-        assert pool_count > 0, "No pools in DuckDB"
+        assert 0 < pool_count <= 2, "Expected at most one representative pool per deployment"
     finally:
         con.close()
 
     # 3. Verify vault metadata pickle contains Lighter vaults
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     assert vault_db_path.exists(), "Vault DB pickle not created"
-    vault_db = pickle.load(vault_db_path.open("rb"))
+    with vault_db_path.open("rb") as source:
+        vault_db = pickle.load(source)
     lighter_vaults = [k for k in vault_db.rows.keys() if hasattr(k, "vault_address") and str(k.vault_address).startswith("lighter-pool-")]
     assert len(lighter_vaults) > 0, f"No Lighter vaults in vault DB, keys: {list(vault_db.rows.keys())[:5]}"

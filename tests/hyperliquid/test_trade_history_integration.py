@@ -1,15 +1,15 @@
 """Integration tests for Hyperliquid trade history reconstruction.
 
 Tests trade history reconstruction, DuckDB persistence, and sync resume
-for both vault and normal accounts.
+for an active account. Account classification is covered offline.
 
 Requires network access to the Hyperliquid API.
 
 .. warning::
 
     These tests query the **live Hyperliquid API** and use rolling recent
-    time windows.  Most use seven days, while the high-volume fill-sync
-    idempotency test uses one hour. The underlying data is not pinned to a
+    time windows.  Funding checks use seven days; fill persistence, resume and reconstruction
+    use one day. The underlying data is not pinned to a
     historical snapshot:
 
     - Accounts may stop trading, producing zero fills in the test window.
@@ -126,42 +126,6 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
         db.close()
 
 
-# Flaky: CI timed out in DuckDB ``executemany`` at 120 seconds on PR #1529 on
-# 2026-08-27; the isolated live test passed locally in 117.22 seconds with a
-# 180-second timeout, so normal live API/data-volume variation can exceed 120.
-@flaky.flaky
-@pytest.mark.timeout(180)
-def test_reconstruct_normal_account_trade_history(session, tmp_path):
-    """Reconstruct trade history for a normal (non-vault) Hyperliquid account.
-
-    Uses the active Growi HF vault to exercise the normal-account code path.
-    Use the same bounded one-day interval as the vault reconstruction test;
-    account classification does not require downloading seven days of fills.
-    """
-    account_address = ACTIVE_ACCOUNT
-
-    db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
-    try:
-        db.add_account(account_address, label="Test account", is_vault=False)
-        db.sync_account_fills(session, account_address, start_time=RECONSTRUCTION_TEST_START, end_time=TEST_END)
-
-        history = fetch_account_trade_history(
-            session,
-            account_address,
-            start_time=RECONSTRUCTION_TEST_START,
-            end_time=TEST_END,
-        )
-
-        assert len(history.fills) > 0
-        assert len(history.closed_trades) + len(history.open_trades) > 0
-
-        state = db.get_sync_state(account_address)
-        assert "fills" in state
-        assert state["fills"]["row_count"] > 0
-    finally:
-        db.close()
-
-
 # 2026-08-24: CI and a focused local run returned zero fills for ACTIVE_ACCOUNT in the live one-hour window.
 @pytest.mark.skipif(CI, reason="Live Hyperliquid account returned zero fills in the idempotency test window")
 @pytest.mark.timeout(60)
@@ -222,13 +186,14 @@ def test_trade_history_sync_resume(session, tmp_path):
         db.sync_account_fills(
             session,
             ACTIVE_ACCOUNT,
-            start_time=TEST_START,
-            end_time=TEST_START + datetime.timedelta(days=3),
+            start_time=RECONSTRUCTION_TEST_START,
+            end_time=RECONSTRUCTION_TEST_START + datetime.timedelta(hours=12),
         )
         db.save()
 
         first_state = db.get_sync_state(ACTIVE_ACCOUNT)
-        assert "fills" in first_state, "sync_state should be recorded even for empty windows"
+        assert "fills" in first_state
+        assert first_state["fills"]["row_count"] > 0, "Initial segment must contain fills"
         first_count = first_state["fills"]["row_count"]
 
         # Read first-run fills for comparison
@@ -242,14 +207,13 @@ def test_trade_history_sync_resume(session, tmp_path):
         second_count = second_state["fills"]["row_count"]
 
         # Should have same or more fills (new data added)
-        assert second_count >= first_count, f"Expected >= {first_count} fills, got {second_count}"
+        assert second_count > first_count, f"Resume must add fills beyond {first_count}, got {second_count}"
 
         # Full window should have some fills even if the first sub-window was empty
-        assert second_count > 0, "Expected fills in the full 7-day window"
+        assert second_count > 0, "Expected fills in the bounded one-day window"
 
         # Newest timestamp should advance or appear after resume
-        if first_state["fills"]["newest_ts"] is not None:
-            assert second_state["fills"]["newest_ts"] >= first_state["fills"]["newest_ts"]
+        assert second_state["fills"]["newest_ts"] > first_state["fills"]["newest_ts"]
 
         # Original fills should still be present (no data loss)
         second_fills = db.get_fills(ACTIVE_ACCOUNT)
