@@ -7,6 +7,7 @@ providers, and persists the aggregate with :class:`RPCUsageDatabase`.
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import threading
 from collections import Counter
@@ -86,15 +87,30 @@ class RPCRequestStats:
     """Thread-safe, pickle-safe physical JSON-RPC request counters.
 
     ``calls`` is keyed by ``(rpc_provider_domain, api_call)`` and ``errors`` by
-    ``(rpc_provider_domain, error_code, error_message)``. The lock is excluded
-    from pickle state and recreated in subprocesses.
+    ``(rpc_provider_domain, error_code, error_message)``. ``operation_calls``
+    uses ``(operation, rpc_provider_domain, api_call)`` to attribute those same
+    physical attempts to scanner work without increasing the total. Tuple
+    positions match the persistence writer's unpacking order. The lock is
+    excluded from pickle state and recreated in subprocesses.
     """
 
-    #: Provider-domain and JSON-RPC method counts.
+    #: Key: ``(rpc_provider_domain, api_call)``; value: physical attempt count.
+    #: The domain is the provider hostname with an optional non-default port;
+    #: api_call is the JSON-RPC method name, e.g. ``eth_call``.
     calls: Counter[tuple[str, str]] = field(default_factory=Counter)
 
-    #: Provider-domain, error-code and error-message counts.
+    #: Key: ``(rpc_provider_domain, error_code, error_message)``; value: failure count.
+    #: Codes are normalised by :func:`normalise_rpc_error`; messages retain the
+    #: provider's original text so distinct failures remain distinguishable.
     errors: Counter[tuple[str, str, str]] = field(default_factory=Counter)
+
+    #: Key: ``(operation, rpc_provider_domain, api_call)``; value: physical attempt count.
+    #: Operation is the scanner work label at request time. These rows describe
+    #: the same requests as ``calls`` and must never be added to its totals.
+    operation_calls: Counter[tuple[str, str, str]] = field(default_factory=Counter)
+
+    #: Label applied to new physical attempts through this accumulator.
+    operation: str = "unclassified"
 
     #: Synchronises counter updates between worker threads.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
@@ -102,12 +118,18 @@ class RPCRequestStats:
     def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1) -> None:
         """Record physical JSON-RPC request attempts.
 
+        Provider instrumentation calls this for each attempt, including retry
+        and failover. Operation labels describe those same attempts; counting
+        Multicall subcalls here or adding operation totals would inflate cost.
+
         :param rpc_provider_domain:
             Provider hostname, optionally including a non-default port.
         :param api_call:
             JSON-RPC method name such as ``eth_call``.
         :param count:
             Positive number of attempts to add.
+        :return:
+            None; both total and operation counters advance together.
         """
 
         assert rpc_provider_domain, "RPC provider domain must not be empty"
@@ -115,6 +137,7 @@ class RPCRequestStats:
         assert count > 0, f"Count must be positive: {count}"
         with self._lock:
             self.calls[rpc_provider_domain, str(api_call)] += count
+            self.operation_calls[self.operation, rpc_provider_domain, str(api_call)] += count
 
     def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
         """Record JSON-RPC request failures.
@@ -144,33 +167,58 @@ class RPCRequestStats:
 
         assert isinstance(other, RPCRequestStats), f"Expected RPCRequestStats, got {type(other)}"
         other_calls, other_errors = other.export()
+        with other._lock:
+            operations = other.operation_calls.copy()
         with self._lock:
             self.calls.update(other_calls)
             self.errors.update(other_errors)
+            self.operation_calls.update(operations)
 
     def export(self) -> tuple[Counter[tuple[str, str]], Counter[tuple[str, str, str]]]:
         """Take a detached copy of both counter mappings.
 
         :return:
-            Copied call and error counters safe to iterate without holding the
-            accumulator lock.
+            ``(calls, errors)`` safe to iterate without holding the accumulator
+            lock. Call keys are ``(rpc_provider_domain, api_call)``; error keys
+            are ``(rpc_provider_domain, error_code, error_message)``. Values are
+            integer attempt and failure counts respectively. Operation counters
+            are excluded from this legacy two-counter interface.
         """
 
         with self._lock:
             return self.calls.copy(), self.errors.copy()
 
-    def __getstate__(self) -> tuple[dict[tuple[str, str], int], dict[tuple[str, str, str], int]]:
-        """Serialise counters without the non-pickleable thread lock."""
+    def __getstate__(self) -> tuple[Any, ...]:
+        """Serialise counters without the non-pickleable thread lock.
 
-        calls, errors = self.export()
-        return dict(calls), dict(errors)
+        Worker processes transport this positional state rather than the lock.
+        Counter key layouts remain those documented on the corresponding fields.
 
-    def __setstate__(self, state: tuple[dict[tuple[str, str], int], dict[tuple[str, str, str], int]]) -> None:
-        """Restore counters and create a process-local thread lock."""
+        :return:
+            ``(calls_dict, errors_dict, operation_calls_dict, operation_label)``.
+        """
 
-        calls, errors = state
+        with self._lock:
+            return dict(self.calls), dict(self.errors), dict(self.operation_calls), self.operation
+
+    def __setstate__(self, state: tuple[Any, ...]) -> None:
+        """Restore counters and create a process-local thread lock.
+
+        Older worker payloads contain only the two legacy counters. Missing
+        operation fields default to an empty breakdown and an unclassified label.
+
+        :param state:
+            ``(calls_dict, errors_dict, operation_calls_dict, operation_label)``
+            from :meth:`__getstate__`, or its legacy two-member prefix.
+        :return:
+            None; counter mappings and the lock are restored on this instance.
+        """
+
+        calls, errors = state[:2]
         self.calls = Counter(calls)
         self.errors = Counter(errors)
+        self.operation_calls = Counter(state[2]) if len(state) > 2 else Counter()
+        self.operation = state[3] if len(state) > 3 else "unclassified"
         self._lock = threading.Lock()
 
 
@@ -228,6 +276,14 @@ class RPCUsageDatabase:
             )
         """)
 
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS vault_rpc_operation_calls (
+                chain INTEGER, phase VARCHAR, operation VARCHAR, api_call VARCHAR,
+                cycle_started DATE, cycle_number INTEGER, rpc_provider_domain VARCHAR,
+                call_count UBIGINT, items_scanned INTEGER, outcome VARCHAR, metrics VARCHAR
+            )
+        """)
+
     def _require_connection(self) -> duckdb.DuckDBPyConnection:
         """Return the open connection or fail after explicit close.
 
@@ -272,13 +328,21 @@ class RPCUsageDatabase:
         cycle_number: int,
         stats: RPCRequestStats,
         items_scanned: int,
+        metrics: dict | None = None,
     ) -> None:
-        """Append one completed scan-attempt aggregate atomically.
+        """Append one finished phase attempt, including failed or degraded scans.
 
         Call and error rows are committed in the same transaction. An empty
         call aggregate writes a zero-count marker so the scan iteration and its
         item count remain visible. Unknown item counts on early failures should
         be passed as zero.
+
+        The all-chain phase boundary calls this after its workers have merged
+        their counters. Legacy positional schemas remain unchanged for scanner
+        rollback; operation labels and outcomes live in a separate detail table.
+        A successful function return does not prove full reader coverage, so
+        pending candidates and unavailable/overdue readers produce a degraded
+        outcome even when the phase did not raise an exception.
 
         :param chain:
             EVM chain id.
@@ -292,6 +356,8 @@ class RPCUsageDatabase:
             Physical request and error counters for this attempt only.
         :param items_scanned:
             Non-negative number of logical items submitted during the attempt.
+        :param metrics:
+            Optional phase diagnostics stored only in the separate detail table.
         """
 
         assert chain > 0, f"Invalid EVM chain id: {chain}"
@@ -320,8 +386,25 @@ class RPCUsageDatabase:
                     "INSERT INTO vault_rpc_api_errors VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     error_rows,
                 )
+            with stats._lock:
+                detail_rows = [(chain, phase, operation, method, cycle_started, cycle_number, provider, count, items_scanned, None, None) for (operation, provider, method), count in sorted(stats.operation_calls.items())]
+            # Outcome rows have no physical requests. They retain zero-call
+            # cache hits and distinguish completed work from partial coverage;
+            # readers must not add them to the legacy request totals.
+            if metrics and metrics.get("error"):
+                outcome = "failed"
+            elif metrics and (metrics.get("pending_candidates") or metrics.get("reader_unavailable") or metrics.get("low_activity_unverified") or metrics.get("overdue_vaults") or metrics.get("denomination_unavailable_vaults")):
+                outcome = "degraded"
+            else:
+                outcome = "completed"
+            safe_metrics = {key: value for key, value in (metrics or {}).items() if key not in {"error", "traceback"}}
+            detail_rows.append((chain, phase, "outcome", ZERO_CALL_MARKER, cycle_started, cycle_number, ZERO_CALL_MARKER, 0, items_scanned, outcome, json.dumps(safe_metrics, default=str)))
+            connection.executemany("INSERT INTO vault_rpc_operation_calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", detail_rows)
             connection.execute("COMMIT")
-        except duckdb.Error:
+        except BaseException:
+            # A serialization error or interruption after legacy inserts must
+            # roll back the detail rows too. Otherwise the shared connection
+            # retains an open transaction and later accounting attempts fail.
             connection.execute("ROLLBACK")
             raise
 
@@ -465,6 +548,8 @@ def format_rpc_usage_report(database: RPCUsageDatabase, chain: int, cycle_starte
     """
 
     cycle_calls = database.fetch_cycle_calls(chain, cycle_started, cycle_number)
+    # Phase name maps to (summed physical attempts, maximum items scanned).
+    # Each provider/method row repeats the item denominator, so sum only calls.
     phase_totals_by_phase: dict[str, tuple[int, int]] = {}
     for phase, _provider, _api_call, call_count, items_scanned in cycle_calls:
         previous_calls, previous_items = phase_totals_by_phase.get(phase, (0, 0))

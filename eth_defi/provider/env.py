@@ -8,7 +8,7 @@ To support multiple blockchains, we use a naming convention for chains:
 - `JSON_RPC_ARBITRUM_SEPOLIA` for Arbitrum Sepolia
 - `JSON_RPC_BASE_SEPOLIA` for Base Sepolia
 
-All environment variables support multiple RPC providers per chain using a space-separated round robin mechanism.
+All environment variables support multiple RPC providers per chain using the project-specific space-separated fallback format.
 See :ref:`multi rpc` for more details.
 
 Example:

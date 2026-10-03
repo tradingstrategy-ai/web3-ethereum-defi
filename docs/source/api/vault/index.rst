@@ -47,3 +47,6 @@ strategy readiness polling.
    eth_defi.vault.denomination
    eth_defi.vault.crypto_vaults
    eth_defi.vault.crypto_vault_export
+   eth_defi.vault.rpc_batch
+   eth_defi.vault.rpc_scan_state
+   eth_defi.vault.exception

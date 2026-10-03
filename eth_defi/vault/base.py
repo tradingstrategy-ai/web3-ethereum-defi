@@ -81,36 +81,6 @@ def is_meaningful_usd_tvl(current: Decimal | None, highest: Decimal | None) -> b
     return current is not None and (current >= MIN_MEANINGFUL_TVL_USD or (current >= MIN_MEANINGFUL_TVL_EXIT_USD and highest is not None and highest >= MIN_MEANINGFUL_TVL_USD))
 
 
-class WithdrawalDelayType(enum.StrEnum):
-    """Classify how a valid withdrawal request becomes redeemable."""
-
-    #: Immediate redemption without a protocol cooldown or epoch gate.
-    instant = "instant"
-
-    #: A request follows a fixed delay or asynchronous settlement lifecycle.
-    delay = "delay"
-
-    #: A request can be completed only in a protocol-defined epoch window.
-    epoch = "epoch"
-
-
-@dataclass(frozen=True, slots=True)
-class WithdrawalPeriod:
-    """Protocol withdrawal timing bounds exported by the vault scanner."""
-
-    #: Shortest contract-enforced wait before a withdrawal can become available.
-    min_period: datetime.timedelta | None
-
-    #: Longest contract-enforced wait, including a scheduling window.
-    max_period: datetime.timedelta | None
-
-    #: Whether the availability rule is a time delay or epoch window.
-    delay_type: WithdrawalDelayType
-
-    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
-    estimated_settlement: datetime.timedelta | None = None
-
-
 #: Minimum relative share-price movement retained by historical scans.
 #:
 #: Ten basis points reduces repeated rows; cumulative movement is retained once
@@ -637,7 +607,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: Empty string if not set.
     #:
     #: Example values: ``"large_tvl"``, ``"small_tvl"``, ``"tiny_tvl"``,
-    #: ``"peaked"``, ``"faded"``, ``"first_read"`` and ``"contextual"``.
+    #: ``"peaked"``, ``"faded"``, ``"first_read"``, ``"unverified_tvl"``
+    #: and ``"contextual"``. Unknown TVL polls hourly without certifying USD value.
     #: Peaked and faded vaults poll weekly; otherwise estimated USD TVL
     #: of at least $10,000 polls hourly, $1,000-$10,000 daily, and tiny
     #: vaults weekly after their initial two-week daily period.
@@ -1347,6 +1318,14 @@ class VaultBase(ABC):
 
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
+
+    #: Whether NAV and historical total_assets already use synthetic USD units.
+    #:
+    #: Contextual adapters such as YieldBasis and Kinexys intentionally have no
+    #: ERC-20 denomination. Scanner admission and freshness conversion must use
+    #: a unit exchange rate for them without inventing a token contract. This
+    #: declaration does not assert that a volatile underlying asset is stable.
+    synthetic_usd_denomination: ClassVar[bool] = False
 
     def __init__(
         self,

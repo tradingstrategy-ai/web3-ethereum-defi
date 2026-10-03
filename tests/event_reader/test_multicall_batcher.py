@@ -403,7 +403,7 @@ def test_chunked_multicall_counts_batch_once_without_double_merge(
         )
 
     monkeypatch.setattr(multicall_batcher, "Parallel", make_executing_parallel)
-    monkeypatch.setattr(multicall_batcher, "_execute_multicall_subprocess", execute_task)
+    monkeypatch.setattr(multicall_batcher, "_execute_multicall_in_worker", execute_task)
 
     results = list(
         multicall_batcher.read_multicall_chunked(

@@ -13,7 +13,7 @@ from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
-from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
+from eth_defi.erc_4626.scan import fetch_vault_scan_record_in_worker
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
@@ -83,7 +83,7 @@ def test_4626_scan_hypersync(web3):
     worker_processor = Parallel(n_jobs=vault_discover.max_workers)
 
     # Quite a mouthful line to create a row of output for each vault detection using subproces pool
-    rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
+    rows = worker_processor(delayed(fetch_vault_scan_record_in_worker)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
     assert len(rows) >= 59  # Grows as more event signatures are added to discovery
@@ -123,7 +123,7 @@ def test_4626_scan_rpc(web3):
     worker_processor = Parallel(n_jobs=vault_discover.max_workers)
 
     # Quite a mouthful line to create a row of output for each vault detection using subproces pool
-    rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
+    rows = worker_processor(delayed(fetch_vault_scan_record_in_worker)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
     # Grows as more event signatures are added to discovery
@@ -229,7 +229,7 @@ def test_4626_scan_moonwell(web3):
 
     # Quite a mouthful line to create a row of output for each vault detection using subproces pool
     scan_block = 28_698_633
-    rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, scan_block) for d in vault_detections)
+    rows = worker_processor(delayed(fetch_vault_scan_record_in_worker)(web3factory, d, scan_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
     assert len(rows) >= 155  # Grows as more event signatures are added to discovery

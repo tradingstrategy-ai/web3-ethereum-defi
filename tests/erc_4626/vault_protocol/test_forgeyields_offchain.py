@@ -1,13 +1,12 @@
-"""Test ForgeYields offchain metadata API.
+"""Test retained ForgeYields offchain metadata.
 
 ForgeYields is a cross-chain yield aggregator. Most TVL sits on Starknet,
 but the Ethereum TokenGateway only shows a small residual. The canonical
 TVL comes from the proprietary API at api.forgeyields.com/strategies.
 
-1. Mock the API response and verify parsing
-2. Verify per-vault lookup by Ethereum gateway address
-3. Verify unknown address returns None
-4. (Live) One opt-in integration test hitting the real API
+The API is disabled because it is no longer working. Verify retained metadata
+is readable without expiry, unchanged on disk, and never replaced on a cold
+cache; backfills must abort explicitly before modifying historical prices.
 """
 
 import datetime
@@ -16,15 +15,16 @@ import os
 import tempfile
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
+import requests
 
 import eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata as forgeyields_offchain
 from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import (
     fetch_forgeyields_strategies,
     fetch_forgeyields_vault_metadata,
 )
-
 
 #: fyUSDC Ethereum gateway
 FYUSDC_ADDRESS = "0x943109DC7C950da4592d85ebd4Cfed007Af64670"
@@ -69,14 +69,6 @@ MOCK_STRATEGIES_RESPONSE = [
         },
     },
 ]
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """Clear the in-process cache before each test."""
-    forgeyields_offchain._cached_strategies = None
-    yield
-    forgeyields_offchain._cached_strategies = None
 
 
 def _write_mock_cache(tmpdir: str) -> Path:
@@ -132,20 +124,22 @@ def test_fetch_strategies_from_cache():
         assert meta["apy"] == pytest.approx(25.07)
 
 
-def test_fetch_vault_metadata_by_address():
+def test_fetch_vault_metadata_by_address(monkeypatch: pytest.MonkeyPatch):
     """Verify per-vault lookup using mock data.
 
-    1. Populate the in-process cache with mock data
+    1. Supply a cached strategy snapshot with mock data
     2. Look up fyUSDC by its gateway address
     3. Verify name, symbol, and TVL
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_path = _write_mock_cache(tmpdir)
-        # Populate the in-process cache
-        forgeyields_offchain._cached_strategies = fetch_forgeyields_strategies(
+        # Supply a cached strategy snapshot
+        strategies = fetch_forgeyields_strategies(
             cache_path=cache_path,
             max_cache_duration=datetime.timedelta(days=999),
         )
+
+    monkeypatch.setattr(forgeyields_offchain, "fetch_forgeyields_strategies", lambda: strategies)
 
     # 2. Look up
     meta = fetch_forgeyields_vault_metadata(FYUSDC_ADDRESS)
@@ -156,7 +150,7 @@ def test_fetch_vault_metadata_by_address():
     assert meta["tvl_usd"] == Decimal("1085984.11")
 
 
-def test_unknown_address_returns_none():
+def test_unknown_address_returns_none(monkeypatch: pytest.MonkeyPatch):
     """Verify that an unknown address returns None.
 
     1. Populate cache with mock data
@@ -165,124 +159,46 @@ def test_unknown_address_returns_none():
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_path = _write_mock_cache(tmpdir)
-        forgeyields_offchain._cached_strategies = fetch_forgeyields_strategies(
+        strategies = fetch_forgeyields_strategies(
             cache_path=cache_path,
             max_cache_duration=datetime.timedelta(days=999),
         )
 
+    monkeypatch.setattr(forgeyields_offchain, "fetch_forgeyields_strategies", lambda: strategies)
     assert fetch_forgeyields_vault_metadata("0x0000000000000000000000000000000000000001") is None
 
 
-def test_fetch_history_with_mocked_api():
-    """Verify the full history parser path with a mocked requests.get.
+@pytest.mark.parametrize("warm_cache", [False, True])
+def test_disabled_fetch_preserves_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, warm_cache: bool) -> None:
+    """Disabled fetching preserves old metadata and never writes an empty copy.
 
-    1. Mock requests.get to return a strategy with historyReports
-    2. Call fetch_forgeyields_history()
-    3. Verify parsed entries have correct denomination-token TVL
+    Even an explicitly expired cache must retain its original bytes and age.
+    Cold installations remain unavailable instead of contacting the broken API.
     """
-    from unittest.mock import MagicMock, patch
-
-    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import fetch_forgeyields_history
-
-    mock_api_response = [
-        {
-            "name": "ForgeYields USDC",
-            "symbol": "fyUSDC",
-            "underlyingSymbol": "USDC",
-            "tvl": "1069435.712178",
-            "token_gateway_per_domain": [
-                {"domain": "ethereum", "token_gateway": FYUSDC_ADDRESS},
-            ],
-            "integrationInfo": {"overallUsdPrice": "1085984.11", "overallApy": "25.07"},
-            "historyReports": [
-                {
-                    "timestamp": "2026-05-15T10:00:00.000Z",
-                    "epochTimestamp": 1778590800,
-                    "tvl": 1085717.92,
-                    "tvlUSD": 1085178.0,
-                    "underlyingPrice": 0.999503,
-                    "apr": 13.18,
-                },
-                {
-                    "timestamp": "2026-05-16T10:00:00.000Z",
-                    "epochTimestamp": 1778677200,
-                    "tvl": 1086000.0,
-                    "tvlUSD": 1085500.0,
-                    "underlyingPrice": 0.999540,
-                    "apr": 13.20,
-                },
-            ],
-        },
-    ]
-
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = mock_api_response
-    mock_resp.raise_for_status = MagicMock()
-
-    with patch("eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata.requests.get", return_value=mock_resp):
-        strategies = fetch_forgeyields_history()
-
-    assert len(strategies) == 1
-    strat = strategies[0]
-    assert strat["name"] == "ForgeYields USDC"
-    assert strat["symbol"] == "fyUSDC"
-    assert strat["underlying_symbol"] == "USDC"
-    assert strat["ethereum_gateway"] is not None
-
-    assert len(strat["history"]) == 2
-    entry = strat["history"][0]
-    assert entry["tvl"] == pytest.approx(1085717.92)
-    assert entry["tvl_usd"] == pytest.approx(1085178.0)
-    assert entry["apr"] == pytest.approx(13.18)
-    assert entry["timestamp"] == datetime.datetime(2026, 5, 15, 10, 0, 0)
+    request = Mock(side_effect=AssertionError("Disabled ForgeYields API must not be contacted"))
+    monkeypatch.setattr(requests, "get", request)
+    file = tmp_path / "forgeyields_strategies.json"
+    if warm_cache:
+        _write_mock_cache(str(tmp_path))
+        old_time = datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC).timestamp()
+        os.utime(file, (old_time, old_time))
+        original = file.read_bytes(), file.stat().st_mtime
+    for _ in range(2):
+        result = fetch_forgeyields_strategies(cache_path=tmp_path, max_cache_duration=datetime.timedelta(0))
+        if warm_cache:
+            assert result[FYUSDC_ADDRESS.lower()]["tvl"] == Decimal("1069435.712178")
+            assert (file.read_bytes(), file.stat().st_mtime) == original
+        else:
+            assert result == {}
+            assert not file.exists()
+    request.assert_not_called()
+    assert not file.with_suffix(".retry-after").exists()
 
 
-@pytest.mark.skipif(
-    os.environ.get("FORGE_YIELDS_LIVE_TEST") is None,
-    reason="Set FORGE_YIELDS_LIVE_TEST=1 to run",
-)
-def test_fetch_forgeyields_history_live():
-    """Verify history fetch returns denomination-token TVL entries from the live API.
-
-    1. Call fetch_forgeyields_history against the live API
-    2. Verify fyUSDC has ~30 daily entries
-    3. Verify entries have denomination-token tvl (not USD)
-    """
-    from eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata import fetch_forgeyields_history
-
-    strategies = fetch_forgeyields_history()
-    assert len(strategies) >= 3
-
-    fyusdc = [s for s in strategies if s["symbol"] == "fyUSDC"]
-    assert len(fyusdc) == 1
-    strat = fyusdc[0]
-
-    assert strat["underlying_symbol"] == "USDC"
-    assert strat["ethereum_gateway"] is not None
-    assert len(strat["history"]) >= 25
-
-    entry = strat["history"][-1]
-    assert entry["tvl"] > 10_000
-    assert entry["tvl_usd"] > 10_000
-    assert entry["apr"] > 0
-
-
-@pytest.mark.skipif(
-    os.environ.get("FORGE_YIELDS_LIVE_TEST") is None,
-    reason="Set FORGE_YIELDS_LIVE_TEST=1 to run",
-)
-def test_live_api():
-    """Integration test hitting the real ForgeYields API.
-
-    1. Fetch strategies from the live API
-    2. Verify fyUSDC is present with realistic TVL
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        strategies = fetch_forgeyields_strategies(
-            cache_path=Path(tmpdir),
-            max_cache_duration=datetime.timedelta(seconds=0),
-        )
-
-    assert FYUSDC_ADDRESS.lower() in strategies
-    meta = strategies[FYUSDC_ADDRESS.lower()]
-    assert meta["tvl_usd"] > Decimal("10000")
+def test_disabled_history_aborts_before_backfill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing offchain history source must not masquerade as an empty backfill."""
+    request = Mock(side_effect=AssertionError("Disabled ForgeYields API must not be contacted"))
+    monkeypatch.setattr(requests, "get", request)
+    with pytest.raises(RuntimeError, match="no longer working"):
+        forgeyields_offchain.fetch_forgeyields_history()
+    request.assert_not_called()

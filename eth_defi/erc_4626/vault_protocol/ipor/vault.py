@@ -804,6 +804,17 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
         """IPOR maxRedeem check is unreliable, so we skip it."""
         return False
 
+    def fetch_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
+        """Reuse TVL and one idle-balance read for IPOR metadata.
+
+        This preserves the adapter's idle-assets liquidity definition.
+
+        :param total_assets: TVL already read at the supplied source block.
+        :param block_identifier: Common source block for both metrics.
+        :return: Idle liquidity and utilisation fraction.
+        """
+        return self.fetch_idle_lending_snapshot(total_assets, block_identifier)
+
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.
 

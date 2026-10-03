@@ -36,6 +36,8 @@ This submodule offers functionality to connect to and improve the resilience of 
    eth_defi.provider.rpc_monitoring_adapter
    eth_defi.provider.rpc_failure
    eth_defi.provider.rpcdb
+   eth_defi.provider.rpc_counter_maintenance
+   eth_defi.provider.rpc_counter_comparison
    eth_defi.provider.tenderly
 
 Selective retries for optional contract calls

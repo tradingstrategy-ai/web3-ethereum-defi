@@ -55,20 +55,23 @@ def test_vault_metadata_worker_attaches_and_detaches_phase_stats(monkeypatch: py
     stats = RPCRequestStats()
     web3 = FakeWeb3()
     factory = FakeFactory(web3, stats)
-    monkeypatch.setattr(scan, "_subprocess_web3_cache", threading.local())
+    monkeypatch.setattr(scan, "_metadata_worker_cache", threading.local())
     monkeypatch.setattr(scan, "TokenDiskCache", object)
 
     def create_record(worker_web3: FakeWeb3, worker_detection: ERC4262VaultDetection, block_number: int, token_cache: object) -> dict:
         """Verify accounting remains attached for the actual metadata read."""
 
-        assert worker_web3.rpc_request_stats is stats
+        assert worker_web3.rpc_request_stats.operation == "metadata"
+        worker_web3.rpc_request_stats.record_call("rpc.example", "eth_call")
         assert worker_detection is detection
         assert token_cache is not None
         return {"block_number": block_number}
 
     monkeypatch.setattr(scan, "create_vault_scan_record", create_record)
 
-    result = scan.create_vault_scan_record_subprocess(factory, detection, 100)
+    result = scan.fetch_vault_scan_record_in_worker(factory, detection, 100)
 
     assert result == {"block_number": 100}
-    assert web3.attachments == [stats, None]
+    assert web3.attachments[-1] is None
+    assert stats.calls["rpc.example", "eth_call"] == 1
+    assert stats.operation_calls["metadata", "rpc.example", "eth_call"] == 1

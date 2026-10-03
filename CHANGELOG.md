@@ -1,11 +1,14 @@
 # 1.2
 
+- fix: Disable broken ForgeYields offchain fetching while preserving cached metadata and recognise YieldBasis and Kinexys synthetic USD valuations in scanner admission and freshness (2026-10-03).
+- fix: Stop all-chain vault scanning of unsupported Hemi, Blast and Mode chains, including price reads and settlement discovery (2026-10-03).
 - fix: Preserve initial vault price observations and Arcus leveraged NAV moves, withhold annualised returns until the requested history is available, publish young-vault sparklines and automatically classify Arcus pToken strategies (2026-10-02).
 - fix: Refresh monthly Ghost vault report inputs from private production R2 with a one-day cache, update waiting drafts in place across report months, and preserve the published editorial introductions and podcast styling hooks (2026-10-01).
 - feat: Automate the monthly best-performing stablecoin vaults blog post as an unpublished Ghost draft, with generated tables, branded charts in the website's visual identity, latest podcasts, an AI-assisted investability check, `review_needed` vault flags and a dated excluded-vaults record (2026-10-01).
 - feat: Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30).
 - feat: Add Open Standard's live Open USD stablecoin metadata and feed, preserving Origin Dollar as a separate OUSD issuer (2026-09-30).
 - feat: Track Frankencoin Shares equity with Ethereum address classification, protocol curation, equity and underlying lending/RWA strategy tags, revenue-stream documentation and a targeted metadata and price backfill (2026-09-30).
+- feat: Reduce vault scanner RPC requests with staged batching, bounded discovery and admission caches, recoverable scan progress and date-stamped counter backup/reset/comparison scripts (2026-09-30).
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
 - fix: Retry Derive v3 transient application error 9002 with bounded exponential backoff instead of failing live vault-listing reads immediately (2026-09-28).
 - fix: List Kamui's three permissioned Lagoon vaults through one chain-aware address registry, bypass their inapplicable generic Deposit-event threshold, and refresh their onchain whitelist and unofficial metadata (2026-09-28).

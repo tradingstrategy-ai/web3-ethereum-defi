@@ -5,9 +5,11 @@
 """
 
 import datetime
+import hashlib
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
+from pathlib import Path
 
 import eth_abi
 from attr import dataclass
@@ -16,8 +18,8 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
@@ -32,6 +34,7 @@ from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registr
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.fdit.constants import FDIT_PRODUCTS, FDIT_PRODUCTS_BY_TOKEN
@@ -1874,6 +1877,25 @@ def _is_hypurrfi_name(name: str) -> bool:
     return bool(re.search(r"hy[^-]+-\s*\d+(?:\x00|$)", name, re.IGNORECASE))
 
 
+#: Bump when external classification dependencies or deployment data change.
+VAULT_CLASSIFIER_VERSION = 1
+
+
+def create_vault_classifier_signature() -> str:
+    """Version classification helpers, probe definitions and module data together.
+
+    Hashing the complete module covers helper and deployment-map edits. The
+    explicit version must also be bumped for external dependency/data changes.
+    Comments and formatting are included in this conservative hash too: any
+    change to this file invalidates cached classifications on the next scan.
+    Lead-scan core logs that invalidation as a measurement event, because a
+    catalogue refresh temporarily adds probes to the RPC reduction comparison.
+
+    :return: Stable classifier provenance for finite-lived sidecars.
+    """
+    return hashlib.sha256(Path(__file__).read_bytes() + str(VAULT_CLASSIFIER_VERSION).encode()).hexdigest()
+
+
 def probe_vaults(
     chain_id: int,
     web3factory: Web3Factory,
@@ -1881,8 +1903,26 @@ def probe_vaults(
     block_identifier: BlockIdentifier,
     max_workers=8,
     progress_bar_desc: str | None = None,
+    current_state: bool = False,
 ) -> Iterable[VaultFeatureProbe]:
     """Perform multicalls against each vault address to extract the features of the vault smart contract.
+
+    Lead discovery calls this only for classifications that lack valid cached
+    provenance. Results are buffered per address because a chunk can contain
+    probes for multiple candidates. A task-local feature-probe counter is merged
+    once into the phase accumulator even if a later chunk fails, preserving the
+    physical cost of partial work without transferring parent counter history.
+
+    :param chain_id: Chain namespace for probe selection and worker verification.
+    :param web3factory: Worker connection factory with optional phase accounting.
+    :param addresses: Candidate vault addresses selected for fresh ABI probes.
+    :param block_identifier: Requested source block for historical/default probes.
+    :param max_workers: Maximum concurrent joblib workers.
+    :param progress_bar_desc: Optional label for observable probe progress.
+    :param current_state:
+        Live scans use threads. Live HyperEVM reads refresh a numeric head before
+        each batch to stay within its execution window. Historical callers retain
+        pinned blocks and the multiprocessing backend.
 
     :return:
         Iterator of what vault smart contract features we detected for each potential vault address
@@ -1892,21 +1932,32 @@ def probe_vaults(
 
     probe_calls = list(create_probe_calls(addresses, chain_id=chain_id))
 
-    # Temporary work buffer were we count that all calls to the address have been made,
-    # because results are dropping in one by one
+    # Decode features only once all subcalls have been collected for an address;
+    # batching can split one candidate's ABI probes across multiple chunks.
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
-    for call_result in read_multicall_chunked(
-        chain_id,
-        web3factory,
-        probe_calls,
-        block_identifier=block_identifier,
-        progress_bar_desc=progress_bar_desc,
-        max_workers=max_workers,
-    ):
-        address = call_result.call.address
-        address_calls = results_per_address[address]
-        address_calls[call_result.call.func_name] = call_result
+    parent_stats = getattr(web3factory, "rpc_request_stats", None)
+    probe_stats = RPCRequestStats(operation="feature_probe") if parent_stats is not None else None
+    try:
+        for call_result in read_multicall_chunked(
+            chain_id,
+            web3factory,
+            probe_calls,
+            block_identifier=block_identifier,
+            progress_bar_desc=progress_bar_desc,
+            max_workers=max_workers,
+            backend="threading" if current_state else "loky",
+            rpc_request_stats=probe_stats,
+            timestamped_results=False,
+            refresh_current_block=current_state and chain_id == 999,
+        ):
+            address = call_result.call.address
+            address_calls = results_per_address[address]
+            address_calls[call_result.call.func_name] = call_result
+
+    finally:
+        if parent_stats is not None:
+            parent_stats.merge(probe_stats)
 
     for address, address_call_results in results_per_address.items():
         # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
