@@ -3599,27 +3599,24 @@ these adapters is valid metadata. Other adapters with an unavailable or
 unconfigured denomination remain unverified; do not guess a token from a
 vault's name or substitute zero TVL.
 
-ForgeYields TVL refreshes share the disk snapshot under
-`~/.tradingstrategy/cache/forgeyields/`. Successful TVL snapshots expire after
-one hour, while general metadata uses a two-day lifetime. Failed refreshes
-and empty strategy responses set `forgeyields_strategies.retry-after`, which
-defers further refresh attempts for one hour across workers and restarts.
-The existing snapshot and its modification time remain intact; stale fallback
-is not a freshly fetched API observation. Python callers can adjust the
-documented `retry_cooldown` argument of `fetch_forgeyields_strategies()`.
-There is no additional environment variable or operator reset required.
+ForgeYields offchain fetching is disabled because the API is no longer working.
+The scanner reads the existing metadata copy at
+`~/.tradingstrategy/cache/forgeyields/forgeyields_strategies.json` regardless of
+its age, without issuing HTTP requests, refreshing its modification time or
+writing replacement data. Keep this file when moving or restoring scanner state.
+Cached TVL and APY are last-known metadata, not fresh API observations. Without
+an existing copy, these values remain unavailable rather than becoming zero.
 
-To check the real ForgeYields API without reusing production caches, run:
+Offchain historical backfills abort explicitly because the metadata snapshot
+contains no raw `historyReports`; previously collected price history is preserved.
+The API-backed live tests and refresh cooldown are removed while fetching is
+disabled. Re-enabling the source requires a reviewed code change.
 
-```shell
-source .local-test.env && FORGE_YIELDS_LIVE_TEST=1 poetry run pytest tests/erc_4626/vault_protocol/test_forgeyields_offchain.py::test_live_api -q
-```
+On 3 October 2026 the public website still rendered, but its numbers came from
+hardcoded fallbacks. The app displayed “Failed to fetch strategies” and used the
+same HTTP-500 `/strategies` endpoint as our scanner. A working landing page is
+not evidence that the source feed has recovered.
 
-This opt-in test uses a temporary empty cache and requires a successful response
-with the USDC strategy. On 3 October 2026 the upstream returned HTTP 500,
-including on the CI retry; a cached fork test passing locally does not prove
-the live API is healthy. Wait for upstream recovery before rerunning a failed
-live check rather than issuing repeated refresh bursts.
 Tokens that permanently omit their symbol keep the existing unknown-token
 scheduling estimate and inactivity cadence; that estimate cannot qualify USD TVL.
 If an adapter permanently has no denomination object, the hourly fallback

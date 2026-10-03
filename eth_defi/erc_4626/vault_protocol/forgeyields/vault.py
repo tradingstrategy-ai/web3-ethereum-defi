@@ -17,12 +17,12 @@ NAV calculation
 ~~~~~~~~~~~~~~~
 
 The TokenGateway contract does not implement ``totalAssets()`` — the call reverts.
-On-chain ``convertToAssets(totalSupply())`` returns only the gateway's residual balance
+Onchain ``convertToAssets(totalSupply())`` returns only the gateway's residual balance
 (~$12K), not the true cross-chain AUM (~$1.8M). The canonical TVL comes from
 ForgeYields' proprietary API at ``https://api.forgeyields.com/strategies``.
 
 See :py:mod:`~eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata` for
-the API integration.
+the retained metadata reader; API fetching is disabled.
 
 Fee model:
 
@@ -59,22 +59,22 @@ logger = logging.getLogger(__name__)
 
 
 class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
-    """Read ForgeYields vault data — share price from on-chain, TVL from offchain API.
+    """Read ForgeYields vault data — onchain share price and retained offchain TVL.
 
-    The on-chain ``totalAssets()`` reverts on the TokenGateway and
+    The onchain ``totalAssets()`` reverts on the TokenGateway and
     ``convertToAssets(totalSupply())`` returns only the gateway residual.
 
     For rows near the chain head (within 24 hours of now), this reader
-    writes the current denomination-token TVL from the ForgeYields API
+    writes the retained denomination-token TVL from the saved metadata copy
     into ``total_assets``. Older rows get ``total_assets=None`` — the
-    backfill script fills those from the API's 30-day ``historyReports``.
+    previously collected history is preserved, but API backfills are disabled.
 
-    The current TVL is also fed into the reader state so adaptive polling
+    The retained TVL is also fed into the reader state so adaptive polling
     does not degrade to faded/tiny cadence.
     """
 
-    #: Only write API TVL for rows within this window of the current time.
-    #: Older rows get total_assets=None for the backfill to handle.
+    #: Restrict retained TVL to near-head rows to avoid rewriting old observations.
+    #: Older rows remain unavailable; the retired API cannot supply a backfill.
     NEAR_HEAD_WINDOW = datetime.timedelta(hours=24)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
@@ -94,26 +94,26 @@ class ForgeYieldsHistoricalReader(ERC4626HistoricalReader):
         if errors:
             errors = [e for e in errors if "total_assets" not in e]
 
-        # The shared disk snapshot and outage deadline coalesce API requests
-        # across rows and vaults while allowing later scan cycles to recover.
-        current_tvl = self.vault.fetch_tvl()
+        # Offchain fetching is disabled. Retain the last known snapshot value
+        # without issuing an API request for each historical observation.
+        retained_tvl = self.vault.fetch_tvl()
 
-        # Only write TVL for near-head rows — the API value is a current
+        # Only write TVL for near-head rows — the retained metadata is a latest-known
         # snapshot and would be incorrect for older historical blocks.
-        # The backfill script handles older rows from historyReports.
+        # Existing older observations must be preserved while API backfills are disabled.
         total_assets = None
-        if current_tvl is not None and timestamp is not None:
+        if retained_tvl is not None and timestamp is not None:
             age = native_datetime_utc_now() - timestamp
             if age <= self.NEAR_HEAD_WINDOW:
-                total_assets = current_tvl
+                total_assets = retained_tvl
 
-        # Feed the real TVL into the reader state so adaptive polling does not
+        # Feed the retained TVL into the reader state so adaptive polling does not
         # degrade to faded/tiny cadence due to zero-TVL classification.
         convert_to_assets_result = call_by_name.get("convertToAssets")
         if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
             convert_to_assets_result.state.on_called(
                 convert_to_assets_result,
-                total_assets=current_tvl,
+                total_assets=retained_tvl,
                 share_price=share_price,
             )
 
@@ -138,26 +138,27 @@ class ForgeYieldsVault(ERC4626Vault):
 
     - Built on Veda Labs' BoringVault with TokenGateway cross-chain deposit architecture
     - Hallmark-underwritten strategies with public risk methodology
-    - Atomic Transparency Ledger for real-time on-chain-verifiable reporting
+    - Atomic Transparency Ledger for real-time onchain-verifiable reporting
     - Asynchronous request-then-claim redemption; funds keep earning until claimed
     - `Homepage <https://www.forgeyields.com/>`__
     - `Documentation <https://forge-labs.gitbook.io/forge-docs>`__
     - `Audits <https://forge-labs.gitbook.io/forge-docs/other/audits>`__
 
     The TokenGateway contract does not implement ``totalAssets()``.
-    On-chain ``convertToAssets(totalSupply())`` returns only the gateway residual.
-    The canonical TVL comes from the offchain API.
+    Onchain ``convertToAssets(totalSupply())`` returns only the gateway residual.
+    Cross-chain TVL uses the retained offchain metadata snapshot; API fetching is disabled.
 
     See :py:mod:`~eth_defi.erc_4626.vault_protocol.forgeyields.offchain_metadata`.
     """
 
     @cached_property
     def forgeyields_metadata(self) -> ForgeYieldsVaultMetadata | None:
-        """Offchain metadata from ForgeYields' proprietary API.
+        """Read retained metadata for this Ethereum gateway.
 
-        - Fetched from ``api.forgeyields.com/strategies``
-        - Cached on first access (in-process + disk)
-        - Returns None if vault address is not a known ForgeYields Ethereum gateway
+        Cache the saved strategy entry for the adapter's lifetime without
+        requesting the retired API or modifying the disk snapshot.
+
+        :return: Last-known metadata, or ``None`` when no saved entry exists.
         """
         return fetch_forgeyields_vault_metadata(self.vault_address)
 
@@ -165,20 +166,19 @@ class ForgeYieldsVault(ERC4626Vault):
         return ForgeYieldsHistoricalReader(self, stateful=stateful)
 
     def fetch_tvl(self) -> Decimal | None:
-        """Fetch total cross-chain TVL in denomination token units from the ForgeYields API.
+        """Read retained cross-chain TVL in denomination token units.
 
         Returns the TVL in the vault's denomination token (ETH, USDC, WBTC),
         suitable for writing to ``total_assets`` in the price parquet.
 
-        Uses a short (1-hour) disk cache so hourly scan cycles pick up
-        fresh TVL values, unlike the 2-day metadata cache used for ranking.
+        Offchain fetching is disabled because the API is no longer working.
+        The saved metadata copy is read without expiry or modification; its
+        TVL is the last known value, not a fresh API observation.
 
         :return:
             Total vault value in denomination token units, or ``None`` if unavailable.
         """
-        strategies = fetch_forgeyields_strategies(
-            max_cache_duration=datetime.timedelta(hours=1),
-        )
+        strategies = fetch_forgeyields_strategies()
         key = self.vault_address.lower()
         meta = strategies.get(key)
         if meta is not None:
@@ -186,12 +186,12 @@ class ForgeYieldsVault(ERC4626Vault):
         return None
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
-        """Not available — on-chain value is the gateway residual, not the true AUM.
+        """Not available — onchain value is the gateway residual, not the true AUM.
 
         The TokenGateway's ``convertToAssets(totalSupply())`` returns only
         the small residual held by the Ethereum gateway (~$12K), not the
         cross-chain AUM (~$1.8M). Use :py:meth:`fetch_nav` for the
-        canonical current TVL from the ForgeYields API.
+        last-known TVL from the retained offchain metadata copy.
 
         :return:
             Always ``None``.
@@ -199,10 +199,10 @@ class ForgeYieldsVault(ERC4626Vault):
         return None
 
     def fetch_nav(self, block_identifier=None) -> Decimal | None:
-        """Fetch current TVL in denomination token units from the ForgeYields API.
+        """Read the last known TVL from retained offchain metadata.
 
-        Returns the cross-chain AUM in the vault's denomination token
-        (ETH, USDC, WBTC) from ``api.forgeyields.com/strategies``.
+        Returns saved cross-chain AUM in the vault's denomination token
+        (ETH, USDC, WBTC). No fresh offchain observation is available.
 
         :return:
             Total vault value in denomination token units, or ``None``.

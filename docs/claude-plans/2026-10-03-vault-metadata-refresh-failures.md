@@ -23,17 +23,19 @@ HTTP request. Twenty-four warnings appeared during the latest major-chain
 scan. The separate process-global metadata dictionary also retained an empty
 initial result indefinitely, preventing recovery in a looped process.
 
-The fix records a one-hour retry deadline beside the existing cache, under
-the same file lock. Threads, processes and restarts therefore share the
-cooldown. Failed and empty responses preserve the successful snapshot and
-its modification time; cold caches remain empty rather than acquiring a
-false successful snapshot. Success clears the deadline. A documented
-`retry_cooldown` function argument permits deliberate adjustment without an
-additional environment variable. Metadata lookup uses the expiring disk
-cache instead of a permanent global dictionary.
+The final policy disables all offchain fetching with the line comment
+`no longer working`. Strategy lookup reads the retained successful JSON copy
+regardless of its age and never modifies its bytes or modification time.
+Missing snapshots remain unavailable. History backfills fail explicitly before
+changing prices because the normalised metadata copy has no raw history reports.
+No cooldown files or network refreshes are needed while the source is disabled.
 
-Stale TVL remains fallback data, not a newly fetched API observation. This
-change bounds outage traffic; it does not restore a healthy upstream feed.
+A headless-browser check at approximately 10:19 UTC confirmed that the app
+renders “Failed to fetch strategies” after four HTTP-500 attempts to the same
+endpoint. The public landing page also received HTTP 500 but displayed bundled,
+hardcoded TVL/APY fallbacks, including `$1.81M` total TVL. The published app still
+uses this endpoint; there is no evidence that our scanner uses an obsolete URL.
+This does not establish the internal backend failure cause.
 
 ## Denomination metadata
 
@@ -74,21 +76,17 @@ discarded.
 
 ## Checks
 
-- Focused offline suites: **56 passed, 2 skipped**. Coverage includes concurrent
-  refresh failures with warm and cold caches, unchanged stale bytes and age,
-  cooldown expiry and recovery, empty-response preservation, recovery after an
-  initial empty metadata lookup, and all four YieldBasis admission conversions.
-- Real Ethereum provider:
-  `source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run pytest tests/yield_basis/test_yield_basis_integration.py -q`
-  passed, **1 test**, on 3 October 2026. It exercises the Factory and valuation
-  path and confirms the scanner's USD exchange rate.
-- Manual real ForgeYields outage check used a temporary empty cache and wrapped
-  the actual HTTP transport: two fetcher invocations produced **one HTTP
-  request**, both returned unavailable data, and the retry deadline existed.
-  The provider returned HTTP 500. Successful live-API coverage remains blocked
-  by that outage; a fork test passing with cached data is not evidence of
-  current upstream health.
+The initial investigation's offline suites passed 56 tests, and its real
+Ethereum YieldBasis integration test passed. A temporary-cache real ForgeYields
+check reproduced HTTP 500 and demonstrated the initial cooldown. These checks
+preceded the final decision to disable fetching entirely.
+
+All 12 focused ForgeYields tests passed on 3 October 2026. The tests verify that arbitrarily old metadata keeps its bytes and age,
+a missing snapshot is not recreated, no HTTP request occurs, and offchain
+history backfills abort explicitly. The ForgeYields fork test uses an isolated
+metadata snapshot instead of the retired API, covering both unavailable and
+retained NAV alongside its real contract checks.
 
 The [script README](../../scripts/erc-4626/README-vault-scripts.md) documents the
-cooldown, synthetic denominations and an opt-in live API check that uses a
-temporary cache. Run it after upstream recovery, without repeated outage bursts.
+retained metadata location and disabled history source. Production caches were
+not modified by this work.
