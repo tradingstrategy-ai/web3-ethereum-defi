@@ -1,6 +1,6 @@
 # Test suite optimisation plan
 
-Date: 2026-10-03. Status: validated reduction batches and fixture-sharing pilots implemented locally; CI confirmation pending. First reduction batch is in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623).
+Date: 2026-10-03. Status: validated reduction batches and fixture-sharing pilots published in PR #1623; full-batch CI confirmation pending. First reduction batch is in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623).
 
 ## Objective
 
@@ -217,9 +217,9 @@ review's turn-limit failure supplies no independent final verdict.
 
 ## Implementation record
 
-Implemented on 2026-10-03 on `audit-ci-test-burden`. The existing first-batch PR
-has not been updated with these follow-ups: local commits remain reviewable
-before any further remote update. The complete suite was not run locally.
+Implemented on 2026-10-03 on `audit-ci-test-burden`. The follow-up batch and simplification were published to the existing PR on
+the user's explicit request. The complete suite was not run locally; use the
+PR checks and recommendation comments for the latest CI acceptance results.
 
 ### Coverage map and changes
 
@@ -382,3 +382,10 @@ resume-count assertion, and removed the redundant fee-forwarding factory wrapper
 Focused final checks: nine GMX/reporting cases passed in 101.88s; 21 real-backend,
 APY/cache and reporting/snapshot cases passed in 17.35s. These are manual local
 runs on 2026-10-03 using supplied Arbitrum RPC and public GMX endpoints.
+
+
+After removal of the redundant forwarding wrapper and addition of failed-revert
+process disposal, all five GMX Lagoon cases passed under `-n 4 --dist loadgroup`
+in 103.99s, including shared trading, independent deployment and fee forwarding.
+Formatting passed for all 44 surviving changed Python files; workflow YAML,
+embedded Bash syntax and whitespace checks passed.

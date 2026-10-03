@@ -857,5 +857,7 @@ the helper itself does not recycle the process. The GMX trading fixture clears
 its deployment cache and closes the affected process on that failure, so the
 pool relaunches before the next request.
 
-The follow-up batch is not yet measured on CI. Local elapsed-time reductions
+The follow-up batch is published in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623);
+its checks and recommendation comments record CI acceptance and comparisons.
+At publication, complete-batch CI measurements were pending. Local elapsed-time reductions
 and explicit method-call counts are not suite-wide CPU or HTTP/RPC savings.
