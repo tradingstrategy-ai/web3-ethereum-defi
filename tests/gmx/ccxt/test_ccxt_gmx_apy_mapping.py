@@ -18,6 +18,12 @@ def test_apy_period_and_symbol_mapping(period: str) -> None:
 
     One controlled endpoint response replaces seven live downloads. Keep the
     separate real APY test for the external provider contract.
+
+    :param period:
+        Supported APY lookback period under test.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     exchange = GMX(options={"disable_market_cache": True})
     exchange.api = GMXAPI(chain="arbitrum")
@@ -35,7 +41,14 @@ def test_apy_period_and_symbol_mapping(period: str) -> None:
 
 
 def test_apy_missing_symbol_and_provider_failure() -> None:
-    """Keep defined missing-data and provider-failure outcomes offline."""
+    """Keep defined missing-data and provider-failure outcomes offline.
+
+    Exercise the documented empty-result outcomes with controlled missing data
+    and a deliberately raised provider failure.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     exchange = GMX(options={"disable_market_cache": True})
     exchange.api = GMXAPI(chain="arbitrum")
     market = {"info": {"market_token": "0xabc"}}
@@ -47,7 +60,14 @@ def test_apy_missing_symbol_and_provider_failure() -> None:
 
 
 def test_apy_invalid_period() -> None:
-    """Reject invalid periods before contacting the provider."""
+    """Reject invalid periods before contacting the provider.
+
+    The actual API validator must reject an unsupported period without issuing
+    a network request.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     with patch("eth_defi.gmx.api.make_gmx_api_request") as fetch:
         with pytest.raises(ValueError, match="Invalid period"):
             GMXAPI(chain="arbitrum").get_apy(period="invalid")
@@ -59,6 +79,12 @@ def test_empty_apy_cache_is_populated_by_both_adapters(tmp_path: Path) -> None:
 
     Empty persistent stores evaluate as false; that must not disable the initial
     write. Exercise both adapters with controlled responses and real cache files.
+
+    :param tmp_path:
+        Isolated directory for persistent cache files.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     symbol = "ETH/USDC:USDC"
     markets = {symbol: {"symbol": symbol, "info": {"market_token": "0xabc"}}}
@@ -91,5 +117,38 @@ def test_empty_apy_cache_is_populated_by_both_adapters(tmp_path: Path) -> None:
             assert cache.get_apy("30d") == response["markets"]
             assert asyncio.run(exchange.fetch_apy()) == expected
             fetch.assert_awaited_once()
+    finally:
+        cache.close()
+
+
+@pytest.mark.parametrize("existing_empty_entry", [False, True])
+def test_empty_rest_discovery_is_not_cached(tmp_path: Path, existing_empty_entry: bool) -> None:
+    """Retry discovery rather than retaining an empty response for an hour.
+
+    Exercise both an initially empty SQLite store and an empty entry written by
+    older code. The second discovery call must still reach the provider.
+
+    :param tmp_path:
+        Isolated directory for the persistent cache.
+    :param existing_empty_entry:
+        Seed an empty entry to exercise recovery from an older cache.
+    :return:
+        None; assertions validate provider calls and cache contents.
+    """
+    cache = GMXMarketCache(tmp_path / "markets.sqlite")
+    try:
+        if existing_empty_entry:
+            cache.set_markets({}, "rest_api", ttl=3600)
+        exchange = GMX(options={"disable_market_cache": True})
+        exchange._market_cache = cache
+        exchange.api = Mock()
+        exchange.api.get_markets_info.return_value = {"markets": []}
+        exchange.api.get_tokens.return_value = {"tokens": []}
+        with patch.object(exchange, "_filter_datastore_disabled_markets", side_effect=lambda markets: markets):
+            assert exchange._load_markets_from_rest_api() == {}
+            assert exchange._load_markets_from_rest_api() == {}
+        assert exchange.api.get_markets_info.call_count == 2
+        if not existing_empty_entry:
+            assert cache.get_markets("rest_api") is None
     finally:
         cache.close()

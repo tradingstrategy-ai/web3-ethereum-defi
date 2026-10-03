@@ -210,7 +210,6 @@ def test_trade_history_sync_resume(session, tmp_path):
         assert second_count > first_count, f"Resume must add fills beyond {first_count}, got {second_count}"
 
         # Full window should have some fills even if the first sub-window was empty
-        assert second_count > 0, "Expected fills in the bounded one-day window"
 
         # Newest timestamp should advance or appear after resume
         assert second_state["fills"]["newest_ts"] > first_state["fills"]["newest_ts"]

@@ -1,8 +1,10 @@
 # Test suite performance plan
 
-Plan to make the test suite leaner and faster **without** removing Anvil
-integration coverage and **without** introducing complex mock/replay paths.
-We keep forking real chains; we stop paying for the same fork many times over.
+Reduce repeated deployments, live data volume and CI setup while retaining
+meaningful real-provider and Anvil integration coverage. Controlled responses
+cover transformation and failure cases; real integrations verify each provider
+path. The dated sections below record earlier decisions, not current acceptance
+results. See the October status for the latest implementation.
 
 > **Writing a new fork test?** See `eth_defi/testing/README.md` for the how-to:
 > shared session forks (`anvil_fork_pool`), the per-chain midnight block cache
@@ -30,7 +32,7 @@ We keep forking real chains; we stop paying for the same fork many times over.
   were removed everywhere). Foundry toolchain split from a single stable,
   accumulating `~/.foundry/cache/rpc` cache in `test.yml`, `test-gmx.yml` and
   `test-vault-protocol.yml`; `test.yml` checkout bumped to v4. **Deferred:** the
-  DRY composite action and the submodule/ganache caching (documented below) —
+  DRY composite action and submodule caching (documented below) —
   needs CI iteration.
 - **Lever 3 (vault gating) — DONE (code).** New always-triggered
   `test-vault-protocol.yml` (job-level path skip via `dorny/paths-filter`, weekly
@@ -51,13 +53,14 @@ We keep forking real chains; we stop paying for the same fork many times over.
   (`eth_defi/testing/fork_blocks.py`, `ARBITRUM_MIDNIGHT_BLOCK` = the last block
   at/before 2026-07-24 00:00 UTC — recent enough that the PoC vaults have state,
   fixed and cache-friendly; each vault is validated before normalising its test).
-  **11 read-only Arbitrum characterisation tests** now share one fork via an
+  **11 read-only Arbitrum characterisation modules** shared one fork via an
   `xdist_group("fork:arbitrum:midnight")` marker: `test_goat`, `test_harvest`,
   `test_autopool`, `test_dolomite`, `test_llama_lend`, `test_nashpoint`,
   `test_superform`, `test_truefi`, `test_untangle`, `test_usdai`,
-  `test_yearn_yvault`. They previously forked **five different blocks**
+  `test_yearn_yvault`. These modules previously forked **five different blocks**
   (392M/409M/422M/430M/478M) — normalising them onto one midnight block collapses
-  five-plus cold forks into one.
+  five-plus cold forks into one. The empty Superform module was removed in the
+  October batch; the list is the July inventory.
 
   **Measured locally** (anvil 1.7.1, real Arbitrum archive): a serial run launches
   **one** Anvil for the group (vs one per file); tests co-locate on one worker
@@ -529,8 +532,8 @@ launch-count / revert-count caps and periodic Anvil recycling as a safety valve.
    Keep groups at `(chain, block, config)` granularity so distinct forks still
    spread across workers.
 
-6. **Register the marker.** `pyproject.toml:244` currently registers only `live`
-   and `slow`; add any new marker there to avoid `PytestUnknownMarkWarning`.
+6. **Register custom markers.** Check the current marker list in
+   `pyproject.toml`; xdist registers its own `xdist_group` marker.
 
 ### Acceptance
 
@@ -602,13 +605,14 @@ workflow and dependency caches.
    `test.yml`'s checkout uses `submodules: true`, re-cloning large submodules
    (e.g. `contracts/aave-v3-deploy`) every run. `test.yml` checkout was bumped to
    `actions/checkout@v4` (done); still to do — cache the submodule working trees
-   or fetch only the submodules tests actually need (the workflow notes it only
-   needs `contracts/aave-v3-deploy`). Pair with the existing npm cache (the
+   or fetch only the submodules tests actually need. Both Aave and Lagoon need
+   source/build prerequisites; the old Aave-only comment was incomplete. Pair
+   with the existing npm cache (the
    `Setup Node.js` step) so the Aave npm install is not redone cold.
 
 5. **Cache the remaining per-run installs. (deferred)**
-   - The `Install Ganache` step does `yarn global add ganache` every run — pin the
-     version and cache the global yarn/npm dir, or drop it if unused.
+   - Ganache installation was removed in the October batch after checking its
+     consumers; its direct integration test is unconditionally skipped.
    - The `Cache Lagoon soldeer deps` step is already correct (keyed on lockfiles +
      `restore-keys`) — keep it as the template for lockfile-keyed caches.
 
@@ -623,8 +627,9 @@ workflow and dependency caches.
 - Warm-cache runs restore the Poetry venv from the built-in cache (`poetry
   install` is a near no-op) with no separate venv-cache step.
 - Warm-cache runs show reduced archive RPC traffic and faster fork setup on
-  repeat blocks; the immutable toolchain cache size stays flat while the RPC
-  cache grows and persists across runs (self-warming, no reset).
+  repeat blocks; the immutable toolchain cache size stays flat. CI RPC replies start from the
+  committed seed; new runner-local replies need an intentional seed refresh to
+  become available to future runners.
 - All workflows share one caching approach (ideally via a shared composite
   action once deferred item 6 lands).
 
@@ -731,8 +736,9 @@ bulk sweep.
 
 ### Acceptance
 
-- `@flaky` count drops sharply; every remaining usage carries a network-dependency
-  justification. No net coverage loss; previously-hidden failures are triaged.
+- Remove retries only where evidence shows they hide deterministic failures.
+  Retained retries need a concrete justification; a lower decorator count alone
+  is not an acceptance criterion.
 
 ## Lever 5 — build docs on a schedule, not on every merge
 
@@ -794,28 +800,14 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 - `docs.yml` no longer triggers on push to master; it runs on the Mon/Wed/Sat
   cron and can be launched manually via `workflow_dispatch`.
 
-## Rollout order
+## Remaining rollout
 
-1. **Lever 5** (docs on a Mon/Wed/Sat schedule) — trivial one-file trigger change,
-   immediately removes a per-merge Beefy job.
-2. **Lever 4** (remove flaky from non-network tests) — lowest risk, restores
-   signal quality so the suite can be trusted while optimising.
-3. **Lever 2** (proper CI caching) — CI config only, no test edits. Do it in
-   order of payoff: add the missing Poetry venv cache to `test.yml` and
-   standardise the venv key first (largest cold-run win), then split the Foundry
-   toolchain/RPC caches, then submodule/checkout and the DRY composite action.
-4. **Lever 3** (change-aware vault gating) — only after the always-triggered
-   required-check job and the periodic/full fallback are in place, with the broad
-   path set.
-5. **Lever 1** (session-scoped shared forks) — landed as a **read-only** bounded
-   PoC (two Arbitrum tests normalised onto the midnight block, sharing one
-   fork — validated locally: one Anvil for both, co-located under
-   `--dist loadgroup`), which validates fork-sharing and xdist co-location but
-   **not** the snapshot/revert hang risk.
-   Converting any *mutating* test additionally requires a bounded CI PoC that
-   proves no xdist hang across revert cycles, using the existing
-   `create_anvil_snapshot_state`/`reset_anvil_snapshot` (or
-   `evm_snapshot_revert`) helpers. Only then roll out incrementally.
+The July infrastructure and October reductions are implemented in code. Confirm
+October changes on CI before expanding mutable deployment sharing. Next,
+profile repeated deployment and transaction stages in the surviving expensive
+lifecycle tests, then extend compatible baselines only where setup savings
+outweigh serialisation. Submodule/setup caching and a shared setup action remain
+candidates requiring CI measurements. Retain the existing required-check gates.
 
 ## Out of scope
 
@@ -835,8 +827,8 @@ module, bounds the Lighter cycle to one pool per deployment, groups Lagoon flow
 checks and pilots one isolated GMX trading baseline per worker. Independent
 Safe deployment, fee-forwarding and PnL regressions retain their coverage.
 
-Every test workflow now uploads JUnit output, complete setup/call/teardown
-JSONL reports and process resource reports, even after failures. Each worker
+All four test workflows attempt to upload JUnit output, complete setup/call/teardown
+JSONL reports and process resource reports, after success or failure; files may be absent if setup fails or a runner is terminated. Each worker
 writes its own timing file so intermediate flaky attempts are included before
 the plugin suppresses terminal reports. To capture a focused local run:
 
@@ -855,3 +847,15 @@ Main collection validates the complete pre-deselection item list, including
 marks added by other collection hooks. An indirectly marked module missing from
 discovery fails with an actionable error instead of silently losing CI coverage.
 Keep slow markers explicit when adding tests.
+
+
+Standard and fee-forwarding GMX setups use one parameterised deployment factory.
+The forwarding variant still deploys independently and sets the Safe to zero
+native ETH. Token funding uses `TokenDetails.transfer()` with decimal
+amounts. Strict snapshot mode exposes failed restoration as a teardown error;
+the helper itself does not recycle the process. The GMX trading fixture clears
+its deployment cache and closes the affected process on that failure, so the
+pool relaunches before the next request.
+
+The follow-up batch is not yet measured on CI. Local elapsed-time reductions
+and explicit method-call counts are not suite-wide CPU or HTTP/RPC savings.

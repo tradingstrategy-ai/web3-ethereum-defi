@@ -1194,7 +1194,7 @@ class GMX(ExchangeCompatible):
             # Check disk cache first
             if self._market_cache is not None:
                 cached_markets = self._market_cache.get_markets("rest_api")
-                if cached_markets is not None:
+                if cached_markets:
                     # Re-apply SYMBOL_REMAP so stale cache entries (e.g. "XAUT.v2/USDC:USDC"
                     # written before the remap was added) are normalised on load.
                     remapped: dict = {}
@@ -1425,8 +1425,8 @@ class GMX(ExchangeCompatible):
             self.markets_loaded = True
             self.symbols = list(self.markets.keys())
 
-            # Save to disk cache
-            if self._market_cache is not None:
+            # Empty discovery responses must not poison the cache for its full TTL.
+            if self._market_cache is not None and markets_dict:
                 try:
                     self._market_cache.set_markets(
                         markets_dict,

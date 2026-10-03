@@ -230,7 +230,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     collected = list(items)
     yield
     candidates = set(discover_slow_test_files(config.rootpath))
-    missing = {str(item.path.relative_to(config.rootpath)) for item in collected if item.path.is_relative_to(config.rootpath / "tests") and item.get_closest_marker("slow") is not None and "gmx" not in item.path.relative_to(config.rootpath / "tests").parts and item.path.resolve() not in candidates}
+    test_root = config.rootpath / "tests"
+    slow_items = (item for item in collected if item.path.is_relative_to(test_root) and item.get_closest_marker("slow") is not None)
+    missing = {str(item.path.relative_to(config.rootpath)) for item in slow_items if "gmx" not in item.path.relative_to(test_root).parts and item.path.resolve() not in candidates}
     if missing:
         message = "Slow workflow cannot discover these modules; add an explicit pytest.mark.slow: " + ", ".join(sorted(missing))
         raise pytest.UsageError(message)

@@ -8,7 +8,17 @@ from eth_defi.gmx.core.markets import Markets
 
 
 def test_load_markets_rest_api_mode(chain_rpc_url: str) -> None:
-    """Load real REST markets without a disk cache or GraphQL fallback."""
+    """Load real REST markets without a disk cache or GraphQL fallback.
+
+    Observe the actual REST call and prohibit RPC fallback so a warm cache or
+    another backend cannot mask a broken provider path.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"disable_market_cache": True})
     gmx.subsquid = None
     with patch.object(gmx.api, "get_markets_info", wraps=gmx.api.get_markets_info) as fetch, patch.object(Markets, "get_available_markets", side_effect=AssertionError("Unexpected RPC discovery fallback")):
@@ -21,7 +31,17 @@ def test_load_markets_rest_api_mode(chain_rpc_url: str) -> None:
 
 
 def test_load_markets_graphql_mode(chain_rpc_url: str) -> None:
-    """Load real GraphQL markets and fail if discovery falls back."""
+    """Load real GraphQL markets and fail if discovery falls back.
+
+    Observe GraphQL discovery with its disk cache disabled and prohibit both
+    REST and RPC fallback.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"graphql_only": True, "disable_market_cache": True})
     assert gmx.subsquid is not None
     with patch.object(gmx, "_load_markets_from_graphql", wraps=gmx._load_markets_from_graphql) as fetch, patch.object(gmx, "_load_markets_from_rest_api", side_effect=AssertionError("Unexpected REST fallback")), patch.object(Markets, "get_available_markets", side_effect=AssertionError("Unexpected RPC discovery fallback")):
@@ -30,7 +50,17 @@ def test_load_markets_graphql_mode(chain_rpc_url: str) -> None:
 
 
 def test_load_markets_rpc_mode(chain_rpc_url: str) -> None:
-    """Load real onchain markets with both external discovery backends disabled."""
+    """Load real onchain markets with both external discovery backends disabled.
+
+    Observe the onchain reader directly with REST discovery and GraphQL
+    disabled; a non-empty response alone would not prove backend identity.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"rest_api_mode": False, "disable_market_cache": True})
     gmx.subsquid = None
     original = Markets.get_available_markets
@@ -40,7 +70,17 @@ def test_load_markets_rpc_mode(chain_rpc_url: str) -> None:
 
 
 def test_fetch_apy_all_markets(chain_rpc_url: str) -> None:
-    """Require non-empty numeric APY data from the actual REST endpoint."""
+    """Require non-empty numeric APY data from the actual REST endpoint.
+
+    Keep one real REST success alongside controlled period/mapping regressions.
+    Missing or unmapped provider data must fail this integration check.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     gmx = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options={"disable_market_cache": True})
     gmx.subsquid = None
     all_apy = gmx.fetch_apy(period="30d")
@@ -54,6 +94,15 @@ def test_cache_persistence(chain_rpc_url: str, tmp_path: Path) -> None:
 
     The second instance must not download market metadata. Onchain DataStore
     validation remains enabled because a cached market can become disabled.
+
+    :param chain_rpc_url:
+        Configured Arbitrum RPC URL with provider credentials supplied by the environment.
+
+    :param tmp_path:
+        Isolated directory for persistent cache files.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     options = {"market_cache_dir": str(tmp_path)}
     first = GMX(params={"rpcUrl": chain_rpc_url, "chainId": 42161}, options=options)

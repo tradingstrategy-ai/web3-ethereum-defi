@@ -50,14 +50,15 @@ def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Ite
     module-scope Anvil fork.
 
     :param fork:
-        Object with a ``json_rpc_url`` attribute, typically
+        JSON-RPC URL string or an object with a ``json_rpc_url`` attribute, typically
         :class:`~eth_defi.provider.anvil.AnvilLaunch`. The fixture that yields
         ``fork`` should itself be ``scope="module"`` or ``scope="session"`` —
         otherwise the snapshot/revert dance buys nothing.
 
     :param strict:
-        Raise if the snapshot cannot be reverted, preventing contaminated state
-        from reaching another test. Default preserves legacy warning behaviour.
+        Fail fixture teardown if the snapshot cannot be reverted, exposing lost
+        isolation. This does not dispose of the fork or stop later tests; callers
+        must recover or discard a damaged fork. The default logs a warning.
 
     :return:
         Generator yielding ``None`` once, then performing the revert on resume.
@@ -68,9 +69,9 @@ def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Ite
 
     .. note::
 
-        ``evm_revert`` restores EVM state and storage but **does not** reset
-        block timestamp. Tests asserting on ``block.timestamp == X`` must call
-        ``evm_setNextBlockTimestamp`` themselves.
+        Snapshot behaviour depends on the backend. Tests requiring an exact
+        timestamp for the next mined block should set it explicitly with
+        ``evm_setNextBlockTimestamp`` after restoring their baseline.
 
     .. seealso::
 

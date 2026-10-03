@@ -36,7 +36,6 @@ from eth_defi.testing.gmx_lagoon import (
     LagoonGMXForkEnv,
     create_cached_lagoon_gmx_fork_env,
     create_lagoon_gmx_fork_env,
-    create_lagoon_gmx_fork_env_forward_eth,
 )
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -52,7 +51,13 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def _gmx_deployment_baselines() -> dict[tuple[int, float], LagoonGMXForkEnv]:
-    """Cache deployments by the actual fork process generation."""
+    """Cache deployments by the actual fork process generation.
+
+    Keep the mutable deployment cache local to this module and xdist worker.
+
+    :return:
+        Empty cache populated by the trading fixture.
+    """
     return {}
 
 
@@ -119,11 +124,17 @@ def lagoon_gmx_fork_env(
             deploy_info=baseline.deploy_info,
         )
     finally:
-        next(isolation, None)
+        try:
+            next(isolation, None)
+        except RuntimeError:
+            # Discard the damaged baseline; the pool will relaunch on next use.
+            _gmx_deployment_baselines.clear()
+            launch.close()
+            raise
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """Test opening a long ETH position through LagoonGMXTradingWallet.
 
     Flow:
@@ -132,6 +143,12 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     3. Submit transaction
     4. Execute as keeper
     5. Verify position owned by Safe
+
+    :param lagoon_gmx_fork_env:
+        Shared deployment with isolated EVM state and fresh Python adapters.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     env = lagoon_gmx_fork_env
     safe_address = env.vault.safe_address
@@ -207,8 +224,18 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Test opening a short ETH position with USDC collateral through LagoonGMXTradingWallet."""
+def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
+    """Test opening a short ETH position with USDC collateral through LagoonGMXTradingWallet.
+
+    Create and execute a short order through the Safe, retaining position and
+    token-balance assertions after the shared baseline is restored.
+
+    :param lagoon_gmx_fork_env:
+        Shared deployment with isolated EVM state and fresh Python adapters.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     env = lagoon_gmx_fork_env
     safe_address = env.vault.safe_address
 
@@ -264,7 +291,7 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """Open a GMX limit order through the vault, then cancel it through the Guard.
 
     Regression test for `issue #1050
@@ -285,6 +312,12 @@ def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     4. Submit and assert the cancel transaction succeeds — before the fix this
        reverted at guard validation.
     5. Confirm the order is no longer pending.
+
+    :param lagoon_gmx_fork_env:
+        Shared deployment with isolated EVM state and fresh Python adapters.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     env = lagoon_gmx_fork_env
     safe_address = env.vault.safe_address
@@ -353,18 +386,30 @@ def lagoon_gmx_forward_eth_env(
 
     The Safe starts with 0 ETH — the asset manager's hot wallet funds
     execution fees via forward_eth=True on LagoonGMXTradingWallet.
+
+    :param anvil_chain_fork:
+        Independent fixed-block Anvil process supplied by the GMX fixtures.
+
+    :return:
+        Newly deployed fee-forwarding environment.
     """
-    return create_lagoon_gmx_fork_env_forward_eth(anvil_chain_fork)
+    return create_lagoon_gmx_fork_env(anvil_chain_fork, forward_eth=True)
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_forward_eth_open_short(lagoon_gmx_forward_eth_env: LagoonGMXForkEnv):
+def test_lagoon_wallet_forward_eth_open_short(lagoon_gmx_forward_eth_env: LagoonGMXForkEnv) -> None:
     """Test that the asset manager can forward ETH for keeper fees.
 
     The Safe starts with 0 ETH. The asset manager sends ETH with
     the performCall transaction, which the module forwards to the Safe.
     Verifies that a GMX short position (ERC-20 collateral) succeeds
     despite the Safe having no pre-funded ETH.
+
+    :param lagoon_gmx_forward_eth_env:
+        Independent deployment whose manager supplies execution fees.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     env = lagoon_gmx_forward_eth_env
     safe_address = env.vault.safe_address
@@ -425,7 +470,7 @@ def test_lagoon_wallet_forward_eth_open_short(lagoon_gmx_forward_eth_env: Lagoon
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_deployment_env: LagoonGMXForkEnv):
+def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_deployment_env: LagoonGMXForkEnv) -> None:
     """Verify deploy_automated_lagoon_vault() auto-approves GMX collateral tokens.
 
     Regression test: production deployment failed with "Approve address not allowed"
@@ -435,6 +480,12 @@ def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_deployment_en
 
     Check wallet identity and native balance against this same deployment to
     avoid deploying two additional vaults just for wallet accessors.
+
+    :param lagoon_gmx_deployment_env:
+        Fresh deployment used to verify automatic token approvals.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     env = lagoon_gmx_deployment_env
     web3 = env.web3

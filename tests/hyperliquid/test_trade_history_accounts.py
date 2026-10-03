@@ -15,6 +15,8 @@ def test_account_classification_persists_and_cannot_downgrade(tmp_path: Path) ->
 
     :param tmp_path:
         Isolated file-backed database location.
+    :return:
+        None; assertions validate persisted classification and filtering.
     """
     path = tmp_path / "accounts.duckdb"
     database = HyperliquidTradeHistoryDatabase(path)

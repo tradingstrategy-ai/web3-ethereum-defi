@@ -39,8 +39,8 @@ jobs:
     name: Python ${{ matrix.python-version }}
 
     steps:
-      # TODO: we only need contracts/aave-v3-deploy for tests
-      # but there does not seem to be an option to choose which submodules to checkout
+      # Both Aave and Lagoon tests require contract source submodules.
+      # Narrowing checkout needs a complete prerequisite inventory first.
       # https://github.com/actions/checkout
       - uses: actions/checkout@v4
         with:

@@ -154,7 +154,7 @@ Acceptance: reduced actual runner work and provider requests, no missing require
 
 Deliver small independent PRs. Record focused commands, date and redacted provider environment for real integration checks. Do not run the whole local suite or Sphinx builds for plan-only work. Do not push follow-up implementation or update PRs without authorisation.
 
-## Independent Claude review
+## Initial independent Claude review (historical findings)
 
 Requested model: Claude Opus 5.5. The reviewer must receive this plan and the primary-agent observations above, then inspect repository tests independently for additional removals, reductions and incorrect assumptions. Require file/line evidence, distinguish confirmed findings from candidates and report residual risks. The primary agent will verify suggestions before adding them to the implementation backlog.
 
@@ -191,7 +191,7 @@ Claude estimated roughly 21 live `get_data()` invocations across the three core 
 
 Constructor flag checks and dataclass equality tests are weaker deletion candidates than the tautologies above. They can detect a changed constructor or schema; they are not literally incapable of failure. Keep a minimal meaningful contract check if it protects a relied-on behaviour, and avoid spending effort deleting cheap coverage merely to reduce test count.
 
-### Follow-ups requiring further confirmation
+### Initial follow-ups (resolved where listed in the implementation record)
 
 - Backend identity: the GraphQL and RPC market-loading tests must demonstrate their selected backend was actually reached. Inspect cache/fallback behaviour, use an isolated cache or explicitly disable it where needed, and observe calls to the intended real backend. A non-empty final result alone can mask fallback. The primary agent confirmed `load_markets()` has fallback branches at `eth_defi/gmx/ccxt/exchange.py:2595`; shared disk-cache masking remains a candidate rather than a proved defect.
 - Swap-market filtering: tests use `"SWAP" in market_symbol` at `tests/gmx/test_funding_fee.py:108` and `tests/gmx/test_open_interest.py:137`. Confirm actual key/identity semantics before replacing this potentially vacuous condition.
@@ -208,7 +208,11 @@ Constructor flag checks and dataclass equality tests are weaker deletion candida
 4. Consolidate duplicate Hyperliquid reconstruction and verify account metadata separately; proceed with scanner/resume bounds only with meaningful initial/later segments.
 5. Continue the Lagoon/GMX fixture-sharing pilots, preserving per-worker placement, Python cache/nonce reset and fork-recycling safety.
 
-Residual risks: the reviewer did not run tests or inspect production-scale data. Static call counts do not prove provider request reduction. Offline replacements need real-backend coverage to remain meaningful. Cache masking, swap-symbol format and complete setup-consumer inventories still need confirmation. The broad-review turn-limit failure is recorded above and supplies no independent final verdict.
+Initial-review risks are recorded here for traceability. Backend identity,
+cache masking, swap filtering and setup consumers were checked during
+implementation; the coverage map below records the results. Actual HTTP/RPC
+traffic and complete CI savings still require comparable CI runs. The broad
+review's turn-limit failure supplies no independent final verdict.
 
 
 ## Implementation record
@@ -346,3 +350,35 @@ The final offline/reporting/pool/account batch passed 30 tests in 11.96s after
 all review fixes. YAML parsing, shell syntax, artifact placement, Ruff formatting
 and whitespace checks passed. The expected synthetic single-provider warning
 and intentional real restart warning are retained as diagnostics.
+
+
+### Simplification and documentation review (2026-10-03)
+
+Consolidated standard and fee-forwarding setup into one parameterised factory, preserving
+independent deployment and zero Safe ETH in the forwarding case. Removed a
+redundant Safe balance write and nonce sync; token transfers now use decimal
+amounts through the shared token helper. Clarified strict snapshot failure
+semantics and backend-dependent timestamp behaviour. Updated stale performance
+guidance on Ganache, marker registration, retry counts and committed RPC seeds.
+This reduces maintenance duplication; it is not a measured CI speed claim.
+
+
+The final grounded Opus 5.5 review found an empty REST discovery-cache write
+risk; added a non-empty write guard and ignored old empty cache hits, with two
+file-backed regressions. A strict GMX revert failure now clears the deployment
+cache and closes the process so the pool relaunches on the next request.
+Branch-stable concurrency intentionally cancels superseded master runs to reduce
+runner work; intermediate commits may therefore lack completed CI results.
+The slow-discovery guard needs broad main collection; the regression exercises
+that contract even when the slow test would otherwise be deselected.
+
+
+Two final grounded read-only Opus 5.5 passes completed successfully. The first
+covered deployment/cache/reporting infrastructure and workflows; the second
+covered the rewritten live/offline checks and verified the cache/disposal fixes.
+No blocking defects remained. Corrected docstring indentation, added missing
+parameter/return documentation and type hints, removed a redundant positive
+resume-count assertion, and removed the redundant fee-forwarding factory wrapper.
+Focused final checks: nine GMX/reporting cases passed in 101.88s; 21 real-backend,
+APY/cache and reporting/snapshot cases passed in 17.35s. These are manual local
+runs on 2026-10-03 using supplied Arbitrum RPC and public GMX endpoints.

@@ -6,13 +6,20 @@ using efficient multicall batching across different chains.
 """
 
 from eth_defi.gmx.config import GMXConfig
-
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 
 
-def test_get_available_liquidity_initialization(gmx_config):
-    """
-    Test that GetAvailableLiquidity initializes correctly with chain-specific config.
+def test_get_available_liquidity_initialisation(gmx_config: GMXConfig) -> None:
+    """Test that GetAvailableLiquidity initialises correctly with chain-specific config.
+
+    Check both explicit filter settings and the configured reader bindings
+    without adding another live data download.
+
+    :param gmx_config:
+        Chain-specific GMX configuration supplied by the integration fixtures.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     get_available_liquidity = GetAvailableLiquidity(gmx_config, filter_swap_markets=True)
 
@@ -31,6 +38,15 @@ def test_live_response_and_filtering(gmx_config: GMXConfig, chain_name: str) -> 
 
     Preserve response schema, numeric values and representative market coverage
     without downloading again to test short-term market-price stability.
+
+    :param gmx_config:
+        Chain-specific GMX configuration supplied by the integration fixtures.
+
+    :param chain_name:
+        Configured chain used to select representative markets.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     filtered = GetAvailableLiquidity(gmx_config, filter_swap_markets=True).get_data()
     unfiltered = GetAvailableLiquidity(gmx_config, filter_swap_markets=False).get_data()

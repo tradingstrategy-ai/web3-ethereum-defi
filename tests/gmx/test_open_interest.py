@@ -3,18 +3,30 @@ Tests for GMX Open Interest Data Retrieval Module.
 """
 
 from eth_defi.gmx.config import GMXConfig
-
 from eth_defi.gmx.core.open_interest import GetOpenInterest, OpenInterestInfo
 
 
-def test_initialization_and_basic_functionality(get_open_interest, gmx_config):
-    """Test GetOpenInterest initialization and basic functionality."""
-    # Test basic initialization
+def test_initialisation_and_basic_functionality(get_open_interest: GetOpenInterest, gmx_config: GMXConfig) -> None:
+    """Test GetOpenInterest initialisation and basic functionality.
+
+    Check configuration and both explicit filter settings without downloading
+    another live response.
+
+    :param get_open_interest:
+        Open-interest reader constructed from the chain configuration.
+
+    :param gmx_config:
+        Chain-specific GMX configuration supplied by the integration fixtures.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
+    # Test basic initialisation
     assert get_open_interest.config is not None
     assert get_open_interest.log is not None
     assert get_open_interest.filter_swap_markets is True
 
-    # Test initialization with custom filter setting
+    # Test initialisation with custom filter setting
     open_interest_custom = GetOpenInterest(gmx_config, filter_swap_markets=False)
     assert open_interest_custom.filter_swap_markets is False
 
@@ -31,8 +43,15 @@ def test_initialization_and_basic_functionality(get_open_interest, gmx_config):
     assert hasattr(get_open_interest.markets, "get_available_markets")
 
 
-def test_open_interest_info_dataclass():
-    """Test OpenInterestInfo dataclass structure and initialization."""
+def test_open_interest_info_dataclass() -> None:
+    """Test OpenInterestInfo dataclass structure and initialisation.
+
+    Retain a minimal schema contract for downstream consumers without invoking
+    the live market reader.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     market_address = "0x47904963fc8b2340414262125aF906B738AD9BDF"
     long_token_address = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
     short_token_address = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
@@ -54,6 +73,15 @@ def test_live_response_and_filtering(gmx_config: GMXConfig, chain_name: str) -> 
 
     Preserve response schema, numeric values and representative market coverage
     without downloading again to test short-term market-price stability.
+
+    :param gmx_config:
+        Chain-specific GMX configuration supplied by the integration fixtures.
+
+    :param chain_name:
+        Configured chain used to select representative markets.
+
+    :return:
+        None; assertions validate the behaviour.
     """
     filtered = GetOpenInterest(gmx_config, filter_swap_markets=True).get_data()
     unfiltered = GetOpenInterest(gmx_config, filter_swap_markets=False).get_data()

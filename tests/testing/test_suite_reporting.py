@@ -32,7 +32,20 @@ def _configure_probe(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_logging_retry_and_resource_reporting(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Capture retry phases and child CPU without leaking a closed log stream."""
+    """Capture retry phases and child CPU without leaking a closed log stream.
+
+    Run the actual suite hooks in a subprocess, including a suppressed failed
+    flaky attempt and a child process with measurable CPU work.
+
+    :param pytester:
+        Isolated repository and actual pytest subprocess runner.
+
+    :param monkeypatch:
+        Restore modified environment or provider objects after the test.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     directory = _configure_probe(pytester, monkeypatch)
     timings = pytester.path / "timings.jsonl"
     resources = pytester.path / "resources"
@@ -76,7 +89,20 @@ def test_following_test(capsys):
 
 
 def test_indirect_slow_marker_cannot_be_orphaned(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fail even when the main workflow would deselect an undiscoverable test."""
+    """Fail even when the main workflow would deselect an undiscoverable test.
+
+    Use an indirect marker that static discovery cannot see and verify the
+    collection guard catches it before main-workflow deselection hides it.
+
+    :param pytester:
+        Isolated repository and actual pytest subprocess runner.
+
+    :param monkeypatch:
+        Restore modified environment or provider objects after the test.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     directory = _configure_probe(pytester, monkeypatch)
     (directory / "test_indirect.py").write_text("""
 import pytest
@@ -90,7 +116,20 @@ def test_new_slow_case():
 
 
 def test_xdist_phase_reports_have_separate_worker_writers(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep all three phases per case with actual worker and group identity."""
+    """Keep all three phases per case with actual worker and group identity.
+
+    Exercise loadgroup placement and verify all phases have worker identities
+    in separate files without duplicate controller records.
+
+    :param pytester:
+        Isolated repository and actual pytest subprocess runner.
+
+    :param monkeypatch:
+        Restore modified environment or provider objects after the test.
+
+    :return:
+        None; assertions validate the behaviour.
+    """
     directory = _configure_probe(pytester, monkeypatch)
     timings = pytester.path / "timings.jsonl"
     monkeypatch.setenv("TEST_TIMINGS_FILE", str(timings))
