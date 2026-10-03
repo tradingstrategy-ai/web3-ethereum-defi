@@ -290,3 +290,67 @@ space-separated fallback format only works with `create_multi_provider_web3()`.
 - [`eth_defi/vault/risk.py`](../eth_defi/vault/risk.py) — the Hyperdrive HLP and
   Gamma Symphony blacklist entries that share the `0x18c34104` revert, plus the note
   that `HYPED` is deliberately kept off that list.
+
+## Isolated greylist batches
+
+The manually maintained `HYPEREVM_MULTICALL_GREYLIST` in the shared
+`MultiprocessMulticallReader` routes reviewed targets separately on chain 999.
+Normal calls retain their usual batch limit and execute first. Greylisted calls
+are grouped by target and sent with `greylist_batch_size=1` by default; larger
+explicit limits still never combine different targets. This counts encoded
+subcalls, not vaults, so four methods can require four requests. There is no
+additional environment switch or provider requirement.
+
+The initial entries come from the address-specific tracing and replay evidence
+above and in `eth_defi/vault/risk.py`: HYPED, Hyperdrive HLP, Gamma Symphony, two
+Raga rHYPE proxies, RatesETF, HFY and Altcopy Index. Existing blacklists remain
+in force. An address printed as a member of a rejected mixed batch is not proof
+that it caused the rejection; new entries need tracing, bisection or replay
+rather than adding the full logged batch.
+
+Each physical batch owns its retries. A successful fallback returns immediately;
+a failing reduced fragment resumes after previously completed fragments. Regular
+results are not replayed because a later isolated target fails. The isolated lane
+allows the initial attempt plus at most two alternate-provider requests, with no
+same-provider retry for a sole provider's one-call gas rejection. The provider is
+restored once after the isolated lane so greylist failover does not redirect
+future normal work. If restoration fails verification, the verified backup is
+retained and a warning identifies the failed restoration.
+
+Only the preservation-aware historical price path opts into an explicit
+`unavailable_error` for exhausted isolated gas failures, distinct from a served
+Solidity revert. Metadata, feature probes and other chunked consumers retain
+hard errors so transport failures cannot poison their caches. Historical readers reject the whole affected
+vault observation before decoding or updating reader state. They preserve saved
+rows whose `(chain, address, block_number)` keys have no complete successful
+replacement, including unsampled keys. Preserved timestamps and `written_at`
+remain unchanged. Archive gaps, timeouts and malformed replies remain hard
+errors; unavailable observations are never written as fresh zero TVL.
+
+Request accounting uses the existing operation rows: isolated requests carry
+an `_greylist` suffix, e.g. `historical_multicall_greylist`. These partition the
+same physical totals, including failed attempts, and must not be added again.
+The override is worker-local and survives parent-side counter aggregation.
+
+A bounded manual check is provided by `scripts/erc-4626/check-hyperevm-greylist.py`:
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/check-hyperevm-greylist.py
+```
+
+It uses the first three supplied `JSON_RPC_HYPERLIQUID` endpoints, probes each
+head and head minus 200/20,000 blocks, compares a repeated mixed payload against
+isolated requests, and verifies a cheap USDt0 `totalSupply()` read. It writes no
+scanner state and does not retry failed mixed payloads. It reports provider hosts
+and raw integers, never credentials or denominated NAV estimates.
+
+At 18:01 UTC on 3 October 2026, Goldsky rejected all three mixed payloads as out of gas, while
+the isolated requests kept the ordinary USDt0 read available at all three blocks.
+Alchemy served every subcall at head but returned Core-dependent failures at
+the two older blocks; dRPC's head mixed payload succeeded but some subsequent
+isolated calls reverted. Earlier checks also saw Core-dependent failures at
+Alchemy's head. These
+results illustrate changing node-local Core availability. Isolation fixes the
+neighbouring batch failure; it does not establish historical Core semantics or
+restore unavailable NAV. The existing source-block attribution is preserved;
+do not use this diagnostic command as a historical data backfill.
