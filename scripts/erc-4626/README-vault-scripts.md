@@ -3866,3 +3866,39 @@ one physical `eth_call`, with equal values and no timestamp requests.
 A pending publication journal must be recovered by a normal scanner run before
 a manual backfill can rewrite the shared price file. Successful reader-state
 persistence consumes the journal; damaged critical receipts fail loudly.
+
+### HyperEVM greylist batching and diagnostic check
+
+Reviewed HyperCore-reading targets are isolated by the shared Multicall reader.
+Normal targets retain standard batching; greylisted targets use separate
+one-subcall requests, never mixed with normal calls or another greylisted target.
+The documented `greylist_batch_size` function argument defaults to one and can
+be passed to chunked and historical reader functions. No environment toggle is
+needed. Maintain entries and their evidence comments in
+`HYPEREVM_MULTICALL_GREYLIST`; this does not remove existing blacklist entries.
+
+See the [HyperCore gas investigation](../../docs/README-hyperevm-hypercore-read-gas.md)
+for the initial addresses, bounded retry policy, unavailable observations,
+address/block-scoped preservation and operation-counter suffixes. Successful
+regular reads are not replayed after an isolated failure. Saved source rows are
+kept when an isolated observation is unavailable rather than rewritten as zero.
+This cannot recover historical HyperCore state that a provider does not serve.
+Deferral is enabled only for the historical price path that preserves saved
+rows. Metadata and feature probes still raise transport failures rather than
+caching them as contract reverts.
+Generic historical callers also retain strict errors by default. Only consumers
+that preserve existing source data should pass `allow_greylist_unavailable=True`.
+
+To exercise real providers without modifying production metadata, prices or
+reader state:
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/check-hyperevm-greylist.py
+```
+
+The command uses supplied `JSON_RPC_HYPERLIQUID`, checks at most three providers
+at head and two older blocks, and compares mixed versus isolated requests.
+Provider hosts and availability are printed with raw integer observations.
+Pure EVM reads must succeed; unavailable Core reads are recorded explicitly.
+Compare availability rather than expecting identical live-Core values across
+separate requests. Do not repeatedly rerun the check during an upstream outage.

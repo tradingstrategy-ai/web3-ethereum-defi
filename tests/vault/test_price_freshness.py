@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.erc_4626.vault import VaultReaderState
-from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller, scan_historical_prices_to_parquet
 from eth_defi.vault.scan_all_chains import fetch_current_vault_tvl_usd
@@ -180,7 +180,7 @@ def test_weekly_static_reader_retains_unchanged_real_rows(monkeypatch: pytest.Mo
     def fake_read_multicall(**_: object):
         """Yield one actual sampled block for each supplied timestamp."""
         for block, timestamp in enumerate(timestamps, start=1):
-            result = SimpleNamespace(call=calls[0], block_identifier=block, timestamp=timestamp)
+            result = SimpleNamespace(call=calls[0], block_identifier=block, timestamp=timestamp, unavailable_error=None)
             yield SimpleNamespace(block_number=block, timestamp=timestamp, results=[result])
 
     rows = list(scanner.read_historical([vault], 1, 5, 1, reader_func=fake_read_multicall))
@@ -336,3 +336,149 @@ def test_audit_failure_keeps_published_prices_and_continuation(tmp_path: Path, m
     second = scan_historical_prices_to_parquet(**kwargs, end_block=4, reader_states=first["reader_states"])
     assert second["start_block"] == 3
     assert pq.read_table(path, columns=["block_number"])["block_number"].to_pylist() == [1, 2, 3]
+
+
+def test_hypercore_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An overlapping rescan replaces good keys and retains unavailable Core rows.
+
+    A file-backed production-schema Parquet exercises the actual atomic writer.
+    The second scan has one replacement, one missing block, and one partial
+    observation. Only the replacement may retire its saved source row, while
+    ordinary vault rows still follow the existing range replacement rules.
+    """
+    hyped = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    grey = DummyVault(VaultSpec(999, hyped), DummyToken())
+    normal = DummyVault(VaultSpec(999, "0x0000000000000000000000000000000000000001"), DummyToken())
+    start = datetime.datetime(2026, 10, 3)
+    rescan = False
+
+    def observations(self: VaultHistoricalReadMulticaller, vaults: list, start_block: int, end_block: int, **_: object):
+        """Exercise successful, unsampled and partially unavailable source keys."""
+        self.readers = {}
+        for vault in vaults:
+            reader = DummyReader(vault, [], contextual=True)
+            for block in range(start_block, end_block):
+                if rescan and vault is grey and block == 2:
+                    continue
+                row = reader.make_read(block, start + datetime.timedelta(hours=block))
+                row.total_assets = Decimal(3_000 if rescan else 2_000)
+                if rescan and vault is grey and block == 3:
+                    row.share_price = None
+                yield row
+
+    monkeypatch.setattr(VaultHistoricalReadMulticaller, "read_historical", observations)
+    path = tmp_path / "prices.parquet"
+    kwargs = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=999)), web3factory=None, vaults=[grey, normal], token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), start_block=1, end_block=4, step=1)
+    scan_historical_prices_to_parquet(**kwargs)
+    original = pq.read_table(path).to_pandas()
+    rescan = True
+    report = scan_historical_prices_to_parquet(**kwargs)
+    updated = pq.read_table(path).to_pandas().sort_values(["address", "block_number"])
+    assert len(updated) == 6
+    assert not updated.duplicated(["chain", "address", "block_number"]).any()
+    grey_rows = updated[updated.address == hyped]
+    assert list(grey_rows.total_assets) == [3_000, 2_000, 2_000]
+    assert list(updated[updated.address == normal.address].total_assets) == [3_000] * 3
+    retained = grey_rows[grey_rows.block_number.isin([2, 3])]
+    old = original[(original.address == hyped) & original.block_number.isin([2, 3])]
+    assert list(retained.timestamp) == list(old.timestamp)
+    assert list(retained.written_at) == list(old.written_at)
+    assert report["rows_deleted"] == 4
+
+
+def test_hypercore_unavailable_subcall_does_not_decode_or_advance_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One missing method invalidates the whole vault observation before decoding."""
+    address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    inputs = [EncodedCall("price", address, b"", extra_data={"vault": address}), EncodedCall("assets", address, b"", extra_data={"vault": address})]
+
+    def unavailable(**_: object):
+        """Serve one method but report provider unavailability for the other."""
+        results = [EncodedCallResult(inputs[0], True, bytes(32), 1, timestamp), EncodedCallResult(inputs[1], False, b"", 1, timestamp, unavailable_error="gas accounting unavailable")]
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=results)
+
+    before = reader.reader_state.last_block
+    assert list(scanner.read_historical([vault], 1, 2, 1, reader_func=unavailable)) == []
+    assert reader.reader_state.last_block == before
+    assert reader.reader_state.last_rpc_error == "gas accounting unavailable"
+    assert scanner.latest_observed_at == {}
+
+
+@pytest.mark.parametrize("selector", ["01e1d114", "07a2d13a", "18160ddd"])
+def test_hypercore_required_revert_does_not_claim_freshness(monkeypatch: pytest.MonkeyPatch, selector: str) -> None:
+    """Required valuation fields differ from optional reverted capacity probes."""
+    address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    call = EncodedCall("required", address, bytes.fromhex(selector), extra_data={"vault": address})
+
+    def source(**_: object):
+        """Serve a Solidity revert, with no transport unavailable marker."""
+        result = EncodedCallResult(call, False, b"revert", 1, timestamp)
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=[result])
+
+    before = reader.reader_state.last_block
+    assert list(scanner.read_historical([vault], 1, 2, 1, reader_func=source)) == []
+    assert reader.reader_state.last_block == before
+    assert scanner.latest_observed_at == {}
+    assert reader.reader_state.last_rpc_error == "HyperCore observation unavailable"
+
+
+def test_greylisted_helper_cannot_discard_unlisted_vault_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a deferred helper result unless the writer can preserve its vault key."""
+    address = "0x0000000000000000000000000000000000000001"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    call = EncodedCall("helper", "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e", b"", extra_data={"vault": address})
+
+    def source(**_: object):
+        """Route an isolated helper's failed transport to an ordinary vault."""
+        result = EncodedCallResult(call, False, b"", 1, timestamp, unavailable_error="gas accounting unavailable")
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=[result])
+
+    with pytest.raises(AssertionError, match="aborting to preserve its saved rows"):
+        list(scanner.read_historical([vault], 1, 2, 1, reader_func=source))
+
+
+@pytest.mark.parametrize("partial", [False, True], ids=["optional-revert", "partial-valuation"])
+def test_hypercore_optional_revert_and_partial_freshness(monkeypatch: pytest.MonkeyPatch, partial: bool) -> None:
+    """Optional reverts retain valid NAV; incomplete decoded NAV never claims freshness."""
+    address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    timestamp = datetime.datetime(2026, 10, 3)
+    vault = DummyVault(VaultSpec(999, address), DummyToken())
+    reader = DummyReader(vault, [timestamp])
+    scanner = make_offline_scan(monkeypatch, reader)
+    inputs = [EncodedCall("convertToAssets", address, bytes.fromhex("07a2d13a"), extra_data={"vault": address}), EncodedCall("maxDeposit", address, bytes.fromhex("402d267d"), extra_data={"vault": address})]
+
+    def source(**_: object):
+        """Serve valuation but revert the optional maxDeposit method."""
+        results = [EncodedCallResult(inputs[0], True, bytes(32), 1, timestamp), EncodedCallResult(inputs[1], False, b"revert", 1, timestamp)]
+        yield SimpleNamespace(block_number=1, timestamp=timestamp, results=results)
+
+    def decode(_block: int, _timestamp: datetime.datetime, _results: list) -> VaultHistoricalRead:
+        """Model normal decoding and partial TVL discovered after state update."""
+        reader.reader_state.on_called(SimpleNamespace(timestamp=_timestamp, block_identifier=_block), Decimal(2_000), Decimal(1))
+        row = reader.make_read(_block, _timestamp)
+        if partial:
+            row.total_assets = None
+        return row
+
+    monkeypatch.setattr(reader, "process_result", decode)
+    before = reader.reader_state.last_block
+    rows = list(scanner.read_historical([vault], 1, 2, 1, reader_func=source))
+    if partial:
+        assert rows == []
+        assert scanner.last_retained_at == {}
+        assert scanner.latest_observed_at == {}
+        assert reader.reader_state.last_block == before
+        assert reader.reader_state.write_done == 0
+    else:
+        assert len(rows) == 1
+        assert scanner.last_retained_at[address] == timestamp
