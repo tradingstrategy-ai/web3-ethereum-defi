@@ -389,3 +389,35 @@ process disposal, all five GMX Lagoon cases passed under `-n 4 --dist loadgroup`
 in 103.99s, including shared trading, independent deployment and fee forwarding.
 Formatting passed for all 44 surviving changed Python files; workflow YAML,
 embedded Bash syntax and whitespace checks passed.
+
+
+### First complete-batch CI observation (head f81d4303d)
+
+All non-documentation checks passed. Against the recorded master baseline,
+pytest elapsed changed: main 208.46s to 233.32s (slower), GMX 285.59s to 237.20s,
+slow 154.11s to 48.23s and vault 119.42s to 96.47s. Total job elapsed changed:
+main 319s to 376s, GMX 372s to 337s, slow 201s to 135s, vault 148s to 164s.
+These are single observations with variable providers/cache preparation; GMX's
+baseline is the latest preceding master run. Main had more executed coverage,
+including 19 R2 checks previously skipped without the optional dependency.
+Those R2 checks were cheap; this does not explain the main slowdown by itself.
+
+Main closed-stream errors fell from 1,450 to zero and its log from 17.93 MiB to
+0.97 MiB. Remaining costs include Ember redemption (100.27s), Lighter settlement
+budget (47.86s), Ostium (29.84s), independent GMX PnL setups (146.43s accumulated
+worker setup) and Aave/checkout preparation. Do not remove these meaningful
+checks simply for duration. Worker CPU reports establish a new baseline, not a
+CPU reduction: old CI had no equivalent resource reports.
+
+Artifact completeness inspection found relative timing paths followed pytester
+working-directory changes: setup/call reports for three reporting regressions
+were written outside the uploaded artifact. Resolve timing paths at configure
+and exercise a relative path plus directory-changing xdist tests. Revalidate on
+CI before treating full reports as complete.
+
+
+A third focused grounded Opus 5.5 review completed successfully and confirmed
+that the relative-path xdist regression fails on the old writer (four rows
+instead of six). Its residual resource-directory concern was addressed too:
+resolve that directory at configure and verify session resources remain at the
+original path even when a probe leaves its working directory changed.

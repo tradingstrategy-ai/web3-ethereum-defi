@@ -836,7 +836,9 @@ the plugin suppresses terminal reports. To capture a focused local run:
 source .local-test.env && TEST_TIMINGS_FILE=/tmp/test-timings.jsonl TEST_RESOURCES_DIR=/tmp/test-resources poetry run pytest tests/gmx/test_available_liquidity.py
 ```
 
-Timing records identify the node, worker, phase, outcome and attempt. Resource
+Timing and resource paths are resolved at session configuration so tests that change the
+working directory cannot divert reports outside the artifact. Timing records
+identify the node, worker, phase, outcome and attempt. Resource
 reports separate process CPU from reaped-child CPU, including Anvil and Forge.
 RSS is a process-lifetime high-water mark, not per-test peak memory or the sum of
 concurrent memory. Live children are excluded. The controller can account for

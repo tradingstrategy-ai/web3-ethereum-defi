@@ -50,10 +50,11 @@ def test_logging_retry_and_resource_reporting(pytester: pytest.Pytester, monkeyp
     timings = pytester.path / "timings.jsonl"
     resources = pytester.path / "resources"
     monkeypatch.setenv("TEST_TIMINGS_FILE", str(timings))
-    monkeypatch.setenv("TEST_RESOURCES_DIR", str(resources))
+    monkeypatch.setenv("TEST_RESOURCES_DIR", "resources")
     (directory / "test_probe.py").write_text("""
 import io
 import logging
+import os
 import subprocess
 import sys
 from flaky import flaky
@@ -76,9 +77,12 @@ def test_following_test(capsys):
     logging.getLogger().error("Stream lifetime probe")
     assert "Logging error" not in capsys.readouterr().err
     subprocess.run([sys.executable, "-c", "sum(range(1000000))"], check=True)
+
+def test_last_changes_directory(tmp_path):
+    os.chdir(tmp_path)
 """)
     result = pytester.runpytest_subprocess("-q")
-    result.assert_outcomes(passed=2)
+    result.assert_outcomes(passed=3)
     phases = [json.loads(line) for line in timings.read_text().splitlines()]
     assert {row["phase"] for row in phases} == {"setup", "call", "teardown"}
     assert any(row["outcome"] == "failed" for row in phases)
@@ -118,8 +122,8 @@ def test_new_slow_case():
 def test_xdist_phase_reports_have_separate_worker_writers(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep all three phases per case with actual worker and group identity.
 
-    Exercise loadgroup placement and verify all phases have worker identities
-    in separate files without duplicate controller records.
+    Exercise loadgroup placement and relative output paths while tests change
+    directory. All phases must remain in the original worker output files.
 
     :param pytester:
         Isolated repository and actual pytest subprocess runner.
@@ -132,12 +136,13 @@ def test_xdist_phase_reports_have_separate_worker_writers(pytester: pytest.Pytes
     """
     directory = _configure_probe(pytester, monkeypatch)
     timings = pytester.path / "timings.jsonl"
-    monkeypatch.setenv("TEST_TIMINGS_FILE", str(timings))
+    monkeypatch.setenv("TEST_TIMINGS_FILE", "timings.jsonl")
     (directory / "test_parallel.py").write_text("""
 import pytest
 pytestmark = pytest.mark.xdist_group("report-probe")
 @pytest.mark.parametrize("value", [1, 2])
-def test_worker(value):
+def test_worker(value, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     assert value > 0
 """)
     result = pytester.runpytest_subprocess("-n", "2", "--dist", "loadgroup", "-q")

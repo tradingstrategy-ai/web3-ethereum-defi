@@ -124,6 +124,7 @@ def _restore_logging_configuration() -> Iterator[None]:
 
 #: One file per worker keeps suppressed flaky attempts without write contention.
 _timing_path: Path | None = None
+_resource_path: Path | None = None
 _timing_worker = "master"
 _timing_attempts: dict[str, int] = {}
 
@@ -137,11 +138,13 @@ def pytest_configure(config: pytest.Config) -> None:
     :param config:
         Pytest configuration, including xdist worker identity when applicable.
     """
-    global _timing_path, _timing_worker  # noqa: PLW0603 - Per-process pytest plugin state.
+    global _timing_path, _timing_worker, _resource_path  # noqa: PLW0603 - Per-process pytest plugin state.
     _timing_attempts.clear()
     _timing_worker = getattr(config, "workerinput", {}).get("workerid", "master")
+    directory = os.environ.get("TEST_RESOURCES_DIR")
+    _resource_path = Path(directory).resolve() if directory else None
     filename = os.environ.get("TEST_TIMINGS_FILE")
-    _timing_path = Path(filename) if filename else None
+    _timing_path = Path(filename).resolve() if filename else None
     if _timing_path is not None:
         if _timing_worker != "master":
             _timing_path = _timing_path.with_name(f"{_timing_path.stem}-{_timing_worker}{_timing_path.suffix}")
@@ -193,8 +196,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     :param exitstatus:
         Pytest's result code.
     """
-    directory = os.environ.get("TEST_RESOURCES_DIR")
-    if directory is None:
+    if _resource_path is None:
         return
     worker = getattr(session.config, "workerinput", {}).get("workerid", "master")
     own = resource.getrusage(resource.RUSAGE_SELF)
@@ -210,9 +212,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "reaped_children_max_rss": children.ru_maxrss,
         "rss_unit": "bytes" if sys.platform == "darwin" else "KiB",
     }
-    path = Path(directory)
-    path.mkdir(parents=True, exist_ok=True)
-    (path / f"{worker}.json").write_text(json.dumps(output, indent=2) + "\n")
+    _resource_path.mkdir(parents=True, exist_ok=True)
+    (_resource_path / f"{worker}.json").write_text(json.dumps(output, indent=2) + "\n")
 
 
 @pytest.hookimpl(wrapper=True)
