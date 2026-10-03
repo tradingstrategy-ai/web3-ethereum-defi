@@ -141,13 +141,14 @@ def test_retry_resumes_after_successful_fragment(recording_reader: Callable) -> 
     assert [[data[-1] for _address, data in batch] for batch, _block in requests] == [[0, 1, 2], [3, 4, 5], [3], [4], [4], [5]]
 
 
-def test_greylist_gas_failure_is_unavailable_without_replaying_regular(recording_reader: Callable) -> None:
+@pytest.mark.parametrize("gas_message", ["out of gas", "BasicOutOfGas"])
+def test_greylist_gas_failure_is_unavailable_without_replaying_regular(recording_reader: Callable, gas_message: str) -> None:
     """A sole provider's gas rejection does not warrant repeated one-call probes."""
 
     def fail(batch: tuple, _attempt: int) -> None:
         """Reject only the reviewed target with the documented provider symptom."""
         if batch[0][0] == HYPED.lower():
-            raise ValueError({"code": -32003, "message": "out of gas"})
+            raise ValueError({"code": -32003, "message": gas_message})
 
     reader, requests, stats = recording_reader(fail=fail)
     outputs = list(reader.process_calls(BLOCK, calls_for([HYPED, REGULAR]), allow_greylist_unavailable=True))

@@ -1552,7 +1552,7 @@ class MultiprocessMulticallReader:
                 parsed_error = parsed_error.lower()
                 if is_historical_state_unavailable_error(parsed_error):
                     raise MulticallHistoricalDataUnavailable(error_msg, status_code=status_code, headers=headers, completed_results=calls_results) from e
-                wtf_error = any(clue in parsed_error for clue in WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES)
+                wtf_error = is_multicall_gas_error(e) or any(clue in parsed_error for clue in WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES)
 
                 if wtf_error or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
                     raise MulticallRetryable(error_msg, status_code=status_code, headers=headers, completed_results=calls_results) from e
