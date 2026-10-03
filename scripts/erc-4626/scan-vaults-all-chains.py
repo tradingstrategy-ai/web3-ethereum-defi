@@ -162,7 +162,10 @@ Environment variables:
     - HYPERSYNC_RPM: Hypersync API requests-per-minute limit (default: 80, below the 100 RPM quota observed for basic API keys). Lower after persistent 429 errors.
 
 Example CHAIN_ORDER for all chains:
-    CHAIN_ORDER="Megaeth, Sonic, Monad, Hyperliquid, Base, Arbitrum, Tempo, Arc, Robinhood, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
+    CHAIN_ORDER="Megaeth, Sonic, Monad, Hyperliquid, Base, Arbitrum, Tempo, Arc, Robinhood, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Plasma, Binance, Mantle, Katana, Ink, Soneium, Optimism"
+
+Hemi, Blast and Mode are no longer supported by this scanner. Their RPC
+environment variables and CHAIN_ORDER entries cannot enable scanning.
 """
 
 import datetime
