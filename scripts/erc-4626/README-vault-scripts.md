@@ -3571,10 +3571,18 @@ The scanner has no switch to restore the expensive unoptimised paths.
 HyperEVM retains specialised current-state paths, while explicit historical
 metadata blocks stay pinned. Monad observations cap retries without deleting
 rows before its state boundary. Discovery requires a configured Hypersync
-client and has no RPC event fallback. Hemi and Katana have no endpoint in the
-repository server list, so their configured all-chain discovery is disabled;
-price scans of already known vaults continue. New vault discovery on those
-chains requires adding a supported indexer. Configured RPC providers are retained
+client and has no RPC event fallback. Katana has no endpoint in the
+repository server list, so its configured all-chain discovery is disabled;
+price scans of already known vaults continue. New vault discovery on Katana
+requires adding a supported indexer.
+
+Hemi, Blast and Mode are no longer supported by the all-chain scanner. They
+are omitted from its chain configuration, disabling discovery, prices,
+settlements and RPC provider verification. Existing RPC environment variables
+cannot enable them; legacy `CHAIN_ORDER` entries are reported as unknown and
+skipped. Previously collected historical data remains in persistent state.
+
+Configured RPC providers for supported chains are retained
 until completion, fallback and invoice measurements support consolidation.
 
 Historical readers with no verified USD TVL yet use an hourly cadence labelled

@@ -615,6 +615,10 @@ class ChainResult:
 def build_chain_configs() -> list[ChainConfig]:
     """Build the EVM chain configurations used by the vault pipeline.
 
+    The all-chain entrypoint uses this list before RPC verification and
+    scheduling discovery, prices and settlements. Unsupported chains are
+    omitted entirely so existing RPC environment variables cannot enable them.
+
     :return:
         Chain discovery and price-scan configuration in execution order.
     """
@@ -636,15 +640,21 @@ def build_chain_configs() -> list[ChainConfig]:
         ChainConfig("Avalanche", "JSON_RPC_AVALANCHE"),
         ChainConfig("Berachain", "JSON_RPC_BERACHAIN"),
         ChainConfig("Unichain", "JSON_RPC_UNICHAIN", scan_vaults=False),
-        # No configured Hypersync endpoint: retain prices for known vaults.
-        ChainConfig("Hemi", "JSON_RPC_HEMI", scan_vaults=False),
+        # Hemi is no longer supported: omit every scan phase, including RPC
+        # verification and settlements, rather than disabling discovery alone.
+        # ChainConfig("Hemi", "JSON_RPC_HEMI"),
         ChainConfig("Plasma", "JSON_RPC_PLASMA"),
         ChainConfig("Binance", "JSON_RPC_BINANCE"),
         ChainConfig("Mantle", "JSON_RPC_MANTLE"),
+        # Mode is no longer supported; keep it outside the scheduler even when
+        # an operator retains JSON_RPC_MODE or includes Mode in CHAIN_ORDER.
+        # ChainConfig("Mode", "JSON_RPC_MODE"),
         # No configured Hypersync endpoint: retain prices for known vaults.
         ChainConfig("Katana", "JSON_RPC_KATANA", scan_vaults=False),
         ChainConfig("Ink", "JSON_RPC_INK"),
-        ChainConfig("Blast", "JSON_RPC_BLAST"),
+        # Blast is no longer supported: removing its scheduler entry prevents
+        # discovery, prices, settlements and provider checks from issuing reads.
+        # ChainConfig("Blast", "JSON_RPC_BLAST"),
         ChainConfig("Soneium", "JSON_RPC_SONEIUM"),
         ChainConfig("Optimism", "JSON_RPC_OPTIMISM"),
     ]
