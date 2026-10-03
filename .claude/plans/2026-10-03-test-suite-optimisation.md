@@ -478,3 +478,58 @@ history assertion does not inherit the lifecycle cache. Transport errors still
 rely on the pool's next-request liveness probe; four-worker timings should not
 be extrapolated to runs with fewer workers. Formatting and whitespace checks
 passed.
+
+
+### Main-suite follow-up and authorised Ostium retirement (2026-10-03)
+
+The user explicitly overrode the previous preservation recommendation for
+Ostium: mark its tests skipped because unsupported after the hack. All 15
+Ostium cases now carry the dated, unconditional reason
+`Ostium unsupported after the hack`, including offline ETA/withdrawal/policy
+and mock-guard cases. Shared modules retain other protocols; Gains' policy
+case is separately parametrised and remains enabled. This is intentional
+coverage retirement, not evidence that the tests were redundant or flaky.
+
+Implemented the other measured main-suite candidates:
+
+- Skip only Anvil's unconditional two-second nonce propagation waits after
+  confirmed Lagoon configuration transactions. Live-network delays, nonce
+  synchronisation and receipt success checks remain.
+- Deploy Ember's Lagoon vault through the existing factory at its historical
+  lifecycle block rather than rebuilding the protocol from source. All exact
+  Ember shares/ticket/payout assertions remain; a separate real Gains lifecycle
+  still passes with fresh source deployment.
+- Cache Aave's installed dependency tree plus Solidity artifacts/cache and
+  TypeChain output. Exact key includes OS, architecture, shared Node-version
+  setting, pinned submodule commit and lockfile hash; no broad restore keys.
+  Verify non-empty lockfile and generated outputs, retaining the existing
+  installer on every run. Mutable deployment outputs are excluded.
+
+Baseline and candidate manual Ethereum-provider runs under two loadgroup
+workers passed both Ember/Lighter tests: 109.13s before, 71.76s after (34.2%
+less elapsed). Calls: Ember 102.51s to 65.42s; Lighter 41.66s to 29.22s.
+Gains' independent fresh-protocol lifecycle passed in 46.09s call time.
+Final focused installation/module/policy checks passed six cases with 15
+Ostium skips in 1.90s.
+
+The initial Aave installation check failed because this worktree lacked its
+submodule; it was initialised at the committed revision. The host default Node
+24 then correctly failed the package's engine requirement. Installation and
+focused checks passed under Node 18, matching CI. A clean source-tree probe
+restoring only the cache's installation/build outputs loaded Hardhat
+successfully; the warm in-process installer completed as a no-op in 0.001s.
+This measures local preparation only; CI archive transfer costs are unknown.
+
+Checkout narrowing remains deferred until a complete source/build prerequisite
+inventory exists. A new Ember historical seed also requires capture with CI's
+pinned Anvil 1.3.2, not the local 1.7.1-dev binary. Keep elapsed, CPU, total job
+preparation and intentional coverage retirement separate in the next CI report.
+The new batches remain local until publication; CI impact is pending.
+
+
+Two grounded read-only Opus 5.5 reviews completed successfully. The final
+follow-up approved the complete Aave cache and workflow ordering. It noted
+that missing generated outputs fail clearly rather than trigger reinstall,
+and that full warm Hardhat deployment/compile behaviour and archive-transfer
+costs still require CI measurement. Workflow YAML, embedded Bash, Ruff
+formatting and whitespace checks passed.

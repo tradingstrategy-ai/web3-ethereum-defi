@@ -1,5 +1,7 @@
 # 1.2
 
+- perf: Skip unsupported Ostium tests, avoid Anvil nonce propagation sleeps, use the existing Lagoon factory for Ember lifecycle coverage and cache complete Aave test installations (2026-10-03).
+
 - perf: Share GMX PnL deployments across three isolated groups and consolidate fork stop-loss checks while preserving payout and order-history coverage (2026-10-03).
 
 - perf: Consolidate live GMX data checks, reuse isolated trading baselines, bound scanner work, repair cold disk-cache writes and retain complete CI timing and resource reports (2026-10-03).

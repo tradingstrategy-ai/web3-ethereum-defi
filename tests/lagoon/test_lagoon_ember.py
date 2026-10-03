@@ -61,7 +61,21 @@ def usdc(web3: Web3) -> TokenDetails:
 
 
 def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault, usdc: TokenDetails) -> None:
-    """Lagoon Safe deposits, queues Ember redemption and receives operator payout."""
+    """Deposit, queue Ember redemption and receive operator payout through a Safe.
+
+    Use the Lagoon factory deployed at the historical fork block, preserving
+    real token transfers, the no-claim redemption ticket and exact payout checks.
+    Separate deployment regressions cover fresh Lagoon protocol compilation.
+
+    :param web3:
+        Connection to the historical Ember lifecycle fork.
+    :param ember_vault:
+        Target Ember vault at the pinned block.
+    :param usdc:
+        Denomination token used to fund the Safe.
+    :return:
+        None; assertions verify the complete redemption lifecycle.
+    """
     # 1. Fund a depositor and deploy a Lagoon Safe with Ember whitelisted.
     asset_manager = web3.eth.accounts[1]
     depositor = web3.eth.accounts[5]
@@ -79,8 +93,9 @@ def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault,
         uniswap_v3=None,
         any_asset=False,
         erc_4626_vaults=[ember_vault],
-        from_the_scratch=True,
-        use_forge=True,
+        # Reuse the historical factory for the redemption lifecycle.
+        from_the_scratch=False,
+        use_forge=False,
     )
     lagoon_vault = deployment.vault
     safe_address = lagoon_vault.safe_address

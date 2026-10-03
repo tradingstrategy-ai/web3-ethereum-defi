@@ -896,3 +896,48 @@ all seven cases; three groups avoid that bottleneck. These are warm local
 observations, not CI or CPU reduction claims. The final combined run including
 both Lagoon modules, cancellation and pool/reader regressions passed 32 tests
 in 100.50s; the additional history-merge regression passed in 0.10s.
+
+
+### Main-suite and unsupported-protocol batch (2026-10-03)
+
+At the user's explicit request, all 15 Ostium cases are skipped with the reason
+``Ostium unsupported after the hack``. This includes the four dedicated
+modules, Ostium-only cases in shared withdrawal/guard/history modules and the
+Ostium parameter in deposit-policy coverage. Gains policy and lifecycle checks
+remain enabled. This deliberately retires unsupported coverage; count it
+separately from optimising retained tests. The integration implementation and
+scanner metadata are unchanged.
+
+Lagoon deployment no longer sleeps for two seconds after each confirmed
+configuration transaction on Anvil. Receipt confirmation, nonce synchronisation
+and live-network propagation delays are retained. Ember's redemption lifecycle
+uses the existing Lagoon factory at its pinned historical block instead of
+compiling a fresh protocol. Its exact share count, ticket sequence and payout
+assertions remain unchanged; the separate Gains lifecycle still exercises
+fresh source deployment.
+
+With two loadgroup workers, the same Ember/Lighter pair passed in 109.13s
+before and 71.76s after (34.2% less local elapsed). Ember call time changed
+102.51s to 65.42s, and Lighter 41.66s to 29.22s. Manual runs used supplied
+Ethereum/Arbitrum RPC providers (redacted). Gains' fresh-protocol lifecycle
+also passed; final focused deployment/policy checks passed six tests with
+15 authorised Ostium skips. These are local elapsed observations, not CI or
+CPU reduction measurements.
+
+Main CI caches Aave's installed dependencies, Solidity artifacts/cache and
+generated TypeChain factories with an exact OS/architecture/Node-version/
+submodule-commit/lockfile key. There are no fallback keys or cached mutable
+deployment records. Node configuration and cache key share one variable;
+lockfile and generated-output checks fail clearly if prerequisites are absent.
+The existing installer still initialises an uncached installation before xdist.
+A partial installation with Hardhat present but missing generated files fails
+the workflow checks; it is not silently treated as complete.
+Only caching ``node_modules`` would omit TypeChain factories loaded by Hardhat
+before deployment. A clean source-tree probe with the restored installation
+loaded Hardhat successfully under Node 18; the warm in-process installer was
+a no-op in 0.001s. CI cache transfer costs and net savings remain unmeasured.
+
+Checkout narrowing and further Ember transaction-stage optimisation remain
+candidates. No new historical fork seed was captured: local Anvil is
+1.7.1-dev whereas CI is pinned to 1.3.2, so a seed must be rebuilt with the
+matching binary before committing it.
