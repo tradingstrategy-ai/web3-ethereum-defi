@@ -7,9 +7,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 
+from eth_defi.research.sparkline import prepare_sparkline_data
+from eth_defi.research.vault_metrics import calculate_sparse_daily_returns_for_all_vaults
 from eth_defi.research.wrangle_vault_prices import (
+    DAILY_VAULT_PRICE_VERSION,
+    DAILY_VAULT_PRICE_VERSION_METADATA_KEY,
     assign_unique_names,
     filter_vaults_by_denomination_families,
     filter_vaults_by_stablecoin,
@@ -239,7 +244,14 @@ def test_crypto_price_build_filters_native_rows(tmp_path: Path, monkeypatch: pyt
 
 
 def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
-    """Daily output keeps actual last rows without adding columns or dates."""
+    """Keep initial and daily closing rows with the existing price schema.
+
+    Repeated timestamps use block order for the daily close. The first price
+    remains a separate real observation, and missing dates are not invented.
+
+    :return:
+        ``None``; validates source timestamps, block numbers and columns.
+    """
     prices = pd.DataFrame(
         {
             "id": ["1-0xvault", "1-0xvault", "1-0xvault", "1-0xvault"],
@@ -258,13 +270,80 @@ def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
 
     result = materialise_daily_crypto_prices(prices)
 
-    assert result.index.tolist() == [pd.Timestamp("2026-01-01 15:00:00"), pd.Timestamp("2026-01-03 09:00:00")]
-    assert result["block_number"].tolist() == [12, 13]
+    assert result.index.tolist() == [pd.Timestamp("2026-01-01 10:00:00"), pd.Timestamp("2026-01-01 15:00:00"), pd.Timestamp("2026-01-03 09:00:00")]
+    assert result["block_number"].tolist() == [10, 12, 13]
     assert result.columns.tolist() == ["id", "block_number", "share_price"]
 
 
+def test_daily_materialisation_keeps_baselines_with_shared_timestamps() -> None:
+    """Preserve each vault's initial price when timestamp labels are shared.
+
+    Row selection must use vault identity and source position so another
+    vault's closing timestamp cannot mask the launch observation.
+
+    :return:
+        ``None``; validates the retained price path and row count.
+    """
+    prices = pd.DataFrame(
+        {"id": ["a", "a", "b"], "share_price": [100.0, 80.0, 1.0]},
+        index=pd.to_datetime(["2026-09-24 12:00", "2026-09-24 18:00", "2026-09-24 12:00"]),
+    )
+    prices.index.name = "timestamp"
+    result = materialise_daily_crypto_prices(prices)
+    assert result.loc[result["id"] == "a", "share_price"].tolist() == [100.0, 80.0]
+    assert len(result) == len(prices)
+
+
+def test_daily_materialisation_collapses_identical_first_day_timestamps() -> None:
+    """Collapse same-timestamp observations before sparse regularisation.
+
+    Several blocks can share a second. Retain the final block at that instant
+    so a producer-generated bundle cannot abort the metrics build.
+
+    :return:
+        ``None`` after checking the canonical bundle and its daily consumer.
+    """
+    prices = pd.DataFrame(
+        {"id": ["1-0xvault"] * 2, "chain": [1] * 2, "address": ["0xvault"] * 2, "block_number": [10, 11], "share_price": [1.0, 1.1]},
+        index=pd.DatetimeIndex(["2026-01-01 12:00", "2026-01-01 12:00"], name="timestamp"),
+    )
+    daily = materialise_daily_crypto_prices(prices)
+    assert daily["block_number"].tolist() == [11]
+    assert len(calculate_sparse_daily_returns_for_all_vaults(daily)) == 1
+    assert prepare_sparkline_data(daily) is None
+
+
+@pytest.mark.parametrize("invalid_price", [float("nan"), float("inf"), -1.0])
+def test_daily_materialisation_starts_at_first_valid_price(invalid_price: float) -> None:
+    """Retain two valid launch observations despite an unusable scanner price.
+
+    Invalid leading and trailing rows cannot hide the first valid return
+    basis or prevent a chart when two real usable observations exist.
+
+    :param invalid_price:
+        Scanner price sentinel that must not enter the daily price bundle.
+    :return:
+        ``None`` after checking the valid baseline, daily states and chart.
+    """
+    prices = pd.DataFrame(
+        {"id": ["1-0xvault"] * 4, "chain": [1] * 4, "address": ["0xvault"] * 4, "share_price": [invalid_price, 100.0, 110.0, invalid_price]},
+        index=pd.DatetimeIndex(["2026-01-01 12:00", "2026-01-02 12:00", "2026-01-02 18:00", "2026-01-02 23:00"], name="timestamp"),
+    )
+    daily = materialise_daily_crypto_prices(prices)
+    assert daily["share_price"].tolist() == [100.0, 110.0]
+    assert len(calculate_sparse_daily_returns_for_all_vaults(daily)) == 1
+    assert prepare_sparkline_data(daily) is not None
+
+
 def test_daily_materialisation_recomputes_sparse_returns() -> None:
-    """Legacy returns describe consecutive exported observations and honour TVL filtering."""
+    """Recalculate sparse returns while honouring existing TVL filtering.
+
+    The launch observation makes the first day's movement measurable, while
+    filtered rows retain their existing zero-return compatibility behaviour.
+
+    :return:
+        ``None``; validates returns between the exported observations.
+    """
     prices = pd.DataFrame(
         {
             "id": ["1-0xvault"] * 4,
@@ -284,11 +363,21 @@ def test_daily_materialisation_recomputes_sparse_returns() -> None:
 
     result = materialise_daily_crypto_prices(prices)
 
-    assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.25, 0.0])
+    assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.2, 0.25, 0.0])
 
 
 def test_crypto_builder_uses_fresh_daily_sidecar_and_rejects_stale_one(tmp_path: Path) -> None:
-    """Use the atomic daily derivative only while it is newer than hourly data."""
+    """Require both current observation semantics and fresh hourly provenance.
+
+    Old sidecars without the observation version fall back to hourly prices
+    even when their modification time is newer. Current sidecars retain the
+    existing mtime guard and cannot conceal a missing hourly authority.
+
+    :param tmp_path:
+        Isolated vault metadata, price and sidecar paths.
+    :return:
+        ``None`` after checking compatible, obsolete and stale sidecars.
+    """
     spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(rows={spec: _vault_row(1, spec.vault_address, "USDC")}).write(vault_db_path)
@@ -310,6 +399,18 @@ def test_crypto_builder_uses_fresh_daily_sidecar_and_rejects_stale_one(tmp_path:
     hourly.to_parquet(hourly_path)
     hourly.iloc[[1]].to_parquet(sidecar_path)
 
+    build_crypto_vault_prices(
+        vault_db_path=vault_db_path,
+        uncleaned_path=tmp_path / "uncleaned.parquet",
+        cleaned_path=output_path,
+        cleaned_stablecoin_path=hourly_path,
+        cleaned_stablecoin_daily_path=sidecar_path,
+    )
+    assert len(pd.read_parquet(output_path)) == expected_hourly_rows
+
+    table = pq.read_table(sidecar_path)
+    table = table.replace_schema_metadata((table.schema.metadata or {}) | {DAILY_VAULT_PRICE_VERSION_METADATA_KEY: DAILY_VAULT_PRICE_VERSION})
+    pq.write_table(table, sidecar_path)
     build_crypto_vault_prices(
         vault_db_path=vault_db_path,
         uncleaned_path=tmp_path / "uncleaned.parquet",

@@ -31,6 +31,7 @@ from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
@@ -126,6 +127,16 @@ MAX_VALID_VOLATILITY: Percent = 10_000
 #: statistically sufficient track record.
 MINIMUM_SHARPE_SAMPLE_DURATION = pd.Timedelta(days=14)
 
+#: Lifetime CAGR requires a month of actual history. Fixed lookbacks require
+#: their complete requested period; absolute returns remain available sooner.
+MINIMUM_LIFETIME_CAGR_SAMPLE_DURATION = pd.Timedelta(days=30)
+
+#: Two real observations establish an absolute return and a launch-day basis.
+MINIMUM_RETURN_OBSERVATIONS = 2
+
+#: The daily bundle may retain its initial observation and first day's close.
+INITIAL_DAY_PRICE_OBSERVATIONS = 2
+
 #: Minimum price observations required before reporting a Sharpe ratio.
 #:
 #: The duration floor alone does not reject a sparse series. Ten prices yield
@@ -212,6 +223,9 @@ class PeriodMetrics:
     cagr_gross: Percent | None = None
 
     cagr_net: Percent | None = None
+
+    #: Why annualised returns are unavailable despite valid absolute returns.
+    annualisation_error_reason: str | None = None
 
     #: Annualised volatility based on daily returns. For sparse price sources,
     #: missing days are forward filled and the result is an approximation.
@@ -2091,7 +2105,7 @@ def _calculate_period_metrics_from_arrays(
     # (i.e. vault is younger than the requested period)
     if start_position < 0:
         # Fall back to the first available sample and clamp period_start_at
-        # so it does not appear to precede the vault's actual inception
+        # so it does not precede the first stored price observation.
         start_position = 0
         samples_start_at = pd.Timestamp(inputs.observation_times[0])
         period_start_at = samples_start_at
@@ -2107,7 +2121,7 @@ def _calculate_period_metrics_from_arrays(
     samples_end_at = pd.Timestamp(inputs.observation_times[-1])
     samples_end_ns = observation_ns[-1]
 
-    if raw_samples == 1:
+    if raw_samples < MINIMUM_RETURN_OBSERVATIONS:
         return PeriodMetrics(
             period=period,
             raw_samples=raw_samples,
@@ -2166,9 +2180,18 @@ def _calculate_period_metrics_from_arrays(
 
     # Calculate gross returns
     if share_price_start == 0:
-        returns_gross = 0
-    else:
-        returns_gross = (share_price_end / share_price_start) - 1
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+            share_price_start=share_price_start,
+            share_price_end=share_price_end,
+            error_reason="Returns require a non-zero starting share price",
+        )
+    returns_gross = (share_price_end / share_price_start) - 1
 
     # Do not turn unknown fees into zero fees. ``calculate_net_profit()``
     # deliberately accepts ``None`` for legacy callers, but an exported net
@@ -2199,8 +2222,7 @@ def _calculate_period_metrics_from_arrays(
 
     # Calculate CAGR (gross and net)
     # CAGR formula: (1 + return) ^ (1/years) - 1
-    # Timedelta.days counts whole days: a 13.9-day sample is 13 days here.
-    years = sample_duration.days / 365.25
+    years = sample_duration.total_seconds() / (365.25 * 86400)
     base_gross = 1 + returns_gross
     base_net = 1 + returns_net if returns_net is not None else None
 
@@ -2215,43 +2237,36 @@ def _calculate_period_metrics_from_arrays(
             samples_end_at=samples_end_at,
         )
 
-    # Too short period
-    if years < 3 / 365:
-        return PeriodMetrics(
-            period=period,
-            raw_samples=raw_samples,
-            period_start_at=period_start_at,
-            period_end_at=period_end_at,
-            error_reason=f"Period too short, days={sample_duration.days}, years={years:.4f}, to calculate metrics",
-            samples_start_at=samples_start_at,
-            samples_end_at=samples_end_at,
-        )
+    # Two real observations can establish an absolute return, even within one
+    # day. Annualisation needs substantially more history and must not turn a
+    # launch-week return into a one-month or three-month ranking signal.
+    annualisation_error_reason = None
+    if period == "lifetime":
+        if sample_duration < MINIMUM_LIFETIME_CAGR_SAMPLE_DURATION:
+            annualisation_error_reason = "Lifetime annualisation requires at least 30 days of observed history"
+    elif samples_start_at > now_ - period_duration:
+        annualisation_error_reason = f"Annualisation requires a complete {period} observation window"
+    if years <= 0:
+        annualisation_error_reason = "Annualisation requires observations at distinct timestamps"
 
-    # Cap CAGR at a reasonable maximum.
-    # Short-lived vaults (e.g. 14 days with 600% return) extrapolate to
-    # absurd annual rates via (1+r)^(365/days). A 10,000% (100x) annual cap
-    # is generous enough for any legitimate vault while preventing
-    # astronomical numbers from polluting rankings.
+    # Eligible windows can still produce extreme extrapolations or overflow.
+    # Retain the existing 10,000% publication cap after the history check.
     max_cagr = 100.0  # 10,000%
 
     # The exponentiation can overflow for extreme base/years combinations
     # (e.g. huge return over a very short period). Catch OverflowError
     # and clamp to max_cagr.
-    try:
-        cagr_gross = base_gross ** (1 / years) - 1
-    except OverflowError:
-        cagr_gross = max_cagr
-
-    cagr_net = None
-    if base_net is not None:
+    cagr_gross = cagr_net = None
+    if annualisation_error_reason is None:
         try:
-            cagr_net = base_net ** (1 / years) - 1
+            cagr_gross = min(base_gross ** (1 / years) - 1, max_cagr)
         except OverflowError:
-            cagr_net = max_cagr
-
-    cagr_gross = min(cagr_gross, max_cagr)
-    if cagr_net is not None:
-        cagr_net = min(cagr_net, max_cagr)
+            cagr_gross = max_cagr
+        if base_net is not None:
+            try:
+                cagr_net = min(base_net ** (1 / years) - 1, max_cagr)
+            except OverflowError:
+                cagr_net = max_cagr
 
     # Forward filling is intentionally accepted for sparse sources such as
     # GMX: unobserved days become flat and accumulated movement lands on the
@@ -2264,6 +2279,15 @@ def _calculate_period_metrics_from_arrays(
     # Volatility and Sharpe share one cleaned return array instead of each
     # re-cleaning the same slice.
     period_daily_returns = _finite_returns(inputs.daily_returns[returns_start:returns_end])
+    # A source observation within the first day precedes that day's closing
+    # price. Include that real initial movement instead of discarding it as
+    # the undefined return before the first daily bucket.
+    first_day_end_ns = (samples_start_ns // NANOSECONDS_PER_DAY + 1) * NANOSECONDS_PER_DAY
+    first_day_close = int(np.searchsorted(observation_ns, first_day_end_ns, side="left")) - 1
+    if daily_samples and observation_ns[first_day_close] > samples_start_ns:
+        first_day_return = period_samples_daily[0] / share_price_start - 1
+        if np.isfinite(first_day_return):
+            period_daily_returns = np.r_[first_day_return, period_daily_returns]
     volatility = _calculate_annualised_volatility_from_clean_returns(period_daily_returns)
     sharpe = _calculate_sharpe_ratio_from_clean_returns(
         period_daily_returns,
@@ -2275,7 +2299,7 @@ def _calculate_period_metrics_from_arrays(
     # Calculate max drawdown directly from share prices.
     # Forward-filled daily prices put every vault on the same calendar while
     # preserving the observed stepwise equity curve.
-    period_prices = period_samples_daily[~np.isnan(period_samples_daily)]
+    period_prices = np.r_[share_price_start, period_samples_daily[~np.isnan(period_samples_daily)]]
     if len(period_prices) >= 2:
         with np.errstate(divide="ignore", invalid="ignore"):
             running_max = np.maximum.accumulate(period_prices)
@@ -2331,6 +2355,7 @@ def _calculate_period_metrics_from_arrays(
         returns_net=returns_net,
         cagr_gross=cagr_gross,
         cagr_net=cagr_net,
+        annualisation_error_reason=annualisation_error_reason,
         volatility=volatility,
         sharpe=sharpe,
         max_drawdown=max_drawdown,
@@ -2596,7 +2621,7 @@ def calculate_crypto_usd_period_results(
         share_price_daily=daily_usd,
         daily_returns=daily_returns,
         tvl=usd_tvl,
-        now_=segment_end,
+        now_=usd_sparse.index[-1],
         native_fee_share_price=native_sparse,
         exchange_rate=rate_sparse,
     )
@@ -3134,6 +3159,8 @@ def calculate_vault_record(
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
     crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
+    *,
+    price_observations: pd.DataFrame | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -3154,6 +3181,11 @@ def calculate_vault_record(
     :param vault_id:
         Vault ID string. If not provided, extracted from prices_df["id"].
 
+    :param price_observations:
+        Optional single-vault observations before daily aggregation, indexed
+        by naive UTC time, with ``share_price``, ``total_assets`` and
+        ``block_number`` columns. Used for return endpoints and sample counts.
+
     See :func:`_calculate_vault_record_from_arrays` for the other parameters.
 
     :return:
@@ -3170,6 +3202,7 @@ def calculate_vault_record(
         xerberus_protocols=xerberus_protocols,
         stablecoin_rate_feeder=stablecoin_rate_feeder,
         crypto_usd_conversion_context=crypto_usd_conversion_context,
+        price_observations=_select_vault_arrays(_prepare_vault_price_frame(price_observations), np.arange(len(price_observations))) if price_observations is not None else None,
     )
 
 
@@ -3183,6 +3216,7 @@ def _calculate_vault_record_from_arrays(
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
     crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
+    price_observations: _VaultArrays | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -3240,16 +3274,23 @@ def _calculate_vault_record_from_arrays(
         ``periodic_metrics_usd`` while their established native
         ``period_results`` remain unchanged.
 
+    :param price_observations:
+        Optional real observations before daily aggregation. Return endpoints,
+        sample counts and peak assets come from these rows; flows use ``vault``.
+
     :return:
         Series with calculated metrics
     """
     id_val = vault_id
+    observation_vault = price_observations if price_observations is not None else vault
 
     # Extract vault metadata
     vault_spec = VaultSpec.parse_string(id_val, separator="-")
     vault_metadata: VaultRow = vault_metadata_rows.get(vault_spec)
 
     assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vault_metadata_rows)} metadata entries."
+
+    detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
 
     name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
     denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
@@ -3260,10 +3301,10 @@ def _calculate_vault_record_from_arrays(
     # The peak is taken over every row of the vault, and the "current" values
     # come from its last row in source order, not the rows ordered by time;
     # see _VaultArrays.
-    all_total_assets = vault.price_frame.columns["total_assets"][vault.source_positions]
+    all_total_assets = observation_vault.price_frame.columns["total_assets"][observation_vault.source_positions]
     if np.isnan(all_total_assets).all():
         # No usable value: keep pandas' own missing-value result.
-        max_nav = vault.price_frame.frame["total_assets"].iloc[vault.source_positions].max()
+        max_nav = observation_vault.price_frame.frame["total_assets"].iloc[observation_vault.source_positions].max()
     else:
         max_nav = float(np.nanmax(all_total_assets))
     current_nav = vault.last_value("total_assets")
@@ -3340,6 +3381,10 @@ def _calculate_vault_record_from_arrays(
         strategy_tags = sorted(tag.value if isinstance(tag, StrategyTag) else str(tag) for tag in raw_strategy_tags)
     else:
         strategy_tags = None
+    if ERC4626Feature.arcus_like in detection.features:
+        # Old scanner pickles may predate automatic pToken tags. Re-derive
+        # the defaults here so exporting them does not require an RPC rescan.
+        strategy_tags = sorted(set(strategy_tags or ()) | {tag.value for tag in get_arcus_strategy_tags(vault_address)})
     risk, notes, flags = apply_bad_flag_check(
         risk=risk,
         notes=notes,
@@ -3388,7 +3433,6 @@ def _calculate_vault_record_from_arrays(
         protocols=xerberus_protocols or {},
     )
 
-    detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     curator_slug = identify_curator(
         chain_id=chain_id,
         vault_token_symbol=share_token,
@@ -3496,7 +3540,7 @@ def _calculate_vault_record_from_arrays(
     # period metric calculations below. The rows are time-sorted, so the
     # last timestamp is the latest one. A vault without timestamps gets NaT,
     # as DatetimeIndex.max() returned.
-    now_ = pd.Timestamp(vault.timestamps[-1]) if len(vault.timestamps) else pd.NaT
+    now_ = pd.Timestamp(observation_vault.timestamps[-1]) if len(observation_vault.timestamps) else pd.NaT
 
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
@@ -3691,11 +3735,11 @@ def _calculate_vault_record_from_arrays(
     # A share price is a usable observation when it is finite and not
     # negative; zero is a valid complete-loss value. This matches
     # sanitise_share_price_observations().
-    raw_share_price = columns["share_price"]
+    raw_share_price = observation_vault.columns["share_price"]
     with np.errstate(invalid="ignore"):
         valid_rows = np.flatnonzero(np.isfinite(raw_share_price) & (raw_share_price >= 0))
-    observation_ns = timestamp_ns[valid_rows]
-    observation_times = vault.timestamps[valid_rows]
+    observation_ns = observation_vault.timestamp_ns[valid_rows]
+    observation_times = observation_vault.timestamps[valid_rows]
     observation_prices = raw_share_price[valid_rows]
     daily_ns, daily_prices, daily_returns = _prepare_daily_share_price_arrays(observation_ns, observation_prices)
 
@@ -3718,8 +3762,8 @@ def _calculate_vault_record_from_arrays(
         daily_returns=daily_returns,
         # TVL uses every time-ordered row, including rows whose share price
         # is unusable: the vault held assets on those days regardless.
-        tvl_ns=timestamp_ns,
-        tvl=columns["total_assets"],
+        tvl_ns=observation_vault.timestamp_ns,
+        tvl=observation_vault.columns["total_assets"],
         utilisation_ns=utilisation_ns,
         utilisation=utilisation_daily,
     )
@@ -3757,7 +3801,7 @@ def _calculate_vault_record_from_arrays(
             vault_id=id_val,
             native_share_price_observations=pd.Series(observation_prices, index=pd.DatetimeIndex(observation_times)),
             native_daily_share_prices=pd.Series(daily_prices, index=pd.DatetimeIndex(daily_ns)),
-            native_total_assets=pd.Series(columns["total_assets"], index=pd.DatetimeIndex(vault.timestamps)),
+            native_total_assets=pd.Series(observation_vault.columns["total_assets"], index=pd.DatetimeIndex(observation_vault.timestamps)),
             gross_fee_data=gross_fee_data,
             net_fee_data=net_fee_data,
         )
@@ -3790,11 +3834,7 @@ def _calculate_vault_record_from_arrays(
     lifetime_start_date = pd.Timestamp(observation_times[0])
     lifetime_end_date = pd.Timestamp(observation_times[-1])
     lifetime_samples = len(observation_ns)
-    age = (lifetime_end_date - lifetime_start_date).days / 365.25
-
-    # Preserve legacy zero defaults for existing protocols. An unavailable
-    # event-only return is unknown, including when fees become known later.
-    unavailable_metric = None if chain_id == ANTARCTIC_CHAIN_ID and vault_address.lower() in ANTARCTIC_BY_ADDRESS else 0
+    age = (lifetime_end_date - lifetime_start_date).total_seconds() / (365.25 * 86400)
 
     # Legacy: Lifetime metrics
     if lifetime_pm and lifetime_pm.error_reason is None:
@@ -3803,10 +3843,8 @@ def _calculate_vault_record_from_arrays(
         cagr = lifetime_pm.cagr_gross
         cagr_net = lifetime_pm.cagr_net if known_fee else None
     else:
-        lifetime_return = unavailable_metric
-        lifetime_return_net = unavailable_metric if known_fee else None
-        cagr = unavailable_metric
-        cagr_net = unavailable_metric if known_fee else None
+        # Unavailable metrics must not become a claim of zero performance.
+        lifetime_return = lifetime_return_net = cagr = cagr_net = None
 
     # Legacy: three months metrics
     if three_months_pm and three_months_pm.error_reason is None:
@@ -3821,13 +3859,8 @@ def _calculate_vault_record_from_arrays(
         three_months_end = three_months_pm.samples_end_at
         three_months_samples = three_months_pm.raw_samples
     else:
-        three_month_returns = unavailable_metric
-        three_months_return_net = unavailable_metric if known_fee else None
-        three_months_cagr = unavailable_metric
-        three_months_cagr_net = unavailable_metric if known_fee else None
-        three_months_volatility = unavailable_metric
-        three_months_sharpe = unavailable_metric
-        three_months_sharpe_net = unavailable_metric
+        three_month_returns = three_months_return_net = three_months_cagr = three_months_cagr_net = None
+        three_months_volatility = three_months_sharpe = three_months_sharpe_net = None
         three_months_start = None
         three_months_end = None
         three_months_samples = 0
@@ -3868,10 +3901,7 @@ def _calculate_vault_record_from_arrays(
         one_month_end = one_month_pm.samples_end_at
         one_month_samples = one_month_pm.raw_samples
     else:
-        one_month_returns = unavailable_metric
-        one_month_returns_net = unavailable_metric if known_fee else None
-        one_month_cagr = unavailable_metric
-        one_month_cagr_net = unavailable_metric if known_fee else None
+        one_month_returns = one_month_returns_net = one_month_cagr = one_month_cagr_net = None
         one_month_start = None
         one_month_end = None
         one_month_samples = None
@@ -3881,10 +3911,10 @@ def _calculate_vault_record_from_arrays(
     # First and last rows with a usable share price. Block numbers are read
     # from the source column so they keep their exported integer type.
     last_updated_at = lifetime_end_date
-    last_updated_block = vault.sorted_value("block_number", valid_rows[-1])
+    last_updated_block = observation_vault.sorted_value("block_number", valid_rows[-1])
     last_share_price = observation_prices[-1]
     first_updated_at = lifetime_start_date
-    first_updated_block = vault.sorted_value("block_number", valid_rows[0])
+    first_updated_block = observation_vault.sorted_value("block_number", valid_rows[0])
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     return pd.Series(
@@ -4037,6 +4067,8 @@ def calculate_lifetime_metrics(
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
     crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
+    *,
+    price_observations: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -4105,6 +4137,12 @@ def calculate_lifetime_metrics(
         records contain an additional ``periodic_metrics_usd`` field when it
         is supplied; all existing native metrics preserve their semantics.
 
+    :param price_observations:
+        Optional source observations before daily aggregation, indexed by
+        naive UTC timestamps with ``id``, ``share_price``, ``total_assets``
+        and ``block_number`` columns. Returns retain their real first and
+        last observations while ``df`` supplies daily states and flows.
+
     :return:
         DataFrame, one row per vault.
     """
@@ -4127,6 +4165,10 @@ def calculate_lifetime_metrics(
     # below then takes each vault's rows as small array slices instead of
     # materialising one pandas DataFrame per vault; see _VaultPriceFrame.
     price_frame = _prepare_vault_price_frame(df)
+    observation_price_frame = _prepare_vault_price_frame(price_observations) if price_observations is not None else None
+    # Keep only source positions for all vaults. Materialise observation arrays
+    # for the current vault instead of retaining a second full set of arrays.
+    observation_positions = price_observations.groupby("id", sort=False).indices if price_observations is not None else None
     vault_count = df["id"].nunique()
 
     # Each vault is an independent export record. A corrupted historical row
@@ -4143,6 +4185,7 @@ def calculate_lifetime_metrics(
                 xerberus_protocols=xerberus_protocols,
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
                 crypto_usd_conversion_context=crypto_usd_conversion_context,
+                price_observations=_select_vault_arrays(observation_price_frame, observation_positions[vault_id]) if observation_price_frame is not None else None,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
             logger.exception("Skipping invalid vault metrics record for %s", vault_id)
@@ -4326,16 +4369,31 @@ def is_special_vault(
 
 def clean_lifetime_metrics(
     lifetime_data_df: pd.DataFrame,
-    broken_max_nav_value=99_000_000_000,
-    lifetime_min_nav_threshold=100.00,
-    max_annualised_return=3.0,  # 300% max return
-    min_events=25,
-    logger=print,
+    broken_max_nav_value: USDollarAmount = 99_000_000_000,
+    lifetime_min_nav_threshold: USDollarAmount = 100.00,
+    max_annualised_return: Percent = 3.0,
+    min_events: int = 25,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
-    """Clean lifetime data so we have only valid vaults.
+    """Filter lifetime metrics by NAV, activity and available annualised returns.
 
-    - Filter out vaults that have broken records or never saw daylight
-    - See :py:func:`calculate_lifetime_metrics`.
+    Apply the shared analysis filters to records from
+    :py:func:`calculate_lifetime_metrics`. Unavailable CAGR is expected for
+    young vaults and does not remove otherwise eligible absolute returns.
+
+    :param lifetime_data_df:
+        Lifetime records indexed by name or row ID, with numeric or nullable
+        ``cagr``, ``peak_nav`` and ``event_count`` plus protocol/address columns.
+    :param broken_max_nav_value:
+        Maximum accepted lifetime peak assets in denomination units.
+    :param lifetime_min_nav_threshold:
+        Minimum lifetime peak assets in denomination units.
+    :param max_annualised_return:
+        Exclusive upper bound for available CAGR; ``3.0`` means 300%.
+    :param min_events:
+        Minimum discovery events, except for supported special vault families.
+    :param logger:
+        Progress callback.
 
     :return:
         Cleaned lifetime dataframe
@@ -4343,12 +4401,6 @@ def clean_lifetime_metrics(
 
     # Filter FRAX vault with broken interface
     lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
-
-    # Filter out MAAT Stargate V2 USDT
-    # Not sure what's going on with this one and other ones with massive returns.
-    # Rebase token?
-    # Consider 10,000x returns as "valid"
-    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < 10_000]
 
     # Filter out some vaults that report broken NAV
     broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
@@ -4360,14 +4412,14 @@ def clean_lifetime_metrics(
     logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out with too HIGH CAGR
-    broken_mask = lifetime_data_df["cagr"] >= max_annualised_return
+    # Missing CAGR must not discard a young vault with valid absolute returns.
+    broken_mask = (lifetime_data_df["cagr"] >= max_annualised_return).fillna(False)
     logger(f"Vaults abnormally high returns: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
     # Filter out some vaults that have not seen many deposit and redemptions.
     # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
-    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    # because we do not necessarily have onchain deposit/redeem event data for them.
     special_mask = lifetime_data_df.apply(
         lambda row: is_special_vault(row["protocol_slug"], row["address"]),
         axis=1,
@@ -4381,19 +4433,28 @@ def clean_lifetime_metrics(
 def combine_return_columns(
     gross: pd.Series,
     net: pd.Series,
-    new_line=" ",
+    new_line: str = " ",
     mode: Literal["percent", "usd"] = "percent",
     profit_presentation: Literal["split", "net_only"] = "split",
-):
+) -> pd.Series:
     """Create combined net / (gross) returns column for display.
 
-    E.g. 8.3% (10.5%)
+    Display values such as ``8.3% (10.5%)`` while keeping missing values distinct
+    from real zero returns or zero assets. The two input series must share an
+    index; formatting preserves that index.
 
     :param gross:
-        Gross returns series
+        Numeric or nullable gross returns, or peak assets in USD mode.
 
     :param net:
-        Net returns series
+        Numeric or nullable net returns, or current assets in USD mode.
+
+    :param new_line:
+        Separator between the net value and parenthesised gross value.
+    :param mode:
+        Percentage returns or denomination-unit asset values.
+    :param profit_presentation:
+        Show both values, or prefer net with gross as the fallback.
 
     :return:
         Combined string series
@@ -4401,48 +4462,25 @@ def combine_return_columns(
 
     assert gross.index.equals(net.index), f"Gross and net series must have the same index {len(gross)} != {len(net)}"
 
-    def _format_combined_percent(g, n):
-        match profit_presentation:
-            case "split":
-                if n is not None and pd.isna(n) == False:
-                    return f"{n:.1%}{new_line}({g:.1%})"
-                else:
-                    return f"---{new_line}({g:.1%})"
-            case "net_only":
-                if n is not None and pd.isna(n) == False:
-                    return f"{n:.1%} (n)"
-                else:
-                    if g and pd.isna(g) == False:
-                        return f"{g:.1%} (g)"
-                    else:
-                        return "---"
-
-    def _format_combined_usd(g, n):
-        if n:
-            return f"{n:,.0f}{new_line}({g:,.0f})"
-        else:
-            return f"---{new_line}({g:.0f})"
-
-    if mode == "percent":
-        _format_combined = _format_combined_percent
-    else:
-        _format_combined = _format_combined_usd
-
-    return pd.Series([_format_combined(g, n) for g, n in zip(gross, net)], index=gross.index)
+    format_spec = ".1%" if mode == "percent" else ",.0f"
+    gross_text = gross.map(lambda value: format(value, format_spec) if pd.notna(value) else "---").astype("str")
+    net_text = net.map(lambda value: format(value, format_spec) if pd.notna(value) else "---").astype("str")
+    if mode == "percent" and profit_presentation == "net_only":
+        fallback = (gross_text + " (g)").where(gross.notna(), "---")
+        return (net_text + " (n)").where(net.notna(), fallback)
+    return net_text + new_line + "(" + gross_text + ")"
 
 
-def format_lifetime_table(
-    df: pd.DataFrame,
-    add_index=False,
-    add_address=False,
-    add_share_token=False,
-    drop_blacklisted=True,
-    profit_presentation: Literal["split", "net_only"] = "split",
-    html_links=False,
-) -> pd.DataFrame:
+def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address: bool = False, add_share_token: bool = False, drop_blacklisted: bool = True, profit_presentation: Literal["split", "net_only"] = "split", html_links: bool = False) -> pd.DataFrame:  # noqa: FBT001, FBT002 - Preserve the existing positional display options.
     """Format table for human readable output.
 
-    See :py:func:`calculate_lifetime_metrics`
+    Format the numeric and nullable fields from
+    :py:func:`calculate_lifetime_metrics` as display text. Missing returns and
+    risk metrics render as ``---`` rather than suggesting zero performance.
+
+    :param df:
+        Lifetime metric records with numeric or nullable returns, risk metrics
+        and vault metadata columns.
 
     :param add_index:
         Add 1, 2, 3... index column
@@ -4452,8 +4490,14 @@ def format_lifetime_table(
 
         For vault address list copy-pasted.
 
+    :param add_share_token:
+        Include the share-token symbol as a separate column.
+
     :param drop_blacklisted:
         Remove vaults we have manually flagged as troublesome.
+
+    :param profit_presentation:
+        Show net and gross returns together, or only the net return.
 
     :param html_links:
         Wrap Name, Chain, and Protocol values in ``<a>`` tags
@@ -4527,7 +4571,7 @@ def format_lifetime_table(
             return ""
         return ", ".join(str(val) for val in v)
 
-    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}")
+    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}" if pd.notna(x) else "---")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "---")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
@@ -4929,85 +4973,49 @@ def analyse_vault(
 def calculate_performance_metrics_for_all_vaults(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
-    logger=print,
-    lifetime_min_nav_threshold=100.00,
-    broken_max_nav_value=99_000_000_000,
-    cagr_too_high=10_000,
-    min_events=25,
+    logger: Callable[[str], None] = print,
+    lifetime_min_nav_threshold: USDollarAmount = 100.00,
+    broken_max_nav_value: USDollarAmount = 99_000_000_000,
+    cagr_too_high: Percent = 10_000,
+    min_events: int = 25,
 ) -> pd.DataFrame:
     """Calculate performance metrics for each vault.
 
-    - Only applicable to stablecoin vaults as cleaning units are in USD
-    - Clean up idle vaults that have never seen enough events to be considered active
-    - Calculate lifetime returns, CAGR, NAV, etc.
-    - Filter out results with abnormal values
+    Apply NAV, event-count and extreme-CAGR filters to stablecoin vault metrics.
+    Young vaults with valid absolute returns remain eligible while their CAGR
+    is unavailable. This helper expects cleaned price observations; callers
+    requiring daily flow estimates must prepare daily states first.
+
+    :param vault_db:
+        Stablecoin vault metadata keyed by vault identity.
+    :param prices_df:
+        Timestamp-indexed cleaned observations with vault IDs, prices and assets.
+    :param logger:
+        Progress callback.
+    :param lifetime_min_nav_threshold:
+        Minimum lifetime peak assets in denomination units.
+    :param broken_max_nav_value:
+        Maximum accepted lifetime peak assets in denomination units.
+    :param cagr_too_high:
+        Exclusive upper bound for available lifetime CAGR.
+    :param min_events:
+        Minimum discovery events, except for supported special vault families.
 
     :return:
         DataFrame with lifetime metrics for each vault, indexed by vault name.
     """
 
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
-
-    # Numpy complains about something
-    # - invalid value encountered in reduce
-    # - Boolean Series key will be reindexed to match DataFrame index.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        warnings.simplefilter("ignore", RuntimeWarning)
-        lifetime_data_df = calculate_lifetime_metrics(
-            prices_df,
-            vaults_by_id,
-            returns_column="returns_1h",
-        )
-
-    lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
-    lifetime_data_df = lifetime_data_df.set_index("name")
-
-    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
-
-    # Verify we no longer have duplicates
-    # display(lifetime_data_df.index)
-    assert not lifetime_data_df.index.dropna().duplicated().any(), f"There are still duplicate names in the index: {lifetime_data_df.index}"
-    logger("Successfully made all vault names unique by appending chain information")
-
+    lifetime_data_df = calculate_lifetime_metrics(prices_df, vault_db).sort_values(by="cagr", ascending=False).set_index("name")
+    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate vault names in the index: {lifetime_data_df.index}"
     logger(f"Calculated lifetime data for {len(lifetime_data_df):,} vaults")
-    logger("Sample entrys of lifetime data:")
-
-    #
-    # Clean data
-    #
-
-    # Filter FRAX vault with broken interface
-    lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
-
-    # Filter out MAAT Stargate V2 USDT
-    # Not sure what's going on with this one and other ones with massive returns.
-    # Rebase token?
-    # Consider 10,000x returns as "valid"
-    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < cagr_too_high]
-
-    # Filter out some vaults that report broken NAV
-    broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
-    logger(f"Vault entries with too high NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have too little NAV (ATH NAV)
-    broken_mask = lifetime_data_df["peak_nav"] <= lifetime_min_nav_threshold
-    logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have not seen many deposit and redemptions.
-    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
-    # because we do not necessarily have on-chain deposit/redeem event data for them.
-    special_mask = lifetime_data_df.apply(
-        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
-        axis=1,
+    return clean_lifetime_metrics(
+        lifetime_data_df,
+        broken_max_nav_value=broken_max_nav_value,
+        lifetime_min_nav_threshold=lifetime_min_nav_threshold,
+        max_annualised_return=cagr_too_high,
+        min_events=min_events,
+        logger=logger,
     )
-    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
-    logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    return lifetime_data_df
 
 
 def format_vault_database(
@@ -5465,7 +5473,8 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
     :param returns_column:
         Name assigned to the calculated percentage-return column.
     :param sparse_daily_input:
-        Input already has at most one observation per vault and UTC day.
+        Input has daily closes and optionally its first observation before
+        the first day's close.
         Reindex that observation directly onto calendar days instead of
         repeating a daily aggregation.
     :return:
@@ -5503,14 +5512,15 @@ def _regularise_daily_per_vault(df_work: pd.DataFrame, returns_column: str, *, s
     :param returns_column:
         Name assigned to the calculated percentage-return column.
     :param sparse_daily_input:
-        Input already has at most one observation per vault and UTC day.
+        Input has daily closes and optionally the initial observation before
+        the first day's close. Other repeated days are rejected.
     :return:
         Daily vault rows with the requested return column.
     """
     result_dfs = []
     grouped_vaults = df_work.groupby(["chain", "address"])
     for (chain_val, addr_val), group in tqdm(grouped_vaults, desc="Preparing daily vault returns", total=grouped_vaults.ngroups):
-        group = group.copy()
+        group = group.sort_index(kind="stable").copy()
         has_complete_state_columns = all(column in group.columns for column in ERC4626_FLOW_STATE_COLUMNS)
         state_fresh = group[list(ERC4626_FLOW_STATE_COLUMNS)].notna().all(axis=1) if has_complete_state_columns else pd.Series(False, index=group.index)
         if VAULT_STATE_OBSERVED_COLUMN not in group.columns:
@@ -5521,7 +5531,14 @@ def _regularise_daily_per_vault(df_work: pd.DataFrame, returns_column: str, *, s
             observation_days = group.index.normalize()
             if observation_days.has_duplicates:
                 duplicates = observation_days[observation_days.duplicated(keep=False)]
-                raise ValueError(f"Duplicate sparse daily observations for {chain_val}-{addr_val} on {duplicates.min().date()} ({len(duplicates)} rows across {duplicates.nunique()} days)")
+                # The daily bundle deliberately retains one extra launch
+                # observation. Daily states use the close; return endpoints
+                # receive the original rows separately.
+                has_initial_observation = len(duplicates) == INITIAL_DAY_PRICE_OBSERVATIONS and duplicates[0] == observation_days[0] and group.index[0] < group.index[1]
+                if not has_initial_observation:
+                    raise ValueError(f"Duplicate sparse daily observations for {chain_val}-{addr_val} on {duplicates.min().date()} ({len(duplicates)} rows across {duplicates.nunique()} days)")
+                group = group.iloc[1:]
+                observation_days = observation_days[1:]
             group.index = observation_days
             calendar_days = pd.date_range(observation_days.min(), observation_days.max(), freq="D", name=df_work.index.name)
             resampled = group.reindex(calendar_days)
@@ -5581,15 +5598,18 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
 
 
 def calculate_sparse_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
-    """Regularise one real daily observation per vault for lifetime metrics.
+    """Regularise daily closing observations for lifetime metric states.
 
     The private crypto price Parquet already contains the final real row for
-    each vault and UTC day. Calendar gaps still need forward-filled prices,
+    each vault and UTC day, plus an optional first observation before the
+    first day's close. That initial observation is passed separately to the
+    metrics endpoint calculation. Calendar gaps still need forward-filled prices,
     while flow columns and observed-state markers must remain sparse.
 
     :param df_work:
         Sparse daily vault prices with a timestamp index and at most one row
-        per ``chain``, ``address`` and UTC day.
+        per ``chain``, ``address`` and UTC day, except two distinct real
+        observations on the first day.
     :return:
         Consecutive daily rows with the compatibility ``returns_1h`` column.
     """

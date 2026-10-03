@@ -1368,6 +1368,10 @@ def main(
     else:
         returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
+    # Daily closing prices are appropriate for state-delta flows, but using
+    # them as the return endpoints loses the first observation day's PnL.
+    price_observations = prices_df[["id", "share_price", "total_assets", "block_number"]]
+
     # Free the due-filtered price frame before the memory-peak metrics
     # phase; nothing below needs it.
     del prices_df
@@ -1421,13 +1425,14 @@ def main(
         core3_protocols=core3_protocols,
         xerberus_pools=xerberus_pools,
         xerberus_protocols=xerberus_protocols,
+        price_observations=price_observations,
     )
 
     logger.info("Calculated lifetime metrics for %d vaults with %d columns", len(lifetime_data_df), len(lifetime_data_df.columns))
     computed_vault_ids = set(lifetime_data_df["id"].astype(str)) if len(lifetime_data_df) else set()
 
     # Free the daily-returns frame before sticky processing and export.
-    del returns_df
+    del returns_df, price_observations
     free_memory()
     phase_diagnostics.log("metrics")
 

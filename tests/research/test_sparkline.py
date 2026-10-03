@@ -92,8 +92,15 @@ def test_gradient_sparkline_svg_is_deterministic() -> None:
     assert first_svg == second_svg
 
 
-def test_sparkline_requires_two_weeks_of_finite_price_history() -> None:
-    """Publish at exactly two weeks, but not before the threshold."""
+def test_sparkline_requires_two_distinct_valid_observations() -> None:
+    """Publish young histories without counting invalid or duplicate samples.
+
+    Same-day observations establish a chart, whereas missing prices or repeated
+    timestamps cannot meet the minimum. A caller can still require a duration.
+
+    :return:
+        ``None``; validates eligibility, retained prices and fixed chart bounds.
+    """
     start_at = pd.Timestamp("2026-08-01 12:00:00")
     index = pd.DatetimeIndex(
         [start_at, start_at + pd.Timedelta(days=13), start_at + pd.Timedelta(days=14)],
@@ -110,9 +117,27 @@ def test_sparkline_requires_two_weeks_of_finite_price_history() -> None:
     assert eligible.end_at - eligible.prices_df.index[0] == pd.Timedelta(days=14)
     assert prepare_sparkline_data(prices_df.iloc[:2]) is None
 
+    same_day = pd.DataFrame({"share_price": [96.606690, 76.246850]}, index=pd.to_datetime(["2026-09-24 12:10:57", "2026-09-24 18:37:08"]))
+    chart = prepare_sparkline_data(same_day)
+    assert chart is not None
+    assert chart.prices_df["share_price"].tolist() == [96.606690, 76.246850]
+    assert chart.prices_df.index.tolist() == same_day.index.tolist()
+    assert chart.end_at - chart.start_at == pd.Timedelta(days=90)
+    duplicate_times = same_day.copy()
+    duplicate_times.index = pd.DatetimeIndex([same_day.index[0]] * 2)
+    assert prepare_sparkline_data(duplicate_times) is None
+    assert prepare_sparkline_data(same_day, minimum_history=pd.Timedelta(days=14)) is None
+
 
 def test_short_sparkline_uses_full_90_day_axis_with_blank_left_side() -> None:
-    """A new vault's two-week line occupies only the chart's right edge."""
+    """Draw a young vault at the right edge of a full 90-day chart.
+
+    Bounds use the actual final observation time rather than its midnight label,
+    leaving the period before the first stored observation blank.
+
+    :return:
+        ``None``; validates the exact bounds and retained source timestamps.
+    """
     end_at = pd.Timestamp("2026-08-15 12:00:00")
     index = pd.date_range(end=end_at, periods=15, freq="D", name="timestamp")
     prices_df = pd.DataFrame(
@@ -130,8 +155,8 @@ def test_short_sparkline_uses_full_90_day_axis_with_blank_left_side() -> None:
     plotted_start = pd.Timestamp(fig.axes[0].lines[0].get_xdata()[0])
     plotted_end = pd.Timestamp(fig.axes[0].lines[0].get_xdata()[-1])
 
-    assert sparkline_data.start_at == end_at.normalize() - pd.Timedelta(days=90)
-    assert sparkline_data.prices_df.index[0] == (end_at - pd.Timedelta(days=14)).normalize()
+    assert sparkline_data.start_at == end_at - pd.Timedelta(days=90)
+    assert sparkline_data.prices_df.index[0] == end_at - pd.Timedelta(days=14)
     assert axis_start.floor("s") == sparkline_data.start_at
     assert axis_end.floor("s") == sparkline_data.end_at
     assert plotted_start == sparkline_data.prices_df.index[0]
