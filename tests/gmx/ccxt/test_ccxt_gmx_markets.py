@@ -9,12 +9,6 @@ from flaky import flaky
 from eth_defi.gmx.ccxt.exchange import GMX
 
 
-def test_arbitrum_gmx_fetch_tickers(ccxt_gmx_arbitrum: GMX):
-    """Get all markets of GMX in CCXT format"""
-    gmx = ccxt_gmx_arbitrum
-    tickers = gmx.fetch_tickers()
-
-
 @flaky(max_runs=3, min_passes=1)
 def test_load_markets_rest_api_mode(ccxt_gmx_arbitrum: GMX):
     """Test loading markets using REST API mode (default).

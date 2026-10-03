@@ -666,30 +666,6 @@ def test_lagoon_wallet_forward_eth_open_short(lagoon_gmx_forward_eth_env: Lagoon
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Verify LagoonGMXTradingWallet reports Safe address, not asset manager address."""
-    env = lagoon_gmx_fork_env
-
-    # LagoonGMXTradingWallet.address should return the Safe address
-    assert env.lagoon_wallet.address == env.vault.safe_address
-    assert env.lagoon_wallet.address != env.asset_manager_wallet.get_main_address()
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_lagoon_wallet_native_balance(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Test that get_native_currency_balance returns Safe's ETH balance."""
-    env = lagoon_gmx_fork_env
-
-    balance = env.lagoon_wallet.get_native_currency_balance(env.web3)
-    safe_balance_wei = env.web3.eth.get_balance(env.vault.safe_address)
-
-    # balance returns Decimal in ETH, safe_balance_wei is int in wei
-    expected_balance = Decimal(safe_balance_wei) / Decimal(10**18)
-    assert balance == expected_balance
-    assert balance > 0, "Safe should have ETH balance"
-
-
-@flaky(max_runs=3, min_passes=1)
 def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """Verify deploy_automated_lagoon_vault() auto-approves GMX collateral tokens.
 
@@ -697,11 +673,23 @@ def test_gmx_collateral_auto_approved_during_deployment(lagoon_gmx_fork_env: Lag
     because the Guard didn't have SyntheticsRouter as an allowed approval destination.
     The deployment now automatically approves the underlying token and any extra
     tokens from gmx_deployment.tokens for the SyntheticsRouter.
+
+    Check wallet identity and native balance against this same deployment to
+    avoid deploying two additional vaults just for wallet accessors.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
     safe_address = env.vault.safe_address
     module = env.deploy_info.trading_strategy_module
+
+    # Wallet accessors must refer to the deployed Safe rather than its signer.
+    assert env.lagoon_wallet.address == safe_address
+    assert env.lagoon_wallet.address != env.asset_manager_wallet.get_main_address()
+    balance = env.lagoon_wallet.get_native_currency_balance(web3)
+    safe_balance_wei = web3.eth.get_balance(safe_address)
+    expected_balance = Decimal(safe_balance_wei) / Decimal(10**18)
+    assert balance == expected_balance
+    assert balance > 0, "Safe should have ETH balance"
 
     # Verify guard-level whitelisting from whitelistGMX()
     assert module.functions.isAllowedApprovalDestination(GMX_SYNTHETICS_ROUTER).call(), "SyntheticsRouter not whitelisted as approval destination"

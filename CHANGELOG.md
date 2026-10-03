@@ -1,5 +1,6 @@
 # 1.2
 
+- perf: Reduce test load by removing empty and redundant smoke tests, reusing an existing GMX deployment for wallet checks and bounding live Hyperliquid normal-account reconstruction to one day (2026-10-03).
 - fix: Disable broken ForgeYields offchain fetching while preserving cached metadata and recognise YieldBasis and Kinexys synthetic USD valuations in scanner admission and freshness (2026-10-03).
 - fix: Stop all-chain vault scanning of unsupported Hemi, Blast and Mode chains, including price reads and settlement discovery (2026-10-03).
 - fix: Preserve initial vault price observations and Arcus leveraged NAV moves, withhold annualised returns until the requested history is available, publish young-vault sparklines and automatically classify Arcus pToken strategies (2026-10-02).

@@ -135,23 +135,25 @@ def test_reconstruct_normal_account_trade_history(session, tmp_path):
     """Reconstruct trade history for a normal (non-vault) Hyperliquid account.
 
     Uses the active Growi HF vault to exercise the normal-account code path.
+    Use the same bounded one-day interval as the vault reconstruction test;
+    account classification does not require downloading seven days of fills.
     """
     account_address = ACTIVE_ACCOUNT
 
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(account_address, label="Test account", is_vault=False)
-        db.sync_account_fills(session, account_address, start_time=TEST_START, end_time=TEST_END)
+        db.sync_account_fills(session, account_address, start_time=RECONSTRUCTION_TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
             session,
             account_address,
-            start_time=TEST_START,
+            start_time=RECONSTRUCTION_TEST_START,
             end_time=TEST_END,
         )
 
         assert len(history.fills) > 0
-        assert len(history.closed_trades) + len(history.open_trades) >= 0
+        assert len(history.closed_trades) + len(history.open_trades) > 0
 
         state = db.get_sync_state(account_address)
         assert "fills" in state
