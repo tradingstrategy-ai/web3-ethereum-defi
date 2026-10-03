@@ -23,6 +23,7 @@ from requests.exceptions import ConnectionError, HTTPError, Timeout
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, ProviderConnectionError, TimeExhausted, Web3RPCError
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.event_reader.multicall_batcher import MulticallRetryable
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import normalise_rpc_error
@@ -75,6 +76,11 @@ def classify_rpc_scan_failure(error: BaseException) -> str:
     :param error: Original phase exception.
     :return: ``transient`` or ``internal``.
     """
+    if isinstance(error, MulticallRetryable) and error.__cause__ is not None:
+        # Physical-batch recovery keeps provider/transport errors chained. The
+        # scanner's backoff classification must inspect the actual failure,
+        # not treat the recovery wrapper as an internal implementation defect.
+        return classify_rpc_scan_failure(error.__cause__)
     if isinstance(error, HTTPError):
         return "transient" if error.response is not None and (error.response.status_code == 429 or error.response.status_code >= 500) else "internal"
     if isinstance(error, (ConnectionError, Timeout, ProviderConnectionError, TimeExhausted, ProbablyNodeHasNoBlock)):

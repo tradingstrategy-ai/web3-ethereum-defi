@@ -18,6 +18,8 @@ import logging
 import os
 import tempfile
 
+import pyarrow as pa
+
 try:
     import fcntl
 except ImportError:
@@ -39,7 +41,7 @@ from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626HistoricalReader, VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_MULTICALL_GREYLIST, BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
@@ -771,12 +773,40 @@ class VaultHistoricalReadMulticaller:
                 reader = readers[vault_address]
                 state = reader.reader_state
 
+                # One unavailable subcall invalidates the whole observation.
+                # Do this before protocol decoding/on_called: a provider gas
+                # error is neither a Solidity revert nor a fresh zero valuation.
+                # Reviewed Core readers can also return served precompile reverts
+                # when their historical view is absent. Preserve their old rows.
+                greylisted = chain_id == 999 and any(r.call.address.lower() in HYPEREVM_MULTICALL_GREYLIST for r in results)
+                unavailable = next((r.unavailable_error for r in results if r.unavailable_error), None)
+                required_failed = greylisted and any(not r.success and r.call.data[:4].hex() in {"01e1d114", "07a2d13a", "18160ddd"} for r in results)
+                if unavailable or required_failed:
+                    error_count += 1
+                    if state:
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = unavailable or "HyperCore observation unavailable"
+                    logger.warning("Deferred HyperCore observation: vault=%s block=%d reason=%s", vault_address, block_number, unavailable or "served subcall revert")
+                    continue
+
+                saved_state = state.save() if greylisted and state else None
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
                     block_number,
                     timestamp,
                     results,
                 )
+
+                if greylisted and (current_result.share_price is None or current_result.total_assets is None):
+                    # Decoding can reveal a partial observation even when the
+                    # transport succeeded. Reject it before claiming freshness
+                    # and roll back on_called progress made by a protocol reader.
+                    if state and saved_state is not None:
+                        state.load(saved_state)
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = "Incomplete HyperCore valuation"
+                    logger.warning("Deferred incomplete HyperCore valuation: vault=%s block=%d", vault_address, block_number)
+                    continue
 
                 # Stateless scans invoke every selected block. Keep their
                 # exported frequency marker compatible with the historical
@@ -859,6 +889,27 @@ def _proper_fsync(fd: int) -> None:
         fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
     else:
         os.fsync(fd)
+
+
+def preserve_unreplaced_greylist_rows(
+    history: pa.Table,
+    replacements: set[tuple[str, int]],
+) -> pa.Table:
+    """Retain saved HyperCore observations without duplicating successful updates.
+
+    The atomic exporter calls this after collecting verified replacement keys.
+    Keeping an old row does not advance its source timestamp or claim freshness.
+    The caller passes only this chain's greylisted rows in the replaced range,
+    so memory use is bounded by the reviewed targets rather than the full file.
+
+    :param history: Saved price table with lower-case string ``address`` and
+        integer ``block_number`` columns; other columns and metadata are retained.
+    :param replacements: ``(lower_case_address, source_block_number)`` keys of
+        complete successful new observations for the current chain.
+    :return: Original rows whose source keys were not successfully replaced.
+    """
+    retained = [(address, block) not in replacements for address, block in zip(history["address"].to_pylist(), history["block_number"].to_pylist())]
+    return history.filter(pa.array(retained, type=pa.bool_()))
 
 
 def scan_historical_prices_to_parquet(
@@ -994,7 +1045,6 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
-    import pyarrow as pa
     import pyarrow.compute as pc
     import pyarrow.parquet as pq
 
@@ -1133,10 +1183,20 @@ def scan_historical_prices_to_parquet(
     rows_written_by_vault: dict[str, int] = defaultdict(int)
     price_rows_written_by_vault: dict[str, int] = defaultdict(int)
 
+    # Keys are (lower-case vault address, source block number); chain is fixed
+    # by this export. Only verified greylisted replacements retire saved rows.
+    greylist_replacements: set[tuple[str, int]] = set()
+
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
             vault_address = entry.vault.vault_address.lower()
+            if chain_id == 999 and vault_address in HYPEREVM_MULTICALL_GREYLIST:
+                # A partly decoded Core observation cannot replace good history.
+                # Null availability is not zero TVL; preserve the saved source row.
+                if entry.share_price is None or entry.total_assets is None:
+                    continue
+                greylist_replacements.add((vault_address, entry.block_number))
             rows_written_by_vault[vault_address] += 1
             if entry.share_price is not None:
                 price_rows_written_by_vault[vault_address] += 1
@@ -1183,6 +1243,7 @@ def scan_historical_prices_to_parquet(
             grouped = assets.group_by("address").aggregate([("total_assets", "max")])
             reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
 
+    greylist_history = None
     if existing_table is not None:
         logger.info(
             "Detected existing file %s with %d rows",
@@ -1200,6 +1261,13 @@ def scan_historical_prices_to_parquet(
         if vault_addresses is not None:
             address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
             mask = pc.and_(mask, address_mask)
+        if chain_id == 999:
+            # Keep only the greylisted source rows slated for replacement. At
+            # publication we retain keys not replaced by a complete successful
+            # observation. This avoids a full-file merge, duplicates and loss
+            # when old HyperCore state cannot be reconstructed by any provider.
+            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(HYPEREVM_MULTICALL_GREYLIST))))
+            greylist_history = existing_table.filter(grey_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
@@ -1292,6 +1360,21 @@ def scan_historical_prices_to_parquet(
             writer.write_table(table)
             rows_written += len(chunk)
             chunks_done += 1
+
+        if greylist_history is not None and greylist_history.num_rows:
+            preserved = preserve_unreplaced_greylist_rows(greylist_history, greylist_replacements)
+            if preserved.num_rows:
+                writer.write_table(preserved.replace_schema_metadata(writer_schema.metadata))
+                existing_row_count += preserved.num_rows
+                rows_deleted -= preserved.num_rows
+                if enforce_live_freshness:
+                    # Preserved rows are still real source observations. Retain
+                    # their actual timestamp for the audit, never written_at or
+                    # the current scan horizon, so stale history stays stale.
+                    finite_history = preserved.filter(pc.and_(pc.is_finite(preserved["share_price"]), pc.is_finite(preserved["total_assets"])))
+                    for address, timestamp in zip(finite_history["address"].to_pylist(), finite_history["timestamp"].to_pylist()):
+                        reader.last_retained_at[address] = max(reader.last_retained_at.get(address, timestamp), timestamp)
+                logger.info("Preserved %d unavailable or unsampled HyperCore source rows", preserved.num_rows)
 
         # Close the writer to finalise the file, then flush to disk
         # and atomically replace the target.  We also sync the parent

@@ -11,9 +11,10 @@ import json
 import os
 import threading
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Iterator, Self
 
 from requests import HTTPError
 from tabulate import tabulate
@@ -115,6 +116,28 @@ class RPCRequestStats:
     #: Synchronises counter updates between worker threads.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
 
+    #: Worker-local operation override; never shared between reading threads.
+    #: Excluded from pickle and recreated alongside the counter lock.
+    _operation_context: threading.local = field(default_factory=threading.local, init=False, repr=False, compare=False)
+
+    @contextmanager
+    def operation_scope(self, operation: str) -> Iterator[None]:
+        """Attribute a worker's physical requests without changing other workers.
+
+        Multicall isolates reviewed HyperCore targets under an operation suffix.
+        A thread-local override keeps shared admission counters race-free, while
+        existing counter serialisation carries the resulting partition to parents.
+
+        :param operation: Label for requests issued synchronously in this scope.
+        :return: Context manager restoring the prior label on every exit.
+        """
+        previous = getattr(self._operation_context, "operation", None)
+        self._operation_context.operation = operation
+        try:
+            yield
+        finally:
+            self._operation_context.operation = previous
+
     def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1) -> None:
         """Record physical JSON-RPC request attempts.
 
@@ -137,7 +160,8 @@ class RPCRequestStats:
         assert count > 0, f"Count must be positive: {count}"
         with self._lock:
             self.calls[rpc_provider_domain, str(api_call)] += count
-            self.operation_calls[self.operation, rpc_provider_domain, str(api_call)] += count
+            operation = getattr(self._operation_context, "operation", None) or self.operation
+            self.operation_calls[operation, rpc_provider_domain, str(api_call)] += count
 
     def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
         """Record JSON-RPC request failures.
@@ -220,6 +244,7 @@ class RPCRequestStats:
         self.operation_calls = Counter(state[2]) if len(state) > 2 else Counter()
         self.operation = state[3] if len(state) > 3 else "unclassified"
         self._lock = threading.Lock()
+        self._operation_context = threading.local()
 
 
 class RPCUsageDatabase:
