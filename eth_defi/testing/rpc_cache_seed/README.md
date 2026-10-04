@@ -25,6 +25,7 @@ name** (not chain id), then block, then the cache file:
 
 ```
 rpc_cache_seed/
+  mainnet/24496689/storage.json  # Ember redemption lifecycle
   mainnet/25598869/storage.json
   arbitrum/487039644/storage.json
   base/30659990/storage.json  # Lagoon Base lifecycle characterisation
@@ -43,6 +44,17 @@ was observed failing, and is required by
 `tests/lagoon/test_lagoon_v1.py`. The canonical Base midnight block predates
 that deployment, so replacing this seed with a midnight block would not test
 the production compatibility boundary.
+
+`mainnet/24496689/` is the fixed Ethereum block used by
+`tests/lagoon/test_lagoon_ember.py` to exercise its historical Ember redemption
+implementation with exact shares, ticket sequence and payout assertions. On
+2026-10-04 its existing seed was refreshed using the official CI-pinned Anvil
+`v1.3.2` release's Alpine amd64 binary, after the full lifecycle passed and
+Anvil closed gracefully. The refreshed file contains 34 accounts and 61 storage
+slots; it was also tested after removing the live block cache so session
+seeding supplied the committed file. This is historical fork state, not a
+snapshot of locally mutated transactions. Uncaptured reads, including receipt
+queries, still require configured providers.
 
 `base/30659990/` is another intentional fixed-block exception. It is the
 historical Base block used by the shared Lagoon fork fixture in

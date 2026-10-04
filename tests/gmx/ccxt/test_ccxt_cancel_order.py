@@ -23,7 +23,7 @@ from web3.types import TxReceipt
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt
-from eth_defi.testing.gmx_lagoon import gmx_fork_position_reads
+from eth_defi.testing.gmx_lagoon import gmx_fork_position_reads, gmx_fork_token_metadata
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +39,7 @@ def _fork_local_order_reads(ccxt_gmx_fork_open_close: GMX) -> Iterator[None]:
     :return:
         Context restoring indexer methods after each test.
     """
-    with gmx_fork_position_reads(), patch.object(ccxt_gmx_fork_open_close.subsquid, "get_position_changes", return_value=[]):
+    with gmx_fork_token_metadata(), gmx_fork_position_reads(), patch.object(ccxt_gmx_fork_open_close.subsquid, "get_position_changes", return_value=[]):
         yield
 
 

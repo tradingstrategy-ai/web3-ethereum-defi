@@ -27,6 +27,7 @@ from eth_defi.testing.gmx_lagoon import (
     WETH_WHALE,
     LagoonGMXForkEnv,
     create_lagoon_gmx_fork_env,
+    gmx_fork_token_metadata,
     isolated_lagoon_gmx_fork_env,
 )
 from eth_defi.token import fetch_erc20_details
@@ -95,7 +96,7 @@ def lagoon_gmx_fork_env(
         test_request_timeout=100,
         launch_wait_seconds=60,
     )
-    with isolated_lagoon_gmx_fork_env(launch, _gmx_deployment_baselines) as env:
+    with gmx_fork_token_metadata(), isolated_lagoon_gmx_fork_env(launch, _gmx_deployment_baselines) as env:
         yield env
 
 

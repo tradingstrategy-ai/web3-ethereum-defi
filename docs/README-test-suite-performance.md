@@ -937,7 +937,62 @@ before deployment. A clean source-tree probe with the restored installation
 loaded Hardhat successfully under Node 18; the warm in-process installer was
 a no-op in 0.001s. CI cache transfer costs and net savings remain unmeasured.
 
-Checkout narrowing and further Ember transaction-stage optimisation remain
-candidates. No new historical fork seed was captured: local Anvil is
-1.7.1-dev whereas CI is pinned to 1.3.2, so a seed must be rebuilt with the
-matching binary before committing it.
+At the end of this batch, checkout narrowing and further Ember transaction-stage
+optimisation remained candidates. The next batch below captures the historical
+seed with CI's pinned binary and measures the remaining receipt delays.
+
+
+### Remaining low-cost optimisations (2026-10-04)
+
+The five follow-up recommendations were investigated locally. Retained GMX
+fork tests reuse one actual token-list response per chain within each test.
+Each caller gets a deep copy; failures propagate without entering the cache,
+and cleanup restores the live reader even when a test raises. Prices remain
+live because local keeper/oracle operations can change them. The profiled PnL
+case made 18 token-list fetches before and one afterwards; time inside the
+provider reader fell from 3.499s to 0.176s. Independent provider integration
+coverage still uses the original endpoint path. The focused PnL, trading,
+cancellation and initial helper checks passed 17 cases in 47.67s with four
+loadgroup workers; exception-cleanup and actual token API checks also passed.
+That combined duration includes earlier deployment optimisations and is not a
+measurement of metadata caching alone.
+
+GMX CI now omits submodule checkout. Its collected tests use committed ABI/
+bytecode and existing fork factories rather than source compilation. Main CI
+retains submodules: Enzyme adapter/guard deployment, fresh Lagoon deployment
+and Aave preparation have source/build dependencies. Narrowing main checkout
+needs a validated cold-run inventory before it can be claimed as a saving.
+
+Ember already had a historical seed; it was not missing. The existing
+24,496,689 seed was refreshed with the official Anvil v1.3.2 Alpine amd64
+release binary, increasing captured accounts from 19 to 34 and storage slots
+from 47 to 61. Cold capture passed in 74.18s; a run seeded from the refreshed
+repository file passed in 65.92s. Profiling identified the remaining delay:
+ten upstream receipt attempts consumed 62.51s. Historical state caching cannot
+remove receipt misses. Only this fork now uses a two-second upstream-attempt
+timeout, allowing one attempt per supplied provider with no backoff and warning
+logs for failover, preserving the automatic proxy's diagnostic policy.
+Initial shorter-timeout checks passed in 12.77s and 13.63s, around 79–81% less local
+elapsed time than the seeded 65.92s baseline. Upstream receipt-attempt time
+fell to 7.54s and 7.93s, including failover attempts. Results depend on the
+configured archive providers; a single URL does not gain multi-provider
+failover. If every provider exceeds the timeout, uncached state or bootstrap
+reads can fail rather than succeed slowly. The comparison has one baseline
+sample; CI may have a different provider order or contention. No CPU or CI
+improvement is inferred from these local timings.
+An additional run starting from the committed seed with no live block cache
+passed in 12.35s. After review prompted preservation of zero backoff, warning
+logs and one attempt per provider, the final policy passed in 10.68s (9.43s
+call time), 83.8% below the single seeded baseline observation.
+
+Aave's four-path cache was measured under CI's Node 18 version. Local cold
+`npm ci`, including its build hook, took 29.77s; creating the approximately
+64.4 MB compressed archive took 1.02s. Restoring into a fresh source tree at
+the same absolute path took 1.23s, the Python installer was a no-op, and a warm
+Hardhat compile took 4.42s with nothing to compile. Moving that tree to a
+different absolute path caused recompilation and took 21.71s, so path stability
+matters. These measurements validate the existing complete-cache approach;
+GitHub cache transfer costs and net job savings remain unmeasured.
+
+All changes in this batch remain local. CPU attribution, CI wall-clock impact
+and a safe narrower main checkout remain follow-up measurements.

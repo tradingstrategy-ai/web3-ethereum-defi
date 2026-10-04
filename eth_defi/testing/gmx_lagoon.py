@@ -7,8 +7,10 @@ contract interactions. Callers own fork lifetime and EVM snapshot isolation.
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import lru_cache
 from unittest.mock import patch
 
 from eth_account import Account
@@ -17,6 +19,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.gmx import contracts as gmx_contracts
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core.open_positions import GetOpenPositions
@@ -259,6 +262,50 @@ def create_cached_lagoon_gmx_fork_env(
         baselines.clear()
         baselines[generation] = baseline
     return baseline
+
+
+@contextmanager
+def gmx_fork_token_metadata() -> Iterator[None]:
+    """Reuse one actual token-list response per chain during a fork test.
+
+    Token symbols and decimals do not change when local orders execute. Fetch
+    from the real endpoint once in this context and return independent copies
+    to callers. Exceptions are not cached; leaving the context restores normal
+    provider behaviour. Provider-specific tests use the unchanged live path.
+
+    :return:
+        Context retaining metadata only until this fork test finishes.
+    """
+    fetch_original = gmx_contracts._fetch_tokens_from_gmx_api
+
+    @lru_cache(maxsize=None)
+    def fetch_metadata(chain: str) -> dict[str, dict]:
+        """Fetch the real token list once for a chain in this context.
+
+        Successful responses are retained only for this test. Failed requests
+        propagate and can be retried by the next caller.
+
+        :param chain:
+            Network name used by the actual GMX endpoint.
+        :return:
+            Address-to-token metadata mapping from the provider.
+        """
+        return fetch_original(chain)
+
+    def fetch_copy(chain: str) -> dict[str, dict]:
+        """Return an independent copy of this test's actual token metadata.
+
+        Caller mutations must not contaminate later readers in the same test.
+
+        :param chain:
+            Network name used by the actual GMX endpoint.
+        :return:
+            Fresh address-to-token metadata mapping.
+        """
+        return deepcopy(fetch_metadata(chain))
+
+    with patch.object(gmx_contracts, "_fetch_tokens_from_gmx_api", side_effect=fetch_copy):
+        yield
 
 
 @contextmanager

@@ -84,7 +84,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
+          # GMX uses committed ABI/bytecode and existing fork factories.
+          # Source compilation and Aave deployment run in the main workflow.
+          submodules: false
 
       # Poetry must be installed before setup-python for cache to work
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md

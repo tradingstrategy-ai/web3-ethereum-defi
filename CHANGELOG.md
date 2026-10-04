@@ -1,5 +1,7 @@
 # 1.2
 
+- perf: Reuse real GMX token metadata within fork tests, omit GMX submodule checkout, refresh Ember's historical cache with CI-pinned Anvil and bound its archive-provider failover (2026-10-04).
+
 - perf: Skip unsupported Ostium tests, avoid Anvil nonce propagation sleeps, use the existing Lagoon factory for Ember lifecycle coverage and cache complete Aave test installations (2026-10-03).
 
 - perf: Share GMX PnL deployments across three isolated groups and consolidate fork stop-loss checks while preserving payout and order-history coverage (2026-10-03).

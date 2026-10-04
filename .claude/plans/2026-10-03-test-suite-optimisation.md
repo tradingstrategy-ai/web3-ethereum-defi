@@ -533,3 +533,59 @@ that missing generated outputs fail clearly rather than trigger reinstall,
 and that full warm Hardhat deployment/compile behaviour and archive-transfer
 costs still require CI measurement. Workflow YAML, embedded Bash, Ruff
 formatting and whitespace checks passed.
+
+
+### Remaining recommendations 1–5: local results (2026-10-04)
+
+1. **Profile Ember:** transaction success/trace paths dominated. A method-only
+   proxy profile identified ten upstream receipt attempts taking 62.51s in a
+   65.92s seeded run. Bound this fork's attempt timeout to two seconds, retaining
+   one attempt per provider, zero backoff and warning-level failover logs.
+   Exact shares/tickets/payout
+   checks passed twice in 12.77s and 13.63s; receipt attempts took 7.54s and
+   7.93s respectively. This is provider-dependent local elapsed evidence,
+   around 79–81% below the seeded baseline, not a CPU or CI result.
+2. **Refresh historical state:** correct the earlier suggestion that Ember's
+   seed was absent: the existing seed had 19 accounts and 47 storage slots.
+   Captured a denser seed with the official CI-pinned Anvil v1.3.2 Alpine amd64
+   binary (34 accounts, 61 slots). Cold full lifecycle passed in 74.18s;
+   repository-seeded full lifecycle passed in 65.92s before timeout tuning.
+   Preserve the fixed historical implementation block and exact assertions.
+   State caching does not cover every receipt lookup.
+3. **Narrow checkout:** omit all submodules only in the GMX workflow, whose
+   collected paths use committed artifacts and existing factories. Keep main
+   unchanged because Enzyme adapter/guard source deployments, fresh Lagoon
+   deployments and Aave preparation need source prerequisites. A narrower main
+   selection remains deferred pending complete cold-run validation.
+4. **Measure Aave cache:** Node 18 cold install/build took 29.77s; a 64.4 MB
+   compressed four-path archive took 1.02s to create and 1.23s to restore at the
+   same absolute source path. Warm installer was a no-op; warm Hardhat compile
+   took 4.42s with nothing to compile. Relocation caused recompilation (21.71s).
+   No additional cache changes were justified; CI transfer/net savings remain
+   unknown.
+5. **Reduce GMX metadata work:** per-test actual token-list reuse cuts the
+   profiled case from 18 provider fetches (3.499s) to one (0.176s). Deep copies
+   prevent mutation leaks; exceptions are uncached and cleanup restores the
+   original reader. Prices remain live; provider integrations remain direct.
+   Seventeen focused integration/helper cases passed in 47.67s with four
+   loadgroup workers. Four follow-up helper/actual-endpoint checks also passed,
+   including exceptional cleanup. Do not attribute all combined-run savings
+   solely to metadata reuse because earlier batches changed deployment waits.
+
+The first grounded read-only Claude CLI Opus 5.5 review found no blocking
+metadata or checkout defects and suggested exceptional cleanup coverage, which
+was added and passed. A separate review covers Ember's bounded failover and
+seed provenance. It identified that an explicit proxy config must preserve the
+automatic policy's zero backoff and warning logging; these were restored, with
+one attempt per usable provider. All-slow providers can now fail uncached state
+reads instead of succeeding slowly; the local comparison has one baseline
+sample. No tests were removed in this batch; all changes remain local.
+An additional full lifecycle starting from the committed seed with no live
+block cache passed in 12.35s. After restoring the automatic proxy's diagnostic
+and zero-backoff policy, the final full lifecycle passed in 10.68s (9.43s call),
+83.8% below the single 65.92s seeded baseline. The original local cache was
+restored after the non-destructive capture and verification probes.
+The grounded Opus 5.5 follow-up approved the code policy. Its timing-label
+finding was addressed by distinguishing the initial timeout probes from the
+final 10.68s policy result, and endpoint splitting now exactly matches launch.
+Ruff, workflow YAML and whitespace checks passed; no remote changes were made.

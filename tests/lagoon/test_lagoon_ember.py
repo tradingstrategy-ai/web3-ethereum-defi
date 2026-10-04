@@ -1,6 +1,8 @@
 """Exercise Ember's no-claim redemption flow through a Lagoon Safe."""
 
+import logging
 import os
+from collections.abc import Iterator
 from decimal import Decimal
 
 import pytest
@@ -14,6 +16,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentP
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.rpc_proxy import RPCProxyConfig
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
@@ -27,12 +30,25 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_ember_lagoon_fork() -> AnvilLaunch:
-    """Fork the Ember version used by the integration lifecycle."""
+def anvil_ethereum_ember_lagoon_fork() -> Iterator[AnvilLaunch]:
+    """Fork the Ember version used by the integration lifecycle.
+
+    Reuse the captured historical state and bound upstream attempts so supplied
+    fallback providers can answer slow receipt queries. Graceful shutdown
+    persists additional cache entries after the lifecycle completes.
+
+    :return:
+        Isolated historical fork, closed when the module finishes.
+    """
+    endpoints = [endpoint for endpoint in JSON_RPC_ETHEREUM.split(" ") if endpoint]
+    provider_count = sum(not endpoint.startswith("mev+") for endpoint in endpoints) or len(endpoints)
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
         fork_block_number=FORK_BLOCK,
         unlocked_addresses=[USDC_WHALE[1], EMBER_OPERATOR],
+        # 2026-10-04: Ten slow upstream receipt attempts consumed 62.5s locally.
+        # Bound each attempt so another supplied archive provider can answer.
+        proxy_multiple_upstream=RPCProxyConfig(timeout=2.0, retries=provider_count, backoff=0.0, switchover_log_level=logging.WARNING),
     )
     try:
         yield launch
