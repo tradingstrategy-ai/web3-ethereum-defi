@@ -39,15 +39,18 @@ def fetch_greylist_probe_results(rpc_url: str, block_offsets: tuple[int, ...] = 
     This command is an external integration check, not a historical backfill.
     Repeated copies reproduce the documented batch amplification; one cheap
     ERC-20 selector verifies the robust lane is still readable. Revert payloads
-    are summarised without credential-bearing provider exception strings.
+    are summarised without provider exception strings in the result table.
+    Full exception/debug diagnostics can include RPC URLs; redact before sharing.
     See the `HyperCore read-precompile documentation
     <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/interacting-with-hypercore>`__.
 
     :param rpc_url: Project-format space-separated provider endpoints.
     :param block_offsets: Non-negative distances behind each provider's own head.
     :param max_providers: Positive maximum endpoints to probe, default three.
-    :return: Rows with provider host, source block, lane availability and values.
-        Values are raw onchain integers, not denominated NAV estimates.
+    :return: Rows with provider host, integer source block/offset, lane-success
+        summaries, isolated revert/unavailable counts and boolean ``robust_ok``.
+        ``assets_raw`` and ``supply_raw`` are onchain integers or None when their
+        read fails, not denominated NAV estimates.
     """
     assert max_providers > 0 and all(offset >= 0 for offset in block_offsets)
     # Tuple members are (target_address, Solidity signature, encoded arguments).
@@ -66,13 +69,27 @@ def fetch_greylist_probe_results(rpc_url: str, block_offsets: tuple[int, ...] = 
             encoded = [(Web3.to_checksum_address(call.address), call.data) for call in calls]
             try:
                 mixed = reader.fetch_multicall_with_batch_size(contract, block, len(calls), encoded, False)
-                mixed_status = f"{sum(success for success, _data in mixed)}/{len(mixed)} served"
+                mixed_status = f"{sum(success for success, _data in mixed)}/{len(mixed)} successful"
             except (MulticallRetryable, MulticallNonRetryable) as error:
                 mixed_status = type(error).__name__
             isolated = list(reader.process_calls(block, calls, allow_greylist_unavailable=True))
             assets = isolated[0]
             supply = isolated[3]
-            row = {"provider": get_provider_name(web3.provider), "block": block, "offset": offset, "mixed": mixed_status, "isolated": f"{sum(result.success for result in isolated)}/{len(isolated)} served", "assets_raw": int.from_bytes(assets.result, "big") if assets.success else None, "supply_raw": int.from_bytes(supply.result, "big") if supply.success else None, "robust_ok": isolated[-1].success}
+            # Served contract reverts and exhausted transport gas errors are
+            # different failures. Keep them visible instead of calling every
+            # unsuccessful subcall unavailable; no counter here estimates NAV.
+            row = {
+                "provider": get_provider_name(web3.provider),
+                "block": block,
+                "offset": offset,
+                "mixed": mixed_status,
+                "isolated": f"{sum(result.success for result in isolated)}/{len(isolated)} successful",
+                "isolated_reverts": sum(not result.success and result.unavailable_error is None for result in isolated),
+                "isolated_unavailable": sum(result.unavailable_error is not None for result in isolated),
+                "assets_raw": int.from_bytes(assets.result, "big") if assets.success else None,
+                "supply_raw": int.from_bytes(supply.result, "big") if supply.success else None,
+                "robust_ok": isolated[-1].success,
+            }
             assert row["robust_ok"], "Pure ERC-20 read failed; inspect provider health"
             logger.info("Checked provider=%s block=%s mixed=%s isolated=%s robust_ok=%s", row["provider"], block, mixed_status, row["isolated"], row["robust_ok"])
             yield row

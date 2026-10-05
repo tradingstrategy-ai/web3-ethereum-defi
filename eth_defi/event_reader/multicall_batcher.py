@@ -1125,8 +1125,12 @@ class CombinedEncodedCallResult:
     rpc_request_stats: RPCRequestStats | None = None
 
 
-#: F**k EVM
-WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
+#: Provider error fragments eligible for physical-batch recovery.
+#:
+#: These supplement typed transport exceptions because providers often return
+#: non-standard JSON-RPC errors. Archive gaps are classified separately first;
+#: only gas failures qualify for the smaller isolated-lane recovery budget.
+MULTICALL_RETRYABLE_MESSAGE_CLUES: Final[frozenset[str]] = frozenset(
     m.lower()
     for m in (
         # On HyperEVM (chain 999) this is usually not a real EVM out-of-gas.
@@ -1142,7 +1146,6 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         "request timeout",
         "request timed out",
         "intrinsic gas too low",
-        "intrinsic gas too high",
         "intrinsic gas too high",
         "incorrect response body",
         "exceeds block gas limit",
@@ -1164,7 +1167,7 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         # as this set is built before it).
         "not enough agreement among responses",
     )
-}
+)
 
 
 #: Chain id of Hyperliquid HyperEVM.
@@ -1178,10 +1181,11 @@ HYPEREVM_CHAIN_ID: Final[int] = 999
 #: Marker string eRPC returns when its upstream nodes disagree in consensus mode.
 #:
 #: This is goldsky's eRPC ``-32603`` "not enough agreement among responses" error.
-#: It is *not* a transient per-request glitch — on HyperEVM the upstream node pool
-#: intermittently disagrees on `eth_call` results (live HyperCore oracle reads, and
-#: revert serialisation past the ~128-block execution window), so retrying the same
-#: consensus endpoint cannot resolve it. See ``docs/README-hyperevm-goldsky-failure.md``.
+#: On HyperEVM the upstream node pool can disagree on ``eth_call`` results,
+#: including live HyperCore reads and revert serialisation. Repeated requests to
+#: that pool may keep failing, so the configured single-node alternative is
+#: preferred when available. This does not guarantee that its Core view is
+#: readable. See ``docs/README-hyperevm-goldsky-failure.md``.
 ERPC_CONSENSUS_DISAGREEMENT_CLUE: Final[str] = "not enough agreement among responses"
 
 
@@ -1196,16 +1200,16 @@ def resolve_hyperevm_consensus_failover(
     running in *consensus mode*: it fans each ``eth_call`` to several upstream nodes
     and only returns a result when enough of them agree byte-for-byte. For some
     vaults the upstreams intermittently disagree and eRPC returns
-    :py:data:`ERPC_CONSENSUS_DISAGREEMENT_CLUE`. Retrying or randomly cycling back
-    onto the same consensus endpoint is futile; a single (non-consensus) node such
-    as Alchemy returns a usable answer immediately.
+    :py:data:`ERPC_CONSENSUS_DISAGREEMENT_CLUE`. Retrying that same pool can repeat
+    the disagreement. A configured single-node endpoint such as Alchemy avoids
+    that consensus requirement, although its requested state can still be absent.
 
     This helper detects that exact situation — HyperEVM chain id, a consensus
     disagreement error, and a provider mix that contains *both* a goldsky and an
     Alchemy endpoint — and returns the provider host substring to pin retries to.
 
     See ``docs/README-hyperevm-goldsky-failure.md`` for the full failure analysis,
-    the nodes involved, and the on-chain evidence.
+    the nodes involved, and the onchain evidence.
 
     :param chain_id:
         Chain id of the multicall being retried.
@@ -1296,7 +1300,8 @@ class MultiprocessMulticallReader:
 
     Historical scans use process workers; chunked consumers can use threads.
     Each joblib worker creates its own instance for a chain/provider setup, so
-    mutable connection and accounting state are not shared between workers.
+    mutable provider sessions and recorder bindings are not shared. Threaded
+    workers may share the underlying locked request counters.
     Calls before Multicall deployment yield no results; see
     :py:func:`get_multicall_block_number` when selecting a historical range.
     """
@@ -1450,11 +1455,10 @@ class MultiprocessMulticallReader:
         """
         calls_results = []
         chain_id = self.chain_id
+        gas = self.get_gas_hint(chain_id)
 
         for i in range(0, len(encoded_calls), batch_size):
             batch_calls = encoded_calls[i : i + batch_size]
-            # Fix Mantle out of gas
-            gas = self.get_gas_hint(chain_id)
 
             for address, data in batch_calls:
                 assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Contract {address} is broken, cannot call multicall on it."
@@ -1514,16 +1518,18 @@ class MultiprocessMulticallReader:
                     # A rejected aggregate does not identify which member caused
                     # it. Keep retry logs concise and retain full replay details
                     # in the exception/debug output for a final failure analysis.
-                    logger.warning("Rejected Multicall batch: chain=%d block=%s provider=%s subcalls=%d targets=%s error=%s", chain_id, block_identifier, name, len(batch_calls), sorted(set(addresses))[:8], parsed_error)
+                    # HTTP exception strings can embed a credential-bearing URL;
+                    # routine retry warnings need only its type and status code.
+                    logger.warning("Rejected Multicall batch: chain=%d block=%s provider=%s subcalls=%d targets=%s error_type=%s http_status=%s", chain_id, block_identifier, name, len(batch_calls), sorted(set(addresses))[:8], type(e).__name__, status_code)
                     logger.debug("Multicall replay diagnostics: %s", error_msg)
 
                 # Check for upstream RPC being broken issues
                 parsed_error = parsed_error.lower()
                 if is_historical_state_unavailable_error(parsed_error):
                     raise MulticallHistoricalDataUnavailable(error_msg, status_code=status_code, headers=headers, completed_results=calls_results) from e
-                wtf_error = is_multicall_gas_error(e) or any(clue in parsed_error for clue in WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES)
+                retryable_message = is_multicall_gas_error(e) or any(clue in parsed_error for clue in MULTICALL_RETRYABLE_MESSAGE_CLUES)
 
-                if wtf_error or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
+                if retryable_message or isinstance(e, (ProbablyNodeHasNoBlock, ReadTimeout, RemoteDisconnected, ConnectionError)) or (status_code is not None and status_code >= 400):
                     raise MulticallRetryable(error_msg, status_code=status_code, headers=headers, completed_results=calls_results) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
@@ -1531,17 +1537,15 @@ class MultiprocessMulticallReader:
             if len(batch_results) != len(batch_calls):
                 raise MulticallStateProblem("Multicall response length does not match the requested physical batch")
 
-            # Debug flag to diagnose WTF is going on Github
-            # where calls randomly get empty results
-            if require_multicall_result:
-                for output_tuple in batch_results:
-                    if output_tuple[1] == b"":
-                        global _reader_instance
-                        readers = _reader_instance.per_chain_readers
-                        debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
-                        rpc_name = get_provider_name(multicall_contract.w3.provider)
-                        last_headers = get_last_headers()
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
+            # Strict diagnostics require bytes even from served subcalls. Keep
+            # this opt-in: ordinary readers need empty revert data to remain a
+            # contract result, rather than treating it as a provider outage.
+            if require_multicall_result and any(data == b"" for _success, data in batch_results):
+                readers = getattr(_reader_instance, "per_chain_readers", {})
+                debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
+                rpc_name = get_provider_name(multicall_contract.w3.provider)
+                last_headers = get_last_headers()
+                raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
 
             calls_results += batch_results
 
@@ -1582,9 +1586,10 @@ class MultiprocessMulticallReader:
         A successful retry leaves its provider active for subsequent blocks.
         If every endpoint returns missing historical data, the final specialised
         exception is re-raised to the outer checkpointed scan. The caller should
-        preserve existing parquet data and obtain an archive-complete RPC
-        provider before retrying. Never convert unavailable historical state
-        into a zero-valued result.
+        preserve existing Parquet data and check provider state availability
+        before retrying. Monad only exposes a moving recent-state window, so an
+        archive-complete replacement cannot be assumed for that chain. Never
+        convert unavailable historical state into a zero-valued result.
 
         :param block_identifier:
             Historical block whose Multicall request failed.

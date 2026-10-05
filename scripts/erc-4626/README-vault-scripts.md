@@ -3890,8 +3890,8 @@ for the initial addresses, bounded retry policy, unavailable observations,
 address/block-scoped preservation and operation-counter suffixes. Operation
 labels come from explicit recorders attached to worker-owned providers; they
 share the existing counters without thread-local accounting state or additional
-merging. Successful
-regular reads are not replayed after an isolated failure. Saved source rows are
+lane-counter merging. Successful regular reads are not replayed after an
+isolated failure. Saved source rows are
 kept when an isolated observation is unavailable rather than rewritten as zero.
 This cannot recover historical HyperCore state that a provider does not serve.
 Deferral is enabled only for the historical price path that preserves saved
@@ -3908,8 +3908,10 @@ source .local-test.env && poetry run python scripts/erc-4626/check-hyperevm-grey
 ```
 
 The command uses supplied `JSON_RPC_HYPERLIQUID`, checks at most three providers
-at head and two older blocks, and compares mixed versus isolated requests.
-Provider hosts and availability are printed with raw integer observations.
-Pure EVM reads must succeed; unavailable Core reads are recorded explicitly.
+at head and two older blocks, and compares mixed versus isolated HYPED requests
+with a USDt0 control. It does not automatically validate every greylist entry.
+Provider hosts and availability are printed with raw integer observations;
+successful subcalls, served reverts and exhausted gas failures are distinguished.
+The pure-EVM USDt0 control must succeed; failed Core reads are recorded explicitly.
 Compare availability rather than expecting identical live-Core values across
 separate requests. Do not repeatedly rerun the check during an upstream outage.

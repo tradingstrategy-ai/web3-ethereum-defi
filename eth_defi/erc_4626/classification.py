@@ -2084,8 +2084,8 @@ def detect_vault_features(
 
         Legacy parameter, kept first for backwards compatibility. The private
         Multicall reader uses it directly, so existing
-        ``detect_vault_features(web3, address)`` callers retain batching. Prefer
-        ``web3factory`` in new code. May be omitted when a factory is supplied.
+        ``detect_vault_features(web3, address)`` callers retain batching. Supply
+        either a connection used as-is or a factory that creates it once.
 
     :param address:
         Vault smart contract address to probe.
@@ -2094,11 +2094,12 @@ def detect_vault_features(
         Disable for command line scripts
 
     :param web3factory:
-        Factory that creates a Web3 connection. Preferred over ``web3``.
+        Factory that creates a Web3 connection when ``web3`` is omitted.
 
-        Passed to a private
-        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`;
-        when omitted, ``web3`` is used directly. The reader is constructed per
+        Called once: chain/head selection and the private
+        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`
+        use the same connection. An explicitly supplied ``web3`` takes precedence.
+        The reader is constructed per
         call on purpose. ``read_multicall_chunked()`` caches worker-local sessions
         by chain, factory/provider identity and isolation policy. A private reader
         keeps one-off detection tied to the exact caller-owned connection rather
@@ -2148,8 +2149,10 @@ def detect_vault_features(
     # than joining the reusable worker cache in read_multicall_chunked(). The
     # cache distinguishes provider and policy identity, but one-off detection
     # still owns an exact connection lifetime (including mutable fork state).
-    # Keep that ownership local and pass any application-selected greylist.
-    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size, greylist=greylist)
+    # Reuse the connection already used for chain/head selection. Calling the
+    # factory again would pay for setup twice and could probe a different fork
+    # or provider from the one whose block and hardcoded features we selected.
+    reader = MultiprocessMulticallReader(web3, batch_size=chunk_size, greylist=greylist)
 
     results = {}
     for call_result in reader.process_calls(

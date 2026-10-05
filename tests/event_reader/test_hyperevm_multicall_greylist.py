@@ -7,6 +7,7 @@ script checks the configured real providers without modifying scanner state.
 """
 
 import datetime
+import logging
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -25,8 +26,10 @@ from eth_defi.event_reader import multicall_batcher
 from eth_defi.event_reader.multicall_batcher import (
     EncodedCall,
     MulticallHistoricalDataUnavailable,
+    MulticallNonRetryable,
     MulticallRetryable,
     MulticallRetryExhausted,
+    MulticallStateProblem,
     MultiprocessMulticallReader,
     plan_multicall_batches,
 )
@@ -49,8 +52,20 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
     """
     monkeypatch.setattr("eth_defi.event_reader.multicall_batcher.time.sleep", lambda _seconds: None)
 
-    def create(chain: int = 999, batch_size: int = 3, greylist_batch_size: int = 1, greylist: frozenset[HexAddress] | None = None, fail: Callable | None = None) -> tuple[MultiprocessMulticallReader, list, RPCRequestStats]:
-        """Create an isolated reader; the optional callback rejects a request."""
+    def create(chain: int = 999, batch_size: int = 3, greylist_batch_size: int = 1, greylist: frozenset[HexAddress] | None = None, fail: Callable | None = None, empty_revert: bool = False) -> tuple[MultiprocessMulticallReader, list, RPCRequestStats]:
+        """Create an ABI-backed reader with configurable provider behaviour.
+
+        Only transport outcomes are controlled. Actual Multicall encoding,
+        classification and retry paths remain available to regression tests.
+
+        :param chain: Chain identity returned by the provider.
+        :param batch_size: Normal request's encoded-subcall limit.
+        :param greylist_batch_size: Isolated request's encoded-subcall limit.
+        :param greylist: Explicit policy, or the fixture's chain-aware default.
+        :param fail: Callback receiving decoded calls and attempt number; may raise.
+        :param empty_revert: Return a served empty revert instead of selector values.
+        :return: Reader, ``(decoded_calls, source_block)`` request records and counters.
+        """
         stats = RPCRequestStats(operation="historical_multicall")
         requests = []
         provider = HTTPProvider("https://rpc.example")
@@ -70,7 +85,7 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
                 requests.append((calls, params[1]))
                 if fail:
                     fail(calls, len(requests))
-                outputs = [(True, data[-1:].rjust(32, b"\0")) for _target, data in calls]
+                outputs = [(False, b"") if empty_revert else (True, data[-1:].rjust(32, b"\0")) for _target, data in calls]
                 result = "0x" + encode(["uint256", "bytes32", "(bool,bytes)[]"], [BLOCK, b"\0" * 32, outputs]).hex()
             else:
                 raise AssertionError(method)
@@ -575,6 +590,87 @@ def test_feature_detectors_pass_generic_greylist(recording_reader: Callable, mon
         probes = list(classification.probe_vaults(1, lambda: reader.web3, [REGULAR], BLOCK, max_workers=1, greylist=frozenset({REGULAR})))
         assert len(probes) == 1 and probes[0].address == REGULAR
     assert [len(batch) for batch, _block in requests] == [1, 1, 1]
+
+
+@pytest.mark.parametrize("explicit_connection", [False, True])
+def test_single_vault_detection_reuses_selected_connection(recording_reader: Callable, monkeypatch: pytest.MonkeyPatch, explicit_connection: bool) -> None:
+    """Feature probes use the same session as chain and head selection.
+
+    A factory can create a new fork or choose another endpoint on every call.
+    Invoking it again after selecting the block both wastes setup requests and
+    risks classifying a vault against a different state. An explicit connection
+    must also take precedence when a caller supplies both API arguments.
+
+    :param recording_reader: Actual ABI transport and provider counters.
+    :param monkeypatch: Replace only probe selection and protocol inference.
+    :param explicit_connection: Supply a connection as well as the factory.
+    :return: None; assert one factory invocation or explicit-session precedence.
+    """
+    reader, requests, stats = recording_reader(chain=1)
+    monkeypatch.setattr(classification, "create_probe_calls", lambda *_args, **_kwargs: calls_for([REGULAR]))
+    monkeypatch.setattr(classification, "identify_vault_features", lambda *_args, **_kwargs: set())
+    factory = MagicMock(return_value=reader.web3)
+    assert classification.detect_vault_features(reader.web3 if explicit_connection else None, REGULAR, verbose=False, web3factory=factory) == set()
+    assert factory.call_count == (0 if explicit_connection else 1)
+    assert len(requests) == 1
+    assert requests[0][1] == hex(BLOCK)
+    assert stats.calls["rpc.example", "eth_blockNumber"] == 1
+
+
+def test_http_error_without_response_preserves_original_cause(recording_reader: Callable, caplog: pytest.LogCaptureFixture) -> None:
+    """An incomplete HTTP exception must not become an attribute error.
+
+    Some transport adapters raise HTTPError before attaching a response. There
+    is no status code to justify a status-based retry; retain the original
+    failure for investigation instead of dereferencing absent response metadata.
+
+    :param recording_reader: ABI-backed reader with a controlled transport failure.
+    :param caplog: Captured routine logs, which must omit credential-bearing URLs.
+    :return: None; assert one attempt, the original cause and a safe warning.
+    """
+    error = HTTPError("response unavailable at https://rpc.example/v2/test-only-secret")
+
+    def fail(_batch: tuple, _attempt: int) -> None:
+        """Reject before HTTP response metadata is available."""
+        raise error
+
+    reader, requests, _stats = recording_reader(fail=fail)
+    with pytest.raises(MulticallNonRetryable) as caught:
+        list(reader.process_calls(BLOCK, calls_for([REGULAR])))
+    assert caught.value.__cause__ is error
+    assert len(requests) == 1
+    # Private DEBUG replay details intentionally retain the original exception.
+    # Check the observable retry warning even when pytest captures DEBUG logs.
+    warnings = [record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING]
+    batch_warnings = [message for message in warnings if message.startswith("Rejected Multicall batch:")]
+    assert len(batch_warnings) == 1
+    assert "error_type=HTTPError http_status=None" in batch_warnings[0]
+    assert all("test-only-secret" not in message for message in warnings)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_empty_result_diagnostics_do_not_require_worker_cache(recording_reader: Callable, monkeypatch: pytest.MonkeyPatch, strict: bool) -> None:
+    """Private readers report empty-result failures without a worker cache.
+
+    Feature detection and manual diagnostics construct private readers. Their
+    thread may never have entered the reusable worker executor, so its session
+    cache cannot be assumed to exist when formatting an empty-result error.
+    Ordinary consumers must still receive the original served revert.
+
+    :param recording_reader: Real ABI-bound reader and deterministic transport.
+    :param monkeypatch: Supply an empty revert and a fresh worker-local cache holder.
+    :param strict: Require return bytes or accept the served contract revert.
+    :return: None; assert the intended diagnostic exception or unchanged revert.
+    """
+    reader, requests, _stats = recording_reader(empty_revert=True)
+    monkeypatch.setattr(multicall_batcher, "_reader_instance", threading.local())
+    if strict:
+        with pytest.raises(MulticallStateProblem, match="Multicall gave empty result"):
+            list(reader.process_calls(BLOCK, calls_for([REGULAR]), require_multicall_result=True))
+    else:
+        result = list(reader.process_calls(BLOCK, calls_for([REGULAR])))[0]
+        assert not result.success and result.result == b"" and result.unavailable_error is None
+    assert len(requests) == 1
 
 
 @pytest.mark.parametrize("allow_unavailable", [False, True])

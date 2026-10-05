@@ -7,7 +7,7 @@ blacklist it.
 
 It backs the line comments in
 [`eth_defi/event_reader/multicall_batcher.py`](../eth_defi/event_reader/multicall_batcher.py)
-(`WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES`, the `MulticallRetryable` fallback),
+(`MULTICALL_RETRYABLE_MESSAGE_CLUES`, the `MulticallRetryable` fallback),
 [`eth_defi/erc_4626/vault_protocol/hyperdrive_hl/vault.py`](../eth_defi/erc_4626/vault_protocol/hyperdrive_hl/vault.py),
 [`eth_defi/erc_4626/classification.py`](../eth_defi/erc_4626/classification.py) and
 [`eth_defi/vault/risk.py`](../eth_defi/vault/risk.py).
@@ -19,8 +19,9 @@ the same chain.
 
 ## Symptom
 
-`vault-scanner-looped` loops on the same HyperEVM blocks, rotating providers and
-shrinking the batch, without ever finishing the chain:
+Before the greylist/retry fixes described below, `vault-scanner-looped` repeatedly
+retried the same HyperEVM blocks, rotating providers and shrinking the batch
+without finishing the chain. The August investigation captured this symptom:
 
 ```
 Switched RPC providers edge.goldsky.com -> hyperliquid-mainnet.g.alchemy.com,
@@ -60,7 +61,8 @@ whole failure:
 `StakingVaultUpgradeable` (solc 0.8.28, fetched through the Etherscan v2 unified API
 with `chainid=999`).
 
-Only three of its selectors are affected, and `totalSupply()` never is:
+The investigation found three Core-dependent selectors. `totalSupply()` reads
+EVM storage instead; it remains subject to ordinary provider/state availability:
 
 | Selector | Method | Behaviour |
 |----------|--------|-----------|
@@ -321,8 +323,8 @@ same-provider retry for a sole provider's one-call gas rejection. At the default
 size one, each round is one aggregate request. Larger explicit limits may split
 a retry into several requests. Timeouts, rate limits and consensus failures
 retain the normal retry budget and backoff; archive gaps still rotate through
-configured providers separately. The provider is
-restored once after the isolated lane so greylist failover does not redirect
+configured providers separately. The provider is restored once after the
+isolated lane so greylist failover does not redirect
 future normal work. If restoration fails verification, the verified backup is
 retained and a warning identifies the failed restoration.
 
@@ -335,8 +337,8 @@ historical APIs also default to strict errors; only a caller passing
 reader also defaults to strict errors; the atomic price exporter explicitly opts
 in after taking responsibility for saved-row preservation. Historical price
 readers reject the affected vault observation before advancing source/freshness
-state. They preserve saved
-rows whose `(chain, address, block_number)` keys have no complete successful
+state. The atomic writer preserves saved rows whose
+`(chain, address, block_number)` keys have no complete successful
 replacement, including unsampled keys. Preserved timestamps and `written_at`
 remain unchanged. Archive gaps, timeouts and malformed replies remain hard
 errors; unavailable observations are never written as fresh zero TVL.
@@ -357,19 +359,24 @@ source .local-test.env && poetry run python scripts/erc-4626/check-hyperevm-grey
 ```
 
 It uses the first three supplied `JSON_RPC_HYPERLIQUID` endpoints, probes each
-head and head minus 200/20,000 blocks, compares a repeated mixed payload against
-isolated requests, and verifies a cheap USDt0 `totalSupply()` read. It writes no
+head and head minus 200/20,000 blocks, compares repeated HYPED probes in a mixed
+payload against isolated requests, and verifies a cheap USDt0 `totalSupply()`
+read. It does not automatically validate every greylist entry. Successful
+subcalls, served reverts and exhausted isolated gas failures are reported
+separately; a served revert is not a transport outage. It writes no
 scanner state and does not retry failed mixed payloads. It reports provider hosts
-and raw integers, never credentials or denominated NAV estimates.
+and raw integers in the result table, without credentials or denominated NAV
+estimates. Routine batch warnings omit raw HTTP exception URLs. Full exception
+and debug diagnostics may include those URLs; redact them before sharing logs.
 
 At 18:01 UTC on 3 October 2026, Goldsky rejected all three mixed payloads as out
-of gas, while
-the isolated requests kept the ordinary USDt0 read available at all three blocks.
+of gas, while the isolated requests kept the ordinary USDt0 read available at
+all three blocks.
 Alchemy served every subcall at head but returned Core-dependent failures at
 the two older blocks; dRPC's head mixed payload succeeded but some subsequent
 isolated calls reverted. Earlier checks also saw Core-dependent failures at
 Alchemy's head. These results illustrate changing node-local Core availability.
-Isolation fixes the
-neighbouring batch failure; it does not establish historical Core semantics or
+Isolation fixes the neighbouring batch failure; it does not establish
+historical Core semantics or
 restore unavailable NAV. The existing source-block attribution is preserved;
 do not use this diagnostic command as a historical data backfill.

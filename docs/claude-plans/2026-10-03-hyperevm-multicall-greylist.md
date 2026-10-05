@@ -376,3 +376,60 @@ recorder was restored. The existing bounded mixed/isolated diagnostic also
 served 9/9 subcalls in each path at block 47,733,706. These were manual runs on
 2026-10-05, made no state writes, and do not establish historical HyperCore NAV
 semantics.
+
+## Cleanup and rebase (2026-10-05)
+
+Rebased onto remote master ``d42a8193c`` while preserving both conflicting
+changelog entries. One-off feature detection now creates a factory connection
+once and uses it for chain/head selection and probes; an explicit connection
+takes precedence. This avoids duplicate setup and inconsistent fork/provider
+selection. The remaining constructor chain-ID verification is retained.
+
+Retry fragments now have a descriptive immutable constant and no duplicate gas
+clue. Strict empty-result diagnostics work without a populated worker cache;
+ordinary empty contract reverts remain unchanged. HTTP exceptions without a
+response preserve their original cause instead of causing an attribute error.
+Routine batch warnings log exception type/status rather than credential-bearing
+HTTP URLs; full exception/debug diagnostics still require redaction before
+sharing. Operator documentation distinguishes successful subcalls, served reverts
+and exhausted isolated gas failures, and specifies the diagnostic's HYPED-only
+coverage rather than implying that it checks every greylist entry.
+
+The previous vault-protocol CI run had a deterministic Antarctic fixture failure:
+``SimpleNamespace`` lacked ``unavailable_error``. Reproduced it locally, then
+replaced the fixture's result stand-ins with actual Multicall result types.
+Its dimensionless fixed-point test ratio and one-basis-point threshold assertions
+remain the same; production observation checks were not weakened or skipped.
+The focused regression set, including all four Antarctic pipeline tests, passed
+**177 tests in 15.34 seconds**.
+
+A manual authenticated Alchemy check on 2026-10-05 at 14:01 UTC used the supplied
+endpoint, with no scanner state writes. At head block 47,734,834, mixed and
+isolated reads each had 9/9 successful subcalls. At head minus 200, block
+47,734,634, each had 3/9 successful subcalls: the isolated path reported six
+served reverts and zero exhausted transport failures. The USDt0 control passed
+at both blocks. These results do not establish historical Core NAV semantics.
+Reproduce this bounded manual run without exposing the endpoint:
+
+```bash
+source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run python - <<'PY_CHECK'
+import logging
+import os
+import runpy
+from tabulate import tabulate
+logging.basicConfig(level=logging.INFO)
+probe = runpy.run_path("scripts/erc-4626/check-hyperevm-greylist.py")["fetch_greylist_probe_results"]
+rows = list(probe(os.environ["JSON_RPC_HYPERLIQUID"], block_offsets=(0, 200), max_providers=1))
+assert len(rows) == 2 and all(row["robust_ok"] for row in rows)
+logging.info("Manual integration results:\n%s", tabulate(rows, headers="keys"))
+PY_CHECK
+```
+
+The fresh grounded ``claude-opus-5-5`` review inspected the rebased PR and explicit
+recorder refactor and found no correctness, data-loss or accounting bugs. Its
+documentation references, credential-logging qualification and connection
+docstring findings were corrected. The successful grounded follow-up also found
+no correctness, data-loss, accounting or security regressions in the cleanup and
+Antarctic repair. Its import-order nit was corrected, and warning assertions now
+require an actual captured batch warning while tolerating private DEBUG replay
+details. Both the default and DEBUG-level warning regressions pass.
