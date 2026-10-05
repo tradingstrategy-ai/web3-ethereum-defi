@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.antarctic import historical_context
@@ -28,6 +29,15 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
     records = load_antarctic_settlements(FIXTURES / "antarctic-settlements.json")
     web3 = Web3(RecordedAntarcticProvider(FIXTURES / "antarctic-rpc.json"))
     cache = TokenDiskCache(tmp_path / "tokens.sqlite")
+    greylist = frozenset({HexAddress("0x" + "88" * 20)})
+    atomic_writer = scan_all_chains.scan_historical_prices_to_parquet
+
+    def publish_with_policy(**kwargs: object) -> dict:
+        """Assert routine and late-repair calls share the injected policy."""
+        assert kwargs["greylist"] == greylist
+        return atomic_writer(**kwargs)
+
+    monkeypatch.setattr(scan_all_chains, "scan_historical_prices_to_parquet", publish_with_policy)
     try:
         database = create_antarctic_test_metadata(web3, cache)
         database.write(tmp_path / "vault-metadata-db.pickle")
@@ -62,7 +72,7 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
 
         monkeypatch.setattr(scan_all_chains, "run_post_processing", post_process)
         options = dict(  # noqa: C408
-            chains=[scan_all_chains.ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM", False)],
+            chains=[scan_all_chains.ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM", False, greylist=greylist)],
             active_protocols=[],
             scan_prices=True,
             scan_hypercore=False,
@@ -97,6 +107,7 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
             bkp_dir=tmp_path / "backups",
             historical_context_path=tmp_path / "vault-historical-context.duckdb",
             scan_vault_settlements=False,
+            rpc_tracking_database_path=tmp_path / "rpc-tracking.duckdb",
         )
         results = scan_all_chains.run_scan_tick(**options)
         assert results["Arbitrum"].status == "success"

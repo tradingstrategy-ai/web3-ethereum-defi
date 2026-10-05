@@ -21,9 +21,9 @@ from requests import Response
 from requests.exceptions import HTTPError, ReadTimeout
 from web3 import HTTPProvider, Web3
 
+from eth_defi.erc_4626 import classification
 from eth_defi.event_reader import multicall_batcher
 from eth_defi.event_reader.multicall_batcher import (
-    HYPEREVM_MULTICALL_GREYLIST,
     EncodedCall,
     MulticallHistoricalDataUnavailable,
     MulticallRetryable,
@@ -31,6 +31,7 @@ from eth_defi.event_reader.multicall_batcher import (
     MultiprocessMulticallReader,
     plan_multicall_batches,
 )
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure
 
@@ -49,7 +50,7 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
     """
     monkeypatch.setattr("eth_defi.event_reader.multicall_batcher.time.sleep", lambda _seconds: None)
 
-    def create(chain: int = 999, batch_size: int = 3, greylist_batch_size: int = 1, fail: Callable | None = None) -> tuple[MultiprocessMulticallReader, list, RPCRequestStats]:
+    def create(chain: int = 999, batch_size: int = 3, greylist_batch_size: int = 1, greylist: frozenset[HexAddress] | None = None, fail: Callable | None = None) -> tuple[MultiprocessMulticallReader, list, RPCRequestStats]:
         """Create an isolated reader; the optional callback rejects a request."""
         stats = RPCRequestStats(operation="historical_multicall")
         requests = []
@@ -61,6 +62,8 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
             stats.record_call("rpc.example", method)
             if method == "eth_chainId":
                 result = hex(chain)
+            elif method == "eth_blockNumber":
+                result = hex(BLOCK)
             elif method == "eth_getCode":
                 result = "0x01"
             elif method == "eth_call":
@@ -75,7 +78,8 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
             return {"jsonrpc": "2.0", "id": 1, "result": result}
 
         monkeypatch.setattr(provider, "make_request", request)
-        reader = MultiprocessMulticallReader(Web3(provider), batch_size=batch_size, greylist_batch_size=greylist_batch_size)
+        policy = greylist if greylist is not None else (HYPEREVM_MULTICALL_GREYLIST if chain == 999 else frozenset())
+        reader = MultiprocessMulticallReader(Web3(provider), batch_size=batch_size, greylist_batch_size=greylist_batch_size, greylist=policy)
         return reader, requests, stats
 
     return create
@@ -121,10 +125,10 @@ def test_planner_never_combines_greylisted_targets() -> None:
     """Even an explicit larger isolated limit cannot mix independent Core targets."""
     targets = sorted(HYPEREVM_MULTICALL_GREYLIST)[:2]
     encoded = [(target, b"selector") for target in targets for _ in range(3)]
-    batches = list(plan_multicall_batches(999, encoded, 40, 2))
+    batches = list(plan_multicall_batches(encoded, 40, 2, greylist=HYPEREVM_MULTICALL_GREYLIST))
     assert [len(indexes) for _grey, indexes in batches] == [2, 1, 2, 1]
     assert all(grey and len({encoded[index][0] for index in indexes}) == 1 for grey, indexes in batches)
-    assert list(plan_multicall_batches(999, [], 40)) == []
+    assert list(plan_multicall_batches([], 40)) == []
 
 
 def test_retry_resumes_after_successful_fragment(recording_reader: Callable) -> None:
@@ -190,7 +194,13 @@ def test_historical_consumers_must_opt_in_to_unavailable_results(recording_reade
     reader, requests, _stats = recording_reader(fail=reject_core)
     timestamp = datetime.datetime(2026, 10, 3)
     monkeypatch.setattr(reader, "fetch_block_timestamp", lambda _block: timestamp)
-    monkeypatch.setattr(multicall_batcher, "MultiprocessMulticallReader", lambda *_, **__: reader)
+
+    def create_worker_reader(*_args: object, greylist: frozenset[HexAddress], **_kwargs: object) -> MultiprocessMulticallReader:
+        """Check policy survives the public generator and task payload."""
+        assert greylist == HYPEREVM_MULTICALL_GREYLIST
+        return reader
+
+    monkeypatch.setattr(multicall_batcher, "MultiprocessMulticallReader", create_worker_reader)
     monkeypatch.setattr(multicall_batcher, "_reader_instance", threading.local())
 
     def execute_locally(*_args: object, **_kwargs: object) -> Callable:
@@ -210,7 +220,7 @@ def test_historical_consumers_must_opt_in_to_unavailable_results(recording_reade
         states = calls
         generator = multicall_batcher.read_multicall_historical
     options = {"allow_greylist_unavailable": True} if allow_unavailable else {}
-    outputs = generator(chain_id=999, web3factory=lambda: None, calls=states, start_block=BLOCK, end_block=BLOCK + 1, step=1, max_workers=1, display_progress=False, **options)
+    outputs = generator(chain_id=999, web3factory=lambda: None, calls=states, start_block=BLOCK, end_block=BLOCK + 1, step=1, max_workers=1, display_progress=False, greylist=HYPEREVM_MULTICALL_GREYLIST, **options)
     if allow_unavailable:
         served = list(outputs)
         assert len(served) == 1 and served[0].results[0].unavailable_error
@@ -283,6 +293,7 @@ def test_three_provider_gas_recovery_is_bounded(monkeypatch: pytest.MonkeyPatch,
     reader.chain_id = 999
     reader.batch_size = 40
     reader.greylist_batch_size = 1
+    reader.greylist = HYPEREVM_MULTICALL_GREYLIST
     reader.calls = reader.last_switch = 0
     reader.backswitch_threshold = 100
     reader.rate_limit_sleep = 0
@@ -357,6 +368,7 @@ def test_greylist_failover_restores_regular_provider(monkeypatch: pytest.MonkeyP
     reader.chain_id = 999
     reader.batch_size = 40
     reader.greylist_batch_size = 1
+    reader.greylist = HYPEREVM_MULTICALL_GREYLIST
     reader.calls = reader.last_switch = 0
     reader.backswitch_threshold = 100
     reader.rate_limit_sleep = 0
@@ -456,3 +468,121 @@ def test_archive_rotation_preserves_prefix_and_enters_gas_recovery(monkeypatch: 
     results = reader.fetch_multicall_batch_with_retries(object(), BLOCK, 3, inputs, False, 5)
     assert results == [(True, b"0"), (True, b"1"), (True, b"2")]
     assert attempted == [[0, 1, 2], [1, 2], [2]]
+
+
+@pytest.mark.parametrize("chain", [1, 999])
+@pytest.mark.parametrize("inject_policy", [False, True])
+def test_reader_uses_only_supplied_greylist(recording_reader: Callable, chain: int, inject_policy: bool) -> None:
+    """Caller policy, rather than chain ID or built-in addresses, determines lanes.
+
+    Use an ordinary address absent from the HyperEVM list as the isolated target.
+    The known HYPED address must remain regular when the caller did not select it.
+
+    :param recording_reader: ABI-backed transport recorder.
+    :param chain: Connection identity, independent of request routing.
+    :param inject_policy: Whether the ordinary target is explicitly isolated.
+    :return: None; assert physical request composition and restored input order.
+    """
+    policy = frozenset({REGULAR}) if inject_policy else frozenset()
+    reader, requests, _stats = recording_reader(chain=chain, greylist=policy)
+    inputs = calls_for([REGULAR, HYPED, REGULAR])
+    outputs = list(reader.process_calls(BLOCK, inputs))
+    assert [result.call for result in outputs] == inputs
+    assert len(requests) == (3 if inject_policy else 1)
+    if inject_policy:
+        assert requests[0][0][0][0] == HYPED.lower()
+        assert all(batch[0][0] == REGULAR for batch, _block in requests[1:])
+    else:
+        assert len(requests[0][0]) == 3
+
+
+def test_worker_cache_separates_greylist_policies(recording_reader: Callable, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recycled workers cannot retain a previous task's routing exceptions.
+
+    A shared factory identity reproduces joblib worker reuse across callers. A
+    changed policy creates a separate reader, while checksum-only differences
+    reuse its canonical policy without opening another provider connection.
+
+    :param recording_reader: ABI-backed transport recorder.
+    :param monkeypatch: Reset thread-local worker connections for this test.
+    :return: None; assert distinct cached readers and physical batch composition.
+    """
+    reader, requests, _stats = recording_reader(chain=1, greylist=frozenset())
+    monkeypatch.setattr(multicall_batcher, "_reader_instance", threading.local())
+    factory = lambda: reader.web3
+    inputs = calls_for([REGULAR, HYPED])
+    timestamp = datetime.datetime(2026, 10, 5)
+    for policy in (frozenset(), frozenset({HYPED}), frozenset({HexAddress(HYPED.lower())})):
+        task = multicall_batcher.MulticallHistoricalTask(1, factory, BLOCK, inputs, timestamp=timestamp, greylist=policy)
+        result = multicall_batcher._execute_multicall_in_worker(task)
+        assert [output.call for output in result.results] == inputs
+    assert len(multicall_batcher._reader_instance.per_chain_readers) == 2
+    assert [len(batch) for batch, _block in requests] == [2, 1, 1, 1, 1]
+
+
+def test_chunked_reader_passes_supplied_greylist(recording_reader: Callable, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Feature-style chunked tasks use caller policy without importing HyperEVM.
+
+    Run the public chunked generator against actual encoded transport requests.
+    Synchronous joblib dispatch keeps the deterministic recorder local while
+    exercising task construction and the real worker cache and reader together.
+
+    :param recording_reader: ABI-backed transport recorder.
+    :param monkeypatch: Replace scheduling and reset worker cache for this test.
+    :return: None; assert isolated requests and input identity.
+    """
+    reader, requests, _stats = recording_reader(chain=1, greylist=frozenset())
+    monkeypatch.setattr(multicall_batcher, "_reader_instance", threading.local())
+
+    def execute_locally(*_args: object, **_kwargs: object) -> Callable:
+        """Keep delayed worker execution without a background thread."""
+        return lambda tasks: (function(*args, **kwargs) for function, args, kwargs in tasks)
+
+    monkeypatch.setattr(multicall_batcher, "Parallel", execute_locally)
+    inputs = calls_for([REGULAR, HYPED, REGULAR])
+    outputs = list(
+        multicall_batcher.read_multicall_chunked(
+            chain_id=1,
+            web3factory=lambda: reader.web3,
+            calls=inputs,
+            block_identifier=BLOCK,
+            max_workers=1,
+            timestamped_results=False,
+            greylist=frozenset({REGULAR}),
+        )
+    )
+    assert [output.call for output in outputs] == inputs
+    assert [len(batch) for batch, _block in requests] == [1, 1, 1]
+    assert requests[0][0][0][0] == HYPED.lower()
+
+
+@pytest.mark.parametrize("single_vault", [False, True])
+def test_feature_detectors_pass_generic_greylist(recording_reader: Callable, monkeypatch: pytest.MonkeyPatch, single_vault: bool) -> None:
+    """Both bulk and one-off detectors preserve explicit caller isolation.
+
+    Replace only probe generation and protocol inference, retaining the actual
+    transport and Multicall worker stack. An ordinary Ethereum address selected
+    by the caller must produce separate subcall requests on either path.
+
+    :param recording_reader: ABI-backed transport recorder.
+    :param monkeypatch: Replace protocol fixtures and synchronous task dispatch.
+    :param single_vault: Select the private reader or public chunked feature path.
+    :return: None; assert three real encoded requests for the isolated target.
+    """
+    reader, requests, _stats = recording_reader(chain=1, greylist=frozenset())
+    inputs = calls_for([REGULAR] * 3)
+    monkeypatch.setattr(classification, "create_probe_calls", lambda *_args, **_kwargs: inputs)
+    monkeypatch.setattr(classification, "identify_vault_features", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(multicall_batcher, "_reader_instance", threading.local())
+
+    def execute_locally(*_args: object, **_kwargs: object) -> Callable:
+        """Retain real workers without a separate scheduling thread."""
+        return lambda tasks: (function(*args, **kwargs) for function, args, kwargs in tasks)
+
+    monkeypatch.setattr(multicall_batcher, "Parallel", execute_locally)
+    if single_vault:
+        assert classification.detect_vault_features(reader.web3, REGULAR, verbose=False, greylist=frozenset({REGULAR})) == set()
+    else:
+        probes = list(classification.probe_vaults(1, lambda: reader.web3, [REGULAR], BLOCK, max_workers=1, greylist=frozenset({REGULAR})))
+        assert len(probes) == 1 and probes[0].address == REGULAR
+    assert [len(batch) for batch, _block in requests] == [1, 1, 1]

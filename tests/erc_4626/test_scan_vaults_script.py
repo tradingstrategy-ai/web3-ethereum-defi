@@ -9,12 +9,14 @@ from typing import Any
 import duckdb
 import pytest
 
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.vault.rpc_scan_state import save_rpc_scan_state
 
 
+@pytest.mark.parametrize("chain_id", [1, 999])
 @pytest.mark.parametrize(("failure", "pending_candidates"), [(None, 0), (None, 1), (RuntimeError("scan failed"), 0), (KeyboardInterrupt(), 0)], ids=["completed", "degraded", "failed", "cancelled"])
-def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: BaseException | None, pending_candidates: int) -> None:
+def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: BaseException | None, pending_candidates: int, chain_id: int) -> None:
     """Real file-backed accounting survives a discovery failure or cancellation.
 
     Only network reads are replaced. Running the entrypoint's actual lock and
@@ -26,6 +28,7 @@ def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Pa
     :param monkeypatch: Replaces script configuration and network calls.
     :param failure: Discovery failure, cancellation, or None for completed work.
     :param pending_candidates: Deferred metadata after a successful discovery.
+    :param chain_id: Verified chain selecting application-level request isolation.
     :return: None; verifies persisted attempts, outcomes and repair arguments.
     """
     counter_path = tmp_path / "rpc-tracking.duckdb"
@@ -48,7 +51,7 @@ def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Pa
         """
         assert json_rpc_urls == "https://rpc.example"
         rpc_request_stats.record_call("rpc.example", "eth_chainId")
-        return SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+        return SimpleNamespace(eth=SimpleNamespace(chain_id=chain_id))
 
     def fetch_leads(**kwargs: Any) -> SimpleNamespace:
         """Record partial work before simulating the discovery boundary.
@@ -56,6 +59,7 @@ def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Pa
         :param kwargs: Arguments forwarded by the standalone script.
         :return: Completed discovery report when no failure is selected.
         """
+        assert kwargs["greylist"] == (HYPEREVM_MULTICALL_GREYLIST if chain_id == 999 else frozenset())
         assert kwargs["force_metadata_refresh"] is True
         assert kwargs["force_classification_refresh"] is True
         assert kwargs["vault_db_file"] == tmp_path / "pipeline" / namespace["DEFAULT_VAULT_DATABASE"].name
@@ -63,7 +67,7 @@ def test_standalone_discovery_retains_attempts_and_original_failure(tmp_path: Pa
         if failure is not None:
             raise failure
         pending = {f"0x{number:040x}": {} for number in range(pending_candidates)}
-        save_rpc_scan_state(tmp_path / "pipeline" / "rpc-pending-metadata-1.json", pending)
+        save_rpc_scan_state(tmp_path / "pipeline" / f"rpc-pending-metadata-{chain_id}.json", pending)
         return SimpleNamespace(items_scanned=7)
 
     monkeypatch.setitem(namespace, "create_multi_provider_web3", create_web3)

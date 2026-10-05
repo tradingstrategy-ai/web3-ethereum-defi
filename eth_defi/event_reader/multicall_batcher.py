@@ -94,71 +94,34 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
 }
 
 
-#: Reviewed HyperCore-reading targets requiring isolated requests on chain 999.
-#:
-#: This is a batching policy, not an admission or risk exclusion. Entries below
-#: come from the 2026-08-28 investigation and the address-specific evidence in
-#: ``eth_defi/vault/risk.py``. Existing blacklists still take precedence; those
-#: entries stay dormant until a separately reviewed valuation path enables them.
-#: Mixed-batch addresses in the 2026-10-03 logs are not proof of culpability and
-#: are deliberately not added without bisection or verified HyperCore dependency.
-#: See ``docs/README-hyperevm-hypercore-read-gas.md`` for provider gas accounting.
-HYPEREVM_MULTICALL_GREYLIST: Final[frozenset[HexAddress]] = frozenset(
-    {
-        # Hyperdrive HYPED: replay/bisection proved that repeated totalAssets,
-        # convertToAssets and maxDeposit calls exceed Goldsky/dRPC gas caps despite
-        # cheap execution. Seven HyperCore reads per valuation; totalSupply is cheap.
-        "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e",
-        # Hyperdrive HLP and Gamma Symphony: debug_traceCall confirmed the 0x0809
-        # L1-block precompile dependency. Both remain blacklisted for unreadable
-        # history; isolating them must not implicitly restore historical admission.
-        "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6",
-        "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774",
-        # Raga rHYPE AccountMarginSummary (0x080f): two copies of the four scanner
-        # probes exhaust Goldsky/dRPC gas accounting. Current-state execution is
-        # cheap, but head-200 fails on all providers; its blacklist remains intact.
-        "0xa4ab2aa522234a2ea2713ebade0fec069e4f3a95",
-        # RatesETF RATES Withdrawable (0x0803): combining its valuation probes with
-        # another affected vault exhausts the same caps; historical state is absent.
-        "0xda482b56c85da2ec8e59d65ec4b1f9a6b414061e",
-        # Separate Raga rHYPE proxy, SpotBalance (0x0801): duplicated scanner probes
-        # exhaust both providers. Do not confuse it with the AccountMargin proxy.
-        "0x77f1652d969dd56a75a2cb1a7c60fb7c314d71a3",
-        # HFY USD0: tracing and runtime failure strings establish SpotBalance plus
-        # MarkPx/Position/Withdrawable dependencies. Keep its existing blacklist.
-        "0xd3f41dac84594332e4ff3c7fd2242deaf7857e79",
-        # Altcopy Index: trace-confirmed spot balance and eight vault-equity reads
-        # (0x0801/0x0802); batching amplifies precompile pressure. Remains blacklisted.
-        "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d",
-    }
-)
-
-
 def plan_multicall_batches(
-    chain_id: int,
     encoded_calls: list[tuple[HexAddress, bytes]],
     batch_size: int,
     greylist_batch_size: int = 1,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterator[tuple[bool, list[int]]]:
-    """Plan normal requests before contract-isolated HyperEVM requests.
+    """Plan normal requests before contract-isolated greylisted requests.
 
     The shared reader uses positions rather than addresses as result keys so
     duplicate inputs retain identity. Reviewed targets never share a physical
-    request with robust targets or another greylisted contract. Other chains
-    retain normal batching even when the numerical address matches.
+    request with robust targets or another greylisted contract. The caller
+    supplies a policy for the selected chain; no chain-specific list is imported.
 
-    :param chain_id: Verified chain ID already available to the reader.
     :param encoded_calls: Ordered ``(target_address, encoded_calldata)`` tuples.
     :param batch_size: Positive normal maximum encoded subcalls per request.
+    :param greylist:
+        Caller-selected target addresses for this chain, matched case-insensitively.
+        Defaults to empty: readers never import or select chain-specific policies.
     :param greylist_batch_size: Positive isolated maximum subcalls; default one.
     :return: ``(greylisted, input_indexes)`` pairs in execution order. The boolean
         identifies the lane; indexes map outputs back to the original input.
     """
     assert batch_size > 0 and greylist_batch_size > 0
+    greylist = frozenset(HexAddress(address.lower()) for address in greylist)
     regular: list[int] = []
     isolated: dict[HexAddress, list[int]] = defaultdict(list)
     for index, (address, _data) in enumerate(encoded_calls):
-        if chain_id == 999 and address.lower() in HYPEREVM_MULTICALL_GREYLIST:
+        if address.lower() in greylist:
             isolated[HexAddress(address.lower())].append(index)
         else:
             regular.append(index)
@@ -1347,6 +1310,7 @@ class MultiprocessMulticallReader:
         rate_limit_sleep: float = 61.0,
         rpc_request_stats: RPCRequestStats | None = None,
         greylist_batch_size: int = 1,
+        greylist: frozenset[HexAddress] = frozenset(),
     ) -> None:
         """Create a reader inside its owning thread or process.
 
@@ -1361,9 +1325,12 @@ class MultiprocessMulticallReader:
 
             Existing chain limits may reduce this for provider constraints.
 
+        :param greylist:
+            Caller-selected targets for this chain, matched case-insensitively.
+            Defaults to empty; the entrypoint selects chain policy.
         :param greylist_batch_size:
             Positive maximum encoded subcalls per isolated target request,
-            default one. Applies only to reviewed HyperEVM greylist entries.
+            default one. Applies only to the supplied greylist.
             Normal calls keep their configured batch size; no environment
             setting or additional provider connection is needed.
         :param backswitch_threshold: Completed tasks before retrying the primary.
@@ -1393,6 +1360,9 @@ class MultiprocessMulticallReader:
         )
         assert batch_size > 0 and greylist_batch_size > 0
         self.greylist_batch_size = greylist_batch_size
+        # Snapshot caller policy: worker reuse must never follow a mutable list
+        # or implicitly acquire another chain's address-specific exceptions.
+        self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
         self.batch_size = batch_size
 
         # How many calls we have done in this subprocess
@@ -1538,9 +1508,9 @@ class MultiprocessMulticallReader:
                     f"Addresses: {displayed_addresses[0:15]}... total {len(displayed_addresses)}\n"
                 )
 
-                isolated_gas = chain_id == 999 and all(address.lower() in HYPEREVM_MULTICALL_GREYLIST for address, _data in batch_calls) and is_multicall_gas_error(e)
+                isolated_gas = all(address.lower() in self.greylist for address, _data in batch_calls) and is_multicall_gas_error(e)
                 if isolated_gas:
-                    logger.warning("HyperCore isolated gas rejection: chain=%d block=%s provider=%s target=%s selectors=%s", chain_id, block_identifier, name, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
+                    logger.warning("Greylisted Multicall gas rejection: chain=%d block=%s provider=%s target=%s selectors=%s", chain_id, block_identifier, name, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
                 else:
                     # A rejected aggregate does not identify which member caused
                     # it. Keep retry logs concise and retain full replay details
@@ -1911,7 +1881,7 @@ class MultiprocessMulticallReader:
         provider = self.web3.provider
         initial_provider = None
         try:
-            for greylisted, indexes in plan_multicall_batches(chain_id, encoded_calls, batch_size, self.greylist_batch_size):
+            for greylisted, indexes in plan_multicall_batches(encoded_calls, batch_size, self.greylist_batch_size, self.greylist):
                 batch_calls = [encoded_calls[index] for index in indexes]
                 limit = self.greylist_batch_size if greylisted else batch_size
                 # Small-lane failover must not steer subsequent robust tasks to an
@@ -1942,7 +1912,7 @@ class MultiprocessMulticallReader:
                         # remain hard errors so outages cannot silently damage coverage.
                         if not allow_greylist_unavailable or not greylisted or not is_multicall_gas_error(error):
                             raise
-                        reason = "HyperEVM greylisted gas accounting unavailable"
+                        reason = "Greylisted Multicall gas accounting unavailable"
                         logger.warning("%s: chain=%d block=%s target=%s selectors=%s", reason, chain_id, block_identifier, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
                         for index in indexes:
                             unavailable[index] = reason
@@ -1959,7 +1929,7 @@ class MultiprocessMulticallReader:
                 scope = stats.operation_scope(stats.operation + "_greylist") if stats is not None else nullcontext()
                 with scope:
                     try:
-                        provider.switch_to_provider_index(initial_provider, cause="Restore regular Multicall provider after isolated HyperCore lane")
+                        provider.switch_to_provider_index(initial_provider, cause="Restore regular Multicall provider after isolated greylist lane")
                     except ChainIdMismatch:
                         logger.warning("Could not restore prior normal-lane Multicall provider after isolated lane; retaining verified fallback")
         calls_results = [outputs[index] for index in range(len(encoded_calls))]
@@ -2018,16 +1988,20 @@ def read_multicall_historical(
     rpc_request_stats: RPCRequestStats | None = None,
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch stateless historical samples with process-local Multicall workers.
 
     Each sampled block becomes an ordered joblib task. Connections are reused
     inside workers; timestamps can be supplied from the shared Hypersync cache
-    to avoid one header RPC per task. Isolation follows the reviewed target list
+    to avoid one header RPC per task. Isolation follows the caller-supplied target list
     without altering the requested source block.
 
+    :param greylist:
+        Caller-selected target addresses for this chain, matched case-insensitively.
+        Defaults to empty: readers never import or select chain-specific policies.
     :param greylist_batch_size:
-        Positive maximum encoded subcalls per reviewed HyperEVM target request,
+        Positive maximum encoded subcalls per supplied greylisted target request,
         default one. Normal targets retain standard batching. This counts
         subcalls rather than vaults and never combines different isolated targets.
 
@@ -2149,6 +2123,7 @@ def read_multicall_historical(
                 timestamp=timestamps[block_number] if timestamps is not None else None,
                 require_multicall_result=require_multicall_result,
                 greylist_batch_size=greylist_batch_size,
+                greylist=greylist,
                 allow_greylist_unavailable=allow_greylist_unavailable,
                 collect_rpc_request_stats=rpc_request_stats is not None,
             )
@@ -2203,6 +2178,7 @@ def read_multicall_historical_stateful(
     rpc_request_stats: RPCRequestStats | None = None,
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch historical samples with adaptive scheduling and bounded state feedback.
 
@@ -2211,8 +2187,11 @@ def read_multicall_historical_stateful(
     next chunk is scheduled. This balances parallel reads against the need to
     update TVL, errors and polling frequency from completed source observations.
 
+    :param greylist:
+        Caller-selected target addresses for this chain, matched case-insensitively.
+        Defaults to empty: readers never import or select chain-specific policies.
     :param greylist_batch_size:
-        Positive maximum encoded subcalls per reviewed HyperEVM target request,
+        Positive maximum encoded subcalls per supplied greylisted target request,
         default one. Normal targets retain standard batching. This counts
         subcalls rather than vaults and never combines different isolated targets.
 
@@ -2362,6 +2341,7 @@ def read_multicall_historical_stateful(
             timestamp=timestamp,
             require_multicall_result=require_multicall_result,
             greylist_batch_size=greylist_batch_size,
+            greylist=greylist,
             allow_greylist_unavailable=allow_greylist_unavailable,
             collect_rpc_request_stats=rpc_request_stats is not None,
         )
@@ -2418,6 +2398,7 @@ def read_multicall_chunked(
     rpc_request_stats: RPCRequestStats | None = None,
     refresh_current_block: bool = False,
     greylist_batch_size: int = 1,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2480,8 +2461,11 @@ def read_multicall_chunked(
                 addr_to_balance[token_address] = value
 
 
+    :param greylist:
+        Caller-selected target addresses for this chain, matched case-insensitively.
+        Defaults to empty: readers never import or select chain-specific policies.
     :param greylist_batch_size:
-        Positive maximum encoded subcalls per reviewed HyperEVM target request,
+        Positive maximum encoded subcalls per supplied greylisted target request,
         default one. Normal targets retain standard batching. This counts
         subcalls rather than vaults and never combines different isolated targets.
 
@@ -2578,6 +2562,7 @@ def read_multicall_chunked(
                 chunk,
                 timestamp=ts,
                 greylist_batch_size=greylist_batch_size,
+                greylist=greylist,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
                 rpc_request_stats=rpc_request_stats if backend == "threading" else None,
                 rpc_operation=getattr(rpc_request_stats, "operation", None),
@@ -2665,9 +2650,13 @@ class MulticallHistoricalTask:
     #: Chunked feature and token-cache probes keep this false to avoid cache damage.
     allow_greylist_unavailable: bool = False
 
-    #: Encoded subcall limit for each reviewed HyperEVM target; default one.
+    #: Encoded subcall limit for each caller-selected greylisted target; default one.
     #: Carried in task payloads so workers do not silently reuse another limit.
     greylist_batch_size: int = 1
+
+    #: Immutable caller-selected targets for this chain; empty means normal batching.
+    #: Included in worker identity so policy changes cannot reuse stale routing.
+    greylist: frozenset[HexAddress] = frozenset()
 
     #: Refresh a safe numeric head per batch for current-state feature probes.
     refresh_current_block: bool = False
@@ -2715,15 +2704,18 @@ def _execute_multicall_in_worker(
     else:
         task_rpc_request_stats = task.rpc_request_stats if task.rpc_request_stats is not None else getattr(task.web3factory, "rpc_request_stats", None)
 
-    # Key: (chain ID, provider configuration/factory identity, isolated limit).
-    # Changing the limit must not reuse a worker constructed with the old one.
-    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size)
+    # Key: (chain ID, provider configuration/factory identity, isolated limit,
+    # lower-case greylisted targets). A reused worker must retain neither a
+    # previous limit nor a different caller's address-specific routing policy.
+    greylist = frozenset(HexAddress(address.lower()) for address in task.greylist)
+    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size, greylist)
     reader = per_chain_readers.get(reader_key)
     if reader is None:
         reader = per_chain_readers[reader_key] = MultiprocessMulticallReader(
             task.web3factory,
             rpc_request_stats=task_rpc_request_stats,
             greylist_batch_size=task.greylist_batch_size,
+            greylist=greylist,
         )
 
     set_rpc_request_stats = getattr(reader.web3, "set_rpc_request_stats", None)

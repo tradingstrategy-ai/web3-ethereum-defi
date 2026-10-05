@@ -3875,7 +3875,15 @@ one-subcall requests, never mixed with normal calls or another greylisted target
 The documented `greylist_batch_size` function argument defaults to one and can
 be passed to chunked and historical reader functions. No environment toggle is
 needed. Maintain entries and their evidence comments in
-`HYPEREVM_MULTICALL_GREYLIST`; this does not remove existing blacklist entries.
+`HYPEREVM_MULTICALL_GREYLIST` in
+[`eth_defi/hyperliquid/constants.py`](../../eth_defi/hyperliquid/constants.py);
+this does not remove existing blacklist entries. `main()` selects this list for
+Hyperliquid and passes it through the scanner as the generic `greylist` argument,
+including feature probes and price-history preservation. Library readers default
+to an empty list; Python callers must supply `greylist` explicitly to enable
+isolation. The standalone `scan-prices.py`, `scan-vaults.py` and
+`check-vault-history.py` entrypoints also select the HyperEVM list after chain
+verification. The diagnostic below supplies that list itself.
 
 See the [HyperCore gas investigation](../../docs/README-hyperevm-hypercore-read-gas.md)
 for the initial addresses, bounded retry policy, unavailable observations,

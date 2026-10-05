@@ -229,12 +229,14 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
     def fake_scan_leads(**_kwargs: object) -> LeadScanReport:
         """Simulate the metadata database write owned by real discovery."""
 
+        assert _kwargs["greylist"] == policy
         VaultDatabase(last_scanned_block={1: FULL_SCAN_BLOCK}).write(vault_db_path)
         return LeadScanReport(end_block=FULL_SCAN_BLOCK)
 
     monkeypatch.setattr(scan_all_chains, "scan_leads", fake_scan_leads)
 
-    success, metrics = scan_all_chains.scan_vaults_for_chain("https://rpc.example", 1, vault_db_path=vault_db_path)
+    policy = frozenset({HexAddress("0x0000000000000000000000000000000000000001")})
+    success, metrics = scan_all_chains.scan_vaults_for_chain("https://rpc.example", 1, vault_db_path=vault_db_path, greylist=policy)
 
     state, reason = load_lead_discovery_state(get_lead_discovery_state_path(tmp_path, 1))
     assert success is True
@@ -289,7 +291,8 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
         def seed_existing_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> None:
             captured["seeded_leads"] = leads
 
-        def scan_vaults(self, start_block: int, end_block: int) -> LeadScanReport:
+        def scan_vaults(self, start_block: int, end_block: int, greylist: frozenset[HexAddress] = frozenset()) -> LeadScanReport:
+            captured["greylist"] = greylist
             captured["cached_features"] = dict(self.cached_features)
             captured["current_state"] = self.current_state
             captured["start_block"] = start_block
@@ -321,6 +324,7 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
         web3=fake_web3,
         printer=lambda _message: None,
         force_classification_refresh=cache_mode == "forced",
+        greylist=frozenset({vault_address}),
     )
 
     assert captured["start_block"] == LAST_CACHED_BLOCK + 1
@@ -331,6 +335,7 @@ def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
 
     assert bool(captured["cached_features"]) == (cache_mode == "fresh")
     assert captured["current_state"] is False
+    assert captured["greylist"] == frozenset({vault_address})
 
 
 @pytest.mark.parametrize("start_block", [1, 100])
@@ -430,7 +435,7 @@ def test_incremental_discovery_rejects_nonadvancing_cursor(
             pass
 
         @staticmethod
-        def scan_vaults(start_block: int, _end_block: int) -> LeadScanReport:
+        def scan_vaults(start_block: int, _end_block: int, greylist: frozenset[HexAddress] = frozenset()) -> LeadScanReport:
             return LeadScanReport(start_block=start_block, end_block=start_block)
 
     fake_web3 = SimpleNamespace(

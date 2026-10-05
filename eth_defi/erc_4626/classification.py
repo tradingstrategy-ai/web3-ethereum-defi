@@ -1904,6 +1904,7 @@ def probe_vaults(
     max_workers=8,
     progress_bar_desc: str | None = None,
     current_state: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterable[VaultFeatureProbe]:
     """Perform multicalls against each vault address to extract the features of the vault smart contract.
 
@@ -1913,6 +1914,10 @@ def probe_vaults(
     once into the phase accumulator even if a later chunk fails, preserving the
     physical cost of partial work without transferring parent counter history.
 
+    :param greylist:
+        Caller-selected targets on this chain; defaults to empty. Passed to the
+        chunked reader for isolation while keeping transport failures strict,
+        rather than recording an unavailable RPC response as a contract feature.
     :param chain_id: Chain namespace for probe selection and worker verification.
     :param web3factory: Worker connection factory with optional phase accounting.
     :param addresses: Candidate vault addresses selected for fresh ABI probes.
@@ -1950,6 +1955,7 @@ def probe_vaults(
             rpc_request_stats=probe_stats,
             timestamped_results=False,
             refresh_current_block=current_state and chain_id == 999,
+            greylist=greylist,
         ):
             address = call_result.call.address
             address_calls = results_per_address[address]
@@ -2045,6 +2051,7 @@ def detect_vault_features(
     verbose=True,
     web3factory: Web3Factory | None = None,
     chunk_size: int = DETECT_VAULT_FEATURES_CHUNK_SIZE,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> set[ERC4626Feature]:
     """Detect the ERC-4626 features of a vault smart contract.
 
@@ -2075,11 +2082,10 @@ def detect_vault_features(
     :param web3:
         Web3 connection to use.
 
-        Legacy parameter, kept first for backwards compatibility. It is wrapped
-        in :py:class:`~eth_defi.event_reader.web3factory.SimpleWeb3Factory` on
-        demand, so existing ``detect_vault_features(web3, address)`` callers get
-        batching without any change. Prefer ``web3factory`` in new code. May be
-        omitted when ``web3factory`` is given.
+        Legacy parameter, kept first for backwards compatibility. The private
+        Multicall reader uses it directly, so existing
+        ``detect_vault_features(web3, address)`` callers retain batching. Prefer
+        ``web3factory`` in new code. May be omitted when a factory is supplied.
 
     :param address:
         Vault smart contract address to probe.
@@ -2093,10 +2099,10 @@ def detect_vault_features(
         Passed to a private
         :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`;
         when omitted, ``web3`` is used directly. The reader is constructed per
-        call on purpose — ``read_multicall_chunked()`` memoises one reader per
-        chain id in a thread-local, which would reuse an earlier connection (for
-        example an Anvil fork from a previous test) for a later call on the same
-        chain. Detection always talks to the connection you pass in.
+        call on purpose. ``read_multicall_chunked()`` caches worker-local sessions
+        by chain, factory/provider identity and isolation policy. A private reader
+        keeps one-off detection tied to the exact caller-owned connection rather
+        than the lifetime of a reusable worker session.
 
     :param chunk_size:
         How many probe calls to pack into a single Multicall3 request.
@@ -2105,15 +2111,20 @@ def detect_vault_features(
         node rejects a batch on gas or response-size limits; raising it trades
         that risk for fewer round-trips.
 
+    :param greylist:
+        Caller-selected isolated targets on this chain, empty by default. CLI
+        entrypoints select chain policy; this library detector stays generic
+        and retains strict transport failures.
+
     :return:
         Detected vault features, to pass to :py:func:`create_vault_instance`.
     """
 
     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
 
-    # Accept either calling convention. A bare Web3 is wrapped in
-    # SimpleWeb3Factory on demand, so legacy callers get multicall batching
-    # without changing anything.
+    # Accept both calling conventions while retaining connection ownership.
+    # Factory callers create their connection here; legacy callers supply the
+    # exact Web3 instance the private reader must continue to use.
     assert web3 is not None or web3factory is not None, "Give either web3 or web3factory"
     if web3 is None:
         web3 = web3factory()
@@ -2134,13 +2145,11 @@ def detect_vault_features(
     # Batch the probes through Multicall3 instead of issuing one eth_call each.
     #
     # Deliberately construct a private reader bound to *this* connection rather
-    # than calling read_multicall_chunked(): that helper memoises a reader per
-    # chain id in a thread-local (`_reader_instance`), so a reader created
-    # earlier on the same thread — e.g. by a test using an Anvil fork — would be
-    # silently reused for a later live-RPC call on the same chain and query the
-    # wrong node ("BlockOutOfRangeError: block height is X but requested Y").
-    # Detection must always talk to the connection the caller handed us.
-    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size)
+    # than joining the reusable worker cache in read_multicall_chunked(). The
+    # cache distinguishes provider and policy identity, but one-off detection
+    # still owns an exact connection lifetime (including mutable fork state).
+    # Keep that ownership local and pass any application-selected greylist.
+    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size, greylist=greylist)
 
     results = {}
     for call_result in reader.process_calls(

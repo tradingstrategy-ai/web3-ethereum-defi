@@ -293,8 +293,13 @@ space-separated fallback format only works with `create_multi_provider_web3()`.
 
 ## Isolated greylist batches
 
-The manually maintained `HYPEREVM_MULTICALL_GREYLIST` in the shared
-`MultiprocessMulticallReader` routes reviewed targets separately on chain 999.
+The manually maintained `HYPEREVM_MULTICALL_GREYLIST` lives in
+[`eth_defi/hyperliquid/constants.py`](../eth_defi/hyperliquid/constants.py).
+The all-chains scanner selects it for Hyperliquid in `main()` and passes it as
+`greylist` through the tick coordinator, chain scanner, price writer and Multicall
+workers. Feature classification receives the same policy through lead discovery.
+Generic readers default to an empty greylist and do not select chain policies.
+Worker reuse includes the normalised greylist in its cache key.
 Normal calls retain their usual batch limit and execute first. Greylisted calls
 are grouped by target and sent with `greylist_batch_size=1` by default; larger
 explicit limits still never combine different targets. This counts encoded

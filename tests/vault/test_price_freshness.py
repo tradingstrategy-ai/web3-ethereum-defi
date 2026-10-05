@@ -1,16 +1,20 @@
 """Offline coverage of real vault price-row freshness decisions."""
 
 import datetime
+import pickle
+import runpy
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller, scan_historical_prices_to_parquet
 from eth_defi.vault.scan_all_chains import fetch_current_vault_tvl_usd
@@ -140,7 +144,7 @@ def make_offline_scan(monkeypatch: pytest.MonkeyPatch, reader: DummyReader) -> V
     :return:
         A scanner using no RPC or token-cache network reads.
     """
-    scanner = VaultHistoricalReadMulticaller(web3factory=None, supported_quote_tokens=None, enforce_live_freshness=True)
+    scanner = VaultHistoricalReadMulticaller(web3factory=None, supported_quote_tokens=None, enforce_live_freshness=True, greylist=HYPEREVM_MULTICALL_GREYLIST)
     call = EncodedCall(func_name="price", address=reader.address, data=b"", extra_data={"vault": reader.address})
     monkeypatch.setattr(scanner, "prepare_readers", lambda *_, **__: {reader.address: reader})
     monkeypatch.setattr(scanner, "generate_vault_historical_calls", lambda *_: () if reader.uses_contextual_history else ((call, reader.reader_state),))
@@ -338,8 +342,9 @@ def test_audit_failure_keeps_published_prices_and_continuation(tmp_path: Path, m
     assert pq.read_table(path, columns=["block_number"])["block_number"].to_pylist() == [1, 2, 3]
 
 
-def test_hypercore_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """An overlapping rescan replaces good keys and retains unavailable Core rows.
+@pytest.mark.parametrize("chain_id,entrypoint", [(1, "library"), (999, "library"), (999, "standalone")])
+def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chain_id: int, entrypoint: str) -> None:
+    """An injected policy retains unavailable rows independently of the chain.
 
     A file-backed production-schema Parquet exercises the actual atomic writer.
     The second scan has one replacement, one missing block, and one partial
@@ -347,8 +352,8 @@ def test_hypercore_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatc
     ordinary vault rows still follow the existing range replacement rules.
     """
     hyped = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
-    grey = DummyVault(VaultSpec(999, hyped), DummyToken())
-    normal = DummyVault(VaultSpec(999, "0x0000000000000000000000000000000000000001"), DummyToken())
+    grey = DummyVault(VaultSpec(chain_id, hyped), DummyToken())
+    normal = DummyVault(VaultSpec(chain_id, "0x0000000000000000000000000000000000000001"), DummyToken())
     start = datetime.datetime(2026, 10, 3)
     rescan = False
 
@@ -368,11 +373,60 @@ def test_hypercore_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatc
 
     monkeypatch.setattr(VaultHistoricalReadMulticaller, "read_historical", observations)
     path = tmp_path / "prices.parquet"
-    kwargs = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=999)), web3factory=None, vaults=[grey, normal], token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), start_block=1, end_block=4, step=1)
-    scan_historical_prices_to_parquet(**kwargs)
+    kwargs = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=chain_id)), web3factory=None, vaults=[grey, normal], greylist=frozenset({grey.address}), token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), start_block=1, end_block=4, step=1)
+    if entrypoint == "standalone":
+        # Run the real legacy CLI boundary against the actual atomic writer. Only
+        # discovery/connection preparation is replaced, so dropping policy from
+        # the CLI would delete these saved unavailable keys and fail below.
+        monkeypatch.setenv("JSON_RPC_URL", "https://recorded.invalid")
+        monkeypatch.setenv("START_BLOCK", "1")
+        monkeypatch.setenv("END_BLOCK", "4")
+        monkeypatch.setenv("READER_STATE_DATABASE", str(tmp_path / "reader-state.pickle"))
+        monkeypatch.setenv("UNCLEANED_PRICE_DATABASE", str(path))
+        monkeypatch.delenv("VAULT_ID", raising=False)
+        monkeypatch.setenv("PROFILE", "false")
+        run_scan = runpy.run_path(str(Path(__file__).parents[2] / "scripts/erc-4626/scan-prices.py"))["_run_scan"]
+        namespace = run_scan.__globals__
+        metadata_path = tmp_path / "metadata.pickle"
+        metadata = SimpleNamespace(rows={vault.get_spec(): {"_detection_data": SimpleNamespace(chain=chain_id, address=vault.address, features=set(), first_seen_at_block=1)} for vault in [grey, normal]})
+        metadata_path.write_bytes(pickle.dumps(metadata))
+        cache = MagicMock(filename=tmp_path / "tokens.sqlite")
+        cache.get_file_size.return_value = 0
+        monkeypatch.setitem(namespace, "DEFAULT_VAULT_DATABASE", metadata_path)
+        monkeypatch.setitem(namespace, "TokenDiskCache", lambda: cache)
+        monkeypatch.setitem(namespace, "create_multi_provider_web3", lambda *_, **__: kwargs["web3"])
+        monkeypatch.setitem(namespace, "MultiProviderWeb3Factory", lambda *_, **__: None)
+        monkeypatch.setitem(namespace, "get_provider_name", lambda _: "recorded.invalid")
+        kwargs["web3"].provider = object()
+        monkeypatch.setitem(namespace, "setup_console_logging", lambda **_: None)
+        monkeypatch.setitem(namespace, "configure_hypersync_from_env", lambda _: SimpleNamespace(scan_backend="recorded", hypersync_url="recorded.invalid", hypersync_client=None))
+        monkeypatch.setitem(namespace, "passes_price_scan_activity_filter", lambda *_: True)
+        monkeypatch.setitem(namespace, "create_vault_instance", lambda _web3, address, *_args, **_kwargs: next(vault for vault in [grey, normal] if vault.address == address))
+        reports = []
+
+        def publish(**arguments: object) -> dict:
+            """Keep CLI policy while fixing the tiny fixture's sampling grid."""
+            assert arguments["greylist"] == HYPEREVM_MULTICALL_GREYLIST
+            result = scan_historical_prices_to_parquet(**arguments, step=1)
+            reports.append(result)
+            return result
+
+        monkeypatch.setitem(namespace, "scan_historical_prices_to_parquet", publish)
+
+        def scan() -> dict:
+            """Exercise the standalone application boundary and its real writer."""
+            run_scan(SimpleNamespace(), {})
+            return reports[-1]
+    else:
+
+        def scan() -> dict:
+            """Exercise caller-supplied policy independently of chain selection."""
+            return scan_historical_prices_to_parquet(**kwargs)
+
+    scan()
     original = pq.read_table(path).to_pandas()
     rescan = True
-    report = scan_historical_prices_to_parquet(**kwargs)
+    report = scan()
     updated = pq.read_table(path).to_pandas().sort_values(["address", "block_number"])
     assert len(updated) == 6
     assert not updated.duplicated(["chain", "address", "block_number"]).any()
@@ -426,7 +480,7 @@ def test_hypercore_required_revert_does_not_claim_freshness(monkeypatch: pytest.
     assert list(scanner.read_historical([vault], 1, 2, 1, reader_func=source)) == []
     assert reader.reader_state.last_block == before
     assert scanner.latest_observed_at == {}
-    assert reader.reader_state.last_rpc_error == "HyperCore observation unavailable"
+    assert reader.reader_state.last_rpc_error == "greylisted vault observation unavailable"
 
 
 def test_greylisted_helper_cannot_discard_unlisted_vault_history(monkeypatch: pytest.MonkeyPatch) -> None:

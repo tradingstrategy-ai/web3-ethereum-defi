@@ -22,6 +22,7 @@ from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, MulticallNonRetryable, MulticallRetryable, MultiprocessMulticallReader, get_multicall_contract
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 
@@ -58,7 +59,7 @@ def fetch_greylist_probe_results(rpc_url: str, block_offsets: tuple[int, ...] = 
         web3 = create_multi_provider_web3(endpoint, retries=0, hint="manual-greylist-check")
         assert web3.eth.chain_id == 999
         head = web3.eth.block_number
-        reader = MultiprocessMulticallReader(web3)
+        reader = MultiprocessMulticallReader(web3, greylist=HYPEREVM_MULTICALL_GREYLIST)
         for offset in tqdm(block_offsets, desc=get_provider_name(web3.provider), leave=False):
             block = max(1, head - offset)
             contract = get_multicall_contract(web3, block_identifier=block)

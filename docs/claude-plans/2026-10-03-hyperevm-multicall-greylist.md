@@ -22,9 +22,13 @@ existing risk comments; add further entries only after equivalent evidence. Do n
 ## Minimal policy
 
 Use a manually maintained `HYPEREVM_MULTICALL_GREYLIST` of lower-case target
-addresses beside the existing Multicall chain policies. Apply it only on chain
-999; the same address on another chain retains normal batching. Membership is
-an execution policy, not a blacklist, risk rating or admission exclusion.
+addresses in `eth_defi/hyperliquid/constants.py`. The scanner entrypoint selects
+it for Hyperliquid and passes it as a generic `greylist` parameter through chain
+scans, feature probes, the atomic price writer, task payloads and worker readers.
+Generic APIs default to empty and never import the Hyperliquid policy. The same
+address on another chain retains normal batching unless its caller supplies a
+greylist too. Normalised target membership forms part of worker-cache identity.
+Membership is an execution policy, not a blacklist, risk rating or admission exclusion.
 
 Each entry needs an evidence comment identifying the protocol and vault,
 the failed selectors, the observed provider behaviour, and the investigation
@@ -139,7 +143,7 @@ are deferred; archive and unrelated transport failures still abort atomically.
 Generic HyperEVM admission and metadata batching already exclude chain 999 and
 retain their existing specialised adapter reads, so no new unavailable marker
 is passed to those metadata writers. The shared raw chunked reader applies the
-same routing whenever a caller does use Multicall on HyperEVM.
+same routing whenever a caller explicitly supplies the greylist.
 
 The initial greylist now has eight trace/replay-reviewed targets from prior risk
 comments; seven retain existing blacklist precedence. No mixed-batch suspect was
@@ -291,3 +295,55 @@ provider/block combinations. Alchemy served all head subcalls; dRPC served the
 mixed head payload but only six isolated head subcalls; older Core views remained
 unavailable. Goldsky rejected each mixed payload while the isolated requests
 preserved the control read. This is local manual validation, not CI.
+
+
+## Generic policy refactor (2026-10-05)
+
+Moved the eight evidence-commented targets to the Hyperliquid constants module.
+The all-chains entrypoint selects the list for its Hyperliquid configuration;
+initial and retry ticks retain the same configuration, and ``scan_chain`` uses
+its greylist as the sole policy source for explicit generic parameters below it. Both
+historical readers and strict feature probes receive the caller policy in their
+worker task payloads. The price writer uses the same list for observation
+validation and saved-row preservation. Worker cache identity includes lower-case
+target membership, preventing policy changes from reusing an old reader.
+
+Regression coverage includes empty policies on HyperEVM, caller-selected ordinary
+targets on another chain, checksum-insensitive worker reuse, public chunked and
+historical task propagation, discovery wrappers and exact saved-row preservation
+on both Ethereum and HyperEVM. Focused checks cover the recorded Arbitrum tick and publication integration,
+including late repairs, standalone CLI history preservation and policy reuse on
+initial and retry ticks.
+
+A bounded manual integration check on 2026-10-05 used the supplied authenticated
+Alchemy endpoint at block 47,731,602. The mixed request served 9/9 subcalls and the
+explicitly configured isolated reader served 9/9; the pure ERC-20 control passed.
+This check made no state writes and does not establish historical HyperCore NAV
+semantics. Reproduce the head-only check without exposing credentials:
+
+```bash
+source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run python - <<'PY_CHECK'
+import os
+import runpy
+from tabulate import tabulate
+probe = runpy.run_path("scripts/erc-4626/check-hyperevm-greylist.py")["fetch_greylist_probe_results"]
+rows = list(probe(os.environ["JSON_RPC_HYPERLIQUID"], block_offsets=(0,), max_providers=1))
+print(tabulate(rows, headers="keys"))
+PY_CHECK
+```
+
+
+The fresh Opus 5.5 review caught that removing implicit library policy also
+required updating legacy standalone entrypoints. ``scan-prices.py`` and
+``scan-vaults.py`` now select the HyperEVM policy after verifying the chain, and
+``check-vault-history.py`` passes it to both detection and historical reads.
+Generic library callers remain explicit. Removed the competing scalar policy
+argument from ``scan_chain`` so a configured chain cannot silently lose its list.
+The CLI price regression uses the actual atomic writer against a private
+production-schema Parquet, proving old unavailable keys survive a rescan.
+
+
+The final focused run passed 153 tests in 12.76 seconds. The fresh grounded
+Claude Opus 5.5 follow-up review reported no actionable findings after checking
+the entrypoints, sole configuration policy source, forwarding paths and saved-row
+safety. No deployment or production-state changes were made for this refactor.

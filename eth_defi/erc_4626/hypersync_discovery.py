@@ -368,8 +368,21 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         end_block: int,
         display_progress=True,
         hardcoded_lead_sources: HardcodedVaultLeadSources | None = None,
+        greylist: frozenset[HexAddress] = frozenset(),
     ) -> LeadScanReport:
-        """Scan vaults using a Hypersync-safe head block."""
+        """Scan vaults using a Hypersync-safe head block.
+
+        Clip indexed event coverage before the shared discovery workflow. The
+        caller's target policy must survive this wrapper: feature classification
+        uses Multicall after events are fetched, independently of head clipping.
+
+        :param start_block: Inclusive indexed-event boundary.
+        :param end_block: Requested end, clipped to available Hypersync height.
+        :param display_progress: Display event and feature-probe progress.
+        :param hardcoded_lead_sources: Optional protocol-labelled deployments.
+        :param greylist: Caller-selected isolated targets on this chain; empty by default.
+        :return: Complete lead report at the clipped end block, or an unchanged report.
+        """
         end_block = self.clip_end_block_to_available_height(start_block, end_block)
 
         if end_block <= start_block:
@@ -391,6 +404,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             end_block,
             display_progress=display_progress,
             hardcoded_lead_sources=hardcoded_lead_sources,
+            greylist=greylist,
         )
 
     def fetch_leads(self, start_block: int, end_block: int, display_progress=True, attempts=3, retry_sleep=30) -> LeadScanReport:
