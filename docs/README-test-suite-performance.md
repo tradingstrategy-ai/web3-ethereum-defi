@@ -1,8 +1,96 @@
 # Test suite performance plan
 
-Plan to make the test suite leaner and faster **without** removing Anvil
-integration coverage and **without** introducing complex mock/replay paths.
-We keep forking real chains; we stop paying for the same fork many times over.
+Reduce repeated deployments, live data volume and CI setup while retaining
+meaningful real-provider and Anvil integration coverage. Controlled responses
+cover transformation and failure cases; real integrations verify each provider
+path. The dated sections below record earlier decisions, not current acceptance
+results. See the measured October CI status below for the latest implementation.
+
+## Measured CI status (2026-10-05)
+
+The reductions are published in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623).
+At head `35afe950d`, main and vault tests passed with the following elapsed
+pytest times, compared with the previous complete green samples at `733a53b07`:
+
+| Suite | Previous | After reduction | Change |
+|---|---:|---:|---:|
+| Main | 201.86s | 169.41s | 16.1% faster |
+| Vault | 120.72s | 98.63s | 18.3% faster |
+
+The guard matrix's accumulated phases fell 183.42s → 104.50s; main workers now
+accumulated 141.56–146.06s each. Ember liquidity phases fell 40.25s → 20.44s,
+and the serial Ethereum vault group fell 109.93s → 87.86s. Accumulated phase
+times are worker time, not additional elapsed savings. The remaining vault
+workers accumulated approximately 48–54s, so Ethereum still sets that job's
+critical path. Main's Lighter bootstrap case remained around 41s.
+
+Main job duration excluding queue delay fell 335s → 286s and vault fell
+169s → 149s. Main's Aave restore/setup took seven seconds versus 26s in the
+previous cold successful sample, so total job savings also include warm setup.
+Reported main CPU increased 479.60s → 640.61s; vault CPU fell 69.87s → 57.88s.
+These single-run observations establish elapsed gains, not a general CPU or
+cost reduction. Unchanged GMX passed in 187.01s versus 164.00s previously.
+
+The slow workflow failed its unchanged Hyperliquid resume assertion with 54
+fills before and after resume; the same failure reproduced locally. A fixed
+noon cutoff assumed activity in both halves of a rolling day. The follow-up
+fix chooses its cutoff from distinct real fill timestamps in the same bounded
+window, retaining strict new-row, watermark-advancement, preservation and
+no-duplicate assertions. It passed locally in 2.68s; review follow-ups also reopen the database and
+spy on the real provider to assert the exact stored resume watermark and
+insert count. CI acceptance of that fix is pending. An inactive account still fails explicitly rather than being
+silently skipped or triggering a broader historical scan.
+
+## Representative guarded vault lifecycles (2026-10-04)
+
+The main-suite synchronous GuardV0 matrix in
+[`test_guard_simple_vault_standard_erc4626.py`](../tests/guard/test_guard_simple_vault_standard_erc4626.py)
+now contains seven representatives instead of 16 protocol deployments. It keeps
+Euler's generic ERC-4626 manager, Euler Earn's one-unit share remainder,
+AutoPool's custom redemption estimate, D2's funding-phase admission rules,
+IPOR's redemption lock, Plutus' custom deposit estimate and Yearn V3's custom
+manager and redemption dust. Fixed historical blocks, real guarded deposit and
+redemption calls, event analysis and snapshot isolation remain in place.
+
+Dolomite, Fluid, Gearbox, Kiln, Peapods, Royco, Silo, Superform and YO no longer
+repeat this full guarded lifecycle. Their other existing tests are unchanged;
+this deliberately reduces deployment-specific coverage rather than claiming
+that the contracts are interchangeable. Add another representative only when
+it exercises a distinct manager implementation or a known contract quirk.
+Gearbox also overrides its deposit-closure reader; removing its guarded
+lifecycle retires that incidental happy-path coverage. Its separate metadata
+tests do not replace that assertion.
+The separate canonical-fork Guard receiver/owner rejection test is unchanged.
+
+This removes 56% of the matrix cases and reduces its distinct historical fork
+blocks from 12 to seven. These counts describe reduced work; measured elapsed results are recorded
+above. Worker grouping and the other proposed optimisation batches are
+unchanged.
+
+Local validation on 2026-10-04 used the supplied Arbitrum archive configuration:
+the seven retained lifecycles and the separate Guard rejection test passed
+together in 112.87s. The original 16-case matrix exceeded the bounded 180s run
+after 11 passing cases, so there is no complete local before/after percentage.
+The command was `source .local-test.env && timeout 180s poetry run pytest
+tests/guard/test_guard_simple_vault_standard_erc4626.py
+tests/guard/test_guard_standard_erc4626_rejection.py --durations=12 -v`.
+
+## Representative Ember liquidity refusal (2026-10-04)
+
+[`test_ember_operator_liquidity.py`](../tests/erc_4626/vault_protocol/test_ember_operator_liquidity.py)
+now exercises one affected vault instead of two addresses running the same
+deposit, FIFO redemption request and insufficient-liquidity refusal. It retains
+the ``0x9be9294722f8aad37b11a9792be2c782182cafa2`` deployment and removes the
+duplicate ``0x0b9342c15143e8f54a83f887c280a922f4c48771`` lifecycle. The typed
+refusal, redemption direction, queue index and absence of a mined settlement
+transaction are still asserted. Full Ember deposit/redemption coverage and the
+cheap per-address operator checks in `test_ember_deposit_redeem.py` are unchanged.
+The removed case took approximately 20s on the last complete green CI run;
+the subsequent successful vault run was 22.09s faster, as recorded above.
+
+The retained real Ethereum fork case passed locally in 20.53s on 2026-10-04
+using `source .local-test.env && timeout 180s poetry run pytest
+tests/erc_4626/vault_protocol/test_ember_operator_liquidity.py -v --durations=3`.
 
 > **Writing a new fork test?** See `eth_defi/testing/README.md` for the how-to:
 > shared session forks (`anvil_fork_pool`), the per-chain midnight block cache
@@ -30,7 +118,7 @@ We keep forking real chains; we stop paying for the same fork many times over.
   were removed everywhere). Foundry toolchain split from a single stable,
   accumulating `~/.foundry/cache/rpc` cache in `test.yml`, `test-gmx.yml` and
   `test-vault-protocol.yml`; `test.yml` checkout bumped to v4. **Deferred:** the
-  DRY composite action and the submodule/ganache caching (documented below) —
+  DRY composite action and submodule caching (documented below) —
   needs CI iteration.
 - **Lever 3 (vault gating) — DONE (code).** New always-triggered
   `test-vault-protocol.yml` (job-level path skip via `dorny/paths-filter`, weekly
@@ -51,13 +139,14 @@ We keep forking real chains; we stop paying for the same fork many times over.
   (`eth_defi/testing/fork_blocks.py`, `ARBITRUM_MIDNIGHT_BLOCK` = the last block
   at/before 2026-07-24 00:00 UTC — recent enough that the PoC vaults have state,
   fixed and cache-friendly; each vault is validated before normalising its test).
-  **11 read-only Arbitrum characterisation tests** now share one fork via an
+  **11 read-only Arbitrum characterisation modules** shared one fork via an
   `xdist_group("fork:arbitrum:midnight")` marker: `test_goat`, `test_harvest`,
   `test_autopool`, `test_dolomite`, `test_llama_lend`, `test_nashpoint`,
   `test_superform`, `test_truefi`, `test_untangle`, `test_usdai`,
-  `test_yearn_yvault`. They previously forked **five different blocks**
+  `test_yearn_yvault`. These modules previously forked **five different blocks**
   (392M/409M/422M/430M/478M) — normalising them onto one midnight block collapses
-  five-plus cold forks into one.
+  five-plus cold forks into one. The empty Superform module was removed in the
+  October batch; the list is the July inventory.
 
   **Measured locally** (anvil 1.7.1, real Arbitrum archive): a serial run launches
   **one** Anvil for the group (vs one per file); tests co-locate on one worker
@@ -529,8 +618,8 @@ launch-count / revert-count caps and periodic Anvil recycling as a safety valve.
    Keep groups at `(chain, block, config)` granularity so distinct forks still
    spread across workers.
 
-6. **Register the marker.** `pyproject.toml:244` currently registers only `live`
-   and `slow`; add any new marker there to avoid `PytestUnknownMarkWarning`.
+6. **Register custom markers.** Check the current marker list in
+   `pyproject.toml`; xdist registers its own `xdist_group` marker.
 
 ### Acceptance
 
@@ -602,13 +691,14 @@ workflow and dependency caches.
    `test.yml`'s checkout uses `submodules: true`, re-cloning large submodules
    (e.g. `contracts/aave-v3-deploy`) every run. `test.yml` checkout was bumped to
    `actions/checkout@v4` (done); still to do — cache the submodule working trees
-   or fetch only the submodules tests actually need (the workflow notes it only
-   needs `contracts/aave-v3-deploy`). Pair with the existing npm cache (the
+   or fetch only the submodules tests actually need. Both Aave and Lagoon need
+   source/build prerequisites; the old Aave-only comment was incomplete. Pair
+   with the existing npm cache (the
    `Setup Node.js` step) so the Aave npm install is not redone cold.
 
 5. **Cache the remaining per-run installs. (deferred)**
-   - The `Install Ganache` step does `yarn global add ganache` every run — pin the
-     version and cache the global yarn/npm dir, or drop it if unused.
+   - Ganache installation was removed in the October batch after checking its
+     consumers; its direct integration test is unconditionally skipped.
    - The `Cache Lagoon soldeer deps` step is already correct (keyed on lockfiles +
      `restore-keys`) — keep it as the template for lockfile-keyed caches.
 
@@ -623,8 +713,9 @@ workflow and dependency caches.
 - Warm-cache runs restore the Poetry venv from the built-in cache (`poetry
   install` is a near no-op) with no separate venv-cache step.
 - Warm-cache runs show reduced archive RPC traffic and faster fork setup on
-  repeat blocks; the immutable toolchain cache size stays flat while the RPC
-  cache grows and persists across runs (self-warming, no reset).
+  repeat blocks; the immutable toolchain cache size stays flat. CI RPC replies start from the
+  committed seed; new runner-local replies need an intentional seed refresh to
+  become available to future runners.
 - All workflows share one caching approach (ideally via a shared composite
   action once deferred item 6 lands).
 
@@ -731,8 +822,9 @@ bulk sweep.
 
 ### Acceptance
 
-- `@flaky` count drops sharply; every remaining usage carries a network-dependency
-  justification. No net coverage loss; previously-hidden failures are triaged.
+- Remove retries only where evidence shows they hide deterministic failures.
+  Retained retries need a concrete justification; a lower decorator count alone
+  is not an acceptance criterion.
 
 ## Lever 5 — build docs on a schedule, not on every merge
 
@@ -794,28 +886,14 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 - `docs.yml` no longer triggers on push to master; it runs on the Mon/Wed/Sat
   cron and can be launched manually via `workflow_dispatch`.
 
-## Rollout order
+## Remaining rollout
 
-1. **Lever 5** (docs on a Mon/Wed/Sat schedule) — trivial one-file trigger change,
-   immediately removes a per-merge Beefy job.
-2. **Lever 4** (remove flaky from non-network tests) — lowest risk, restores
-   signal quality so the suite can be trusted while optimising.
-3. **Lever 2** (proper CI caching) — CI config only, no test edits. Do it in
-   order of payoff: add the missing Poetry venv cache to `test.yml` and
-   standardise the venv key first (largest cold-run win), then split the Foundry
-   toolchain/RPC caches, then submodule/checkout and the DRY composite action.
-4. **Lever 3** (change-aware vault gating) — only after the always-triggered
-   required-check job and the periodic/full fallback are in place, with the broad
-   path set.
-5. **Lever 1** (session-scoped shared forks) — landed as a **read-only** bounded
-   PoC (two Arbitrum tests normalised onto the midnight block, sharing one
-   fork — validated locally: one Anvil for both, co-located under
-   `--dist loadgroup`), which validates fork-sharing and xdist co-location but
-   **not** the snapshot/revert hang risk.
-   Converting any *mutating* test additionally requires a bounded CI PoC that
-   proves no xdist hang across revert cycles, using the existing
-   `create_anvil_snapshot_state`/`reset_anvil_snapshot` (or
-   `evm_snapshot_revert`) helpers. Only then roll out incrementally.
+The July infrastructure and first October reductions have passed CI. The next
+GMX deployment-sharing batch is validated locally and awaits publication and CI
+measurement. Profile transaction stages in the surviving expensive lifecycle
+tests, and extend compatible baselines only where setup savings outweigh
+serialisation. Submodule/setup caching and a shared setup action remain
+candidates requiring CI measurements. Retain the existing required-check gates.
 
 ## Out of scope
 
@@ -824,3 +902,201 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 - A nightly-only workflow *as the sole home* for vault protocol tests — rejected;
   a scheduled/manual run is retained only as a coverage fallback for Lever 3, not
   as the primary trigger.
+
+
+## October 2026 reduction batch
+
+The detailed audit, coverage map and local observations are in the
+[test suite optimisation plan](../.claude/plans/2026-10-03-test-suite-optimisation.md).
+The implementation consolidates the GMX core checks into two live reads per
+module, bounds the Lighter cycle to one pool per deployment, groups Lagoon flow
+checks and pilots one isolated GMX trading baseline per worker. Independent
+Safe deployment, fee-forwarding and PnL regressions retain their coverage.
+
+All four test workflows attempt to upload JUnit output, complete setup/call/teardown
+JSONL reports and process resource reports, after success or failure; files may be absent if setup fails or a runner is terminated. Each worker
+writes its own timing file so intermediate flaky attempts are included before
+the plugin suppresses terminal reports. To capture a focused local run:
+
+```shell
+source .local-test.env && TEST_TIMINGS_FILE=/tmp/test-timings.jsonl TEST_RESOURCES_DIR=/tmp/test-resources poetry run pytest tests/gmx/test_available_liquidity.py
+```
+
+Timing and resource paths are resolved at session configuration so tests that change the
+working directory cannot divert reports outside the artifact. Timing records
+identify the node, worker, phase, outcome and attempt. Resource
+reports separate process CPU from reaped-child CPU, including Anvil and Forge.
+RSS is a process-lifetime high-water mark, not per-test peak memory or the sum of
+concurrent memory. Live children are excluded. The controller can account for
+reaped workers: do not add its child CPU to the workers' own CPU again.
+
+The slow workflow discovers directly marked modules before invoking pytest.
+Main collection validates the complete pre-deselection item list, including
+marks added by other collection hooks. An indirectly marked module missing from
+discovery fails with an actionable error instead of silently losing CI coverage.
+Keep slow markers explicit when adding tests.
+
+
+Standard and fee-forwarding GMX setups use one parameterised deployment factory.
+The forwarding variant still deploys independently and sets the Safe to zero
+native ETH. Token funding uses `TokenDetails.transfer()` with decimal
+amounts. Strict snapshot mode exposes failed restoration as a teardown error;
+the helper itself does not recycle the process. The GMX trading fixture clears
+its deployment cache and closes the affected process on that failure, so the
+pool relaunches before the next request.
+
+The follow-up batch is published in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623);
+its checks and recommendation comments record CI acceptance and comparisons.
+The complete published head ``d5ee0ddb4`` passed all four test workflows.
+Compared with the recorded master baseline, pytest elapsed was 224.20s for main
+(previously 208.46s), 229.52s for GMX (285.59s), 47.82s for slow (154.11s) and
+117.33s for vault (119.42s). Main became slower; vault was roughly unchanged.
+These single observations and local method-call counts are not suite-wide CPU
+or HTTP/RPC savings.
+
+
+### Next GMX deployment batch (2026-10-03)
+
+Seven PnL payout/NAV scenarios now share three independently scheduled mutable
+deployments, each at the canonical Arbitrum midnight block. The pool's optional
+``isolation_group`` must match the collection-time ``xdist_group`` marker. Keep
+a separate deployment cache per group, strict snapshots and fresh Python
+adapters; the trading group and read-only callers retain separate processes.
+Independent deployment and fee-forwarding tests still deploy independently.
+
+Three overlapping CCXT stop-loss checks become one real create/execute/query/
+cancel lifecycle. Order shape, pending-only dispatch and default-position
+dispatch assertions are retained. Private-fork position reads bypass public
+REST/GraphQL indexers and fork-order tests bypass public Subsquid history, since
+those services cannot index local transactions. The RPC reader and DataStore
+calls remain real; market/oracle APIs and separate provider integrations remain
+live. A focused offline regression covers the actual pending/cache/Subsquid
+history merge and duplicate execution suppression.
+
+Using four workers with ``--dist loadgroup``, the same two integration modules
+fell from 12 tests in 98.45s to 10 tests in 65.77s (33.2% less local elapsed
+time). PnL deployment count falls from seven to three; the displayed accumulated
+PnL setup durations fell from 149.35s to 65.30s, excluding sub-second entries
+pytest suppresses. One shared group passed but took 127.60s because it serialised
+all seven cases; three groups avoid that bottleneck. These are warm local
+observations, not CI or CPU reduction claims. The final combined run including
+both Lagoon modules, cancellation and pool/reader regressions passed 32 tests
+in 100.50s; the additional history-merge regression passed in 0.10s.
+
+
+### Main-suite and unsupported-protocol batch (2026-10-03)
+
+At the user's explicit request, all 15 Ostium cases are skipped with the reason
+``Ostium unsupported after the hack``. This includes the four dedicated
+modules, Ostium-only cases in shared withdrawal/guard/history modules and the
+Ostium parameter in deposit-policy coverage. Gains policy and lifecycle checks
+remain enabled. This deliberately retires unsupported coverage; count it
+separately from optimising retained tests. The integration implementation and
+scanner metadata are unchanged.
+
+Lagoon deployment no longer sleeps for two seconds after each confirmed
+configuration transaction on Anvil. Receipt confirmation, nonce synchronisation
+and live-network propagation delays are retained. Ember's redemption lifecycle
+uses the existing Lagoon factory at its pinned historical block instead of
+compiling a fresh protocol. Its exact share count, ticket sequence and payout
+assertions remain unchanged; the separate Gains lifecycle still exercises
+fresh source deployment.
+
+With two loadgroup workers, the same Ember/Lighter pair passed in 109.13s
+before and 71.76s after (34.2% less local elapsed). Ember call time changed
+102.51s to 65.42s, and Lighter 41.66s to 29.22s. Manual runs used supplied
+Ethereum/Arbitrum RPC providers (redacted). Gains' fresh-protocol lifecycle
+also passed; final focused deployment/policy checks passed six tests with
+15 authorised Ostium skips. These are local elapsed observations, not CI or
+CPU reduction measurements.
+
+Main CI caches Aave's installed dependencies, Solidity artifacts/cache and
+generated TypeChain factories with an exact OS/architecture/Node-version/
+submodule-commit/lockfile key. There are no fallback keys or cached mutable
+deployment records. Node configuration and cache key share one variable;
+lockfile and generated-output checks fail clearly if prerequisites are absent.
+The existing installer still initialises an uncached installation before xdist.
+A partial installation with Hardhat present but missing generated files fails
+the workflow checks; it is not silently treated as complete.
+Only caching ``node_modules`` would omit TypeChain factories loaded by Hardhat
+before deployment. A clean source-tree probe with the restored installation
+loaded Hardhat successfully under Node 18; the warm in-process installer was
+a no-op in 0.001s. CI cache transfer costs and net savings remain unmeasured.
+
+At the end of this batch, checkout narrowing and further Ember transaction-stage
+optimisation remained candidates. The next batch below captures the historical
+seed with CI's pinned binary and measures the remaining receipt delays.
+
+
+### Remaining low-cost optimisations (2026-10-04)
+
+The five follow-up recommendations were investigated locally. Retained GMX
+fork tests reuse one actual token-list response per chain within each test.
+Each caller gets a deep copy; failures propagate without entering the cache,
+and cleanup restores the live reader even when a test raises. Prices remain
+live because local keeper/oracle operations can change them. The profiled PnL
+case made 18 token-list fetches before and one afterwards; time inside the
+provider reader fell from 3.499s to 0.176s. Independent provider integration
+coverage still uses the original endpoint path. The focused PnL, trading,
+cancellation and initial helper checks passed 17 cases in 47.67s with four
+loadgroup workers; exception-cleanup and actual token API checks also passed.
+That combined duration includes earlier deployment optimisations and is not a
+measurement of metadata caching alone.
+
+GMX CI now omits submodule checkout. Its collected tests use committed ABI/
+bytecode and existing fork factories rather than source compilation. Main CI
+retains submodules: Enzyme adapter/guard deployment, fresh Lagoon deployment
+and Aave preparation have source/build dependencies. Narrowing main checkout
+needs a validated cold-run inventory before it can be claimed as a saving.
+
+Ember already had a historical seed; it was not missing. The existing
+24,496,689 seed was refreshed with the official Anvil v1.3.2 Alpine amd64
+release binary, increasing captured accounts from 19 to 34 and storage slots
+from 47 to 61. Cold capture passed in 74.18s; a run seeded from the refreshed
+repository file passed in 65.92s. Profiling identified the remaining delay:
+ten upstream receipt attempts consumed 62.51s. Historical state caching cannot
+remove receipt misses. Only this fork now uses a two-second upstream-attempt
+timeout, allowing one attempt per supplied provider with no backoff and warning
+logs for failover, preserving the automatic proxy's diagnostic policy.
+Initial shorter-timeout checks passed in 12.77s and 13.63s, around 79–81% less local
+elapsed time than the seeded 65.92s baseline. Upstream receipt-attempt time
+fell to 7.54s and 7.93s, including failover attempts. Results depend on the
+configured archive providers; a single URL does not gain multi-provider
+failover. If every provider exceeds the timeout, uncached state or bootstrap
+reads can fail rather than succeed slowly. The comparison has one baseline
+sample; CI may have a different provider order or contention. No CPU or CI
+improvement is inferred from these local timings.
+An additional run starting from the committed seed with no live block cache
+passed in 12.35s. After review prompted preservation of zero backoff, warning
+logs and one attempt per provider, the final policy passed in 10.68s (9.43s
+call time), 83.8% below the single seeded baseline observation.
+
+Aave's four-path cache was measured under CI's Node 18 version. Local cold
+`npm ci`, including its build hook, took 29.77s; creating the approximately
+64.4 MB compressed archive took 1.02s. Restoring into a fresh source tree at
+the same absolute path took 1.23s, the Python installer was a no-op, and a warm
+Hardhat compile took 4.42s with nothing to compile. Moving that tree to a
+different absolute path caused recompilation and took 21.71s, so path stability
+matters. These measurements validate the existing complete-cache approach;
+These were local measurements; the subsequent CI cache restore/setup
+observations are recorded in the measured status above.
+
+This batch was published at `733a53b07`; subsequent CI elapsed and CPU
+observations are recorded above. A safe narrower main checkout remains deferred.
+
+
+### Final simplification and review (2026-10-05)
+
+Ember uses the canonical Ethereum midnight-block constant and an autouse
+snapshot fixture. Guard profile options use explicit keywords, and fixture,
+helper and dataclass documentation follows the repository's Sphinx conventions.
+The seven guarded lifecycles, separate Guard rejection check, Ember liquidity
+refusal and real Hyperliquid resume test passed together: 10 tests in 109.46s.
+A grounded Claude CLI review with `claude-opus-5-5` approved the reductions and
+sampled surrounding helpers. Its resume follow-ups were addressed: the test
+reopens its database, checks the actual provider request starts at the stored
+watermark, checks inserted rows against the count delta and derives its cutoff
+relative to the supplied window. Provider responses remain real. The strengthened resume check passed in
+2.64s and in 2.95s with `TZ=America/New_York`; a second grounded Opus 5.5
+review reported no blocking findings. Final CI is pending at the time of
+this record.

@@ -20,7 +20,7 @@ from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from tests.gmx.conftest import _approve_tokens_for_config, _get_chain_config_with_tokens
-from tests.gmx.fork_helpers import set_balance, setup_mock_oracle
+from eth_defi.gmx.testing import set_balance, setup_mock_oracle
 
 
 def _fund_wallet_on_fork(

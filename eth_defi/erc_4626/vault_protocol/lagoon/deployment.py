@@ -2743,12 +2743,17 @@ def deploy_automated_lagoon_vault(
     beacon_proxy_factory_address = None
     vault_contract = None
 
-    def _broadcast(bound_func: ContractFunction):
-        """Hack together a nonce management helper.
+    def _broadcast(bound_func: ContractFunction) -> HexBytes:
+        """Broadcast and confirm a deployment configuration transaction.
 
-        - Update nonce before broadcast
-        - Broadcast
-        - Check for success
+        Synchronise the signer nonce and wait for a successful receipt. Live
+        providers retain the propagation delay; Anvil needs no additional
+        propagation sleep after the receipt is confirmed.
+
+        :param bound_func:
+            Configuration call bound to the deployed contract.
+        :return:
+            Confirmed transaction hash.
         """
         assert isinstance(bound_func, ContractFunction)
         assert bound_func.args is not None
@@ -2772,8 +2777,10 @@ def deploy_automated_lagoon_vault(
                 logger.warning("Gas estimation failed for %s, using node auto-estimate: %s", bound_func.fn_name, e)
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func, gas_limit=gas_limit)
             assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
-            logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
-            time.sleep(2)
+            # Receipt confirmation already serialises local Anvil writes.
+            if not is_anvil(web3):
+                logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
+                time.sleep(2)
             return tx_hash
         elif isinstance(deployer, LocalAccount):
             # Only for Anvil

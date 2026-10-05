@@ -69,6 +69,8 @@ def test_gains_withdrawal_period_covers_collateralisation_delay(monkeypatch: pyt
     assert period.delay_type is WithdrawalDelayType.delay
 
 
+# 2026-10-03: Ostium is unsupported after the hack.
+@pytest.mark.skip(reason="Ostium unsupported after the hack")
 def test_ostium_v15_withdrawal_period_uses_settlement_configuration() -> None:
     """Ostium V1.5 includes its onchain delay and scheduling interval."""
     vault = object.__new__(OstiumVault)

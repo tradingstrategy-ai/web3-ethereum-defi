@@ -1,5 +1,13 @@
 # 1.2
 
+- perf: Reuse real GMX token metadata within fork tests, omit GMX submodule checkout, refresh Ember's historical cache with CI-pinned Anvil and bound its archive-provider failover (2026-10-04).
+
+- perf: Skip unsupported Ostium tests, avoid Anvil nonce propagation sleeps, use the existing Lagoon factory for Ember lifecycle coverage and cache complete Aave test installations (2026-10-03).
+
+- perf: Share GMX PnL deployments across three isolated groups and consolidate fork stop-loss checks while preserving payout and order-history coverage (2026-10-03).
+
+- perf: Consolidate live GMX data checks, reuse isolated trading baselines, bound scanner work, repair cold disk-cache writes and retain complete CI timing and resource reports (2026-10-03).
+- perf: Reduce test load by removing empty and redundant smoke tests, reusing an existing GMX deployment for wallet checks and bounding live Hyperliquid reconstruction to one day (2026-10-03).
 - fix: Disable broken ForgeYields offchain fetching while preserving cached metadata and recognise YieldBasis and Kinexys synthetic USD valuations in scanner admission and freshness (2026-10-03).
 - fix: Stop all-chain vault scanning of unsupported Hemi, Blast and Mode chains, including price reads and settlement discovery (2026-10-03).
 - fix: Preserve initial vault price observations and Arcus leveraged NAV moves, withhold annualised returns until the requested history is available, publish young-vault sparklines and automatically classify Arcus pToken strategies (2026-10-02).

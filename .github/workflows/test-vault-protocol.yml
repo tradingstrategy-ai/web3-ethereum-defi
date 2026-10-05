@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 15
 
     concurrency:
-      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
       cancel-in-progress: true
 
     strategy:
@@ -109,8 +109,7 @@ jobs:
       # on poetry.lock above), so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
-          poetry install
-          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts -E cloudflare_r2
 
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
@@ -146,7 +145,9 @@ jobs:
         # cap to accommodate slow runs; fix the fork RPC cache / provider speed.
         run: |
           set -o pipefail
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout=300 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
+          export TEST_TIMINGS_FILE=test-timings.jsonl
+          export TEST_RESOURCES_DIR=test-resources
+          poetry run pytest --junitxml=test-results.xml tests/erc_4626/vault_protocol/ --timeout=300 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
         env:
           MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
@@ -193,6 +194,17 @@ jobs:
           else
             echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Upload complete test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: |
+            test-results.xml
+            test-timings*.jsonl
+            test-resources/*.json
+          if-no-files-found: warn
 
   # Always-run gate: this is the job to mark as the required status check.
   # It fails if change detection itself failed (so a broken filter cannot let
