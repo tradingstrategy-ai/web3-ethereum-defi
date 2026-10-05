@@ -19,10 +19,9 @@ from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-EMBER_INSUFFICIENT_LIQUIDITY_VAULTS = (
-    HexAddress("0x9be9294722f8aad37b11a9792be2c782182cafa2"),
-    HexAddress("0x0b9342c15143e8f54a83f887c280a922f4c48771"),
-)
+#: One representative of Ember's insufficient-liquidity refusal path; repeating
+#: this lifecycle at a second address does not exercise another manager branch.
+EMBER_INSUFFICIENT_LIQUIDITY_VAULT: HexAddress = "0x9be9294722f8aad37b11a9792be2c782182cafa2"
 EXPECTED_PENDING_WITHDRAWAL_INDEX = 2
 EMBER_OPERATOR_LIQUIDITY_FORK_BLOCK = 25_598_869
 
@@ -34,7 +33,7 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def ember_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
-    """Share the production-rerun fork where two Ember queues lack liquidity."""
+    """Share the production-rerun fork where the Ember queue lacks liquidity."""
     return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, EMBER_OPERATOR_LIQUIDITY_FORK_BLOCK)
 
 
@@ -46,14 +45,12 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
 
 @pytest.fixture
 def ember_snapshot(ember_fork: AnvilLaunch) -> Iterator[None]:
-    """Restore the shared fork after each affected Ember vault."""
+    """Restore the shared fork after the Ember liquidity lifecycle."""
     yield from evm_snapshot_revert(ember_fork)
 
 
-@pytest.mark.parametrize("vault_address", EMBER_INSUFFICIENT_LIQUIDITY_VAULTS)
 def test_ember_operator_liquidity_refusal_is_typed(
     web3: Web3,
-    vault_address: HexAddress,
     ember_snapshot: None,
 ) -> None:
     """Return a stable refusal before the operator broadcasts an unfunded queue.
@@ -66,7 +63,7 @@ def test_ember_operator_liquidity_refusal_is_typed(
     del ember_snapshot
 
     # 1. Deposit into an affected Ember vault at the production-rerun block.
-    vault = create_vault_instance_autodetect(web3, vault_address)
+    vault = create_vault_instance_autodetect(web3, EMBER_INSUFFICIENT_LIQUIDITY_VAULT)
     assert isinstance(vault, EmberVault)
     manager = vault.get_deposit_manager()
     assert isinstance(manager, EmberDepositManager)

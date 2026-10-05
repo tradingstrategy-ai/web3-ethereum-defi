@@ -6,6 +6,54 @@ cover transformation and failure cases; real integrations verify each provider
 path. The dated sections below record earlier decisions, not current acceptance
 results. See the October status for the latest implementation.
 
+## Representative guarded vault lifecycles (2026-10-04)
+
+The main-suite synchronous GuardV0 matrix in
+[`test_guard_simple_vault_standard_erc4626.py`](../tests/guard/test_guard_simple_vault_standard_erc4626.py)
+now contains seven representatives instead of 16 protocol deployments. It keeps
+Euler's generic ERC-4626 manager, Euler Earn's one-unit share remainder,
+AutoPool's custom redemption estimate, D2's funding-phase admission rules,
+IPOR's redemption lock, Plutus' custom deposit estimate and Yearn V3's custom
+manager and redemption dust. Fixed historical blocks, real guarded deposit and
+redemption calls, event analysis and snapshot isolation remain in place.
+
+Dolomite, Fluid, Gearbox, Kiln, Peapods, Royco, Silo, Superform and YO no longer
+repeat this full guarded lifecycle. Their other existing tests are unchanged;
+this deliberately reduces deployment-specific coverage rather than claiming
+that the contracts are interchangeable. Add another representative only when
+it exercises a distinct manager implementation or a known contract quirk.
+The separate canonical-fork Guard receiver/owner rejection test is unchanged.
+
+This removes 56% of the matrix cases and reduces its distinct historical fork
+blocks from 12 to seven. These counts describe reduced work, not a measured CI
+speedup. Worker grouping and the other proposed optimisation batches are
+unchanged.
+
+Local validation on 2026-10-04 used the supplied Arbitrum archive configuration:
+the seven retained lifecycles and the separate Guard rejection test passed
+together in 112.87s. The original 16-case matrix exceeded the bounded 180s run
+after 11 passing cases, so there is no complete local before/after percentage.
+The command was `source .local-test.env && timeout 180s poetry run pytest
+tests/guard/test_guard_simple_vault_standard_erc4626.py
+tests/guard/test_guard_standard_erc4626_rejection.py --durations=12 -v`.
+
+## Representative Ember liquidity refusal (2026-10-04)
+
+[`test_ember_operator_liquidity.py`](../tests/erc_4626/vault_protocol/test_ember_operator_liquidity.py)
+now exercises one affected vault instead of two addresses running the same
+deposit, FIFO redemption request and insufficient-liquidity refusal. It retains
+the ``0x9be9294722f8aad37b11a9792be2c782182cafa2`` deployment and removes the
+duplicate ``0x0b9342c15143e8f54a83f887c280a922f4c48771`` lifecycle. The typed
+refusal, redemption direction, queue index and absence of a mined settlement
+transaction are still asserted. Full Ember deposit/redemption coverage and the
+cheap per-address operator checks in `test_ember_deposit_redeem.py` are unchanged.
+The removed case took approximately 20s on the last complete green CI run;
+elapsed CI savings have not yet been measured after this reduction.
+
+The retained real Ethereum fork case passed locally in 20.53s on 2026-10-04
+using `source .local-test.env && timeout 180s poetry run pytest
+tests/erc_4626/vault_protocol/test_ember_operator_liquidity.py -v --durations=3`.
+
 > **Writing a new fork test?** See `eth_defi/testing/README.md` for the how-to:
 > shared session forks (`anvil_fork_pool`), the per-chain midnight block cache
 > (`eth_defi/testing/fork_blocks.py`), snapshot/revert isolation, once-per-session
