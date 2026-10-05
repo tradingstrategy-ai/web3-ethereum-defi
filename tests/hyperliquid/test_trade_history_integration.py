@@ -25,12 +25,15 @@ Requires network access to the Hyperliquid API.
 
 import datetime
 import os
+from pathlib import Path
 
 import flaky
 import pytest
+from pytest_mock import MockerFixture
 
 from eth_defi.hyperliquid.api import fetch_portfolio
-from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hyperliquid.position import fetch_vault_fills
+from eth_defi.hyperliquid.session import HyperliquidSession, create_hyperliquid_session
 from eth_defi.hyperliquid.trade_history import (
     fetch_account_funding,
     fetch_account_trade_history,
@@ -171,23 +174,42 @@ def test_sync_fills_idempotent(session, tmp_path):
 
 
 @pytest.mark.timeout(120)
-def test_trade_history_sync_resume(session, tmp_path):
+def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, mocker: MockerFixture) -> None:
     """Verify sync resumes correctly after interruption.
 
-    1. Sync fills with an end_time cutoff (simulates partial sync)
-    2. Re-sync with later end_time
-    3. Verify: old data preserved, new data added, no duplicates, sync_state updated
+    Choose the partial-sync cutoff from real fills in the bounded daily window,
+    rather than assuming the account traded in both halves of that day. Resume
+    without an explicit start time to exercise the stored fill watermark.
+
+    :param session:
+        Live Hyperliquid API session.
+    :param tmp_path:
+        Directory for the file-backed test database.
+    :param mocker:
+        Spy on real API requests without replacing their responses.
+    :return:
+        ``None``; assertions verify new fills, preservation and deduplication.
+
+    .. seealso::
+        `Hyperliquid info endpoint
+        <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`_.
     """
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
 
-        # First sync: narrow window (simulates partial/interrupted sync)
+        # Select a real timestamp with at least one later fill in this window.
+        fill_times = sorted({fill.timestamp_ms for fill in fetch_vault_fills(session, ACTIVE_ACCOUNT, start_time=RECONSTRUCTION_TEST_START, end_time=TEST_END) if fill.trade_id is not None})
+        assert len(fill_times) > 1, "Resume coverage needs fills at two distinct timestamps"
+        cutoff_ms = fill_times[(len(fill_times) - 1) // 2]
+        cutoff = RECONSTRUCTION_TEST_START + datetime.timedelta(milliseconds=cutoff_ms - int(RECONSTRUCTION_TEST_START.timestamp() * 1000))
+
+        # First sync: stop within the observed fills (partial/interrupted sync).
         db.sync_account_fills(
             session,
             ACTIVE_ACCOUNT,
             start_time=RECONSTRUCTION_TEST_START,
-            end_time=RECONSTRUCTION_TEST_START + datetime.timedelta(hours=12),
+            end_time=cutoff,
         )
         db.save()
 
@@ -195,23 +217,29 @@ def test_trade_history_sync_resume(session, tmp_path):
         assert "fills" in first_state
         assert first_state["fills"]["row_count"] > 0, "Initial segment must contain fills"
         first_count = first_state["fills"]["row_count"]
+        assert first_state["fills"]["newest_ts"] <= cutoff_ms
 
         # Read first-run fills for comparison
         first_fills = db.get_fills(ACTIVE_ACCOUNT)
 
-        # Second sync: broader range (resume)
-        db.sync_account_fills(session, ACTIVE_ACCOUNT, end_time=TEST_END)
+        # Reopen the database to prove the watermark survived interruption.
+        db.close()
+        db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
+        assert db.get_sync_state(ACTIVE_ACCOUNT)["fills"] == first_state["fills"]
+
+        # Spy delegates to the real provider; verify resume avoids a full rescan.
+        request_spy = mocker.spy(session, "post_info")
+        inserted_count = db.sync_account_fills(session, ACTIVE_ACCOUNT, end_time=TEST_END)
+        assert request_spy.call_args_list[0].args[0]["startTime"] == first_state["fills"]["newest_ts"]
         db.save()
 
         second_state = db.get_sync_state(ACTIVE_ACCOUNT)
         second_count = second_state["fills"]["row_count"]
 
-        # Should have same or more fills (new data added)
+        # Resume must add fills from the observed later segment.
         assert second_count > first_count, f"Resume must add fills beyond {first_count}, got {second_count}"
 
-        # Full window should have some fills even if the first sub-window was empty
-
-        # Newest timestamp should advance or appear after resume
+        # The persisted fill watermark must advance after resume.
         assert second_state["fills"]["newest_ts"] > first_state["fills"]["newest_ts"]
 
         # Original fills should still be present (no data loss)
@@ -220,7 +248,9 @@ def test_trade_history_sync_resume(session, tmp_path):
         second_trade_ids = {f.trade_id for f in second_fills}
         assert first_trade_ids.issubset(second_trade_ids), "Resume lost fills from first sync"
 
-        # No duplicates: count should equal unique trade_ids
+        # Insert counts must exclude the overlapping watermark fill.
+        assert inserted_count == second_count - first_count
+        assert second_state["fills"]["oldest_ts"] == first_state["fills"]["oldest_ts"]
         assert second_count == len(second_trade_ids), "Duplicate fills detected after resume"
     finally:
         db.close()

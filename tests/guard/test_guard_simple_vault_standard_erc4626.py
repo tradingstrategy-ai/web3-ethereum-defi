@@ -50,12 +50,19 @@ JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 class StandardERC4626Profile:
     """One historical immediate-redemption GuardV0 test case."""
 
+    #: Pytest case identifier.
     name: str
+    #: Historical deployment address.
     vault_address: HexAddress
+    #: Fixed block where the lifecycle can complete.
     fork_block: int
+    #: Expected autodetected adapter.
     vault_type: type[ERC4626Vault]
+    #: Expected share dust after redemption.
     expected_remaining_raw_shares: int = 0
+    #: Whether admission requires funding and redemption phases to overlap.
     requires_simultaneous_funding_and_redemption: bool = False
+    #: Raw denomination balance retained to satisfy admission rules.
     required_remaining_denomination_raw: int = 0
 
 
@@ -76,14 +83,14 @@ PROFILES = (
     # D2 Finance accepts the lifecycle only during its funding phase, before
     # funds are custodied. Its admission rule is strictly greater than one
     # USDC, so retain one raw unit beyond that threshold for redemption too.
-    StandardERC4626Profile("d2_finance", "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004", 387_000_000, D2Vault, 0, True, 1_000_001),
+    StandardERC4626Profile("d2_finance", "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004", 387_000_000, D2Vault, requires_simultaneous_funding_and_redemption=True, required_remaining_denomination_raw=1_000_001),
     StandardERC4626Profile("euler", "0x05d28a86e057364f6ad1a88944297e58fc6160b3", 483_530_654, EulerVault),
-    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault, 1),
+    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault, expected_remaining_raw_shares=1),
     StandardERC4626Profile("ipor", "0x7fbfd8cda97c0221b39c581c34afd24c523a3990", 483_532_955, IPORVault),
     StandardERC4626Profile("plutus", "0xf2ee51a5e7af0f59e27dda070ce79c3c935a2a67", 483_533_532, PlutusVault),
     # This Yearn V3 deployment leaves a deterministic one-unit share remainder
     # after a guarded full redemption at the selected historical block.
-    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault, 1),
+    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault, expected_remaining_raw_shares=1),
 )
 
 pytestmark = [
@@ -96,31 +103,85 @@ pytestmark = [
 
 @pytest.fixture(params=PROFILES, ids=lambda profile: profile.name)
 def profile(request: pytest.FixtureRequest) -> StandardERC4626Profile:
-    """Select one protocol's known-liquid guarded lifecycle state."""
+    """Select one protocol's known-liquid guarded lifecycle state.
+
+    The profile binds the deployment to its known-liquid historical state.
+
+    :param request:
+        Pytest request selecting the parametrised profile.
+
+    :return:
+        Selected historical profile.
+    """
     return request.param
 
 
 @pytest.fixture
 def anvil_fork(profile: StandardERC4626Profile, anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
-    """Return the shared Anvil launch for the selected immutable state."""
+    """Return the shared Anvil launch for the selected immutable state.
+
+    The session pool owns the process; per-test snapshots isolate mutations.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Pooled Anvil launch.
+    """
     return anvil_fork_pool.get_launch(JSON_RPC_ARBITRUM, profile.fork_block)
 
 
 @pytest.fixture
 def web3(profile: StandardERC4626Profile, anvil_fork_pool: AnvilForkPool) -> Web3:
-    """Connect to the selected pooled Arbitrum fork."""
+    """Connect to the selected pooled Arbitrum fork.
+
+    The pool supplies a connection matching the fork used by snapshot isolation.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Connected Web3 instance.
+    """
     return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, profile.fork_block)
 
 
 @pytest.fixture(autouse=True)
 def _evm_snapshot(anvil_fork: AnvilLaunch) -> Iterator[None]:
-    """Restore the selected pooled fork after every mutating protocol test."""
+    """Restore the selected pooled fork after every mutating protocol test.
+
+    Bracket the complete mutating lifecycle so later tests see the original fork state.
+
+    :param anvil_fork:
+        Pooled fork restored after the test.
+
+    :return:
+        Iterator yielding once before reverting the test mutations.
+    """
     yield from evm_snapshot_revert(anvil_fork)
 
 
 @pytest.fixture
 def protocol_vault(web3: Web3, profile: StandardERC4626Profile) -> ERC4626Vault:
-    """Open and type-check the protocol-specific ERC-4626 deployment."""
+    """Open and type-check the protocol-specific ERC-4626 deployment.
+
+    Autodetection must preserve the adapter selected for this representative.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :return:
+        Protocol-specific ERC-4626 vault adapter.
+    """
     vault = create_vault_instance_autodetect(web3, profile.vault_address)
     assert isinstance(vault, profile.vault_type)
     return vault
@@ -128,7 +189,19 @@ def protocol_vault(web3: Web3, profile: StandardERC4626Profile) -> ERC4626Vault:
 
 @pytest.fixture
 def guarded_simple_vault(web3: Web3, protocol_vault: ERC4626Vault) -> tuple[Contract, Contract, HotWallet]:
-    """Deploy a SimpleVaultV0 and allow its standard ERC-4626 call surface."""
+    """Deploy a SimpleVaultV0 and allow its standard ERC-4626 call surface.
+
+    Use a separate funded asset manager to exercise the guard independently of ownership.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param protocol_vault:
+        Detected protocol adapter for the selected deployment.
+
+    :return:
+        Simple vault, guard and asset-manager wallet.
+    """
     deployer = HotWallet(Account.create())
     asset_manager = HotWallet(Account.create())
     set_balance(web3, deployer.address, Web3.to_wei(10, "ether"))
@@ -146,7 +219,25 @@ def guarded_simple_vault(web3: Web3, protocol_vault: ERC4626Vault) -> tuple[Cont
 
 
 def _broadcast(web3: Web3, control: HotWallet, func: ContractFunction, gas: int = 2_000_000) -> HexBytes:
-    """Broadcast a generously gas-limited transaction from the Anvil control wallet."""
+    """Broadcast a generously gas-limited transaction from the Anvil control wallet.
+
+    Use the wallet nonce tracker and explicit gas so the test checks the mined result.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param control:
+        Wallet signing the transaction.
+
+    :param func:
+        Bound contract call to encode and execute.
+
+    :param gas:
+        Gas limit for the signed transaction.
+
+    :return:
+        Broadcast transaction hash.
+    """
     signed = control.sign_bound_call_with_new_nonce(func, {"gas": gas}, web3=web3, fill_gas_price=True)
     return web3.eth.send_raw_transaction(signed.rawTransaction)
 
@@ -157,7 +248,25 @@ def _perform_guarded_call(
     control: HotWallet,
     func: ContractFunction,
 ) -> HexBytes:
-    """Execute one manager-generated call through SimpleVaultV0 and GuardV0."""
+    """Execute one manager-generated call through SimpleVaultV0 and GuardV0.
+
+    Route the encoded manager transaction through the vault and assert its receipt succeeded.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param simple_vault:
+        SimpleVaultV0 executing manager calls through GuardV0.
+
+    :param control:
+        Wallet signing the transaction.
+
+    :param func:
+        Bound contract call to encode and execute.
+
+    :return:
+        Successful transaction hash.
+    """
     target, call_data = encode_simple_vault_transaction(func)
     tx_hash = _broadcast(web3, control, simple_vault.functions.performCall(target, call_data))
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -170,7 +279,25 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
     protocol_vault: ERC4626Vault,
     guarded_simple_vault: tuple[Contract, Contract, HotWallet],
 ) -> None:
-    """Execute every synchronous manager phase through GuardV0."""
+    """Execute every synchronous manager phase through GuardV0.
+
+    Retained representatives exercise distinct manager or contract quirks with real approvals, deposits, event analysis and redemptions.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param protocol_vault:
+        Detected protocol adapter for the selected deployment.
+
+    :param guarded_simple_vault:
+        Configured SimpleVaultV0, its guard and asset-manager wallet.
+
+    :return:
+        ``None``; assertions verify the guarded lifecycle.
+    """
     simple_vault, guard, control = guarded_simple_vault
     manager = protocol_vault.get_deposit_manager()
     assert isinstance(manager, ERC4626DepositManager)

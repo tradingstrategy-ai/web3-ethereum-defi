@@ -462,7 +462,7 @@ cases in 100.50s with no retry attempts. The history-merge check passed in
 0.10s. Manual tests used the supplied Arbitrum RPC fallback providers
 (redacted), live GMX market/oracle APIs and actual Anvil keeper execution.
 
-This batch is local until published; its CI improvement remains unmeasured.
+At this stage the batch was local; the publication and measured CI status below supersede that observation.
 Next candidates are the main-suite Ember redemption, Lighter settlement-budget
 and Ostium transaction stages, plus CI checkout/Aave preparation. Preserve
 those distinct lifecycle and budget/security assertions; profile stages before
@@ -524,7 +524,7 @@ Checkout narrowing remains deferred until a complete source/build prerequisite
 inventory exists. A new Ember historical seed also requires capture with CI's
 pinned Anvil 1.3.2, not the local 1.7.1-dev binary. Keep elapsed, CPU, total job
 preparation and intentional coverage retirement separate in the next CI report.
-The new batches remain local until publication; CI impact is pending.
+These batches were subsequently published at `733a53b07`; see the latest measured status below.
 
 
 Two grounded read-only Opus 5.5 reviews completed successfully. The final
@@ -579,7 +579,7 @@ seed provenance. It identified that an explicit proxy config must preserve the
 automatic policy's zero backoff and warning logging; these were restored, with
 one attempt per usable provider. All-slow providers can now fail uncached state
 reads instead of succeeding slowly; the local comparison has one baseline
-sample. No tests were removed in this batch; all changes remain local.
+sample. No tests were removed in this batch; it was subsequently published at `733a53b07`.
 An additional full lifecycle starting from the committed seed with no live
 block cache passed in 12.35s. After restoring the automatic proxy's diagnostic
 and zero-backoff policy, the final full lifecycle passed in 10.68s (9.43s call),
@@ -589,3 +589,40 @@ The grounded Opus 5.5 follow-up approved the code policy. Its timing-label
 finding was addressed by distinguishing the initial timeout probes from the
 final 10.68s policy result, and endpoint splitting now exactly matches launch.
 Ruff, workflow YAML and whitespace checks passed; no remote changes were made.
+
+
+## Published representative coverage and CI status (2026-10-05)
+
+Head `35afe950d` reduced the guarded synchronous lifecycle matrix from 16 to
+seven representatives and removed one duplicate Ember liquidity refusal.
+Main passed 2,847 tests in 169.41s versus 201.86s in the previous complete green
+sample; vault passed 607 in 98.63s versus 120.72s. These are 16.1% and 18.3%
+elapsed improvements. Main CPU increased, so do not infer overall CPU savings.
+The guard matrix accumulated 104.50s versus 183.42s and main workers are now
+balanced; Ethereum vault work still accumulated 87.86s versus 48–54s peers.
+See [the performance guide](../../docs/README-test-suite-performance.md) for
+coverage choices, timing boundaries and the remaining bottlenecks.
+
+Unchanged slow CI failed the Hyperliquid resume test because all daily fills
+preceded its fixed noon cutoff. The failure reproduced locally. The follow-up
+uses real observed fill timestamps to choose the partial-sync boundary while
+retaining strict added-row, watermark, preservation and deduplication checks.
+A focused real-provider run passed in 2.68s; final CI acceptance is pending.
+
+
+### Final review follow-ups
+
+Claude CLI Opus 5.5 completed a grounded review of the reductions, simplification
+and sampled fork/cache helpers. Resume now reopens the database and spies on
+real API calls to verify the exact stored watermark is used; inserted-count and
+oldest-timestamp assertions distinguish correct resume from a deduplicated full
+rescan. The cutoff uses the same datetime conversion as the bounded window.
+Ten focused real integration checks passed together in 109.46s before these
+resume-only strengthening checks. Gearbox's overridden deposit-closure reader
+loses incidental happy-path coverage with its retired guarded lifecycle; this
+is an explicitly accepted deployment-coverage trade-off, not equivalence of
+all removed contracts. Final CI acceptance is pending.
+
+The strengthened resume test passed against the real provider in 2.64s and
+in 2.95s with `TZ=America/New_York`. A final grounded Claude CLI Opus 5.5
+follow-up returned no blocking findings.

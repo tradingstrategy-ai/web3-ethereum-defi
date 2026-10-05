@@ -14,6 +14,7 @@ from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation
 
@@ -23,7 +24,6 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 #: this lifecycle at a second address does not exercise another manager branch.
 EMBER_INSUFFICIENT_LIQUIDITY_VAULT: HexAddress = "0x9be9294722f8aad37b11a9792be2c782182cafa2"
 EXPECTED_PENDING_WITHDRAWAL_INDEX = 2
-EMBER_OPERATOR_LIQUIDITY_FORK_BLOCK = 25_598_869
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
@@ -33,25 +33,51 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def ember_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
-    """Share the production-rerun fork where the Ember queue lacks liquidity."""
-    return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, EMBER_OPERATOR_LIQUIDITY_FORK_BLOCK)
+    """Share the production-rerun fork where the Ember queue lacks liquidity.
+
+    Use the canonical midnight state and group shared with other Ethereum tests.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Pooled Anvil launch.
+    """
+    return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
 
 
 @pytest.fixture(scope="module")
 def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
-    """Connect to the shared Ember liquidity fork."""
-    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, EMBER_OPERATOR_LIQUIDITY_FORK_BLOCK)
+    """Connect to the shared Ember liquidity fork.
+
+    The pool supplies a connection matching the fork used by snapshot isolation.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Connected Web3 instance.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
 
 
-@pytest.fixture
-def ember_snapshot(ember_fork: AnvilLaunch) -> Iterator[None]:
-    """Restore the shared fork after the Ember liquidity lifecycle."""
+@pytest.fixture(autouse=True)
+def _ember_snapshot(ember_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the shared fork after the Ember liquidity lifecycle.
+
+    Bracket the mutating deposit and queue operations so other fork consumers remain isolated.
+
+    :param ember_fork:
+        Pooled Ethereum fork restored after the test.
+
+    :return:
+        Iterator yielding once before reverting the test mutations.
+    """
     yield from evm_snapshot_revert(ember_fork)
 
 
 def test_ember_operator_liquidity_refusal_is_typed(
     web3: Web3,
-    ember_snapshot: None,
 ) -> None:
     """Return a stable refusal before the operator broadcasts an unfunded queue.
 
@@ -59,9 +85,12 @@ def test_ember_operator_liquidity_refusal_is_typed(
     2. Queue all newly minted shares behind the existing FIFO requests.
     3. Assert settlement reports insufficient operator liquidity without mining
        a reverted processing transaction.
-    """
-    del ember_snapshot
 
+    :param web3:
+        Web3 connection to the isolated Ethereum fork.
+    :return:
+        ``None``; assertions verify typed refusal without a mined transaction.
+    """
     # 1. Deposit into an affected Ember vault at the production-rerun block.
     vault = create_vault_instance_autodetect(web3, EMBER_INSUFFICIENT_LIQUIDITY_VAULT)
     assert isinstance(vault, EmberVault)

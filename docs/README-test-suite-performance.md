@@ -4,7 +4,42 @@ Reduce repeated deployments, live data volume and CI setup while retaining
 meaningful real-provider and Anvil integration coverage. Controlled responses
 cover transformation and failure cases; real integrations verify each provider
 path. The dated sections below record earlier decisions, not current acceptance
-results. See the October status for the latest implementation.
+results. See the measured October CI status below for the latest implementation.
+
+## Measured CI status (2026-10-05)
+
+The reductions are published in [PR #1623](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1623).
+At head `35afe950d`, main and vault tests passed with the following elapsed
+pytest times, compared with the previous complete green samples at `733a53b07`:
+
+| Suite | Previous | After reduction | Change |
+|---|---:|---:|---:|
+| Main | 201.86s | 169.41s | 16.1% faster |
+| Vault | 120.72s | 98.63s | 18.3% faster |
+
+The guard matrix's accumulated phases fell 183.42s → 104.50s; main workers now
+accumulated 141.56–146.06s each. Ember liquidity phases fell 40.25s → 20.44s,
+and the serial Ethereum vault group fell 109.93s → 87.86s. Accumulated phase
+times are worker time, not additional elapsed savings. The remaining vault
+workers accumulated approximately 48–54s, so Ethereum still sets that job's
+critical path. Main's Lighter bootstrap case remained around 41s.
+
+Main job duration excluding queue delay fell 335s → 286s and vault fell
+169s → 149s. Main's Aave restore/setup took seven seconds versus 26s in the
+previous cold successful sample, so total job savings also include warm setup.
+Reported main CPU increased 479.60s → 640.61s; vault CPU fell 69.87s → 57.88s.
+These single-run observations establish elapsed gains, not a general CPU or
+cost reduction. Unchanged GMX passed in 187.01s versus 164.00s previously.
+
+The slow workflow failed its unchanged Hyperliquid resume assertion with 54
+fills before and after resume; the same failure reproduced locally. A fixed
+noon cutoff assumed activity in both halves of a rolling day. The follow-up
+fix chooses its cutoff from distinct real fill timestamps in the same bounded
+window, retaining strict new-row, watermark-advancement, preservation and
+no-duplicate assertions. It passed locally in 2.68s; review follow-ups also reopen the database and
+spy on the real provider to assert the exact stored resume watermark and
+insert count. CI acceptance of that fix is pending. An inactive account still fails explicitly rather than being
+silently skipped or triggering a broader historical scan.
 
 ## Representative guarded vault lifecycles (2026-10-04)
 
@@ -22,11 +57,14 @@ repeat this full guarded lifecycle. Their other existing tests are unchanged;
 this deliberately reduces deployment-specific coverage rather than claiming
 that the contracts are interchangeable. Add another representative only when
 it exercises a distinct manager implementation or a known contract quirk.
+Gearbox also overrides its deposit-closure reader; removing its guarded
+lifecycle retires that incidental happy-path coverage. Its separate metadata
+tests do not replace that assertion.
 The separate canonical-fork Guard receiver/owner rejection test is unchanged.
 
 This removes 56% of the matrix cases and reduces its distinct historical fork
-blocks from 12 to seven. These counts describe reduced work, not a measured CI
-speedup. Worker grouping and the other proposed optimisation batches are
+blocks from 12 to seven. These counts describe reduced work; measured elapsed results are recorded
+above. Worker grouping and the other proposed optimisation batches are
 unchanged.
 
 Local validation on 2026-10-04 used the supplied Arbitrum archive configuration:
@@ -48,7 +86,7 @@ refusal, redemption direction, queue index and absence of a mined settlement
 transaction are still asserted. Full Ember deposit/redemption coverage and the
 cheap per-address operator checks in `test_ember_deposit_redeem.py` are unchanged.
 The removed case took approximately 20s on the last complete green CI run;
-elapsed CI savings have not yet been measured after this reduction.
+the subsequent successful vault run was 22.09s faster, as recorded above.
 
 The retained real Ethereum fork case passed locally in 20.53s on 2026-10-04
 using `source .local-test.env && timeout 180s poetry run pytest
@@ -1040,7 +1078,25 @@ the same absolute path took 1.23s, the Python installer was a no-op, and a warm
 Hardhat compile took 4.42s with nothing to compile. Moving that tree to a
 different absolute path caused recompilation and took 21.71s, so path stability
 matters. These measurements validate the existing complete-cache approach;
-GitHub cache transfer costs and net job savings remain unmeasured.
+These were local measurements; the subsequent CI cache restore/setup
+observations are recorded in the measured status above.
 
-All changes in this batch remain local. CPU attribution, CI wall-clock impact
-and a safe narrower main checkout remain follow-up measurements.
+This batch was published at `733a53b07`; subsequent CI elapsed and CPU
+observations are recorded above. A safe narrower main checkout remains deferred.
+
+
+### Final simplification and review (2026-10-05)
+
+Ember uses the canonical Ethereum midnight-block constant and an autouse
+snapshot fixture. Guard profile options use explicit keywords, and fixture,
+helper and dataclass documentation follows the repository's Sphinx conventions.
+The seven guarded lifecycles, separate Guard rejection check, Ember liquidity
+refusal and real Hyperliquid resume test passed together: 10 tests in 109.46s.
+A grounded Claude CLI review with `claude-opus-5-5` approved the reductions and
+sampled surrounding helpers. Its resume follow-ups were addressed: the test
+reopens its database, checks the actual provider request starts at the stored
+watermark, checks inserted rows against the count delta and derives its cutoff
+relative to the supplied window. Provider responses remain real. The strengthened resume check passed in
+2.64s and in 2.95s with `TZ=America/New_York`; a second grounded Opus 5.5
+review reported no blocking findings. Final CI is pending at the time of
+this record.
