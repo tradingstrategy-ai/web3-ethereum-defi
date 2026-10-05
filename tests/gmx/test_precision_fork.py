@@ -26,7 +26,7 @@ from eth_defi.gmx.precision import (
     cap_size_delta_to_position,
     is_raw_usd_amount,
 )
-from tests.gmx.fork_helpers import (
+from eth_defi.gmx.testing import (
     execute_order_as_keeper,
     extract_order_key_from_receipt,
     fetch_on_chain_oracle_prices,

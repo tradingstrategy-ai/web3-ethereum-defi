@@ -9,19 +9,45 @@ Lifecycle tested:
 2. Execute the position order as keeper (SL stays pending in DataStore).
 3. ``fetch_orders()`` returns the pending SL as a CCXT order dict.
 4. ``cancel_order(sl_key_hex)`` cancels the SL.
-5. ``fetch_orders()`` returns an empty list.
+5. No pending SL remains; cached completed orders may still be returned.
 """
+
+from collections.abc import Iterator
+from unittest.mock import patch
 
 import pytest
 from ccxt.base.errors import OrderNotFound
-from flaky import flaky
+from eth_typing import HexAddress
+from web3 import Web3
+from web3.types import TxReceipt
 
 from eth_defi.gmx.ccxt.exchange import GMX
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt
+from eth_defi.testing.gmx_lagoon import gmx_fork_position_reads, gmx_fork_token_metadata
 
 
-def _execute_order(web3, tx_hash: str, refund_address: str | None = None) -> dict:
+@pytest.fixture(autouse=True)
+def _fork_local_order_reads(ccxt_gmx_fork_open_close: GMX) -> Iterator[None]:
+    """Keep fork order assertions independent of public indexed history.
+
+    Local fork orders/positions are read from real DataStore/Reader contracts.
+    Public Subsquid history cannot include these private transactions; separate
+    provider and recovery tests cover indexed histories.
+
+    :param ccxt_gmx_fork_open_close:
+        Actual funded CCXT exchange connected to the private fork.
+    :return:
+        Context restoring indexer methods after each test.
+    """
+    with gmx_fork_token_metadata(), gmx_fork_position_reads(), patch.object(ccxt_gmx_fork_open_close.subsquid, "get_position_changes", return_value=[]):
+        yield
+
+
+def _execute_order(web3: Web3, tx_hash: str, refund_address: HexAddress | None = None) -> TxReceipt:
     """Execute a GMX order as keeper given a creation transaction hash.
+
+    Execute the submitted order through real keeper contract calls, then restore
+    optional gas funding for the next wallet transaction.
 
     :param web3:
         Web3 instance connected to the Anvil fork.
@@ -46,74 +72,25 @@ def _execute_order(web3, tx_hash: str, refund_address: str | None = None) -> dic
     return exec_receipt
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_ccxt_fetch_orders_after_sl_creation(
-    ccxt_gmx_fork_open_close: GMX,
-    web3_arbitrum_fork_ccxt_long,
-    execution_buffer: int,
-):
-    """fetch_orders() returns the pending SL order after a bundled open+SL transaction.
-
-    Opens an ETH long with a bundled stop-loss, executes the position order via
-    keeper (leaving the SL order pending), then verifies that ``fetch_orders()``
-    returns it with the correct CCXT structure.
-    """
-    gmx = ccxt_gmx_fork_open_close
-    web3 = web3_arbitrum_fork_ccxt_long
-    symbol = "ETH/USDC:USDC"
-
-    # Open position with bundled SL; SL order is created in the same tx
-    order = gmx.create_market_buy_order(
-        symbol,
-        0,
-        {
-            "size_usd": 10.0,
-            "leverage": 2.5,
-            "collateral_symbol": "ETH",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-            "wait_for_execution": False,
-            "stopLoss": {
-                "triggerPercent": 0.05,
-                "closePercent": 1.0,
-            },
-        },
-    )
-
-    assert order is not None
-    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
-    assert tx_hash is not None, "Order must have a transaction hash"
-
-    # Execute the main (market increase) order via keeper.
-    # The SL order stays pending in the DataStore.
-    _execute_order(web3, tx_hash)
-
-    # fetch_orders() should now return the pending SL
-    pending = gmx.fetch_orders(symbol=symbol)
-    assert len(pending) >= 1, f"Expected at least 1 pending order, got {len(pending)}"
-
-    sl = pending[0]
-    assert sl.get("status") == "open", "Pending order must have status='open'"
-    assert sl.get("id") is not None, "Pending order must have an id (order key hex)"
-    assert sl.get("type") == "stopLoss", f"Expected type='stopLoss', got {sl.get('type')!r}"
-    assert sl.get("side") == "buy", "Long SL order must have side='buy'"
-    assert sl.get("price", 0) > 0, "SL trigger price must be non-zero"
-
-    info = sl.get("info", {})
-    assert info.get("order_key") is not None, "info.order_key must be set"
-    assert info.get("is_long") is True, "SL order must be for a long position"
-
-
-@flaky(max_runs=3, min_passes=1)
 def test_ccxt_cancel_order_lifecycle(
     ccxt_gmx_fork_open_close: GMX,
-    web3_arbitrum_fork_ccxt_long,
+    web3_arbitrum_fork_ccxt_long: Web3,
     execution_buffer: int,
-):
-    """Full lifecycle: open + SL → fetch_orders → cancel_order → fetch_orders empty.
+) -> None:
+    """Full lifecycle: open + SL → fetch_orders → cancel_order → no pending SL.
 
     Verifies that the CCXT cancel_order() correctly cancels a pending SL order
-    and that subsequent fetch_orders() no longer returns it.
+    and that subsequent fetch_orders() no longer returns it. Reuse the same
+    transaction for order-shape and position-versus-pending dispatch coverage.
+
+    :param ccxt_gmx_fork_open_close:
+        Funded exchange adapter on the private fork.
+    :param web3_arbitrum_fork_ccxt_long:
+        Chain connection used for keeper execution.
+    :param execution_buffer:
+        Execution-fee buffer for the bundled orders.
+    :return:
+        None; assertions cover the full order lifecycle.
     """
     gmx = ccxt_gmx_fork_open_close
     web3 = web3_arbitrum_fork_ccxt_long
@@ -149,11 +126,28 @@ def test_ccxt_cancel_order_lifecycle(
     gmx.wallet.sync_nonce(web3)
 
     # Step 3: Get the pending SL order via fetch_orders
-    pending = gmx.fetch_orders(symbol=symbol)
-    assert len(pending) >= 1, f"Expected pending SL order, got {len(pending)} orders"
+    pending = [order for order in gmx.fetch_orders(symbol=symbol) if order["status"] == "open"]
+    assert len(pending) == 1, f"Expected exactly one pending SL, got {len(pending)} orders"
 
-    sl_order = pending[0]
-    sl_key_hex = sl_order["id"]
+    # Preserve order-shape coverage in the actual cancellation lifecycle.
+    sl = pending[0]
+    assert sl.get("status") == "open", "Pending order must have status='open'"
+    assert sl.get("id") is not None, "Pending order must have an id (order key hex)"
+    assert sl.get("type") == "stopLoss", f"Expected type='stopLoss', got {sl.get('type')!r}"
+    assert sl.get("side") == "buy", "Long SL order must have side='buy'"
+    assert sl.get("price", 0) > 0, "SL trigger price must be non-zero"
+
+    info = sl.get("info", {})
+    assert info.get("order_key") is not None, "info.order_key must be set"
+    assert info.get("is_long") is True, "SL order must be for a long position"
+
+    pending_only = gmx.fetch_open_orders(symbol=symbol, params={"pending_orders_only": True})
+    assert {order["id"] for order in pending_only} == {order["id"] for order in pending}
+    positions = gmx.fetch_open_orders(symbol=symbol)
+    assert len(positions) == 1, "Default fetch_open_orders must return exactly the opened position"
+    assert all(order.get("type") != "stopLoss" for order in positions)
+
+    sl_key_hex = sl["id"]
     assert sl_key_hex.startswith("0x"), "Order key must be '0x'-prefixed hex"
 
     # Step 4: Cancel the SL order via CCXT interface
@@ -163,61 +157,23 @@ def test_ccxt_cancel_order_lifecycle(
     assert cancel_result["info"].get("tx_hash") is not None, "Cancel result must include tx_hash"
 
     # Step 5: Verify the order is gone
-    pending_after = gmx.fetch_orders(symbol=symbol)
-    cancelled_keys = [o["id"] for o in pending_after]
-    assert sl_key_hex not in cancelled_keys, f"Cancelled SL key {sl_key_hex[:18]}… must not appear in fetch_orders() after cancellation"
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_ccxt_fetch_open_orders_pending_only(
-    ccxt_gmx_fork_open_close: GMX,
-    web3_arbitrum_fork_ccxt_long,
-    execution_buffer: int,
-):
-    """fetch_open_orders(params={'pending_orders_only': True}) returns the pending SL order."""
-    gmx = ccxt_gmx_fork_open_close
-    web3 = web3_arbitrum_fork_ccxt_long
-    symbol = "ETH/USDC:USDC"
-
-    # Open position with bundled SL
-    order = gmx.create_market_buy_order(
-        symbol,
-        0,
-        {
-            "size_usd": 10.0,
-            "leverage": 2.5,
-            "collateral_symbol": "ETH",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-            "wait_for_execution": False,
-            "stopLoss": {
-                "triggerPercent": 0.05,
-                "closePercent": 1.0,
-            },
-        },
-    )
-
-    assert order is not None
-    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
-    _execute_order(web3, tx_hash)
-
-    # fetch_open_orders with pending_orders_only must return the SL
-    pending = gmx.fetch_open_orders(symbol=symbol, params={"pending_orders_only": True})
-    assert len(pending) >= 1, "fetch_open_orders(pending_orders_only=True) must return the SL"
-
-    # Default fetch_open_orders must return positions (not pending orders)
-    positions_as_orders = gmx.fetch_open_orders(symbol=symbol)
-    # The position was opened, so default mode should show it
-    assert len(positions_as_orders) >= 1, "Default fetch_open_orders must return open positions"
-    # None of the default orders should be stop_loss typed
-    for o in positions_as_orders:
-        assert o.get("type") != "stopLoss", "Default fetch_open_orders must not return SL orders"
+    assert gmx.fetch_open_orders(symbol=symbol, params={"pending_orders_only": True}) == []
+    assert all(order["id"] != sl_key_hex or order["status"] != "open" for order in gmx.fetch_orders(symbol=symbol))
 
 
 def test_ccxt_cancel_nonexistent_order(
     ccxt_gmx_fork_open_close: GMX,
-):
-    """cancel_order() raises OrderNotFound for a key not in the DataStore."""
+) -> None:
+    """Raise ``OrderNotFound`` for a key absent from the real DataStore.
+
+    A well-formed fabricated key exercises missing-order handling without
+    creating another position.
+
+    :param ccxt_gmx_fork_open_close:
+        Funded exchange adapter on the private fork.
+    :return:
+        None; the expected exception is asserted.
+    """
     gmx = ccxt_gmx_fork_open_close
 
     # Fabricate a well-formed but non-existent order key
@@ -229,8 +185,16 @@ def test_ccxt_cancel_nonexistent_order(
 
 def test_ccxt_fetch_orders_empty_account(
     ccxt_gmx_fork_open_close: GMX,
-):
-    """fetch_orders() returns an empty list when there are no pending limit orders."""
+) -> None:
+    """Return no orders for an account without pending orders.
+
+    Read the real DataStore for a funded account before it creates any order.
+
+    :param ccxt_gmx_fork_open_close:
+        Funded exchange adapter on the private fork.
+    :return:
+        None; empty-account behaviour is asserted.
+    """
     gmx = ccxt_gmx_fork_open_close
 
     # No orders have been created yet, so this must be empty

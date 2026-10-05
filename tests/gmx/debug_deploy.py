@@ -56,7 +56,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import extract_order_key_from_receipt, set_next_block_timestamp, mine_block
+from eth_defi.gmx.testing import extract_order_key_from_receipt, set_next_block_timestamp, mine_block
 import logging
 from rich.logging import RichHandler
 from pathlib import Path

@@ -20,6 +20,8 @@ from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 CI = os.environ.get("CI") == "true"
 pytestmark = [
+    # 2026-10-03: Ostium is unsupported after the hack.
+    pytest.mark.skip(reason="Ostium unsupported after the hack"),
     pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
     pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
 ]

@@ -9,7 +9,7 @@ from flaky import flaky
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from tests.gmx.ccxt.test_ccxt_trading import _execute_order
-from tests.gmx.fork_helpers import get_mock_oracle_price
+from eth_defi.gmx.testing import get_mock_oracle_price
 
 
 @flaky(max_runs=3, min_passes=1)

@@ -15,7 +15,7 @@ from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
 
 
 def test_initialization(trading_manager_fork):

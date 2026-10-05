@@ -36,10 +36,12 @@ from collections.abc import Iterator
 
 from web3 import HTTPProvider, Web3
 
+from eth_defi.provider.anvil import AnvilLaunch
+
 logger = logging.getLogger(__name__)
 
 
-def evm_snapshot_revert(fork) -> Iterator[None]:
+def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Iterator[None]:
     """Snapshot EVM state before, revert after — generator helper for autouse fixtures.
 
     Yields once after taking the snapshot, then reverts on resume. Designed to
@@ -48,23 +50,28 @@ def evm_snapshot_revert(fork) -> Iterator[None]:
     module-scope Anvil fork.
 
     :param fork:
-        Object with a ``json_rpc_url`` attribute, typically
+        JSON-RPC URL string or an object with a ``json_rpc_url`` attribute, typically
         :class:`~eth_defi.provider.anvil.AnvilLaunch`. The fixture that yields
         ``fork`` should itself be ``scope="module"`` or ``scope="session"`` —
         otherwise the snapshot/revert dance buys nothing.
+
+    :param strict:
+        Fail fixture teardown if the snapshot cannot be reverted, exposing lost
+        isolation. This does not dispose of the fork or stop later tests; callers
+        must recover or discard a damaged fork. The default logs a warning.
 
     :return:
         Generator yielding ``None`` once, then performing the revert on resume.
 
     :raises RuntimeError:
-        If the ``evm_snapshot`` RPC call returns a non-result (e.g. an older
+        If strict revert fails, or the ``evm_snapshot`` RPC call returns a non-result (e.g. an older
         Anvil build or a non-Anvil backend snuck in via a different fixture).
 
     .. note::
 
-        ``evm_revert`` restores EVM state and storage but **does not** reset
-        block timestamp. Tests asserting on ``block.timestamp == X`` must call
-        ``evm_setNextBlockTimestamp`` themselves.
+        Snapshot behaviour depends on the backend. Tests requiring an exact
+        timestamp for the next mined block should set it explicitly with
+        ``evm_setNextBlockTimestamp`` after restoring their baseline.
 
     .. seealso::
 
@@ -85,4 +92,7 @@ def evm_snapshot_revert(fork) -> Iterator[None]:
         revert_response = web3.provider.make_request("evm_revert", [snap_id])
         ok = revert_response.get("result")
         if ok is not True:
+            if strict:
+                message = f"evm_revert failed for snapshot {snap_id}: {revert_response}"
+                raise RuntimeError(message)
             logger.warning("evm_revert returned %s for snap %s", revert_response, snap_id)

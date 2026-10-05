@@ -33,7 +33,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt
+from eth_defi.gmx.testing import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt
 from rich.console import Console
 from ccxt.base.errors import NotSupported, OrderNotFound
 

@@ -282,7 +282,13 @@ Design notes:
   all tests marked with the same ``xdist_group`` to one worker, and pytest
   session scope is per worker — so tests sharing a fork must carry an identical
   ``@pytest.mark.xdist_group("fork:<chain>:<block>")`` marker.
-- **The registry key is the full launch config**, not just ``(chain, block)``:
+- **Independent mutable groups need separate partitions.** Pass
+  ``isolation_group`` matching the collection-time ``xdist_group`` marker when
+  two groups use the same launch configuration but must run independently.
+  This creates separate processes without changing gas, timeout or account
+  settings just to force a different cache key. Each group still snapshots
+  mutations and rebuilds its deployed baseline after recycling.
+- **The registry key includes the isolation group and full launch config**, not just ``(chain, block)``:
   :func:`eth_defi.provider.anvil.fork_network_anvil` is a thin alias of the fully
   configurable ``launch_anvil``, so differing hardfork / gas / unlocked-account /
   tracing options must not collide on one cached process.
@@ -486,13 +492,15 @@ class AnvilForkPool:
     warning for the mutating-test caveat.
     """
 
-    #: Cached launches keyed by (rpc_url, fork_block_number, sorted launch kwargs).
+    #: Cached launches keyed by URL, block, isolation group and launch configuration.
     launches: dict[tuple, AnvilLaunch] = dataclasses.field(default_factory=dict)
 
     def get_launch(
         self,
         rpc_url: str,
         fork_block_number: int,
+        *,
+        isolation_group: str = "",
         **launch_kwargs: Any,
     ) -> AnvilLaunch:
         """Return a shared Anvil launch for this exact launch configuration.
@@ -507,6 +515,12 @@ class AnvilForkPool:
             Fixed block to fork at. Required — a mutable chain tip cannot be
             shared safely.
 
+        :param isolation_group:
+            Optional partition for independently scheduled mutable baselines.
+            Use the same name as the collection-time ``xdist_group`` marker.
+            Matching configurations in different partitions get separate processes;
+            this value is not forwarded to Anvil. Empty preserves default sharing.
+
         :param launch_kwargs:
             Any other state-affecting ``fork_network_anvil`` arguments; they are
             part of the cache key so incompatible configs never share a process.
@@ -520,7 +534,7 @@ class AnvilForkPool:
         :return:
             The shared :class:`~eth_defi.provider.anvil.AnvilLaunch`.
         """
-        key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
+        key = (rpc_url, fork_block_number, isolation_group, _freeze(launch_kwargs))
         launch = self.launches.get(key)
 
         if launch is not None:
