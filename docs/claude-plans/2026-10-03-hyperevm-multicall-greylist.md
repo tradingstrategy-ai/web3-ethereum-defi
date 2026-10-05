@@ -433,3 +433,32 @@ no correctness, data-loss, accounting or security regressions in the cleanup and
 Antarctic repair. Its import-order nit was corrected, and warning assertions now
 require an actual captured batch warning while tolerating private DEBUG replay
 details. Both the default and DEBUG-level warning regressions pass.
+
+### Discovery fixture follow-up from CI
+
+The first rebased CI run on ``85199f61b`` passed lint, slow integration,
+vault-protocol and GMX checks. The main suite passed 2,900 tests but failed seven
+Asseto/Midas/Ondo catalogue and metadata-recovery cases whose mocks rejected the
+new explicit ``greylist`` argument. All seven failures reproduced locally.
+These were deterministic fixture regressions from the policy refactor, not
+external-provider flakiness.
+
+Updated each callback's explicit signature and asserted an empty greylist for
+its Ethereum or HashKey catalogue. No arbitrary keyword swallowing, new skips
+or production changes were needed. The targeted discovery/recovery suite passed
+**40 tests in 6.56 seconds**, including the supplied-Ethereum-RPC Midas end-to-end
+metadata/metrics/JSON check through its local Anvil fork. The earlier 177-test
+suite remains a separate overlapping regression set; these counts are not added.
+The grounded ``claude-opus-5-5`` review of all four fixture changes completed
+successfully with **no actionable findings**, confirming that their explicit
+signatures match the real discovery call sites and existing assertions remain.
+
+```bash
+source .local-test.env && PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" timeout 180s poetry run pytest \
+  tests/asseto/test_asseto_vault.py::test_asseto_hardcoded_lead_is_added_to_discovery \
+  tests/erc_4626/test_rpc_metadata_recovery.py \
+  tests/midas/test_midas_vault.py::test_midas_hardcoded_leads_are_added_to_discovery \
+  tests/midas/test_midas_vault.py::test_midas_lead_detection_lifetime_metrics_json_export \
+  tests/ondo/test_ondo_vault.py::test_ondo_hardcoded_leads_are_added_to_discovery \
+  tests/erc_4626/test_lead_discovery_state.py tests/erc_4626/test_lead_scan_core.py -q --tb=short
+```

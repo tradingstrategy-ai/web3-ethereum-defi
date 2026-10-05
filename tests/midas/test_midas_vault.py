@@ -12,6 +12,7 @@ import flaky
 import hypersync
 import pandas as pd
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS
@@ -160,8 +161,23 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
         max_workers: int,
         progress_bar_desc: str | None,
         current_state: bool,
+        greylist: frozenset[HexAddress],
     ) -> Iterable[VaultFeatureProbe]:
-        """Return Midas features for the hardcoded Midas lead addresses."""
+        """Return Midas features for the hardcoded Midas lead addresses.
+
+        Keep the callback signature explicit so discovery-policy changes are
+        exercised without silently accepting unrelated configuration.
+
+        :param chain: Ethereum discovery namespace.
+        :param web3factory: Sentinel connection factory.
+        :param addresses: Registered Midas leads on this chain.
+        :param block_identifier: Selected historical discovery boundary.
+        :param max_workers: Expected single worker.
+        :param progress_bar_desc: Expected disabled progress description.
+        :param current_state: Must remain false for historical discovery.
+        :param greylist: Isolation policy; empty for this Ethereum catalogue.
+        :return: Midas feature probes for the selected leads.
+        """
 
         assert chain == 1
         assert web3factory is DummyMidasDiscovery.web3factory
@@ -170,6 +186,7 @@ def test_midas_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.Monkey
         assert progress_bar_desc is None
         # Historical discovery must not silently turn into a latest-state probe.
         assert current_state is False
+        assert greylist == frozenset()
         assert MIDAS_MTBILL_ETHEREUM.token in addresses
         assert MIDAS_MBASIS_ETHEREUM.token in addresses
 
@@ -606,8 +623,23 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         max_workers: int,
         progress_bar_desc: str | None,
         current_state: bool,
+        greylist: frozenset[HexAddress],
     ) -> Iterable[VaultFeatureProbe]:
-        """Return Midas features only for mTBILL."""
+        """Return Midas features only for mTBILL.
+
+        Preserve the real discovery callback contract before exercising live
+        metadata reads and JSON export. Ethereum must keep its empty policy.
+
+        :param chain: Ethereum discovery namespace.
+        :param web3factory: Sentinel factory used by the discovery fixture.
+        :param addresses: Single registered mTBILL lead.
+        :param block_identifier: mTBILL's historical discovery block.
+        :param max_workers: Expected single worker.
+        :param progress_bar_desc: Expected disabled progress description.
+        :param current_state: Must remain false for historical discovery.
+        :param greylist: Caller isolation policy, empty for this test.
+        :return: One Midas feature probe for the later live metadata read.
+        """
 
         assert chain == ETHEREUM_CHAIN_ID
         assert web3factory is DummyMidasDiscovery.web3factory
@@ -617,6 +649,7 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
         assert progress_bar_desc is None
         # Keep the end-to-end export tied to the recorded discovery block.
         assert current_state is False
+        assert greylist == frozenset()
 
         yield VaultFeatureProbe(
             address=MIDAS_MTBILL_ETHEREUM.token,

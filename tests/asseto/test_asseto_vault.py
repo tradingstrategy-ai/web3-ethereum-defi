@@ -10,6 +10,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.erc_4626 import discovery_base as discovery_base_module
 from eth_defi.erc_4626.classification import VaultFeatureProbe, create_vault_instance, identify_vault_features
@@ -162,8 +163,23 @@ def test_asseto_hardcoded_lead_is_added_to_discovery(monkeypatch: pytest.MonkeyP
         max_workers: int,
         progress_bar_desc: str | None,
         current_state: bool,
+        greylist: frozenset[HexAddress],
     ) -> Iterator[VaultFeatureProbe]:
-        """Return Asseto classification for the only registered AoABT token."""
+        """Return Asseto classification for the only registered AoABT token.
+
+        Mirror the discovery callback explicitly so API changes cannot be hidden
+        by unused keyword arguments. HashKey must not inherit HyperEVM isolation.
+
+        :param chain: HashKey discovery namespace.
+        :param web3factory: Sentinel factory whose identity is checked.
+        :param addresses: Registered Asseto lead addresses.
+        :param block_identifier: Fixed historical discovery block.
+        :param max_workers: Expected single worker.
+        :param progress_bar_desc: Expected disabled progress description.
+        :param current_state: Must remain false for historical discovery.
+        :param greylist: Caller-selected isolation policy; empty on HashKey here.
+        :return: Asseto feature probe for the registered token.
+        """
 
         assert chain == HASHKEY_CHAIN_ID
         assert web3factory is DummyAssetoDiscovery.web3factory
@@ -174,6 +190,7 @@ def test_asseto_hardcoded_lead_is_added_to_discovery(monkeypatch: pytest.MonkeyP
         # Hardcoded historical leads must stay pinned to their discovery block;
         # only current-state callers may move probes into a recent state window.
         assert current_state is False
+        assert greylist == frozenset()
         yield VaultFeatureProbe(address=ASSETO_AOABT_HASHKEY.token, features={ERC4626Feature.asseto_like})
 
     monkeypatch.setattr(discovery_base_module, "probe_vaults", fake_probe_vaults)

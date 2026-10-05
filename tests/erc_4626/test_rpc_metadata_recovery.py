@@ -111,7 +111,23 @@ def test_metadata_schedule_rebuilds_missing_rows_and_honours_classification_repa
     save_rpc_scan_state(metadata_path, {detection.address: {"checked_at": now.isoformat(), "next_attempt_at": (now + datetime.timedelta(days=7)).isoformat(), "status": "ok", "features": [], "classifier_version": lead_scan_core.create_vault_classifier_signature()}})
 
     report = LeadScanReport(start_block=124, end_block=125, leads={detection.address: lead}, detections={detection.address: detection})
-    discoverer = SimpleNamespace(cached_features={}, seed_existing_leads=lambda leads: None, scan_vaults=lambda start, end: report)
+
+    def scan_recorded_vaults(_start: int, _end: int, *, greylist: frozenset[HexAddress]) -> LeadScanReport:
+        """Return event coverage while checking the caller's explicit policy.
+
+        Metadata scheduling must retain its recorded discovery coverage without
+        inheriting HyperEVM exceptions for this Ethereum repair. Keep the keyword
+        explicit so a renamed or dropped policy cannot pass unnoticed.
+
+        :param _start: Requested discovery start, unused by the recorded report.
+        :param _end: Requested discovery end, unused by the recorded report.
+        :param greylist: Caller-selected isolation policy, empty in this test.
+        :return: Existing lead/classification report for metadata scheduling.
+        """
+        assert greylist == frozenset()
+        return report
+
+    discoverer = SimpleNamespace(cached_features={}, seed_existing_leads=lambda leads: None, scan_vaults=scan_recorded_vaults)
     monkeypatch.setattr(lead_scan_core, "HypersyncVaultDiscover", lambda *args, **kwargs: discoverer)
     monkeypatch.setattr(lead_scan_core, "get_provider_name", lambda provider: "test provider")
     monkeypatch.setattr(lead_scan_core, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"))
