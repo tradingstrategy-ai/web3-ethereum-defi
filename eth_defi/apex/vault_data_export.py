@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS, APEX_VAULT_URL_TEMPLATE
+from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULT_URL_TEMPLATE, APEX_OFFICIAL_VAULTS, APEX_VAULT_URL_TEMPLATE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.tags import get_strategy_tags
 from eth_defi.compat import native_datetime_utc_now
@@ -39,6 +39,29 @@ _CLOSED_PUBLIC_DEPOSIT_STATUSES = {
     "VAULT_INITIAL_FAILED",
     "VAULT_PAUSE_PURCHASE",
 }
+
+
+def get_apex_vault_link(vault_id: str) -> str:
+    """Return the native ApeX page for a user-created or official vault.
+
+    The `ApeX Omni application <https://omni.apex.exchange/vault>`__ routes
+    user-created vaults to ``/vaultInfo/{vaultId}``. Only the curated official
+    vaults use the trailing ``/1``, which selects the official-vault API and
+    view. Using that suffix for a user vault displays an empty Insurance Vault.
+
+    :param vault_id:
+        ApeX platform identity, with surrounding whitespace allowed.
+    :return:
+        Direct vault page URL with the appropriate view.
+    :raises ValueError:
+        If the platform vault ID is blank.
+    """
+    vault_id = vault_id.strip()
+    if not vault_id:
+        message = "ApeX vault ID is required"
+        raise ValueError(message)
+    template = APEX_OFFICIAL_VAULT_URL_TEMPLATE if vault_id in OFFICIAL_VAULTS_BY_ID else APEX_VAULT_URL_TEMPLATE
+    return template.format(vault_id=quote(vault_id, safe=""))
 
 
 def create_apex_vault_row(
@@ -131,7 +154,7 @@ def create_apex_vault_row(
         "NAV": Decimal(str(tvl or 0.0)),
         "Shares": Decimal(str(share_count or 0.0)),
         "Protocol": "ApeX",
-        "Link": APEX_VAULT_URL_TEMPLATE.format(vault_id=quote(vault_id, safe="")),
+        "Link": get_apex_vault_link(vault_id),
         "First seen": created_at or first_seen,
         "Mgmt fee": None,
         "Perf fee": None,
