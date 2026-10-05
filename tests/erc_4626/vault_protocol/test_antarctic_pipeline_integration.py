@@ -2,19 +2,21 @@
 
 import datetime
 import json
+from collections.abc import Iterator
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
-from types import SimpleNamespace
 
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore
 from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
+from eth_defi.event_reader.multicall_batcher import CombinedEncodedCallResult, EncodedCall, EncodedCallResult
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics
 from eth_defi.testing.antarctic import RecordedAntarcticProvider, create_antarctic_test_metadata, load_antarctic_settlements, write_antarctic_test_prices
 from eth_defi.token import TokenDiskCache
@@ -156,19 +158,32 @@ def test_antarctic_mixed_contextual_and_polled_readers(tmp_path: Path, monkeypat
     contextual.historical_context_path = tmp_path / "vault-historical-context.duckdb"
 
     class PolledReader(VaultHistoricalReader):
-        def construct_multicalls(self) -> object:  # noqa: PLR6301
+        def construct_multicalls(self) -> Iterator[EncodedCall]:  # noqa: PLR6301
             return iter(())
 
-        def process_result(self, block_number: int, timestamp: datetime.datetime, call_results: list) -> VaultHistoricalRead:
-            return VaultHistoricalRead(vault=self.vault, block_number=block_number, timestamp=timestamp, share_price=call_results[0].price, total_assets=None, total_supply=None, performance_fee=None, management_fee=None, errors=None)
+        def process_result(self, block_number: int, timestamp: datetime.datetime, call_results: list[EncodedCallResult]) -> VaultHistoricalRead:
+            # This synthetic reader uses a dimensionless fixed-point ratio,
+            # independent of token decimals; retain the original threshold test.
+            price = Decimal(int.from_bytes(call_results[0].result, "big")) / 10_000
+            return VaultHistoricalRead(vault=self.vault, block_number=block_number, timestamp=timestamp, share_price=price, total_assets=None, total_supply=None, performance_fee=None, management_fee=None, errors=None)
 
-    def state_transport(**_kwargs: object) -> object:
+    def state_transport(**_kwargs: object) -> Iterator[CombinedEncodedCallResult]:
+        """Supply two polled observations through the actual result contract.
+
+        The 2026-10-03 CI failure, reproduced locally on 2026-10-05, exposed that
+        SimpleNamespace results omitted provider-unavailability metadata. Real
+        result types supply defaults and keep the fixture aligned with the
+        coordinator without weakening production observation checks.
+
+        :param _kwargs: Coordinator settings unused by the recorded transport.
+        :return: Two successful fixed-point ratio reads at distinct source blocks.
+        """
         for i in range(2):
             block = event.block_number + i
             timestamp = datetime.datetime.fromtimestamp(event.block_timestamp + i, datetime.UTC).replace(tzinfo=None)
-            call = SimpleNamespace(block_identifier=block, extra_data={"vault": polled.address})
-            result = SimpleNamespace(call=call, block_identifier=block, price=Decimal(1) + Decimal(i) / 10000)
-            yield SimpleNamespace(block_number=block, timestamp=timestamp, results=[result])
+            call = EncodedCall("recorded_price", HexAddress(polled.address), Web3.keccak(text="price()")[:4], extra_data={"vault": polled.address})
+            result = EncodedCallResult(call=call, block_identifier=block, timestamp=timestamp, success=True, result=(10_000 + i).to_bytes(32, "big"))
+            yield CombinedEncodedCallResult(block_number=block, timestamp=timestamp, results=[result])
 
     monkeypatch.setattr(polled, "get_historical_reader", lambda _stateful=False, **_kwargs: PolledReader(polled))
     monkeypatch.setattr(historical, "read_multicall_historical", state_transport)

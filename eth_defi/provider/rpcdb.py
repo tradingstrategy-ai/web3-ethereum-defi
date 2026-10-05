@@ -115,7 +115,7 @@ class RPCRequestStats:
     #: Synchronises counter updates between worker threads.
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False, compare=False)
 
-    def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1) -> None:
+    def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1, *, operation: str | None = None) -> None:
         """Record physical JSON-RPC request attempts.
 
         Provider instrumentation calls this for each attempt, including retry
@@ -128,6 +128,10 @@ class RPCRequestStats:
             JSON-RPC method name such as ``eth_call``.
         :param count:
             Positive number of attempts to add.
+        :param operation:
+            Explicit attribution label from a bound recorder, or ``None`` to use
+            this accumulator's phase label. The shared default label is never
+            changed, so concurrent providers can use different labels safely.
         :return:
             None; both total and operation counters advance together.
         """
@@ -137,7 +141,8 @@ class RPCRequestStats:
         assert count > 0, f"Count must be positive: {count}"
         with self._lock:
             self.calls[rpc_provider_domain, str(api_call)] += count
-            self.operation_calls[self.operation, rpc_provider_domain, str(api_call)] += count
+            operation_label = self.operation if operation is None else operation
+            self.operation_calls[operation_label, rpc_provider_domain, str(api_call)] += count
 
     def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
         """Record JSON-RPC request failures.
@@ -220,6 +225,55 @@ class RPCRequestStats:
         self.operation_calls = Counter(state[2]) if len(state) > 2 else Counter()
         self.operation = state[3] if len(state) > 3 else "unclassified"
         self._lock = threading.Lock()
+
+
+@dataclass(slots=True, frozen=True)
+class RPCOperationRecorder:
+    """Bind a fixed operation label to an existing physical-request accumulator.
+
+    Multicall attaches this lightweight recorder to its worker-owned provider
+    for the isolated lane. Regular and isolated recorders share the same locked
+    counters: provider retries and verification requests are counted exactly
+    once, without thread-local context, copied counters or a later merge step.
+    The provider binding is restored by the reader even when a request fails.
+    Pickling retains the label and uses the accumulator's existing serialisation,
+    which excludes the lock and recreates it inside the receiving process.
+    """
+
+    #: Shared accumulator receiving both physical totals and operation breakdowns.
+    stats: RPCRequestStats
+
+    #: Fixed attribution label; does not mutate the shared phase's default label.
+    operation: str
+
+    def record_call(self, rpc_provider_domain: str, api_call: str, count: int = 1) -> None:
+        """Count provider attempts using this recorder's explicit operation label.
+
+        The fallback provider invokes the same interface on an accumulator or a
+        recorder. Delegating once keeps operation rows a partition of physical
+        totals, including unsuccessful attempts and provider-switch verification.
+
+        :param rpc_provider_domain: Provider hostname with an optional port.
+        :param api_call: JSON-RPC method, such as ``eth_call``.
+        :param count: Positive number of physical attempts, default one.
+        :return: None; the shared accumulator updates under its existing lock.
+        """
+        self.stats.record_call(rpc_provider_domain, api_call, count, operation=self.operation)
+
+    def record_error(self, rpc_provider_domain: str, error_code: str, error_message: str, count: int = 1) -> None:
+        """Keep provider errors in the shared accumulator's existing breakdown.
+
+        Error keys do not include an operation label. Forwarding them unchanged
+        preserves the persisted schema and avoids counting one failure in both
+        the phase accumulator and a separate lane accumulator.
+
+        :param rpc_provider_domain: Provider hostname with an optional port.
+        :param error_code: Normalised RPC/HTTP code or exception class name.
+        :param error_message: Original provider error text.
+        :param count: Positive number of matching failures, default one.
+        :return: None; the shared error counter advances under its existing lock.
+        """
+        self.stats.record_error(rpc_provider_domain, error_code, error_message, count)
 
 
 class RPCUsageDatabase:

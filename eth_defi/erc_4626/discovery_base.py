@@ -877,11 +877,17 @@ class VaultDiscoveryBase(abc.ABC):
         end_block: int,
         display_progress=True,
         hardcoded_lead_sources: HardcodedVaultLeadSources | None = None,
+        greylist: frozenset[HexAddress] = frozenset(),
     ) -> LeadScanReport:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
         - Then perform multicall probing for each vault smart contract to detect protocol
+
+        :param greylist:
+            Caller-selected targets for this chain, empty by default. Indexed
+            lead discovery passes this to strict ABI feature probes so request
+            isolation follows application policy without importing a chain list.
 
         :param hardcoded_lead_sources:
             Protocol-labelled deployments that cannot be discovered from
@@ -1012,6 +1018,7 @@ class VaultDiscoveryBase(abc.ABC):
             max_workers=self.max_workers,
             progress_bar_desc=progress_bar_desc,
             current_state=self.current_state,
+            greylist=greylist,
         ):
             if feature_probe.address.lower() in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")

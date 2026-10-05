@@ -108,6 +108,7 @@ except ImportError as e:
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, passes_price_scan_activity_filter
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.token import TokenDiskCache
@@ -167,6 +168,10 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
 
     chain_id = web3.eth.chain_id
     metrics["chain_id"] = chain_id
+    # This standalone entrypoint shares the all-chain policy. Select it here,
+    # after provider verification, so the generic writer and saved-row filter
+    # receive the same addresses without importing chain constants themselves.
+    greylist = HYPEREVM_MULTICALL_GREYLIST if chain_id == 999 else frozenset()
 
     output_folder = os.environ.get("OUTPUT_FOLDER")
     if output_folder is None:
@@ -278,6 +283,7 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
             web3=web3,
             web3factory=web3factory,
             vaults=vaults,
+            greylist=greylist,
             start_block=start_block,
             end_block=end_block,
             max_workers=max_workers,

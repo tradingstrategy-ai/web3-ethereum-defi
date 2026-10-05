@@ -35,6 +35,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
+from eth_typing import HexAddress
 from filelock import Timeout as FileLockTimeout
 from requests.exceptions import RequestException
 from tqdm_loggable.auto import tqdm
@@ -94,6 +95,7 @@ from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_me
 from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
 from eth_defi.hibachi.daily_metrics import run_daily_scan as hibachi_run_daily_scan
 from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hibachi_merge_vault_db
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hypersync.utils import configure_hypersync_from_env
@@ -546,6 +548,10 @@ class ChainConfig:
     #: Whether the global price-scan switch applies to this chain
     scan_prices: bool = True
 
+    #: Caller-selected request isolation policy, populated by main per chain.
+    #: Empty by default so generic scan configurations do not enable exceptions.
+    greylist: frozenset[HexAddress] = frozenset()
+
 
 @dataclass(slots=True)
 class ChainResult:
@@ -669,9 +675,13 @@ def scan_vaults_for_chain(
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
+    :param greylist:
+        Caller-selected targets isolated during strict feature classification.
+        Empty by default; adapter metadata reads retain their existing paths.
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
@@ -844,6 +854,7 @@ def scan_vaults_for_chain(
             web3=web3,
             force_metadata_refresh=force_lead_discovery,
             force_classification_refresh=force_lead_discovery,
+            greylist=greylist,
         )
         items_scanned = report.items_scanned
         pending_candidates = len(load_rpc_scan_state(vault_db_path.parent / f"rpc-pending-metadata-{chain_id}.json"))
@@ -909,6 +920,7 @@ def scan_prices_for_chain(
     end_block: int | None = None,
     vault_addresses: set[str] | None = None,
     persist_reader_state: bool = True,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -931,6 +943,9 @@ def scan_prices_for_chain(
     :param start_block: Optional inclusive manual scan boundary.
     :param end_block: Optional exclusive manual scan boundary.
     :param vault_addresses: Optional lower-case address subset for a bounded repair.
+    :param greylist:
+        Caller-selected targets for this chain; passed unchanged to the atomic
+        price writer and its Multicall workers. Defaults to empty.
     :param persist_reader_state: Persist scheduled reader state; disable for manual backfills.
     :return: Tuple of (success, metrics_dict)
     """
@@ -1365,6 +1380,7 @@ def scan_prices_for_chain(
                     web3=web3,
                     web3factory=web3factory,
                     vaults=repair_vaults,
+                    greylist=greylist,
                     token_cache=token_cache,
                     start_block=min(antarctic_prefill.repair_from_blocks.values()),
                     end_block=current_end_block,
@@ -1397,6 +1413,7 @@ def scan_prices_for_chain(
             web3=web3,
             web3factory=web3factory,
             vaults=vaults,
+            greylist=greylist,
             start_block=start_block,
             end_block=current_end_block,
             max_workers=max_workers,
@@ -1475,7 +1492,9 @@ def scan_chain(
 ) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
-    :param config: Chain configuration
+    :param config:
+        Chain configuration, including the caller-selected generic greylist.
+        This is the sole policy source for both discovery and price reads.
     :param scan_prices: Whether price scanning is globally enabled. The chain
         configuration may still disable it during a staged rollout.
     :param max_workers: Number of parallel workers
@@ -1581,6 +1600,7 @@ def scan_chain(
             rpc_request_stats=vault_stats,
             lead_discovery_state_timeout=lead_discovery_state_timeout,
             force_lead_discovery=force_lead_discovery,
+            greylist=config.greylist,
         )
         record_rpc_usage("lead_discovery", vault_stats, vault_metrics)
         result.vault_scan_ok = vault_success
@@ -1611,6 +1631,7 @@ def scan_chain(
             hypersync_concurrency=hypersync_concurrency,
             rpc_request_stats=price_stats,
             excluded_specs=excluded_price_specs,
+            greylist=config.greylist,
         )
         record_rpc_usage("price_scan", price_stats, price_metrics)
         result.price_scan_ok = price_success
@@ -3698,6 +3719,10 @@ def main():
     # Build chain configurations
     all_chains = build_chain_configs()
     chain_by_name = {c.name: c for c in all_chains}
+    # Chain policy is selected only at the application boundary. The generic
+    # coordinator, price writer and workers receive addresses as parameters,
+    # so library users and other chains never inherit HyperEVM exceptions.
+    chain_by_name["Hyperliquid"].greylist = HYPEREVM_MULTICALL_GREYLIST
 
     # Reorder and filter chains if CHAIN_ORDER is set
     chain_order_str = os.environ.get("CHAIN_ORDER")

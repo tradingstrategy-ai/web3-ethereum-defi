@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import flaky
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626 import discovery_base as discovery_base_module
@@ -57,14 +58,29 @@ def test_ondo_hardcoded_classification_and_curator_are_chain_aware() -> None:
 def test_ondo_hardcoded_leads_are_added_to_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
     """Add reviewed issuer share tokens without ERC-4626 flow events."""
 
-    def fake_probe_vaults(chain: int, web3factory: object, addresses: list[str], *, block_identifier: int, max_workers: int, progress_bar_desc: str | None, current_state: bool) -> Iterator[VaultFeatureProbe]:
-        """Return explicit Ondo classifications for registered leads."""
+    def fake_probe_vaults(chain: int, web3factory: object, addresses: list[str], *, block_identifier: int, max_workers: int, progress_bar_desc: str | None, current_state: bool, greylist: frozenset[HexAddress]) -> Iterator[VaultFeatureProbe]:
+        """Return explicit Ondo classifications for registered leads.
+
+        Retain the discovery callback's explicit policy argument so this issuer
+        catalogue cannot accidentally enable HyperEVM request isolation.
+
+        :param chain: Ethereum discovery namespace.
+        :param web3factory: Sentinel connection factory.
+        :param addresses: Registered Ondo issuer tokens.
+        :param block_identifier: Selected historical discovery boundary.
+        :param max_workers: Discovery worker count.
+        :param progress_bar_desc: Optional progress description.
+        :param current_state: Must remain false for historical catalogue discovery.
+        :param greylist: Isolation policy, empty for this Ethereum catalogue.
+        :return: Ondo feature probes for the registered leads.
+        """
 
         assert chain == ETHEREUM_CHAIN_ID
         assert web3factory is DummyOndoDiscovery.web3factory
         assert set(addresses) == {product.token for product in ONDO_PRODUCTS.values()}
         # Issuer catalogue discovery uses the selected historical block.
         assert current_state is False
+        assert greylist == frozenset()
         for address in addresses:
             yield VaultFeatureProbe(address=address, features={ERC4626Feature.ondo_like})
 

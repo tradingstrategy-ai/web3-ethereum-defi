@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 import pandas as pd
+from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
@@ -119,6 +120,7 @@ def scan_leads(
     web3: Web3 | None = None,
     force_metadata_refresh: bool = False,
     force_classification_refresh: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -135,7 +137,10 @@ def scan_leads(
     :param backend: ``auto`` or ``hypersync``; legacy ``rpc`` is rejected.
     :param max_getlogs_range: Deprecated compatibility argument, ignored.
     :param hypersync_api_key: Supplied Hypersync API key, or environment default.
-    :return: Discovery report containing cumulative leads and classifications.
+    :param greylist:
+        Caller-selected targets for isolated feature-probe requests on this chain.
+        Defaults to empty. Classification remains strict on transport failures;
+        metadata reads use their existing specialised adapter paths.
 
     :param force_classification_refresh:
         Bypass cached feature observations for an explicit discovery refresh.
@@ -156,6 +161,7 @@ def scan_leads(
     :param web3:
         Optional phase-owned Web3 connection. Supplying it lets an outer
         scanner establish the chain id before entering exception-handled work.
+    :return: Discovery report containing cumulative leads and classifications.
     """
 
     if backend not in {"auto", "hypersync"}:
@@ -287,7 +293,7 @@ def scan_leads(
     # Event coverage and classification have separate failure boundaries. The
     # callback above commits event coverage first; this result then supplies
     # protocol identities for metadata scheduling and price-reader selection.
-    report = vault_discover.scan_vaults(start_block, end_block)
+    report = vault_discover.scan_vaults(start_block, end_block, greylist=greylist)
     end_block = report.end_block
     minimum_end_block = max(start_block, last_scanned_block or 0)
     if end_block <= minimum_end_block:

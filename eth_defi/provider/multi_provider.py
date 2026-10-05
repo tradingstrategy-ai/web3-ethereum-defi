@@ -22,7 +22,7 @@ from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
-from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
+from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -109,11 +109,13 @@ class MultiProviderWeb3(Web3):
         """
         return self.get_fallback_provider().get_total_api_call_counts()
 
-    def set_rpc_request_stats(self, stats: RPCRequestStats | None) -> None:
+    def set_rpc_request_stats(self, stats: RPCRequestStats | RPCOperationRecorder | None) -> None:
         """Attach request accounting to the fallback call provider.
 
         :param stats:
-            Phase or subprocess-task accumulator, or ``None`` to detach it.
+            Phase/task accumulator or fixed-label recorder, or ``None`` to detach
+            it. The connection belongs to one worker; shared counters remain
+            protected by the accumulator's lock.
         """
 
         self.get_fallback_provider().set_rpc_request_stats(stats)

@@ -39,6 +39,7 @@ from tabulate import tabulate
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
@@ -90,7 +91,9 @@ def main():
 
     # Detect vault features and create instance
     token_cache = TokenDiskCache()
-    features = detect_vault_features(web3, spec.vault_address)
+    # Match scanner isolation while retaining strict errors in this diagnostic.
+    greylist = HYPEREVM_MULTICALL_GREYLIST if spec.chain_id == 999 else frozenset()
+    features = detect_vault_features(web3, spec.vault_address, greylist=greylist)
     vault = create_vault_instance(web3, spec.vault_address, features, token_cache=token_cache)
 
     print(f"Vault: {vault.name}")
@@ -115,6 +118,7 @@ def main():
 
     # Use the same pipeline as scan-prices.py
     multicaller = VaultHistoricalReadMulticaller(
+        greylist=greylist,
         web3factory=web3factory,
         supported_quote_tokens=None,
         max_workers=max_workers,

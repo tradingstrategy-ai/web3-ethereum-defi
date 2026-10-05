@@ -17,17 +17,20 @@ import datetime
 import logging
 import os
 import tempfile
-
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
 from collections import defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -60,6 +63,11 @@ MONAD_CHAIN_ID = 143
 
 #: Canonical explanation of Monad's provider-dependent historical state window.
 MONAD_HISTORICAL_DATA_DOCUMENTATION_URL = "https://docs.monad.xyz/developer-essentials/historical-data"
+
+#: ERC-4626 valuation selectors: totalAssets(), convertToAssets(uint256), totalSupply().
+#: A served revert of any required field prevents a complete greylisted vault valuation;
+#: optional capacity probes such as maxDeposit() do not invalidate valuation.
+GREYLIST_REQUIRED_NAV_SELECTORS = frozenset({bytes.fromhex("01e1d114"), bytes.fromhex("07a2d13a"), bytes.fromhex("18160ddd")})
 
 
 #: List of contracts we cannot scan.
@@ -249,11 +257,23 @@ class VaultHistoricalReadMulticaller:
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
         rpc_request_stats: RPCRequestStats | None = None,
+        allow_greylist_unavailable: bool = False,
+        greylist: frozenset[HexAddress] = frozenset(),
     ) -> None:
         """Configure the multicall reader and its live-row retention state.
 
         The reader keeps source timestamps in memory for one scan. The Parquet
         writer seeds them from committed rows before the scan begins.
+
+        :param greylist:
+            Caller-selected vault/target addresses for this chain. The same policy
+            controls request isolation and whole-observation deferral, preventing
+            a mismatch between unavailable reads and retained saved rows.
+            Defaults to empty; chain-specific policy belongs to the entrypoint.
+
+        :param allow_greylist_unavailable:
+            Explicitly enable gas-failure deferral for an exporter preserving
+            unavailable source rows. Public readers remain strict by default.
 
         :param web3factory:
             Factory for worker JSON-RPC connections.
@@ -291,6 +311,8 @@ class VaultHistoricalReadMulticaller:
         self.hypersync_client = hypersync_client
         self.timestamp_cache_file = timestamp_cache_file
         self.rpc_request_stats = rpc_request_stats
+        self.allow_greylist_unavailable = allow_greylist_unavailable
+        self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
 
         if token_cache is None:
             token_cache = TokenDiskCache()
@@ -740,6 +762,8 @@ class VaultHistoricalReadMulticaller:
                 hypersync_client=self.hypersync_client,
                 timestamp_cache_file=self.timestamp_cache_file,
                 rpc_request_stats=self.rpc_request_stats,
+                allow_greylist_unavailable=self.allow_greylist_unavailable,
+                greylist=self.greylist,
             )
             if static_readers
             else ()
@@ -771,12 +795,44 @@ class VaultHistoricalReadMulticaller:
                 reader = readers[vault_address]
                 state = reader.reader_state
 
+                # One unavailable subcall invalidates the whole observation.
+                # Do this before protocol decoding/on_called: a provider gas
+                # error is neither a Solidity revert nor a fresh zero valuation.
+                # Reviewed Core readers can also return served precompile reverts
+                # when their historical view is absent. Preserve their old rows.
+                # Preservation is keyed by vault address, not an incidental
+                # helper target. Use the same identity here and in the writer.
+                greylisted = vault_address.lower() in self.greylist
+                unavailable = next((r.unavailable_error for r in results if r.unavailable_error), None)
+                assert unavailable is None or greylisted, f"Unavailable greylisted helper cannot defer unlisted vault {vault_address}; aborting to preserve its saved rows"
+                required_failed = greylisted and any(not r.success and r.call.data[:4] in GREYLIST_REQUIRED_NAV_SELECTORS for r in results)
+                if unavailable or required_failed:
+                    error_count += 1
+                    if state:
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = unavailable or "greylisted vault observation unavailable"
+                    logger.warning("Deferred greylisted vault observation: vault=%s block=%d reason=%s", vault_address, block_number, unavailable or "served subcall revert")
+                    continue
+
+                saved_state = state.save() if greylisted and state else None
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
                     block_number,
                     timestamp,
                     results,
                 )
+
+                if greylisted and (current_result.share_price is None or current_result.total_assets is None):
+                    # Decoding can reveal a partial observation even when the
+                    # transport succeeded. Reject it before claiming freshness
+                    # and roll back on_called progress made by a protocol reader.
+                    error_count += 1
+                    if state and saved_state is not None:
+                        state.load(saved_state)
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = "Incomplete greylisted vault valuation"
+                    logger.warning("Deferred incomplete greylisted vault valuation: vault=%s block=%d", vault_address, block_number)
+                    continue
 
                 # Stateless scans invoke every selected block. Keep their
                 # exported frequency marker compatible with the historical
@@ -861,6 +917,27 @@ def _proper_fsync(fd: int) -> None:
         os.fsync(fd)
 
 
+def preserve_unreplaced_greylist_rows(
+    history: pa.Table,
+    replacements: set[tuple[str, int]],
+) -> pa.Table:
+    """Retain saved greylisted vault observations without duplicating successful updates.
+
+    The atomic exporter calls this after collecting verified replacement keys.
+    Keeping an old row does not advance its source timestamp or claim freshness.
+    The caller passes only this chain's greylisted rows in the replaced range,
+    so memory use is bounded by the reviewed targets rather than the full file.
+
+    :param history: Saved price table with lower-case string ``address`` and
+        integer ``block_number`` columns; other columns and metadata are retained.
+    :param replacements: ``(lower_case_address, source_block_number)`` keys of
+        complete successful new observations for the current chain.
+    :return: Original rows whose source keys were not successfully replaced.
+    """
+    retained = [(address, block) not in replacements for address, block in zip(history["address"].to_pylist(), history["block_number"].to_pylist())]
+    return history.filter(pa.array(retained, type=pa.bool_()))
+
+
 def scan_historical_prices_to_parquet(
     output_fname: Path,
     web3: Web3,
@@ -884,6 +961,7 @@ def scan_historical_prices_to_parquet(
     vault_addresses: set[str] | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
     reader_state_journal_path: Path | None = None,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> ParquetScanResult:
     """Scan vault prices and atomically update the shared raw Parquet file.
 
@@ -892,6 +970,12 @@ def scan_historical_prices_to_parquet(
     latest source timestamp against a 14-day limit. Historical backfills use
     sparse value-change sampling. Monad scans start at the provider's readable
     historical-state boundary and preserve earlier committed rows.
+
+    :param greylist:
+        Caller-selected vault/target addresses for this chain, empty by default.
+        Shared with the Multicall workers and preservation filter so unavailable
+        observations retain their exact saved source rows. Addresses are matched
+        case-insensitively; no chain policy is selected by the exporter.
 
     :param reader_state_journal_path:
         Optional durable progress receipt for recovery after price publication
@@ -994,10 +1078,6 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
-    import pyarrow as pa
-    import pyarrow.compute as pc
-    import pyarrow.parquet as pq
-
     stateful = reader_states is not None
 
     assert isinstance(output_fname, Path)
@@ -1078,6 +1158,7 @@ def scan_historical_prices_to_parquet(
             end_block=end_block,
         )
 
+    greylist = frozenset(HexAddress(address.lower()) for address in greylist)
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
@@ -1089,6 +1170,10 @@ def scan_historical_prices_to_parquet(
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
         rpc_request_stats=rpc_request_stats,
+        # This atomic writer preserves unreplaced greylisted keys. Standalone
+        # historical readers do not own that preservation step and stay strict.
+        allow_greylist_unavailable=True,
+        greylist=greylist,
     )
 
     reader_func = read_multicall_historical_stateful if stateful else read_multicall_historical
@@ -1133,10 +1218,20 @@ def scan_historical_prices_to_parquet(
     rows_written_by_vault: dict[str, int] = defaultdict(int)
     price_rows_written_by_vault: dict[str, int] = defaultdict(int)
 
+    # Keys are (lower-case vault address, source block number); chain is fixed
+    # by this export. Only verified greylisted replacements retire saved rows.
+    greylist_replacements: set[tuple[str, int]] = set()
+
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
             vault_address = entry.vault.vault_address.lower()
+            if vault_address in greylist:
+                # A partly decoded greylisted observation cannot replace good history.
+                # Null availability is not zero TVL; preserve the saved source row.
+                if entry.share_price is None or entry.total_assets is None:
+                    continue
+                greylist_replacements.add((vault_address, entry.block_number))
             rows_written_by_vault[vault_address] += 1
             if entry.share_price is not None:
                 price_rows_written_by_vault[vault_address] += 1
@@ -1183,6 +1278,7 @@ def scan_historical_prices_to_parquet(
             grouped = assets.group_by("address").aggregate([("total_assets", "max")])
             reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
 
+    greylist_history = None
     if existing_table is not None:
         logger.info(
             "Detected existing file %s with %d rows",
@@ -1200,6 +1296,13 @@ def scan_historical_prices_to_parquet(
         if vault_addresses is not None:
             address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
             mask = pc.and_(mask, address_mask)
+        if greylist:
+            # Keep only the greylisted source rows slated for replacement. At
+            # publication we retain keys not replaced by a complete successful
+            # observation. This avoids a full-file merge, duplicates and loss
+            # when a greylisted contract cannot supply a complete replacement.
+            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(greylist))))
+            greylist_history = existing_table.filter(grey_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
@@ -1292,6 +1395,21 @@ def scan_historical_prices_to_parquet(
             writer.write_table(table)
             rows_written += len(chunk)
             chunks_done += 1
+
+        if greylist_history is not None and greylist_history.num_rows:
+            preserved = preserve_unreplaced_greylist_rows(greylist_history, greylist_replacements)
+            if preserved.num_rows:
+                writer.write_table(preserved.replace_schema_metadata(writer_schema.metadata))
+                existing_row_count += preserved.num_rows
+                rows_deleted -= preserved.num_rows
+                if enforce_live_freshness:
+                    # Preserved rows are still real source observations. Retain
+                    # their actual timestamp for the audit, never written_at or
+                    # the current scan horizon, so stale history stays stale.
+                    finite_history = preserved.filter(pc.and_(pc.is_finite(preserved["share_price"]), pc.is_finite(preserved["total_assets"])))
+                    for address, timestamp in zip(finite_history["address"].to_pylist(), finite_history["timestamp"].to_pylist()):
+                        reader.last_retained_at[address] = max(reader.last_retained_at.get(address, timestamp), timestamp)
+                logger.info("Preserved %d unavailable or unsampled greylisted vault source rows", preserved.num_rows)
 
         # Close the writer to finalise the file, then flush to disk
         # and atomically replace the target.  We also sync the parent

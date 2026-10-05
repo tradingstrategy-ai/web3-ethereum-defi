@@ -19,6 +19,13 @@ legacy totals. The reserved reset marker uses chain ``0``, phase
 ``counter_reset``, method/provider ``none`` and zero calls/items; exclude it
 from scan denominators.
 
+:py:class:`~eth_defi.provider.rpcdb.RPCOperationRecorder` binds a fixed operation
+label to an existing locked accumulator. Worker-owned providers may attach this
+view while sharing counters; recorder bindings and provider sessions must remain
+private to each worker. Isolated Multicall operations use an ``_greylist`` suffix,
+including failed attempts and provider verification. These operation counts
+partition the physical totals and must not be added to them again.
+
 The :py:mod:`eth_defi.provider.rpc_counter_maintenance` utility checkpoints,
 verifies and privately backs up all accounting tables before an optional
 transactional reset. Stable reset IDs and in-database receipts protect newer

@@ -46,6 +46,7 @@ from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.lead_scan_core import scan_leads
+from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.utils import setup_console_logging, wait_other_writers
@@ -98,6 +99,9 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
     force_refresh = os.environ.get("FORCE_LEAD_DISCOVERY", "false").lower() == "true"
     web3 = create_multi_provider_web3(json_rpc_url, rpc_request_stats=stats)
     metrics["chain_id"] = web3.eth.chain_id
+    # The CLI owns chain selection; classification receives only a generic
+    # target policy so standalone and all-chain discovery isolate the same reads.
+    greylist = HYPEREVM_MULTICALL_GREYLIST if metrics["chain_id"] == 999 else frozenset()
     report = scan_leads(
         json_rpc_urls=json_rpc_url,
         vault_db_file=vault_db_file,
@@ -110,6 +114,7 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
         web3=web3,
         force_metadata_refresh=force_refresh,
         force_classification_refresh=force_refresh,
+        greylist=greylist,
     )
     metrics["items_scanned"] = report.items_scanned
     # A successful discovery return can leave deferred metadata. Match the
