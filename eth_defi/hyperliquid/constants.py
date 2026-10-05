@@ -216,16 +216,69 @@ HYPERLIQUID_SYSTEM_VAULT_ADDRESSES: set[HexAddress] = {
 #: Mixed-batch addresses in the 2026-10-03 logs are not proof of culpability and
 #: are deliberately not added without bisection or verified HyperCore dependency.
 #: See ``docs/README-hyperevm-hypercore-read-gas.md`` for provider gas accounting.
+#:
+#: Maintenance guidance
+#: --------------------
+#:
+#: The purpose is to keep robust contracts in normal Multicall batches while
+#: containing HyperCore precompile gas pressure to the affected target. The
+#: default isolated limit is one encoded subcall, not one vault: a vault with
+#: four methods can therefore cost four RPC requests. Keep additions narrow so
+#: the workaround does not unnecessarily increase normal scanning costs.
+#:
+#: Before adding an entry, identify the actual chain-999 call target from a
+#: trace or a bounded replay/bisection of the failing scanner payload. Record
+#: the affected selectors, provider, source block and failure, and establish
+#: either the HyperCore dependency or reproducible batch gas amplification.
+#: Merely appearing in a failed mixed batch, sharing a protocol name, or having
+#: an archive gap, timeout or rate-limit error does not justify inclusion.
+#: Use the lowercase deployed proxy address passed to Multicall, wrapped in
+#: ``HexAddress``; an implementation address would not match proxy calls.
+#:
+#: Place a separate evidence comment immediately above each address. For new
+#: entries and evidence updates, use this format, stating verified findings and
+#: any unresolved limitations::
+#:
+#:     # Protocol / vault (verified YYYY-MM-DD):
+#:     # Trigger: selectors, provider host, source block and observed failure.
+#:     # Evidence: trace/precompile or replay/bisection; investigation doc or PR.
+#:     # Policy: why isolation helps; active or blacklisted, with history limits.
+#:     HexAddress("0x<lowercase deployed target address>"),
+#:
+#: Link the supporting investigation in the comment and update the gas document
+#: above when the behaviour or provider limits change. Record provider hosts
+#: rather than credential-bearing RPC URLs. Preserve existing risk exclusions:
+#: adding an entry must never remove its blacklist or promise historical NAV
+#: availability. Historical row preservation uses the owning vault address;
+#: a helper-only entry cannot safely defer an unlisted owner's observations.
+#: Review that ownership and preservation path before adding helper targets.
+#:
+#: Validate additions with the real scanner selectors at a fixed source block,
+#: comparing mixed and isolated reads alongside a cheap pure-EVM control. Use
+#: the supplied ``JSON_RPC_HYPERLIQUID`` endpoints and bounded requests, without
+#: changing production prices or reader state. The manual command documented in
+#: ``scripts/erc-4626/check-hyperevm-greylist.py`` checks HYPED and a control;
+#: it does not automatically exercise every entry, so new targets need their
+#: own probes. Keep batch-planning and saved-row-preservation coverage intact.
+#:
+#: Remove an entry only after repeatable checks show that its formerly failing
+#: mixed payload works under the scanner's provider settings and relevant block
+#: range. A successful single call at head, or silence while a vault remains
+#: blacklisted, is not evidence that batching is safe. Record the removal's
+#: evidence in the investigation document or PR for future regressions.
 HYPEREVM_MULTICALL_GREYLIST: Final[frozenset[HexAddress]] = frozenset(
     {
         # Hyperdrive HYPED: replay/bisection proved that repeated totalAssets,
         # convertToAssets and maxDeposit calls exceed Goldsky/dRPC gas caps despite
         # cheap execution. Seven HyperCore reads per valuation; totalSupply is cheap.
         HexAddress("0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"),
-        # Hyperdrive HLP and Gamma Symphony: debug_traceCall confirmed the 0x0809
-        # L1-block precompile dependency. Both remain blacklisted for unreadable
-        # history; isolating them must not implicitly restore historical admission.
+        # Hyperdrive HLP: debug_traceCall confirmed the 0x0809 L1-block precompile
+        # dependency. Remains blacklisted for unreadable history; isolation must
+        # not implicitly restore historical admission. See the gas document above.
         HexAddress("0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6"),
+        # Gamma Symphony: debug_traceCall confirmed the same 0x0809 dependency.
+        # Remains blacklisted for unreadable history; isolation must not implicitly
+        # restore historical admission. See the gas document above.
         HexAddress("0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774"),
         # Raga rHYPE AccountMarginSummary (0x080f): two copies of the four scanner
         # probes exhaust Goldsky/dRPC gas accounting. Current-state execution is
