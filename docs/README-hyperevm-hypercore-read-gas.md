@@ -344,7 +344,11 @@ errors; unavailable observations are never written as fresh zero TVL.
 Request accounting uses the existing operation rows: isolated requests carry
 an `_greylist` suffix, e.g. `historical_multicall_greylist`. These partition the
 same physical totals, including failed attempts, and must not be added again.
-The override is worker-local and survives parent-side counter aggregation.
+The isolated lane binds an explicit fixed-label `RPCOperationRecorder` to its
+worker-owned provider. It writes directly to the shared, locked counters and
+restores the previous recorder after reads and provider verification, including
+failures. No thread-local accounting context or lane-counter merge is needed;
+the existing subprocess counter transport remains unchanged.
 
 A bounded manual check is provided by `scripts/erc-4626/check-hyperevm-greylist.py`:
 

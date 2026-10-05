@@ -23,7 +23,6 @@ import time
 import zlib
 from abc import abstractmethod
 from collections import Counter, defaultdict
-from contextlib import nullcontext
 from dataclasses import dataclass, field
 from http.client import RemoteDisconnected
 from itertools import islice
@@ -52,7 +51,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_except
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider, FallbackRetryConfiguration, get_fallback_provider
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.named import get_provider_name
-from eth_defi.provider.rpcdb import RPCRequestStats
+from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
@@ -1880,6 +1879,14 @@ class MultiprocessMulticallReader:
         unavailable: dict[int, str] = {}
         provider = self.web3.provider
         initial_provider = None
+        # Providers are worker-owned even when their counters are shared. Bind a
+        # fixed-label recorder for the whole isolated lane instead of changing a
+        # shared operation or relying on ambient thread-local accounting state.
+        # Unwrap an already-labelled caller so nested attribution still writes
+        # directly to the same accumulator, with no copied or merged counters.
+        original_recorder = getattr(provider, "rpc_request_stats", None)
+        stats = original_recorder.stats if isinstance(original_recorder, RPCOperationRecorder) else original_recorder
+        greylist_recorder = RPCOperationRecorder(stats, original_recorder.operation + "_greylist") if stats is not None else None
         try:
             for greylisted, indexes in plan_multicall_batches(encoded_calls, batch_size, self.greylist_batch_size, self.greylist):
                 batch_calls = [encoded_calls[index] for index in indexes]
@@ -1890,33 +1897,31 @@ class MultiprocessMulticallReader:
                 if greylisted and initial_provider is None and isinstance(provider, FallbackProvider):
                     initial_provider = provider.currently_active_provider
                 logger.info("Multicall batch lane=%s chain=%d block=%s subcalls=%d limit=%d", "greylist" if greylisted else "regular", chain_id, block_identifier, len(indexes), limit)
-                # Provider instrumentation remains authoritative: this scope labels
-                # actual attempts, including retries and provider verification, without
-                # multiplying totals or mutating another thread's operation label.
-                stats = getattr(provider, "rpc_request_stats", None)
-                scope = stats.operation_scope(stats.operation + "_greylist") if greylisted and stats is not None else nullcontext()
-                with scope:
-                    try:
-                        batch_outputs = self.fetch_multicall_batch_with_retries(
-                            multicall_contract,
-                            block_identifier,
-                            limit,
-                            batch_calls,
-                            require_multicall_result,
-                            min_fallback_retries,
-                            greylisted,
-                        )
-                    except MulticallRetryExhausted as error:
-                        # Only documented target-local gas failures can become missing
-                        # observations. Rate limits, archive gaps and malformed replies
-                        # remain hard errors so outages cannot silently damage coverage.
-                        if not allow_greylist_unavailable or not greylisted or not is_multicall_gas_error(error):
-                            raise
-                        reason = "Greylisted Multicall gas accounting unavailable"
-                        logger.warning("%s: chain=%d block=%s target=%s selectors=%s", reason, chain_id, block_identifier, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
-                        for index in indexes:
-                            unavailable[index] = reason
-                        batch_outputs = [(False, b"")] * len(indexes)
+                if greylisted and greylist_recorder is not None:
+                    # Keep this binding across all isolated requests and the final
+                    # provider restoration, whose verification also incurs cost.
+                    provider.rpc_request_stats = greylist_recorder
+                try:
+                    batch_outputs = self.fetch_multicall_batch_with_retries(
+                        multicall_contract,
+                        block_identifier,
+                        limit,
+                        batch_calls,
+                        require_multicall_result,
+                        min_fallback_retries,
+                        greylisted,
+                    )
+                except MulticallRetryExhausted as error:
+                    # Only documented target-local gas failures can become missing
+                    # observations. Rate limits, archive gaps and malformed replies
+                    # remain hard errors so outages cannot silently damage coverage.
+                    if not allow_greylist_unavailable or not greylisted or not is_multicall_gas_error(error):
+                        raise
+                    reason = "Greylisted Multicall gas accounting unavailable"
+                    logger.warning("%s: chain=%d block=%s target=%s selectors=%s", reason, chain_id, block_identifier, batch_calls[0][0], [data[:4].hex() for _address, data in batch_calls])
+                    for index in indexes:
+                        unavailable[index] = reason
+                    batch_outputs = [(False, b"")] * len(indexes)
                 assert len(batch_outputs) == len(indexes)
                 outputs.update(zip(indexes, batch_outputs))
         finally:
@@ -1924,14 +1929,17 @@ class MultiprocessMulticallReader:
             # a working backup instead of paying failed primary probes repeatedly.
             # A verification failure leaves the healthy backup active and must
             # not mask successfully read data or the original scan exception.
-            if initial_provider is not None and provider.currently_active_provider != initial_provider:
-                stats = getattr(provider, "rpc_request_stats", None)
-                scope = stats.operation_scope(stats.operation + "_greylist") if stats is not None else nullcontext()
-                with scope:
+            try:
+                if initial_provider is not None and provider.currently_active_provider != initial_provider:
                     try:
                         provider.switch_to_provider_index(initial_provider, cause="Restore regular Multicall provider after isolated greylist lane")
                     except ChainIdMismatch:
                         logger.warning("Could not restore prior normal-lane Multicall provider after isolated lane; retaining verified fallback")
+            finally:
+                # Also restore accounting when verification or a read raises, so
+                # the next cached-reader task cannot inherit an isolated label.
+                if original_recorder is not None:
+                    provider.rpc_request_stats = original_recorder
         calls_results = [outputs[index] for index in range(len(encoded_calls))]
 
         self.calls += 1

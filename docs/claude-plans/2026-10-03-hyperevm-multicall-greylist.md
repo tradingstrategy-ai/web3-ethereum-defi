@@ -347,3 +347,32 @@ The final focused run passed 153 tests in 12.76 seconds. The fresh grounded
 Claude Opus 5.5 follow-up review reported no actionable findings after checking
 the entrypoints, sole configuration policy source, forwarding paths and saved-row
 safety. No deployment or production-state changes were made for this refactor.
+
+
+## Explicit operation accounting (2026-10-05)
+
+Removed ambient operation scopes and their thread-local overrides. A frozen
+``RPCOperationRecorder`` binds an operation label to the existing shared
+``RPCRequestStats`` accumulator. Provider instrumentation records physical
+attempts and errors directly into that accumulator under its existing lock.
+The Multicall reader attaches the greylist recorder across the isolated lane,
+including retry and provider-restoration verification requests, and restores
+the caller's original recorder in ``finally``. Nested labelled callers keep
+their exact binding. There are no copied lane counters or extra merge steps;
+existing subprocess serialisation and the persisted counter schema are unchanged.
+
+Checks cover simultaneous regular/greylist recorders sharing one sink, pickle
+round-trips preserving their shared identity, actual fallback retry accounting,
+strict and deferred failures, and recorder restoration even when provider
+verification fails. Connection caches remain separate from operation accounting.
+
+
+The focused counter/provider/Multicall/scanner checks passed 133 tests. A manual
+authenticated Alchemy HyperEVM check at block 47,733,791 served the pure ERC-20
+control and HYPED ``totalAssets()`` with accounting enabled. It recorded exactly
+one regular and one greylist ``eth_call``; all five physical attempts, including
+setup, matched the five operation-attributed attempts. The original provider
+recorder was restored. The existing bounded mixed/isolated diagnostic also
+served 9/9 subcalls in each path at block 47,733,706. These were manual runs on
+2026-10-05, made no state writes, and do not establish historical HyperCore NAV
+semantics.

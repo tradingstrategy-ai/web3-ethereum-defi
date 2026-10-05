@@ -3887,7 +3887,10 @@ verification. The diagnostic below supplies that list itself.
 
 See the [HyperCore gas investigation](../../docs/README-hyperevm-hypercore-read-gas.md)
 for the initial addresses, bounded retry policy, unavailable observations,
-address/block-scoped preservation and operation-counter suffixes. Successful
+address/block-scoped preservation and operation-counter suffixes. Operation
+labels come from explicit recorders attached to worker-owned providers; they
+share the existing counters without thread-local accounting state or additional
+merging. Successful
 regular reads are not replayed after an isolated failure. Saved source rows are
 kept when an isolated observation is unavailable rather than rewritten as zero.
 This cannot recover historical HyperCore state that a provider does not serve.

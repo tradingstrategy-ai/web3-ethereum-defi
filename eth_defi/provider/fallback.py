@@ -21,7 +21,7 @@ from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, SomeCrappyRPCProviderException, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
-from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
+from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ class FallbackProvider(BaseNamedProvider):
         retries: int = 6,
         state_missing_switch_over_delay: float = 12.0,
         switchover_noisiness=logging.WARNING,
-        rpc_request_stats: RPCRequestStats | None = None,
+        rpc_request_stats: RPCRequestStats | RPCOperationRecorder | None = None,
     ):
         """
         :param providers:
@@ -246,7 +246,7 @@ class FallbackProvider(BaseNamedProvider):
         #: a different chain.
         self.expected_chain_id: int | None = None
 
-    def set_rpc_request_stats(self, stats: RPCRequestStats | None) -> None:
+    def set_rpc_request_stats(self, stats: RPCRequestStats | RPCOperationRecorder | None) -> None:
         """Attach or detach a request accumulator on a cached provider.
 
         Subprocess readers reuse one Web3 connection for several jobs. They
@@ -254,10 +254,12 @@ class FallbackProvider(BaseNamedProvider):
         ``finally`` so a later task cannot mutate an already-returned object.
 
         :param stats:
-            Task or phase accumulator, or ``None`` to disable accounting.
+            Task/phase accumulator or fixed-label recorder, or ``None`` to disable
+            accounting. Each mutable provider connection belongs to one worker;
+            concurrent workers may share the underlying locked accumulator.
         """
 
-        assert stats is None or isinstance(stats, RPCRequestStats), f"Expected RPCRequestStats or None, got {type(stats)}"
+        assert stats is None or isinstance(stats, (RPCRequestStats, RPCOperationRecorder)), f"Expected request accumulator, operation recorder or None, got {type(stats)}"
         self.rpc_request_stats = stats
 
     def _get_rpc_provider_domain(self, provider: NamedProvider) -> str:

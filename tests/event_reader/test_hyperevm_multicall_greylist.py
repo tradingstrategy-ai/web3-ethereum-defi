@@ -7,7 +7,6 @@ script checks the configured real providers without modifying scanner state.
 """
 
 import datetime
-import pickle
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -32,7 +31,7 @@ from eth_defi.event_reader.multicall_batcher import (
     plan_multicall_batches,
 )
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
-from eth_defi.provider.rpcdb import RPCRequestStats
+from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure
 
 HYPED = HexAddress("0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e")
@@ -59,7 +58,7 @@ def recording_reader(monkeypatch: pytest.MonkeyPatch) -> Callable:
 
         def request(method: str, params: list) -> dict:
             """Decode real payloads and emulate provider results at source block."""
-            stats.record_call("rpc.example", method)
+            provider.rpc_request_stats.record_call("rpc.example", method)
             if method == "eth_chainId":
                 result = hex(chain)
             elif method == "eth_blockNumber":
@@ -317,26 +316,6 @@ def test_three_provider_gas_recovery_is_bounded(monkeypatch: pytest.MonkeyPatch,
     assert provider.currently_active_provider == 0
 
 
-def test_operation_scope_is_thread_local_and_pickleable() -> None:
-    """Lane labels partition physical requests without leaking across workers."""
-    stats = RPCRequestStats(operation="historical_multicall")
-
-    def record(lane: str) -> None:
-        """Exercise each worker's label while updating one shared accumulator."""
-        with stats.operation_scope(lane):
-            for _ in range(100):
-                stats.record_call("rpc.example", "eth_call")
-        stats.record_call("rpc.example", "eth_chainId")
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        list(executor.map(record, ["regular", "greylist"]))
-    restored = pickle.loads(pickle.dumps(stats))
-    assert restored.calls["rpc.example", "eth_call"] == 200
-    assert restored.operation_calls["regular", "rpc.example", "eth_call"] == 100
-    assert restored.operation_calls["greylist", "rpc.example", "eth_call"] == 100
-    assert restored.operation_calls["historical_multicall", "rpc.example", "eth_chainId"] == 2
-
-
 @pytest.mark.parametrize("restore_failure", [False, True])
 @pytest.mark.parametrize("exceptional", [False, True])
 def test_greylist_failover_restores_regular_provider(monkeypatch: pytest.MonkeyPatch, restore_failure: bool, exceptional: bool) -> None:
@@ -357,12 +336,15 @@ def test_greylist_failover_restores_regular_provider(monkeypatch: pytest.MonkeyP
         def switch_to_provider_index(self, index: int, **_: object) -> None:
             """Record restoration after the isolated request succeeds."""
             switches.append(index)
+            self.rpc_request_stats.record_call("rpc.example", "eth_chainId")
             if restore_failure:
                 raise multicall_batcher.ChainIdMismatch("original endpoint cannot be verified")
             self.currently_active_provider = index
 
     switches = []
     provider = Provider()
+    stats = RPCRequestStats(operation="historical_multicall")
+    provider.rpc_request_stats = stats
     reader = object.__new__(MultiprocessMulticallReader)
     reader.web3 = SimpleNamespace(provider=provider, eth=SimpleNamespace(chain_id=999))
     reader.chain_id = 999
@@ -379,6 +361,7 @@ def test_greylist_failover_restores_regular_provider(monkeypatch: pytest.MonkeyP
 
     def invoke(_contract: object, _block: int, _size: int, encoded: list, _strict: bool) -> list:
         """Fail the isolated target on primary; succeed on the alternate."""
+        provider.rpc_request_stats.record_call("rpc.example", "eth_call")
         if encoded[0][0].lower() == HYPED.lower() and provider.currently_active_provider == 0:
             raise MulticallRetryable("out of gas")
         if encoded[0][0].lower() == HYPED.lower() and exceptional:
@@ -392,6 +375,12 @@ def test_greylist_failover_restores_regular_provider(monkeypatch: pytest.MonkeyP
     else:
         results = list(reader.process_calls(BLOCK, calls_for([REGULAR, HYPED])))
         assert all(result.success for result in results)
+    assert provider.rpc_request_stats is stats
+    assert stats.operation == "historical_multicall"
+    assert stats.operation_calls["historical_multicall", "rpc.example", "eth_call"] == 1
+    assert stats.operation_calls["historical_multicall_greylist", "rpc.example", "eth_call"] == 2
+    assert stats.operation_calls["historical_multicall_greylist", "rpc.example", "eth_chainId"] == 1
+    assert sum(stats.operation_calls.values()) == sum(stats.calls.values())
     assert switches == [1, 0]
     assert provider.currently_active_provider == (1 if restore_failure else 0)
 
@@ -586,3 +575,78 @@ def test_feature_detectors_pass_generic_greylist(recording_reader: Callable, mon
         probes = list(classification.probe_vaults(1, lambda: reader.web3, [REGULAR], BLOCK, max_workers=1, greylist=frozenset({REGULAR})))
         assert len(probes) == 1 and probes[0].address == REGULAR
     assert [len(batch) for batch, _block in requests] == [1, 1, 1]
+
+
+@pytest.mark.parametrize("allow_unavailable", [False, True])
+def test_greylist_restores_callers_labelled_recorder(recording_reader: Callable, allow_unavailable: bool) -> None:
+    """Nested caller labels survive isolated failures without losing attempts.
+
+    A caller may bind a fixed operation label before passing its connection to
+    Multicall. A greylist failure must retain that exact binding, with attempts
+    already in the shared counters even when the reader propagates the error.
+
+    :param recording_reader: ABI-backed transport recorder.
+    :param allow_unavailable: Select strict failure or preservation-aware deferral.
+    :return: None; assert exact totals, lane attribution and binding restoration.
+    """
+
+    def reject_greylist(batch: tuple, _attempt: int) -> None:
+        """Reject only the isolated address with the documented gas symptom."""
+        if batch[0][0] == HYPED.lower():
+            raise ValueError({"code": -32003, "message": "out of gas"})
+
+    reader, requests, stats = recording_reader(fail=reject_greylist)
+    recorder = RPCOperationRecorder(stats, "caller")
+    reader.web3.provider.rpc_request_stats = recorder
+    if allow_unavailable:
+        results = list(reader.process_calls(BLOCK, calls_for([REGULAR, HYPED]), allow_greylist_unavailable=True))
+        assert results[0].success and results[1].unavailable_error
+    else:
+        with pytest.raises(MulticallRetryExhausted):
+            list(reader.process_calls(BLOCK, calls_for([REGULAR, HYPED])))
+    assert reader.web3.provider.rpc_request_stats is recorder
+    assert len(requests) == 2
+    assert stats.operation_calls["caller", "rpc.example", "eth_call"] == 1
+    assert stats.operation_calls["caller_greylist", "rpc.example", "eth_call"] == 1
+    assert stats.calls["rpc.example", "eth_call"] == 2
+    assert stats.operation == "historical_multicall"
+
+
+def test_worker_owned_providers_share_counters_with_distinct_lanes(recording_reader: Callable) -> None:
+    """A provider's isolated binding cannot relabel another worker's requests.
+
+    Both actual ABI-backed readers write into the same phase accumulator. A
+    barrier keeps their transport calls overlapping, exercising the supported
+    ownership model: mutable providers are private, while counters are shared.
+
+    :param recording_reader: Factory for separately owned provider connections.
+    :return: None; assert one physical attempt in each operation partition.
+    """
+    barrier = threading.Barrier(2)
+
+    def overlap(_batch: tuple, _attempt: int) -> None:
+        """Hold each encoded request until the other worker has entered transport."""
+        barrier.wait(timeout=10)
+
+    isolated, _requests, _stats = recording_reader(fail=overlap)
+    regular, _requests, _stats = recording_reader(fail=overlap)
+    stats = RPCRequestStats(operation="historical_multicall")
+    for reader in (isolated, regular):
+        reader.web3.provider.rpc_request_stats = stats
+
+    def scan(item: tuple[MultiprocessMulticallReader, HexAddress]) -> None:
+        """Read one worker-owned connection with an explicitly selected target.
+
+        :param item: ``(reader, target_address)`` for this worker's isolated task.
+        :return: None; assert successful output and restored provider binding.
+        """
+        reader, target = item
+        assert list(reader.process_calls(BLOCK, calls_for([target])))[0].success
+        assert reader.web3.provider.rpc_request_stats is stats
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(scan, [(isolated, HYPED), (regular, REGULAR)]))
+    assert stats.operation == "historical_multicall"
+    assert stats.calls["rpc.example", "eth_call"] == 2
+    assert stats.operation_calls["historical_multicall", "rpc.example", "eth_call"] == 1
+    assert stats.operation_calls["historical_multicall_greylist", "rpc.example", "eth_call"] == 1
