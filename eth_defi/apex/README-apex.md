@@ -39,8 +39,12 @@ public application API and [official API documentation](https://api-docs.pro.ape
 - [Official Python SDK](https://github.com/ApeX-Protocol/apexpro-openapi)
 
 The shared vault metadata `Link` field targets each platform vault directly:
-`https://omni.apex.exchange/vaultInfo/{vaultId}/1`. The exporter derives this
-from the scanned `vaultId`, rather than using the generic ApeX Omni homepage.
+`https://omni.apex.exchange/vaultInfo/{vaultId}` for user-created vaults and
+`https://omni.apex.exchange/vaultInfo/{vaultId}/1` for the curated official
+vaults (`10000` and `10001`). The trailing `/1` selects the official-vault API
+and view; adding it to a user-created vault shows an empty Insurance Vault.
+The exporter and metadata migration use the same link generator, deriving the
+URL from `vaultId` rather than using the generic ApeX Omni homepage.
 
 The two vault web-application endpoints used here are public but are not
 currently described in the official OpenAPI documentation or SDK. Their
