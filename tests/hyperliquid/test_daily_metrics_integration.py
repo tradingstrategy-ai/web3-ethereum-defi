@@ -25,6 +25,7 @@ from eth_defi.hyperliquid.daily_metrics import (
     fetch_and_store_vault,
     run_daily_scan,
 )
+from eth_defi.hyperliquid.permission import PERMISSION_FILENAME, export_permission_history
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import VaultSummary, classify_hyperliquid_vault_deposit, fetch_all_vaults
 from eth_defi.hyperliquid.vault_data_export import (
@@ -504,11 +505,17 @@ def test_unified_vault_metrics_json(tmp_path):
 
 
 @pytest.mark.timeout(120)
-def test_deposit_closed_vault_pipeline(tmp_path):
-    """Verify deposit_closed_reason propagates through the full pipeline for a vault with allow_deposits=False.
+def test_deposit_closed_vault_pipeline(tmp_path: Path) -> None:
+    """Keep current closure metadata separate from historical capacity projections.
 
-    Uses vault "[A] Downside" (0x4af52283ea6de9236c47b28e5dbf156453df8efb)
-    which has is_closed=False but allow_deposits=False on Hyperliquid.
+    Fetch the real ``[A] Downside`` vault, clean its historical prices and export
+    lifetime metrics. The current permission/capacity receipt is later than every
+    daily price point, so it belongs in the independent sidecar and cannot supply
+    historical leader share. See the Hyperliquid
+    `info endpoint <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__.
+
+    :param tmp_path: Isolated scanner, sidecar and export directory.
+    :return: ``None`` after checking the actual provider response and full pipeline.
     """
 
     vault_address = "0x4af52283ea6de9236c47b28e5dbf156453df8efb"
@@ -546,11 +553,12 @@ def test_deposit_closed_vault_pipeline(tmp_path):
         assert vault_meta.iloc[0]["allow_deposits"] == False, "Expected allow_deposits=False from Hyperliquid API"
         assert vault_meta.iloc[0]["is_closed"] == False, "Expected is_closed=False"
 
-        # Step 2b: Verify daily prices track deposit status on the latest row only
+        # Step 2b: Compatibility flags are sparse; their portfolio date is not
+        # the time at which this successful API response was observed.
         prices_df_raw = db.get_vault_daily_prices(vault_address)
         assert len(prices_df_raw) > 1, "Expected multiple daily price rows"
 
-        # Latest row should have deposit status from the API
+        # The latest compatibility row retains the raw fetched flags.
         latest_row = prices_df_raw.iloc[-1]
         assert latest_row["is_closed"] == False, "Latest row should have is_closed=False"
         assert latest_row["allow_deposits"] == False, "Latest row should have allow_deposits=False"
@@ -568,10 +576,26 @@ def test_deposit_closed_vault_pipeline(tmp_path):
         assert latest_row["leader_commission"] is not None, "Latest row should have leader_commission"
         assert historical_rows["leader_commission"].isna().all(), "Historical rows should have leader_commission=NULL"
 
-        # Leader fraction history should have exactly 1 row (single scan of a fresh DB)
+        # Compatibility history contains one value attached to a portfolio date;
+        # independent capacity freshness comes from the receipt checked below.
         lf_history = db.get_leader_fraction_history(vault_address)
         assert len(lf_history) == 1, f"Expected exactly 1 leader_fraction snapshot, got {len(lf_history)}"
         assert 0 < lf_history.iloc[0]["leader_fraction"] <= 1.0
+
+        # The current response arrives after every historical daily price. Keep
+        # its coherent policy/capacity inputs in their independently clocked file.
+        observations = db.get_permission_observations()
+        assert len(observations) == 1
+        observation = observations.iloc[0]
+        assert observation.permission_observed_at > prices_df_raw["date"].max()
+        assert observation.capacity_observed_at == observation.permission_observed_at
+        assert observation.leader_fraction == pytest.approx(latest_row["leader_fraction"])
+        assert observation.allow_deposits == False
+        sidecar_path = tmp_path / PERMISSION_FILENAME
+        export_permission_history([], sidecar_path, observations=observations)
+        exported_observation = pd.read_parquet(sidecar_path).iloc[0]
+        assert exported_observation.permission_observed_at == observation.permission_observed_at
+        assert exported_observation.leader_fraction == pytest.approx(observation.leader_fraction)
 
         # Verify flow columns are present in DuckDB after scan
         assert "daily_deposit_count" in prices_df_raw.columns, "daily_deposit_count column missing"
@@ -620,15 +644,19 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     vault_record = lifetime_data_df.iloc[0]
     assert vault_record["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in lifetime metrics, got: {vault_record['deposit_closed_reason']}"
 
-    # Step 7: Verify leader metrics flow through to lifetime data
-    assert vault_record["leader_fraction"] is not None, "leader_fraction should be in lifetime metrics"
-    assert 0 < vault_record["leader_fraction"] <= 1.0, f"leader_fraction out of range: {vault_record['leader_fraction']}"
+    # Step 7: Current capacity cannot be moved backwards onto older price rows.
+    # Commission remains an economic metric; leader fraction is a capacity input.
+    assert prices_df["permission_observed_at"].isna().all()
+    assert prices_df["capacity_observed_at"].isna().all()
+    assert prices_df["deposits_open"].isna().all()
+    assert prices_df["leader_fraction"].isna().all()
+    assert vault_record["leader_fraction"] is None
     assert vault_record["leader_commission"] is not None, "leader_commission should be in lifetime metrics"
 
     # Step 8: Verify in JSON export
     exported = export_lifetime_row(vault_record)
     assert exported["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in JSON export, got: {exported['deposit_closed_reason']}"
-    assert exported["leader_fraction"] is not None, "leader_fraction should be in JSON export"
+    assert exported["leader_fraction"] is None, "A post-price capacity receipt must remain in the sidecar"
     assert exported["leader_commission"] is not None, "leader_commission should be in JSON export"
 
 
