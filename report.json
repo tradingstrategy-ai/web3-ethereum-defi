@@ -1,0 +1,57 @@
+{
+  "title": "The best-performing stablecoin vaults, October 2026",
+  "slug": "the-best-performing-stablecoin-vaults-october-2026",
+  "excerpt": "The best stablecoin yield in DeFi, October 2026 report.",
+  "data_end_at": "2026-10-06T07:03:37.763000",
+  "stats": [
+    "29 blockchains and 117 vault protocols",
+    "The report data is dated 2026-10-06",
+    "5,705 stablecoin-denominated vaults, of which 1,992 have up-to-date data",
+    "Combined TVL of the vaults is $24.4B"
+  ],
+  "changelog_entries": [
+    "Add Antarctic AMLP and AHLP vaults with onchain settlement prices, Hypersync context, all-chain Parquet/JSON pipeline support, manual backfill tooling and equity/TVL charts (2026-09-30)",
+    "Add Kamui curator metadata and address-scoped attribution for its three permissioned Ethereum Lagoon vaults, with reviewed real-world asset strategy classifications and official artwork (2026-09-28)",
+    "Add mainnet-only Derive v3 native vault discovery, daily price history and shared vault export, with separate testnet inspection and storage (2026-09-24)",
+    "Add Arc mainnet metadata, HyperSync lookup, generic share-price-gated vault-scanner scheduling, temporary Morpho API coverage handling, Docker RPC wiring and an isolated initial vault-discovery script (2026-09-24)",
+    "Add fixed-block-tested Lagoon 1.0 vault read and scanner compatibility using the official v0.6 ABI surface (2026-09-22)",
+    "Add concise public strategy-category descriptions and classify Morini Capital foreign-currency vaults with the new FX category (2026-09-11)",
+    "Add deployment-time Lighter account activation and API-key registration for Lagoon vaults, including private deployment-report output and an end-to-end ETH perpetual trading tutorial (2026-09-11)"
+  ],
+  "excluded_vaults": null,
+  "sections": {
+    "lending": 20,
+    "rwa": 8,
+    "perp_dex": 20,
+    "perp_dex_sharpe": 20,
+    "amm": 19,
+    "tokenised_funds": 4,
+    "new": 19,
+    "by_chain": 22
+  },
+  "charts": {
+    "chain_yields": "charts/chain_yields.png",
+    "protocol_yields": "charts/protocol_yields.png",
+    "protocol_high_yields": "charts/protocol_high_yields.png",
+    "protocol_tvl": "charts/protocol_tvl.png",
+    "chain_tvl": "charts/chain_tvl.png",
+    "fund_nav": "charts/fund_nav.png",
+    "tvl_changes": "charts/tvl_changes.png",
+    "chain_tvl_changes": "charts/chain_tvl_changes.png",
+    "lending_performance": "charts/lending_performance.png",
+    "rwa_performance": "charts/rwa_performance.png",
+    "perp_dex_performance": "charts/perp_dex_performance.png",
+    "perp_dex_sharpe_performance": "charts/perp_dex_sharpe_performance.png",
+    "amm_performance": "charts/amm_performance.png",
+    "tokenised_funds_performance": "charts/tokenised_funds_performance.png",
+    "new_performance": "charts/new_performance.png",
+    "by_chain_best": "charts/by_chain_best.png",
+    "risk_return": "charts/risk_return.png"
+  },
+  "hero": "hero.png",
+  "hero_square": "hero-square.png",
+  "previous_report_slug": null,
+  "ghost_draft": null,
+  "vault_checks": null,
+  "podcasts": []
+}

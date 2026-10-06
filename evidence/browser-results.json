@@ -1,0 +1,374 @@
+[
+  {
+    "mode": "dark",
+    "width": 1440,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 1440,
+      "viewport": 1440,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 813,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "dark",
+    "width": 768,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 768,
+      "viewport": 768,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 757,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 813,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "dark",
+    "width": 390,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 390,
+      "viewport": 390,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 802,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 818,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 778,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 858,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 922,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 794,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 696,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 778,
+          "wrapper": 358,
+          "scroll": "auto"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "light",
+    "width": 1440,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 1440,
+      "viewport": 1440,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 813,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 768,
+          "wrapper": 768,
+          "scroll": "auto"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "light",
+    "width": 768,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 768,
+      "viewport": 768,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 757,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 813,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 736,
+          "wrapper": 736,
+          "scroll": "auto"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "light",
+    "width": 390,
+    "images": 110,
+    "uniqueImages": 104,
+    "charts": 17,
+    "failed": [],
+    "overflow": {
+      "page": 390,
+      "viewport": 390,
+      "tables": [
+        {
+          "parent": "table-wrapper",
+          "w": 802,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 818,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 778,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 858,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 922,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 794,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 696,
+          "wrapper": 358,
+          "scroll": "auto"
+        },
+        {
+          "parent": "table-wrapper",
+          "w": 778,
+          "wrapper": 358,
+          "scroll": "auto"
+        }
+      ]
+    }
+  }
+]

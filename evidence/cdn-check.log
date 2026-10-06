@@ -1,0 +1,5 @@
+2026-10-06 09:35:22 __main__                                     INFO     [MainThread] post.html: 110 table images, 104 unique URLs, all using native table PNG markup
+2026-10-06 09:35:22 __main__                                     INFO     [MainThread] preview.html: 110 table images, 104 unique URLs, all using native table PNG markup
+2026-10-06 09:35:22 tqdm_loggable.tqdm_logging                   INFO     [MainThread] Progress on:Decoding public table PNGs -/104 rate:- remaining:? elapsed:00:00 postfix:-
+2026-10-06 09:35:23 tqdm_loggable.tqdm_logging                   INFO     [Thread-12 (_handle_results)] Progress on:Decoding public table PNGs 104it/104it rate:186.7it/s remaining:00:00 elapsed:00:00 postfix:-
+2026-10-06 09:35:23 __main__                                     INFO     [MainThread] Passed: 104 public CDN PNGs decoded at 300 x 75, with 72 x 18 HTML markup

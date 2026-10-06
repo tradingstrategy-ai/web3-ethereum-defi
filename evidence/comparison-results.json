@@ -1,0 +1,65 @@
+[
+  {
+    "kind": "Normal history",
+    "id": "8453-0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5",
+    "name": "Aerodrome USDC",
+    "page": "https://tradingstrategy.ai/vaults?q=Aerodrome%20USDC",
+    "live": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-8453-0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5.svg",
+      "w": 111.84375,
+      "h": 27.953125,
+      "nw": 100,
+      "nh": 25
+    },
+    "blog": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-table-90d-8453-0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5.png",
+      "w": 72,
+      "h": 18,
+      "nw": 300,
+      "nh": 75
+    },
+    "sameSvgAsPublication": true
+  },
+  {
+    "kind": "Short / sparse history",
+    "id": "1-0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870",
+    "name": "USPC Custody Vault",
+    "page": "https://tradingstrategy.ai/vaults/new-vaults?q=USPC",
+    "live": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-1-0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870.svg",
+      "w": 111.84375,
+      "h": 27.953125,
+      "nw": 100,
+      "nh": 25
+    },
+    "blog": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-table-90d-1-0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870.png",
+      "w": 72,
+      "h": 18,
+      "nw": 300,
+      "nh": 75
+    },
+    "sameSvgAsPublication": true
+  },
+  {
+    "kind": "Constant price",
+    "id": "1-0x09864f52b035ae22ee739dfa5c748fa080d07bd8",
+    "name": "JPMorgan OnChain Liquidity-Token Money Market Fund",
+    "page": "https://tradingstrategy.ai/vaults/tokenised-funds?q=JPMorgan",
+    "live": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-1-0x09864f52b035ae22ee739dfa5c748fa080d07bd8.svg",
+      "w": 111.84375,
+      "h": 27.953125,
+      "nw": 100,
+      "nh": 25
+    },
+    "blog": {
+      "src": "https://vault-sparklines.tradingstrategy.ai/sparkline-table-90d-1-0x09864f52b035ae22ee739dfa5c748fa080d07bd8.png",
+      "w": 72,
+      "h": 18,
+      "nw": 300,
+      "nh": 75
+    },
+    "sameSvgAsPublication": true
+  }
+]
