@@ -2382,7 +2382,16 @@ latest observation timestamp. A vault with less than 90 days of history is drawn
 right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
 is still rendered from its own history. The exporter publishes one 100 × 25
-SVG and one 300 × 300 PNG for each vault. Both are gzip-compressed, and
+SVG, one legacy 300 × 300 PNG and one native 300 × 75 table PNG for each vault.
+The existing `sparkline-90d-{vault_id}.svg` and `.png` object names remain;
+the new `sparkline-table-90d-{vault_id}.png` rasterises the canonical SVG with
+uniform 3× scaling, including its 3 px stroke, for 72 × 18 blog/email cells.
+All three assets are required before completion state advances. A missing
+variant or partial upload fails that vault and retains its previous completion
+until a complete retry succeeds. Renderer version 5 invalidates previous
+successful input hashes, including low-TVL cadence skips, so unchanged-input
+vaults receive the table PNG on their next export (retry backoff still applies).
+All assets are gzip-compressed, and
 unchanged source images are skipped using the local input digest before any
 rendering or R2 request.
 

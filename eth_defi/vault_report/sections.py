@@ -87,7 +87,7 @@ CAPPED_RETURN_LABEL = ">9,999%"
 
 #: Public vault sparkline images, rendered by :py:mod:`eth_defi.research.sparkline_export`
 #: PNG rather than SVG, because email clients such as Gmail strip SVG images from newsletters
-SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vault_id}.png"
+SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-table-90d-{vault_id}.png"
 
 
 #: Strategy tags that make a vault a lending vault

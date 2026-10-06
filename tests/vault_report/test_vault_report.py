@@ -364,7 +364,13 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     # The Ghost theme's table of contents follows the opening, as in the earlier posts, and figures are bold
     assert post_html.index('<div id="table-of-contents"></div>') < post_html.index('<h2 id="about-the-report">')
     assert "<li>The report data is dated <strong>" in post_html
-    assert "vault-sparklines.tradingstrategy.ai" in post_html
+    assert "vault-sparklines.tradingstrategy.ai/sparkline-table-90d-" in post_html
+    assert "vault-sparklines.tradingstrategy.ai/sparkline-90d-" not in post_html
+    preview_html = (tmp_path / "out" / "preview.html").read_text()
+    assert "vault-sparklines.tradingstrategy.ai/sparkline-table-90d-" in preview_html
+    assert "vault-sparklines.tradingstrategy.ai/sparkline-90d-" not in preview_html
+    assert preview_html.count('<div class="table-wrapper">') == preview_html.count("<table>")
+    assert "width=device-width, initial-scale=1" in preview_html
 
     # An existing draft is checked before any chart is uploaded
     report.chart_paths = {"lending_performance": tmp_path / "missing.png"}
@@ -662,10 +668,31 @@ def test_vault_properties(vaults_df: pd.DataFrame):
 def test_table_sparklines(vaults_df: pd.DataFrame):
     """Tables show sparklines only for vaults that have one, and no risk rating column."""
     table = render_section_table(ReportSection(vaults_df.loc[["1-0xaa", "1-0xbb"]], sparkline_ids=frozenset({"1-0xaa"})))
-    assert table.count("sparkline-90d-") == 1
-    assert "sparkline-90d-1-0xaa.png" in table
+    assert table.count("sparkline-table-90d-") == 1
+    assert "sparkline-table-90d-1-0xaa.png" in table
+    assert 'width="72" height="18" alt="" style="width:72px;max-width:none;height:18px;vertical-align:middle"' in table
+    assert "sparkline-table-90d-1-0xbb.png" not in table
+    assert "sparkline-90d-" not in table
     assert table.startswith("<table>")
     assert "Risk" not in table
+
+
+def test_report_metrics_accept_mixed_timestamp_precision(vault_records: list[dict]) -> None:
+    """Real exports mix ISO timestamps with and without fractional seconds.
+
+    Pandas must parse the ISO values without inferring a single format from
+    the first vault. Keep naive UTC and the exact fractional timestamp.
+
+    :param vault_records:
+        Synthetic exported records supplying all required metrics fields.
+    """
+    records = [dict(record) for record in vault_records[:2]]
+    records[0]["end_date"] = "2026-10-05T00:00:00"
+    records[1]["end_date"] = "2026-10-05T00:00:00.072000"
+    result = prepare_vault_metrics(records)
+    assert result["end_date"].dt.tz is None
+    assert result.iloc[0]["end_date"] == pd.Timestamp("2026-10-05")
+    assert result.iloc[1]["end_date"] == pd.Timestamp("2026-10-05T00:00:00.072000")
 
 
 def test_compose_chart_panel(tmp_path: Path):

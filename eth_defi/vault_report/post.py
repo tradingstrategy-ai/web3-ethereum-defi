@@ -715,11 +715,14 @@ def build_preview_html(title: str, post_html: str, feature_image: str | None = N
         HTML document.
     """
     style = """
-    body { font-family: Inter, Helvetica, Arial, sans-serif; max-width: 1100px; margin: 2em auto; color: #15171a; line-height: 1.5; }
+    body { font-family: Inter, Helvetica, Arial, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; box-sizing: border-box; color: #15171a; line-height: 1.5; }
     img { max-width: 100%; }
+    .table-wrapper { overflow-x: auto; }
     table { border-collapse: collapse; font-size: 13px; margin: 1em 0; }
     th, td { border-bottom: 1px solid #e6e5e1; padding: 4px 8px; }
     figcaption { text-align: center; color: #52514e; font-size: 14px; }
     """
     feature = f'<img src="{html.escape(feature_image)}" alt="">' if feature_image else ""
-    return f"<!DOCTYPE html>\n<html><head><meta charset='utf-8'><title>{html.escape(title)}</title><style>{style}</style></head>\n<body>{feature}<h1>{html.escape(title)}</h1>\n{post_html}\n</body></html>\n"
+    # Mirror the frontend's scroll containers without changing the post HTML sent to Ghost.
+    preview_body = re.sub(r"(<table(?:\s[^>]*)?>.*?</table>)", r'<div class="table-wrapper">\1</div>', post_html, flags=re.DOTALL)
+    return f"<!DOCTYPE html>\n<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>{html.escape(title)}</title><style>{style}</style></head>\n<body>{feature}<h1>{html.escape(title)}</h1>\n{preview_body}\n</body></html>\n"

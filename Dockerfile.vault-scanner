@@ -30,7 +30,8 @@ ENV PYTHONUNBUFFERED=1
 # Needed for Pandas, etc.
 # 25.57     | src/gmpy2.h:77:10: fatal error: mpfr.h: No such file or directory
 # 25.57     |    77 | #include <mpfr.h>
-RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev && rm -rf /var/lib/apt/lists/*
+# CairoSVG rasterises the canonical website sparkline for blog/email tables.
+RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev libcairo2 && rm -rf /var/lib/apt/lists/*
 
 # Install Python Poetry - pinned version
 RUN curl -sSL https://install.python-poetry.org | python - --version 2.3.2

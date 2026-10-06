@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from cairosvg import svg2png
 from PIL import Image, ImageColor, ImageDraw
 
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
@@ -24,13 +25,17 @@ DEFAULT_SPARKLINE_WINDOW = pd.Timedelta(days=90)
 MIN_SPARKLINE_HISTORY = pd.Timedelta(0)
 
 #: Versioned visual contract used by canonical input digests and state.
-SPARKLINE_RENDERER_VERSION = 4
+SPARKLINE_RENDERER_VERSION = 5
 
 #: Public sparkline dimensions.
 SPARKLINE_SVG_WIDTH = 100
 SPARKLINE_SVG_HEIGHT = 25
 SPARKLINE_PNG_WIDTH = 300
 SPARKLINE_PNG_HEIGHT = 300
+
+#: Native 4:1 newsletter/table raster, uniformly scaled from the canonical SVG.
+SPARKLINE_TABLE_PNG_WIDTH = 300
+SPARKLINE_TABLE_PNG_HEIGHT = 75
 
 #: Stable visual style constants shared by direct renderers.
 SPARKLINE_LINE_COLOR = "#00ff88"
@@ -392,6 +397,31 @@ def render_sparkline_svg(
     gradient_end_y = _format_svg_number(coordinates.baseline_y)
     svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{gradient_end_y}"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
     return svg.encode("utf-8")
+
+
+def render_sparkline_table_png(vault_prices_df: pd.DataFrame | SparklineData | bytes) -> bytes:
+    """Rasterise the canonical website sparkline for blog and email tables.
+
+    Render the 100 x 25 SVG directly onto a 300 x 75 canvas. Uniform scaling
+    preserves the observations, step path, time bounds, vertical padding,
+    gradient and round joins, including a 3 px counterpart of the SVG's 1 px
+    stroke. Resizing the legacy square PNG would compress these vertically.
+
+    See the `CairoSVG conversion API <https://cairosvg.org/documentation/>`__.
+
+    :param vault_prices_df:
+        Prepared sparkline data or a single-vault DataFrame indexed by naive
+        UTC timestamps with a finite numeric ``share_price`` column. Canonical
+        SVG bytes are also accepted, allowing publication to rasterise the
+        exact SVG payload it uploads without preparing the observations twice.
+    :return:
+        Native 4:1 PNG bytes suitable for a 72 x 18 HTML image.
+    """
+    return svg2png(
+        bytestring=vault_prices_df if isinstance(vault_prices_df, bytes) else render_sparkline_svg(vault_prices_df),
+        output_width=SPARKLINE_TABLE_PNG_WIDTH,
+        output_height=SPARKLINE_TABLE_PNG_HEIGHT,
+    )
 
 
 @lru_cache(maxsize=4)

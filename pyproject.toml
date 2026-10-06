@@ -78,6 +78,9 @@ numpy = {version = "<3", optional = true}
 pandas = {version = ">=1.4"}
 
 # Data
+# Rasterise canonical SVG sparklines into native 4:1 PNGs for blog/email tables;
+# also used by the development logo-processing scripts.
+cairosvg = {version = ">=2.7.0", optional = true}
 ffn = {version = "^1.1.2", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
@@ -176,15 +179,13 @@ pytest-asyncio = ">=0.25,<2"
 # Logo processing dependencies for vault protocol logos
 # See .claude/skills/post-process-logo/SKILL.md
 google-generativeai = ">=0.8.0"
-# See .claude/skills/post-process-logo/SKILL.md
-cairosvg = ">=2.7.0"
 # rembg and onnxruntime are needed for background removal in logo processing
 onnxruntime = "^1.23.2"
 rembg = ">=2.0.50"
 
 [tool.poetry.extras]
 # To install the web3py version based dependencies
-data = ["jupyter", "tqdm", "gql", "matplotlib", "pillow", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
+data = ["jupyter", "tqdm", "gql", "matplotlib", "pillow", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn", "cairosvg"]
 docs = [
   "Sphinx",
   "sphinx-rtd-theme",

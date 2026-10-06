@@ -294,14 +294,54 @@ compares performance. See
 - Tables rank by the annualised one-month return, like the website. All charts
   use the steadier annualised three-month return instead, see
   [README-blog-post-outline.md](./README-blog-post-outline.md#common-rules).
-- "3M history" shows the website's published 90-day sparkline (PNG, so it
-  survives newsletter email clients). Low-TVL vaults may not have one yet.
+- "3M history" uses the dedicated `sparkline-table-90d-{vault_id}.png` asset,
+  a native 300 × 75 raster of the website's canonical 100 × 25 SVG. The uniform
+  3× scale preserves its 1 px stroke as 3 px, step path, 90-day bounds, padding,
+  colours and gradient. PNG survives newsletter email clients. The legacy
+  square PNG must never be squeezed into a table: that compresses its stroke.
+  Images keep `width="72" height="18"` and
+  `style="width:72px;max-width:none;height:18px;vertical-align:middle"`.
+  Availability checks request this exact table variant; missing assets leave
+  empty cells, even if a legacy PNG or SVG exists.
 - "TVL" is the current TVL, e.g. `$275k` or `$1.2M`; the CSV files keep the
   exact current and peak values.
 - Tables have no risk rating column. The technical risk rating is used only to
   leave Dangerous or worse vaults out of the charts.
 
 The thresholds live in `eth_defi.vault_report.sections.ReportCriteria`.
+
+### Checking table images
+
+Deploy the updated sparkline exporter and let its renderer version invalidate
+previous completions before generating the next report. Every vault must have
+its SVG, square PNG and table PNG published successfully; a partial upload
+retains its previous completion and retries after the normal backoff. Existing
+square PNG and SVG URLs keep their consumers. CairoSVG is included in the
+`data` extra; the scanner image installs its native `libcairo2` dependency.
+
+Generate a complete local bundle with `GHOST_DRAFT=false`, then run this
+read-only integration check against the real public CDN:
+
+```shell
+source .local-test.env && REPORT_DIR=/tmp/vault-report MAX_WORKERS=8 \
+    poetry run python scripts/erc-4626/check-report-sparklines.py
+```
+
+It checks both `post.html` and `preview.html`, the exact variant and 72 × 18
+markup, and downloads and decodes every unique PNG at 300 × 75. HTTP 200 is
+insufficient evidence of the right asset. An empty set fails the check.
+
+Before publishing, inspect the bundle preview and generated HTML in the
+frontend from master, using a local fixture for an unpublished draft. At 1440,
+768 and 390 px in both colour modes, scroll through every table and wait for
+image decoding. Confirm PNG `currentSrc`, 4:1 natural dimensions, 72 × 18
+rendered boxes, no failed image requests and no page overflow; wide tables
+scroll within their wrappers. Compare normal, short/sparse and constant-price
+vaults against the same live `/vaults` SVGs, both at equal displayed sizes and
+in their usual layouts. Save desktop/mobile and comparison screenshots and
+check regular performance charts keep their intrinsic proportions and labels.
+Finally send a Ghost test newsletter and inspect the received message in Gmail
+and another target client. Record web and received-email checks separately.
 
 ## Investability check
 
