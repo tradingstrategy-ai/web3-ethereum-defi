@@ -12,7 +12,7 @@ The integration is reader-only:
 
 - no authentication or private account data;
 - no deposits, withdrawals or trading;
-- optional read-only export into the unified vault Parquet and metadata pickle;
+- optional export into the unified vault Parquet and metadata pickle;
 - optional all-chain scanner scheduling through `SCAN_APEX`; and
 - no assumption that the Ethereum address reported by ApeX uniquely identifies
   a vault.
@@ -46,7 +46,7 @@ and view; adding it to a user-created vault shows an empty Insurance Vault.
 The exporter and metadata migration use the same link generator, deriving the
 URL from `vaultId` rather than using the generic ApeX Omni homepage.
 
-The two vault web-application endpoints used here are public but are not
+The vault web-application endpoints used here are public but are not
 currently described in the official OpenAPI documentation or SDK. Their
 response shapes were verified directly against the live application API on
 2026-07-23 and are captured in fixture-based tests.
@@ -103,6 +103,12 @@ ApeX public web API
              |
              v
       vault_metadata.redemption_delay
+
+/api/v3/vault/profile?vaultId=...
+  per-vault investor profit share and subscription fee
+             |
+             v
+      vault_metadata.performance_fee / deposit_fee
 ```
 
 One command owns both paths. The command schedule controls current ranking
@@ -229,6 +235,83 @@ every requested vault ID exactly once. The known Protocol Vault and New Vault
 also receive curated descriptions in the shared metadata export because the
 endpoint supplies placeholder source text.
 
+### Investor fees
+
+The [ApeX vault guide](https://apex-pro.gitbook.io/apex-pro/apex-omni/apex-vaults)
+describes creator profit sharing on realised investor gains. The native
+application's subscription and redemption dialogs state that this profit
+share is paid **upon redemption**. It is therefore an **externalised
+performance fee**: the historical NAV is before this investor-level deduction.
+Trading commissions and funding costs already affect NAV and are not charged
+again by the investor-return calculation.
+
+The anonymous public profile supplies the actual per-vault schedule:
+
+```text
+GET https://omni.apex.exchange/api/v3/vault/profile?vaultId={vaultId}
+```
+
+| Field | Export | Units and handling |
+|-------|--------|--------------------|
+| `data.vault.vaultId` | Identity check | Must match the requested vault |
+| `data.vault.shareProfitRatio` | `performance_fee` / `Perf fee` | Fraction: `0.10` means 10%, with no division by 100 |
+| `data.vault.purchaseFeeRate` | `deposit_fee` / `Deposit fee` | Verified zero becomes `0.0`; missing or non-zero values remain unknown because non-zero units have not been verified |
+| Investor fee model | Management and flat withdrawal fees | `0.0`; the documented redemption charge is modelled as a performance fee, with trading and funding costs already in NAV |
+
+The ranking endpoint can return a blank `shareProfitRatio` even when the
+profile reports 10%. The configuration endpoint's `profitShareRatio` is a
+creation default, not the canonical per-vault schedule. Neither is used to
+guess a profile fee. Failed profile reads preserve the previously verified
+rate, while a successful profile with an unverified subscription fee clears
+the old deposit-fee certainty. Net returns require a complete known schedule.
+
+Profile and lockup reads run in the same worker phase with separate bounded
+operation budgets, so either endpoint can succeed when the other fails. New
+nullable DuckDB columns are added without rewriting or removing price history.
+Active user vaults refresh
+their schedules on each scan; terminal vaults are refreshed until a lockup and
+valid profile profit share are stored. An intentionally unknown subscription
+fee does not cause endless terminal-vault reads. Raw price exports carry the
+current verified performance fee, as the Hyperliquid exporter does; historical
+changes to fee rates are not available from these endpoints.
+
+The curated official vaults `10000` and `10001` export a complete zero-fee
+schedule. The [Protocol Vault guide](https://apex-pro.gitbook.io/apex-pro/apex-omni/protocol-vaults)
+states that redemption returns principal and all accrued yield. These products
+do not have a user-vault creator's profit share.
+
+Comparison reviewed on 2026-10-06:
+
+| Product | Current repository export | Investor profit-share treatment |
+|---------|---------------------------|---------------------------------|
+| ApeX user vaults | `externalised`, actual profile fraction | Deduct the creator's share from positive returns at redemption |
+| ApeX official vaults | `feeless`, all fee fields zero | Principal plus accrued yield returned |
+| Hyperliquid legacy user vaults | `externalised`, fixed 10% | The [depositor guide](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy) explicitly deducts the leader's share at withdrawal; HLP has zero profit share |
+| Lighter public pools | `internalised_skimming`, `operator_fee / 100` | The current exporter assumes the share price already reflects the operator fee; the [current pool guide](https://docs.lighter.xyz/trading/public-pools) instead describes allocation upon participant withdrawals |
+
+Lighter's NAV accounting needs further verification. Its legacy classification
+is retained and documented as an assumption, not a confirmed accounting model.
+
+### Metrics and ranking availability
+
+Fee export enables investor net returns once a complete schedule is known.
+Other missing metrics can have independent causes in the shared pipeline:
+
+- Monthly and quarterly annualisation require the complete requested history
+  window; lifetime annualisation requires at least 30 days of observations.
+- Sharpe requires at least 14 days of daily-return history. A seven-day period
+  therefore has no Sharpe value.
+- The default chain and protocol ranking threshold is $10,000 TVL; the overall
+  ranking threshold is $50,000. Ranking also requires a valid annualised return.
+- Exposure and concentration require positions, which this reader cannot fetch
+  anonymously.
+
+For example, on 2026-10-06 the AI multistrategy vault had about 21 days of
+observed history and $9,100 TVL. Its gross return and drawdown were calculable,
+but monthly/lifetime annualisation and chain/protocol ranking were unavailable
+under these rules. Before this change, its unknown exported fee schedule also
+prevented net returns. These rules live in `eth_defi/research/vault_metrics.py`.
+
 ## Status handling
 
 Only the verified `VAULT_FINISHED` status is terminal. Every other value,
@@ -306,9 +389,9 @@ NAV, TVL, share count and derived supply are parsed as finite Python `float`
 values and stored as DuckDB `DOUBLE`. Tests use approximate comparisons to
 account for normal binary floating-point rounding.
 
-The units of `purchaseFeeRate` and `shareProfitRatio` are not authoritatively
-documented. They remain nullable raw strings and are not exposed as typed
-percentages.
+Ranking `purchaseFeeRate` and `shareProfitRatio` remain nullable raw strings.
+The separate profile's verified fractional profit share is exported as a
+typed performance fee; unverified non-zero subscription fee units remain null.
 
 ## Bounded HTTP behaviour
 
@@ -380,7 +463,7 @@ HISTORY_MODE=refresh poetry run python scripts/apex/vault-metrics.py
 | `READ_TIMEOUT` | `30` | Socket inactivity timeout in seconds |
 | `REQUEST_DEADLINE` | `60` | One request-attempt deadline |
 | `RANKING_DEADLINE` | `300` | Deadline shared by both ranking passes |
-| `HISTORY_DEADLINE` | `120` | Per-vault history operation deadline |
+| `HISTORY_DEADLINE` | `120` | Operation budget for each history, lockup or profile read |
 | `MAX_RETRY_DELAY` | `10` | Maximum retry delay |
 | `MAX_RESPONSE_BYTES` | `16777216` | Largest accepted JSON response |
 | `HISTORY_MODE` | `incremental` | `incremental`, `refresh` or `none` |
@@ -404,5 +487,21 @@ HISTORY_MODE=refresh poetry run python scripts/apex/vault-metrics.py
 Run the fixture-based suite without contacting ApeX:
 
 ```shell
-source .local-test.env && poetry run pytest tests/apex
+source .local-test.env && poetry run pytest tests/apex -m 'not live'
 ```
+
+Run the focused real-provider fee check (public API, no credentials):
+
+```shell
+source .local-test.env && poetry run pytest tests/apex/test_apex_export.py::test_live_apex_profile_fees_reach_shared_exports --log-cli-level=info
+```
+
+This check reads the AI multistrategy vault's actual profile and verifies
+DuckDB persistence, shared metadata/raw-price exports and the investor
+net-return calculation. It writes only temporary test files.
+
+Manual result on 2026-10-06: passed against the anonymous ApeX Omni mainnet
+profile endpoint. The source reported a 10% profit share and a zero subscription
+fee. Migration was also checked on a production DuckDB copy: 676 metadata rows
+and 211,874 price rows were preserved, with an unchanged complete price checksum
+and null defaults for the new fee columns.

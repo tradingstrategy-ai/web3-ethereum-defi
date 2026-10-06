@@ -19,6 +19,8 @@ from pytest import MonkeyPatch
 from eth_defi.apex.metrics import ApexMetricsDatabase, run_scan
 from eth_defi.apex.session import ApexAPIError, create_apex_session_pool
 from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultConfiguration, ApexVaultSummary
+from eth_defi.types import Percent
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 
 def _session_pool_mock() -> Mock:
@@ -73,6 +75,10 @@ def database(tmp_path: Path) -> Iterator[ApexMetricsDatabase]:
 def _disable_official_endpoint_by_default(monkeypatch: MonkeyPatch) -> None:
     """Keep legacy lifecycle tests limited to their ranked-vault fixtures."""
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_official_vaults", lambda *args, **kwargs: ())
+    monkeypatch.setattr(
+        "eth_defi.apex.metrics.fetch_vault_fees",
+        lambda *args, **kwargs: FeeData(fee_mode=VaultFeeMode.externalised, management=0.0, performance=0.1, deposit=0.0, withdraw=0.0),
+    )
 
 
 def test_schema_has_no_art_constraints(database: ApexMetricsDatabase) -> None:
@@ -131,6 +137,8 @@ def test_existing_metadata_schema_migrates_redemption_delay(tmp_path: Path) -> N
         metadata = database.get_vault_metadata().set_index("vault_id")
         assert metadata.loc["1", "current_nav"] == pytest.approx(1)
         assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+        assert pd.isna(metadata.loc["1", "performance_fee"])
+        assert pd.isna(metadata.loc["1", "deposit_fee"])
     finally:
         database.close()
 
@@ -350,8 +358,20 @@ def test_unchanged_terminal_ranking_is_suppressed(database: ApexMetricsDatabase)
     assert len(database.get_vault_prices("1")) == 1
 
 
-def test_terminal_vault_with_verified_delay_skips_configuration_refresh(database: ApexMetricsDatabase) -> None:
-    """Keep a terminal vault's verified delay without another API request."""
+@pytest.mark.parametrize("deposit_fee", (0.0, None))
+def test_terminal_vault_with_verified_configuration_skips_refresh(database: ApexMetricsDatabase, deposit_fee: Percent | None) -> None:
+    """Refresh terminal rows until a lockup and valid profile have been read.
+
+    Intentionally unknown subscription-fee units remain unknown in metadata,
+    but do not cause a finished vault's immutable profile to be read forever.
+
+    :param database:
+        Isolated file-backed ApeX database.
+    :param deposit_fee:
+        Verified zero or an intentionally unknown subscription fee.
+    :return:
+        None.
+    """
     observed_at = datetime.datetime(2026, 7, 23, 12)
     terminal_vault = _vault("1", status="VAULT_FINISHED")
     database.apply_ranking(
@@ -359,6 +379,13 @@ def test_terminal_vault_with_verified_delay_skips_configuration_refresh(database
         observed_at,
         manage_disappearance=True,
         redemption_delays={"1": datetime.timedelta(days=1)},
+    )
+    assert database.select_configuration_candidates((terminal_vault,), set()) == ("1",)
+    database.apply_ranking(
+        (terminal_vault,),
+        observed_at,
+        manage_disappearance=True,
+        fee_data={"1": FeeData(fee_mode=VaultFeeMode.externalised, management=0.0, performance=0.1, deposit=deposit_fee, withdraw=0.0)},
     )
     assert database.select_configuration_candidates((terminal_vault,), set()) == ()
     assert database.select_configuration_candidates((_vault("2"),), set()) == ("2",)
@@ -446,6 +473,8 @@ def test_run_scan_ingests_public_redemption_delay(database: ApexMetricsDatabase,
     run_scan(_session_pool_mock(), database, history_mode="none")
     metadata = database.get_vault_metadata().set_index("vault_id")
     assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+    assert metadata.loc["1", "performance_fee"] == pytest.approx(0.1)
+    assert metadata.loc["1", "deposit_fee"] == 0.0
 
 
 def test_run_scan_retains_delay_after_configuration_error(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
@@ -463,11 +492,72 @@ def test_run_scan_retains_delay_after_configuration_error(database: ApexMetricsD
 
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_configuration", fetch_configuration)
     run_scan(_session_pool_mock(), database, history_mode="none")
+    monkeypatch.setattr(
+        "eth_defi.apex.metrics.fetch_vault_fees",
+        lambda *args, **kwargs: FeeData(fee_mode=VaultFeeMode.externalised, management=0.0, performance=0.05, deposit=0.0, withdraw=0.0),
+    )
     with caplog.at_level(logging.WARNING, logger="eth_defi.apex.metrics"):
         run_scan(_session_pool_mock(), database, history_mode="none")
     metadata = database.get_vault_metadata().set_index("vault_id")
     assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+    assert metadata.loc["1", "performance_fee"] == pytest.approx(0.05)
     assert "Could not fetch ApeX redemption delay for 1: configuration unavailable" in caplog.messages
+
+
+def test_run_scan_retains_fees_after_profile_error(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Retain verified fees independently when the next profile read fails.
+
+    The source's existing ranking placeholder must not erase the actual
+    profile fee, and a failed fee read must not prevent a new lockup value.
+
+    :param database:
+        Isolated file-backed ApeX database.
+    :param monkeypatch:
+        Fixture replacing the public reads.
+    :param caplog:
+        Fixture capturing the deferred profile warning.
+    :return:
+        None.
+    """
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    prices_before = len(database.get_vault_prices())
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_fees", Mock(side_effect=ApexAPIError("profile unavailable")))
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_configuration", lambda *args, **kwargs: ApexVaultConfiguration(datetime.timedelta(days=2)))
+    with caplog.at_level(logging.WARNING, logger="eth_defi.apex.metrics"):
+        run_scan(_session_pool_mock(), database, history_mode="none")
+    row = database.get_vault_metadata().iloc[0]
+    assert row["performance_fee"] == pytest.approx(0.1)
+    assert row["deposit_fee"] == 0.0
+    assert row["redemption_delay"] == datetime.timedelta(days=2)
+    assert len(database.get_vault_prices()) == prices_before + 1
+    assert "Could not fetch ApeX vault fees for 1: profile unavailable" in caplog.messages
+
+
+def test_run_scan_unknown_subscription_fee_replaces_old_zero(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Stop publishing net returns when a successful profile loses fee certainty.
+
+    A non-zero subscription fee with unverified units is a source change,
+    rather than a network failure. Retaining the previous zero would make the
+    exported investor return misleading.
+
+    :param database:
+        Isolated file-backed ApeX database.
+    :param monkeypatch:
+        Fixture replacing the public reads.
+    :return:
+        None.
+    """
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    monkeypatch.setattr(
+        "eth_defi.apex.metrics.fetch_vault_fees",
+        lambda *args, **kwargs: FeeData(fee_mode=VaultFeeMode.externalised, management=0.0, performance=0.05, deposit=None, withdraw=0.0),
+    )
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    row = database.get_vault_metadata().iloc[0]
+    assert row["performance_fee"] == pytest.approx(0.05)
+    assert pd.isna(row["deposit_fee"])
 
 
 def test_run_scan_closes_worker_sessions_after_each_fetch_phase(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:

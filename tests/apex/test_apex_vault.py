@@ -21,7 +21,9 @@ from eth_defi.apex.vault import (
     parse_official_vaults,
     parse_ranking_page,
     parse_vault_configuration,
+    parse_vault_fees,
 )
+from eth_defi.vault.fee import VaultFeeMode
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -51,6 +53,80 @@ def test_parse_vault_configuration_reads_exact_redemption_delay() -> None:
     """Map ApeX's subscription-freeze milliseconds to a redemption delay."""
     config = parse_vault_configuration(_fixture("vault-config.json"))
     assert config.redemption_delay == datetime.timedelta(days=1)
+
+
+@pytest.mark.parametrize("rate", ("0", "0.05", "0.100000000000000000"))
+def test_parse_vault_profile_fees_use_fractional_profit_share(rate: str) -> None:
+    """Read per-vault fractions without dividing the 10% rate by 100 again.
+
+    ApeX's native redemption dialog applies this share to profits when the
+    subscription is redeemed, matching Hyperliquid's externalised model.
+
+    :param rate:
+        Public profile profit-share value, expressed as a fraction.
+    :return:
+        None.
+    """
+    payload = _fixture("vault-profile-fees.json")
+    payload["data"]["vault"]["shareProfitRatio"] = rate
+    fees = parse_vault_fees(payload, "2099816991878676480")
+    assert fees.fee_mode == VaultFeeMode.externalised
+    assert fees.performance == pytest.approx(float(rate))
+    assert fees.deposit == fees.withdraw == fees.management == 0.0
+    assert fees.can_calculate_investor_net_performance()
+
+
+@pytest.mark.parametrize("rate", (None, "", True, "nan", "inf", "invalid", "-0.1", "1.1", "20"))
+def test_parse_vault_profile_rejects_invalid_profit_share(rate: object) -> None:
+    """Reject missing or invalid rates rather than fabricating a zero fee.
+
+    Missing values, non-finite numbers and percentage-unit values cannot
+    safely enter the investor fee calculation.
+
+    :param rate:
+        Invalid provider value to reject at the HTTP validation boundary.
+    :return:
+        None.
+    """
+    payload = _fixture("vault-profile-fees.json")
+    payload["data"]["vault"]["shareProfitRatio"] = rate
+    with pytest.raises(ApexAPIError):
+        parse_vault_fees(payload, "2099816991878676480")
+
+
+def test_parse_vault_profile_checks_requested_identity() -> None:
+    """Prevent a different vault's fee schedule entering the requested row.
+
+    Both a mismatched identity and a missing profile object must fail before
+    the fee schedule can be persisted.
+
+    :return:
+        None.
+    """
+    with pytest.raises(ApexAPIError, match="identity does not match"):
+        parse_vault_fees(_fixture("vault-profile-fees.json"), "other-vault")
+    with pytest.raises(ApexAPIError, match=r"data\.vault must be an object"):
+        parse_vault_fees({"data": {}}, "2099816991878676480")
+
+
+@pytest.mark.parametrize("purchase_rate", (None, "", "0.01", "1"))
+def test_parse_vault_profile_preserves_unknown_subscription_fee(purchase_rate: object) -> None:
+    """Keep unverified subscription fee units out of investor net returns.
+
+    A valid creator rate does not make a missing or unverified subscription
+    fee safe to substitute with zero.
+
+    :param purchase_rate:
+        Absent or non-zero source subscription fee with unverified units.
+    :return:
+        None.
+    """
+    payload = _fixture("vault-profile-fees.json")
+    payload["data"]["vault"]["purchaseFeeRate"] = purchase_rate
+    fees = parse_vault_fees(payload, "2099816991878676480")
+    assert fees.performance == pytest.approx(0.1)
+    assert fees.deposit is None
+    assert not fees.can_calculate_investor_net_performance()
 
 
 @pytest.mark.parametrize("duration", (None, True, "86400000.5", -1))

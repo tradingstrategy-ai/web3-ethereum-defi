@@ -238,8 +238,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "BaseVol": None,
     # sBOLD - yield accrues through stability pool rewards, no external fees
     "sBOLD": VaultFeeMode.internalised_skimming,
-    # Hyperliquid native vaults - leader commission is taken from PnL, share price already reflects it
-    "Hyperliquid": VaultFeeMode.internalised_skimming,
+    # Legacy Hyperliquid native vaults charge the leader's profit share at
+    # investor withdrawal, as in the native exporter; HLP overrides the rate to zero.
+    # https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy
+    "Hyperliquid": VaultFeeMode.externalised,
     # Ember - management and performance fees are embedded in the vault rate updates (internalised)
     # https://learn.ember.so/ember-protocol/core-concepts
     "Ember": VaultFeeMode.internalised_skimming,
@@ -250,9 +252,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
     # https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt
     "GRVT": VaultFeeMode.externalised,
-    # Lighter pools - operator fee is a performance fee taken from PnL,
-    # already reflected in share prices (internalised skimming).
-    # Per-pool operator fees range from 0% (LLP) to variable amounts for user pools.
+    # Legacy Lighter classification, also used by the native exporter. The
+    # current guide describes an operator profit share at withdrawal; whether
+    # API share prices reserve that fee remains unverified. See LIGHTER_POOL_FEE_MODE.
     "Lighter": VaultFeeMode.internalised_skimming,
     # Hibachi - all vault-level fees are zero (management, performance, deposit, withdrawal)
     # Platform charges trading taker fees and deposit/withdrawal fees at exchange level
@@ -261,9 +263,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # mark-to-market share prices include the actual settlement when it occurs.
     # https://docs.derive.xyz/vaults/fees
     "Derive": VaultFeeMode.internalised_minting,
-    # ApeX exposes raw fee-like fields, but their units and application are
-    # not documented authoritatively by the public vault API.
-    "ApeX": None,
+    # ApeX user-vault creators receive the profile's shareProfitRatio on
+    # investor profits at redemption. Official protocol vaults override this
+    # with a feeless schedule in the native adapter.
+    # https://apex-pro.gitbook.io/apex-pro/apex-omni/apex-vaults
+    "ApeX": VaultFeeMode.externalised,
     # Liquid Royalty has no management/performance fees, but 20% early withdrawal penalty within 7-day cooldown
     "Liquid Royalty": VaultFeeMode.feeless,
     # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism

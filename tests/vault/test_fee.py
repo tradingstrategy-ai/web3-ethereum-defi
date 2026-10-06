@@ -4,7 +4,22 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
+
+
+@pytest.mark.parametrize("protocol", ("ApeX", "Hyperliquid"))
+def test_native_withdrawal_profit_share_matches_protocol_fee_mode(protocol: str) -> None:
+    """Keep shared protocol lookups consistent with native investor fees.
+
+    The profile/API NAV precedes the investor's withdrawal profit share.
+    Treating it as internalised would omit that deduction from net returns.
+
+    :param protocol:
+        Native vault protocol with a verified withdrawal-time profit share.
+    :return:
+        None.
+    """
+    assert get_vault_fee_mode(protocol, "unused-native-vault") == VaultFeeMode.externalised
 
 
 def test_fee_data_accepts_one_hundred_percent_fee() -> None:

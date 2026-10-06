@@ -7,6 +7,7 @@ The public endpoints are:
   <https://omni.apex.exchange/api/v3/vault/fund-net-values>`__
 - `Vault configuration
   <https://omni.apex.exchange/api/v3/vault/vault-config>`__
+- `Vault profile <https://omni.apex.exchange/api/v3/vault/profile>`__
 - `Official vaults
   <https://omni.apex.exchange/api/v3/vault/official-vaults>`__
 - `Official vault batch fund net values
@@ -37,6 +38,7 @@ from eth_defi.apex.constants import (
     APEX_RANKING_PAGE_SIZE,
 )
 from eth_defi.apex.session import ApexAPIError, ApexSessionPool
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 logger = logging.getLogger(__name__)
 
@@ -354,6 +356,56 @@ def parse_vault_configuration(payload: object) -> ApexVaultConfiguration:
     )
 
 
+def parse_vault_fees(payload: object, vault_id: str) -> FeeData:
+    """Read investor-facing fees from the requested vault's public profile.
+
+    The `ApeX vault guide
+    <https://apex-pro.gitbook.io/apex-pro/apex-omni/apex-vaults>`__ describes
+    the creator's performance fee. The native application's subscription and
+    redemption dialogs say it is charged on profits upon redemption, and
+    display ``data.vault.shareProfitRatio`` multiplied by 100. Thus the source
+    value is already a fraction, like Hyperliquid's externalised leader fee.
+    Trading and funding costs are already reflected in NAV; they are not
+    additional investor management or withdrawal fees.
+
+    The ranking endpoint often leaves the profit-share field blank. The
+    configuration endpoint's ``profitShareRatio`` is a creation default, so
+    neither substitutes for the actual per-vault profile. A zero subscription
+    fee is unambiguous; non-zero ``purchaseFeeRate`` units remain unverified
+    and are exported as unknown, preventing a fabricated net return.
+
+    :param payload:
+        Decoded public ``vault/profile`` response.
+    :param vault_id:
+        Requested platform identity, checked against the response.
+    :return:
+        Externalised fee schedule with the verified performance fraction.
+    :raises ApexAPIError:
+        If the profile identity or performance fee is invalid.
+    """
+    data = _parse_envelope(payload)
+    vault = data.get("vault")
+    if not isinstance(vault, dict):
+        raise ApexAPIError("ApeX vault profile data.vault must be an object")
+    if str(vault.get("vaultId")) != vault_id:
+        raise ApexAPIError(f"ApeX vault profile identity does not match requested vault {vault_id}")
+    performance = _parse_float(vault.get("shareProfitRatio"), "shareProfitRatio", required=True)
+    if not 0 <= performance <= 1:
+        raise ApexAPIError(f"ApeX shareProfitRatio must be a fraction between 0 and 1: {performance}")
+    purchase = _parse_float(vault.get("purchaseFeeRate"), "purchaseFeeRate")
+    if purchase is not None and purchase < 0:
+        raise ApexAPIError(f"ApeX purchaseFeeRate is negative: {purchase}")
+    if purchase is not None and purchase != 0:
+        logger.warning("ApeX vault %s has an unverified non-zero purchaseFeeRate: %s", vault_id, purchase)
+    return FeeData(
+        fee_mode=VaultFeeMode.externalised,
+        management=0.0,
+        performance=performance,
+        deposit=0.0 if purchase == 0 else None,
+        withdraw=0.0,
+    )
+
+
 def parse_official_vaults(payload: object) -> tuple[ApexVaultSummary, ...]:
     """Parse the complete official ApeX liquidity-provider vault listing.
 
@@ -643,6 +695,41 @@ def fetch_vault_configuration(
         params={"vaultId": vault_id},
         operation_deadline=time.monotonic() + operation_timeout,
         validator=parse_vault_configuration,
+    )
+
+
+def fetch_vault_fees(
+    session_pool: ApexSessionPool,
+    vault_id: str,
+    *,
+    operation_timeout: float = APEX_DEFAULT_HISTORY_DEADLINE,
+) -> FeeData:
+    """Fetch the actual investor fee schedule from one public vault profile.
+
+    This anonymous read uses the same bounded retry and response validation
+    as the ranking and configuration endpoints. See :func:`parse_vault_fees`
+    for source units and the distinction from creation defaults.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param vault_id:
+        Non-empty ApeX platform identity.
+    :param operation_timeout:
+        Monotonic operation budget shared by all HTTP attempts, in seconds.
+    :return:
+        Verified externalised fee schedule.
+    :raises ValueError:
+        If the identity is blank or the timeout is not positive.
+    """
+    if not vault_id:
+        raise ValueError("ApeX vault ID is required")
+    if operation_timeout <= 0:
+        raise ValueError("ApeX fee timeout must be positive")
+    return session_pool.fetch_json(
+        "vault/profile",
+        params={"vaultId": vault_id},
+        operation_deadline=time.monotonic() + operation_timeout,
+        validator=lambda payload: parse_vault_fees(payload, vault_id),
     )
 
 

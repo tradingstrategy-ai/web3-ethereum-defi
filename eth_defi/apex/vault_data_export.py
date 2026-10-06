@@ -20,8 +20,9 @@ from eth_defi.apex.tags import get_strategy_tags
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -64,6 +65,30 @@ def get_apex_vault_link(vault_id: str) -> str:
     return template.format(vault_id=quote(vault_id, safe=""))
 
 
+def create_apex_fee_data(vault_id: str, performance_fee: Percent | None, deposit_fee: Percent | None) -> FeeData:
+    """Build the shared investor fee schedule for one ApeX vault.
+
+    User vaults charge their creator's profit share at redemption, like
+    Hyperliquid's legacy vaults. The rate comes from the public vault profile,
+    not a ranking placeholder or creation default. Unknown rates remain null.
+    The curated official `Protocol Vaults
+    <https://apex-pro.gitbook.io/apex-pro/apex-omni/protocol-vaults>`__ return
+    full principal and accrued yield, so they have no investor-level fees.
+
+    :param vault_id:
+        Canonical ApeX platform identity.
+    :param performance_fee:
+        Current creator profit share as a fraction, or unknown.
+    :param deposit_fee:
+        Verified subscription fee as a fraction, or unknown.
+    :return:
+        Fee data suitable for metadata and investor net-return calculations.
+    """
+    if vault_id in OFFICIAL_VAULTS_BY_ID:
+        return FeeData(fee_mode=VaultFeeMode.feeless, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0)
+    return FeeData(fee_mode=VaultFeeMode.externalised, management=0.0, performance=performance_fee, deposit=deposit_fee, withdraw=0.0)
+
+
 def create_apex_vault_row(
     vault_id: str,
     *,
@@ -76,12 +101,14 @@ def create_apex_vault_row(
     first_seen: datetime.datetime,
     status: str,
     redemption_delay: datetime.timedelta | None = None,
+    performance_fee: Percent | None = None,
+    deposit_fee: Percent | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create one synthetic shared-pipeline row for an ApeX native vault.
 
     The ApeX platform vault ID remains the identity through the
-    ``apex-vault-{vault_id}`` address. Fee source values are deliberately not
-    interpreted because ApeX does not authoritatively document their units.
+    ``apex-vault-{vault_id}`` address. Profile fee fractions are exported using
+    :func:`create_apex_fee_data`; unknown source rates remain null.
     Recognised lifecycle statuses from the public `ApeX vault ranking endpoint
     <https://omni.apex.exchange/api/v3/vault/ranking>`__ determine public
     deposit access. Unknown statuses remain ``unknown``; they are not treated
@@ -107,6 +134,10 @@ def create_apex_vault_row(
         Raw ApeX lifecycle status.
     :param redemption_delay:
         Time after a subscription before its shares are redeemable.
+    :param performance_fee:
+        Verified profile profit share as a fraction, or unknown.
+    :param deposit_fee:
+        Verified subscription fee as a fraction, or unknown.
     :return:
         Synthetic vault specification and metadata row.
     :raises ValueError:
@@ -127,13 +158,7 @@ def create_apex_vault_row(
         deposit_count=0,
         redeem_count=0,
     )
-    fees = FeeData(
-        fee_mode=None,
-        management=None,
-        performance=None,
-        deposit=None,
-        withdraw=None,
-    )
+    fees = create_apex_fee_data(vault_id, performance_fee, deposit_fee)
     if status in _PUBLIC_DEPOSIT_STATUSES:
         public_deposits_open = True
         deposit_closed_reason = None
@@ -156,10 +181,10 @@ def create_apex_vault_row(
         "Protocol": "ApeX",
         "Link": get_apex_vault_link(vault_id),
         "First seen": created_at or first_seen,
-        "Mgmt fee": None,
-        "Perf fee": None,
-        "Deposit fee": None,
-        "Withdraw fee": None,
+        "Mgmt fee": fees.management,
+        "Perf fee": fees.performance,
+        "Deposit fee": fees.deposit,
+        "Withdraw fee": fees.withdraw,
         "Features": "",
         "_detection_data": detection,
         "_denomination_token": {
@@ -204,6 +229,10 @@ def build_raw_prices_dataframe(db: ApexMetricsDatabase) -> pd.DataFrame:
     if prices.empty:
         return pd.DataFrame()
 
+    # Export the current verified schedule, as in the Hyperliquid exporter. ApeX
+    # does not expose historical changes to the investor fee configuration.
+    metadata = db.get_vault_metadata().set_index("synthetic_address")
+    performance_fees = metadata["performance_fee"].where(~metadata["vault_id"].isin(OFFICIAL_VAULTS_BY_ID), 0.0)
     result = pd.DataFrame(
         {
             "chain": APEX_CHAIN_ID,
@@ -213,8 +242,8 @@ def build_raw_prices_dataframe(db: ApexMetricsDatabase) -> pd.DataFrame:
             "share_price": prices["share_price"].values,
             "total_assets": prices["total_assets"].values,
             "total_supply": prices["total_supply"].values,
-            "performance_fee": None,
-            "management_fee": None,
+            "performance_fee": prices["synthetic_address"].map(performance_fees).values,
+            "management_fee": 0.0,
             "errors": "",
             "written_at": pd.to_datetime(prices["written_at"]).values,
         }
@@ -248,27 +277,27 @@ def merge_into_vault_database(
         vault_db = VaultDatabase()
 
     metadata = db.get_vault_metadata()
+    # Convert DuckDB/Pandas nulls once before creating Python metadata rows.
+    metadata = metadata.astype(object).where(pd.notna(metadata), None)
     added = 0
     updated = 0
     for record in metadata.to_dict(orient="records"):
-        tvl = record["current_tvl"]
-        share_count = record["current_share_count"]
-        created_at = record["created_at"]
-        description = record["description"]
         raw_redemption_delay = record["redemption_delay"]
-        redemption_delay = None if pd.isna(raw_redemption_delay) else pd.Timedelta(raw_redemption_delay).to_pytimedelta()
+        redemption_delay = None if raw_redemption_delay is None else pd.Timedelta(raw_redemption_delay).to_pytimedelta()
         official_vault = OFFICIAL_VAULTS_BY_ID.get(str(record["vault_id"]))
         spec, vault_row = create_apex_vault_row(
             vault_id=str(record["vault_id"]),
             name=official_vault.name if official_vault is not None else str(record["name"] or ""),
-            description=(official_vault.long_description if official_vault is not None else None if pd.isna(description) else str(description)),
+            description=official_vault.long_description if official_vault is not None else record["description"],
             short_description=official_vault.short_description if official_vault is not None else None,
-            tvl=None if pd.isna(tvl) else float(tvl),
-            share_count=None if pd.isna(share_count) else float(share_count),
-            created_at=None if pd.isna(created_at) else created_at,
+            tvl=record["current_tvl"],
+            share_count=record["current_share_count"],
+            created_at=record["created_at"],
             first_seen=record["first_seen"],
             status=str(record["status"]),
             redemption_delay=redemption_delay,
+            performance_fee=record["performance_fee"],
+            deposit_fee=record["deposit_fee"],
         )
         if spec in vault_db.rows:
             updated += 1

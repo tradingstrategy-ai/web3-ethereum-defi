@@ -40,10 +40,11 @@ HYPERLIQUID_HIGH_FREQ_DEFAULT_INTERVAL: datetime.timedelta = datetime.timedelta(
 
 #: Fixed performance fee (profit share) for Hyperliquid native vault leaders.
 #:
-#: All Hyperliquid vaults use a fixed 10% profit share to the vault leader.
-#: Protocol vaults (e.g. HLP) do not have any fees or profit share.
+#: Legacy user-created Hyperliquid native vaults use a fixed 10% profit share
+#: to the vault leader. Protocol vaults (e.g. HLP) have no leader profit share;
+#: trading and funding costs still affect the vault account value.
 #:
-#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/hypercore-vaults-legacy
 HYPERLIQUID_VAULT_PERFORMANCE_FEE: float = 0.10
 
 #: Fee mode for Hyperliquid native vaults.
@@ -54,7 +55,7 @@ HYPERLIQUID_VAULT_PERFORMANCE_FEE: float = 0.10
 #: :py:attr:`~eth_defi.vault.fee.VaultFeeMode.externalised`, allowing the
 #: analytics pipeline to calculate the investor's net return from the 10% share.
 #:
-#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/hypercore-vaults-legacy
 #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy
 HYPERLIQUID_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
 
@@ -98,7 +99,7 @@ HYPERLIQUID_PROTOCOL_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(days=
 #: When withdrawing the **entire** spot balance, this margin must be
 #: subtracted from the withdrawal amount so enough USDC remains on spot
 #: to cover the fee.  Without it the withdrawal silently fails (no error,
-#: no event — USDC stays in spot).  The value (0.01 USDC) provides ~12×
+#: no event — USDC stays in spot).  The value (0.01 USDC) provides ~12x
 #: headroom over the observed fee.
 #:
 #: See :py:func:`~eth_defi.hyperliquid.core_writer.compute_spot_to_evm_withdrawal_amount`.

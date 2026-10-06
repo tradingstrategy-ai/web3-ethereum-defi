@@ -86,12 +86,11 @@ class ApexOfficialVault:
     """Curated metadata for one ApeX Omni official, protocol-operated vault.
 
     ApeX Omni runs a small number of official vaults built and operated by the
-    ApeX team itself, as opposed to the user-created copy-trading vaults. These
-    are the ApeX equivalent of a protocol market-making / liquidity-provider
-    vault such as Hyperliquid's HLP or Lighter's LLP, and they hold the vast
-    majority of real ApeX vault TVL.
+    ApeX team itself, as opposed to the user-created copy-trading vaults. They
+    distribute exchange liquidation-fee revenue, unlike the trading and
+    liquidity strategies used by Hyperliquid's HLP and Lighter's LLP.
 
-    The ApeX ranking API only exposes placeholder ``desc`` text for these
+    The ApeX official-vault API exposes placeholder ``desc`` text for these
     vaults, so the short and long descriptions here are curated from ApeX's
     official documentation and announcements. See the `Protocol Vaults
     announcement
@@ -119,36 +118,35 @@ class ApexOfficialVault:
 #: Addresses, IDs and total caps were captured live from
 #: ``/vault/official-vaults`` on 2026-07-25. Descriptions are sourced from the
 #: ApeX `Protocol Vaults announcement
-#: <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__
-#: and the `New User Vault weekly update
+#: <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__,
+#: the `Protocol Vault guide
+#: <https://apex-pro.gitbook.io/apex-pro/apex-omni/protocol-vaults>`__
+#: (NAV timing verified 2026-10-06), and the `New User Vault weekly update
 #: <https://www.apex.exchange/blog/detail/weekly-update-11may2026>`__.
 APEX_OFFICIAL_VAULTS: tuple[ApexOfficialVault, ...] = (
     ApexOfficialVault(
         vault_id="10000",
         name="Protocol Vault",
         reported_ethereum_address=HexAddress("0x83F0e6dC9C352F9156a3a06B512B58012629D05C"),
-        short_description="ApeX Omni's flagship protocol-operated vault, earning steady USDT yield from perpetual liquidation fees with no lock-up.",
+        short_description="ApeX Omni's flagship protocol-operated vault, distributing USDT liquidation-fee revenue with no lock-up.",
         long_description=(
             "The Protocol Vault is ApeX Omni's flagship official vault, built and operated by the ApeX "
-            "team itself rather than a third-party strategy manager. It is the ApeX equivalent of a "
-            "protocol market-making or liquidity-provider vault such as Hyperliquid's HLP or Lighter's "
-            "LLP, and it holds the large majority of all ApeX vault TVL.\n\n"
+            "team itself rather than a third-party strategy manager. It distributes exchange fee "
+            "revenue; Hyperliquid's HLP and Lighter's LLP instead manage trading and liquidity "
+            "positions, so their investment mechanics differ.\n\n"
             "Depositors pool USDT and earn a proportional share of the perpetual-futures liquidation "
             "fees collected across the ApeX Omni exchange. ApeX totals these fees daily and distributes "
-            "them to vault holders through a net asset value (NAV) update at 08:00 UTC, so returns come "
-            "from real exchange activity rather than directional trading. The product is positioned as "
-            "low-risk, steady growth with no exposure to high-risk strategies, and is designed to avoid "
-            "negative yield.\n\n"
+            "them to vault holders through a net asset value (NAV) update at 08:05 UTC, so reported "
+            "yield comes from exchange activity rather than a depositor trading strategy.\n\n"
             "Key parameters published by ApeX:\n\n"
             "- Denominated in USDT\n"
-            "- Minimum deposit of 10 USDT\n"
+            "- Minimum purchase above 10 USDT\n"
             "- Total vault cap raised over time to around 20,000,000 USDT, with a per-user cap raised "
             "from 200,000 USDT up to around 1,000,000 USDT\n"
-            "- Daily NAV update at 08:00 UTC; shares are issued at the next NAV after a deposit\n"
+            "- Daily NAV update at 08:05 UTC; shares are issued at the next NAV after a deposit\n"
             "- No lock-up: principal and accrued yield are redeemable back to the depositing account\n\n"
-            "Realised yield varies with exchange liquidation activity. ApeX has run promotional "
-            "campaigns advertising rates in the region of 22-32% APY, but the vault does not guarantee "
-            "any fixed rate."
+            "Realised yield varies with exchange liquidation activity. The protocol's advertised "
+            "return and safety claims are issuer statements, not independent guarantees."
         ),
     ),
     ApexOfficialVault(
