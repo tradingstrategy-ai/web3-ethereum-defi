@@ -9,7 +9,9 @@ ApeX
 The ApeX integration reads public native-vault metadata and actual-timestamp
 NAV and TVL history into DuckDB. The all-chain scanner can also export the
 data into the shared vault metadata and price pipeline, including a direct
-ApeX vault link for each exported vault.
+ApeX vault link for each exported vault. Public vault profiles supply
+fractional creator fees, exported as externalised performance fees charged
+at investor redemption; the curated protocol vaults export zero fees.
 
 See the `ApeX public API documentation
 <https://api-docs.pro.apex.exchange/>`__ for the platform API.

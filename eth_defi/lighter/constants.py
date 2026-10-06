@@ -93,9 +93,12 @@ LIGHTER_DEFAULT_REQUESTS_PER_SECOND: float = 2.0
 
 #: Fee mode for Lighter native pools.
 #:
-#: Pool operators can set an ``operator_fee`` (0-100%). The share prices
-#: from the API already reflect the operator's fee deduction, so the
-#: pipeline sees net-of-fees prices. This matches internalised skimming.
+#: Legacy exporter assumption that API share prices include ``operator_fee``.
+#: This has not been verified against source share-price accounting. The current
+#: `public-pool guide <https://docs.lighter.xyz/trading/public-pools>`__ describes
+#: the operator's profit share being allocated on participant withdrawal.
+#: Retain existing calculations until NAV accounting is verified; this setting
+#: is not evidence that another protocol's withdrawal fees are internalised.
 LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
 
 #: Pool denomination currency.

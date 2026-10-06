@@ -102,9 +102,10 @@ def create_lighter_pool_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the Lighter synthetic chain ID.
 
-    Lighter pool operator fees are already reflected in the share price
-    (internalised skimming model), so the pipeline treats the share price
-    as net of fees.
+    The existing exporter treats API share prices as net of operator fees.
+    This assumption remains unverified against source NAV accounting; see
+    :py:data:`~eth_defi.lighter.constants.LIGHTER_POOL_FEE_MODE` for the
+    withdrawal-time profit share described in the current public-pool guide.
 
     The `Lighter public-pool metadata endpoint
     <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__ supplies the

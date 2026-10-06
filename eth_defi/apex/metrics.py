@@ -41,6 +41,7 @@ from eth_defi.apex.vault import (
     fetch_official_vaults,
     fetch_stabilised_vaults,
     fetch_vault_configuration,
+    fetch_vault_fees,
     fetch_vault_history,
 )
 from eth_defi.compat import native_datetime_utc_now
@@ -50,6 +51,7 @@ from eth_defi.perp_dex.metrics import (
     create_unavailable_perp_vault_observation_bundle,
 )
 from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema, write_perp_vault_observation_bundle
+from eth_defi.vault.fee import FeeData
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +72,7 @@ class ApexHistoryFetchResult:
 
 @dataclass(slots=True, frozen=True)
 class ApexConfigurationFetchResult:
-    """Immutable worker result for one public vault configuration request."""
+    """Independent results for a vault's public lockup and fee reads."""
 
     #: Platform vault identifier.
     vault_id: str
@@ -80,6 +82,12 @@ class ApexConfigurationFetchResult:
 
     #: Error text on failure.
     error: str | None
+
+    #: Parsed profile fees, or ``None`` on failure.
+    fees: FeeData | None
+
+    #: Error text for the fee read, independent of the lockup read.
+    fee_error: str | None
 
 
 @dataclass(slots=True, frozen=True)
@@ -183,6 +191,8 @@ class ApexMetricsDatabase:
                 purchase_fee_rate_raw VARCHAR,
                 share_profit_ratio_raw VARCHAR,
                 redemption_delay INTERVAL,
+                performance_fee DOUBLE,
+                deposit_fee DOUBLE,
                 current_nav DOUBLE,
                 current_tvl DOUBLE,
                 current_share_count DOUBLE,
@@ -192,6 +202,8 @@ class ApexMetricsDatabase:
             )
         """)
         con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS redemption_delay INTERVAL")
+        con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS performance_fee DOUBLE")
+        con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS deposit_fee DOUBLE")
         con.execute("""
             CREATE TABLE IF NOT EXISTS vault_prices (
                 vault_id VARCHAR NOT NULL,
@@ -355,6 +367,8 @@ class ApexMetricsDatabase:
             "purchase_fee_rate_raw",
             "share_profit_ratio_raw",
             "redemption_delay",
+            "performance_fee",
+            "deposit_fee",
             "current_nav",
             "current_tvl",
             "current_share_count",
@@ -436,6 +450,8 @@ class ApexMetricsDatabase:
                 purchase_fee_rate_raw,
                 share_profit_ratio_raw,
                 redemption_delay,
+                performance_fee,
+                deposit_fee,
                 current_nav,
                 current_tvl,
                 current_share_count,
@@ -443,7 +459,7 @@ class ApexMetricsDatabase:
                 last_seen,
                 missing_since
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             [self._metadata_values(row) for row in materialised],
@@ -480,6 +496,7 @@ class ApexMetricsDatabase:
         *,
         manage_disappearance: bool,
         redemption_delays: dict[str, datetime.timedelta] | None = None,
+        fee_data: dict[str, FeeData] | None = None,
     ) -> None:
         """Atomically store ranking metadata, observations and lifecycle state.
 
@@ -498,6 +515,10 @@ class ApexMetricsDatabase:
             Fresh public redemption delays keyed by platform vault ID. When a
             configuration read fails, an existing value is retained instead
             of replacing verified metadata with an absent value.
+        :param fee_data:
+            Successful per-vault profile fee reads. Failed reads are omitted
+            to preserve existing rates; a successful unknown deposit fee
+            replaces an old zero so net performance is no longer fabricated.
         :return:
             None.
         """
@@ -507,6 +528,7 @@ class ApexMetricsDatabase:
             raise ValueError("Duplicate logical vault IDs in ranking batch")
         existing_metadata = self._metadata_by_id()
         redemption_delays = redemption_delays or {}
+        fee_data = fee_data or {}
         existing_sync = self._sync_by_id()
         current_ids = set(identifiers)
         affected_missing_ids = set(existing_metadata) - current_ids if manage_disappearance else set()
@@ -534,8 +556,9 @@ class ApexMetricsDatabase:
         ranking_rows: list[list[object]] = []
 
         for vault in vaults:
-            old = existing_metadata.get(vault.vault_id)
-            old_status = str(old["status"]) if old is not None else None
+            old = existing_metadata.get(vault.vault_id, {})
+            fees = fee_data.get(vault.vault_id)
+            old_status = old.get("status")
             metadata_rows.append(
                 {
                     "vault_id": vault.vault_id,
@@ -551,11 +574,13 @@ class ApexMetricsDatabase:
                     "max_amount": vault.max_amount,
                     "purchase_fee_rate_raw": vault.purchase_fee_rate_raw,
                     "share_profit_ratio_raw": vault.share_profit_ratio_raw,
-                    "redemption_delay": redemption_delays.get(vault.vault_id, old["redemption_delay"] if old is not None else None),
+                    "redemption_delay": redemption_delays.get(vault.vault_id, old.get("redemption_delay")),
+                    "performance_fee": fees.performance if fees is not None else old.get("performance_fee"),
+                    "deposit_fee": fees.deposit if fees is not None else old.get("deposit_fee"),
                     "current_nav": vault.share_price,
                     "current_tvl": vault.tvl,
                     "current_share_count": vault.share_count,
-                    "first_seen": old["first_seen"] if old is not None else observed_at,
+                    "first_seen": old.get("first_seen", observed_at),
                     "last_seen": observed_at,
                     "missing_since": None,
                 }
@@ -678,15 +703,16 @@ class ApexMetricsDatabase:
         vaults: tuple[ApexVaultSummary, ...],
         official_vault_ids: set[str],
     ) -> tuple[str, ...]:
-        """Select vaults whose public redemption delay still needs refreshing.
+        """Select vaults whose public lockup or fee data needs refreshing.
 
         Official liquidity-provider vaults have no lock-up according to ApeX's
         `Protocol Vault announcement
         <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__,
         so they are excluded. A terminal vault's configuration cannot affect
         future subscriptions, so its verified value is retained without
-        another request. Active ranked vaults remain eligible because ApeX may
-        change their per-vault delay.
+        another request once a lockup and valid profile profit share are stored.
+        An intentionally unknown subscription fee does not cause endless reads.
+        Active ranked vaults remain eligible because their configuration may change.
 
         :param vaults:
             Current selected ranking records.
@@ -696,7 +722,8 @@ class ApexMetricsDatabase:
             Platform vault IDs requiring a configuration request.
         """
         existing_metadata = self._metadata_by_id()
-        return tuple(vault.vault_id for vault in vaults if vault.vault_id not in official_vault_ids and (vault.status != APEX_TERMINAL_STATUS or existing_metadata.get(vault.vault_id, {}).get("redemption_delay") is None))
+        configured_vault_ids = {vault_id for vault_id, row in existing_metadata.items() if all(row[field] is not None for field in ("redemption_delay", "performance_fee"))}
+        return tuple(vault.vault_id for vault in vaults if vault.vault_id not in official_vault_ids and (vault.status != APEX_TERMINAL_STATUS or vault.vault_id not in configured_vault_ids))
 
     def apply_history_success(
         self,
@@ -938,34 +965,43 @@ def _fetch_configuration_worker(
 ) -> ApexConfigurationFetchResult:
     """Fetch one public configuration without accessing DuckDB.
 
-    Configuration failures are isolated so current market observations and a
-    previously verified redemption delay can still be retained.
+    Lockup and profile reads each have a bounded operation budget, so a failed
+    lockup endpoint cannot prevent reading fees. Successful fields remain
+    usable when the other endpoint fails.
 
     :param session_pool:
         Shared bounded ApeX session pool.
     :param vault_id:
         Platform vault ID to fetch.
     :param operation_timeout:
-        Per-vault monotonic operation budget in seconds.
+        Monotonic budget for each endpoint, in seconds.
     :return:
-        Parsed configuration or an isolated API error result.
+        Independent configuration and fee results with their error messages.
     """
     with session_pool.worker_scope():
+        configuration = None
+        error = None
+        fees = None
+        fee_error = None
         try:
             configuration = fetch_vault_configuration(session_pool, vault_id, operation_timeout=operation_timeout)
-            return ApexConfigurationFetchResult(vault_id=vault_id, configuration=configuration, error=None)
         except ApexAPIError as exc:
-            return ApexConfigurationFetchResult(vault_id=vault_id, configuration=None, error=str(exc))
+            error = str(exc)
+        try:
+            fees = fetch_vault_fees(session_pool, vault_id, operation_timeout=operation_timeout)
+        except ApexAPIError as exc:
+            fee_error = str(exc)
+        return ApexConfigurationFetchResult(vault_id=vault_id, configuration=configuration, error=error, fees=fees, fee_error=fee_error)
 
 
-def _fetch_redemption_delays(
+def _fetch_vault_configurations(
     session_pool: ApexSessionPool,
     vault_ids: tuple[str, ...],
     *,
     max_workers: int,
     operation_timeout: float,
-) -> dict[str, datetime.timedelta]:
-    """Fetch public redemption delays and retain successful values only.
+) -> tuple[dict[str, datetime.timedelta], dict[str, FeeData]]:
+    """Fetch public lockups and profile fees, retaining successful values only.
 
     Each failed request is logged and omitted, allowing the database layer to
     preserve the previously verified value. Worker sessions are closed before
@@ -978,12 +1014,12 @@ def _fetch_redemption_delays(
     :param max_workers:
         Threaded configuration reader count.
     :param operation_timeout:
-        Per-vault monotonic operation budget in seconds.
+        Monotonic budget for each configuration endpoint, in seconds.
     :return:
-        Successful redemption delays keyed by platform vault ID.
+        Successful redemption delays and fee schedules keyed by platform ID.
     """
     if not vault_ids:
-        return {}
+        return {}, {}
     try:
         with Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered") as parallel:
             results = tuple(
@@ -998,7 +1034,12 @@ def _fetch_redemption_delays(
     for result in results:
         if result.configuration is None:
             logger.warning("Could not fetch ApeX redemption delay for %s: %s", result.vault_id, result.error)
-    return {result.vault_id: result.configuration.redemption_delay for result in results if result.configuration is not None}
+        if result.fees is None:
+            logger.warning("Could not fetch ApeX vault fees for %s: %s", result.vault_id, result.fee_error)
+    return (
+        {result.vault_id: result.configuration.redemption_delay for result in results if result.configuration is not None},
+        {result.vault_id: result.fees for result in results if result.fees is not None},
+    )
 
 
 def _fetch_official_history_batch(
@@ -1061,7 +1102,7 @@ def run_scan(
     :param ranking_timeout:
         Whole two-pass ranking deadline in seconds.
     :param history_timeout:
-        Per-vault history and configuration deadline in seconds.
+        Operation budget for each vault history, lockup or profile read, in seconds.
     :return:
         Typed completed-scan summary.
     """
@@ -1142,7 +1183,7 @@ def _run_scan(  # noqa: PLR0914
 
     observed_at = native_datetime_utc_now()
     configuration_candidates = database.select_configuration_candidates(selected, official_vault_ids)
-    redemption_delays = _fetch_redemption_delays(
+    redemption_delays, fee_data = _fetch_vault_configurations(
         session_pool,
         configuration_candidates,
         max_workers=max_workers,
@@ -1154,6 +1195,7 @@ def _run_scan(  # noqa: PLR0914
         observed_at,
         manage_disappearance=vault_ids is None,
         redemption_delays=redemption_delays,
+        fee_data=fee_data,
     )
     for vault in selected:
         account_bundle = create_unavailable_perp_vault_observation_bundle(
