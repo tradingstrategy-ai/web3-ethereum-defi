@@ -1,6 +1,5 @@
-"""Read timestamps of blocks using multiprocess."""
+"""Read exact sampled block timestamps using cache-aware backends."""
 
-import datetime
 import logging
 import threading
 from pathlib import Path
@@ -33,7 +32,20 @@ def _read_timestamp_subprocess(
     chain_id: int,
     block_number: int,
     collect_rpc_request_stats: bool = False,
-) -> tuple[int, datetime.datetime, RPCRequestStats | None]:
+) -> tuple[int, int, RPCRequestStats | None]:
+    """Fetch one exact block header using the worker's own Web3 connection.
+
+    The historical helper name is retained. Each thread owns its connection
+    and request accumulator; successful requests are returned for parent-side
+    accounting. The provider uses ``eth_getBlockByNumber`` as documented in
+    the `JSON-RPC API <https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbynumber>`__.
+
+    :param web3factory: Operator-configured provider factory.
+    :param chain_id: Expected provider chain ID.
+    :param block_number: Exact block header to fetch.
+    :param collect_rpc_request_stats: Attach a per-task RPC accumulator.
+    :return: Block number, integer Unix timestamp and optional request counts.
+    """
     # Initialise web3 connection when called for the first time.
     # We will recycle the same connection instance and it is kept open
     # until shutdown.
@@ -47,7 +59,7 @@ def _read_timestamp_subprocess(
     if web3 is None:
         if isinstance(web3factory, MultiProviderWeb3Factory):
             # Include provider verification requests made on the worker's
-            # first process-local connection in this task's returned totals.
+            # first thread-local connection in this task's returned totals.
             web3 = web3factory(rpc_request_stats=task_rpc_request_stats)
         else:
             web3 = web3factory()
@@ -71,133 +83,90 @@ def fetch_block_timestamps_multiprocess(
     start_block: int,
     end_block: int,
     step: int,
-    display_progress=True,
-    max_workers=8,
-    timeout=120,
+    display_progress: bool = True,
+    max_workers: int = 8,
+    timeout: int = 120,
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
     rpc_request_stats: RPCRequestStats | None = None,
 ) -> BlockTimestampSlicer:
-    """Extract timestamps using fast multiprocessing.
+    """Fetch exact sampled block timestamps using parallel RPC reads.
 
-    - Subprocess entrypoint
-    - This is called by a joblib.Parallel
-    - The subprocess is recycled between different batch jobs
-    - We cache reader Web3 connections between batch jobs
-    - joblib never shuts down this process
+    The historical function name is retained for callers. Thread-local Web3
+    connections read only missing sample blocks and preserve the original
+    ``start_block`` sampling grid. A sparse cache's latest block is not a
+    completeness boundary, and nearest-block estimates are not cache hits.
 
-    .. note ::
-
-        Because this method aggressively uses `step` to skip blocks,
-        it results to non-reuseable timestamp cache (only valid for one scan and subsequent scans of the same task).
-
-    :param cache_path
-        Cache timestamps across runs and commands.
-
-        Set to ``None`` to disable, or remove the file.
-        .
-    :param checkpoint_freq:
-        Block number frequency how often to save.
-
-    :param rpc_request_stats:
-        Optional parent accumulator receiving successful subprocess task calls.
+    :param chain_id: Chain whose block headers are requested.
+    :param web3factory: Factory using the operator's configured RPC providers.
+    :param start_block: First sample block, inclusive.
+    :param end_block: Last permissible block, inclusive.
+    :param step: Positive interval between samples.
+    :param display_progress: Display progress for missing samples.
+    :param max_workers: Maximum parallel RPC workers.
+    :param timeout: Joblib task timeout in seconds.
+    :param cache_path: Persistent timestamp-cache directory; required.
+    :param checkpoint_freq: Block-number interval between buffered cache writes.
+    :param rpc_request_stats: Optional accumulator for actual RPC calls.
+    :return: Caller-owned slicer containing exact requested timestamps; close it after use.
     """
 
     assert start_block <= end_block, f"Start block {start_block} must be less than or equal to end block {end_block}"
     assert step >= 1, f"Step must be at least 1, got {step}"
+    if cache_path is None:
+        message = "Non-cached timestamp fetching not implemented"
+        raise NotImplementedError(message)
 
     chain_name = get_chain_name(chain_id)
 
     worker_processor = Parallel(
         n_jobs=max_workers,
-        backend="loky",
+        backend="threading",
         timeout=timeout,
-        max_nbytes=1 * 1024 * 1024,  # Allow passing 1 MBytes for child processes
         return_as="generator_unordered",
     )
 
-    if display_progress:
-        progress_bar = tqdm(
-            total=(end_block - start_block) // step,
-            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, step {step}, {max_workers} workers",
-        )
-    else:
-        progress_bar = None
-
-    timestamp_db = None  # Allow operating without caching
-    if cache_path:
-        if cache_path.exists():
-            timestamp_db: BlockTimestampDatabase = load_timestamp_cache(chain_id, cache_path)
-        else:
-            timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
-
-        result = timestamp_db.get_slicer()
-    else:
-        result = {}
-
-    def _task_gen():
-        nonlocal web3factory
-        first_block_to_check = max(start_block, timestamp_db.get_last_block())
-        for _block_number in range(first_block_to_check, end_block + 1, step):
-            if result.get(_block_number) is None:
-                yield web3factory, chain_id, _block_number, rpc_request_stats is not None
-
-    last_save = block_number = 0
-
-    def _save():
-        # Periodical checkpoint write
-        nonlocal last_save
-        nonlocal block_number
-        nonlocal index
-        nonlocal values
-        last_save = block_number
-        if index:
-            series = pd.Series(data=values, index=index)
-            timestamp_db.import_chain_data(
-                chain_id,
-                series,
-            )
-        index = []
-        values = []
-
-    index = []
-    values = []
-
-    # Because of asyncrhonoisty issues with new DuckDB cache, we need to buffer all tasks and reads in one go
-    tasks = list(_task_gen())
-    for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in tasks):
-        block_number, timestamp, task_rpc_request_stats = completed_task
-        if rpc_request_stats is not None and task_rpc_request_stats is not None:
-            rpc_request_stats.merge(task_rpc_request_stats)
-
-        index.append(block_number)
-        values.append(timestamp)
-
-        if progress_bar:
-            progress_bar.update(1)
-            progress_bar.set_postfix(
-                {
-                    "timestamp": timestamp,
-                }
+    timestamp_db = load_timestamp_cache(chain_id, cache_path) if cache_path.exists() else BlockTimestampDatabase.create(chain_id, cache_path)
+    completed = False
+    progress_bar = None
+    try:
+        cached_blocks = {
+            row[0]
+            for row in timestamp_db.con.execute(
+                "SELECT block_number FROM block_timestamps WHERE block_number BETWEEN ? AND ? AND block_number % ? = ?",
+                [start_block, end_block, step, start_block % step],
+            ).fetchall()
+        }
+        tasks = [(web3factory, chain_id, block, rpc_request_stats is not None) for block in range(start_block, end_block + 1, step) if block not in cached_blocks]
+        logger.info("Reading %d missing exact timestamps for chain %s (%d sampled blocks cached)", len(tasks), chain_name, len(cached_blocks))
+        if display_progress:
+            progress_bar = tqdm(
+                total=len(tasks),
+                desc=f"Reading timestamps (RPC) for chain {chain_name}: {start_block:,} - {end_block:,}, step {step}, {max_workers} workers",
             )
 
-        if block_number - last_save >= checkpoint_freq:
-            # Save the current state to the cache file
-            _save()
-
-    # Final checkpoint
-    _save()
-
-    if progress_bar:
-        progress_bar.close()
-
-    if timestamp_db:
-        block_range = timestamp_db.get_first_and_last_block()
-        count = timestamp_db.get_count()
-        logger.info(f"Timestamp cache {cache_path} populated for chain {chain_id}: blocks {block_range[0]:,} - {block_range[1]:,}, total {count:,} entries")
+        last_save = 0
+        buffered: dict[int, int] = {}
+        for block_number, timestamp, task_rpc_request_stats in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in tasks):
+            if rpc_request_stats is not None and task_rpc_request_stats is not None:
+                rpc_request_stats.merge(task_rpc_request_stats)
+            buffered[block_number] = timestamp
+            if progress_bar is not None:
+                progress_bar.update(1)
+                progress_bar.set_postfix({"timestamp": timestamp})
+            if block_number - last_save >= checkpoint_freq:
+                timestamp_db.import_chain_data(chain_id, pd.Series(buffered))
+                buffered.clear()
+                last_save = block_number
+        if buffered:
+            timestamp_db.import_chain_data(chain_id, pd.Series(buffered))
+        completed = True
         return timestamp_db.get_slicer()
-    else:
-        raise NotImplementedError("Non-cached timestamp fetching not implemented")
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
+        if not completed:
+            timestamp_db.close()
 
 
 def fetch_block_timestamps_multiprocess_auto_backend(

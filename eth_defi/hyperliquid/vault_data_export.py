@@ -559,9 +559,11 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
 
 
 def merge_into_vault_database(
-    db: HyperliquidDailyMetricsDatabase,
+    db: HyperliquidDailyMetricsDatabase | HyperliquidHighFreqMetricsDatabase,
     vault_db_path: Path,
     review_statuses: Mapping[HexAddress, ReviewStatus | None] | None = None,
+    *,
+    only_missing: bool = False,
 ) -> VaultDatabase:
     """Merge Hyperliquid vault metadata into an existing VaultDatabase pickle.
 
@@ -593,12 +595,15 @@ def merge_into_vault_database(
       mapping fall back to the carry-forward path above.
 
     :param db:
-        The Hyperliquid daily metrics database.
+        The Hyperliquid daily or HF metrics database.
     :param vault_db_path:
         Path to the VaultDatabase pickle file.
     :param review_statuses:
         Optional mapping from lowercased vault address to the latest
         manual review decision read from the Google Sheet.
+    :param only_missing:
+        Restore catalogue entries needed by retained prices without changing
+        existing metadata or manual reviews. Used before price cleaning.
     :return:
         The updated VaultDatabase.
     """
@@ -610,12 +615,17 @@ def merge_into_vault_database(
         vault_db = VaultDatabase()
 
     metadata_df = db.get_all_vault_metadata()
+    # DuckDB's nullable integers and timestamps become pd.NA and NaT.
+    # The row builder expects optional Python scalars, not truth-tested NA.
+    metadata_df = metadata_df.astype(object).where(metadata_df.notna(), None)
 
     added = 0
     updated = 0
     for _, row in metadata_df.iterrows():
         address = row["vault_address"].lower()
         spec = VaultSpec(chain_id=HYPERCORE_CHAIN_ID, vault_address=address)
+        if only_missing and spec in vault_db.rows:
+            continue
 
         # Resolve the manual review status for this vault. Mapping wins,
         # pickle carry-forward is the fallback, and "no data" is ``None``.
@@ -645,7 +655,10 @@ def merge_into_vault_database(
 
         vault_db.rows[spec] = vault_row
 
-    permission_rows_normalised = normalise_hyperliquid_deposit_permissions(vault_db)
+    if only_missing and added == 0:
+        return vault_db
+
+    permission_rows_normalised = 0 if only_missing else normalise_hyperliquid_deposit_permissions(vault_db)
     vault_db.write(vault_db_path)
 
     logger.info(
@@ -865,6 +878,30 @@ def merge_hypercore_prices_to_parquet(
     return combined
 
 
+def export_hypercore_permission_history(
+    destination: Path,
+    *,
+    daily_db: HyperliquidDailyMetricsDatabase | None = None,
+    hf_db: HyperliquidHighFreqMetricsDatabase | None = None,
+) -> pd.DataFrame:
+    """Export independent permission history from the open scanner owners.
+
+    Daily and HF observations retain their original receipt or inferred price
+    clocks, including changes between price samples. Reading through the
+    existing owners avoids incompatible DuckDB connection configurations.
+
+    :param destination: Atomically replaced permission-history Parquet file.
+    :param daily_db: Open daily scanner, when available.
+    :param hf_db: Open HF scanner, when available.
+    :return: Deduplicated frame using :class:`~eth_defi.hyperliquid.permission.PermissionObservation` columns.
+    """
+    frames = [owner.get_permission_observations() for owner in (daily_db, hf_db) if owner is not None]
+    observations = pd.concat(frames, ignore_index=True) if frames else None
+    result = export_permission_history([], destination, observations=observations)
+    logger.info("Exported %d independent Hypercore permission records to %s", len(result), destination)
+    return result
+
+
 def open_and_merge_hypercore_prices(
     parquet_path: Path,
     daily_db_path: Path | None = None,
@@ -874,7 +911,8 @@ def open_and_merge_hypercore_prices(
 
     Convenience wrapper around :py:func:`merge_hypercore_prices_to_parquet`
     that handles opening and closing both databases.  Used by standalone
-    scripts and post-processing to avoid duplicating the open/close pattern.
+    scripts. The batched post-processing pipeline uses the same permission
+    exporter while collecting all native price sources for one Parquet write.
 
     :param parquet_path:
         Path to the uncleaned Parquet file.
@@ -906,8 +944,7 @@ def open_and_merge_hypercore_prices(
         return pd.DataFrame()
 
     try:
-        frames = [owner.get_permission_observations() for owner in (daily_db, hf_db) if owner is not None]
-        export_permission_history([], parquet_path.parent / PERMISSION_FILENAME, observations=pd.concat(frames, ignore_index=True))
+        export_hypercore_permission_history(parquet_path.parent / PERMISSION_FILENAME, daily_db=daily_db, hf_db=hf_db)
         result = merge_hypercore_prices_to_parquet(
             parquet_path,
             daily_db=daily_db,

@@ -63,6 +63,66 @@ def test_manifest_requires_successful_private_export(
     assert calls == expected
 
 
+@pytest.mark.parametrize("sparkline_ok", [True, False])
+def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sparkline_ok: bool) -> None:
+    """Image rendering cannot delay price publication or its readiness receipt.
+
+    Exercise the real coordinator, including an unsuccessful rendering phase,
+    and assert trading inputs are already published when rendering starts.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param monkeypatch: Replace costly external phases with observable results.
+    :param sparkline_ok: Whether the rendering phase succeeds.
+    :return: None; checks publication order and failure reporting.
+    """
+    calls: list[str] = []
+    monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: True)
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: True)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: None)
+    monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("prices") or True)
+    monkeypatch.setattr(post_processing, "publish_vault_scan_manifest", lambda **_: calls.append("manifest") or True)
+    monkeypatch.setattr(post_processing, "export_protocol_metadata", lambda: calls.append("protocols") or True)
+
+    def render(**_: object) -> bool:
+        """Check published inputs at the moment a slow renderer would start."""
+        assert calls == ["prices", "manifest"]
+        calls.append("sparklines")
+        return sparkline_ok
+
+    monkeypatch.setattr(post_processing, "export_sparklines", render)
+    steps = post_processing.run_post_processing(skip_top_vaults=True, skip_samples=True)
+    assert calls == ["prices", "manifest", "sparklines", "protocols"]
+    assert steps["export-sparklines"] is sparkline_ok
+    assert steps["publish-vault-scan-manifest"] is True
+
+
+def test_post_processing_resolves_shared_paths_before_native_merge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An external raw input cannot redirect the catalogue or permission output.
+
+    Run the coordinator with a raw Parquet override in another directory and
+    check merge and cleaning agree on the shared catalogue. Permission output
+    must remain where private upload and manifest publication expect it.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param monkeypatch: Replace costly phases while recording their arguments.
+    :return: None; checks consistent metadata and permission output paths.
+    """
+    merge_calls: list[dict] = []
+    cleaning_calls: list[dict] = []
+    raw_path = tmp_path / "external-input" / "prices.parquet"
+    monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **kwargs: merge_calls.append(kwargs) or {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **kwargs: cleaning_calls.append(kwargs) or False)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
+    post_processing.run_post_processing(scan_hypercore=True, uncleaned_parquet_path=raw_path, skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_data=True, skip_samples=True)
+    assert merge_calls[0]["uncleaned_parquet_path"] == raw_path
+    assert merge_calls[0]["vault_db_path"] == cleaning_calls[0]["vault_db_path"] == tmp_path / "vault-metadata-db.pickle"
+    assert merge_calls[0]["permission_history_path"] == tmp_path / "hypercore-vault-permissions.parquet"
+
+
 def test_clean_prices_uses_structured_logger(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

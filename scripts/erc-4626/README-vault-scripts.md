@@ -141,6 +141,17 @@ container. No RPC or R2 credentials are required. The
 [recovery runbook](../../docs/README-hypercore-permission-recovery.md) gives the
 production shell and validation commands.
 
+Normal post-processing merges daily and HF permissions into
+`hypercore-vault-permissions.parquet` and inserts missing shared vault catalogue
+entries before cleaning. Existing metadata and manual reviews are retained.
+Private price files and their readiness receipt are uploaded before sparkline
+rendering and protocol metadata export. No extra operator switches are needed.
+
+Chains without Hypersync timestamp support, including Katana, fill only missing
+exact sampled blocks through the configured RPC providers. Existing sparse
+cache endpoints or neighbouring timestamps do not prove the requested sampling
+grid is complete; subsequent scans reuse the exact entries already stored.
+
 ### Monad historical state
 
 [Monad full nodes retain all historical transaction data but only a

@@ -2,6 +2,7 @@
 
 import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pyarrow as pa
@@ -12,9 +13,14 @@ from eth_defi.grvt.constants import GRVT_CHAIN_ID
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID
 from eth_defi.hyperliquid import vault_data_export
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase, HyperliquidHighFreqPriceRow
+from eth_defi.hyperliquid.permission import PERMISSION_FILENAME, PermissionObservation, append_permission_observation
+from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
 from eth_defi.vault import base, post_processing
-from eth_defi.vault.base import ParquetVerificationError, VaultHistoricalRead
+from eth_defi.vault.base import ParquetVerificationError, VaultHistoricalRead, VaultSpec
+from eth_defi.vault.vaultdb import VaultDatabase
 
 
 def _prices(chain: int, address: str, timestamp: str) -> pd.DataFrame:
@@ -41,6 +47,101 @@ def _prices(chain: int, address: str, timestamp: str) -> pd.DataFrame:
             "share_price": [1.0],
         }
     )
+
+
+def test_hypercore_batch_exports_permissions_and_restores_missing_catalogue(tmp_path: Path) -> None:
+    """Retained HF vaults and between-price permissions survive a normal export.
+
+    Exercise both file-backed scanner owners through the production batch
+    merger. Existing curated metadata must survive, even when the retained HF
+    catalogue disagrees; restoring absent entries must not invent prices.
+
+    :param tmp_path: Isolated scanner and output directory.
+    :return: None; checks persisted prices, source receipts and shared metadata.
+    """
+    daily_path = tmp_path / "daily.duckdb"
+    hf_path = tmp_path / "hf.duckdb"
+    parquet_path = tmp_path / "vault-prices-1h.parquet"
+    metadata_path = tmp_path / "custom-metadata.pickle"
+    address = "0x" + "a" * 40
+    first = datetime.datetime(2026, 9, 21, 10)
+    spec, row = vault_data_export.create_hyperliquid_vault_row(address, "Curated name", description=None, tvl=100_000, create_time=first)
+    row["_manual_review_status"] = ReviewStatus.avoid
+    row["_description"] = "Retained human note"
+    existing = VaultDatabase()
+    existing.rows[spec] = row
+    existing.write(metadata_path)
+    daily = HyperliquidDailyMetricsDatabase(daily_path)
+    hf = HyperliquidHighFreqMetricsDatabase(hf_path)
+    missing_address = "0x" + "b" * 40
+    try:
+        for vault_address in (address, missing_address):
+            hf.upsert_vault_metadata(vault_address=vault_address, name="HF catalogue", leader="0x" + "c" * 40, description=None, is_closed=False, allow_deposits=True, relationship_type="normal", create_time=first, commission_rate=None, follower_count=None, tvl=100_000, apr=None)
+            hf.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(vault_address, first, 1, 100_000, 0), HyperliquidHighFreqPriceRow(vault_address, first + datetime.timedelta(hours=2), 1.1, 110_000, 1)])
+        receipt = first + datetime.timedelta(hours=1, seconds=7)
+        shared = PermissionObservation("open", address, permission_observed_at=first, is_closed=False, allow_deposits=True, provenance="observed")
+        append_permission_observation(daily.con, shared)
+        append_permission_observation(hf.con, shared)
+        append_permission_observation(hf.con, PermissionObservation("closed", address, permission_observed_at=receipt, is_closed=False, allow_deposits=False, provenance="observed"))
+        append_permission_observation(hf.con, PermissionObservation("unknown", missing_address, permission_observed_at=receipt, provenance="observed_unknown"))
+    finally:
+        daily.close()
+        hf.close()
+
+    steps = post_processing.merge_native_protocols(merge_hypercore=True, uncleaned_parquet_path=parquet_path, hyperliquid_db_path=daily_path, hyperliquid_hf_db_path=hf_path, vault_db_path=metadata_path)
+    assert steps["hypercore-price-merge"]
+    permissions = pd.read_parquet(tmp_path / PERMISSION_FILENAME).set_index("observation_id")
+    assert set(permissions.index) == {"open", "closed", "unknown"}
+    assert permissions.loc["closed", "permission_observed_at"] == receipt
+    assert pd.isna(permissions.loc["unknown", "allow_deposits"])
+    prices = pd.read_parquet(parquet_path)
+    assert len(prices) == 4
+    assert receipt not in set(prices.timestamp)
+    assert prices.loc[prices.address == address].sort_values("timestamp").deposits_open.tolist() == ["true", "false"]
+    assert prices.loc[prices.address == missing_address].deposits_open.isna().all()
+    metadata = VaultDatabase.read(metadata_path)
+    assert metadata.rows[spec]["Name"] == "Curated name"
+    assert metadata.rows[spec]["_description"] == "Retained human note"
+    assert metadata.rows[spec]["_manual_review_status"] is ReviewStatus.avoid
+    assert metadata.rows[VaultSpec(HYPERCORE_CHAIN_ID, missing_address)]["Name"] == "HF catalogue"
+    previous_bytes = metadata_path.read_bytes()
+    post_processing.merge_native_protocols(merge_hypercore=True, uncleaned_parquet_path=parquet_path, hyperliquid_db_path=daily_path, hyperliquid_hf_db_path=hf_path, vault_db_path=metadata_path)
+    assert metadata_path.read_bytes() == previous_bytes
+
+
+@pytest.mark.parametrize("failed_stage", ["merge_into_vault_database", "export_hypercore_permission_history"])
+def test_hypercore_catalogue_or_permission_failure_preserves_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_stage: str) -> None:
+    """An incomplete Hypercore export retains the previous prices and closes owners.
+
+    Fail each newly required export stage with a real existing Parquet file.
+    The merger must report the failure without replacing historical prices
+    with a snapshot whose catalogue or permission export did not complete.
+
+    :param tmp_path: Isolated Parquet and scanner paths.
+    :param monkeypatch: Replace scanner reads and inject the selected failure.
+    :param failed_stage: Export function that fails this cycle.
+    :return: None; checks byte preservation and owner closure.
+    """
+    parquet_path = tmp_path / "vault-prices-1h.parquet"
+    VaultHistoricalRead.write_uncleaned_parquet(_prices(HYPERCORE_CHAIN_ID, "retained", "2026-09-21"), parquet_path)
+    previous = parquet_path.read_bytes()
+    hf_path = tmp_path / "hf.duckdb"
+    hf_path.touch()
+    closed: list[bool] = []
+    monkeypatch.setattr(post_processing, "HyperliquidHighFreqMetricsDatabase", lambda _: SimpleNamespace(close=lambda: closed.append(True)))
+    monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: _prices(HYPERCORE_CHAIN_ID, "fresh", "2026-09-22"))
+    monkeypatch.setattr(post_processing, "merge_into_vault_database", lambda *_, **__: None)
+
+    def fail(*_: object, **__: object) -> None:
+        """Reject the current catalogue or permission evidence for this test."""
+        message = "Rejected evidence"
+        raise ValueError(message)
+
+    monkeypatch.setattr(post_processing, failed_stage, fail)
+    steps = post_processing.merge_native_protocols(merge_hypercore=True, uncleaned_parquet_path=parquet_path, hyperliquid_db_path=tmp_path / "missing-daily.duckdb", hyperliquid_hf_db_path=hf_path)
+    assert steps["hypercore-price-merge"] is False
+    assert parquet_path.read_bytes() == previous
+    assert closed == [True]
 
 
 def test_native_price_freshness_uses_source_timestamp_and_tvl_hysteresis() -> None:
@@ -134,6 +235,8 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     monkeypatch.setattr(post_processing, "build_lighter_prices_dataframe", lambda _: fresh_lighter)
     monkeypatch.setattr(post_processing, "build_hibachi_prices_dataframe", lambda _: pd.DataFrame())
     monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: fresh_hypercore)
+    monkeypatch.setattr(post_processing, "export_hypercore_permission_history", lambda *_, **__: None)
+    monkeypatch.setattr(post_processing, "merge_into_vault_database", lambda *_, **__: None)
     monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh_apex)
     perp_snapshot_paths: list[Path] = []
     monkeypatch.setattr(post_processing, "_append_perp_metric_snapshots", lambda database, _: perp_snapshot_paths.append(database.path))

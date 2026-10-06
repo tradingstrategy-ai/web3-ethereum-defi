@@ -260,6 +260,10 @@ def test_live_hyperliquid_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: 
         hyperliquid_hf_db_path=tmp_path / "no-high-frequency-metrics.duckdb",
     )
     assert merge_steps["hypercore-price-merge"]
+    permission_history = pd.read_parquet(tmp_path / PERMISSION_FILENAME)
+    assert vault_address in set(permission_history.vault_address)
+    assert permission_history.permission_observed_at.notna().any()
+    assert set(permission_history.provenance).issubset({"observed", "observed_unknown"})
 
     raw_prices = pd.read_parquet(uncleaned_path)
     raw_vault_rows = raw_prices[(raw_prices["chain"] == HYPERCORE_CHAIN_ID) & (raw_prices["address"].str.lower() == vault_address)]
