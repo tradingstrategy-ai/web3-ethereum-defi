@@ -14,32 +14,37 @@ a later genuine response that clears closure allows a new bulk denial record. Pr
 
 ## Recovery script
 
-Use `scripts/hyperliquid/recover-permissions.py`. It defaults to `DRY_RUN=true`,
-opens the target read-only and writes a JSON report. A shared Poetry environment
-in a worktree needs `PYTHONPATH=.` to select this checkout's source.
+Use `scripts/hyperliquid/recover-permissions.py`. **`DRY_RUN` is the only
+migration-specific input.** The script handles both daily and HF databases in
+the normal pipeline directory, `~/.tradingstrategy/vaults`. It automatically
+selects available scanner snapshots dated 2026-09-29 through 2026-10-05,
+newest first, and `backups/2026-10-05/vault-prices-1h.parquet`. Later archives
+and today's manual backup are outside the reviewed source scope.
 
 ```shell
-export TARGET_DATABASE=/path/to/local-copy/hyperliquid-vaults-hf.duckdb
-export BACKUP_SOURCES='["/path/to/immutable/older/hyperliquid-vaults-hf.duckdb"]'
-export PARQUET_SOURCES='["/path/to/immutable/r2/vault-prices-1h.parquet"]'
-export MIGRATION_BACKUP_DIR=/path/to/separate/migration-backups
-export RECOVERY_REPORT=/path/to/recovery-report.json
-DRY_RUN=true PYTHONPATH=. poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-permissions.py
 ```
 
-`BACKUP_SOURCES` order defines preference for keys absent from the target. Raw
-Parquets have lower priority than scanner databases. Existing matching target
+Dry run is the default. It opens both targets read-only and logs source selection,
+row counts, conflicts, constraint removal and inferred permissions. It creates
+no persistent reports, backups or lock files. Apply takes the shared
+`scan-pipeline` writer lock. No RPC or R2 access, backup reservation, external
+snapshot key, or operator-supplied archive list is required. Normal R2 backups
+retain their independent two-day cadence. `PIPELINE_DATA_DIR` remains the
+standard infrastructure override for testing with isolated copies; it is not
+needed for the production commands. A shared Poetry environment in a worktree
+needs `PYTHONPATH=.` to select that checkout's source.
+
+Missing source files are logged and available evidence is used. Both live
+databases must exist; an absent target aborts before either is changed. Archive
+sources must be checkpointed, with no outstanding WALs. Raw Parquet has lower
+priority than scanner databases. Existing matching target
 values win; differing archive alternatives, including alternatives for restored
 keys, remain in `hypercore_price_conflicts`. Cleaned/resampled Parquets cannot
 restore exact scanner points and are refused. Old flags, capacity inputs, source
 hashes, original write times and raw rows remain in the evidence tables.
 
-`SOURCE_AVAILABLE_AT` optionally maps absolute archive filenames to independently
-verified naive UTC availability bounds, for example
-`{"/path/to/older.duckdb":"2026-09-30T00:00:00"}`. A verified dated backup can use
-a conservative end-of-day bound. This is deny-only archive evidence, never an
-API receipt or capacity freshness. This deny-only evidence remains a last
-fallback when no usable recovered price-clock or genuine receipt exists.
 The target's own verified backup also provides a deny-only bound for its closures.
 A genuine later coherent response takes precedence over archive-only evidence.
 
@@ -48,7 +53,7 @@ timestamp** when an independent permission observation clock is unavailable.
 These snapshots have `legacy_price_timestamp` provenance and preserve their
 source path/hash and full original row. They can establish historical Open or
 Closed under this approximation; they are not authenticated API receipts or
-independent measurements. Only explicitly selected backup sources supply flags:
+independent measurements. Only the fixed pre-repair backup sources supply flags:
 known-corrupted target flags are excluded. Scanner backups take priority over
 raw Parquet for matching permission keys, and HF takes priority over daily at
 identical inferred clocks. Raw Parquet flags may already have been carried
@@ -76,6 +81,14 @@ price table are removed transactionally while preserving rows and nullability.
 Repeated ingestion uses staging and hash joins instead. A row-count invariant
 must pass before commit. Stop all database owners; never replace production state
 with the earlier local rehearsal copy. Apply again to freshly stopped live data.
+
+Automatic backups, checksum receipts and `recovery-report.json` are saved under
+`migration-backups/hypercore-permissions-1628/` in the pipeline directory.
+The report is updated after each database succeeds. The two databases have
+separate transactions: if the second fails, the first database's completed
+report remains available, and rerunning safely finishes the repair. This script
+repairs cached permission metadata in the same databases; it does not require a
+separate metadata migration or historical API backfill.
 
 Use `scripts/hyperliquid/fetch-recovery-backups.py` for bounded downloads from the
 private bucket: `BACKUP_DATES` is a JSON list of at most 31 ISO dates and
@@ -122,31 +135,36 @@ namespaces. Changing the export prefix with the same namespace does not reset th
 
 ## Production maintenance order
 
-1. Make the recovery tools available without starting the updated collector.
-   Both collectors and Hypercore post-processing refuse an old constrained price
-   table **before schema initialisation**; deploy maintenance tools first and
-   migrate before restarting either path.
-2. Reserve the daily/HF pair with `scripts/hyperliquid/reserve-backup-window.py`:
-   set `RESERVATION_ID`, optionally `DATABASE_NAMES`, and private R2 credentials.
-   The receipt gives `ready_after`, the later of both databases' due times.
-   Routine exporters defer both members. `RESERVATION_ACTION=heartbeat` renews
-   the lease for at most seven days total; `cancel` releases it without resetting
-   gates. An abandoned lease expires after 72 hours without a heartbeat.
-3. At that window, stop the owners. Inspect production Compose and override the
-   oneshot entrypoint for maintenance; its normal entrypoint starts a full scan.
-   Preserve the mounted `/root/.tradingstrategy`, HOME and timestamp caches.
-4. Run `scripts/hyperliquid/backup-for-migration.py` with `MAINTENANCE_ID` and
-   `R2_BACKUP_REPORT`. It backs up only the reserved pair and refuses readiness
-   if either is deferred/missing/failed. It does not bypass the two-day gate.
-5. Run recovery dry-run against freshly stopped production files. Then apply
-   with each report's `snapshot_key` supplied as `PRE_MIGRATION_R2_KEY`.
-   Production paths below `/root/.tradingstrategy` require this. Other deployments
-   can set `REQUIRE_OFFHOST_BACKUP=true`. The migration verifies the private R2
-   snapshot's SHA/size against **its own** pre-mutation backup, so a stale local
-   preparation or newly written live rows cannot be overwritten silently.
-6. Verify prices, row counts, evidence, sidecar and idempotence, then release the
-   reservation and start the fixed collector. Metadata-only maintenance must
-   disable historical price scanning; never reset reader states or old Monad rows.
+From the host checkout `/root/vault-scanner/web3-ethereum-defi`, use the merged
+code and rebuild the image with `scripts/build-container.sh`. Stop the database
+owners, optionally make an additional full-directory backup, and open a
+maintenance shell with the production state mounted:
+
+```shell
+source /root/vault-scanner/vault-rpc.env
+docker compose --profile oneshot stop vault-scanner-looped post-scanner vault-scanner-oneshot
+cp -r /root/.tradingstrategy "/root/.tradingstrategy-backup-$(date -u +%Y%m%d-%H%M%S)"
+docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot
+```
+
+Inside that shell:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
+```
+
+Review the first dry run before applying. The final dry run should report zero
+missing price keys and zero ART constraints to remove for both databases;
+retained archive conflicts may still appear. Each apply report must satisfy
+`rows_after == rows_before + restore_missing`. Then exit the shell and restart
+the previously running services with `docker compose up -d vault-scanner-looped
+post-scanner`. The normal export republishes prices and permission history.
+Both collectors and Hypercore post-processing refuse the old constrained price
+tables until migration. Preserve reader states, existing Parquet and timestamp
+caches, including old Monad rows. Production execution remains pending until an
+operator records its date and result.
 
 ## Permission consumer rollout
 

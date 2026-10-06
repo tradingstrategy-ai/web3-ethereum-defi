@@ -73,9 +73,11 @@ multipart-copy checks passed manually on 2026-10-06, using isolated temporary
 prefixes. Grounded Claude CLI Opus 5.5 review findings were addressed; original
 review streams remain with the recovery evidence.
 
-Use the [runbook](../README-hypercore-permission-recovery.md) to reserve the daily/HF
-backup window, stop owners, take gated offhost snapshots and run fresh production
-dry runs before applying. Local rehearsal files are not production replacements.
+Use the [runbook](../README-hypercore-permission-recovery.md) to stop owners and
+run the single migration with `DRY_RUN=true`, then `DRY_RUN=false`. It selects
+the retained sources for both databases and makes its own verified local
+backups. No R2 reservation or external snapshot key is required. Local rehearsal
+files are not production replacements.
 Manifest v2 remains disabled until the paired sidecar contract is supported by
 serving, client and executor. Client original-clock and freshness behaviour is
 tracked in [Trading Strategy #252](https://github.com/tradingstrategy-ai/trading-strategy/issues/252).

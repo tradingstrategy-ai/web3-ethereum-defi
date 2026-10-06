@@ -1,74 +1,103 @@
-"""Recover a stopped Hyperliquid scanner database; defaults to read-only dry run.
+"""Recover both Hyperliquid scanner databases from the retained local archives.
 
-Set ``TARGET_DATABASE``, ``BACKUP_SOURCES`` (JSON array of immutable filenames),
-``MIGRATION_BACKUP_DIR`` and ``RECOVERY_REPORT``. Explicit ``DRY_RUN=false``
-enables a backed-up transaction. Use a copied target for local rehearsals.
+Run with ``DRY_RUN=true`` to inspect recovery without writing anything, or
+``DRY_RUN=false`` to apply with an automatic verified backup of each database.
+Dry run is the default. No RPC, R2 credentials or migration-specific paths are
+needed. The normal pipeline directory defaults to ``~/.tradingstrategy/vaults``.
+
+This one-off repair for issue #1628 uses the reviewed scanner backups dated
+2026-09-29 through 2026-10-05, newest first, and the 2026-10-05 raw price archive.
+Missing archives are logged; flags without recoverable evidence become Unknown.
+Later archives and the current target's flags cannot supply historical truth.
+The common recovery engine also repairs cached permission metadata, so a
+separate metadata migration or historical API backfill is unnecessary. See
+https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1628.
 """
 
-import datetime
 import json
 import logging
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
+from tqdm_loggable.auto import tqdm
+
 from eth_defi.hyperliquid.permission_recovery import recover_permissions
-from eth_defi.utils import setup_console_logging
-from eth_defi.vault.backup import write_json_atomic
-from eth_defi.vault.duckdb_backup import create_private_backup_client
+from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.backup import observe_database_operation, write_json_atomic
+from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
 
+#: Fixed database scope of the corruption repair.
+DATABASE_NAMES = ("hyperliquid-vaults", "hyperliquid-vaults-hf")
+
+#: Retained pre-repair scanner archives in newest-first preference order.
+BACKUP_DATES = ("2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29")
+
+
+def migrate_databases(data_dir: Path, *, dry_run: bool = True) -> dict[str, dict]:
+    """Repair both databases using the fixed archived source selection.
+
+    Dry run opens targets read-only and logs counts without creating reports,
+    backups or lock files. Apply holds the shared pipeline writer lock, creates
+    each database's verified backup before its repair transaction, and persists
+    the completed report after each database so partial completion is visible.
+
+    :param data_dir: Existing pipeline directory; production uses the normal mounted state.
+    :param dry_run: Analyse without persistent writes; defaults to ``True``.
+    :return: Per-database recovery counts, source hashes and apply backup receipts.
+    """
+    data_dir = data_dir.resolve()
+    targets = {name: data_dir / f"{name}.duckdb" for name in DATABASE_NAMES}
+    for target in targets.values():
+        if not target.is_file():
+            raise FileNotFoundError(f"Required Hyperliquid database is missing: {target}")
+
+    raw_archive = data_dir / "backups" / BACKUP_DATES[0] / "vault-prices-1h.parquet"
+    parquets = [raw_archive] if raw_archive.is_file() else []
+    if not parquets:
+        logger.warning("Raw price archive unavailable: %s; recovering from available scanner backups", raw_archive)
+    backup_dir = data_dir / "migration-backups" / "hypercore-permissions-1628"
+    report_path = backup_dir / "recovery-report.json"
+    reports = {}
+    lock = nullcontext() if dry_run else wait_other_writers(data_dir / "scan-pipeline", timeout=60)
+    if not dry_run:
+        logger.info("Acquiring scan-pipeline writer lock; database owners must be stopped")
+    with lock:
+        for name, target in tqdm(targets.items(), desc="Recovering Hyperliquid databases"):
+            candidates = [data_dir / "backups" / date / target.name for date in BACKUP_DATES]
+            sources = [path for path in candidates if path.is_file()]
+            missing = [str(path) for path in candidates if not path.is_file()]
+            if missing:
+                logger.warning("Unavailable scanner archives for %s: %s", name, ", ".join(missing))
+            logger.info("%s %s using %d scanner backups and %d raw archives", "Analysing" if dry_run else "Applying recovery to", target, len(sources), len(parquets))
+            with observe_database_operation(f"Recovery of {name}"):
+                report = recover_permissions(target, sources, backup_dir, dry_run=dry_run, parquet_sources=parquets)
+            reports[name] = report
+            logger.info("%s: %s; inferred permission snapshots: %s", name, json.dumps(report["tables"]), report["legacy_price_timestamp_permissions"])
+            if not dry_run:
+                write_json_atomic(report_path, reports)
+                logger.info("Verified pre-migration backup: %s", report["backup"]["backup"])
+                logger.info("Recovery report saved to %s", report_path)
+    logger.info("%s complete for both Hyperliquid databases", "Read-only dry run" if dry_run else "Backed-up recovery")
+    return reports
+
 
 def main() -> None:
-    """Run recovery from explicit environment configuration.
+    """Run the fixed migration with ``DRY_RUN`` as its only migration input.
 
-    Database owners must be stopped. The script creates its own verified backup
-    before applying any repair; an external backup is additional protection.
+    Resolve storage through the standard pipeline convention. No migration path,
+    archive list or external backup scheduling configuration is required.
 
-    :return: ``None`` after writing the machine-readable recovery report.
+    :return: ``None`` after analysing or applying recovery to both databases.
     """
-    setup_console_logging(default_log_level="info")
-    logger.info("Starting HyperCore recovery analysis")
-    dry_value = os.environ.get("DRY_RUN", "true").lower()
+    setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
+    dry_value = os.environ.get("DRY_RUN", "true").strip().lower()
     if dry_value not in {"true", "false"}:
         msg = "DRY_RUN must be true or false"
         raise ValueError(msg)
-    target = Path(os.environ["TARGET_DATABASE"]).expanduser()
-    sources = [Path(value).expanduser() for value in json.loads(os.environ.get("BACKUP_SOURCES", "[]"))]
-    backup_dir = Path(os.environ.get("MIGRATION_BACKUP_DIR", str(target.parent / "migration-backups"))).expanduser()
-    report_path = Path(os.environ.get("RECOVERY_REPORT", str(target.with_suffix(".recovery.json")))).expanduser()
-    bounds = {str(Path(path).expanduser().resolve()): datetime.datetime.fromisoformat(value) for path, value in json.loads(os.environ.get("SOURCE_AVAILABLE_AT", "{}")).items()}
-    offhost_key = os.environ.get("PRE_MIGRATION_R2_KEY")
-    require_offhost = os.environ.get("REQUIRE_OFFHOST_BACKUP", "false").lower() == "true" or target.resolve().is_relative_to(Path("/root/.tradingstrategy"))
-    if dry_value == "false" and require_offhost and not offhost_key:
-        msg = "Production apply requires PRE_MIGRATION_R2_KEY from a gated stopped-writer backup"
-        raise ValueError(msg)
-
-    def verify_offhost(receipt: dict) -> None:
-        """Bind the exact own backup to an immutable private R2 snapshot.
-
-        Compare uploaded metadata before the repair transaction starts; mismatched
-        content or length aborts apply rather than accept a stale live backup.
-
-        :param receipt: Own pre-mutation backup digest and byte count.
-        :return: ``None`` after verification, or when offhost verification is optional.
-        """
-        if not offhost_key:
-            return
-        if not offhost_key.startswith("duckdb-backups/") or not offhost_key.endswith(".duckdb"):
-            msg = "Pre-migration R2 key must be an immutable registered DuckDB snapshot"
-            raise ValueError(msg)
-        client = create_private_backup_client()
-        head = client.head_object(Bucket=os.environ["R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME"], Key=offhost_key)
-        if head.get("Metadata", {}).get("sha256") != receipt["sha256"] or head["ContentLength"] != receipt["size"]:
-            msg = "Pre-migration offhost snapshot differs from the stopped target; refusing stale apply"
-            raise ValueError(msg)
-        logger.info("Verified exact pre-migration private R2 snapshot %s", offhost_key)
-
-    report = recover_permissions(target, sources, backup_dir, dry_run=dry_value == "true", source_available_at=bounds, parquet_sources=[Path(value).expanduser() for value in json.loads(os.environ.get("PARQUET_SOURCES", "[]"))], pre_mutation_check=verify_offhost)
-    write_json_atomic(report_path, report)
-    logger.info("Recovery %s: %s", "dry run" if report["dry_run"] else "applied", json.dumps(report["tables"]))
-    logger.info("Report saved to %s", report_path)
+    migrate_databases(get_pipeline_data_dir(), dry_run=dry_value == "true")
 
 
 if __name__ == "__main__":

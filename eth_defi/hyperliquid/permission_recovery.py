@@ -9,7 +9,6 @@ https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1628.
 
 import datetime
 from pathlib import Path
-from typing import Callable
 
 import duckdb
 from tqdm_loggable.auto import tqdm
@@ -106,7 +105,7 @@ def restore_price_timestamp_permissions(connection: duckdb.DuckDBPyConnection, t
 # ruff: noqa: S608
 
 
-def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, dry_run: bool = True, source_available_at: dict[str, datetime.datetime] | None = None, parquet_sources: list[Path] | None = None, pre_mutation_check: Callable[[dict], None] | None = None) -> dict:  # noqa: PLR0914
+def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, dry_run: bool = True, source_available_at: dict[str, datetime.datetime] | None = None, parquet_sources: list[Path] | None = None) -> dict:  # noqa: PLR0914
     """Restore missing price keys and retain uncertain legacy permission evidence.
 
     Current target values win matching-key conflicts; every differing archive
@@ -121,7 +120,6 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
     :param sources: Earlier scanner database snapshots in preference order.
     :param backup_dir: Directory for verified pre-mutation backups.
     :param dry_run: Read-only analysis; default ``True``.
-    :param pre_mutation_check: Optional offhost-backup verification against the own-backup receipt.
     :param parquet_sources: Optional raw published Parquets, restored after DuckDB sources. Cleaned Parquets are refused.
     :param source_available_at: Optional verified archive availability bounds, keyed by absolute source filename. These are never API receipt clocks.
     :return: Counts, archive hashes, conflicts and optional own-backup receipt.
@@ -240,8 +238,6 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         if dry_run:
             return report
         report["backup"] = backup_database(connection, target, backup_dir)
-        if pre_mutation_check is not None:
-            pre_mutation_check(report["backup"])
         connection.execute("BEGIN TRANSACTION")
         transaction = True
         # Rebuild only when constrained, preserving all columns, nulls and rows.

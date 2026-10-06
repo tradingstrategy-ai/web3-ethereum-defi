@@ -119,6 +119,28 @@ Good reference implementations are:
   resumable, checkpointed Enzyme metadata and historical migration when the two
   functions must share factory discovery.
 
+### Hyperliquid corruption recovery
+
+The one-off `scripts/hyperliquid/recover-permissions.py` repair for
+[issue #1628](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1628)
+handles both daily and HF scanner databases. It uses the normal pipeline
+directory and automatically selects the retained 2026-09-29 through 2026-10-05
+scanner backups plus the 2026-10-05 raw price archive. `DRY_RUN` is its only
+migration-specific input:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-permissions.py
+```
+
+Dry run creates no persistent files. Apply holds the shared writer lock, takes
+its own verified backup of each database, restores missing price keys and
+repairs permission evidence and cached metadata. Unrecoverable permissions stay
+Unknown. Stop database owners before applying and use the mounted oneshot
+container. No RPC or R2 credentials are required. The
+[recovery runbook](../../docs/README-hypercore-permission-recovery.md) gives the
+production shell and validation commands.
+
 ### Monad historical state
 
 [Monad full nodes retain all historical transaction data but only a
