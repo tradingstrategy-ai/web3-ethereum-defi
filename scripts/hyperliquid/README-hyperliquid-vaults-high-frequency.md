@@ -45,7 +45,7 @@ HyperliquidHighFreqMetricsDatabase (hyperliquid-vaults-hf.duckdb)
 | Module | Purpose |
 |--------|---------|
 | `eth_defi/hyperliquid/vault_metrics_db.py` | Base class: shared `vault_metadata` table, metadata upsert, lifecycle (tombstone, disappeared), query helpers, save/close |
-| `eth_defi/hyperliquid/high_freq_metrics.py` | HF subclass: `vault_high_freq_prices` table, HF upsert with COALESCE, per-vault fetcher, proxy-aware session pool orchestrator |
+| `eth_defi/hyperliquid/high_freq_metrics.py` | HF subclass: `vault_high_freq_prices` table, HF ingestion through shared staging/hash joins, per-vault fetcher, proxy-aware session pool orchestrator |
 | `eth_defi/hyperliquid/daily_metrics.py` | Daily subclass: `vault_daily_prices` table, daily upsert, share price recomputation, schema migrations |
 | `eth_defi/hyperliquid/vault_data_export.py` | Export: `_prepare_hypercore_export()` shared helper, `merge_hypercore_prices_to_parquet()` combined merge |
 | `eth_defi/vault/scan_all_chains.py` | `_run_hypercore_scan()` shared orchestrator, `scan_hypercore_fn()` / `scan_hypercore_hf_fn()` thin wrappers |
@@ -65,14 +65,14 @@ HyperliquidMetricsDatabaseBase (vault_metrics_db.py)
     │
     ├── HyperliquidDailyMetricsDatabase (daily_metrics.py)
     │   ├── price_table = "vault_daily_prices", time_column = "date"
-    │   ├── upsert_daily_prices() with COALESCE
+    │   ├── upsert_daily_prices() through staging/hash joins
     │   ├── _write_tombstone_rows() → HyperliquidDailyPriceRow(date=today)
     │   ├── get_all_daily_prices(), get_vault_daily_prices()
     │   └── recompute_vault_share_prices(), detect_broken_vaults()
     │
     └── HyperliquidHighFreqMetricsDatabase (high_freq_metrics.py)
         ├── price_table = "vault_high_freq_prices", time_column = "timestamp"
-        ├── upsert_high_freq_prices() with COALESCE
+        ├── upsert_high_freq_prices() through staging/hash joins
         ├── _write_tombstone_rows() → HyperliquidHighFreqPriceRow(timestamp=now)
         └── get_all_high_freq_prices(), get_vault_high_freq_prices()
 ```
@@ -119,13 +119,14 @@ The HF pipeline exploits the same API data more aggressively:
 1. **Raw timestamps instead of date truncation**: API timestamps are stored
    as-is from the merged portfolio history.  This preserves the full per-period
    resolution (~20 min for `day`, ~3h for `week`, ~10.5h for `month`, ~weekly
-   for `allTime`) — all points are kept without flooring or deduplication.
+   for `allTime`) — points retain original clocks; exact duplicate price keys are merged.
 
 2. **Resumable with overlap**: each poll stores all rows with timestamp `>=`
    the last stored timestamp.  The `>=` (not `>`) ensures the latest row is
-   always re-upserted, refreshing corrected values or sparse state fields.
-   If the job misses one or more cycles, the API's historical data fills in
-   the gaps automatically on the next run.
+   re-upserted to refresh corrected economics and sparse economic metrics.
+   Original permission fields and first write clocks remain unchanged.
+   The next run collects retained newer API points; gaps in older downsampled
+   history cannot be reconstructed automatically and need retained backups.
 
 3. **Proxy-aware parallelism**: Hyperliquid rate-limits at 1200 weight/min/IP,
    with `vaultDetails` costing 20 weight (= ~1 req/s per IP). With N Webshare
@@ -173,8 +174,8 @@ accepts both `daily_db` and `hf_db` as optional parameters.
 
 Both export functions (`build_raw_prices_dataframe` and
 `build_raw_prices_dataframe_hf`) delegate to the shared
-`_prepare_hypercore_export()` helper for forward-filling sparse metadata snapshots,
-computing deposit status, and building the EVM-compatible DataFrame.
+`_prepare_hypercore_export()` helper for carrying sparse economic metrics and
+building the EVM-compatible DataFrame after independent permission selection.
 
 This means:
 
@@ -211,41 +212,37 @@ but the downstream Parquet/cleaning pipeline expects `daily_deposit_count`,
 `daily_withdrawal_count`, etc. The `_prepare_hypercore_export()` helper handles
 this mapping via the `flow_col_map` parameter.
 
-### Metadata snapshot handling
+### Independent permission and sparse economic metrics
 
-The HF DuckDB keeps metadata snapshots sparse by design. Each fetch writes
-`apr`, `follower_count`, `is_closed`, `allow_deposits`, `leader_fraction`,
-`leader_commission`, and `cumulative_volume` only on the latest row observed
-for that vault during that fetch. Historical rows stay `NULL` unless a later
-overlap re-upsert touches the exact same timestamp.
+Every successful vaultDetails response supplies an independent coherent permission
+snapshot before portfolio checks. Missing flags explicitly mean Unknown; fetch or
+parse failures are recorded separately. Changed bulk closures are captured before
+TVL/address/count filtering. An already closed genuine snapshot suppresses a
+redundant bulk denial without refreshing its receipt clock.
 
-The downstream export path then forward-fills the non-critical snapshot fields
-within the observed history of each vault:
+Portfolio rows retain sparse economic snapshots such as follower count, volume
+and commission. Export may carry those metrics forwards. It selects permission
+from whole independently clocked responses instead of filling individual flags;
+explicit Unknown and historical uncertainty boundaries remain intact. Capacity
+requires its own original clock and is never inferred from recovered price flags.
+The independent permission sidecar retains changes between portfolio points.
 
-- `is_closed`
-- `allow_deposits`
-- `leader_fraction`
-- `leader_commission`
-- `follower_count`
-- `cumulative_volume`
+Legacy databases **require a backed-up migration**, including removal of unsafe
+ART price constraints. Re-export alone cannot recover lost keys or old permission
+truth. See the [permission recovery runbook](../../docs/README-hypercore-permission-recovery.md)
+for dry-run/apply, source priority, inferred price clocks, R2 cadence and production
+maintenance. Manifest v2 remains disabled until coordinated consumer rollout.
 
-Rows before the first observed snapshot still remain `NULL` — export does not
-invent earlier metadata. `apr` stays metadata-only in this version and is not
-exported to the parquet / cleaned datasets.
+### Staging and hash-join ingestion
 
-Because the fix lives in export, existing HF DuckDB history does not need a
-schema or data migration. To heal existing downstream datasets, re-run the
-Hypercore parquet merge and the cleaning pipeline.
+Daily and HF prices use unconstrained staging tables and application deduplication:
 
-### COALESCE upsert semantics
-
-Both the daily and HF pipelines use `ON CONFLICT DO UPDATE SET` with `COALESCE`
-for sparse columns. This means:
-
-- `share_price`, `tvl`, `cumulative_pnl`: always overwrite (most recent wins)
-- `is_closed`, `allow_deposits`, `leader_fraction`, `leader_commission`, `follower_count`, `cumulative_volume`, flow fields: `COALESCE(new, existing)` —
-  a `None` new value preserves the existing value, so tombstone rows and
-  overlap re-upserts do not wipe state
+- Dense economics use the latest value for an existing key.
+- Sparse economic/flow fields use `COALESCE(new, existing)`; duplicate keys within
+  one batch preserve the last non-null value.
+- Compatibility permission fields, leader fraction and first `written_at` remain
+  immutable for an existing price key. Independent observations supply later
+  state changes without rewriting historical prices.
 
 ### Post-processing
 

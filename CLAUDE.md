@@ -501,6 +501,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
 | `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
 | `docs/README-vault-scan-manifest.md` | Private readiness receipt: R2 keys, schema, sparse candle semantics, cache policy and rollout |
+| `docs/README-hypercore-permission-recovery.md` | Hypercore permission clocks, backed-up recovery and gated private R2 maintenance |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
 | `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |

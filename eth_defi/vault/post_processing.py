@@ -67,7 +67,7 @@ from eth_defi.vault.data_file_export import (
     resolve_exchange_rate_parquet_path,
 )
 from eth_defi.vault.sample_export import export_sample_files_to_r2
-from eth_defi.vault.scan_manifest import publish_vault_scan_manifest
+from eth_defi.vault.scan_manifest import publish_hypercore_permission_manifest, publish_vault_scan_manifest
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -535,6 +535,11 @@ def _write_native_partitions_to_uncleaned_parquet(
 
     if capability_registry is not None:
         combined_table = combined_table.replace_schema_metadata(embed_perp_capability_registry(combined_table.schema, capability_registry).metadata)
+    elif existing_table is not None:
+        # Standalone protocol merges must retain the previously published
+        # capability contract when they have no replacement registry.
+        metadata = {key: value for key, value in (existing_table.schema.metadata or {}).items() if key.startswith(b"perp_dex.")}
+        combined_table = combined_table.replace_schema_metadata(metadata or None)
 
     if "total_assets" in combined_table.column_names:
         audit_native_price_freshness(combined_table, native_datetime_utc_now())
@@ -1515,6 +1520,8 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
                 cleaned_price_path=exported_price_path,
                 price_scan_state_path=manifest_state_path,
             )
+            if os.environ.get("HYPERCORE_PERMISSION_MANIFEST_V2", "false").lower() == "true":
+                steps["publish-hypercore-permission-manifest"] = publish_hypercore_permission_manifest(exported_price_path, data_dir / "hypercore-vault-permissions.parquet", manifest_state_path)
         except (RuntimeError, ValueError, OSError, pa.ArrowException):
             logger.exception("Vault scan manifest publication failed")
             steps["publish-vault-scan-manifest"] = False
