@@ -265,3 +265,57 @@ def test_direct_renderers_normalise_parquet_datetime_resolution() -> None:
     coordinates = sparkline._calculate_sparkline_coordinates(prepared, width=SPARKLINE_SVG_WIDTH, height=SPARKLINE_SVG_HEIGHT, margin_ratio=4)
     assert coordinates.points[0][0] > 0.0
     assert coordinates.points[-1][0] == pytest.approx(SPARKLINE_SVG_WIDTH)
+
+
+@pytest.mark.parametrize(
+    "days, prices",
+    [
+        pytest.param([0, 45, 90], [1.0, 1.4, 1.2], id="normal"),
+        pytest.param([0, 5, 10], [1.0, 1.4, 1.2], id="short"),
+        pytest.param([0, 72, 90], [1.0, 1.4, 1.2], id="sparse-step"),
+        pytest.param([0, 45, 90], [1.0, 1.0, 1.0], id="constant"),
+    ],
+)
+def test_table_png_preserves_svg_geometry(days: list[int], prices: list[float]) -> None:
+    """Native table PNGs retain time coverage, steps, padding and stroke weight.
+
+    Decode actual raster pixels, including blank history, gradient and the
+    centre-line stroke. These checks catch a square PNG squeezed into a 4:1
+    canvas even when its final dimensions are correct.
+
+    :param days:
+        Elapsed observation days from launch.
+    :param prices:
+        Share prices at the observations.
+    """
+    index = pd.DatetimeIndex([pd.Timestamp("2026-01-01") + pd.Timedelta(days=day) for day in days])
+    data = prepare_sparkline_data(pd.DataFrame({"share_price": prices}, index=index))
+    assert data is not None
+    window_days = 90
+    green_threshold = 150
+    payload = sparkline.render_sparkline_table_png(data)
+    assert payload == sparkline.render_sparkline_table_png(data)
+    assert payload == sparkline.render_sparkline_table_png(render_sparkline_svg(data))
+    background = ImageColor.getrgb(sparkline.SPARKLINE_BACKGROUND_COLOR)
+    with Image.open(BytesIO(payload)) as image:
+        assert image.format == "PNG"
+        assert image.size == (300, 75)
+        image = image.convert("RGB")
+        if days[-1] < window_days:
+            assert image.crop((0, 0, 250, 75)).getextrema() == tuple((channel, channel) for channel in background)
+        if len(set(prices)) == 1:
+            green_rows = [y for y in range(75) if image.getpixel((150, y))[1] > green_threshold]
+            assert green_rows == [36, 37, 38]
+            assert image.getpixel((150, 20)) == background
+            assert image.getpixel((150, 50)) == background
+        else:
+            # A 4/25 margin gives approximately 9 px of padding on a 75 px canvas.
+            first_x = round(300 * (1 - days[-1] / 90))
+            step_x = round(300 * (1 - (days[-1] - days[1]) / 90))
+            low_x = (first_x + step_x) // 2
+            high_x = (step_x + 300) // 2
+            assert image.getpixel((low_x, 65))[1] > green_threshold
+            assert image.getpixel((high_x, 9))[1] > green_threshold
+            assert image.getpixel((low_x, 40)) == background
+            assert image.getpixel((high_x, 30))[1] > background[1]
+            assert image.getpixel((high_x, 70)) == background

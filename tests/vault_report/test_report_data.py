@@ -7,8 +7,35 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from eth_defi.vault_report import data as report_data
+
+
+def test_sparkline_availability_checks_exact_table_asset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing table PNG stays empty even when the legacy square PNG exists.
+
+    Check the exact requested URL and deduplication, and simulate an unavailable
+    table asset and a request failure alongside a successful response.
+
+    :param monkeypatch:
+        HTTP session override keeping the check offline.
+    """
+    session = Mock()
+    urls: list[str] = []
+
+    def head(url: str, timeout: float) -> Mock:
+        assert timeout == 20.0  # noqa: PLR2004
+        urls.append(url)
+        if "failed" in url:
+            message = "test connection failure"
+            raise requests.ConnectionError(message)
+        return Mock(status_code=200 if "available" in url else 404)
+
+    session.head.side_effect = head
+    monkeypatch.setattr(report_data.requests, "Session", lambda: session)
+    assert report_data.fetch_available_sparklines(["available", "missing", "failed", "available"], max_workers=1) == {"available"}
+    assert sorted(urls) == [f"https://vault-sparklines.tradingstrategy.ai/sparkline-table-90d-{vault_id}.png" for vault_id in ["available", "failed", "missing"]]
 
 
 def make_streaming_body(payload: bytes) -> Mock:

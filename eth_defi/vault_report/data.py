@@ -289,7 +289,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
 
     for column in ("start_date", "end_date"):
         # Naive UTC, also if the export ever adds a time zone suffix
-        df[column] = pd.to_datetime(df[column], utc=True).dt.tz_localize(None)
+        df[column] = pd.to_datetime(df[column], format="ISO8601", utc=True).dt.tz_localize(None)
     if "trading_strategy_link" not in df.columns:
         df["trading_strategy_link"] = None
     df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url) if isinstance(url, str) else url)
@@ -628,7 +628,7 @@ def read_vault_tvl_history(
 def fetch_available_sparklines(vault_ids: list[str], max_workers: int = 16, timeout: float = 20.0) -> set[str]:
     """Check which vaults have a published 90-day sparkline image.
 
-    The tables' "3M history" column embeds the website's public sparkline
+    The tables' "3M history" column embeds the native 4:1 table sparkline
     PNG, :py:data:`~eth_defi.vault_report.sections.SPARKLINE_URL`, rather
     than rendering images of its own, so the post looks like the website and
     uploads nothing. Low-TVL vaults are rendered on a slower cadence and may

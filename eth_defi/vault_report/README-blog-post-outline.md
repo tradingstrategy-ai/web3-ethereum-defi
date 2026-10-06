@@ -208,6 +208,11 @@ them; keep them when changing the templates in `post.py` or the notes in
 - Tables show only the current TVL, in a column headed "TVL", with `k`, `M`
   and `B` suffixes, e.g. `$275k` or `$1.2M`, never full digits. The sparkline
   column is headed "3M history".
+- Table sparklines use the native 4:1 `sparkline-table-90d-{vault_id}.png`,
+  rasterised from the website SVG at 300 × 75 and displayed at 72 × 18 with
+  inline sizing. Never substitute the legacy square PNG or SVG in the post:
+  the table PNG preserves the website geometry and works in newsletters.
+  A missing table variant leaves an empty cell.
 - Vault links go to `https://tradingstrategy.ai/vaults/…`, never the old
   `/trading-view/` paths, and table vault names link to the vault page.
 - The perp DEX introduction describes the vaults as "discretionary,

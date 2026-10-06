@@ -123,6 +123,112 @@ def test_latest_tvl_classification_boundaries(symbol: str, value: float, is_low:
     assert classification[2] is is_low
 
 
+@pytest.mark.parametrize("duplicate_square", [False, True])
+def test_missing_table_render_is_not_complete(monkeypatch: pytest.MonkeyPatch, duplicate_square: bool) -> None:  # noqa: FBT001
+    """Two legacy formats or an extra square PNG cannot complete publication.
+
+    A file count alone cannot distinguish the new table variant from a duplicate
+    legacy PNG. Both the renderer and publisher must reject an incomplete set.
+
+    :param monkeypatch:
+        Replace the renderer with an incomplete result.
+    :param duplicate_square:
+        Whether to return a duplicate legacy PNG as a third payload.
+    """
+    data = _sparkline_data()
+    images = sparkline_export.render_vault_sparklines("test-vault", data)[:2]
+    if duplicate_square:
+        images.append(images[-1])
+    monkeypatch.setattr(sparkline_export, "render_vault_sparklines", lambda _id, _data: images)
+    assert "table PNG" in sparkline_export._render_one_safe("test-vault", data)[2]
+    uploaded, unchanged, error = sparkline_export._publish_rendered_vault(object(), "test-bucket", images)
+    assert uploaded == unchanged == 0
+    assert "table PNG" in error
+
+
+def test_table_upload_failure_preserves_completion_and_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Failing the third asset preserves state until a complete retry succeeds.
+
+    The legacy assets may already exist when a table upload fails. Retry uploads
+    the missing variant, counts the existing pair as unchanged, and only then
+    records a successful digest and skips unchanged input.
+
+    :param tmp_path:
+        Isolated metadata, prices and publication state.
+    :param monkeypatch:
+        Simulate an R2 failure on the table asset and control retry time.
+    """
+    vault_id, vault_db, prices, state_path, _ = _write_export_inputs(tmp_path, total_assets=10_000.0)
+    clock = [datetime.datetime(2026, 10, 6)]  # noqa: DTZ001
+    monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: clock[0])
+    monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _workers: (object(), "test-bucket"))
+    table_fails = [True]
+
+    def upload(_client: object, _bucket: str, image: sparkline_export.RenderData) -> bool:
+        if image.get("variant") == "table":
+            if table_fails[0]:
+                message = "table PNG upload failed"
+                raise OSError(message)
+            return True
+        return False
+
+    monkeypatch.setattr(sparkline_export, "upload_sparkline", upload)
+    options = {"vault_db_path": vault_db, "prices_path": prices, "state_path": state_path, "max_workers": 1}
+    failed = sparkline_export.run_sparkline_export(**options)
+    entry = sparkline_export.load_sparkline_state(state_path)["vaults"][vault_id]
+    assert not failed.success
+    assert failed.counters["r2_unchanged"] == sparkline_export.SPARKLINE_FORMAT_COUNT - 1
+    assert "last_completed_at" not in entry
+    assert "input_sha256" not in entry
+    assert entry["next_retry_at"] == "2026-10-06T06:00:00Z"
+    assert sparkline_export.run_sparkline_export(**options).counters["retry_deferred"] == 1
+    clock[0] += datetime.timedelta(hours=6)
+    table_fails[0] = False
+    retried = sparkline_export.run_sparkline_export(**options)
+    assert retried.success
+    assert retried.counters["uploaded"] == 1
+    assert retried.counters["r2_unchanged"] == sparkline_export.SPARKLINE_FORMAT_COUNT - 1
+    entry = sparkline_export.load_sparkline_state(state_path)["vaults"][vault_id]
+    assert entry["last_completed_at"] == "2026-10-06T06:00:00Z"
+    assert entry["renderer_version"] == sparkline_export.SPARKLINE_RENDERER_VERSION
+    assert sparkline_export.run_sparkline_export(**options).counters["unchanged"] == 1
+
+
+@pytest.mark.parametrize("total_assets", [1_000.0, 10_000.0])
+def test_previous_renderer_regenerates_all_assets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, total_assets: float) -> None:
+    """Old successful state regenerates the table asset for unchanged input.
+
+    A recent low-TVL completion must not defer the new variant for 72 hours.
+    Check the exact object names, including both unchanged legacy URLs.
+
+    :param tmp_path:
+        Isolated source files and previous export state.
+    :param monkeypatch:
+        Capture publication objects without making network requests.
+    :param total_assets:
+        Native-unit TVL, covering both publication cadences.
+    """
+    vault_id, vault_db, prices_path, state_path, _ = _write_export_inputs(tmp_path, total_assets=total_assets)
+    now = datetime.datetime(2026, 10, 6)  # noqa: DTZ001
+    state = sparkline_export.make_empty_sparkline_state(now)
+    state["vaults"][vault_id] = {
+        "last_completed_at": "2026-10-06T00:00:00Z",
+        "input_sha256": "0" * 64,
+        "renderer_version": 4,
+        "publication_target": sparkline_export._publication_target("test-bucket"),
+    }
+    sparkline_export.save_sparkline_state(state, state_path, now)
+    monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: now)
+    monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _workers: (object(), "test-bucket"))
+    objects: list[str] = []
+    monkeypatch.setattr(sparkline_export, "upload_bytes_to_r2", lambda **kwargs: objects.append(kwargs["object_name"]) or True)
+    result = sparkline_export.run_sparkline_export(vault_db_path=vault_db, prices_path=prices_path, state_path=state_path, max_workers=1)
+    assert result.success
+    assert result.counters["low_tvl_throttled"] == result.counters["unchanged"] == 0
+    assert result.counters["uploaded"] == sparkline_export.SPARKLINE_FORMAT_COUNT
+    assert objects == [f"sparkline-90d-{vault_id}.svg", f"sparkline-90d-{vault_id}.png", f"sparkline-table-90d-{vault_id}.png"]
+
+
 @pytest.mark.parametrize(
     "share_prices",
     [
@@ -416,7 +522,7 @@ def test_young_vault_publication_uses_launch_observations(tmp_path: Path, monkey
     assert result.success
     assert result.counters["eligible"] == 1
     assert result.counters["uploaded"] == sparkline_export.SPARKLINE_FORMAT_COUNT
-    assert {entry["object_name"] for entry in uploaded} == {f"sparkline-90d-{vault_id}.svg", f"sparkline-90d-{vault_id}.png"}
+    assert {entry["object_name"] for entry in uploaded} == {f"sparkline-90d-{vault_id}.svg", f"sparkline-90d-{vault_id}.png", f"sparkline-table-90d-{vault_id}.png"}
     assert any(gzip.decompress(entry["payload"]).startswith(b"\x89PNG") for entry in uploaded)
 
 
@@ -540,7 +646,7 @@ def test_export_state_skips_unchanged_high_tvl_without_rendering(tmp_path: Path,
 
     monkeypatch.setattr(sparkline_export, "render_vault_sparklines", spy)
     monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _max_workers: (object(), "test-bucket"))
-    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (2, 0, None))
+    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (sparkline_export.SPARKLINE_FORMAT_COUNT, 0, None))
     first = sparkline_export.run_sparkline_export(
         vault_db_path=vault_db_path,
         prices_path=prices_path,
@@ -630,7 +736,7 @@ def test_low_tvl_target_change_bypasses_cadence(tmp_path: Path, monkeypatch: pyt
 
     monkeypatch.setattr(sparkline_export, "render_vault_sparklines", spy)
     monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _max_workers: (object(), "test-bucket"))
-    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (2, 0, None))
+    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (sparkline_export.SPARKLINE_FORMAT_COUNT, 0, None))
 
     first = sparkline_export.run_sparkline_export(
         vault_db_path=vault_db_path,
@@ -672,7 +778,7 @@ def test_low_tvl_export_is_due_at_exactly_72_hours(tmp_path: Path, monkeypatch: 
 
     monkeypatch.setattr(sparkline_export, "render_vault_sparklines", spy)
     monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _max_workers: (object(), "test-bucket"))
-    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (2, 0, None))
+    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda _client, _bucket, _images: (sparkline_export.SPARKLINE_FORMAT_COUNT, 0, None))
 
     first = sparkline_export.run_sparkline_export(
         vault_db_path=vault_db_path,
