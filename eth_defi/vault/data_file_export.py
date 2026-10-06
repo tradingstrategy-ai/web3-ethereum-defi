@@ -11,18 +11,21 @@ from pathlib import Path
 
 import duckdb
 import pyarrow as pa
+from botocore.exceptions import BotoCoreError, ClientError
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.research.metrics_freshness import CRYPTO_METRICS_STATE_FILENAME, VAULT_METRICS_STATE_FILENAME
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.backup import write_json_atomic
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME
+from eth_defi.vault.duckdb_backup import DuckDBBackupError, backup_databases, database_registry
 from eth_defi.vault.settlement_data import (
     VAULT_SETTLEMENT_DATABASE_FILENAME,
-    checkpoint_vault_settlement_database_if_exists,
 )
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 from eth_defi.xerberus.constants import resolve_xerberus_database_path
@@ -113,6 +116,7 @@ def get_data_file_paths(
         base_path / "cleaned-vault-prices-1h.parquet",
         base_path / "vault-metadata-db.pickle",
         base_path / "vault-reader-state-1h.pickle",
+        base_path / "hypercore-vault-permissions.parquet",
         base_path / VAULT_SETTLEMENT_DATABASE_FILENAME,
         core3_db_path or resolve_core3_database_path(),
         xerberus_db_path or resolve_xerberus_database_path(),
@@ -263,7 +267,7 @@ def publish_exchange_rate_parquet_to_alternative_bucket(parquet_path: Path) -> N
 def main(
     exchange_rate_parquet_path: Path | None = None,
     exchange_rate_parquet_error: Exception | None = None,
-) -> None:
+) -> dict[str, str]:
     """Run the data file export script.
 
     Reads R2 configuration from environment variables, uploads vault data
@@ -277,6 +281,7 @@ def main(
     :param exchange_rate_parquet_error:
         Earlier materialisation failure. Unrelated files still upload, after
         which this error is propagated and stale Parquet is omitted.
+    :return: Per-database backup statuses, reported separately from successful price publication.
     """
     setup_console_logging(
         log_file=Path("logs/export-data-files.log"),
@@ -310,7 +315,10 @@ def main(
         exchange_rate_parquet_path=exchange_rate_parquet_path,
         include_exchange_rate_parquet=exchange_rate_parquet_error is None,
     )
-    checkpoint_vault_settlement_database_if_exists(base_path / VAULT_SETTLEMENT_DATABASE_FILENAME)
+    backup_paths = paths
+    # Every DuckDB, including previously exported risk/currency databases, uses
+    # the same durable 48-hour gate. Regular files keep their existing cadence.
+    paths = [path for path in paths if path.suffix != ".duckdb"]
 
     logger.info("Exporting %d data files to private R2 bucket %s via %s", len(paths), bucket_name, endpoint_url)
     logger.info("Data-file key prefix: %s", upload_prefix or "(none)")
@@ -351,5 +359,21 @@ def main(
             backup_skipped,
         )
 
+    # Backups are independent of price publication. Attempt them after regular
+    # uploads so one busy database cannot suppress the current price objects.
+    registry = []
+    try:
+        registry = database_registry(base_path, backup_paths)
+        backup_client = create_r2_client(endpoint_url=endpoint_url, access_key_id=access_key_id, secret_access_key=secret_access_key)
+        backup_statuses = backup_databases(backup_client, bucket_name, registry, maintenance_id=os.environ.get("MAINTENANCE_ID"))
+    except DuckDBBackupError as exc:
+        backup_statuses = exc.statuses
+        logger.warning("Private DuckDB backups deferred after failure; price publication succeeded: %s", backup_statuses)
+    except (ValueError, KeyError, TypeError, OSError, BotoCoreError, ClientError) as exc:
+        backup_statuses = {entry.name: "failed" for entry in registry} or {"registry": "failed"}
+        logger.warning("Private DuckDB backup configuration/client failed; price publication succeeded: %s", exc)
+    write_json_atomic(base_path / "duckdb-backup-status.json", {"checked_at": native_datetime_utc_now().isoformat(), "databases": backup_statuses})
+
     if exchange_rate_parquet_error is not None:
         raise exchange_rate_parquet_error
+    return backup_statuses

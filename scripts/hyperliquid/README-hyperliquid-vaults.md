@@ -102,8 +102,8 @@ See `constants.py` for storage paths.
 ```
 vault_metadata                        vault_daily_prices
 ==============                        ==================
-vault_address           VARCHAR PK    vault_address            VARCHAR  \
-name                    VARCHAR       date                     DATE      > composite PK
+vault_address           VARCHAR PK    vault_address            VARCHAR
+name                    VARCHAR       date                     DATE (application key)
 leader                  VARCHAR       share_price              DOUBLE
 description             VARCHAR       tvl                      DOUBLE
 is_closed               BOOLEAN       cumulative_pnl           DOUBLE
@@ -180,11 +180,21 @@ Consumers must check permission as well as the amount limit. A null
 deposits are allowed. HLP parents ignore `allowDeposits` and the leader-share
 policy, but still honour `isClosed`.
 
-The exporter carries permission flags forward within each vault's history.
-It writes the zero policy limit only on a row that contains a leader-share
-observation. For example, a later price-only row can still say deposits are
-open while its `max_deposit` is null. That row cannot establish whether the
-low-share policy would have blocked a live deposit at that time.
+The collector stores coherent permission responses independently of portfolio
+prices. Export selects eligible whole observations, preserving explicit Unknown
+and original clocks; price-only writes never refresh permission. The separate
+`hypercore-vault-permissions.parquet` retains responses between price points.
+Capacity has its own `capacity_observed_at`; the zero policy limit appears only
+on the first eligible price row for a capacity observation. A later price-only
+row cannot establish whether the low-share policy would block a live deposit.
+
+Legacy corruption requires the dry-run-first, own-backed migration described in
+the [permission recovery runbook](../../docs/README-hypercore-permission-recovery.md).
+Selected backup flags can use original price timestamps with explicit inferred
+provenance; unrecoverable permissions remain Unknown and capacity is not inferred.
+The collector and Hypercore post-processing refuse unmigrated constrained price
+tables. Registered scanner DuckDBs use a private R2 backup gate of at least 48 hours
+between attempts, including failures.
 
 The metadata pickle stores the latest permission separately in
 `_hyperliquid_deposits_open`. The normaliser uses this marker when present;
@@ -621,8 +631,8 @@ configurable down to 1h) using Webshare rotating proxies for parallel throughput
 - **Combined merge**: `merge_hypercore_prices_to_parquet()` reads both daily and
   HF databases together, deduplicates, and writes to parquet — switching modes
   never loses historical data
-- **Shared export helper**: `_prepare_hypercore_export()` handles forward-filling,
-  deposit status, and DataFrame construction for both daily and HF exports
+- **Shared export helper**: `_prepare_hypercore_export()` carries sparse economic
+  metrics and constructs output after independent coherent permission selection
 - **Proxy-aware parallelism**: pre-created session pool with per-worker rate
   limiting via `session.clone_for_worker()`
 

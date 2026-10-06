@@ -39,6 +39,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE, HYPERLIQUID_PROTOCOL_VAULT_LOCKUP, HYPERLIQUID_USER_VAULT_LOCKUP, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
+from eth_defi.hyperliquid.permission import PERMISSION_FILENAME, export_permission_history, project_permission_prices
 from eth_defi.hyperliquid.tags import get_strategy_tags
 from eth_defi.hyperliquid.vault import (
     LEADER_FRACTION_DEPOSIT_WARNING,
@@ -47,7 +48,7 @@ from eth_defi.hyperliquid.vault import (
 )
 from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
-from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.price_source import PriceSource
@@ -354,17 +355,18 @@ def _compute_deposit_state_columns(
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
     """Build the three deposit-state columns used by the raw price export.
 
-    Daily and high-frequency exports carry the last observed permission flags
-    forward. The leader-share policy uses only the original observation on
+    Daily and high-frequency exports classify the already selected coherent
+    permission snapshot, including explicit unknowns. The leader-share policy uses only the original observation on
     each row, so a carried share cannot extend a zero deposit limit into a
     later price-only row.
 
     :param prices_df:
         Price rows with nullable ``is_closed`` and ``allow_deposits`` flags,
-        optional ``relationship_type``, and forward-filled snapshot fields.
+        optional ``relationship_type``, and independently selected snapshot inputs.
     :param observed_leader_fraction:
         Original leader-fraction values, indexed like ``prices_df``. Each
-        value is a fraction or missing; capture this before forward-filling.
+        value is a fraction or missing and must come from an eligible capacity
+        observation, never an inferred or price-carried value.
     :return:
         Series with the input index: permission as ``"true"``, ``"false"``
         or ``None``; closure reason as text or ``None``; and the policy deposit
@@ -403,8 +405,8 @@ def _prepare_hypercore_export(
 ) -> pd.DataFrame:
     """Shared helper for building Hypercore export DataFrames.
 
-    Handles forward-filling sparse snapshot columns, computing deposit
-    status, and constructing the EVM-compatible output schema.
+    Carries sparse economic metrics forwards, classifies independently selected
+    permission state and constructs the EVM-compatible output schema.
 
     :param prices_df:
         Raw price data from DuckDB (daily or HF).
@@ -422,19 +424,18 @@ def _prepare_hypercore_export(
     :return:
         DataFrame matching the uncleaned Parquet schema.
     """
-    # Forward-fill sparse snapshot columns within each vault.
-    #
-    # The HF scanner intentionally records metadata snapshots only on the
-    # latest row of each fetch. Export forwards these values within the
-    # observed history so raw and cleaned consumers do not need to
-    # reimplement "last non-null per vault" logic. Rows before the first
-    # observed snapshot remain NULL.
+    # Permission flags and their clocks are selected before this helper. Only
+    # sparse economic metrics are carried forwards; unknown state stays null.
     prices_df = prices_df.sort_values(["vault_address", timestamp_column]).reset_index(drop=True)
     observed_leader_fraction = prices_df.get("leader_fraction", pd.Series(np.nan, index=prices_df.index)).copy()
+    if "capacity_observed_at" in prices_df:
+        # Apply capacity once at the first price decision after the receipt,
+        # without requiring an API receipt to equal a portfolio timestamp.
+        changed = prices_df["observation_id"].ne(prices_df.groupby("vault_address")["observation_id"].shift())
+        age = pd.to_datetime(prices_df[timestamp_column]) - pd.to_datetime(prices_df["capacity_observed_at"])
+        fresh = age.ge(pd.Timedelta(0)) & age.le(pd.Timedelta(hours=24))
+        observed_leader_fraction = observed_leader_fraction.where(changed & fresh)
     snapshot_cols = [
-        "is_closed",
-        "allow_deposits",
-        "leader_fraction",
         "leader_commission",
         "follower_count",
         "cumulative_volume",
@@ -459,8 +460,11 @@ def _prepare_hypercore_export(
     # Normal Hyperliquid vaults charge the fixed 10% leader profit share.
     # HLP and its child vaults are protocol-operated and do not charge it.
     relationship_type = prices_df.get(
-        "relationship_type",
-        pd.Series(index=prices_df.index, dtype=object),
+        "_fee_relationship_type",
+        prices_df.get(
+            "relationship_type",
+            pd.Series(index=prices_df.index, dtype=object),
+        ),
     )
     is_protocol_vault = relationship_type.isin(("parent", "child"))
     performance_fee = np.where(
@@ -493,6 +497,10 @@ def _prepare_hypercore_export(
             "daily_withdrawal_count": _col(flow_col_map.get("daily_withdrawal_count", "daily_withdrawal_count")),
             "daily_deposit_usd": _col(flow_col_map.get("daily_deposit_usd", "daily_deposit_usd")),
             "daily_withdrawal_usd": _col(flow_col_map.get("daily_withdrawal_usd", "daily_withdrawal_usd")),
+            "permission_provenance": _col("provenance", default="legacy_unverified"),
+            "permission_observed_at": _col("permission_observed_at", default=pd.NaT),
+            "permission_observation_id": _col("observation_id", default=None),
+            "capacity_observed_at": _col("capacity_observed_at", default=pd.NaT),
             "hypercore_source": hypercore_source,
             "epoch_reset": _col("epoch_reset", default=False),
             "written_at": _col("written_at", default=pd.NaT),
@@ -538,7 +546,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     if prices_df.empty:
         return pd.DataFrame()
 
-    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata())
+    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata()).rename(columns={"relationship_type": "_fee_relationship_type"})
+    prices_df = project_permission_prices(prices_df, db.get_permission_observations(), "date")
 
     result = _prepare_hypercore_export(
         prices_df,
@@ -651,6 +660,23 @@ def merge_into_vault_database(
     return vault_db
 
 
+def _merge_hypercore_frame_to_parquet(parquet_path: Path, prices: pd.DataFrame) -> pd.DataFrame:
+    """Replace the Hypercore partition without rewriting retained values through Pandas.
+
+    The shared Arrow merger preserves historical EVM NaNs, nulls and extra
+    column types. The deferred import resolves the coordinator's reverse import
+    of this module; the returned DataFrame retains the existing public API.
+
+    :param parquet_path: Raw price Parquet to atomically replace.
+    :param prices: Non-empty raw Hypercore rows with canonical price columns.
+    :return: Combined EVM and Hypercore rows read after verified publication.
+    """
+    from eth_defi.vault.post_processing import _write_native_partitions_to_uncleaned_parquet  # noqa: PLC0415 - resolves coordinator/exporter import cycle
+
+    _write_native_partitions_to_uncleaned_parquet(parquet_path, {HYPERCORE_CHAIN_ID: prices})
+    return pd.read_parquet(parquet_path)
+
+
 def merge_into_uncleaned_parquet(
     db: HyperliquidDailyMetricsDatabase,
     parquet_path: Path,
@@ -684,24 +710,7 @@ def merge_into_uncleaned_parquet(
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
 
-    if parquet_path.exists():
-        existing_df = pd.read_parquet(parquet_path)
-
-        # Remove any existing Hypercore rows
-        existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
-
-        combined = pd.concat([existing_df, hl_df], ignore_index=True)
-    else:
-        parquet_path.parent.mkdir(parents=True, exist_ok=True)
-        combined = hl_df
-
-    # Sort for compression efficiency
-    combined = combined.sort_values(["chain", "address", "timestamp"])
-
-    # Use PyArrow writer to preserve canonical schema types.
-    # pandas.to_parquet() promotes types (e.g. timestamp[ms] -> timestamp[us])
-    # which breaks migrate_parquet_schema() on the next EVM scan run.
-    VaultHistoricalRead.write_uncleaned_parquet(combined, parquet_path)
+    combined = _merge_hypercore_frame_to_parquet(parquet_path, hl_df)
 
     hl_vault_count = hl_df["address"].nunique()
     logger.info(
@@ -742,7 +751,8 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     if prices_df.empty:
         return pd.DataFrame()
 
-    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata())
+    prices_df = _attach_relationship_type_from_metadata(prices_df, db.get_all_vault_metadata()).rename(columns={"relationship_type": "_fee_relationship_type"})
+    prices_df = project_permission_prices(prices_df, db.get_permission_observations(), "timestamp")
 
     # Map HF column names (deposit_count etc.) back to daily_* names
     # for downstream compatibility.
@@ -842,18 +852,7 @@ def merge_hypercore_prices_to_parquet(
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
 
-    if parquet_path.exists():
-        existing_df = pd.read_parquet(parquet_path)
-        # Remove any existing Hypercore rows — we replace them all
-        existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
-        combined = pd.concat([existing_df, hl_df], ignore_index=True)
-    else:
-        parquet_path.parent.mkdir(parents=True, exist_ok=True)
-        combined = hl_df
-
-    combined = combined.sort_values(["chain", "address", "timestamp"])
-
-    VaultHistoricalRead.write_uncleaned_parquet(combined, parquet_path)
+    combined = _merge_hypercore_frame_to_parquet(parquet_path, hl_df)
 
     hl_vault_count = hl_df["address"].nunique()
     logger.info(
@@ -907,7 +906,9 @@ def open_and_merge_hypercore_prices(
         return pd.DataFrame()
 
     try:
-        return merge_hypercore_prices_to_parquet(
+        frames = [owner.get_permission_observations() for owner in (daily_db, hf_db) if owner is not None]
+        export_permission_history([], parquet_path.parent / PERMISSION_FILENAME, observations=pd.concat(frames, ignore_index=True))
+        result = merge_hypercore_prices_to_parquet(
             parquet_path,
             daily_db=daily_db,
             hf_db=hf_db,
@@ -917,3 +918,4 @@ def open_and_merge_hypercore_prices(
             daily_db.close()
         if hf_db is not None:
             hf_db.close()
+    return result

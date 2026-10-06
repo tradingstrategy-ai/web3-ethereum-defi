@@ -10,9 +10,13 @@ Tests that build_raw_prices_dataframe_hf() produces correct output:
 """
 
 import datetime
+import math
+import uuid
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.compat import native_datetime_utc_now
@@ -20,9 +24,26 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
     HyperliquidHighFreqPriceRow,
 )
-from eth_defi.hyperliquid.vault_data_export import _prepare_hypercore_export, build_raw_prices_dataframe_hf, create_hyperliquid_vault_row
+from eth_defi.hyperliquid.permission import PermissionObservation, append_permission_observation
+from eth_defi.hyperliquid.vault_data_export import _merge_hypercore_frame_to_parquet, _prepare_hypercore_export, build_raw_prices_dataframe_hf, create_hyperliquid_vault_row, open_and_merge_hypercore_prices
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
+
+
+def store_permission_fixtures(db: HyperliquidHighFreqMetricsDatabase, rows: list[HyperliquidHighFreqPriceRow], relationship_type: str = "normal") -> None:
+    """Store independently clocked source responses for export fixtures.
+
+    Fixture prices coincide with synthetic genuine receipts. Legacy inferred
+    price clocks are covered separately by the recovery tests.
+
+    :param db: Open test database.
+    :param rows: Synthetic source responses with known flags.
+    :param relationship_type: Policy input from the same fixture response.
+    :return: ``None``.
+    """
+    for row in rows:
+        if row.is_closed is not None or row.allow_deposits is not None:
+            append_permission_observation(db.con, PermissionObservation(uuid.uuid4().hex, row.vault_address, permission_observed_at=row.timestamp, capacity_observed_at=row.timestamp if row.leader_fraction is not None else None, is_closed=row.is_closed, allow_deposits=row.allow_deposits, relationship_type=relationship_type, leader_fraction=row.leader_fraction, provenance="observed"))
 
 
 @pytest.mark.parametrize("timestamp_column", ["date", "timestamp"])
@@ -50,10 +71,11 @@ def test_export_keeps_timestamps_aligned_when_sorting(timestamp_column: str) -> 
     # 2. The helper owns sorting and forward-fill alignment.
     exported = _prepare_hypercore_export(prices, timestamp_column, {}, "hf")
 
-    # 3. Permission carries forward, but the observed policy limit does not.
+    # 3. Unobserved price rows retain unknown permission and capacity.
     assert exported["timestamp"].tolist() == list(pd.to_datetime(["2026-09-23", "2026-09-24"]))
     assert exported["share_price"].tolist() == [1.0, 1.2]
-    assert exported["deposits_open"].tolist() == ["true", "true"]
+    assert exported["deposits_open"].iloc[0] == "true"
+    assert pd.isna(exported["deposits_open"].iloc[1])
     assert exported["max_deposit"].iloc[0] == 0.0
     assert pd.isna(exported["max_deposit"].iloc[1])
 
@@ -140,6 +162,7 @@ def test_hf_export_raw_timestamps(tmp_path):
                 written_at=now,
             ),
         ]
+        store_permission_fixtures(db, rows)
         db.upsert_high_freq_prices(rows)
         db.save()
 
@@ -237,6 +260,7 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
                 written_at=now,
             ),
         ]
+        store_permission_fixtures(db, rows)
         db.upsert_high_freq_prices(rows)
         db.save()
 
@@ -299,6 +323,8 @@ def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path: Path) -> Non
             ]
         )
 
+        append_permission_observation(db.con, PermissionObservation(uuid.uuid4().hex, address, permission_observed_at=timestamp, capacity_observed_at=timestamp, is_closed=False, allow_deposits=True, relationship_type="normal", leader_fraction=0.05, provenance="observed"))
+
         # 2. Permission carries forward, but only the observed row gets a cap.
         rows = build_raw_prices_dataframe_hf(db).sort_values("timestamp")
         assert rows["deposits_open"].tolist() == ["true", "true"]
@@ -343,6 +369,7 @@ def test_hf_export_hlp_parent_ignores_leader_fraction(tmp_path):
             leader_commission=0.0,
             written_at=native_datetime_utc_now(),
         )
+        store_permission_fixtures(db, [row], relationship_type="parent")
         db.upsert_high_freq_prices([row])
         db.save()
 
@@ -400,6 +427,7 @@ def test_hf_forward_filled_metadata_reaches_cleaned_and_lifetime_outputs(tmp_pat
                 written_at=now,
             ),
         ]
+        store_permission_fixtures(db, rows)
         db.upsert_high_freq_prices(rows)
         db.save()
 
@@ -443,3 +471,71 @@ def test_hf_forward_filled_metadata_reaches_cleaned_and_lifetime_outputs(tmp_pat
 
     finally:
         db.close()
+
+
+def test_capacity_receipt_between_price_rows_and_hlp_fee_identity(tmp_path):
+    """Realistic receipt times govern capacity while stable HLP fees survive gaps."""
+    db = HyperliquidHighFreqMetricsDatabase(tmp_path / "receipt-between-prices.duckdb")
+    try:
+        address = "0x" + "a" * 40
+        first = datetime.datetime(2026, 9, 21, 10)
+        db.upsert_vault_metadata(vault_address=address, name="HLP", leader="0x" + "b" * 40, description=None, is_closed=None, relationship_type="parent", create_time=None, commission_rate=None, follower_count=None, tvl=None, apr=None)
+        db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(address, first, 1, 10, 0), HyperliquidHighFreqPriceRow(address, first + datetime.timedelta(hours=2), 1.1, 11, 1), HyperliquidHighFreqPriceRow(address, first + datetime.timedelta(hours=4), 1.2, 12, 2)])
+        receipt = first + datetime.timedelta(hours=1, seconds=7)
+        append_permission_observation(db.con, PermissionObservation("between", address, permission_observed_at=receipt, is_closed=False, allow_deposits=True, relationship_type="normal", leader_fraction=0.01, capacity_observed_at=receipt, provenance="observed"))
+        exported = build_raw_prices_dataframe_hf(db)
+        assert exported.performance_fee.tolist() == [0.0, 0.0, 0.0]
+        assert pd.isna(exported.iloc[0].deposits_open)
+        assert exported.iloc[1].max_deposit == 0
+        assert pd.isna(exported.iloc[2].max_deposit)
+        assert exported.iloc[1].capacity_observed_at == receipt
+    finally:
+        db.close()
+
+
+def test_open_merge_exports_sidecar_with_scanner_still_open(tmp_path):
+    """Standalone scanners can merge and export before their finally closes DBs."""
+    db_path = tmp_path / "active.duckdb"
+    db = HyperliquidHighFreqMetricsDatabase(db_path)
+    try:
+        address = "0x" + "a" * 40
+        timestamp = datetime.datetime(2026, 9, 21, 10)
+        db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(address, timestamp, 1, 10, 0)])
+        append_permission_observation(db.con, PermissionObservation("active", address, permission_observed_at=timestamp, is_closed=False, allow_deposits=True, provenance="observed"))
+        result = open_and_merge_hypercore_prices(tmp_path / "vault-prices-1h.parquet", daily_db_path=tmp_path / "missing-daily.duckdb", hf_db_path=db_path)
+        assert len(result) == 1
+        sidecar = pd.read_parquet(tmp_path / "hypercore-vault-permissions.parquet")
+        assert sidecar.observation_id.tolist() == ["active"]
+        assert len(db.get_all_high_freq_prices()) == 1
+    finally:
+        db.close()
+
+
+def test_hypercore_merge_preserves_evm_nan_null_and_extra_types(tmp_path: Path) -> None:
+    """A native merge preserves distinct historical EVM NaNs and nulls.
+
+    Include a double-precision extra column whose new Hypercore values are
+    entirely null, and a retained capability receipt from the EVM scanner.
+    """
+    path = tmp_path / "vault-prices-1h.parquet"
+    original = pa.table(
+        {
+            "chain": pa.array([143, 143], type=pa.uint32()),
+            "address": ["0xold", "0xold"],
+            "timestamp": pa.array([datetime.datetime(2026, 9, 1), datetime.datetime(2026, 9, 2)], type=pa.timestamp("ms")),
+            "share_price": pa.array([float("nan"), None], type=pa.float64()),
+            "leader_fraction": pa.array([None, None], type=pa.float64()),
+        }
+    ).replace_schema_metadata({b"perp_dex.test": b"retained"})
+    pq.write_table(original, path)
+    fresh = pd.DataFrame({"chain": [9999], "address": ["0xnew"], "timestamp": [datetime.datetime(2026, 9, 3)], "share_price": [1.0], "leader_fraction": [None]})
+    result = _merge_hypercore_frame_to_parquet(path, fresh)
+    assert len(result) == 3
+    after = pq.read_table(path)
+    # Arrow equality treats NaN as unequal to itself; verify it explicitly.
+    retained = after.select(original.column_names).slice(0, 2)
+    assert math.isnan(retained["share_price"][0].as_py())
+    assert retained["share_price"][1].as_py() is None
+    assert retained.drop(["share_price"]).equals(original.drop(["share_price"]), check_metadata=False)
+    assert after.schema.field("leader_fraction").type == pa.float64()
+    assert after.schema.metadata[b"perp_dex.test"] == b"retained"

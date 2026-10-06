@@ -1862,6 +1862,10 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
         if column in working.columns
     ]
     source_flows = working[flow_columns].copy()
+    # Explicit HyperCore unknown snapshots must survive the general state fill.
+    permission_columns = [column for column in ("deposits_open", "deposit_closed_reason", "max_deposit", "leader_fraction", "permission_provenance", "permission_observed_at", "permission_observation_id", "capacity_observed_at") if column in working]
+    hypercore = working["chain"].eq(HYPERCORE_CHAIN_ID) if "chain" in working else pd.Series(False, index=working.index)
+    permission_values = working.loc[hypercore, permission_columns].copy()
     group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in working.columns else "id"
     state_columns = [column for column in working.columns if column not in {"id", group_column, *flow_columns}]
 
@@ -1873,6 +1877,7 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
     working[state_columns] = working.groupby(group_column, sort=False, observed=True)[state_columns].ffill()
     if flow_columns:
         working[flow_columns] = source_flows
+    working.loc[hypercore, permission_columns] = permission_values
     logger(f"Share-price outlier state forward-fill: {len(working):,} rows in {time.perf_counter() - fill_started_at:.2f}s")
 
     ids = working[group_column].to_numpy()

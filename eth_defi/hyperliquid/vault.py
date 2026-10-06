@@ -40,11 +40,10 @@ from enum import Enum
 from functools import cached_property
 from typing import Any, Iterator
 
-import pandas as pd
 from eth_typing import HexAddress
+
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.session import (
-    HYPERLIQUID_API_URL,
-    HYPERLIQUID_TESTNET_API_URL,
     HyperliquidSession,
     create_hyperliquid_session,
 )
@@ -373,6 +372,8 @@ class HyperliquidVault:
         self.session = session
         self.vault_address = vault_address
         self.timeout = timeout
+        self.permission_received_at = None
+        self.permission_payload = None
 
     def __repr__(self) -> str:
         return f"<HyperliquidVault {self.vault_address}>"
@@ -403,7 +404,11 @@ class HyperliquidVault:
 
         response = self.session.post_info(payload, timeout=self.timeout)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if request_type == "vaultDetails" and isinstance(data, dict):
+            self.permission_received_at = native_datetime_utc_now()
+            self.permission_payload = {key: data[key] for key in ("isClosed", "allowDeposits", "relationship", "leaderFraction", "leaderCommission", "maxDistributable", "maxWithdrawable") if key in data}
+        return data
 
     def _parse_vault_details(self, data: dict) -> VaultInfo:
         """Parse a raw ``vaultDetails`` JSON response into a :class:`VaultInfo`."""

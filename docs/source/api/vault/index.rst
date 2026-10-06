@@ -50,3 +50,5 @@ strategy readiness polling.
    eth_defi.vault.rpc_batch
    eth_defi.vault.rpc_scan_state
    eth_defi.vault.exception
+   eth_defi.vault.backup
+   eth_defi.vault.duckdb_backup
