@@ -2,19 +2,20 @@
 
 from decimal import Decimal
 
+import flaky
 import pytest
-from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.abi import get_function_selector
-from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
+from eth_defi.hotwallet import HotWallet
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
-from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
 
 
 @pytest.fixture()
@@ -32,6 +33,9 @@ def uniswap_v3(web3) -> UniswapV3Deployment:
     return uniswap_v3_on_base
 
 
+# Flaky since 2026-10-07: CI's pooled Anvil timed out on calls (250s) and
+# teardown (30s); unchanged from master and passed locally in 3.68s.
+@flaky.flaky
 def test_lagoon_uniswap_v3(
     web3: Web3,
     base_usdc: TokenDetails,
