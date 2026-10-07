@@ -20,7 +20,7 @@ import pyarrow.parquet as pq
 from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hyperliquid.vault import HyperliquidVault, VaultInfo
+from eth_defi.hyperliquid.vault import HyperliquidVault, VaultInfo, classify_hyperliquid_vault_deposit
 from eth_defi.types import Percent
 
 PERMISSION_FILENAME = "hypercore-vault-permissions.parquet"
@@ -53,7 +53,7 @@ class PermissionObservation:
     allow_deposits: bool | None = None
     #: Vault relationship used to interpret the same capacity input.
     relationship_type: str | None = None
-    #: Leader capital fraction; never infer its freshness from a price.
+    #: Recorded leader capital fraction, including recoverable archive values.
     leader_fraction: Percent | None = None
     #: Independent capacity receipt clock, absent for inferred flags.
     capacity_observed_at: datetime.datetime | None = None
@@ -77,6 +77,8 @@ class PermissionObservation:
     effective_to: datetime.datetime | None = None
     #: Human-readable interpretation or uncertainty explanation.
     reason: str | None = None
+    #: Recorded trading-policy cap in USDC; zero is distinct from missing.
+    max_deposit: float | None = None
 
 
 def initialise_permission_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -104,6 +106,7 @@ def initialise_permission_schema(connection: duckdb.DuckDBPyConnection) -> None:
             observation_id VARCHAR, source_sha256 VARCHAR, source_path VARCHAR
         )
     """)
+    connection.execute("ALTER TABLE vault_permission_observations ADD COLUMN IF NOT EXISTS max_deposit DOUBLE")
     connection.execute("""
         CREATE TABLE IF NOT EXISTS vault_permission_errors (
             vault_address VARCHAR, attempted_at TIMESTAMP, source_endpoint VARCHAR, error_type VARCHAR
@@ -133,6 +136,9 @@ def build_permission_observation(vault: HyperliquidVault, info: VaultInfo | None
             msg = f"Invalid Hyperliquid permission field: {name}"
             raise ValueError(msg)
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    leader_fraction = float(payload["leaderFraction"]) if payload.get("leaderFraction") is not None else None
+    relationship_type = (payload.get("relationship") or {}).get("type")
+    policy = classify_hyperliquid_vault_deposit(payload.get("isClosed"), payload.get("allowDeposits"), relationship_type or "normal", leader_fraction)
     return PermissionObservation(
         observation_id=uuid.uuid4().hex,
         vault_address=vault.vault_address.lower(),
@@ -140,8 +146,9 @@ def build_permission_observation(vault: HyperliquidVault, info: VaultInfo | None
         written_at=native_datetime_utc_now(),
         is_closed=payload.get("isClosed"),
         allow_deposits=payload.get("allowDeposits"),
-        relationship_type=(payload.get("relationship") or {}).get("type"),
-        leader_fraction=float(payload["leaderFraction"]) if payload.get("leaderFraction") is not None else None,
+        relationship_type=relationship_type,
+        leader_fraction=leader_fraction,
+        max_deposit=float(policy.max_deposit) if policy.max_deposit is not None else None,
         capacity_observed_at=received_at if payload.get("leaderFraction") is not None else None,
         provenance="observed" if payload.get("isClosed") is not None and payload.get("allowDeposits") is not None else "observed_unknown",
         payload_json=encoded,
@@ -173,7 +180,8 @@ def append_permission_observation(connection: duckdb.DuckDBPyConnection, observa
             msg = "Conflicting permission observation ID"
             raise ValueError(msg)
         return
-    connection.execute("INSERT INTO vault_permission_observations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+    columns = ",".join(values)
+    connection.execute(f"INSERT INTO vault_permission_observations ({columns}) VALUES ({','.join('?' for _ in row)})", row)
 
 
 def read_permission_observations(connection: duckdb.DuckDBPyConnection) -> pd.DataFrame:
@@ -188,7 +196,10 @@ def read_permission_observations(connection: duckdb.DuckDBPyConnection) -> pd.Da
     exists = connection.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'vault_permission_observations'").fetchone()[0]
     if not exists:
         return pd.DataFrame(columns=PermissionObservation.__dataclass_fields__)
-    return connection.execute("SELECT * FROM vault_permission_observations ORDER BY vault_address, permission_observed_at, observation_id").df()
+    result = connection.execute("SELECT * FROM vault_permission_observations ORDER BY vault_address, permission_observed_at, observation_id").df()
+    if "max_deposit" not in result:
+        result["max_deposit"] = float("nan")
+    return result
 
 
 def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame, frequency: str | None = None, *, legacy_max_age: datetime.timedelta = datetime.timedelta(days=2)) -> pd.DataFrame:  # noqa: PLR0914
@@ -200,7 +211,8 @@ def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame,
     remain in selection, preventing per-field filling across source snapshots.
     When no eligible genuine snapshot exists, recovered backup flags may use
     their price clock with ``legacy_price_timestamp`` provenance. They supply
-    no inferred capacity clock and never override a genuine unknown response.
+    recorded leader shares and policy caps without requiring a capacity clock,
+    and never override a genuine unknown response.
 
     :param observations: Exact observation table with nullable flags and clocks.
     :param decisions: Frame with ``vault_address`` (string) and ``timestamp`` (naive UTC).
@@ -213,12 +225,14 @@ def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame,
     # Arrow sidecars use microseconds while decision grids commonly use
     # nanoseconds. Pandas as-of joins require identical datetime units.
     output["timestamp"] = pd.to_datetime(output["timestamp"]).astype("datetime64[ns]")
-    fields = ["observation_id", "permission_observed_at", "evidence_available_at", "is_closed", "allow_deposits", "relationship_type", "leader_fraction", "capacity_observed_at", "provenance", "reason", "available_at"]
+    fields = ["observation_id", "permission_observed_at", "evidence_available_at", "is_closed", "allow_deposits", "relationship_type", "leader_fraction", "max_deposit", "capacity_observed_at", "provenance", "reason", "available_at"]
     for name in fields:
         output[name] = pd.NaT if name.endswith("_at") else None
     if observations.empty or output.empty:
         return output.drop(columns="_decision_order")
     snapshots = observations[observations["record_kind"] == "observation"].copy()
+    if "max_deposit" not in snapshots:
+        snapshots["max_deposit"] = float("nan")
     for name in ("permission_observed_at", "capacity_observed_at", "evidence_available_at"):
         snapshots[name] = pd.to_datetime(snapshots[name]).astype("datetime64[ns]")
     snapshots["available_at"] = pd.to_datetime(snapshots["permission_observed_at"]).astype("datetime64[ns]")
@@ -241,7 +255,7 @@ def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame,
     snapshots = snapshots[~snapshots["provenance"].isin(("legacy_closure_bounded", "legacy_price_timestamp"))]
     # Equal receipt clocks with conflicting coherent inputs have no reliable
     # precedence. Preserve both raw records but select an explicit unknown.
-    snapshot_fields = ["is_closed", "allow_deposits", "relationship_type", "leader_fraction", "capacity_observed_at"]
+    snapshot_fields = ["is_closed", "allow_deposits", "relationship_type", "leader_fraction", "max_deposit", "capacity_observed_at"]
     snapshots["_state_hash"] = pd.util.hash_pandas_object(snapshots[snapshot_fields], index=False)
     conflicting = snapshots.groupby(["vault_address", "available_at"])["_state_hash"].transform("nunique").gt(1)
     snapshots.loc[conflicting, snapshot_fields] = None
@@ -308,14 +322,30 @@ def project_permission_prices(prices: pd.DataFrame, observations: pd.DataFrame, 
     The independent sidecar is authoritative when a response arrives after
     the latest price or when several responses share one price timestamp.
 
+    Archived policy inputs use the last recorded price-row snapshot. Actual
+    responses, including explicit unknowns, take precedence. Publication never
+    supplies a new observation clock, and missing clocks do not erase values.
+
     :param prices: Scanner price frame with vault identity and source time.
     :param observations: Independent source observations and migration intervals.
     :param time_column: ``date`` or ``timestamp`` in the price frame.
-    :return: Frame with coherent nullable flags and original observation clocks.
+    :return: Frame with nullable flags, retained policy inputs and original clocks.
     """
     states = select_permission_state(observations, prices[["vault_address", time_column]].rename(columns={time_column: "timestamp"}))
     result = prices.reset_index(drop=True).copy()
-    for name in ("is_closed", "allow_deposits", "relationship_type", "leader_fraction", "capacity_observed_at", "permission_observed_at", "evidence_available_at", "provenance", "observation_id"):
+    policy_fields = ("leader_fraction", "max_deposit")
+    for name in policy_fields:
+        if name not in result:
+            result[name] = float("nan")
+    ordered = result.sort_values(["vault_address", time_column])
+    anchors = ordered[list(policy_fields)].notna().any(axis=1)
+    source_rows = pd.Series(ordered.index, index=ordered.index).where(anchors).groupby(ordered["vault_address"]).ffill()
+    genuine = states["provenance"].isin(("observed", "observed_unknown", "restored"))
+    use_response = genuine | source_rows.reindex(result.index).isna()
+    for name in policy_fields:
+        archived = source_rows.map(result[name]).reindex(result.index)
+        result[name] = states[name].where(use_response, archived)
+    for name in ("is_closed", "allow_deposits", "relationship_type", "capacity_observed_at", "permission_observed_at", "evidence_available_at", "provenance", "observation_id"):
         result[name] = states[name].values
     return result
 
@@ -341,6 +371,8 @@ def export_permission_history(database_paths: list[Path], destination: Path, *, 
         finally:
             connection.close()
     result = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=PermissionObservation.__dataclass_fields__)
+    if "max_deposit" not in result:
+        result["max_deposit"] = float("nan")
     unique = result.drop_duplicates()
     if unique["observation_id"].duplicated().any():
         msg = "Conflicting permission sidecar observation IDs"
@@ -349,7 +381,7 @@ def export_permission_history(database_paths: list[Path], destination: Path, *, 
     temporary = destination.with_name(f"{destination.name}.{uuid.uuid4().hex}.tmp")
     try:
         timestamp_fields = {"permission_observed_at", "written_at", "evidence_available_at", "capacity_observed_at", "effective_from", "effective_to"}
-        field_types = {"is_closed": pa.bool_(), "allow_deposits": pa.bool_(), "leader_fraction": pa.float64()}
+        field_types = {"is_closed": pa.bool_(), "allow_deposits": pa.bool_(), "leader_fraction": pa.float64(), "max_deposit": pa.float64()}
         schema = pa.schema([(name, pa.timestamp("us") if name in timestamp_fields else field_types.get(name, pa.string())) for name in PermissionObservation.__dataclass_fields__])
         pq.write_table(pa.Table.from_pandas(unique, schema=schema, preserve_index=False), temporary)
         temporary.replace(destination)

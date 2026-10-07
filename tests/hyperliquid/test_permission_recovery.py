@@ -168,7 +168,7 @@ def test_recovered_backup_flags_use_price_clock_and_leave_unrecoverable_unknown(
     try:
         assert connection.execute("SELECT share_price,written_at FROM vault_high_freq_prices WHERE timestamp=?", [T0]).fetchone() == (2, late)
         snapshot = connection.execute("SELECT permission_observed_at,allow_deposits,capacity_observed_at,leader_fraction FROM vault_permission_observations WHERE provenance='legacy_price_timestamp'").fetchone()
-        assert snapshot == (T0, False, None, None)
+        assert snapshot == (T0, False, None, 0.1)
         before = connection.execute("SELECT * FROM vault_permission_observations ORDER BY observation_id").fetchall()
     finally:
         connection.close()
@@ -477,7 +477,8 @@ def test_archive_closure_does_not_override_genuine_later_receipt() -> None:
     assert state.iloc[0].allow_deposits
 
 
-def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("allow_deposits", [False, True])
+def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, allow_deposits: bool) -> None:
     """A successful response remains evidence when unrelated portfolio parsing fails.
 
     The shared collector path records both the original flags and the parse error,
@@ -485,7 +486,8 @@ def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Pat
 
     :param tmp_path: Isolated file-backed database directory.
     :param monkeypatch: Replace provider transport with a fixed response receipt.
-    :return: ``None`` after checking coherent closure and recorded failure type.
+    :param allow_deposits: Closed permission or an open low-share policy block.
+    :return: ``None`` after checking recorded policy inputs and failure type.
     """
 
     def fetch_malformed_metadata(vault: HyperliquidVault) -> None:
@@ -497,7 +499,7 @@ def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Pat
         :return: Never returns; raises the fixture's parsing error.
         """
         vault.permission_received_at = T0
-        vault.permission_payload = {"isClosed": False, "allowDeposits": False}
+        vault.permission_payload = {"isClosed": False, "allowDeposits": allow_deposits, "leaderFraction": 0.04, "relationship": {"type": "normal"}}
         raise ValueError("Malformed portfolio")
 
     monkeypatch.setattr(HyperliquidVault, "fetch_metadata", fetch_malformed_metadata)
@@ -507,7 +509,9 @@ def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Pat
         assert not fetch_and_store_vault_high_freq(SimpleNamespace(), db, summary, flow_backfill_days=0)
         observation = db.get_permission_observations().iloc[0]
         assert observation.permission_observed_at == T0
-        assert observation.allow_deposits == False  # noqa: E712 - Nullable boolean scalar assertion.
+        assert observation.allow_deposits == allow_deposits
+        assert observation.leader_fraction == pytest.approx(0.04)
+        assert observation.max_deposit == 0.0 if allow_deposits else pd.isna(observation.max_deposit)
         assert db.con.execute("SELECT error_type FROM vault_permission_errors").fetchone()[0] == "ValueError"
         assert db.get_all_high_freq_prices().empty
     finally:

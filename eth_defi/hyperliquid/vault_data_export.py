@@ -356,17 +356,17 @@ def _compute_deposit_state_columns(
     """Build the three deposit-state columns used by the raw price export.
 
     Daily and high-frequency exports classify the already selected coherent
-    permission snapshot, including explicit unknowns. The leader-share policy uses only the original observation on
-    each row, so a carried share cannot extend a zero deposit limit into a
-    later price-only row.
+    permission snapshot, including explicit unknowns. Recorded leader shares
+    remain usable across price-only updates. An explicit archived policy cap
+    is preserved even when its leader-share input is unavailable.
 
     :param prices_df:
         Price rows with nullable ``is_closed`` and ``allow_deposits`` flags,
         optional ``relationship_type``, and independently selected snapshot inputs.
     :param observed_leader_fraction:
         Original leader-fraction values, indexed like ``prices_df``. Each
-        value is a fraction or missing and must come from an eligible capacity
-        observation, never an inferred or price-carried value.
+        value is a recorded fraction or missing; a separate capacity clock
+        is not required to retain a historical value.
     :return:
         Series with the input index: permission as ``"true"``, ``"false"``
         or ``None``; closure reason as text or ``None``; and the policy deposit
@@ -389,7 +389,8 @@ def _compute_deposit_state_columns(
         )
         open_values.append(None if status.deposits_open is None else str(status.deposits_open).lower())
         reasons.append(status.closed_reason)
-        caps.append(float(status.max_deposit) if status.max_deposit is not None else np.nan)
+        recorded_cap = row.get("max_deposit")
+        caps.append(float(recorded_cap) if pd.notna(recorded_cap) else float(status.max_deposit) if status.max_deposit is not None else np.nan)
     return (
         pd.Series(open_values, index=prices_df.index, dtype=object),
         pd.Series(reasons, index=prices_df.index, dtype=object),
@@ -428,13 +429,6 @@ def _prepare_hypercore_export(
     # sparse economic metrics are carried forwards; unknown state stays null.
     prices_df = prices_df.sort_values(["vault_address", timestamp_column]).reset_index(drop=True)
     observed_leader_fraction = prices_df.get("leader_fraction", pd.Series(np.nan, index=prices_df.index)).copy()
-    if "capacity_observed_at" in prices_df:
-        # Apply capacity once at the first price decision after the receipt,
-        # without requiring an API receipt to equal a portfolio timestamp.
-        changed = prices_df["observation_id"].ne(prices_df.groupby("vault_address")["observation_id"].shift())
-        age = pd.to_datetime(prices_df[timestamp_column]) - pd.to_datetime(prices_df["capacity_observed_at"])
-        fresh = age.ge(pd.Timedelta(0)) & age.le(pd.Timedelta(hours=24))
-        observed_leader_fraction = observed_leader_fraction.where(changed & fresh)
     snapshot_cols = [
         "leader_commission",
         "follower_count",

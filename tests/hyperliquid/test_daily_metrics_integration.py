@@ -264,6 +264,12 @@ def test_live_hyperliquid_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: 
     assert vault_address in set(permission_history.vault_address)
     assert permission_history.permission_observed_at.notna().any()
     assert set(permission_history.provenance).issubset({"observed", "observed_unknown"})
+    assert "max_deposit" in permission_history
+    policy_inputs = permission_history[permission_history.vault_address == vault_address]
+    assert policy_inputs.leader_fraction.notna().any()
+    # Policy caps are stored with the same response, including nullable no-cap outcomes.
+    low_share = policy_inputs.is_closed.eq(False) & policy_inputs.allow_deposits.eq(True) & policy_inputs.relationship_type.eq("normal") & policy_inputs.leader_fraction.lt(0.055)
+    assert policy_inputs.loc[low_share, "max_deposit"].eq(0.0).all()
 
     raw_prices = pd.read_parquet(uncleaned_path)
     raw_vault_rows = raw_prices[(raw_prices["chain"] == HYPERCORE_CHAIN_ID) & (raw_prices["address"].str.lower() == vault_address)]

@@ -154,7 +154,7 @@ def test_script_apply_backs_up_both_and_is_idempotent(pipeline: Path, migration:
         try:
             assert [row[0] for row in connection.execute(f"SELECT share_price FROM {table} ORDER BY {clock}").fetchall()] == expected_prices
             assert connection.execute(f"SELECT written_at FROM {table} ORDER BY {clock} LIMIT 1").fetchone()[0] == WRITE_TIME
-            assert connection.execute(f"SELECT count(*) FROM {table} WHERE is_closed IS NOT NULL OR allow_deposits IS NOT NULL OR leader_fraction IS NOT NULL").fetchone()[0] == 0
+            assert connection.execute(f"SELECT count(*) FROM {table} WHERE is_closed IS NOT NULL OR allow_deposits IS NOT NULL").fetchone()[0] == 0
             assert connection.execute("SELECT count(*) FROM duckdb_constraints() WHERE constraint_type IN ('PRIMARY KEY','UNIQUE')").fetchone()[0] == 0
             assert connection.execute("SELECT count(*) FROM vault_permission_observations WHERE provenance='legacy_price_timestamp' AND allow_deposits=false").fetchone()[0] == 2
             assert report["tables"][table]["rows_after"] == len(expected_prices)

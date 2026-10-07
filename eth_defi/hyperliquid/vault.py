@@ -217,8 +217,9 @@ def classify_hyperliquid_vault_deposit(
     <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy>`__
     restricts leader withdrawals. Whether it also limits follower deposits is
     unresolved, so the 5.5% boundary remains a conservative trading policy.
-    Exporters must pass ``None`` for a forward-filled leader share: this
-    function does not track the age of an observation.
+    Recorded historical shares remain usable when a separate observation
+    clock is absent. This function classifies values; it does not refresh
+    their timestamps or infer permission from a missing cap.
 
     :param is_closed:
         Nullable ``vaultDetails.isClosed`` source flag.
@@ -228,7 +229,7 @@ def classify_hyperliquid_vault_deposit(
         Vault relationship type; HLP parent ignores ``allowDeposits``.
     :param leader_fraction:
         Leader equity as a fraction of vault capital, e.g. ``0.06`` for 6%.
-        Use ``None`` if the row contains no actual observation.
+        Use ``None`` when no recorded value is available.
     :return:
         API permission, any closure reason, and any trading-policy amount limit.
     """

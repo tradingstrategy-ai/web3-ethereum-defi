@@ -91,8 +91,12 @@ def restore_price_timestamp_permissions(connection: duckdb.DuckDBPyConnection, t
     connection.execute(
         """
         INSERT INTO vault_permission_observations
-            (observation_id,vault_address,record_kind,permission_observed_at,written_at,is_closed,allow_deposits,relationship_type,provenance,source_endpoint,collector_version,payload_json,payload_sha256,source_row_key,reason)
-        SELECT c.observation_id,c.vault_address,'observation',c.permission_time,coalesce(p.written_at,?),c.is_closed,c.allow_deposits,c.relationship_type,'legacy_price_timestamp',?,'2',c.payload_json,sha256(c.payload_json),sha256(c.payload_json),'Permission clock inferred from the backup price row timestamp; not an API receipt'
+            (observation_id,vault_address,record_kind,permission_observed_at,written_at,is_closed,allow_deposits,relationship_type,provenance,source_endpoint,collector_version,payload_json,payload_sha256,source_row_key,reason,leader_fraction,max_deposit)
+        SELECT c.observation_id,c.vault_address,'observation',c.permission_time,coalesce(p.written_at,?),c.is_closed,c.allow_deposits,c.relationship_type,'legacy_price_timestamp',?,'2',c.payload_json,sha256(c.payload_json),sha256(c.payload_json),'Permission clock inferred from the backup price row timestamp; not an API receipt',
+            TRY_CAST(json_extract_string(c.payload_json,'$.leader_fraction') AS DOUBLE),
+            coalesce(TRY_CAST(json_extract_string(c.payload_json,'$.max_deposit') AS DOUBLE),
+                CASE WHEN c.is_closed=false AND c.allow_deposits=true AND c.relationship_type='normal'
+                    AND TRY_CAST(json_extract_string(c.payload_json,'$.leader_fraction') AS DOUBLE)<0.055 THEN 0.0 END)
         FROM legacy_permission_candidates c LEFT JOIN prior_price_permission_annotations p USING(observation_id)
         WHERE NOT EXISTS (SELECT 1 FROM vault_permission_observations o WHERE o.observation_id=c.observation_id)
     """,
@@ -159,6 +163,7 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         if connection.execute(f"SELECT count(*) FROM (SELECT vault_address,{time} FROM {table} GROUP BY ALL HAVING count(*) > 1)").fetchone()[0]:
             msg = "Target already contains duplicate price keys"
             raise ValueError(msg)
+        already_recovered = "vault_permission_observations" in tables and connection.execute("SELECT count(*) FROM vault_permission_observations WHERE record_kind='uncertainty_boundary' AND provenance='corrupted_unknown'").fetchone()[0] > 0
         exact_permission_archives = []
         fallback_archives = []
         fallback_parquets = []
@@ -167,7 +172,7 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
             quoted_path = str(path).replace("'", "''")
             connection.execute(f"ATTACH '{quoted_path}' AS archive_{index} (READ_ONLY)")
             schema = connection.execute(f"DESCRIBE archive_{index}.{table}").fetchall()
-            if [(r[0], r[1]) for r in schema] != [(r[0], r[1]) for r in columns]:
+            if [(r[0], r[1]) for r in schema if r[0] != "max_deposit"] != [(r[0], r[1]) for r in columns if r[0] != "max_deposit"]:
                 msg = f"Archive schema drift in {path}; refusing a lossy recovery"
                 raise ValueError(msg)
             if connection.execute(f"SELECT count(*) FROM (SELECT vault_address,{time} FROM archive_{index}.{table} GROUP BY ALL HAVING count(*)>1)").fetchone()[0]:
@@ -179,14 +184,20 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
             if metadata_alias and "relationship_type" not in {row[0] for row in connection.execute(f"DESCRIBE {metadata_alias}").fetchall()}:
                 metadata_alias = None
             permission_alias = f"archive_{index}.vault_permission_observations" if "vault_permission_observations" in archive_tables else None
-            fallback_archives.append((f"archive_{index}.{table}", str(path), digest, metadata_alias, permission_alias))
+            if "max_deposit" in {r[0] for r in schema} and "max_deposit" not in {r[0] for r in columns}:
+                raise ValueError("Target must be opened by the updated scanner before importing a newer price schema")
+            price_alias = f"archive_{index}.{table}"
+            if "max_deposit" in {r[0] for r in columns} and "max_deposit" not in {r[0] for r in schema}:
+                price_alias = f"archive_prices_{index}"
+                connection.execute(f"CREATE TEMP VIEW {price_alias} AS SELECT *,CAST(NULL AS DOUBLE) AS max_deposit FROM archive_{index}.{table}")
+            fallback_archives.append((price_alias, str(path), digest, metadata_alias, permission_alias))
             if "vault_permission_observations" in archive_tables:
                 exact_permission_archives.append((f"archive_{index}.vault_permission_observations", str(path), digest))
-        aliases = [f"archive_{i}.{table}" for i in range(len(evidence))]
+        aliases = [entry[0] for entry in fallback_archives]
         comparison_by_alias = {}
         # Raw published files are archive-only evidence. Cleaned/resampled
         # prices cannot be promoted back to exact scanner observations.
-        mapped = {"vault_address": "lower(address)", time: "CAST(timestamp AS " + ("DATE" if time == "date" else "TIMESTAMP") + ")", "share_price": "share_price", "tvl": "total_assets", "cumulative_pnl": "account_pnl", "follower_count": "follower_count", "cumulative_volume": "cumulative_volume", "leader_fraction": "leader_fraction", "leader_commission": "leader_commission", "epoch_reset": "epoch_reset", "written_at": "written_at", "data_source": "'archive_raw_parquet'"}
+        mapped = {"vault_address": "lower(address)", time: "CAST(timestamp AS " + ("DATE" if time == "date" else "TIMESTAMP") + ")", "share_price": "share_price", "tvl": "total_assets", "cumulative_pnl": "account_pnl", "follower_count": "follower_count", "cumulative_volume": "cumulative_volume", "leader_fraction": "leader_fraction", "max_deposit": "max_deposit", "leader_commission": "leader_commission", "epoch_reset": "epoch_reset", "written_at": "written_at", "data_source": "'archive_raw_parquet'"}
         flow_names = ("deposit_count", "withdrawal_count", "deposit_usd", "withdrawal_usd")
         for name in flow_names:
             mapped[name if time == "timestamp" else "daily_" + name] = "daily_" + name
@@ -251,18 +262,26 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         for alias, path_string, digest in exact_permission_archives:
             expected = connection.execute("DESCRIBE vault_permission_observations").fetchall()
             source_schema = connection.execute(f"DESCRIBE {alias}").fetchall()
-            if [(r[0], r[1]) for r in source_schema] != [(r[0], r[1]) for r in expected]:
+            if [(r[0], r[1]) for r in source_schema if r[0] != "max_deposit"] != [(r[0], r[1]) for r in expected if r[0] != "max_deposit"]:
                 msg = "Permission archive schema differs; refusing a lossy import"
                 raise ValueError(msg)
-            differences = " OR ".join(f'o."{r[0]}" IS DISTINCT FROM a."{r[0]}"' for r in expected if r[0] != "observation_id")
+            if "max_deposit" not in {r[0] for r in source_schema}:
+                adapted_alias = "adapted_" + alias.replace(".", "_")
+                connection.execute(f"CREATE TEMP VIEW {adapted_alias} AS SELECT *,CAST(NULL AS DOUBLE) AS max_deposit FROM {alias}")
+                alias = adapted_alias
+            differences = " OR ".join(f'o."{r[0]}" IS DISTINCT FROM a."{r[0]}"' for r in expected if r[0] not in {"observation_id", "max_deposit"})
+            differences += " OR (o.max_deposit IS NOT NULL AND a.max_deposit IS NOT NULL AND o.max_deposit IS DISTINCT FROM a.max_deposit)"
             if connection.execute(f"SELECT count(*) FROM {alias} a JOIN vault_permission_observations o USING(observation_id) WHERE {differences}").fetchone()[0]:
                 msg = "Conflicting immutable observation ID in permission archive"
                 raise ValueError(msg)
+            connection.execute(f"UPDATE vault_permission_observations o SET max_deposit=a.max_deposit FROM {alias} a WHERE o.observation_id=a.observation_id AND o.max_deposit IS NULL AND a.max_deposit IS NOT NULL")
             connection.execute(f"INSERT INTO vault_permission_observations SELECT a.* FROM {alias} a WHERE NOT EXISTS (SELECT 1 FROM vault_permission_observations o WHERE o.observation_id=a.observation_id)")
             connection.execute(f"INSERT INTO vault_permission_sources SELECT observation_id,?,? FROM {alias} a WHERE NOT EXISTS (SELECT 1 FROM vault_permission_sources s WHERE s.observation_id=a.observation_id AND s.source_sha256=?)", [digest, path_string, digest])
         connection.execute("CREATE TABLE IF NOT EXISTS hypercore_recovery_sources (source_sha256 VARCHAR, source_path VARCHAR, imported_at TIMESTAMP)")
         connection.execute("CREATE TABLE IF NOT EXISTS hypercore_legacy_price_evidence (evidence_id VARCHAR, vault_address VARCHAR, source_sha256 VARCHAR, source_path VARCHAR, source_timestamp TIMESTAMP, original_written_at TIMESTAMP, is_closed BOOLEAN, allow_deposits BOOLEAN, leader_fraction DOUBLE, original_row_json VARCHAR)")
         connection.execute(f"CREATE TABLE IF NOT EXISTS hypercore_price_conflicts AS SELECT *,CAST(NULL AS VARCHAR) AS source_sha256 FROM {table} WHERE false")
+        if "max_deposit" in {row[0] for row in columns}:
+            connection.execute("ALTER TABLE hypercore_price_conflicts ADD COLUMN IF NOT EXISTS max_deposit DOUBLE")
         connection.execute("CREATE TABLE IF NOT EXISTS hypercore_raw_parquet_evidence (source_sha256 VARCHAR, vault_address VARCHAR, source_timestamp TIMESTAMP, original_row_json VARCHAR)")
         for index, (_path, digest) in enumerate(parquet_evidence):
             if not connection.execute("SELECT count(*) FROM hypercore_recovery_sources WHERE source_sha256=?", [digest]).fetchone()[0]:
@@ -271,7 +290,9 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         # archive file identity and migration publication time.
         all_sources = [(table, report["backup"]["backup"], report["backup"]["sha256"], None)] + [(alias, str(path), digest, path) for alias, (path, digest) in zip(aliases, evidence + parquet_evidence)]
         for alias, path_string, digest, path in tqdm(all_sources, desc="Importing archived evidence"):
-            if digest != "target-original" and connection.execute("SELECT count(*) FROM hypercore_recovery_sources WHERE source_sha256=?", [digest]).fetchone()[0]:
+            if path is None and already_recovered:
+                continue
+            if connection.execute("SELECT count(*) FROM hypercore_recovery_sources WHERE source_sha256=?", [digest]).fetchone()[0]:
                 continue
             connection.execute(
                 f"""
@@ -287,7 +308,7 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
                 available_at = datetime.datetime.fromisoformat(report["backup"]["created_at"])
             if path is not None:
                 archive_comparison = comparison_by_alias.get(alias, comparison)
-                connection.execute(f"INSERT INTO hypercore_price_conflicts SELECT a.*,? FROM {alias} a JOIN {table} p ON {join} WHERE ({archive_comparison}) AND NOT EXISTS (SELECT 1 FROM hypercore_price_conflicts e WHERE e.vault_address=a.vault_address AND e.{time}=a.{time} AND e.source_sha256=?)", [digest, digest])
+                connection.execute(f"INSERT INTO hypercore_price_conflicts ({','.join(row[0] for row in columns)},source_sha256) SELECT a.*,? FROM {alias} a JOIN {table} p ON {join} WHERE ({archive_comparison}) AND NOT EXISTS (SELECT 1 FROM hypercore_price_conflicts e WHERE e.vault_address=a.vault_address AND e.{time}=a.{time} AND e.source_sha256=?)", [digest, digest])
                 connection.execute("INSERT INTO hypercore_recovery_sources VALUES (?,?,?)", [digest, path_string, native_datetime_utc_now()])
                 available_at = (source_available_at or {}).get(path_string)
             if available_at is not None:
@@ -308,9 +329,11 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
                     [available_at, native_datetime_utc_now(), available_at, digest, available_at],
                 )
 
-        # Clear corrupted compatibility fields. Backup flags are restored as
-        # separate, explicitly inferred observations and projected at export.
-        connection.execute(f"UPDATE {table} SET is_closed=NULL,allow_deposits=NULL,leader_fraction=NULL")
+        connection.execute(f"INSERT INTO {table} SELECT a.* FROM recovery_candidates a WHERE NOT EXISTS (SELECT 1 FROM {table} p WHERE {join})")
+
+        # Retain recorded leader shares while clearing corrupted permission flags.
+        # Backup flags are restored separately and projected at export.
+        connection.execute(f"UPDATE {table} SET is_closed=NULL,allow_deposits=NULL")
         if "vault_metadata" in tables:
             connection.execute("CREATE TABLE IF NOT EXISTS hypercore_legacy_metadata_evidence AS SELECT * FROM vault_metadata")
             metadata_columns = connection.execute("PRAGMA table_info('vault_metadata')").fetchall()
