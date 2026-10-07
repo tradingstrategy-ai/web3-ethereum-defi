@@ -163,8 +163,25 @@ the previously running services with `docker compose up -d vault-scanner-looped
 post-scanner`. The normal export republishes prices and permission history.
 Both collectors and Hypercore post-processing refuse the old constrained price
 tables until migration. Preserve reader states, existing Parquet and timestamp
-caches, including old Monad rows. Production execution remains pending until an
-operator records its date and result.
+caches, including old Monad rows.
+
+Production apply completed on 2026-10-06 at 19:36 UTC with commit `e207778d6`.
+The daily database retained all 41,620 rows. The HF database restored 212,124
+missing rows, increasing from 1,497,653 to 1,709,777. Both verified automatic
+backups were recorded in `migration-backups/hypercore-permissions-1628/`.
+A subsequent read-only dry run reported zero missing keys and zero ART
+constraints for both databases; archived conflicts remained as expected.
+
+The post-processing coordinator exports independent permission history from
+both open scanner owners, including responses between price samples. Before
+cleaning, it also inserts missing shared catalogue entries from both catalogues,
+preserving existing metadata and manual reviews. Prices and their readiness
+receipt are uploaded before sparkline rendering and protocol metadata export,
+so a lengthy image-rendering phase cannot delay trading inputs. The consumer
+rollout below is still required to use the independent history.
+Catalogue restoration or permission-history export failure marks the Hypercore
+merge as failed and retains the previous Hypercore price partition. Custom raw
+input paths do not redirect the shared catalogue or private permission output.
 
 ## Permission consumer rollout
 

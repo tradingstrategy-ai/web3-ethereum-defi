@@ -4,6 +4,7 @@ import datetime
 import threading
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from web3 import HTTPProvider
 
@@ -46,11 +47,11 @@ def test_timestamp_worker_returns_and_detaches_rpc_stats(monkeypatch: pytest.Mon
     """A successful timestamp task returns calls and detaches cached Web3."""
 
     tested_block = 100
-    expected_timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc).replace(tzinfo=None)
+    expected_timestamp = 1_767_225_600
     web3 = CountingWeb3()
     monkeypatch.setattr(multicall_timestamp, "_timestamp_instance", threading.local())
 
-    def fetch_timestamp(counting_web3: CountingWeb3, _block_number: int, raw: object) -> datetime.datetime:
+    def fetch_timestamp(counting_web3: CountingWeb3, _block_number: int, raw: object) -> int:
         """Stand in for the physical block request."""
 
         assert raw is True
@@ -107,64 +108,44 @@ def test_hypersync_timestamp_path_does_not_receive_rpc_stats(monkeypatch: pytest
     assert result is expected
 
 
-def test_timestamp_loky_tasks_merge_exact_physical_calls(tmp_path: Path) -> None:
-    """Several real process tasks return one block call each to the parent."""
+def test_rpc_timestamp_cache_fills_old_gaps_on_the_requested_grid(tmp_path: Path) -> None:
+    """Sparse cache endpoints and nearby blocks do not establish exact coverage.
 
-    expected_block_calls = 3
+    Use real Anvil block headers and a file-backed cache containing future and
+    off-grid entries. The first scan fills historical gaps, a repeat reads no
+    headers, and a shifted sampling grid fetches only its own missing blocks.
+
+    :param tmp_path: Isolated persistent timestamp-cache directory.
+    :return: None; checks exact stored headers, cache reuse and physical RPC counts.
+    """
     anvil = launch_anvil()
     timestamps = None
+    cache = None
     try:
-        HTTPProvider(anvil.json_rpc_url).make_request("anvil_mine", ["0x3"])
-        provider_domain = get_url_domain(anvil.json_rpc_url)
+        provider = HTTPProvider(anvil.json_rpc_url)
+        provider.make_request("anvil_mine", ["0x40"])
+        exact_21 = int(provider.make_request("eth_getBlockByNumber", ["0x15", False])["result"]["timestamp"], 16)
+        cache = BlockTimestampDatabase.create(31337, tmp_path)
+        seeded = {0: 1, 2: 2, 12: 12, 21: exact_21, 64: 64}
+        cache.import_chain_data(31337, pd.Series(seeded))
+        cache.close()
+        cache = None
         stats = RPCRequestStats()
-        web3factory = MultiProviderWeb3Factory(
-            anvil.json_rpc_url,
-            retries=0,
-            skip_verification=True,
-            expected_chain_id=31337,
-            rpc_request_stats=stats,
-        )
-
-        timestamps = multicall_timestamp.fetch_block_timestamps_multiprocess(
-            chain_id=31337,
-            web3factory=web3factory,
-            start_block=0,
-            end_block=2,
-            step=1,
-            display_progress=False,
-            max_workers=2,
-            cache_path=tmp_path,
-            rpc_request_stats=stats,
-        )
-
-        calls, errors = stats.export()
-        assert calls[provider_domain, "eth_getBlockByNumber"] == expected_block_calls
-        assert errors == {}
-
-        # Refill an interior hole without rereading its exact cached neighbours.
-        timestamps.close()
-        database = BlockTimestampDatabase.create(31337, tmp_path)
-        try:
-            database.con.execute("DELETE FROM block_timestamps WHERE block_number = 1")
-        finally:
-            database.close()
-        stats = RPCRequestStats()
-        timestamps = multicall_timestamp.fetch_block_timestamps_multiprocess(
-            chain_id=31337,
-            web3factory=web3factory,
-            start_block=0,
-            end_block=2,
-            step=1,
-            display_progress=False,
-            max_workers=2,
-            cache_path=tmp_path,
-            rpc_request_stats=stats,
-        )
-        calls, errors = stats.export()
-        assert calls[provider_domain, "eth_getBlockByNumber"] == 1
-        assert errors == {}
-        assert len(timestamps) == expected_block_calls
+        factory = MultiProviderWeb3Factory(anvil.json_rpc_url, retries=0, skip_verification=True, expected_chain_id=31337, rpc_request_stats=stats)
+        domain = get_url_domain(anvil.json_rpc_url)
+        for start, end, expected_calls in [(1, 31, 3), (1, 31, 3), (2, 32, 5)]:
+            timestamps = multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend(chain_id=31337, web3factory=factory, start_block=start, end_block=end, step=10, display_progress=False, max_workers=2, cache_path=tmp_path, rpc_request_stats=stats)
+            exact_blocks = timestamps.timestamp_db.query(start, end)
+            assert set(range(start, end + 1, 10)).issubset(exact_blocks.index)
+            assert timestamps.timestamp_db.query(0, 64).loc[list(seeded)].to_dict() == {block: datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).replace(tzinfo=None) for block, epoch in seeded.items()}
+            calls, errors = stats.export()
+            assert calls[domain, "eth_getBlockByNumber"] == expected_calls
+            assert not errors
+            timestamps.close()
+            timestamps = None
     finally:
         if timestamps is not None:
             timestamps.close()
+        if cache is not None:
+            cache.close()
         anvil.close()

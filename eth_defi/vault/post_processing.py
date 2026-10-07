@@ -47,7 +47,8 @@ from eth_defi.hibachi.vault_data_export import build_raw_prices_dataframe as bui
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
-from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
+from eth_defi.hyperliquid.permission import PERMISSION_FILENAME
+from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe, export_hypercore_permission_history, merge_into_vault_database
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, LIGHTER_ROBINHOOD
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
@@ -591,6 +592,8 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
+    vault_db_path: Path | None = None,
+    permission_history_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
@@ -616,6 +619,12 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     semantics and prevents a transient database failure from deleting
     historical native-protocol prices.
 
+    Hypercore also exports its independent permission-history Parquet and
+    restores missing catalogue entries from both scanner owners before
+    cleaning. Existing curated metadata is retained. If either step fails,
+    the previous Hypercore price partition is retained with a failed merge
+    status, rather than publishing fresh prices with incomplete permissions.
+
     :param merge_hypercore: Merge Hyperliquid native (Hypercore) vault data
     :param merge_grvt: Merge GRVT native vault data
     :param merge_lighter: Merge Lighter native pool data
@@ -625,6 +634,8 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
+    :param vault_db_path: Shared metadata pickle; defaults beside the raw Parquet.
+    :param permission_history_path: Permission-history output; defaults beside the raw Parquet.
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
@@ -657,6 +668,9 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                     hypercore_df = pd.DataFrame()
                 else:
                     hypercore_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
+                    for owner in (db for db in (daily_db, hf_db) if db is not None):
+                        merge_into_vault_database(owner, vault_db_path or parquet_path.parent / "vault-metadata-db.pickle", only_missing=True)
+                    export_hypercore_permission_history(permission_history_path or parquet_path.parent / PERMISSION_FILENAME, daily_db=daily_db, hf_db=hf_db)
                     if daily_db is not None:
                         _append_perp_metric_snapshots(daily_db, perp_snapshots)
                     if hf_db is not None:
@@ -1333,9 +1347,9 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
-    The pipeline merges native data, cleans the public and private price files,
-    calculates both metadata exports, runs the established public exports, and
-    finally publishes the private crypto bundle. Crypto failures are recorded
+    The pipeline merges native data, cleans public and private prices and
+    calculates metadata. It publishes private prices and readiness before
+    rendering sparklines, then completes the remaining exports. Crypto failures are recorded
     without preventing later public phases from running.
 
     :param scan_hypercore: Whether to merge Hypercore data
@@ -1369,6 +1383,8 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
+    data_dir = get_pipeline_data_dir()
+    resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
 
     # Merge native protocols.
     merge_results = merge_native_protocols(
@@ -1381,6 +1397,8 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
+        vault_db_path=resolved_vault_db_path,
+        permission_history_path=data_dir / PERMISSION_FILENAME,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
@@ -1394,7 +1412,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         logger.info("Skipping price cleaning (SKIP_CLEANING=true)")
     else:
         steps["clean-prices"] = clean_prices(
-            vault_db_path=vault_db_path,
+            vault_db_path=resolved_vault_db_path,
             uncleaned_path=uncleaned_parquet_path,
             cleaned_path=cleaned_path,
             settlement_db_path=settlement_db_path,
@@ -1409,9 +1427,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
 
     # Crypto price cleaning deliberately has its own contained failure boundary.
     # It runs before public exports but cannot prevent them from completing.
-    data_dir = get_pipeline_data_dir()
     crypto_paths = resolve_crypto_vault_paths(data_dir, crypto_vaults_dir)
-    resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
     resolved_cleaned_stablecoin_path = cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet"
     if cleaning_ok:
         crypto_clean_ok = clean_crypto_vault_prices(
@@ -1474,27 +1490,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         logger.warning("Skipping crypto metadata — no current exchange-rate snapshot or clean price input")
         steps["calculate-crypto-vault-metadata"] = False
 
-    # Export sparklines.
-    if skip_sparklines:
-        logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
-    elif not cleaning_ok or not crypto_clean_ok:
-        logger.warning("Skipping sparkline export — current public or crypto cleaning failed, refusing to export stale data")
-        steps["export-sparklines"] = False
-    else:
-        steps["export-sparklines"] = export_sparklines(
-            prices_path=crypto_paths.cleaned_price_path,
-            vault_db_path=resolved_vault_db_path,
-            state_path=data_dir / "sparkline-export-state.json",
-        )
-
-    # Export protocol metadata. This is not derived from cleaned prices and is
-    # always safe to run.
-    if skip_metadata:
-        logger.info("Skipping metadata export (SKIP_METADATA=true)")
-    else:
-        steps["export-protocol-metadata"] = export_protocol_metadata()
-
-    # Export complete data files to the private bucket.
+    # Publish trading inputs before the potentially lengthy image rendering.
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
@@ -1525,6 +1521,26 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         except (RuntimeError, ValueError, OSError, pa.ArrowException):
             logger.exception("Vault scan manifest publication failed")
             steps["publish-vault-scan-manifest"] = False
+
+    # Export sparklines.
+    if skip_sparklines:
+        logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
+    elif not cleaning_ok or not crypto_clean_ok:
+        logger.warning("Skipping sparkline export — current public or crypto cleaning failed, refusing to export stale data")
+        steps["export-sparklines"] = False
+    else:
+        steps["export-sparklines"] = export_sparklines(
+            prices_path=crypto_paths.cleaned_price_path,
+            vault_db_path=resolved_vault_db_path,
+            state_path=data_dir / "sparkline-export-state.json",
+        )
+
+    # Export protocol metadata. This is not derived from cleaned prices and is
+    # always safe to run.
+    if skip_metadata:
+        logger.info("Skipping metadata export (SKIP_METADATA=true)")
+    else:
+        steps["export-protocol-metadata"] = export_protocol_metadata()
 
     # Export Ethereum-only sample files to the public bucket.
     if skip_samples:
