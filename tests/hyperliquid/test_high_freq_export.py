@@ -288,8 +288,8 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
         db.close()
 
 
-def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path: Path) -> None:
-    """Keep a carried leader share from extending a historical deposit limit.
+def test_hf_low_share_policy_cap_survives_price_only_updates(tmp_path: Path) -> None:
+    """Retain the recorded low-share policy through later price-only rows.
 
     1. Store a low-share vault-details observation and a later price-only row.
     2. Export both rows and distinguish source permission from policy capacity.
@@ -325,12 +325,21 @@ def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path: Path) -> Non
 
         append_permission_observation(db.con, PermissionObservation(uuid.uuid4().hex, address, permission_observed_at=timestamp, capacity_observed_at=timestamp, is_closed=False, allow_deposits=True, relationship_type="normal", leader_fraction=0.05, provenance="observed"))
 
-        # 2. Permission carries forward, but only the observed row gets a cap.
+        # 2. Price-only updates retain the cap and its original response clock.
         rows = build_raw_prices_dataframe_hf(db).sort_values("timestamp")
         assert rows["deposits_open"].tolist() == ["true", "true"]
         assert rows["deposit_closed_reason"].isna().all()
         assert rows.iloc[0]["max_deposit"] == pytest.approx(0.0)
-        assert pd.isna(rows.iloc[1]["max_deposit"])
+        assert rows.iloc[1]["max_deposit"] == pytest.approx(0.0)
+        assert rows["capacity_observed_at"].tolist() == [timestamp, timestamp]
+
+        # A new sufficient-share response clears the old low-share cap.
+        later = timestamp + datetime.timedelta(hours=8)
+        db.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(address, later, 1.02, 102000.0, 2000.0)])
+        append_permission_observation(db.con, PermissionObservation(uuid.uuid4().hex, address, permission_observed_at=later, is_closed=False, allow_deposits=True, relationship_type="normal", leader_fraction=0.2, provenance="observed"))
+        latest = build_raw_prices_dataframe_hf(db).sort_values("timestamp").iloc[-1]
+        assert latest.leader_fraction == pytest.approx(0.2)
+        assert pd.isna(latest.max_deposit)
     finally:
         db.close()
 
@@ -487,7 +496,8 @@ def test_capacity_receipt_between_price_rows_and_hlp_fee_identity(tmp_path):
         assert exported.performance_fee.tolist() == [0.0, 0.0, 0.0]
         assert pd.isna(exported.iloc[0].deposits_open)
         assert exported.iloc[1].max_deposit == 0
-        assert pd.isna(exported.iloc[2].max_deposit)
+        assert exported.iloc[2].max_deposit == 0
+        assert exported.iloc[2].capacity_observed_at == receipt
         assert exported.iloc[1].capacity_observed_at == receipt
     finally:
         db.close()

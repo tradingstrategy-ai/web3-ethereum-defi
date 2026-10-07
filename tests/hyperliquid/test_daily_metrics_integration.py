@@ -264,6 +264,12 @@ def test_live_hyperliquid_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: 
     assert vault_address in set(permission_history.vault_address)
     assert permission_history.permission_observed_at.notna().any()
     assert set(permission_history.provenance).issubset({"observed", "observed_unknown"})
+    assert "max_deposit" in permission_history
+    policy_inputs = permission_history[permission_history.vault_address == vault_address]
+    assert policy_inputs.leader_fraction.notna().any()
+    # Policy caps are stored with the same response, including nullable no-cap outcomes.
+    low_share = policy_inputs.is_closed.eq(False) & policy_inputs.allow_deposits.eq(True) & policy_inputs.relationship_type.eq("normal") & policy_inputs.leader_fraction.lt(0.055)
+    assert policy_inputs.loc[low_share, "max_deposit"].eq(0.0).all()
 
     raw_prices = pd.read_parquet(uncleaned_path)
     raw_vault_rows = raw_prices[(raw_prices["chain"] == HYPERCORE_CHAIN_ID) & (raw_prices["address"].str.lower() == vault_address)]
@@ -510,12 +516,13 @@ def test_unified_vault_metrics_json(tmp_path):
 
 @pytest.mark.timeout(120)
 def test_deposit_closed_vault_pipeline(tmp_path: Path) -> None:
-    """Keep current closure metadata separate from historical capacity projections.
+    """Retain recorded leader shares without backdating current permission receipts.
 
     Fetch the real ``[A] Downside`` vault, clean its historical prices and export
     lifetime metrics. The current permission/capacity receipt is later than every
-    daily price point, so it belongs in the independent sidecar and cannot supply
-    historical leader share. See the Hyperliquid
+    daily price point, so it belongs in the sidecar. The latest price row's
+    recorded leader share remains readable without a separate capacity clock,
+    while older rows stay NULL. See the Hyperliquid
     `info endpoint <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__.
 
     :param tmp_path: Isolated scanner, sidecar and export directory.
@@ -648,19 +655,21 @@ def test_deposit_closed_vault_pipeline(tmp_path: Path) -> None:
     vault_record = lifetime_data_df.iloc[0]
     assert vault_record["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in lifetime metrics, got: {vault_record['deposit_closed_reason']}"
 
-    # Step 7: Current capacity cannot be moved backwards onto older price rows.
-    # Commission remains an economic metric; leader fraction is a capacity input.
+    # Step 7: Keep receipts at their original time, but retain the share recorded
+    # on the latest source price row. Missing historical inputs stay NULL.
     assert prices_df["permission_observed_at"].isna().all()
     assert prices_df["capacity_observed_at"].isna().all()
     assert prices_df["deposits_open"].isna().all()
-    assert prices_df["leader_fraction"].isna().all()
-    assert vault_record["leader_fraction"] is None
+    assert prices_df["leader_fraction"].iloc[:-1].isna().all()
+    assert prices_df["leader_fraction"].iloc[-1] == pytest.approx(observation.leader_fraction)
+    assert prices_df["max_deposit"].isna().all()
+    assert vault_record["leader_fraction"] == pytest.approx(observation.leader_fraction)
     assert vault_record["leader_commission"] is not None, "leader_commission should be in lifetime metrics"
 
     # Step 8: Verify in JSON export
     exported = export_lifetime_row(vault_record)
     assert exported["deposit_closed_reason"] == "Vault deposits disabled by leader", f"Expected specific reason in JSON export, got: {exported['deposit_closed_reason']}"
-    assert exported["leader_fraction"] is None, "A post-price capacity receipt must remain in the sidecar"
+    assert exported["leader_fraction"] == pytest.approx(observation.leader_fraction)
     assert exported["leader_commission"] is not None, "leader_commission should be in JSON export"
 
 

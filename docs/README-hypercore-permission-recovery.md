@@ -68,8 +68,10 @@ snapshot at or after that boundary can supply the fallback state; an older flag
 cannot bridge an evidence gap. Inferred snapshots expire after two days, checked
 against their original price clock rather than a rounded bucket. Genuine snapshots, including explicit unknowns,
 take precedence over inferred flags. No recoverable flags means Unknown. Price
-values and their `written_at` remain unchanged. Capacity clocks stay independent:
-price-clock recovery never creates fresh capacity. Native observations already
+values and their `written_at` remain unchanged. Recorded leader shares and
+policy caps are retained even when the legacy schema lacks a capacity clock.
+The original response clock, when present, stays unchanged; publication and
+price-only updates do not create a new measurement. Native observations already
 present in a source or target are preserved. Dry-run reports include
 `legacy_price_timestamp_permissions` before any target mutation.
 
@@ -209,7 +211,12 @@ an API response received after the newest portfolio point; the next eligible
 price row exposes it. Old v1 consumers cannot consume between-price changes or
 apply every uncertainty interval correctly. Do not enable live sidecar reliance
 until the authenticated endpoint, Trading Strategy client and executor use the
-sidecar together, preserve unknowns, and check original permission/capacity age.
+sidecar together and preserve unknowns. Read recorded leader shares and caps
+without demanding a separate capacity clock; use the original source price
+clock as the legacy fallback when no other clock exists. Archived shares can
+already be carried projections: where their measurement time is unavailable,
+their age remains unknown. The repair retains those values without inventing
+a measurement receipt or imposing a new capacity-clock eligibility rule.
 
 `HYPERCORE_PERMISSION_MANIFEST_V2=true` publishes a **separate**
 `vault-scan-manifest-v2.json` binding content-addressed immutable prices and
@@ -217,6 +224,89 @@ permission objects, exact ETags/hashes and permission schema version 1. It remai
 disabled by default until that coordinated rollout. V1 wire format stays version
 1. Publication checks local hashes against uploaded metadata and conditional
 server copies prevent selecting a mixed generation.
+
+## Restore leader shares and policy caps
+
+[Issue #1633](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1633)
+repairs historical policy inputs removed by the original permission migration.
+The collector records the leader fraction and derived policy cap from each
+response. The exporter retains these inputs through price-only updates. An
+open normal vault below the 5.5% leader-share threshold has `max_deposit=0`;
+this trading-policy block is separate from venue closure. An explicit archived
+zero also survives when its share input is unavailable. Missing values remain
+NULL, and a genuinely newer unknown response clears older projected inputs.
+
+Inside the mounted maintenance container, with both database owners stopped:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-leader-shares.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-leader-shares.py
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-leader-shares.py
+```
+
+The only migration-specific input is `DRY_RUN`, which defaults to true. The
+standard pipeline directory is used automatically. Sources are the retained
+pre-repair scanner backups (newest first), retained scanner evidence, the
+original raw Parquet, then retained raw evidence. Conflicts are counted;
+existing non-null target values win. Caps accompanied by a conflicting share
+are not applied. Cleaned/resampled archives are refused. The migration fills
+policy inputs without rewriting prices, permissions, receipt clocks or
+original `written_at`. It also restores policy inputs in inferred permission
+snapshots from their retained payloads; no separate capacity clock is invented.
+
+Apply makes and verifies its own database backup before its transaction,
+removes old ART constraints, and checks that every non-policy price field is
+unchanged before committing. Backups, SHA-256 receipts and the recovery report
+are saved under `migration-backups/hypercore-leader-shares-1633/`. A subsequent
+dry run should report zero missing inputs to restore. No R2 or RPC credentials
+are required; this script does not upload or fetch historical data. Restart
+the normal scanner to republish the raw/cleaned prices, permission sidecar and
+matching readiness receipt.
+
+The reader changes are tracked in
+[Trading Strategy #254](https://github.com/tradingstrategy-ai/trading-strategy/issues/254).
+Clients must retain the repaired inputs, honour zero caps, preserve NULLs and
+use the original price clock where no other clock is available.
+
+### Local recovery on 7 October 2026
+
+Dry run, apply and a second dry run completed against isolated copies of the
+actual damaged production databases captured on 7 October. Six of the seven
+pre-repair scanner archives were available; the 29 September files were missing.
+The retained evidence and 5 October raw archive supplied the remaining inputs.
+Both databases took their own verified backups. All price keys, economics,
+permission flags and original write times were preserved. The final dry run
+reported zero remaining inputs to restore.
+
+| Database | Price rows preserved | Shares restored | Explicit caps restored | Permission records repaired |
+| --- | ---: | ---: | ---: | ---: |
+| Daily | 41,620 | 12,996 | 523 | 12,528 |
+| HF | 1,717,947 | 1,647,465 | 16,516 | 441,416 |
+
+The normal raw exporter and cleaner were run on these recovered copies. The
+comparison used the available 5 October pre-repair raw archive, SHA-256
+`b2cf602c48cbbe2d8c1c5dac1ed902cc1facfbd228db6394ce73849fe46f981c`.
+
+| Raw HyperCore projection | Before repair archive | Recovered export |
+| --- | ---: | ---: |
+| Price rows | 1,743,217 | 1,759,567 |
+| Non-NULL leader shares | 1,658,971 | 1,675,209 |
+| Explicit deposit caps | 17,039 | 55,335 |
+
+Every original price key survived. Every original non-NULL leader share and
+all 17,039 zero caps matched exactly, in both raw and cleaned exports. The
+37,775 additional caps on matching historical rows all came from known shares
+below 5.5% in open normal vaults. This corrects the previous exporter dropping
+the low-share policy on price-only updates. Counts describe exported rows, not
+new API measurements. The Gucky example retains share `0.05000280943338046`,
+`max_deposit=0`, Open permission and write time
+`2026-04-11 04:22:06.999 UTC`, without requiring a separate capacity receipt.
+
+The earlier permission repair had already left 397 matched rows Unknown where
+the older archive published a carried Open or Closed flag. This migration did
+not change those flags. The permission sidecar exported successfully and other
+chains' raw price rows remained unchanged. Production databases were untouched;
+deployment and a production migration are still required.
 
 ## Focused checks
 

@@ -84,6 +84,7 @@ class HyperliquidMetricsDatabaseBase:
         initialise_permission_schema(self.con)
         self._init_metadata_schema()
         self._init_price_schema()
+        self.con.execute(f"ALTER TABLE {self.price_table} ADD COLUMN IF NOT EXISTS max_deposit DOUBLE")
 
     def fetch_vault_metadata(self, session: HyperliquidSession, summary: VaultSummary, timeout: float) -> VaultInfo | None:
         """Fetch vault details and persist permission evidence before price checks.
@@ -389,8 +390,9 @@ class HyperliquidMetricsDatabaseBase:
 
         Reads the latest genuine permission snapshot per vault. If that response
         omits leader share, the previous value is not carried forwards. Inferred
-        legacy permissions never supply capacity. This catalogue lookup does not
-        certify freshness; consumers must check the separate capacity clock.
+        legacy snapshots are available in historical price exports instead.
+        This catalogue lookup does not certify freshness; missing timing metadata
+        does not invalidate a recorded historical share or policy cap.
 
         :return:
             Dict mapping lowercased vault address to leader_fraction.

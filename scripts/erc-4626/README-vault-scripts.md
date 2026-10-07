@@ -141,6 +141,23 @@ container. No RPC or R2 credentials are required. The
 [recovery runbook](../../docs/README-hypercore-permission-recovery.md) gives the
 production shell and validation commands.
 
+The follow-up `scripts/hyperliquid/recover-leader-shares.py` repair for
+[issue #1633](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1633)
+restores missing recorded leader shares and explicit deposit caps. It uses the
+same archive dates, plus evidence retained inside each repaired database:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-leader-shares.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-leader-shares.py
+```
+
+Stop database owners before applying. Dry run writes no files; apply takes its
+own verified backup under `migration-backups/hypercore-leader-shares-1633/` and
+writes `recovery-report.json`. Existing prices, permission flags and write times
+are preserved. Missing inputs stay NULL; explicit zero caps stay zero. A
+separate capacity clock is not required to read recorded historical values.
+Restart the normal scanner afterwards to republish prices and the sidecar.
+
 Normal post-processing merges daily and HF permissions into
 `hypercore-vault-permissions.parquet` and inserts missing shared vault catalogue
 entries before cleaning. Existing metadata and manual reviews are retained.
