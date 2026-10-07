@@ -45,7 +45,8 @@ def test_restore_policy_inputs_preserves_prices_and_unknowns(tmp_path: Path, *, 
                 append_permission_observation(connection, PermissionObservation("legacy", address, permission_observed_at=first, is_closed=False, allow_deposits=True, relationship_type="normal", provenance="legacy_price_timestamp", payload_json=json.dumps({"leader_fraction": 0.05})))
                 append_permission_observation(connection, PermissionObservation("unknown", address, permission_observed_at=clocks[1], provenance="observed_unknown"))
                 connection.execute("CREATE TABLE hypercore_legacy_price_evidence (vault_address VARCHAR,source_timestamp TIMESTAMP,leader_fraction DOUBLE,original_row_json VARCHAR,source_path VARCHAR,source_sha256 VARCHAR)")
-                connection.execute("INSERT INTO hypercore_legacy_price_evidence VALUES (?,?,?,?,?,?)", [address, clocks[4], 0.04, '{"max_deposit":0.0}', "retained scanner", "retained-hash"])
+                connection.execute("INSERT INTO hypercore_legacy_price_evidence VALUES (?,?,?,?,?,?)", [address, clocks[4], 0.04, '{"max_deposit":0.0}', str(tmp_path / "backups/2026-09-29" / path.name), "retained-hash"])
+                connection.execute("INSERT INTO hypercore_legacy_price_evidence VALUES (?,?,?,?,?,?)", [address, clocks[4], 0.08, "{}", str(tmp_path / "backups/2026-10-05/vault-prices-1h.parquet"), "retained-raw-hash"])
         finally:
             connection.close()
     raw = tmp_path / "vault-prices-1h.parquet"
@@ -54,7 +55,7 @@ def test_restore_policy_inputs_preserves_prices_and_unknowns(tmp_path: Path, *, 
     backup_dir = tmp_path / "own-backups"
     dry = recover_leader_shares(target, [newest, older], backup_dir, parquet_sources=[raw])
     assert (dry["restore_leader_fraction"], dry["restore_max_deposit"], dry["restore_observation_inputs"]) == (2, 2, 1)
-    assert dry["conflicting_share_keys"] == 1
+    assert dry["conflicting_share_keys"] == 2  # noqa: PLR2004 - One attached archive conflict and one retained scanner/raw conflict.
     assert hashlib.sha256(target.read_bytes()).hexdigest() == digest
     assert not backup_dir.exists()
     report = recover_leader_shares(target, [newest, older], backup_dir, parquet_sources=[raw], dry_run=False)
@@ -84,3 +85,22 @@ def test_restore_policy_inputs_preserves_prices_and_unknowns(tmp_path: Path, *, 
         assert connection.execute("SELECT * FROM hypercore_leader_share_recovery ORDER BY source_timestamp,source_sha256").fetchall() == audit_before
     finally:
         connection.close()
+
+
+@pytest.mark.parametrize("clock", ["date", "timestamp"])
+def test_archived_policy_projection_keeps_coherent_values(clock: str) -> None:
+    """Carry archived policy snapshots without mixing inputs or requiring a receipt.
+
+    A higher archived share clears the old zero cap. A later explicit zero
+    without a share replaces both inputs coherently and remains usable.
+
+    :param clock: Daily or HF source clock column.
+    :return: ``None`` after checking projected shares and exported policy caps.
+    """
+    prices = pd.DataFrame({"vault_address": ["0x" + "a" * 40] * 6, clock: pd.date_range("2026-04-11", periods=6, freq="D"), "leader_fraction": [0.03, None, 0.10, None, None, None], "max_deposit": [0.0, None, None, None, 0.0, None]})
+    projected = project_permission_prices(prices, pd.DataFrame(), clock)
+    _, _, caps = _compute_deposit_state_columns(projected, projected.leader_fraction)
+    assert projected.leader_fraction.iloc[:4].tolist() == [0.03, 0.03, 0.10, 0.10]
+    assert projected.leader_fraction.iloc[4:].isna().all()
+    assert caps.iloc[[0, 1, 4, 5]].eq(0.0).all()
+    assert caps.iloc[2:4].isna().all()

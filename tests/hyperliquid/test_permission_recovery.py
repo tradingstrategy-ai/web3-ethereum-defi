@@ -172,6 +172,13 @@ def test_recovered_backup_flags_use_price_clock_and_leave_unrecoverable_unknown(
         before = connection.execute("SELECT * FROM vault_permission_observations ORDER BY observation_id").fetchall()
     finally:
         connection.close()
+    connection = duckdb.connect(str(current))
+    try:
+        # Opening with the updated scanner adds this nullable price column.
+        # It must not change original archive payloads, IDs or write clocks.
+        connection.execute("ALTER TABLE vault_high_freq_prices ADD COLUMN max_deposit DOUBLE")
+    finally:
+        connection.close()
     recover_permissions(current, [old], tmp_path / "backups", dry_run=False)
     connection = duckdb.connect(str(current), read_only=True)
     try:
@@ -511,7 +518,10 @@ def test_collector_retains_permission_when_portfolio_parsing_fails(tmp_path: Pat
         assert observation.permission_observed_at == T0
         assert observation.allow_deposits == allow_deposits
         assert observation.leader_fraction == pytest.approx(0.04)
-        assert observation.max_deposit == 0.0 if allow_deposits else pd.isna(observation.max_deposit)
+        if allow_deposits:
+            assert observation.max_deposit == 0.0
+        else:
+            assert pd.isna(observation.max_deposit)
         assert db.con.execute("SELECT error_type FROM vault_permission_errors").fetchone()[0] == "ValueError"
         assert db.get_all_high_freq_prices().empty
     finally:

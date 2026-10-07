@@ -20,6 +20,12 @@ from eth_defi.vault.backup import write_json_atomic as write_json_atomic  # noqa
 
 PRICE_TABLES = {"vault_daily_prices": "date", "vault_high_freq_prices": "timestamp"}
 
+#: Scanner databases affected by the historical HyperCore export repairs.
+DATABASE_NAMES = ("hyperliquid-vaults", "hyperliquid-vaults-hf")
+
+#: Retained pre-repair scanner archives in newest-first preference order.
+BACKUP_DATES = ("2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29")
+
 
 def prepare_price_timestamp_permissions(connection: duckdb.DuckDBPyConnection, table: str, time_column: str, archives: list[tuple[str, str, str, str | None, str | None]], parquets: list[tuple[str, str, str, set[str]]]) -> None:
     """Stage legacy permission snapshots with an explicitly inferred price clock.
@@ -167,6 +173,7 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         exact_permission_archives = []
         fallback_archives = []
         fallback_parquets = []
+        aliases = []
         for index, (path, digest) in enumerate(evidence):
             # ATTACH does not accept bind parameters; escape SQL string quotes.
             quoted_path = str(path).replace("'", "''")
@@ -190,10 +197,12 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
             if "max_deposit" in {r[0] for r in columns} and "max_deposit" not in {r[0] for r in schema}:
                 price_alias = f"archive_prices_{index}"
                 connection.execute(f"CREATE TEMP VIEW {price_alias} AS SELECT *,CAST(NULL AS DOUBLE) AS max_deposit FROM archive_{index}.{table}")
-            fallback_archives.append((price_alias, str(path), digest, metadata_alias, permission_alias))
+            # Schema adaptation is only for price inserts. Hash the original
+            # source payload so an added nullable column cannot re-date annotations.
+            fallback_archives.append((f"archive_{index}.{table}", str(path), digest, metadata_alias, permission_alias))
+            aliases.append(price_alias)
             if "vault_permission_observations" in archive_tables:
                 exact_permission_archives.append((f"archive_{index}.vault_permission_observations", str(path), digest))
-        aliases = [entry[0] for entry in fallback_archives]
         comparison_by_alias = {}
         # Raw published files are archive-only evidence. Cleaned/resampled
         # prices cannot be promoted back to exact scanner observations.
@@ -289,7 +298,11 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
         # Include target evidence before any clearing; stable row hashes exclude
         # archive file identity and migration publication time.
         all_sources = [(table, report["backup"]["backup"], report["backup"]["sha256"], None)] + [(alias, str(path), digest, path) for alias, (path, digest) in zip(aliases, evidence + parquet_evidence)]
-        for alias, path_string, digest, path in tqdm(all_sources, desc="Importing archived evidence"):
+        for index, (alias, path_string, digest, path) in enumerate(tqdm(all_sources, desc="Importing archived evidence")):
+            if index == 1:
+                # Preserve target evidence first, then restore missing keys before
+                # auditing archive conflicts. This also handles repaired targets.
+                connection.execute(f"INSERT INTO {table} SELECT a.* FROM recovery_candidates a WHERE NOT EXISTS (SELECT 1 FROM {table} p WHERE {join})")
             if path is None and already_recovered:
                 continue
             if connection.execute("SELECT count(*) FROM hypercore_recovery_sources WHERE source_sha256=?", [digest]).fetchone()[0]:
@@ -304,7 +317,6 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
                 [digest, path_string, digest],
             )
             if path is None:
-                connection.execute(f"INSERT INTO {table} SELECT a.* FROM recovery_candidates a WHERE NOT EXISTS (SELECT 1 FROM {table} p WHERE {join})")
                 available_at = datetime.datetime.fromisoformat(report["backup"]["created_at"])
             if path is not None:
                 archive_comparison = comparison_by_alias.get(alias, comparison)
@@ -328,8 +340,6 @@ def recover_permissions(target: Path, sources: list[Path], backup_dir: Path, *, 
                 """,
                     [available_at, native_datetime_utc_now(), available_at, digest, available_at],
                 )
-
-        connection.execute(f"INSERT INTO {table} SELECT a.* FROM recovery_candidates a WHERE NOT EXISTS (SELECT 1 FROM {table} p WHERE {join})")
 
         # Retain recorded leader shares while clearing corrupted permission flags.
         # Backup flags are restored separately and projected at export.

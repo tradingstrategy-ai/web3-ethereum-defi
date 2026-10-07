@@ -213,7 +213,10 @@ apply every uncertainty interval correctly. Do not enable live sidecar reliance
 until the authenticated endpoint, Trading Strategy client and executor use the
 sidecar together and preserve unknowns. Read recorded leader shares and caps
 without demanding a separate capacity clock; use the original source price
-clock when no other clock exists, preserving its age across carried rows.
+clock as the legacy fallback when no other clock exists. Archived shares can
+already be carried projections: where their measurement time is unavailable,
+their age remains unknown. The repair retains those values without inventing
+a measurement receipt or imposing a new capacity-clock eligibility rule.
 
 `HYPERCORE_PERMISSION_MANIFEST_V2=true` publishes a **separate**
 `vault-scan-manifest-v2.json` binding content-addressed immutable prices and
@@ -265,27 +268,45 @@ The reader changes are tracked in
 Clients must retain the repaired inputs, honour zero caps, preserve NULLs and
 use the original price clock where no other clock is available.
 
-### Local archive rehearsal on 7 October 2026
+### Local recovery on 7 October 2026
 
-The migration was run in dry and apply modes against isolated copies of the
-5 October scanner/raw archives, with missing share fields recreated to reproduce
-the regression. Both databases took their own verified backups. All price keys,
-economics, permission flags and original database write times were preserved;
-a second dry run reported zero remaining changes.
+Dry run, apply and a second dry run completed against isolated copies of the
+actual damaged production databases captured on 7 October. Six of the seven
+pre-repair scanner archives were available; the 29 September files were missing.
+The retained evidence and 5 October raw archive supplied the remaining inputs.
+Both databases took their own verified backups. All price keys, economics,
+permission flags and original write times were preserved. The final dry run
+reported zero remaining inputs to restore.
 
-| Database | Price rows preserved | Shares restored | Explicit caps restored | Caps in repaired export |
+| Database | Price rows preserved | Shares restored | Explicit caps restored | Permission records repaired |
 | --- | ---: | ---: | ---: | ---: |
-| Daily | 41,620 | 12,996 | 523 | 541 |
-| HF | 1,701,597 | 1,645,975 | 16,516 | 54,273 |
+| Daily | 41,620 | 12,996 | 523 | 12,528 |
+| HF | 1,717,947 | 1,647,465 | 16,516 | 441,416 |
 
-Export cap counts include the low-share policy calculated from recovered inputs
-and retained through price-only updates, as well as explicit archived caps.
-They are row counts, not counts of new API measurements. The Gucky example
-exports leader share `0.05000280943338046`, `max_deposit=0`, Open permission and
-no separate capacity receipt. Its source DuckDB write time is preserved at
-`2026-04-11 04:22:06.999733 UTC`; the older raw Parquet rounded that timestamp to
-milliseconds. The matching permission sidecar exported successfully. These are
-rehearsal results, not a migration of the currently running production databases.
+The normal raw exporter and cleaner were run on these recovered copies. The
+comparison used the available 5 October pre-repair raw archive, SHA-256
+`b2cf602c48cbbe2d8c1c5dac1ed902cc1facfbd228db6394ce73849fe46f981c`.
+
+| Raw HyperCore projection | Before repair archive | Recovered export |
+| --- | ---: | ---: |
+| Price rows | 1,743,217 | 1,759,567 |
+| Non-NULL leader shares | 1,658,971 | 1,675,209 |
+| Explicit deposit caps | 17,039 | 55,335 |
+
+Every original price key survived. Every original non-NULL leader share and
+all 17,039 zero caps matched exactly, in both raw and cleaned exports. The
+37,775 additional caps on matching historical rows all came from known shares
+below 5.5% in open normal vaults. This corrects the previous exporter dropping
+the low-share policy on price-only updates. Counts describe exported rows, not
+new API measurements. The Gucky example retains share `0.05000280943338046`,
+`max_deposit=0`, Open permission and write time
+`2026-04-11 04:22:06.999 UTC`, without requiring a separate capacity receipt.
+
+The earlier permission repair had already left 397 matched rows Unknown where
+the older archive published a carried Open or Closed flag. This migration did
+not change those flags. The permission sidecar exported successfully and other
+chains' raw price rows remained unchanged. Production databases were untouched;
+deployment and a production migration are still required.
 
 ## Focused checks
 

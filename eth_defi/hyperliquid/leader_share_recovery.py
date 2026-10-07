@@ -7,18 +7,12 @@ separate capacity clock. See `issue #1633
 
 # ruff: noqa: S608 - SQL identifiers are validated and archive filenames are escaped.
 
-import logging
 from pathlib import Path
 
 import duckdb
 
-from eth_defi.hyperliquid.permission_recovery import PRICE_TABLES
+from eth_defi.hyperliquid.permission_recovery import BACKUP_DATES, PRICE_TABLES
 from eth_defi.vault.backup import backup_database, file_sha256, observe_database_operation
-
-logger = logging.getLogger(__name__)
-
-#: Pre-permission-migration archives, in newest-first preference order.
-BACKUP_DATES = ("2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29")
 
 
 def recover_leader_shares(target: Path, sources: list[Path], backup_dir: Path, *, parquet_sources: list[Path] | None = None, dry_run: bool = True) -> dict:  # noqa: PLR0914 - One transaction keeps the recovery and invariants together.
@@ -99,7 +93,11 @@ def recover_leader_shares(target: Path, sources: list[Path], backup_dir: Path, *
         # The previous repair saved these raw values before clearing them.
         # Retained scanner evidence precedes raw projected evidence.
         if "hypercore_legacy_price_evidence" in tables:
-            parts.append("SELECT lower(vault_address) AS vault_address,source_timestamp,leader_fraction,TRY_CAST(json_extract_string(original_row_json,'$.max_deposit') AS DOUBLE) AS max_deposit,source_path,source_sha256,500 AS priority FROM hypercore_legacy_price_evidence")
+            # The earlier repair also stored mapped Parquet rows in this table.
+            # Rank them after scanner evidence, regardless of filename sorting.
+            archive_priorities = " ".join(f"WHEN contains(source_path,'/backups/{date}/') THEN {501 + index}" for index, date in enumerate(BACKUP_DATES))
+            priority = f"CASE WHEN ends_with(source_path,'.parquet') THEN 1500 WHEN contains(source_path,'/migration-backups/') THEN 500 {archive_priorities} ELSE 600 END"
+            parts.append(f"SELECT lower(vault_address) AS vault_address,source_timestamp,leader_fraction,TRY_CAST(json_extract_string(original_row_json,'$.max_deposit') AS DOUBLE) AS max_deposit,source_path,source_sha256,{priority} AS priority FROM hypercore_legacy_price_evidence")
         if "hypercore_raw_parquet_evidence" in tables:
             kind = "daily" if clock == "date" else "hf"
             parts.append(f"SELECT lower(vault_address) AS vault_address,source_timestamp,TRY_CAST(json_extract_string(original_row_json,'$.leader_fraction') AS DOUBLE) AS leader_fraction,TRY_CAST(json_extract_string(original_row_json,'$.max_deposit') AS DOUBLE) AS max_deposit,'retained raw Parquet evidence' AS source_path,source_sha256,2000 AS priority FROM hypercore_raw_parquet_evidence WHERE json_extract_string(original_row_json,'$.hypercore_source')='{kind}'")

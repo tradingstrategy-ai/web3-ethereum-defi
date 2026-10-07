@@ -390,7 +390,8 @@ def _compute_deposit_state_columns(
         open_values.append(None if status.deposits_open is None else str(status.deposits_open).lower())
         reasons.append(status.closed_reason)
         recorded_cap = row.get("max_deposit")
-        caps.append(float(recorded_cap) if pd.notna(recorded_cap) else float(status.max_deposit) if status.max_deposit is not None else np.nan)
+        cap = recorded_cap if pd.notna(recorded_cap) else status.max_deposit
+        caps.append(float(cap) if cap is not None else np.nan)
     return (
         pd.Series(open_values, index=prices_df.index, dtype=object),
         pd.Series(reasons, index=prices_df.index, dtype=object),

@@ -16,7 +16,8 @@ from pathlib import Path
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.hyperliquid.leader_share_recovery import BACKUP_DATES, recover_leader_shares
+from eth_defi.hyperliquid.leader_share_recovery import recover_leader_shares
+from eth_defi.hyperliquid.permission_recovery import BACKUP_DATES, DATABASE_NAMES
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.backup import observe_database_operation, write_json_atomic
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -35,22 +36,23 @@ def migrate_databases(data_dir: Path, *, dry_run: bool = True) -> dict[str, dict
     :param dry_run: Read-only analysis unless explicitly disabled.
     :return: Daily and HF recovery reports with counts and backup receipts.
     """
-    targets = [data_dir / f"{name}.duckdb" for name in ("hyperliquid-vaults", "hyperliquid-vaults-hf")]
+    targets = [data_dir / f"{name}.duckdb" for name in DATABASE_NAMES]
     for target in targets:
         if not target.is_file():
             raise FileNotFoundError(f"Required database missing: {target}")
     backup_dir = data_dir / "migration-backups" / "hypercore-leader-shares-1633"
+    raw = data_dir / "backups" / BACKUP_DATES[0] / "vault-prices-1h.parquet"
+    parquets = [raw] if raw.is_file() else []
     reports = {}
     lock = nullcontext() if dry_run else wait_other_writers(data_dir / "scan-pipeline", timeout=60)
     with lock:
         for target in tqdm(targets, desc="Recovering HyperCore leader shares"):
             sources = [data_dir / "backups" / date / target.name for date in BACKUP_DATES]
             available = [path for path in sources if path.is_file()]
-            raw = data_dir / "backups" / BACKUP_DATES[0] / "vault-prices-1h.parquet"
             if len(available) < len(sources):
                 logger.warning("%s: %d/%d scanner archives available; also using retained migration evidence", target.name, len(available), len(sources))
             with observe_database_operation(f"Recovering policy values in {target.name}"):
-                report = recover_leader_shares(target, available, backup_dir, parquet_sources=[raw] if raw.is_file() else [], dry_run=dry_run)
+                report = recover_leader_shares(target, available, backup_dir, parquet_sources=parquets, dry_run=dry_run)
             reports[target.stem] = report
             logger.info("%s: %s", target.stem, json.dumps(report))
             if not dry_run:

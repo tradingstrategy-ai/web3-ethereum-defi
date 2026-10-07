@@ -22,18 +22,12 @@ from pathlib import Path
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.hyperliquid.permission_recovery import recover_permissions
+from eth_defi.hyperliquid.permission_recovery import BACKUP_DATES, DATABASE_NAMES, recover_permissions
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.backup import observe_database_operation, write_json_atomic
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
-
-#: Fixed database scope of the corruption repair.
-DATABASE_NAMES = ("hyperliquid-vaults", "hyperliquid-vaults-hf")
-
-#: Retained pre-repair scanner archives in newest-first preference order.
-BACKUP_DATES = ("2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29")
 
 
 def migrate_databases(data_dir: Path, *, dry_run: bool = True) -> dict[str, dict]:
