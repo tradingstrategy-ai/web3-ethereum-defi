@@ -25,6 +25,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.cloudflare_r2 import create_r2_client
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.provider.rpcdb import resolve_rpc_tracking_database_path
 from eth_defi.vault.backup import copy_database_file, file_sha256, observe_database_operation
 from eth_defi.xerberus.constants import resolve_xerberus_database_path
@@ -116,6 +117,7 @@ def database_registry(base_path: Path, existing_paths: list[Path]) -> list[DuckD
         "rpc-tracking.duckdb": "RPC_TRACKING_DB_PATH",
     }
     registry = [DuckDBBackup(Path(filename).stem, Path(os.environ.get(variable, str(resolve_rpc_tracking_database_path() if filename == "rpc-tracking.duckdb" else base_path / filename))).expanduser()) for filename, variable in filenames.items()]
+    registry.append(DuckDBBackup("vault-post-database", resolve_feed_database_path()))
     currency_path = Path(os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH") or str(base_path / "exchange-rates.duckdb")).expanduser().resolve()
     canonical = {resolve_core3_database_path().resolve(): "core3", resolve_xerberus_database_path().resolve(): "xerberus", currency_path: "exchange-rates"}
     for path in existing_paths:
