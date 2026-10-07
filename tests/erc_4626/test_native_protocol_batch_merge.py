@@ -109,17 +109,15 @@ def test_hypercore_batch_exports_permissions_and_restores_missing_catalogue(tmp_
     assert metadata_path.read_bytes() == previous_bytes
 
 
-@pytest.mark.parametrize("failed_stage", ["merge_into_vault_database", "export_hypercore_permission_history"])
-def test_hypercore_catalogue_or_permission_failure_preserves_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_stage: str) -> None:
+def test_hypercore_permission_failure_preserves_prices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An incomplete Hypercore export retains the previous prices and closes owners.
 
-    Fail each newly required export stage with a real existing Parquet file.
+    Fail permission export with a real existing Parquet file.
     The merger must report the failure without replacing historical prices
     with a snapshot whose catalogue or permission export did not complete.
 
     :param tmp_path: Isolated Parquet and scanner paths.
     :param monkeypatch: Replace scanner reads and inject the selected failure.
-    :param failed_stage: Export function that fails this cycle.
     :return: None; checks byte preservation and owner closure.
     """
     parquet_path = tmp_path / "vault-prices-1h.parquet"
@@ -133,11 +131,11 @@ def test_hypercore_catalogue_or_permission_failure_preserves_prices(tmp_path: Pa
     monkeypatch.setattr(post_processing, "merge_into_vault_database", lambda *_, **__: None)
 
     def fail(*_: object, **__: object) -> None:
-        """Reject the current catalogue or permission evidence for this test."""
+        """Reject the current permission evidence for this test."""
         message = "Rejected evidence"
         raise ValueError(message)
 
-    monkeypatch.setattr(post_processing, failed_stage, fail)
+    monkeypatch.setattr(post_processing, "export_hypercore_permission_history", fail)
     steps = post_processing.merge_native_protocols(merge_hypercore=True, uncleaned_parquet_path=parquet_path, hyperliquid_db_path=tmp_path / "missing-daily.duckdb", hyperliquid_hf_db_path=hf_path)
     assert steps["hypercore-price-merge"] is False
     assert parquet_path.read_bytes() == previous

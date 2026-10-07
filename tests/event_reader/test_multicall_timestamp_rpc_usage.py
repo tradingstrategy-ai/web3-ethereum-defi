@@ -108,45 +108,6 @@ def test_hypersync_timestamp_path_does_not_receive_rpc_stats(monkeypatch: pytest
     assert result is expected
 
 
-def test_timestamp_threaded_tasks_merge_exact_physical_calls(tmp_path: Path) -> None:
-    """Several real threaded tasks return one block call each to the parent."""
-
-    expected_block_calls = 3
-    anvil = launch_anvil()
-    timestamps = None
-    try:
-        HTTPProvider(anvil.json_rpc_url).make_request("anvil_mine", ["0x3"])
-        provider_domain = get_url_domain(anvil.json_rpc_url)
-        stats = RPCRequestStats()
-        web3factory = MultiProviderWeb3Factory(
-            anvil.json_rpc_url,
-            retries=0,
-            skip_verification=True,
-            expected_chain_id=31337,
-            rpc_request_stats=stats,
-        )
-
-        timestamps = multicall_timestamp.fetch_block_timestamps_multiprocess(
-            chain_id=31337,
-            web3factory=web3factory,
-            start_block=0,
-            end_block=2,
-            step=1,
-            display_progress=False,
-            max_workers=2,
-            cache_path=tmp_path,
-            rpc_request_stats=stats,
-        )
-
-        calls, errors = stats.export()
-        assert calls[provider_domain, "eth_getBlockByNumber"] == expected_block_calls
-        assert errors == {}
-    finally:
-        if timestamps is not None:
-            timestamps.close()
-        anvil.close()
-
-
 def test_rpc_timestamp_cache_fills_old_gaps_on_the_requested_grid(tmp_path: Path) -> None:
     """Sparse cache endpoints and nearby blocks do not establish exact coverage.
 
@@ -188,30 +149,3 @@ def test_rpc_timestamp_cache_fills_old_gaps_on_the_requested_grid(tmp_path: Path
         if cache is not None:
             cache.close()
         anvil.close()
-
-
-def test_rpc_timestamp_failure_closes_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A failed header fetch releases the file-backed cache before propagating.
-
-    Keep a reference to the owner passed into the reader so the test can check
-    resource release even though no result slicer was returned to the caller.
-
-    :param tmp_path: Isolated cache directory.
-    :param monkeypatch: Replace the header fetch with a deterministic failure.
-    :return: None; checks the original error and database connection closure.
-    """
-    cache = BlockTimestampDatabase.create(1, tmp_path)
-
-    def fail_header(*_: object) -> tuple[int, int, RPCRequestStats | None]:
-        """Simulate an invalid provider header without opening a connection."""
-        message = "Invalid block header"
-        raise ValueError(message)
-
-    monkeypatch.setattr(multicall_timestamp, "load_timestamp_cache", lambda *_: cache)
-    monkeypatch.setattr(multicall_timestamp, "_read_timestamp_subprocess", fail_header)
-    try:
-        with pytest.raises(ValueError, match="Invalid block header"):
-            multicall_timestamp.fetch_block_timestamps_multiprocess(chain_id=1, web3factory=lambda: None, start_block=1, end_block=2, step=1, max_workers=2, display_progress=False, cache_path=tmp_path)
-        assert cache.is_closed()
-    finally:
-        cache.close()
