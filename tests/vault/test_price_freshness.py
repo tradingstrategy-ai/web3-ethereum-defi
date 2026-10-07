@@ -73,6 +73,7 @@ class DummyReader:
         self.timestamps = timestamps
         self.uses_contextual_history = contextual
         self.uses_share_price_equivalence = False
+        self.write_all_samples = False
         self.first_block = None
         self.reader_state = None if contextual else VaultReaderState(vault)
         if self.reader_state is not None and timestamps:
@@ -171,13 +172,15 @@ def test_low_activity_tvl_probe_uses_reader_conversion() -> None:
     assert fetch_current_vault_tvl_usd(vault) == (None, True)
 
 
-def test_weekly_static_reader_retains_unchanged_real_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep a row at each seven-day early deadline with source timestamps."""
+@pytest.mark.parametrize("write_all_samples", [False, True])
+def test_weekly_static_reader_retains_unchanged_real_rows(monkeypatch: pytest.MonkeyPatch, write_all_samples: bool) -> None:
+    """Keep weekly freshness rows, or all samples when requested by the adapter."""
     start = datetime.datetime.fromisoformat("2026-01-01T00:00:00")
     days = (0, 6, 7, 14)
     timestamps = [start + datetime.timedelta(days=day) for day in days]
     vault = DummyVault(VaultSpec(1, "0x0000000000000000000000000000000000000001"), DummyToken())
     reader = DummyReader(vault, timestamps)
+    reader.write_all_samples = write_all_samples
     scanner = make_offline_scan(monkeypatch, reader)
     calls = [EncodedCall(func_name="price", address=vault.address, data=b"", extra_data={"vault": vault.address})]
 
@@ -189,8 +192,8 @@ def test_weekly_static_reader_retains_unchanged_real_rows(monkeypatch: pytest.Mo
 
     rows = list(scanner.read_historical([vault], 1, 5, 1, reader_func=fake_read_multicall))
 
-    assert [row.timestamp for row in rows] == [timestamps[0], timestamps[2], timestamps[3]]
-    assert scanner.freshness_rows_written == len(rows) - 1
+    assert [row.timestamp for row in rows] == (timestamps if write_all_samples else [timestamps[0], timestamps[2], timestamps[3]])
+    assert scanner.freshness_rows_written == (1 if write_all_samples else len(rows) - 1)
 
 
 def test_contextual_reader_retains_unchanged_real_rows(monkeypatch: pytest.MonkeyPatch) -> None:

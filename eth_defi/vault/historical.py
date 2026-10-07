@@ -847,7 +847,7 @@ class VaultHistoricalReadMulticaller:
 
                 due = freshness_due(reader, current_result)
                 unchanged = is_unchanged(reader, current_result, last_result)
-                if unchanged and not self.write_all_samples and not due:
+                if unchanged and not (self.write_all_samples or reader.write_all_samples) and not due:
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1

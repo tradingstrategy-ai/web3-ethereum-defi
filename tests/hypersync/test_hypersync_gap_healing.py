@@ -13,6 +13,7 @@ No live HyperSync connection needed — uses mocked async generators.
 import asyncio
 import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
@@ -25,11 +26,39 @@ from eth_defi.hypersync.hypersync_timestamp import (
     fetch_block_timestamps_using_hypersync_cached_async,
     fetch_exact_block_timestamps_using_hypersync_cached_async,
     fetch_sparse_block_timestamps_using_hypersync_cached_async,
+    fetch_timestamp_cache_headers_async,
     get_hypersync_block_height_with_retries,
     is_hypersync_next_block_range_error,
     is_hypersync_rate_limit_error,
     raise_if_recoverable_hypersync_flaky,
 )
+
+
+def test_timestamp_pages_request_only_cache_fields() -> None:
+    """Read inclusive block ranges through independently throttled pages.
+
+    A simulated server truncation must advance from ``next_block``. Hashes
+    and event logs are absent because the persistent cache stores neither.
+    """
+    requests: list[tuple[int, int]] = []
+
+    async def fetch_page(query):
+        requests.append((query.from_block, query.to_block))
+        assert query.include_all_blocks
+        assert not query.logs
+        assert len(query.field_selection.block) == 2
+        next_block = min(query.from_block + 2, query.to_block)
+        blocks = [SimpleNamespace(number=number, timestamp=hex(1700000000 + number)) for number in range(query.from_block, next_block)]
+        return SimpleNamespace(next_block=next_block, data=SimpleNamespace(blocks=blocks))
+
+    async def fetch_headers():
+        client = SimpleNamespace(get=fetch_page)
+        return [header async for header in fetch_timestamp_cache_headers_async(client, 1, 1000, 1004, display_progress=False, validate_chain_id=False)]
+
+    headers = asyncio.run(fetch_headers())
+    assert requests == [(1000, 1005), (1002, 1005), (1004, 1005)]
+    assert [header.block_number for header in headers] == list(range(1000, 1005))
+    assert headers[-1].timestamp == 1700001004
 
 
 def test_is_hypersync_rate_limit_error_matches_textual_form():
@@ -56,6 +85,66 @@ def test_is_hypersync_rate_limit_error_matches_textual_form():
     # 3. Reject unrelated runtime errors and non-RuntimeError exceptions.
     assert is_hypersync_rate_limit_error(RuntimeError("connection reset")) is False
     assert is_hypersync_rate_limit_error(ValueError("rate limited")) is False
+
+
+def test_timestamp_cache_coalesces_nearby_holes(tmp_path: Path) -> None:
+    """Fetch nearby missing headers together and keep cached rows unique.
+
+    Re-reading the short interval between holes costs fewer provider requests
+    than opening a stream for every missing block.
+
+    :param tmp_path: Isolated persistent timestamp-cache directory.
+    """
+    database = BlockTimestampDatabase.create(1, tmp_path)
+    try:
+        blocks = [number for number in range(1000, 1100) if number not in (1020, 1050, 1080)]
+        database.import_chain_data(1, pd.Series([1700000000 + number for number in blocks], index=blocks))
+    finally:
+        database.close()
+
+    requested: list[tuple[int, int]] = []
+
+    async def fetch_headers(client, chain_id, start_block, end_block, **kwargs):
+        requested.append((start_block, end_block))
+        for number in range(start_block, end_block + 1):
+            yield _make_block_header(number)
+
+    with patch("eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async", side_effect=fetch_headers):
+        slicer = fetch_block_timestamps_using_hypersync_cached(MagicMock(), 1, 1000, 1099, cache_path=tmp_path, display_progress=False)
+    try:
+        assert requested == [(1020, 1080)]
+        assert len(slicer) == 100
+    finally:
+        slicer.close()
+
+
+def test_timestamp_cache_does_not_extend_before_requested_start(tmp_path: Path) -> None:
+    """Keep a recent scan bounded when its old cache ends before deployment.
+
+    The gap between an old cache and a recent vault is not required by this
+    caller and must not consume provider quota.
+
+    :param tmp_path: Isolated timestamp-cache directory.
+    """
+    database = BlockTimestampDatabase.create(1, tmp_path)
+    try:
+        database.import_chain_data(1, pd.Series([1700000000 + number for number in range(1, 101)], index=range(1, 101)))
+    finally:
+        database.close()
+    requested: list[tuple[int, int]] = []
+
+    async def fetch_headers(client, chain_id, start_block, end_block, **kwargs):
+        requested.append((start_block, end_block))
+        for number in range(start_block, end_block + 1):
+            yield _make_block_header(number)
+
+    with patch("eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async", side_effect=fetch_headers):
+        slicer = fetch_block_timestamps_using_hypersync_cached(MagicMock(), 1, 1000, 1010, cache_path=tmp_path, display_progress=False)
+    try:
+        assert requested == [(1000, 1010)]
+        assert len(slicer) == 111
+    finally:
+        slicer.close()
 
 
 def test_raise_if_recoverable_hypersync_flaky_wraps_and_passes_through():
@@ -135,7 +224,7 @@ def test_hypersync_gap_healing(tmp_path):
         mock_client = MagicMock()
 
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
@@ -186,7 +275,7 @@ def test_hypersync_gap_healing_no_gaps(tmp_path):
         mock_client = MagicMock()
 
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
@@ -231,7 +320,7 @@ def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_pa
 
     async def _run():
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             return await fetch_sparse_block_timestamps_using_hypersync_cached_async(
@@ -273,7 +362,7 @@ def test_exact_hypersync_timestamp_fetch_accepts_irregular_blocks(tmp_path: Path
         """Run the exact collector with its network stream mocked."""
 
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             return await fetch_exact_block_timestamps_using_hypersync_cached_async(
@@ -347,7 +436,7 @@ def test_hypersync_cached_sync_retries_next_block_range_error(tmp_path):
 
     with (
         patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ),
         patch(
@@ -400,7 +489,7 @@ def test_hypersync_timestamp_fetch_clips_to_indexed_height(tmp_path):
                 return_value=1050,
             ),
             patch(
-                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
                 side_effect=mock_get_timestamps,
             ),
         ):
@@ -515,7 +604,7 @@ def test_hypersync_head_backfill_respects_clipped_indexed_height(tmp_path):
                 return_value=500,
             ),
             patch(
-                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
                 side_effect=mock_get_timestamps,
             ),
         ):
@@ -570,7 +659,7 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
 
         with (
             patch(
-                "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+                "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
                 side_effect=mock_get_timestamps,
             ),
             patch(
@@ -635,7 +724,7 @@ def test_hypersync_head_backfill_no_holes(tmp_path):
         mock_client = MagicMock()
 
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(
@@ -709,7 +798,7 @@ def test_hypersync_interior_gap_detected_on_retry(tmp_path):
         mock_client = MagicMock()
 
         with patch(
-            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            "eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async",
             side_effect=mock_get_timestamps,
         ):
             slicer = await fetch_block_timestamps_using_hypersync_cached_async(

@@ -290,6 +290,7 @@ STABLECOIN_LIKE = set(
         "OUSD",
         "PAR",
         "PAXG",
+        "pUSD",  # Plume USD: https://www.plume.org/pusd
         "PYUSD",
         "RAI",
         "RLUSD",

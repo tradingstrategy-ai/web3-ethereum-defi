@@ -90,6 +90,8 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     42220: (13112599, datetime.datetime(2022, 5, 21)),  # Celo https://celo.blockscout.com/tx/0xe21952e50a541d6a9129009429b4c931841f95817235b2a7de4d0904c6278afb
     2741: (284377, datetime.datetime(2025, 1, 28)),  # Abstract https://abscan.org/tx/0x99fbeee476b397360a2a8cdac20488053198520c3055b78888a52bb765cb3051
     10: (4_286_263, datetime.datetime(2022, 3, 9)),  # Optimism https://optimistic.etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
+    # Verified with Plume eth_getCode at blocks 39,678 (empty) and 39,679 (3,808 bytes).
+    98866: (39_679, datetime.datetime(2025, 4, 1, 19, 18, 33)),
 }
 
 
@@ -357,7 +359,7 @@ def get_multicall_contract(
         multicall_data = MUTLICALL_DEPLOYED_AT.get(chain_id)
         # Do a block number check for archive nodes
         if multicall_data is not None and type(block_identifier) == int:
-            assert multicall_data[0] < block_identifier, f"Multicall not yet deployed at {block_identifier}"
+            assert multicall_data[0] <= block_identifier, f"Multicall not yet deployed at {block_identifier}"
 
     return get_deployed_contract(web3, "multicall/IMulticall3.json", Web3.to_checksum_address(address))
 

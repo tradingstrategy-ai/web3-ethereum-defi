@@ -591,8 +591,10 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
     "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
-    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-08-06.
-    "operatorRegistry": {1, 56, 480, 9745, 43114, 98866},
+    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-10-06.
+    # Arc, Base, Monad and Robinhood selectors were also verified by live eth_call.
+    # Morph (2818) remains excluded until an RPC is configured and verified.
+    "operatorRegistry": {1, 56, 143, 480, 4663, 5042, 8453, 9745, 43114, 98866},
 }
 
 

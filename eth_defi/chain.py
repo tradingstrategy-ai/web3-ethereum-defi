@@ -156,6 +156,8 @@ CHAIN_NAMES = {
     34443: "Mode",
     5000: "Mantle",
     5042: "Arc",
+    480: "Worldchain",
+    98866: "Plume",
     999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: "Hyperliquid_Testnet",  # HyperEVM testnet
     4217: "Tempo",
@@ -303,6 +305,8 @@ EVM_BLOCK_TIMES = {
     # Measured from Arc blocks 22,406,355 to 22,506,355 on 2026-09-24:
     # 50,769 seconds / 100,000 blocks = 0.50769 seconds per block.
     5042: 0.5,  # Arc mainnet, EVM-compatible USDC-gas L1 with sub-second finality
+    480: 2,  # Worldchain, 20,000 seconds across 10,000 recent blocks measured 2026-10-06
+    98866: 0.4,  # Plume, 4,033 seconds across 10,000 recent blocks measured 2026-10-06
     #: HyperEVM uses a dual-block architecture: small blocks (2M gas, ~1s) and large blocks (30M gas, ~60s).
     #: Contract deployments >2M gas require opting in to large blocks via ``evmUserModify`` with ``usingBigBlocks``.
     #: See `HyperEVM dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.

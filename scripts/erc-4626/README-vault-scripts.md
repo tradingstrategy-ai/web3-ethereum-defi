@@ -828,7 +828,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out such as Arc applies only to the generic chain price scan. |
+| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. Arc, Worldchain and Plume use this global switch. |
 | `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
 | `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
@@ -1508,17 +1508,18 @@ GROUP BY chain, phase
 ORDER BY chain, phase;
 ```
 
-Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
-`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
-lead discovery and metadata refresh, while its per-chain configuration
-suppresses generic share-price history even when production sets
-`SCAN_PRICES=true`. Dedicated tokenised-fund feeds and settlement-event
-scanning retain their existing independent chain selection. No dedicated Arc
-tokenised-fund product is currently registered. Populate and validate
-`~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
-Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
-`scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused
-Tempo-only dry run:
+Arc, Worldchain, Plume, Tempo and Robinhood Chain are included in the default
+all-chain schedule when their respective `JSON_RPC_*` variables are configured.
+Discovery runs by default, and their generic hourly price scans run when
+`SCAN_PRICES=true`. Both Compose scanner services pass the RPC variables
+through. An explicit `CHAIN_ORDER` or `DISABLE_CHAINS` setting can still
+exclude a chain. The Nest migration backfills Nest entrypoints and fills the
+timestamp cache over their required historical range. Earlier vaults from
+other protocols may need additional cached blocks; restore or prepopulate
+those ranges on the production host before enabling recurring price updates.
+Dedicated tokenised-fund
+feeds and settlement-event scanning retain their independent selection. For a
+focused Tempo-only dry run:
 
 ```shell
 source .local-test.env && \
@@ -1528,7 +1529,7 @@ SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-Adding Arc changes the lead-discovery configuration signature. The first
+Adding chains changes the lead-discovery configuration signature. The first
 production cycle after deployment will therefore refresh discovery and
 metadata for every configured EVM chain once; schedule the rollout with that
 one-off provider load in mind.
@@ -1615,6 +1616,92 @@ JSON_RPC_URL=$JSON_RPC_ETHEREUM \
 START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
+
+### Nest migrate-vaults.py
+
+`scripts/nest/migrate-vaults.py` is the one-off Nest migration entry point. It
+verifies every active first-party route onchain, repairs the metadata pickle,
+then fills the dense per-chain timestamp cache through Envio HyperSync and
+backfills hourly raw and cleaned prices through the common address-scoped
+writers. The backfill replaces only selected Nest entrypoint histories. It
+uses the freshly fetched catalogue when rebuilding adapter rows, and preserves
+cached descriptions during a temporary CMS outage in normal scanner reads.
+It retains every hourly observation because daily NAV changes can be smaller
+than the shared scanner's 10-basis-point sparse retention threshold. Existing
+sparse histories may therefore give slightly different monthly CAGR until
+they are rescanned with this migration.
+Routine Nest readers also retain every successful sample, so the recurring
+scanner does not restore the sparse retention threshold on these routes.
+They bypass the generic deposit-count activity shortcut because a catalogue
+import has no observed event counts. Their original history start is retained.
+Stateful polling remains adaptive: a routine rescan of small or inactive routes
+can replace hourly migrated observations with daily or weekly samples.
+The migration does not clear or advance the recurring scanner's reader states
+or discovery cursors. On Monad, the historical reader starts at the provider's oldest
+readable state and retains older existing prices. Raw prices cover every
+selected route; the public cleaned Parquet receives only denominations that
+the shared stablecoin policy recognises, including Plume's `pUSD`, whose
+[issuer documents 1:1 USDC backing and redemption](https://www.plume.org/pusd).
+Routes denominated in `PRIME` or `XUPL` remain in raw history until their
+denomination policy is reviewed separately.
+
+The default scope is every active route on every supported Nest chain. As of
+2026-10-06, the public catalogue had 81 active EVM routes on 10 chains.
+The migration excludes Solana mints published for nine active products.
+Nest's product-level TVL may include positions beyond these entrypoints. A dry run
+verifies all selected contracts and prints each chain's earliest published start
+block and timestamp-cache status without writing pipeline data:
+
+```shell
+source .local-test.env && PYTHONPATH=. DRY_RUN=true poetry run python scripts/nest/migrate-vaults.py
+```
+
+Apply the metadata and historical migration after coordinating with the
+looped scanner. The command holds the shared `scan-pipeline` writer lock from
+the metadata read through the final cleaned-price write. Its HyperSync cache
+fill may take time on chains without a retained dense timestamp cache:
+
+```shell
+source .local-test.env && PYTHONPATH=. DRY_RUN=false poetry run python scripts/nest/migrate-vaults.py
+```
+
+The applied run requires `JSON_RPC_*` URLs for all active Nest chains and
+`HYPERSYNC_API_KEY`. `MAX_WORKERS` controls threaded RPC reads (default 8), and
+`PIPELINE_LOCK_TIMEOUT` controls how long to wait for the scanner lock (default
+60 seconds). Set `HYPERSYNC_RPM` below the Envio token's request quota, leaving
+room for other processes using the same token. The cache reads timestamp-only
+pages and acquires a rate-limit slot for every HTTP request, then saves each
+500,000-block chunk. An exhausted quota stops the run; wait for the provider
+window to reset and rerun with a lower request rate or higher provider quota.
+Completed cache chunks are reused. Use `NETWORKS=plume` only for a reviewed focused repair. Set
+`NEST_SCAN_PRICES=false` only when historical prices must deliberately be left
+unchanged. An isolated run must set `VAULT_DB_PATH`,
+`UNCLEANED_PRICE_DATABASE`, `CLEANED_PRICE_DATABASE` and
+`TIMESTAMP_CACHE_DIR` together to avoid mixing private metadata with shared
+price or timestamp data. The raw and cleaned Parquet copies must exist before
+an applied history run. The migration backs up metadata and can be rerun after
+an interrupted chain because every price write is address-scoped and atomic.
+The script does not save a migration completion cursor: rerunning the default
+command rescans completed chains as well. Use `NETWORKS` with the remaining
+chain names to resume a partially completed run. A cleaned-history validation
+failure stops the migration while preserving the existing cleaned file; the
+raw history already committed for that chain remains available for diagnosis.
+The migration preserves scheduled reader state, so a chain without saved
+progress can be rescanned by its first routine cycle. Prepopulate or restore
+the production timestamp cache before enabling the recurring price scanner.
+
+After the scan, run `scripts/nest/list-vaults.py` against the resulting metadata
+and export files to check route names, curator records, TVL, one-month CAGR and
+all-time CAGR. The report prefers net returns when available and labels gross
+fallbacks. `History since` defines the available window behind all-time CAGR.
+The Nest adapter does not decode management or performance fees, so gross
+CAGR does not establish returns after all fees. Report name checks compare
+the export against local metadata rather than independently verifying the CMS
+name of every legacy route.
+Nest's displayed yield may instead use simple annualisation or composition
+yield; compare against its NAV yield over the same dates before interpreting a
+difference as an incorrect price. Timestamp caches with legacy primary keys are
+migrated transactionally before ingestion, preserving their existing rows.
 
 ### Enzyme backfill-history.py
 

@@ -1039,6 +1039,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     threshold. T3tris migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
+    Nest routes can be imported from the first-party catalogue without observed
+    deposit counts. They must keep their published historical lower bound;
+    zero observed events must not move them into a recent-only bootstrap.
 
     :param detection:
         Shared vault detection envelope.
@@ -1059,6 +1062,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
             ERC4626Feature.antarctic_like,
+            ERC4626Feature.nest_like,
         )
     )
     kamui_exempt = ERC4626Feature.lagoon_like in detection.features and is_kamui_lagoon_vault(detection.chain, detection.address)

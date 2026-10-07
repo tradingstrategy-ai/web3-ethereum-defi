@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Expand Nest vault coverage to Arc, Worldchain and Plume, enrich product and curator metadata, and add historical migration and CAGR audit scripts (2026-10-07).
 - fix: Correct ApeX user-vault links and add a metadata-only migration for cached links, preserving the official-vault view (2026-10-05).
 - perf: Reuse real GMX token metadata within fork tests, omit GMX submodule checkout, refresh Ember's historical cache with CI-pinned Anvil and bound its archive-provider failover (2026-10-04).
 
