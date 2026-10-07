@@ -2667,6 +2667,12 @@ Public download URLs:
 Collect tracked RSS, Twitter/X, and LinkedIn posts into the vault post DuckDB.
 Prints a summary table plus per-source loaded and failed dashboards.
 
+The normal vault data export includes the feed database in private R2 backups,
+with at most one backup attempt every 48 hours. The backup path uses
+`FEED_DB_PATH`, then the collector's `DB_PATH`, then the default below. The
+existing backup owner check refuses a snapshot while the collector holds the
+database open; the collector closes it between collection cycles.
+
 ```shell
 poetry run python scripts/erc-4626/scan-vault-posts.py
 ```

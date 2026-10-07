@@ -102,7 +102,9 @@ refuses to overwrite differing files and records remote identity/availability.
 Every registered DuckDB uses the same gate, including settlement, risk and
 currency databases previously uploaded every cycle. The registry includes
 Hyperliquid daily/HF, GRVT, Lighter, Hibachi, ApeX, Derive v3, historical context,
-RPC accounting and existing resolved settlement/Core3/Xerberus/currency paths.
+RPC accounting, vault post feeds and existing resolved settlement/Core3/Xerberus/currency paths.
+The feed path uses `FEED_DB_PATH`, then `DB_PATH`, then
+`~/.tradingstrategy/vaults/vault-post-database.duckdb`.
 An override preserves the database's logical identity. Unknown top-level files
 are logged. Explicit extra owned databases can be supplied through
 `DUCKDB_EXTRA_BACKUPS='[{"name":"block-timestamp-1","path":"/path/to/1-timestamps.duckdb"}]'`.
