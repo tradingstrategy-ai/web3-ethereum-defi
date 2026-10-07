@@ -34,6 +34,7 @@ import math
 import os
 import resource
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,7 +70,7 @@ from eth_defi.research.vault_metrics import (
     export_lifetime_row,
     slugify_protocol,
 )
-from eth_defi.token import is_stablecoin_like
+from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.utils import setup_console_logging
 
 # Import core TradingStrategy / eth_defi modules
@@ -197,7 +198,7 @@ class StickyExportStats:
 class StickyExportResult:
     """Result of applying sticky vault export state."""
 
-    #: Final exported vault rows.
+    #: Admitted current/sticky records, before public Nest route selection.
     vaults: list[dict]
 
     #: Mutated state ready to be written after output JSON succeeds.
@@ -489,7 +490,7 @@ def save_sticky_export_state(state: dict, path: Path, *, validated: bool = False
         The exporter already checked this state before writing its public JSON.
         Standalone callers leave this false to retain strict validation.
     """
-    _write_strict_json(path, state, validated=validated)
+    write_strict_json(path, state, validated=validated)
 
 
 def build_export_metadata(version_info: VersionInfo | None = None) -> dict:
@@ -863,6 +864,53 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
         vaults_by_key[key] = (priority, record)
 
 
+def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
+    """Publish one eligible deposit route per Nest pool on each chain.
+
+    Nest's `ERC-7575 entrypoints <https://docs.nest.credit/developers/smart-contracts>`_
+    share a token and report the same pool TVL. Prefer USDC, then USDT, then
+    pUSD among admitted export records, normalising bridged token symbols and
+    using the entrypoint address to break ties deterministically. Asset
+    preference also applies to stale cached records, whose observation dates
+    and stale flags remain intact. Other assets rank last. Keep the pool's first
+    position in the input without changing the selected record or scanner
+    state. Records without a pool identity remain separate.
+
+    Apply this after sticky replay and before public aggregates, so cached
+    alternative entrypoints cannot restore duplicate listings or repeated TVL.
+
+    :param vaults:
+        Current and sticky JSON records with ``protocol_slug``, ``chain_id``,
+        ``share_token_address``, ``denomination`` and ``address`` fields.
+    :return:
+        Selected records, including every non-Nest record unchanged.
+    """
+    preference = {"USDC": 0, "USDT": 1, "PUSD": 2}
+    selected: list[dict] = []
+    pool_positions: dict[tuple[int, str], int] = {}
+    for record in vaults:
+        share_token = record.get("share_token_address")
+        chain_id = record.get("chain_id")
+        if record.get("protocol_slug") != "nest" or not share_token or chain_id is None:
+            selected.append(record)
+            continue
+
+        pool = (int(chain_id), share_token.lower())
+        position = pool_positions.get(pool)
+        if position is None:
+            pool_positions[pool] = len(selected)
+            selected.append(record)
+            continue
+
+        previous = selected[position]
+        rank = (preference.get(normalise_token_symbol(record.get("denomination")), 3), record["address"].lower())
+        previous_rank = (preference.get(normalise_token_symbol(previous.get("denomination")), 3), previous["address"].lower())
+        if rank < previous_rank:
+            selected[position] = record
+
+    yield from selected
+
+
 def apply_sticky_export_state(
     lifetime_data_df: pd.DataFrame,
     state: dict,
@@ -890,7 +938,9 @@ def apply_sticky_export_state(
     :param stale_warning_age_days:
         Warning age in days.
     :return:
-        Final vault rows, mutated state, and counters.
+        Admitted vault records before public route selection, mutated state,
+        and counters. State timestamps describe candidate-record preparation;
+        a retained Nest entrypoint need not appear in the public vault list.
     """
     validate_sticky_export_state(state)
     now_text = format_state_timestamp(now)
@@ -1027,7 +1077,7 @@ def validate_strict_json_serialisable(obj: dict) -> None:
         raise ValueError("Non-serializable values found; aborting JSON export.")
 
 
-def _write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
+def write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
     """Atomically write validated JSON, preferring the existing ``orjson`` dependency.
 
     Standard JSON handles a few values that ``orjson`` does not, notably
@@ -1443,7 +1493,10 @@ def main(
         threshold_tvl=THRESHOLD_TVL,
         stale_warning_age_days=stale_warning_age_days,
     )
-    vaults = sticky_result.vaults
+    vaults = list(select_preferred_nest_routes(sticky_result.vaults))
+    omitted_routes = len(sticky_result.vaults) - len(vaults)
+    if omitted_routes:
+        logger.info("Nest route selection omitted %d alternative deposit entrypoints from the public export", omitted_routes)
 
     # Free the metrics frame before curator building, validation and the
     # JSON write; the sticky result holds new dicts, not references into it.
@@ -1529,7 +1582,7 @@ def main(
     validate_strict_json_serialisable(sticky_result.state)
 
     # 7️⃣ Write to JSON file (strict mode)
-    _write_strict_json(output_path, output_data, validated=True)
+    write_strict_json(output_path, output_data, validated=True)
 
     save_sticky_export_state(sticky_result.state, sticky_state_path, validated=True)
     logger.info("Sticky export state: loaded %d vault entries from %s", sticky_result.stats.loaded_state_entries, sticky_state_path)

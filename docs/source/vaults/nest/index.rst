@@ -82,9 +82,20 @@ checked against local scanner metadata; chain and curator are checked against
 the catalogue route and reviewed Nest DAO identity. It shows Nest's
 product-level TVL and reported SEC 30-day yield in separate columns: these
 figures repeat across chain routes and must not be confused with the export's
-price-derived figures. Exported TVL and CAGR can also repeat across deposit
-routes that share a product and should not be summed across those routes. The
-table includes the price observation date, share price and history start date.
+price-derived figures. The public export lists one eligible entrypoint per
+chain and share token, preferring USDC, then USDT, then pUSD, with bridge-symbol
+normalisation. This preference also applies to retained stale records, whose
+observation dates and stale flags remain visible. This avoids
+counting the same pool TVL more than once. Alternative deposit entrypoints
+remain in scanner metadata and price histories; the catalogue audit still
+shows them, with no export row when another entrypoint represents their pool.
+Pools on different chains remain separate listings.
+``scripts/nest/migrate-export-routes.py`` can remove old duplicate listings
+from a saved public JSON export, recalculate its aggregates and save a backup.
+It preserves scanner metadata, all price histories and qualification state.
+The next normal export/upload publishes the selected routes. See the vault
+scripts README for local-copy and Docker commands. The table includes the
+price observation date, share price and history start date.
 All-time CAGR describes the available collected history, which may be shorter
 than the vault lifetime. The report prefers net CAGR when
 available, matching the export's category metric. The report labels gross

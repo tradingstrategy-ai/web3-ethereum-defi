@@ -708,7 +708,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
         assert validated
         raise OSError("simulated public JSON write failure")
 
-    monkeypatch.setattr(top_vaults_json, "_write_strict_json", fail_public_write)
+    monkeypatch.setattr(top_vaults_json, "write_strict_json", fail_public_write)
     with pytest.raises(OSError, match="simulated public JSON write failure"):
         run_main()
     assert all(path.read_bytes() == previous for path, previous in previous_files.items())
