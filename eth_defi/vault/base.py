@@ -1075,6 +1075,9 @@ class VaultHistoricalReader(ABC):
     - Allows to construct historical returns
     """
 
+    #: Retain every successful static Multicall sample, including unchanged NAVs.
+    write_all_samples: bool = False
+
     def __init__(self, vault: "VaultBase"):
         assert isinstance(vault, VaultBase)
         self.vault = vault

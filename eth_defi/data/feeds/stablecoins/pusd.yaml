@@ -1,0 +1,5 @@
+# Plume USD shares its issuer's existing feed sources.
+feeder-id: pusd
+name: Plume USD
+role: stablecoin
+canonical-feeder-id: plume

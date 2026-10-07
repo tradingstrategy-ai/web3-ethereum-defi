@@ -1,0 +1,14 @@
+feeder-id: blackopal
+name: BlackOpal
+role: curator
+website: https://www.blackopal.finance/
+short_description: BlackOpal manages payment-financing strategies backed by Brazilian credit card receivables.
+long_description: |
+  [BlackOpal](https://www.blackopal.finance/) is a payments-finance firm focused on Brazilian credit card receivables and related asset-backed financing. Its LiquidStone II strategy combines short-duration receivables with a liquid investment sleeve. [Plume identifies BlackOpal Finance as the manager of nOPAL](https://www.plume.org/blog/plume-and-bybit-expand-access-to-3-trillion-brazilian-credit-card-financing-market-through-nopal), which provides exposure to that strategy through a Nest vault.
+twitter: blackopal_fi
+linkedin: blackopalprivatecredit
+other-links:
+  - title: BlackOpal homepage - LiquidStone II strategy and investment remit
+    url: https://www.blackopal.finance/
+  - title: Plume - BlackOpal Finance manages nOPAL
+    url: https://www.plume.org/blog/plume-and-bybit-expand-access-to-3-trillion-brazilian-credit-card-financing-market-through-nopal

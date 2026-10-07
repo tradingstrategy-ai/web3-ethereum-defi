@@ -2,6 +2,7 @@
 
 import datetime
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from eth_defi.vault.scan_all_chains import build_chain_configs
 from eth_defi.version_info import VersionInfo
 
 LINEA_CHAIN_ID = 59144
+COMPOSE_SCANNER_SERVICE_COUNT = 2
 
 
 def test_robinhood_chain_is_scheduled_for_vault_scans() -> None:
@@ -76,36 +78,37 @@ def test_tempo_chain_is_scheduled_for_vault_scans() -> None:
     assert tempo.scan_vaults is True
 
 
-def test_arc_chain_is_scheduled_for_metadata_only_vault_scans() -> None:
-    """Arc discovery is scheduled without enabling historical prices."""
-
+@pytest.mark.parametrize("name,chain_id", [("Arc", 5042), ("Worldchain", 480), ("Plume", 98866)])
+def test_nest_chains_are_default_scanner_targets(name: str, chain_id: int) -> None:
+    """Nest chains enter the normal discovery and price schedule by default."""
     configs = {config.name: config for config in build_chain_configs()}
+    config = configs[name]
+    assert config.env_var == f"JSON_RPC_{name.upper()}"
+    assert config.scan_vaults is True
+    assert config.scan_prices is True
+    assert scan_all_chains.get_chain_id_by_name(name) == chain_id
 
-    arc = configs["Arc"]
-    assert arc.env_var == "JSON_RPC_ARC"
-    assert arc.scan_vaults is True
-    assert arc.scan_prices is False
 
-
-def test_chain_price_opt_out_overrides_global_switch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A staged chain rollout cannot inherit the production price switch.
-
-    Arc discovery is safe to schedule before its dense timestamp cache is
-    populated. The per-chain setting must therefore prevent the globally
-    enabled production price scan from reaching the historical price reader.
-    """
-    monkeypatch.setenv("JSON_RPC_ARC", "https://arc.example")
+@pytest.mark.parametrize("name,chain_id", [("Arc", 5042), ("Worldchain", 480), ("Plume", 98866)])
+@pytest.mark.parametrize("chain_prices,global_prices", [(True, True), (True, False), (False, True)])
+def test_nest_chains_follow_global_price_switch(name: str, chain_id: int, chain_prices: bool, global_prices: bool, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Require both global and chain price switches while retaining discovery."""
+    config = next(config for config in build_chain_configs() if config.name == name)
+    config = replace(config, scan_prices=chain_prices)
+    monkeypatch.setenv(config.env_var, f"https://{name.lower()}.example")
+    phases: list[str] = []
 
     def fake_verify_rpc_provider_capabilities(rpc_url: str, _chain_name: str) -> tuple[str, int]:
-        """Return the configured Arc endpoint without a network read."""
+        """Return the configured endpoint without a network read."""
 
         return rpc_url, 100
 
     def fake_scan_vaults_for_chain(*_args: object, **_kwargs: object) -> tuple[bool, dict[str, int]]:
-        """Return a successful Arc discovery result."""
+        """Return a successful discovery result."""
 
+        phases.append("discovery")
         return True, {
-            "chain_id": 5042,
+            "chain_id": chain_id,
             "start_block": 1,
             "end_block": 100,
             "vault_count": 0,
@@ -113,26 +116,37 @@ def test_chain_price_opt_out_overrides_global_switch(monkeypatch: pytest.MonkeyP
             "items_scanned": 0,
         }
 
-    def fail_price_scan(*_args: object, **_kwargs: object) -> None:
-        """Fail if the disabled Arc price phase is invoked."""
+    def fake_scan_prices_for_chain(*_args: object, **_kwargs: object) -> tuple[bool, dict[str, int]]:
+        """Return a successful historical price result."""
 
-        pytest.fail("Arc price scanning must remain disabled")
+        phases.append("prices")
+        return True, {"chain_id": chain_id, "rows_written": 1}
 
     monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", fake_verify_rpc_provider_capabilities)
     monkeypatch.setattr(scan_all_chains, "scan_vaults_for_chain", fake_scan_vaults_for_chain)
-    monkeypatch.setattr(scan_all_chains, "scan_prices_for_chain", fail_price_scan)
+    monkeypatch.setattr(scan_all_chains, "scan_prices_for_chain", fake_scan_prices_for_chain)
+    monkeypatch.setattr(scan_all_chains, "record_chain_backoff", lambda *_args, **_kwargs: None)
 
     result = scan_all_chains.scan_chain(
-        scan_all_chains.ChainConfig("Arc", "JSON_RPC_ARC", scan_prices=False),
-        scan_prices=True,
+        config,
+        scan_prices=global_prices,
         max_workers=1,
         frequency="1h",
         retry_attempt=0,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
     )
 
     assert result.status == "success"
     assert result.vault_scan_ok is True
-    assert result.price_scan_ok is None
+    assert result.price_scan_ok is (True if chain_prices and global_prices else None)
+    assert phases == (["discovery", "prices"] if chain_prices and global_prices else ["discovery"])
+
+
+def test_nest_chain_rpcs_reach_both_compose_scanners() -> None:
+    """Production services receive the new chain URLs from the host environment."""
+    compose = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text()
+    assert compose.count("JSON_RPC_WORLDCHAIN: ${JSON_RPC_WORLDCHAIN:-}") == COMPOSE_SCANNER_SERVICE_COUNT
+    assert compose.count("JSON_RPC_PLUME: ${JSON_RPC_PLUME:-}") == COMPOSE_SCANNER_SERVICE_COUNT
 
 
 def test_linea_uses_poa_middleware_for_historical_settlement_reads():

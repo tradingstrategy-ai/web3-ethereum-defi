@@ -8,6 +8,7 @@ import pytest
 from web3 import HTTPProvider
 
 from eth_defi.event_reader import multicall_timestamp
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.provider.anvil import launch_anvil
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.rpcdb import RPCRequestStats
@@ -139,6 +140,30 @@ def test_timestamp_loky_tasks_merge_exact_physical_calls(tmp_path: Path) -> None
         calls, errors = stats.export()
         assert calls[provider_domain, "eth_getBlockByNumber"] == expected_block_calls
         assert errors == {}
+
+        # Refill an interior hole without rereading its exact cached neighbours.
+        timestamps.close()
+        database = BlockTimestampDatabase.create(31337, tmp_path)
+        try:
+            database.con.execute("DELETE FROM block_timestamps WHERE block_number = 1")
+        finally:
+            database.close()
+        stats = RPCRequestStats()
+        timestamps = multicall_timestamp.fetch_block_timestamps_multiprocess(
+            chain_id=31337,
+            web3factory=web3factory,
+            start_block=0,
+            end_block=2,
+            step=1,
+            display_progress=False,
+            max_workers=2,
+            cache_path=tmp_path,
+            rpc_request_stats=stats,
+        )
+        calls, errors = stats.export()
+        assert calls[provider_domain, "eth_getBlockByNumber"] == 1
+        assert errors == {}
+        assert len(timestamps) == expected_block_calls
     finally:
         if timestamps is not None:
             timestamps.close()

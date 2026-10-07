@@ -88,14 +88,13 @@ def fetch_block_timestamps_multiprocess(
 
     .. note ::
 
-        Because this method aggressively uses `step` to skip blocks,
-        it results to non-reuseable timestamp cache (only valid for one scan and subsequent scans of the same task).
+        This backend fetches exact sampled blocks. The shared cache can contain
+        interior gaps and is reused across scans with different sampling grids.
 
     :param cache_path
         Cache timestamps across runs and commands.
 
-        Set to ``None`` to disable, or remove the file.
-        .
+        A persistent cache directory is required by this backend.
     :param checkpoint_freq:
         Block number frequency how often to save.
 
@@ -105,6 +104,9 @@ def fetch_block_timestamps_multiprocess(
 
     assert start_block <= end_block, f"Start block {start_block} must be less than or equal to end block {end_block}"
     assert step >= 1, f"Step must be at least 1, got {step}"
+    if cache_path is None:
+        message = "Non-cached timestamp fetching is not implemented"
+        raise NotImplementedError(message)
 
     chain_name = get_chain_name(chain_id)
 
@@ -124,23 +126,13 @@ def fetch_block_timestamps_multiprocess(
     else:
         progress_bar = None
 
-    timestamp_db = None  # Allow operating without caching
-    if cache_path:
-        if cache_path.exists():
-            timestamp_db: BlockTimestampDatabase = load_timestamp_cache(chain_id, cache_path)
-        else:
-            timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
-
-        result = timestamp_db.get_slicer()
-    else:
-        result = {}
+    timestamp_db = load_timestamp_cache(chain_id, cache_path) if cache_path.exists() else BlockTimestampDatabase.create(chain_id, cache_path)
 
     def _task_gen():
         nonlocal web3factory
-        first_block_to_check = max(start_block, timestamp_db.get_last_block())
-        for _block_number in range(first_block_to_check, end_block + 1, step):
-            if result.get(_block_number) is None:
-                yield web3factory, chain_id, _block_number, rpc_request_stats is not None
+        requested_blocks = range(start_block, end_block + 1, step)
+        for _block_number in timestamp_db.get_missing_block_numbers(requested_blocks):
+            yield web3factory, chain_id, _block_number, rpc_request_stats is not None
 
     last_save = block_number = 0
 
@@ -191,13 +183,9 @@ def fetch_block_timestamps_multiprocess(
     if progress_bar:
         progress_bar.close()
 
-    if timestamp_db:
-        block_range = timestamp_db.get_first_and_last_block()
-        count = timestamp_db.get_count()
-        logger.info(f"Timestamp cache {cache_path} populated for chain {chain_id}: blocks {block_range[0]:,} - {block_range[1]:,}, total {count:,} entries")
-        return timestamp_db.get_slicer()
-    else:
-        raise NotImplementedError("Non-cached timestamp fetching not implemented")
+    block_range = timestamp_db.get_first_and_last_block()
+    logger.info("Timestamp cache %s populated for chain %d: blocks %d - %d, total %d entries", cache_path, chain_id, *block_range, timestamp_db.get_count())
+    return timestamp_db.get_slicer()
 
 
 def fetch_block_timestamps_multiprocess_auto_backend(

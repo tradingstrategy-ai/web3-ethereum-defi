@@ -1,0 +1,14 @@
+feeder-id: onre
+name: OnRe
+role: curator
+website: https://www.onre.finance/
+short_description: OnRe underwrites reinsurance risk and manages the ONyc portfolio accessed through Nest's nONYC vault.
+long_description: |
+  [OnRe](https://docs.onre.finance/) is a licensed reinsurer and onchain asset manager. It allocates capital to short-duration reinsurance contracts and manages ONyc, whose returns reflect premiums and collateral income. [Nest's nONYC vault](https://app.nest.credit/vaults/nest-onre-vault) allocates to ONyc, so this record attributes management of the underlying reinsurance strategy to OnRe rather than claiming it operates the Nest vault contracts.
+other-links:
+  - title: OnRe documentation - reinsurer and onchain asset manager
+    url: https://docs.onre.finance/
+  - title: OnRe ONyc documentation - underlying reinsurance strategy
+    url: https://docs.onre.finance/introduction/onre-tokenized-reinsurance-onyc
+  - title: Nest nONYC vault - allocates to OnRe ONyc
+    url: https://app.nest.credit/vaults/nest-onre-vault

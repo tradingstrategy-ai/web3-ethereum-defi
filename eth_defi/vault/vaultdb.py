@@ -133,6 +133,9 @@ class VaultRow(TypedDict):
     #: TypedDict when populated.
     _morpho_offchain_data: dict | None
 
+    #: First-party Nest contract catalogue and CMS snapshot for a Nest vault.
+    _nest_offchain_data: NotRequired[dict | None]
+
     #: Static two-way public vault transaction adapter support, or ``None``.
     #:
     #: This private scanner value is copied to ``deposit_manager`` in the JSON
@@ -174,6 +177,10 @@ class VaultRow(TypedDict):
     #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the
     #: vault name itself does not contain the curator brand.
     _manager_name: str | None
+
+    #: Reviewed curator identity declared by a vault adapter. A display
+    #: partner name alone is not sufficient evidence for this field.
+    _curator_slug: NotRequired[str | None]
 
     #: Human-readable vault note captured by the vault scanner.
     _notes: str | None

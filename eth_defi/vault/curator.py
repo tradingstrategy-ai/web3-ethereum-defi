@@ -1026,6 +1026,12 @@ def identify_curator(  # noqa: PLR0917
     if declared_curator_slug:
         return declared_curator_slug
 
+    # Nest's published yield-source partners include asset issuers and
+    # tokenisation platforms. The adapter declares Nest DAO separately;
+    # fuzzy partner-name matches would mislabel those sources as vault curators.
+    if protocol_slug == "nest":
+        return None
+
     # Derive publishes the curator wallet, but a vault display name is not
     # evidence that this wallet belongs to an organisation named in the title.
     # Attribute it only through a reviewed address override or declaration.
