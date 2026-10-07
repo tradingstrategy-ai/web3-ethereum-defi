@@ -1,0 +1,23 @@
+symbol: pUSD
+name: Plume USD
+slug: pusd
+category: stablecoin
+short_description: |
+  Plume USD is Plume's native dollar stablecoin, backed by USDC reserves. Plume publishes a 1:1 minting and redemption route between pUSD and USDC.
+long_description: |
+  [Plume USD](https://www.plume.org/pusd) is issued and managed by Plume for payments, trading and collateral within its blockchain ecosystem. The issuer describes pUSD as backed by USDC reserves held transparently onchain, with a dollar price reference.
+
+  Plume publishes fee-free minting and redemption between pUSD and USDC at a 1:1 rate. Access to reserves, redemption liquidity and the contracts implementing these operations remain relevant when evaluating the token; the stated peg is not a guarantee of its market price.
+links:
+  homepage: https://www.plume.org/pusd
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/plumenetwork
+contract_addresses:
+  - chain: plume
+    address: '0xdddD73F5Df1F0DC31373357beAC77545dC5A6f3F'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-10-06'
+  marked_dead_at: ''
+  information_found_missing_at: ''

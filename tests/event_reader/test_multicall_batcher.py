@@ -16,6 +16,35 @@ ParallelExecutor = Callable[[Iterable[object]], Iterator[object]]
 HTTP_OK = 200
 
 
+def test_plume_multicall_deployment_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip Plume calls before Multicall exists and allow its deployment block.
+
+    The Nest catalogue starts before this helper was deployed. Those early
+    observations must not send empty contract calls into provider retries;
+    contract state becomes available at the deployment block itself.
+
+    :param monkeypatch: Replace contract binding without network access.
+    :return: Nothing.
+    """
+    deployment_block = 39_679
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=98866))
+    reader = object.__new__(multicall_batcher.MultiprocessMulticallReader)
+    reader.chain_id = 98866
+    call = multicall_batcher.EncodedCall(
+        func_name="totalAssets",
+        address="0x0000000000000000000000000000000000000001",
+        data=b"\x00\x00\x00\x00",
+        extra_data={},
+        first_block_number=1,
+    )
+    assert list(reader.process_calls(deployment_block - 1, [call])) == []
+    bound_contract = object()
+    monkeypatch.setattr(multicall_batcher, "get_deployed_contract", lambda *_args: bound_contract)
+    assert multicall_batcher.get_multicall_contract(web3, block_identifier=deployment_block) is bound_contract
+    with pytest.raises(AssertionError, match="not yet deployed"):
+        multicall_batcher.get_multicall_contract(web3, block_identifier=deployment_block - 1)
+
+
 def test_historical_state_error_classification() -> None:
     """Classify archive-retention errors separately from vault call failures."""
 

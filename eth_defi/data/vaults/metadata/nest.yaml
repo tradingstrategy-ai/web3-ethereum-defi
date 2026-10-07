@@ -1,16 +1,16 @@
 name: Nest
 slug: nest
 short_description: |
-  Real-world-asset vault infrastructure from Plume that lets users access tokenised yield strategies with stablecoins.
+  Real-world-asset vaults built by the team behind Plume, with Nest DAO LLC as their primary curator.
 long_description: |
-  Nest is Plume's real-world-asset vault infrastructure. It gives users onchain access to curated strategies from asset managers, regulated funds and other financial institutions, with returns reflected in the value of the vault share token.
+  Nest is real-world-asset vault infrastructure built by Kimber Labs, the team behind Plume. Nest's official site identifies Nest DAO LLC as the primary curator of Nest vaults. The vaults provide onchain access to strategies sourced from asset managers, regulated funds and other financial institutions, with returns generally reflected in the value of the vault share token.
 
   Each product can offer more than one deposit or redemption route across supported networks. Eligibility, available assets, redemption timing and liquidity are product-specific; users should check the Nest application before transacting. Some redemptions are asynchronous and may require a later claim after the request is fulfilled.
 fee_description: |
   Nest configures fees and redemption terms per product and route. Fees can include amounts reflected in the vault share value and amounts associated with a redemption route. Check the current product page and transaction quote before depositing or redeeming, because there is no single protocol-wide fee schedule.
 links:
   homepage: https://www.nest.credit/
-  app: https://www.nest.credit/vaults#vaults-explore
+  app: https://app.nest.credit/vaults
   twitter: https://x.com/NestCredit
   github: https://github.com/plumenetwork/nest-protocol
   documentation: https://docs.nest.credit/

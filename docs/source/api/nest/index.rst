@@ -11,3 +11,4 @@ context.
 
    eth_defi.erc_4626.vault_protocol.nest.vault
    eth_defi.erc_4626.vault_protocol.nest.offchain_metadata
+   eth_defi.erc_4626.vault_protocol.nest.tags

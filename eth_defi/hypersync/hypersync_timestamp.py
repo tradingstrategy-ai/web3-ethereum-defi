@@ -13,7 +13,7 @@ Example:
         end_block=10_000_100,
     )
 
-    # Blocks missing if they do not contain transactions
+    # Includes blocks that do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks) == 101
 
@@ -29,6 +29,7 @@ import asyncio
 import logging
 import time
 from collections.abc import AsyncIterable, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 import hypersync
@@ -43,6 +44,16 @@ from eth_defi.hypersync.session import ThrottledHypersyncClient, is_hypersync_cl
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class CachedBlockTimestamp:
+    """Block number and timestamp persisted in the timestamp cache."""
+
+    #: EVM block number.
+    block_number: int
+    #: Unix timestamp in seconds.
+    timestamp: int
 
 
 class HypersyncFlaky(Exception):
@@ -222,7 +233,6 @@ async def get_block_timestamps_using_hypersync_async(
     query = hypersync.Query(
         from_block=start_block,
         to_block=end_block + 1,  # Inclusive
-        logs=[hypersync.LogSelection()],  # Empty log selection to ensure we get block data
         include_all_blocks=True,
         field_selection=hypersync.FieldSelection(
             block=[
@@ -314,6 +324,69 @@ def get_block_timestamps_using_hypersync(
     return result
 
 
+async def fetch_timestamp_cache_headers_async(
+    client: hypersync.HypersyncClient | ThrottledHypersyncClient,
+    chain_id: int,
+    start_block: int,
+    end_block: int,
+    *,
+    display_progress: bool = True,
+    validate_chain_id: bool = True,
+    reason: str | None = None,
+) -> AsyncIterable[CachedBlockTimestamp]:
+    """Fetch timestamp-only pages with a rate-limit slot for every request.
+
+    Cached timestamps do not need block hashes. Request only numbers and
+    timestamps, and advance through explicit pages so the Rust stream cannot
+    make unthrottled internal requests. ``include_all_blocks`` also returns
+    empty blocks. See the `HyperSync query reference
+    <https://docs.envio.dev/docs/HyperSync/hypersync-query>`__.
+
+    :param client: Configured HyperSync client for this chain.
+    :param chain_id: Expected EVM chain identifier.
+    :param start_block: Inclusive first block.
+    :param end_block: Inclusive last block.
+    :param display_progress: Display page progress when true.
+    :param validate_chain_id: Verify the chain before reading when true.
+    :param reason: Context for provider errors.
+    :return: Actual block numbers and Unix timestamps returned by HyperSync.
+    """
+    assert start_block <= end_block
+    if validate_chain_id:
+        await _validate_hypersync_chain_id_async(client, chain_id, reason=reason)
+    query = hypersync.Query(
+        from_block=start_block,
+        to_block=end_block + 1,
+        include_all_blocks=True,
+        max_num_blocks=end_block - start_block + 1,
+        field_selection=hypersync.FieldSelection(block=[BlockField.NUMBER, BlockField.TIMESTAMP]),
+    )
+    progress = tqdm(total=end_block - start_block + 1, desc=f"Timestamp pages on {chain_id}", unit_scale=True) if display_progress else None
+    try:
+        while query.from_block <= end_block:
+            try:
+                if isinstance(client, ThrottledHypersyncClient):
+                    response = await client.get(query, timeout=120)
+                else:
+                    response = await asyncio.wait_for(client.get(query), timeout=120)
+            except RuntimeError as error:
+                raise_if_recoverable_hypersync_flaky(error, f"timestamp page [{reason}]")
+                raise
+            except TimeoutError as error:
+                raise HypersyncFlaky(f"Chain {chain_id}: timestamp page timed out [{reason}]") from error
+            if not query.from_block < response.next_block <= end_block + 1:
+                raise HypersyncFlaky(f"Chain {chain_id}: invalid timestamp page boundary {response.next_block} [{reason}]")
+            for block in response.data.blocks:
+                yield CachedBlockTimestamp(block.number, int(block.timestamp, 16))
+            query.from_block = response.next_block
+            if progress:
+                progress.update(len(response.data.blocks))
+                progress.set_postfix(block=response.next_block - 1)
+    finally:
+        if progress:
+            progress.close()
+
+
 def get_hypersync_block_height(
     client: hypersync.HypersyncClient,
 ) -> int:
@@ -389,15 +462,14 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 ) -> BlockTimestampSlicer:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
-    - Ultra fast, used optimised Hypersync streaming and DuckDB local cache.
-    - Large ranges are split into chunks of *chunk_size* blocks so that
-      each chunk opens a separate Hypersync ``stream()`` call.  This keeps
-      individual requests small, lets the Python-side rate limiter pace
-      them, and — crucially — saves progress after each chunk so that a
-      429 failure only loses the current chunk, not all prior work.
+    - Uses timestamp-only Hypersync pages and a persistent DuckDB cache.
+    - Large ranges are split into chunks of *chunk_size* blocks. Each HTTP
+      page acquires its own rate-limit slot, including truncated responses.
+      Progress is saved after each chunk so a provider failure retains
+      earlier completed chunks. Nearby interior holes are fetched together.
 
     :param chunk_size:
-        Maximum number of blocks per Hypersync streaming request.
+        Maximum number of blocks in one durable cache chunk.
         Defaults to 100 000 (~2 days on Polygon, ~3 days on Binance).
 
     :return:
@@ -431,7 +503,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 if start_block <= head_end_block:
                     fetch_ranges.append((start_block, head_end_block))
             if range_end_block > last_read_block:
-                fetch_ranges.append((last_read_block + 1, range_end_block))
+                fetch_ranges.append((max(start_block, last_read_block + 1), range_end_block))
 
             # Detect interior gaps (e.g. from a partial backfill that saved
             # blocks 1-99 then got a 429, leaving a hole at 100-999).
@@ -445,7 +517,15 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         else:
             fetch_ranges.append((start_block, range_end_block))
 
-        return fetch_ranges
+        # Reread nearby cached headers together instead of opening hundreds of
+        # streams for tiny holes. Bound each merged request by the chunk size.
+        merged: list[tuple[int, int]] = []
+        for range_start, range_end in sorted(fetch_ranges):
+            if merged and range_end - merged[-1][0] + 1 <= chunk_size:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], range_end))
+            else:
+                merged.append((range_start, range_end))
+        return merged
 
     fetch_ranges = _build_fetch_ranges(end_block)
 
@@ -483,9 +563,8 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 logger.info("Chain %d: cache fully covers clipped requested range, nothing to fetch", chain_id)
                 return timestamp_db.get_slicer()
 
-    # Split ranges into chunks — each opens a separate stream() call
-    # so the Python-side throttle can pace requests, and progress is
-    # saved after each chunk.
+    # Split ranges into durable chunks. Pagination acquires a limiter slot
+    # for every HTTP request, and completed chunks are saved immediately.
     all_chunks: list[tuple[int, int]] = []
     for range_start, range_end in fetch_ranges:
         for cs in range(range_start, range_end + 1, chunk_size):
@@ -505,7 +584,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         index = []
         values = []
 
-        async for block_header in get_block_timestamps_using_hypersync_async(
+        async for block_header in fetch_timestamp_cache_headers_async(
             client,
             chain_id,
             start_block=chunk_start,
@@ -581,7 +660,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
                 he = min(hs + chunk_size - 1, heal_end)
                 heal_index = []
                 heal_values = []
-                async for bh in get_block_timestamps_using_hypersync_async(
+                async for bh in fetch_timestamp_cache_headers_async(
                     client,
                     chain_id,
                     start_block=hs,
@@ -607,6 +686,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
     attempts=5,
+    chunk_size: int = 100_000,
 ) -> BlockTimestampSlicer:
     """Sync wrapper with retry and exponential backoff.
 
@@ -614,6 +694,9 @@ def fetch_block_timestamps_using_hypersync_cached(
 
     :param attempts:
         Work around Hypersync timeout issues
+    :param chunk_size:
+        Maximum block range committed as one cache chunk. Each page within
+        the chunk is fetched through the configured request limiter.
     """
 
     async def _hypersync_asyncio_wrapper():
@@ -626,6 +709,7 @@ def fetch_block_timestamps_using_hypersync_cached(
                     end_block=end_block,
                     cache_path=cache_path,
                     display_progress=display_progress,
+                    chunk_size=chunk_size,
                 )
             except HypersyncFlaky as e:
                 logger.warning("Chain %d: Hypersync flaky on attempt %d/%d: %s", chain_id, attempt + 1, attempts, e)
@@ -713,12 +797,12 @@ async def fetch_exact_block_timestamps_using_hypersync_cached_async(
             pending_index.clear()
             pending_values.clear()
 
-    async def _fetch_sample(sample_idx: int, block_number: int) -> BlockHeader:
+    async def _fetch_sample(sample_idx: int, block_number: int) -> CachedBlockTimestamp:
         """Fetch and validate one exact sampled block header."""
 
         headers = [
             header
-            async for header in get_block_timestamps_using_hypersync_async(
+            async for header in fetch_timestamp_cache_headers_async(
                 client,
                 chain_id,
                 start_block=block_number,

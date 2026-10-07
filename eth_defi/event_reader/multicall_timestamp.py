@@ -114,7 +114,7 @@ def fetch_block_timestamps_multiprocess(
     assert start_block <= end_block, f"Start block {start_block} must be less than or equal to end block {end_block}"
     assert step >= 1, f"Step must be at least 1, got {step}"
     if cache_path is None:
-        message = "Non-cached timestamp fetching not implemented"
+        message = "Non-cached timestamp fetching is not implemented"
         raise NotImplementedError(message)
 
     chain_name = get_chain_name(chain_id)
@@ -130,15 +130,10 @@ def fetch_block_timestamps_multiprocess(
     completed = False
     progress_bar = None
     try:
-        cached_blocks = {
-            row[0]
-            for row in timestamp_db.con.execute(
-                "SELECT block_number FROM block_timestamps WHERE block_number BETWEEN ? AND ? AND block_number % ? = ?",
-                [start_block, end_block, step, start_block % step],
-            ).fetchall()
-        }
-        tasks = [(web3factory, chain_id, block, rpc_request_stats is not None) for block in range(start_block, end_block + 1, step) if block not in cached_blocks]
-        logger.info("Reading %d missing exact timestamps for chain %s (%d sampled blocks cached)", len(tasks), chain_name, len(cached_blocks))
+        requested_blocks = range(start_block, end_block + 1, step)
+        missing_blocks = timestamp_db.get_missing_block_numbers(requested_blocks)
+        tasks = [(web3factory, chain_id, block, rpc_request_stats is not None) for block in missing_blocks]
+        logger.info("Reading %d missing exact timestamps for chain %s (%d sampled blocks cached)", len(tasks), chain_name, len(requested_blocks) - len(tasks))
         if display_progress:
             progress_bar = tqdm(
                 total=len(tasks),
