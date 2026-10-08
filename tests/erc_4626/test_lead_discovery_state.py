@@ -90,6 +90,11 @@ def test_signature_includes_metadata_refresh_version_and_enabled_chain_configura
     assert original_configuration["vault_metadata_refresh_version"] == VAULT_METADATA_REFRESH_VERSION
     assert original_configuration["enabled_chains"] == [{"name": "Ethereum", "rpc_environment_variable": "JSON_RPC_ETHEREUM"}]
     assert changed_configuration["enabled_chains"][0]["name"] == "Base"
+    assert original_configuration["vault_classifier_signature"] == create_vault_classifier_signature()
+    with monkeypatch.context() as classifier_patch:
+        classifier_patch.setattr(lead_discovery_state, "create_vault_classifier_signature", lambda: "new Arc probe")
+        classifier_signature, _ = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM")])
+    assert classifier_signature != original_signature
 
     # 3. Confirm a metadata-version bump changes the signature.
     with monkeypatch.context() as metadata_version_patch:
@@ -474,3 +479,24 @@ def test_legacy_discovery_signature_migrates_without_extending_expiry() -> None:
     assert "expired" in validate_lead_discovery_state(state, 1, signature, now + datetime.timedelta(days=1), datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=current)
     changed = {**current, "vault_metadata_refresh_version": "new"}
     assert "signature changed" in validate_lead_discovery_state(state, 1, signature, now, datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=changed)
+
+
+@pytest.mark.parametrize("old_classifier", [None, "classifier before Arc support"])
+def test_legacy_discovery_cache_rejects_missing_or_changed_classifier(old_classifier: str | None) -> None:
+    """A broad cache must not hide new classification probes when scope narrows.
+
+    Production discovery states written before classifier provenance was
+    included must refresh metadata even while their seven-day TTL is valid.
+
+    :param old_classifier: Absent or outdated classifier provenance.
+    :return: ``None`` after confirming the discovery cache misses.
+    """
+    now = native_datetime_utc_now()
+    _, old = create_lead_discovery_signature([("Arc", "JSON_RPC_ARC"), ("Ethereum", "JSON_RPC_ETHEREUM")])
+    if old_classifier is None:
+        old.pop("vault_classifier_signature")
+    else:
+        old["vault_classifier_signature"] = old_classifier
+    signature, current = create_lead_discovery_signature([("Arc", "JSON_RPC_ARC")])
+    state = LeadDiscoveryState(5042, "old signature", old, now - datetime.timedelta(hours=1), 123)
+    assert validate_lead_discovery_state(state, 5042, signature, now, datetime.timedelta(days=7), has_metadata_cursor=True, signature_configuration=current) == "lead discovery signature changed"

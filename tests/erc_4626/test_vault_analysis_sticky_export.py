@@ -1017,7 +1017,7 @@ def test_strict_json_writer_preserves_file_on_invalid_value(tmp_path: Path, capl
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Non-serializable values found"):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{"value": invalid}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{"value": invalid}]})
 
     assert "vaults -> 0 -> value" in caplog.text
     assert output_path.read_text(encoding="utf-8") == "previous output"
@@ -1029,7 +1029,7 @@ def test_strict_json_writer_rejects_nested_non_string_key(tmp_path: Path, caplog
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Non-serializable values found"):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{1: "invalid"}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{1: "invalid"}]})
 
     assert "vaults -> 0 -> 1" in caplog.text
     assert output_path.read_text(encoding="utf-8") == "previous output"
@@ -1041,7 +1041,7 @@ def test_strict_json_writer_preserves_accepted_values(tmp_path: Path, value: obj
     output_path = tmp_path / "top-vaults.json"
     document = {"vaults": [{"value": value}]}
 
-    top_vaults_json._write_strict_json(output_path, document)
+    top_vaults_json.write_strict_json(output_path, document)
 
     expected = json.loads(json.dumps(document, ensure_ascii=False, allow_nan=False))
     assert json.loads(output_path.read_text(encoding="utf-8")) == expected
@@ -1053,7 +1053,7 @@ def test_strict_json_writer_preserves_file_for_invalid_unicode(tmp_path: Path) -
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(UnicodeEncodeError):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{"name": "broken\ud800"}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{"name": "broken\ud800"}]})
 
     assert output_path.read_text(encoding="utf-8") == "previous output"
 

@@ -1708,7 +1708,7 @@ source .local-test.env && PYTHONPATH=. DRY_RUN=true poetry run python scripts/ne
 
 Apply the metadata and historical migration after coordinating with the
 looped scanner. The command holds the shared `scan-pipeline` writer lock from
-the metadata read through the final cleaned-price write. Its HyperSync cache
+the metadata read through the final export. Its HyperSync cache
 fill may take time on chains without a retained dense timestamp cache:
 
 ```shell
@@ -1723,7 +1723,7 @@ room for other processes using the same token. The cache reads timestamp-only
 pages and acquires a rate-limit slot for every HTTP request, then saves each
 500,000-block chunk. An exhausted quota stops the run; wait for the provider
 window to reset and rerun with a lower request rate or higher provider quota.
-Completed cache chunks are reused. Use `NETWORKS=plume` only for a reviewed focused repair. Set
+Completed cache chunks are reused. Use `NETWORKS` for a focused repair. Set
 `NEST_SCAN_PRICES=false` only when historical prices must deliberately be left
 unchanged. An isolated run must set `VAULT_DB_PATH`,
 `UNCLEANED_PRICE_DATABASE`, `CLEANED_PRICE_DATABASE` and
@@ -1740,10 +1740,55 @@ The migration preserves scheduled reader state, so a chain without saved
 progress can be rescanned by its first routine cycle. Prepopulate or restore
 the production timestamp cache before enabling the recurring price scanner.
 
+The final stage rebuilds the public JSON using the normal exporter, including
+the USDC, USDT, pUSD route preference and reviewed curator records. Selected
+Nest identities bypass the metrics freshness cache so repaired classifications
+replace stale retained records. Historical returns are calculated from the
+existing cleaned Parquet; the normal TVL qualification still applies. Export
+and metrics state are refreshed, with backups of their original files, while
+reader state and price files are preserved by a metadata-only run. Set
+`NEST_EXPORT=false` to defer the export stage. If the cleaned Parquet is absent,
+the script logs a warning and leaves export generation to a later run.
+
+#### Repair cached Arc classifications
+
+Arc rows discovered before Nest's Arc probe was enabled can still be saved as
+`<unknown ERC-7540>`. The discovery cache now includes the classifier signature,
+so future classifier changes invalidate it immediately. For an immediate repair,
+the migration verifies all three active Arc routes onchain, refreshes metadata,
+and regenerates listings from collected history. It requires `JSON_RPC_ARC`;
+this metadata and export repair does not require HyperSync.
+
+In Bash inside the scanner Docker container, preview then apply:
+
+```bash
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=true python scripts/nest/migrate-vaults.py
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=false python scripts/nest/migrate-vaults.py
+```
+
+Use the deployed checkout containing this fix and the normal mounted scanner
+data. To test a private copy locally, set `VAULT_DB_PATH` to its metadata pickle;
+the cleaned Parquet and rebuilt JSON default to that pickle's directory. Export
+state overrides must also stay in this directory. Use `source .local-test.env`
+and `PYTHONPATH=. poetry run python` for local commands. Vaults without enough
+price history or TVL remain absent from the public export. This repairs Arc's
+classification; it does not establish parity with Nest's product-level TVL.
+The rebuild covers the entire stablecoin export. Optional Core3, Xerberus and
+feed databases are read from this pipeline directory, never from a different
+checkout's default state. Copy those databases too when testing a complete
+export with risk scores and feed metadata; absent databases omit their optional
+enrichment. Export rebuilding can be rerun after metadata has already been
+repaired, including after an interrupted export stage.
+
 After the scan, run `scripts/nest/list-vaults.py` against the resulting metadata
 and export files to check route names, curator records, TVL, one-month CAGR and
-all-time CAGR. The report prefers net returns when available and labels gross
-fallbacks. `History since` defines the available window behind all-time CAGR.
+all-time CAGR. The public export lists one eligible Nest entrypoint per chain
+and share token, preferring USDC, then USDT, then pUSD. The catalogue audit
+still shows alternative deposit entrypoints: `Export: NO` is expected when
+another entrypoint represents their pool. All entrypoints retain their scanner
+metadata and price histories. The report prefers net returns when available
+and labels gross fallbacks. `History since` defines the available window behind
+all-time CAGR.
 The Nest adapter does not decode management or performance fees, so gross
 CAGR does not establish returns after all fees. Report name checks compare
 the export against local metadata rather than independently verifying the CMS
@@ -1752,6 +1797,55 @@ Nest's displayed yield may instead use simple annualisation or composition
 yield; compare against its NAV yield over the same dates before interpreting a
 difference as an incorrect price. Timestamp caches with legacy primary keys are
 migrated transactionally before ingestion, preserving their existing rows.
+
+### Nest migrate-export-routes.py
+
+`scripts/nest/migrate-export-routes.py` repairs duplicate Nest listings in an
+existing public JSON export. It uses the recurring exporter's selection rule:
+one entrypoint per chain and share token, preferring USDC, then USDT, then pUSD.
+Existing category TVL and Xerberus coverage totals are recalculated for the
+selected records, and unused curator/protocol metadata is removed from the
+export. An export without categories keeps that optional field absent.
+
+The scanner metadata pickle contains legitimate deposit contracts for different
+assets, so it keeps every entrypoint. Prices, reader state, metrics state and
+sticky qualification records are preserved. This repair replaces only the
+public export, under the shared pipeline writer lock, after saving a unique
+sibling backup. Price timestamps and the original exporter build stamp remain
+unchanged. A repeated run on a repaired export does not rewrite it.
+
+First test a copy with an isolated `PIPELINE_DATA_DIR`, then preview and apply:
+
+```shell
+export PIPELINE_DATA_DIR=/tmp/nest-route-migration-copy
+poetry run python scripts/nest/migrate-export-routes.py
+DRY_RUN=false poetry run python scripts/nest/migrate-export-routes.py
+```
+
+The directory must already contain `top_vaults_by_chain.json`. Set
+`VAULT_EXPORT_PATH` to repair a differently named JSON file; the lock still
+comes from `PIPELINE_DATA_DIR`. No RPC or HyperSync token is required.
+
+On the production host, enter the configured Compose service so the existing
+scanner state is mounted:
+
+```bash
+source ~/vault-scanner/vault-rpc.env
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot)
+```
+
+Then, in Bash inside the updated scanner Docker container:
+
+```bash
+export PIPELINE_DATA_DIR=/root/.tradingstrategy/vaults
+python scripts/nest/migrate-export-routes.py
+DRY_RUN=false python scripts/nest/migrate-export-routes.py
+```
+
+Deploy the updated exporter before using the repair, since an older scanner can
+restore duplicate listings. The next normal export/upload publishes selected
+routes and regenerates public samples. This offline repair is optional when
+the updated scanner will generate a fresh export immediately.
 
 ### Enzyme backfill-history.py
 
@@ -3428,6 +3522,25 @@ including safe sticky fallback records, so consumers can retain their identity
 and exclusion status. Rankings and strategy-category aggregates exclude them.
 Sticky fallback records that no longer contain a safe vault identity are
 structurally suppressed instead of being exported.
+
+Nest deposit entrypoints sharing a token on the same chain report the same
+pool TVL. After sticky replay, the public export selects one eligible
+entrypoint per chain and share token, preferring USDC, then USDT, then pUSD.
+Equal asset ranks use the lowest entrypoint address as a deterministic tie
+breaker; bridged USDC/USDT symbols are normalised and other assets rank last.
+Asset preference also applies to stale cached records: a retained USDC row
+represents its pool even if a USDT alternative has newer observations. The
+chosen row keeps its observation timestamps and stale flags. This selection
+runs before category and curator export construction. Every route keeps its scanner metadata, price
+history, metrics state and sticky record. The next export applies the selection
+to existing current and cached records, preserving their collected history.
+For an immediate offline repair of the saved JSON, use
+`scripts/nest/migrate-export-routes.py` as described above. Records without a
+share-token identity remain separate.
+Recorded per-route rankings retain the original metrics-calculation cohort;
+route selection does not renumber those historical rankings. Sticky state
+timestamps describe candidate-record preparation and retention, so a saved
+entrypoint record does not prove it appeared in the public vault list.
 
 A corrupt sticky state file aborts the top-vaults export instead of resetting
 qualification history. The post-processing wrapper reports this as `False`, the

@@ -27,12 +27,20 @@ Set ``VAULT_DB_PATH``, ``UNCLEANED_PRICE_DATABASE``,
 ``CLEANED_PRICE_DATABASE`` and ``TIMESTAMP_CACHE_DIR`` together to migrate
 isolated copies. ``NETWORKS``
 selects a subset for a focused repair; the default covers every supported
-active chain. Set ``NEST_SCAN_PRICES=false`` for a metadata-only repair. The
+active chain. Set ``NEST_SCAN_PRICES=false`` to preserve historical prices. The
 corresponding ``JSON_RPC_*`` variables must be set. Applied historical scans
 also require ``HYPERSYNC_API_KEY``.
 Worldchain and Plume routes require ``JSON_RPC_WORLDCHAIN`` and
 ``JSON_RPC_PLUME``. Morph has no active catalogue routes. Existing
 Nest rows on selected chains also receive current CMS metadata.
+
+The final export stage rebuilds the public JSON from collected prices, including
+Arc routes previously saved as unknown ERC-7540 vaults, and applies the shared
+USDC, USDT, pUSD route preference. It also refreshes their retained export
+records. Set ``NEST_EXPORT=false`` to defer this stage. It requires a cleaned
+price Parquet; missing history is reported rather than fabricated. For an Arc
+metadata and export repair without a historical scan, use ``NETWORKS=arc``
+with ``NEST_SCAN_PRICES=false`` and ``JSON_RPC_ARC`` configured.
 """
 
 import dataclasses
@@ -62,6 +70,7 @@ from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.research.metrics_freshness import resolve_metrics_state_path
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
@@ -69,6 +78,8 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.denomination import DenominationFamily, classify_denomination
 from eth_defi.vault.historical import MONAD_CHAIN_ID, fetch_monad_historical_state_start_block, pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.strategy_tag import lookup_strategy_tags
+from eth_defi.vault.top_vaults_json import main as export_vaults
+from eth_defi.vault.top_vaults_json import resolve_sticky_export_state_path
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -188,7 +199,7 @@ def create_backup_path(vault_db_path: Path) -> Path:
     Retain earlier backups by adding a numeric suffix when necessary.
 
     :param vault_db_path:
-        Metadata pickle about to be updated.
+        Pipeline file about to be updated, including metadata or export state.
     :return:
         Available backup path.
     """
@@ -521,12 +532,67 @@ def validate_history_paths(vault_db_path: Path, raw_price_path: Path, cleaned_pr
         raise ValueError(message)
 
 
+def resolve_nest_export_paths(data_dir: Path) -> tuple[Path, Path, Path]:
+    """Resolve public and state paths within the migration's pipeline directory.
+
+    Reject inherited state overrides outside a private metadata copy before
+    applying any metadata changes. Both export stages use the same paths.
+
+    :param data_dir: Resolved metadata pipeline directory.
+    :return: Public JSON, retained export state and metrics freshness paths.
+    :raises ValueError: If an export state override escapes the directory.
+    """
+    paths = (data_dir / "top_vaults_by_chain.json", resolve_sticky_export_state_path(data_dir), resolve_metrics_state_path(data_dir))
+    if any(path.expanduser().resolve().parent != data_dir for path in paths):
+        message = "Nest export state overrides must stay in the metadata pipeline directory"
+        raise ValueError(message)
+    return paths
+
+
+def rebuild_nest_export(vault_db_path: Path, cleaned_price_path: Path, vault_ids: set[str]) -> None:
+    """Regenerate public listings and retained records from repaired metadata.
+
+    Use the normal exporter to derive descriptions, curator records and CAGR
+    from existing observations. Force selected Nest identities through the
+    freshness gate so cached unknown Arc classifications cannot be replayed.
+    The caller must hold the pipeline writer lock. Existing export and metrics
+    state files receive sibling backups; historical prices are read only.
+
+    :param vault_db_path: Repaired scanner metadata pickle.
+    :param cleaned_price_path: Existing cleaned historical observations.
+    :param vault_ids: Selected Nest identities in ``chain_id-address`` format.
+    :return: ``None`` after export, or a warning when no observations exist.
+    """
+    if not cleaned_price_path.exists():
+        logger.warning("Skipping Nest export: cleaned price history is missing at %s", cleaned_price_path)
+        return
+    data_dir = vault_db_path.parent.resolve()
+    paths = resolve_nest_export_paths(data_dir)
+    for path in paths:
+        if path.exists():
+            backup_path = create_backup_path(path)
+            shutil.copy2(path, backup_path)
+            logger.info("Saved export backup to %s", backup_path)
+    logger.info("Rebuilding Nest export from collected history; forcing %d repaired identities", len(vault_ids))
+    export_vaults(
+        data_dir=data_dir,
+        vault_db_path=vault_db_path,
+        parquet_path=cleaned_price_path,
+        output_path=paths[0],
+        core3_db_path=data_dir / "core3/core3.duckdb",
+        xerberus_db_path=data_dir / "xerberus/xerberus.duckdb",
+        feed_db_path=data_dir / "vault-post-database.duckdb",
+        force_vault_ids=vault_ids,
+    )
+
+
 def run_migration(*, dry_run: bool, scan_prices: bool, vault_db_path: Path) -> None:  # noqa: PLR0914 - stages share the selected catalogue and verified readers.
-    """Verify all routes, persist metadata and backfill their history in order.
+    """Verify routes, persist metadata, backfill history and regenerate listings.
 
     A persistent run holds the shared pipeline writer lock around this entire
     function. After an interruption, a rerun can safely repeat any completed
     address-scoped Parquet replacement without touching unrelated vaults.
+    Export rebuilding can also resume after metadata was already repaired.
 
     :param dry_run: Print a fully verified, non-mutating migration plan.
     :param scan_prices: Include the historical price stage when applying.
@@ -536,7 +602,10 @@ def run_migration(*, dry_run: bool, scan_prices: bool, vault_db_path: Path) -> N
     if not vault_db_path.exists():
         raise ValueError(f"Vault metadata database does not exist: {vault_db_path}")
     raw_price_path = Path(os.environ.get("UNCLEANED_PRICE_DATABASE", str(DEFAULT_UNCLEANED_PRICE_DATABASE))).expanduser()
-    cleaned_price_path = Path(os.environ.get("CLEANED_PRICE_DATABASE", str(DEFAULT_RAW_PRICE_DATABASE))).expanduser()
+    cleaned_price_path = Path(os.environ.get("CLEANED_PRICE_DATABASE", str(vault_db_path.parent / "cleaned-vault-prices-1h.parquet"))).expanduser()
+    rebuild_export = parse_bool_env("NEST_EXPORT", default=True)
+    if rebuild_export:
+        resolve_nest_export_paths(vault_db_path.parent.resolve())
     timestamp_cache_dir = Path(os.environ.get("TIMESTAMP_CACHE_DIR", str(DEFAULT_TIMESTAMP_CACHE_FOLDER))).expanduser()
     max_workers = int(os.environ.get("MAX_WORKERS", "8"))
     if max_workers < 1:
@@ -571,6 +640,7 @@ def run_migration(*, dry_run: bool, scan_prices: bool, vault_db_path: Path) -> N
         if dry_run:
             history_plan = f"{sum(len(routes) for routes in routes_by_chain.values())} active Nest histories planned at hourly frequency" if scan_prices else "historical price scan disabled"
             print(f"Dry run: {history_plan}; metadata, reader state and price files unchanged")
+            logger.info("Public export rebuild %s on apply", "enabled" if rebuild_export else "disabled")
             return
 
         if scan_prices:
@@ -603,6 +673,10 @@ def run_migration(*, dry_run: bool, scan_prices: bool, vault_db_path: Path) -> N
                 for chain_id, routes in sorted(routes_by_chain.items())
             ]
             print(tabulate(history_results, headers="keys", tablefmt="github"))
+
+        if rebuild_export:
+            vault_ids = {f"{chain_id}-{route['vault_address'].lower()}" for chain_id, routes in routes_by_chain.items() for route in routes}
+            rebuild_nest_export(vault_db_path, cleaned_price_path, vault_ids)
 
 
 def main() -> None:

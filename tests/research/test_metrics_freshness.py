@@ -684,12 +684,27 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     assert state_after_run2[small_vault_id]["metrics_updated_at"] == state_after_run1[small_vault_id]["metrics_updated_at"]
     assert state_after_run2[vault_id]["metrics_updated_at"] >= first_run_updated_at
 
+    # Explicit metadata repairs bypass freshness, including low-TVL rows, but
+    # do not relax the public export's qualification threshold.
+    output = top_vaults_json.main(
+        data_dir=tmp_path,
+        vault_db_path=vault_db_path,
+        parquet_path=parquet_path,
+        output_path=output_path,
+        core3_db_path=Path("/nonexistent"),
+        xerberus_db_path=Path("/nonexistent"),
+        feed_db_path=Path("/nonexistent"),
+        force_vault_ids={small_vault_id, "5042-address-with-no-price-history"},
+    )
+    assert mock_calls[-1] == {vault_id, small_vault_id}
+    assert [record["id"] for record in output["vaults"]] == [vault_id]
+
     # 3: state loss makes both vaults due again (self-healing full recompute)
     (tmp_path / "vault-metrics-state.json").unlink()
     output = run_main()
     assert mock_calls[-1] == {vault_id, small_vault_id}
     assert [record["id"] for record in output["vaults"]] == [vault_id]
-    assert len(post_processor_calls) == 3
+    assert len(post_processor_calls) == 4
 
     # A failed public write must not advance either persisted state file.
     sticky_path = tmp_path / "vault-export-state.json"
@@ -708,7 +723,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
         assert validated
         raise OSError("simulated public JSON write failure")
 
-    monkeypatch.setattr(top_vaults_json, "_write_strict_json", fail_public_write)
+    monkeypatch.setattr(top_vaults_json, "write_strict_json", fail_public_write)
     with pytest.raises(OSError, match="simulated public JSON write failure"):
         run_main()
     assert all(path.read_bytes() == previous for path, previous in previous_files.items())
