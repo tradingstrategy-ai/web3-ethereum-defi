@@ -41,29 +41,18 @@ DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT = 15 * 60
 #: Module-level cache: ``(api_url, user) -> (timestamp, list[UserVaultEquity])``
 _vault_equity_cache: dict[tuple, tuple[float, list["UserVaultEquity"]]] = {}
 
-#: Accept up to 5% equity drift when verifying a deposit into an *existing* vault
-#: position.
+#: Allow an equity shortfall of up to 5% of the submitted top-up when observing
+#: a deposit into an existing vault position.
 #:
-#: When we deposit into an existing HyperCore vault position we confirm the
-#: deposit by checking that our USD equity increased by roughly the deposited
-#: amount, measured against a baseline equity snapshotted before the deposit.
-#: The problem: live perp-trading vaults (e.g. copy-trading leader vaults)
-#: mark-to-market every block, so the vault's *existing* holdings drift in value
-#: during the minutes between snapshotting the baseline equity and running the
-#: verification poll loop.  That drift is subtracted from the apparent deposit
-#: and can make a fully-credited deposit look short.
+#: Equity includes PnL on the entire holding. A shortfall allowance based on
+#: the much smaller top-up cannot reliably distinguish a rejection from market
+#: losses, and market gains can satisfy the threshold without a deposit.
 #:
-#: Real production incident (trade #1240, Loop Fund vault, 2026-07-01): an
-#: 8.06806 USDC deposit was credited essentially to the cent (the equity jump
-#: across two consecutive polls was 8.06608 USDC), but the vault's pre-existing
-#: ~750 USDC position had already marked down ~0.22 USDC (≈0.03%) versus the
-#: baseline snapshot.  Measured against the stale baseline, the apparent
-#: increase was only ~7.85 USDC, short of the 1% (0.08 USDC) tolerance band, so
-#: verification timed out, raised ``HypercoreDepositVerificationError`` and
-#: crashed the whole live trading loop even though the funds were safely in the
-#: vault.  Widening the band to 5% absorbs normal perp-vault NAV volatility over
-#: the confirmation window while still catching genuinely rejected / stranded
-#: deposits (which show ~0% increase, not a few-percent shortfall).
+#: The band was widened after trade #1240 (2026-07-01), when PnL concealed an
+#: 8.06806 USDC deposit. Trade #1765 (2026-10-08) showed the remaining limitation:
+#: a confirmed 28.175784 USDC top-up was masked by movement on ~11,145 USDC of
+#: existing equity. Live settlement therefore treats this check as advisory;
+#: the threshold only allows the observation to finish early.
 #:
 #: This applies only to the existing-position branch; first deposits keep the
 #: tighter :py:data:`DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE`.
@@ -75,18 +64,19 @@ DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.05")
 #: NAV-drift-against-a-stale-baseline problem that motivates the wider
 #: existing-position tolerance (see
 #: :py:data:`DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE`) does not apply here.  We
-#: keep this a tight "loud guard" so a dust / partial / silently-rejected first
-#: deposit is not falsely confirmed as success.
+#: require equity near the expected amount so old dust alone cannot satisfy
+#: the threshold. This is still an equity observation, not a transaction receipt.
 DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE = Decimal("0.01")
 
 
 class HypercoreDepositVerificationError(Exception):
-    """Raised when a Hypercore vault deposit cannot be verified on HyperCore.
+    """Raised when vault equity does not reach the observation threshold in time.
 
     CoreWriter actions (``transferUsdClass`` + ``vaultTransfer``) can succeed
     on HyperEVM but be silently rejected by HyperCore.  This exception is
     raised by :py:func:`wait_for_vault_deposit_confirmation` when the
-    expected vault equity never appears within the timeout.
+    expected vault equity never appears within the timeout. It does not prove
+    rejection: PnL can conceal a successful top-up on an existing holding.
     """
 
 
@@ -332,14 +322,17 @@ def fetch_user_vault_equities(
     session: HyperliquidSession,
     user: HexAddress | str,
     timeout: float = 10.0,
+    *,
+    deadline: float | None = None,
 ) -> list[UserVaultEquity]:
     """Fetch a user's equity positions across all Hypercore vaults.
 
     Calls the ``userVaultEquities`` info endpoint to retrieve the user's
     current vault deposits with equity and lock-up status.
 
-    This is the recommended way to verify that a CoreWriter deposit
-    landed on HyperCore — no EVM precompile needed.
+    This observes current holdings without an EVM precompile. Equity includes
+    trading PnL, so its change cannot reliably prove that a small top-up landed
+    in a large existing position; callers must keep fill accounting separate.
 
     Example::
 
@@ -363,6 +356,11 @@ def fetch_user_vault_equities(
     :param timeout:
         HTTP request timeout in seconds.
 
+    :param deadline:
+        Optional absolute monotonic deadline. Final deposit confirmation must
+        not inherit the session's market-data outage retry window; this selects
+        a bounded, single-attempt public request instead.
+
     :return:
         List of vault equity positions. Empty list if the user has no vault deposits.
     """
@@ -371,7 +369,7 @@ def fetch_user_vault_equities(
 
     logger.debug("Fetching userVaultEquities for %s from %s", user, url)
 
-    response = session.post_info(payload, timeout=timeout)
+    response = session.post_info(payload, timeout=timeout, deadline=deadline)
     response.raise_for_status()
     data = response.json()
 
@@ -437,6 +435,8 @@ def fetch_user_vault_equity(
     cache_timeout: float = DEFAULT_VAULT_EQUITY_CACHE_TIMEOUT,
     timeout: float = 10.0,
     bypass_cache: bool = False,
+    *,
+    deadline: float | None = None,
 ) -> UserVaultEquity | None:
     """Fetch a user's equity in a single Hypercore vault, with caching.
 
@@ -477,6 +477,10 @@ def fetch_user_vault_equity(
         If ``True``, skip the cache and always fetch fresh data from the API.
         The fresh result is still stored in the cache for subsequent calls.
 
+    :param deadline:
+        Optional absolute monotonic deadline forwarded to the public equity
+        request. It includes the entire response, not just socket inactivity.
+
     :return:
         The user's equity in the vault, or ``None`` if the user has no
         position in the given vault.
@@ -495,7 +499,7 @@ def fetch_user_vault_equity(
                 cached = None
 
     if cached is None:
-        equities = fetch_user_vault_equities(session, user, timeout=timeout)
+        equities = fetch_user_vault_equities(session, user, timeout=timeout, deadline=deadline)
         _vault_equity_cache[cache_key] = (now, equities)
 
     needle = vault_address.lower()
@@ -575,17 +579,26 @@ def wait_for_vault_deposit_confirmation(
     relative_tolerance: Decimal = DEFAULT_VAULT_DEPOSIT_RELATIVE_TOLERANCE,
     first_deposit_relative_tolerance: Decimal = DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE,
 ) -> UserVaultEquity:
-    """Wait for a vault deposit to be confirmed on HyperCore.
+    """Observe vault equity until its deposit threshold is reached or time runs out.
 
     After a CoreWriter ``vaultTransfer`` action succeeds on HyperEVM,
     HyperCore may take several seconds to process the deposit.  This
     function polls ``userVaultEquities`` until the expected equity
     appears or increases.
 
+    The deadline includes network reads and poll sleeps. Strict callers still
+    receive :py:class:`HypercoreDepositVerificationError` if the threshold is
+    not reached. A live executor may deliberately treat that exception as a
+    warning: an existing holding's trading PnL can conceal a small successful
+    top-up, so equity growth cannot establish the amount actually deposited.
+    Market gains can also reach the threshold without a successful deposit.
+    The historical function name is retained for existing callers.
+
     Handles two cases:
 
     - **New position**: *existing_equity* is ``None``.
-      Waits for any equity > 0 to appear for the vault.
+      Requires equity near the expected amount, so old dust cannot satisfy
+      a strict caller's first-deposit check.
     - **Existing position**: *existing_equity* is provided.
       Waits for equity to increase by at least
       ``expected_deposit - max(tolerance, expected_deposit * relative_tolerance)``.
@@ -607,8 +620,8 @@ def wait_for_vault_deposit_confirmation(
         is the first deposit (no existing position).
 
     :param timeout:
-        Maximum seconds to wait before raising
-        :py:class:`HypercoreDepositVerificationError`.
+        Total observation budget, including requests and sleeps. Read errors
+        end the observation immediately; this is a maximum, not a minimum wait.
 
     :param poll_interval:
         Seconds between API polls.
@@ -633,77 +646,70 @@ def wait_for_vault_deposit_confirmation(
         :py:data:`DEFAULT_FIRST_VAULT_DEPOSIT_RELATIVE_TOLERANCE`).
 
     :return:
-        The confirmed :py:class:`UserVaultEquity` after the deposit.
+        The observed :py:class:`UserVaultEquity` that reached the threshold.
 
     :raises HypercoreDepositVerificationError:
-        If the deposit cannot be verified within the timeout.
+        If equity does not reach the threshold within the timeout.
+
+    :raises requests.RequestException:
+        If the bounded API read fails. No hidden transport retries are made.
     """
-    deadline = time.time() + timeout
+    # Wall-clock adjustments must not renew a settlement's waiting budget.
+    # Pass this same deadline to every request instead of granting each poll
+    # another 60 seconds of retry, connection and response time.
+    deadline = time.monotonic() + timeout
     attempt = 0
     baseline = existing_equity or Decimal(0)
-    # First deposits have no pre-existing position that can mark-to-market
-    # against a stale baseline, so they keep the tighter "loud guard" band;
-    # existing-position deposits get the wider band to absorb live NAV drift.
-    # ``existing_equity`` is fixed for the whole call, so this is computed once.
+    # First deposits use a tighter band to exclude old dust. Both cases use
+    # the same equation; the wider top-up band still cannot remove PnL noise.
     effective_relative_tolerance = first_deposit_relative_tolerance if existing_equity is None else relative_tolerance
     accepted_tolerance = max(tolerance, expected_deposit * effective_relative_tolerance)
 
     # Initial delay: give HyperCore time to process the deposit
     # before first poll (API can lag behind HyperCore state).
-    time.sleep(poll_interval)
+    time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
 
     last_eq: UserVaultEquity | None = None
 
     while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. Equity includes trading PnL and does not prove whether the deposit was accepted.")
         attempt += 1
         eq = fetch_user_vault_equity(
             session,
             user=user,
             vault_address=vault_address,
             bypass_cache=True,
+            timeout=min(10.0, remaining),
+            deadline=deadline,
         )
         last_eq = eq
+        # A response that finishes at the boundary must not renew the budget
+        # merely because decoding happened to yield a qualifying equity.
+        if time.monotonic() >= deadline:
+            continue
 
         if eq is not None:
             increase = eq.equity - baseline
-            if existing_equity is None:
-                # Loud guard: first deposits must still be close to the
-                # expected amount. Accepting any non-zero equity here can
-                # falsely confirm on dust, a partial move, or stale residual
-                # state and let the caller treat a broken deposit as success.
-                if increase >= expected_deposit - accepted_tolerance:
-                    logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s (expected %s, tolerance %s) after %d poll(s)",
-                        user,
-                        vault_address,
-                        eq.equity,
-                        expected_deposit,
-                        accepted_tolerance,
-                        attempt,
-                    )
-                    return eq
-            else:
-                # Existing position: equity must increase by ~expected amount.
-                # Accept a small relative shortfall because live vault equity
-                # can move during the confirmation window.
-                if increase >= expected_deposit - accepted_tolerance:
-                    logger.info(
-                        "Vault deposit confirmed for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s) after %d poll(s)",
-                        user,
-                        vault_address,
-                        eq.equity,
-                        increase,
-                        expected_deposit,
-                        accepted_tolerance,
-                        attempt,
-                    )
-                    return eq
+            if increase >= expected_deposit - accepted_tolerance:
+                logger.info(
+                    "Vault deposit equity threshold reached for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s) after %d poll(s)",
+                    user,
+                    vault_address,
+                    eq.equity,
+                    increase,
+                    expected_deposit,
+                    accepted_tolerance,
+                    attempt,
+                )
+                return eq
 
             logger.info(
-                "Vault deposit pending for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s, poll #%d)",
+                "Vault deposit equity threshold not reached for %s in vault %s: equity %s (increase %s, expected %s, tolerance %s, poll #%d)",
                 user,
                 vault_address,
-                eq.equity if eq else None,
+                eq.equity,
                 increase,
                 expected_deposit,
                 accepted_tolerance,
@@ -711,17 +717,13 @@ def wait_for_vault_deposit_confirmation(
             )
         else:
             logger.info(
-                "Vault deposit pending for %s in vault %s: no position yet (poll #%d)",
+                "Vault deposit equity not visible for %s in vault %s (poll #%d)",
                 user,
                 vault_address,
                 attempt,
             )
 
-        remaining = deadline - time.time()
-        if remaining <= 0:
-            raise HypercoreDepositVerificationError(f"Vault deposit for {user} in vault {vault_address} could not be verified within {timeout}s. Expected deposit: {expected_deposit} USDC, existing equity: {existing_equity}, last queried equity: {last_eq.equity if last_eq else None}. The deposit may have been silently rejected by HyperCore. Check HyperCore spot/perp for stranded USDC.")
-
-        time.sleep(min(poll_interval, remaining))
+        time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
 
 
 def fetch_spot_clearinghouse_state(
