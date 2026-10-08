@@ -1741,7 +1741,8 @@ progress can be rescanned by its first routine cycle. Prepopulate or restore
 the production timestamp cache before enabling the recurring price scanner.
 
 The final stage rebuilds the public JSON using the normal exporter, including
-the USDC, USDT, pUSD route preference and reviewed curator records. Selected
+the Plume, Ethereum, alphabetical chain preference, then USDC, USDT, pUSD
+within the chosen chain, and reviewed curator records. Selected
 Nest identities bypass the metrics freshness cache so repaired classifications
 replace stale retained records. Historical returns are calculated from the
 existing cleaned Parquet; the normal TVL qualification still applies. Export
@@ -1773,6 +1774,8 @@ state overrides must also stay in this directory. Use `source .local-test.env`
 and `PYTHONPATH=. poetry run python` for local commands. Vaults without enough
 price history or TVL remain absent from the public export. This repairs Arc's
 classification; it does not establish parity with Nest's product-level TVL.
+If a preferred chain already represents the product, the repaired Arc route
+keeps its metadata and history without receiving a separate public listing.
 The rebuild covers the entire stablecoin export. Optional Core3, Xerberus and
 feed databases are read from this pipeline directory, never from a different
 checkout's default state. Copy those databases too when testing a complete
@@ -1782,10 +1785,13 @@ repaired, including after an interrupted export stage.
 
 After the scan, run `scripts/nest/list-vaults.py` against the resulting metadata
 and export files to check route names, curator records, TVL, one-month CAGR and
-all-time CAGR. The public export lists one eligible Nest entrypoint per chain
-and share token, preferring USDC, then USDT, then pUSD. The catalogue audit
-still shows alternative deposit entrypoints: `Export: NO` is expected when
-another entrypoint represents their pool. All entrypoints retain their scanner
+all-time CAGR. The public export lists each Nest share token once across chains,
+preferring Plume, then Ethereum, then other chains alphabetically by their
+canonical display name. Within that chain it prefers USDC, then USDT, then pUSD.
+The catalogue audit still shows alternative chain and deposit routes:
+`Export: NO` is expected when another route represents their product.
+TVL and returns belong to the selected chain; balances on omitted chains are
+excluded from public totals. All entrypoints retain their scanner
 metadata and price histories. The report prefers net returns when available
 and labels gross fallbacks. `History since` defines the available window behind
 all-time CAGR.
@@ -1802,14 +1808,20 @@ migrated transactionally before ingestion, preserving their existing rows.
 
 `scripts/nest/migrate-export-routes.py` repairs duplicate Nest listings in an
 existing public JSON export. It uses the recurring exporter's selection rule:
-one entrypoint per chain and share token, preferring USDC, then USDT, then pUSD.
+one entrypoint per share token across chains, preferring Plume, then Ethereum,
+then other chains alphabetically. Within the preferred chain it selects USDC,
+then USDT, then pUSD. The selected record's TVL, returns, dates and stale flags
+are preserved; TVL is not summed across chains. Public Nest TVL therefore falls
+when other chain balances are omitted, and should not be interpreted as total
+product assets across every deployment. The preview logs both listing counts
+and selected-chain TVL before and after the repair.
 Existing category TVL and Xerberus coverage totals are recalculated for the
 selected records, and unused curator/protocol metadata is removed from the
 export. An export without categories keeps that optional field absent.
 
-The scanner metadata pickle contains legitimate deposit contracts for different
-assets, so it keeps every entrypoint. Prices, reader state, metrics state and
-sticky qualification records are preserved. This repair replaces only the
+The scanner metadata pickle contains legitimate contracts on different chains
+and for different assets, so it keeps every entrypoint. Prices, reader state,
+metrics state and sticky qualification records are preserved. This repair replaces only the
 public export, under the shared pipeline writer lock, after saving a unique
 sibling backup. Price timestamps and the original exporter build stamp remain
 unchanged. A repeated run on a repaired export does not rewrite it.
@@ -3524,19 +3536,24 @@ Sticky fallback records that no longer contain a safe vault identity are
 structurally suppressed instead of being exported.
 
 Nest deposit entrypoints sharing a token on the same chain report the same
-pool TVL. After sticky replay, the public export selects one eligible
-entrypoint per chain and share token, preferring USDC, then USDT, then pUSD.
+pool TVL. Across chains, that token identifies deployments of one product,
+whose chain balances can differ. After sticky replay, the public export selects
+one eligible entrypoint per share token across all chains: Plume first,
+Ethereum second, then other chains alphabetically by canonical display name.
+Within the preferred chain, it selects USDC, then USDT, then pUSD.
 Equal asset ranks use the lowest entrypoint address as a deterministic tie
 breaker; bridged USDC/USDT symbols are normalised and other assets rank last.
-Asset preference also applies to stale cached records: a retained USDC row
-represents its pool even if a USDT alternative has newer observations. The
-chosen row keeps its observation timestamps and stale flags. This selection
-runs before category and curator export construction. Every route keeps its scanner metadata, price
-history, metrics state and sticky record. The next export applies the selection
+Chain and asset preference also apply to stale cached records: a retained
+Plume route can represent the product even when another chain has newer
+observations. The chosen row keeps its own TVL, returns, observation timestamps
+and stale flags; other chain balances are not included in public totals.
+This selection runs before category and curator export construction. Every
+route keeps its scanner metadata, price history, metrics state and sticky
+record. The next export applies the selection
 to existing current and cached records, preserving their collected history.
 For an immediate offline repair of the saved JSON, use
 `scripts/nest/migrate-export-routes.py` as described above. Records without a
-share-token identity remain separate.
+share-token or chain identity remain separate.
 Recorded per-route rankings retain the original metrics-calculation cohort;
 route selection does not renumber those historical rankings. Sticky state
 timestamps describe candidate-record preparation and retention, so a saved

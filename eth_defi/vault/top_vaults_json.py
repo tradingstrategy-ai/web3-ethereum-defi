@@ -44,6 +44,7 @@ import psutil
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
+from eth_defi.chain import CHAIN_NAMES
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
@@ -865,19 +866,21 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
 
 
 def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
-    """Publish one eligible deposit route per Nest pool on each chain.
+    """Publish one eligible chain and deposit route per Nest share token.
 
     Nest's `ERC-7575 entrypoints <https://docs.nest.credit/developers/smart-contracts>`_
-    share a token and report the same pool TVL. Prefer USDC, then USDT, then
-    pUSD among admitted export records, normalising bridged token symbols and
-    using the entrypoint address to break ties deterministically. Asset
-    preference also applies to stale cached records, whose observation dates
-    and stale flags remain intact. Other assets rank last. Keep the pool's first
-    position in the input without changing the selected record or scanner
-    state. Records without a pool identity remain separate.
+    share a token across deposit assets and chains. Prefer Plume, then Ethereum,
+    then other chains alphabetically by their canonical display name. Within
+    the chosen chain, prefer USDC, then USDT, then pUSD, normalising bridged
+    symbols and using the entrypoint address to break ties deterministically.
+    Other assets rank last. Select only among admitted export records, including
+    sticky records whose dates and stale flags remain intact. Preserve the
+    selected chain's own TVL and returns rather than aggregating other chains.
+    Keep the product's first position without changing scanner state. Records
+    without a share token or chain identity remain separate.
 
     Apply this after sticky replay and before public aggregates, so cached
-    alternative entrypoints cannot restore duplicate listings or repeated TVL.
+    alternative chain and deposit routes cannot restore repeated listings.
 
     :param vaults:
         Current and sticky JSON records with ``protocol_slug``, ``chain_id``,
@@ -886,8 +889,29 @@ def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
         Selected records, including every non-Nest record unchanged.
     """
     preference = {"USDC": 0, "USDT": 1, "PUSD": 2}
+    chain_preference = {98866: 0, 1: 1}
+
+    def route_rank(record: dict) -> tuple[int, str, int, int, str]:
+        """Rank a route by chain, deposit asset and entrypoint address.
+
+        Canonical chain names make alphabetical fallback stable even when a
+        cached row omits its display name or uses a different casing.
+
+        :param record: Nest export record with a known chain identity.
+        :return: Deterministic comparison key, with preferred chains first.
+        """
+        chain_id = int(record["chain_id"])
+        chain_name = CHAIN_NAMES.get(chain_id, record.get("chain") or str(chain_id))
+        return (
+            chain_preference.get(chain_id, 2),
+            chain_name.casefold(),
+            chain_id,
+            preference.get(normalise_token_symbol(record.get("denomination")), 3),
+            record["address"].lower(),
+        )
+
     selected: list[dict] = []
-    pool_positions: dict[tuple[int, str], int] = {}
+    pool_positions: dict[str, int] = {}
     for record in vaults:
         share_token = record.get("share_token_address")
         chain_id = record.get("chain_id")
@@ -895,7 +919,7 @@ def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
             selected.append(record)
             continue
 
-        pool = (int(chain_id), share_token.lower())
+        pool = share_token.lower()
         position = pool_positions.get(pool)
         if position is None:
             pool_positions[pool] = len(selected)
@@ -903,9 +927,7 @@ def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
             continue
 
         previous = selected[position]
-        rank = (preference.get(normalise_token_symbol(record.get("denomination")), 3), record["address"].lower())
-        previous_rank = (preference.get(normalise_token_symbol(previous.get("denomination")), 3), previous["address"].lower())
-        if rank < previous_rank:
+        if route_rank(record) < route_rank(previous):
             selected[position] = record
 
     yield from selected
@@ -1503,7 +1525,7 @@ def main(
     vaults = list(select_preferred_nest_routes(sticky_result.vaults))
     omitted_routes = len(sticky_result.vaults) - len(vaults)
     if omitted_routes:
-        logger.info("Nest route selection omitted %d alternative deposit entrypoints from the public export", omitted_routes)
+        logger.info("Nest route selection omitted %d alternative chain and deposit routes from the public export", omitted_routes)
 
     # Free the metrics frame before curator building, validation and the
     # JSON write; the sticky result holds new dicts, not references into it.

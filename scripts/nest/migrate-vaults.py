@@ -34,10 +34,12 @@ Worldchain and Plume routes require ``JSON_RPC_WORLDCHAIN`` and
 ``JSON_RPC_PLUME``. Morph has no active catalogue routes. Existing
 Nest rows on selected chains also receive current CMS metadata.
 
-The final export stage rebuilds the public JSON from collected prices, including
+The final export stage rebuilds the public JSON from collected prices, evaluates
 Arc routes previously saved as unknown ERC-7540 vaults, and applies the shared
-USDC, USDT, pUSD route preference. It also refreshes their retained export
-records. Set ``NEST_EXPORT=false`` to defer this stage. It requires a cleaned
+Plume, Ethereum, alphabetical chain preference followed by USDC, USDT, pUSD
+within the chosen chain. Selected rows retain their chain's TVL and returns;
+other chain balances are excluded from public totals. It also refreshes retained
+export records. Set ``NEST_EXPORT=false`` to defer this stage. It requires a cleaned
 price Parquet; missing history is reported rather than fabricated. For an Arc
 metadata and export repair without a historical scan, use ``NETWORKS=arc``
 with ``NEST_SCAN_PRICES=false`` and ``JSON_RPC_ARC`` configured.

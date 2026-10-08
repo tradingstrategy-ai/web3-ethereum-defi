@@ -4,23 +4,35 @@ Tests the public (unauthenticated) funding rate history endpoint
 and DuckDB persistence with resume support.
 
 No credentials required — uses public API only.
+Fetch and persistence checks use a verified historical day so delayed
+publication of recent funding rates does not invalidate historical coverage.
 """
 
 import datetime
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from requests import Session
 
 from eth_defi.derive.api import FundingRateEntry, fetch_funding_rate_history, fetch_perpetual_instruments
 from eth_defi.derive.historical import DeriveFundingRateDatabase
 from eth_defi.derive.session import create_derive_session
 
+#: Verified 24 hourly samples on 2026-10-08. The rolling last-day checks failed
+#: on master, this PR and locally because the latest API sample was
+#: 2026-10-06 17:00 UTC. Keep real API/storage coverage on a fixed published day.
+FUNDING_HISTORY_START = datetime.datetime(2026, 4, 1)  # noqa: DTZ001 - Naive UTC API bounds.
+FUNDING_HISTORY_END = FUNDING_HISTORY_START + datetime.timedelta(days=1)
+#: Hourly observations in the verified published day.
+FUNDING_HISTORY_SAMPLES = 24
+
 
 def test_fetch_funding_rate_history_clips_api_boundary_samples() -> None:
     """Discard leading and trailing samples returned outside the requested window."""
-    start = datetime.datetime(2026, 2, 26, 0, 0)
-    end = datetime.datetime(2026, 2, 26, 2, 0)
+    start = datetime.datetime(2026, 2, 26, 0, 0)  # noqa: DTZ001 - Naive UTC API bounds.
+    end = datetime.datetime(2026, 2, 26, 2, 0)  # noqa: DTZ001 - Naive UTC API bounds.
     hourly_timestamps = [start - datetime.timedelta(hours=1), start, start + datetime.timedelta(hours=1), end, end + datetime.timedelta(hours=1)]
     response = MagicMock()
     response.json.return_value = {
@@ -62,19 +74,25 @@ def test_fetch_perpetual_instruments(session):
 
 
 @pytest.mark.timeout(60)
-def test_fetch_funding_rate_history(session):
-    """Fetch a small window of funding rate history from the live API."""
-    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-    start = now - datetime.timedelta(days=1)
+def test_fetch_funding_rate_history(session: Session) -> None:
+    """Fetch a published day of funding rates from the real API.
+
+    Verify all 24 hourly samples in a fixed UTC window, their types and their
+    ordering using the public historical endpoint.
+
+    :param session: Shared public Derive HTTP session.
+    :return: ``None`` after checking the historical samples.
+    """
 
     rates = fetch_funding_rate_history(
         session,
         "ETH-PERP",
-        start_time=start,
-        end_time=now,
+        start_time=FUNDING_HISTORY_START,
+        end_time=FUNDING_HISTORY_END,
     )
 
-    assert len(rates) > 0, "Expected at least one funding rate entry for last 24h"
+    assert len(rates) == FUNDING_HISTORY_SAMPLES
+    assert [rate.timestamp for rate in rates] == [FUNDING_HISTORY_START + datetime.timedelta(hours=hour) for hour in range(FUNDING_HISTORY_SAMPLES)]
 
     for r in rates:
         assert isinstance(r, FundingRateEntry)
@@ -88,23 +106,28 @@ def test_fetch_funding_rate_history(session):
 
 
 @pytest.mark.timeout(60)
-def test_funding_rate_db_sync_and_resume(session, tmp_path):
-    """Sync funding rates to DuckDB and verify resume produces zero new inserts."""
+def test_funding_rate_db_sync_and_resume(session: Session, tmp_path: Path) -> None:
+    """Sync a published day and verify that resume inserts no duplicates.
+
+    Exercise real API reads, file-backed DuckDB persistence and saved sync
+    state with a fixed 24-sample history window.
+
+    :param session: Shared public Derive HTTP session.
+    :param tmp_path: Private directory for the funding-rate database.
+    :return: ``None`` after checking persistence and repeat synchronisation.
+    """
     db = DeriveFundingRateDatabase(tmp_path / "funding-rates.duckdb")
     try:
-        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-        start = now - datetime.timedelta(days=1)
-
         # First sync
-        inserted = db.sync_instrument(session, "ETH-PERP", start_time=start, end_time=now)
-        assert inserted > 0, "Expected entries on first sync"
+        inserted = db.sync_instrument(session, "ETH-PERP", start_time=FUNDING_HISTORY_START, end_time=FUNDING_HISTORY_END)
+        assert inserted == FUNDING_HISTORY_SAMPLES
 
         # Verify data is stored
         count = db.get_row_count("ETH-PERP")
         assert count == inserted
 
-        # Second sync (resume) — should insert zero or very few (race with new data)
-        inserted_again = db.sync_instrument(session, "ETH-PERP", start_time=start, end_time=now)
+        # Second sync resumes the same fixed window without adding rows.
+        inserted_again = db.sync_instrument(session, "ETH-PERP", start_time=FUNDING_HISTORY_START, end_time=FUNDING_HISTORY_END)
         assert inserted_again == 0, f"Expected 0 new entries on re-sync with same window, got {inserted_again}"
 
         # Row count unchanged
@@ -120,17 +143,22 @@ def test_funding_rate_db_sync_and_resume(session, tmp_path):
 
 
 @pytest.mark.timeout(60)
-def test_funding_rate_db_dataframe(session, tmp_path):
-    """Verify DataFrame output has correct columns and data."""
+def test_funding_rate_db_dataframe(session: Session, tmp_path: Path) -> None:
+    """Read a persisted published day as a DataFrame.
+
+    Check that all 24 real hourly samples are exposed with the expected
+    timestamp, funding-rate and instrument columns.
+
+    :param session: Shared public Derive HTTP session.
+    :param tmp_path: Private directory for the funding-rate database.
+    :return: ``None`` after checking the DataFrame schema and row count.
+    """
     db = DeriveFundingRateDatabase(tmp_path / "funding-rates.duckdb")
     try:
-        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-        start = now - datetime.timedelta(days=1)
-
-        db.sync_instrument(session, "ETH-PERP", start_time=start, end_time=now)
+        db.sync_instrument(session, "ETH-PERP", start_time=FUNDING_HISTORY_START, end_time=FUNDING_HISTORY_END)
         df = db.get_funding_rates_dataframe("ETH-PERP")
 
-        assert len(df) > 0
+        assert len(df) == FUNDING_HISTORY_SAMPLES
         assert "timestamp" in df.columns
         assert "funding_rate" in df.columns
         assert "instrument" in df.columns

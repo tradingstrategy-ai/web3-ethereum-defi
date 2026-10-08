@@ -1,4 +1,4 @@
-"""Nest deposit route selection at the public export boundary."""
+"""Nest chain and deposit route selection at the public export boundary."""
 
 import copy
 import datetime
@@ -78,7 +78,7 @@ def test_nest_route_preference(nest_routes: list[dict], assets: tuple[str, ...],
 
 
 def test_nest_route_selection_preserves_distinct_pools(nest_routes: list[dict]) -> None:
-    """Share tokens only identify duplicate Nest routes on the same chain.
+    """Group a Nest share token across chains without merging other products.
 
     Unknown identities are retained independently, as are other protocols.
     Token-address casing and legacy string chain IDs do not split one pool.
@@ -95,7 +95,67 @@ def test_nest_route_selection_preserves_distinct_pools(nest_routes: list[dict]) 
     missing_chain = {**pusd, "chain_id": None}
     records = [same_pool, other_protocol, usdc, other_chain, other_pool, missing_share, missing_chain]
 
-    assert list(top_vaults_json.select_preferred_nest_routes(records)) == [usdc, other_protocol, other_chain, other_pool, missing_share, missing_chain]
+    assert list(top_vaults_json.select_preferred_nest_routes(records)) == [other_chain, other_protocol, other_pool, missing_share, missing_chain]
+
+
+@pytest.mark.parametrize(
+    "chain_ids,expected_chain",
+    [
+        ((98866, 1, 5042), 98866),
+        ((1, 5042, 42161), 1),
+        ((5042, 43114, 8453, 56), 5042),
+        ((43114, 8453, 56), 43114),
+        ((8453, 56), 8453),
+        ((98866,), 98866),
+        ((1,), 1),
+    ],
+)
+def test_nest_chain_preference(nest_routes: list[dict], chain_ids: tuple[int, ...], expected_chain: int) -> None:
+    """Prefer Plume, Ethereum, then canonical chain names alphabetically.
+
+    Chain selection takes precedence over deposit denomination, freshness and
+    advertised yield. The selected route retains its own TVL and metrics even
+    when other chains have larger balances or more recent observations.
+
+    :param nest_routes: Different asset records for one share token.
+    :param chain_ids: Chains offering the same product.
+    :param expected_chain: Preferred available chain.
+    :return: ``None`` after checking every input ordering and source records.
+    """
+    records = [
+        {
+            **nest_routes[index % len(nest_routes)],
+            "chain_id": str(chain_id),
+            "chain": "misleading cached name",
+            "current_nav": 1000.0 * (index + 1),
+            "last_updated_at": f"2026-10-0{index + 1}T12:00:00",
+            "flags": ["stale"] if chain_id == expected_chain else [],
+        }
+        for index, chain_id in enumerate(chain_ids)
+    ]
+    preferred = next(record for record in records if int(record["chain_id"]) == expected_chain)
+    before = copy.deepcopy(records)
+    for permutation in itertools.permutations(records):
+        assert list(top_vaults_json.select_preferred_nest_routes(list(permutation))) == [preferred]
+    assert records == before
+
+
+def test_nest_chain_preference_before_asset_preference(nest_routes: list[dict]) -> None:
+    """Prefer Plume's best asset even when Ethereum offers USDC.
+
+    Reversing the input preserves both chain priority and USDT over pUSD on
+    the preferred chain, including bridged token-symbol normalisation.
+
+    :param nest_routes: USDC, USDT and pUSD routes sharing one token.
+    :return: ``None`` after checking the selected original object.
+    """
+    ethereum_usdc, usdt, pusd = nest_routes
+    plume_usdt = {**usdt, "chain_id": 98866, "denomination": "USDT0"}
+    plume_pusd = {**pusd, "chain_id": 98866}
+    records = [ethereum_usdc, plume_usdt, plume_pusd]
+    for permutation in itertools.permutations(records):
+        [selected] = top_vaults_json.select_preferred_nest_routes(list(permutation))
+        assert selected is plume_usdt
 
 
 def test_nest_route_same_asset_tie_is_deterministic(nest_routes: list[dict]) -> None:
@@ -131,18 +191,20 @@ def test_nest_route_preference_normalises_bridge_symbols(nest_routes: list[dict]
     assert selected[0]["denomination"] == expected_asset
 
 
-def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, nest_routes: list[dict]) -> None:
+@pytest.mark.parametrize("cross_chain", [False, True])
+def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, nest_routes: list[dict], *, cross_chain: bool) -> None:
     """Publish one pool and retain every route's history and sticky record.
 
     Exercise the real exporter with isolated metadata, Parquet and persisted
     state. Only metric calculation is replaced: first USDT qualifies, then
-    USDC qualifies, then missing USDC metrics and an empty calculation replay
+    USDC and optionally Plume qualify, then missing preferred metrics replay
     stored routes without restoring duplicate listings. Category aggregates
     use the selected route's TVL and monthly return.
 
     :param tmp_path: Private export and scanner files.
     :param monkeypatch: Isolate environment, clock and metric calculation.
     :param nest_routes: Three entrypoints sharing a pool.
+    :param cross_chain: Add a preferred Plume route after the first export.
     :return: ``None`` after checking public output and preserved scanner files.
     """
     monkeypatch.delenv("VAULT_EXPORT_STATE_PATH", raising=False)
@@ -151,14 +213,17 @@ def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypa
     now = datetime.datetime(2026, 10, 7, 12)  # noqa: DTZ001 - Scanner timestamps use naive UTC.
     monkeypatch.setattr(top_vaults_json, "native_datetime_utc_now", lambda: now)
     monkeypatch.setattr(top_vaults_json, "run_vault_export_post_processors", lambda _vault_db: set())
+    plume = {**nest_routes[1], "id": f"98866-{nest_routes[1]['address']}", "chain_id": 98866, "current_nav": 7000.0}
+    if cross_chain:
+        nest_routes = [*nest_routes, plume]
 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(
         rows={
-            VaultSpec(1, record["address"]): {
+            VaultSpec(record["chain_id"], record["address"]): {
                 "Denomination": record["denomination"],
                 "Protocol": "Nest",
-                "_detection_data": SimpleNamespace(chain=1, address=record["address"]),
+                "_detection_data": SimpleNamespace(chain=record["chain_id"], address=record["address"]),
                 "_denomination_token": {"address": record["address"], "decimals": 6},
             }
             for record in nest_routes
@@ -168,10 +233,10 @@ def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypa
         [
             {
                 "id": record["id"],
-                "chain": 1,
+                "chain": record["chain_id"],
                 "address": record["address"],
                 "share_price": 1.0,
-                "total_assets": 6000.0,
+                "total_assets": record["current_nav"],
                 "timestamp": timestamp,
             }
             for record in nest_routes
@@ -183,7 +248,7 @@ def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypa
     prices.to_parquet(parquet_path)
     original_files = {path: path.read_bytes() for path in (vault_db_path, parquet_path)}
 
-    calculated_routes = nest_routes[1:]
+    calculated_routes = nest_routes[1:3]
 
     def calculate_metrics(returns_df: pd.DataFrame, vault_db: VaultDatabase, **_kwargs: object) -> pd.DataFrame:
         """Supply fixed metrics while checking all entrypoints are calculated.
@@ -213,11 +278,12 @@ def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypa
 
     monkeypatch.setattr(top_vaults_json, "calculate_lifetime_metrics", calculate_metrics)
     output_path = tmp_path / "public.json"
-    for current, expected_asset, sticky_count in (
-        (nest_routes[1:], "USDT", 2),
-        (nest_routes, "USDC", 3),
-        (nest_routes[1:], "USDC", 3),
-        ([], "USDC", 3),
+    preferred = plume if cross_chain else nest_routes[0]
+    for current, expected_record, sticky_count in (
+        (nest_routes[1:3], nest_routes[1], 2),
+        (nest_routes, preferred, len(nest_routes)),
+        (nest_routes[1:3], preferred, len(nest_routes)),
+        ([], preferred, len(nest_routes)),
     ):
         calculated_routes = current
         output = top_vaults_json.main(
@@ -231,8 +297,9 @@ def test_nest_public_export_selects_after_sticky_replay(tmp_path: Path, monkeypa
         )
         assert len(output["vaults"]) == 1
         selected = output["vaults"][0]
-        assert selected["denomination"] == expected_asset
-        expected_record = next(record for record in nest_routes if record["denomination"] == expected_asset)
+        assert selected["id"] == expected_record["id"]
+        assert selected["chain_id"] == expected_record["chain_id"]
+        assert selected["denomination"] == expected_record["denomination"]
         assert selected["one_month_cagr"] == expected_record["one_month_cagr"]
         assert selected["current_nav"] == expected_record["current_nav"]
         assert json.loads(output_path.read_text())["vaults"] == output["vaults"]
@@ -263,7 +330,8 @@ def migration() -> ModuleType:
     return module
 
 
-def test_nest_export_migration_preserves_source_and_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migration: ModuleType, nest_routes: list[dict]) -> None:
+@pytest.mark.parametrize("cross_chain", [False, True])
+def test_nest_export_migration_preserves_source_and_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migration: ModuleType, nest_routes: list[dict], *, cross_chain: bool) -> None:
     """Preview and repair old listings with a recoverable original backup.
 
     The repair updates aggregate TVL and coverage counts, retains unrelated
@@ -273,11 +341,16 @@ def test_nest_export_migration_preserves_source_and_is_idempotent(tmp_path: Path
     :param monkeypatch: Verify the writer lock at the publication boundary.
     :param migration: Operator migration script.
     :param nest_routes: Duplicate deposit entrypoints.
+    :param cross_chain: Include a preferred chain with a different asset and TVL.
     :return: ``None`` after checking preview, applied and repeated runs.
     """
     nest_routes[0]["curator_slug"] = "nest-dao"
     nest_routes[1]["curator_slug"] = "old-curator"
     unrelated = {**nest_routes[0], "protocol_slug": "morpho", "current_nav": 100.0}
+    preferred = nest_routes[0]
+    if cross_chain:
+        preferred = {**preferred, "id": f"98866-{preferred['address']}", "chain_id": 98866, "denomination": "USDT", "current_nav": 7000.0}
+        nest_routes = [*nest_routes, preferred]
     source = {
         "generated_at": "2026-10-07T12:00:00Z",
         "metadata": {"version": {"commit_hash": "original-build"}},
@@ -317,10 +390,10 @@ def test_nest_export_migration_preserves_source_and_is_idempotent(tmp_path: Path
     monkeypatch.setattr(migration, "write_strict_json", write_with_lock_check)
     assert migration.migrate_nest_export(tmp_path, dry_run=False) == removed_count
     migrated = json.loads(export_path.read_bytes())
-    assert migrated["vaults"] == [nest_routes[0], unrelated]
+    assert migrated["vaults"] == [preferred, unrelated]
     assert migrated["metadata"] == source["metadata"]
     assert migrated["generated_at"] == source["generated_at"]
-    expected_tvl = nest_routes[0]["current_nav"] + unrelated["current_nav"]
+    expected_tvl = preferred["current_nav"] + unrelated["current_nav"]
     assert migrated["categories"]["lending"]["tvl_usd"] == expected_tvl
     assert migrated["xerberus_stats"]["total_vaults"] == len(migrated["vaults"])
     assert migrated["core3_protocols"] == {"nest": {"risk": "original"}}
