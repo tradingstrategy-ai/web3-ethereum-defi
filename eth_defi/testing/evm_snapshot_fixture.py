@@ -40,6 +40,14 @@ from eth_defi.provider.anvil import AnvilLaunch
 
 logger = logging.getLogger(__name__)
 
+#: Connect and read timeouts for the snapshot and revert calls.
+#:
+#: A forked Anvil serialises requests, so ``evm_revert`` waits behind any slow
+#: upstream state fetch of the test before it. The default 30 second read
+#: timeout failed fixture teardown on loaded CI runners. This matches the read
+#: timeout the fork tests use for their own Web3 connections.
+SNAPSHOT_HTTP_TIMEOUT = (3, 250.0)
+
 
 def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Iterator[None]:
     """Snapshot EVM state before, revert after — generator helper for autouse fixtures.
@@ -79,7 +87,7 @@ def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Ite
         <https://book.getfoundry.sh/anvil/#custom-methods>`_
     """
     url = fork if isinstance(fork, str) else fork.json_rpc_url
-    web3 = Web3(HTTPProvider(url))
+    web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": SNAPSHOT_HTTP_TIMEOUT}))
     snap_response = web3.provider.make_request("evm_snapshot", [])
     snap_id = snap_response.get("result")
     if snap_id is None:
