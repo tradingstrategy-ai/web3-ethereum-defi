@@ -68,12 +68,12 @@ def test_first_deposit_requires_expected_amount_within_tolerance(
 
 
 @patch("eth_defi.hyperliquid.api.time.sleep")
-@patch("eth_defi.hyperliquid.api.time.time")
+@patch("eth_defi.hyperliquid.api.time.monotonic")
 @patch("eth_defi.hyperliquid.api.fetch_user_vault_equity")
 def test_first_deposit_rejects_tiny_non_zero_equity(
     mock_fetch,
     mock_time,
-    _mock_sleep,
+    mock_sleep,
 ):
     """Reject dust equity so a broken first deposit does not look successful.
 
@@ -83,7 +83,13 @@ def test_first_deposit_rejects_tiny_non_zero_equity(
     """
     session = MagicMock()
     mock_fetch.return_value = _make_equity(Decimal("0.01"))
-    mock_time.side_effect = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    mock_time.return_value = 0.0
+
+    def advance_clock(seconds: float) -> None:
+        """Evaluate the dust reading before the deadline, rather than skipping it."""
+        mock_time.return_value += seconds
+
+    mock_sleep.side_effect = advance_clock
 
     # 1. Mock repeated first-deposit equity reads that stay far below the expected amount.
     # 2. Call wait_for_vault_deposit_confirmation() without existing equity and with a short timeout.
@@ -99,6 +105,7 @@ def test_first_deposit_rejects_tiny_non_zero_equity(
             poll_interval=1.0,
             tolerance=Decimal("1"),
         )
+    assert mock_fetch.call_count == 2
 
 
 @patch("eth_defi.hyperliquid.api.time.sleep")
@@ -133,12 +140,12 @@ def test_existing_deposit_accepts_relative_shortfall(
 
 
 @patch("eth_defi.hyperliquid.api.time.sleep")
-@patch("eth_defi.hyperliquid.api.time.time")
+@patch("eth_defi.hyperliquid.api.time.monotonic")
 @patch("eth_defi.hyperliquid.api.fetch_user_vault_equity")
 def test_existing_deposit_rejects_large_relative_shortfall(
     mock_fetch,
     mock_time,
-    _mock_sleep,
+    mock_sleep,
 ):
     """Reject an existing-position deposit when the shortfall exceeds the relative tolerance.
 
@@ -150,7 +157,13 @@ def test_existing_deposit_rejects_large_relative_shortfall(
     # Increase = 580.0 - 59.559287 = 520.44 vs expected 570.69, an ~8.8% shortfall
     # that exceeds the 5% existing-position relative tolerance, so this must reject.
     mock_fetch.return_value = _make_equity(Decimal("580.0"))
-    mock_time.side_effect = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    mock_time.return_value = 0.0
+
+    def advance_clock(seconds: float) -> None:
+        """Keep each shortfall reading inside the budget until a poll sleep ends it."""
+        mock_time.return_value += seconds
+
+    mock_sleep.side_effect = advance_clock
 
     # 1. Mock an existing-position equity increase that stays materially below the expected amount.
     # 2. Call wait_for_vault_deposit_confirmation() with the existing equity baseline and a short timeout.
@@ -165,6 +178,7 @@ def test_existing_deposit_rejects_large_relative_shortfall(
             timeout=3.0,
             poll_interval=1.0,
         )
+    assert mock_fetch.call_count == 2
 
 
 @patch("eth_defi.hyperliquid.api.time.sleep")
@@ -203,3 +217,46 @@ def test_existing_deposit_confirms_despite_nav_drift(
 
     # 3. Verify the helper confirms the deposit under the default 5% tolerance.
     assert result.equity == Decimal("757.794214")
+
+
+def test_small_top_up_observation_ends_at_shared_deadline() -> None:
+    """Report inconclusive equity after 60 seconds of masked deposit readings.
+
+    1. Reproduce #1765's credited top-up and subsequent market loss using a fake clock.
+    2. Run the strict observer for its complete 60-second budget.
+    3. Check the final warning context and the same deadline on every request.
+    """
+    # 1. The second poll increases by exactly the deposit, but the baseline
+    # includes older equity. Confirmation therefore cannot infer rejection.
+    clock = 0.0
+    readings = [Decimal("11132.650631"), Decimal("11160.826415"), Decimal("11146.946569")]
+    polls = 0
+
+    def advance(seconds: float) -> None:
+        """Advance only the caller's waiting time, without slowing the test."""
+        nonlocal clock
+        clock += seconds
+
+    def read_equity(*args: object, **kwargs: object) -> UserVaultEquity:
+        """Model live NAV movement without giving a poll a new time budget."""
+        nonlocal polls
+        value = readings[min(polls, len(readings) - 1)]
+        polls += 1
+        return _make_equity(value)
+
+    # 2. Both request and sleep budgets use one anchored monotonic clock.
+    with (
+        patch("eth_defi.hyperliquid.api.time.monotonic", side_effect=lambda: clock),
+        patch("eth_defi.hyperliquid.api.time.sleep", side_effect=advance),
+        patch("eth_defi.hyperliquid.api.fetch_user_vault_equity", side_effect=read_equity) as fetch,
+        pytest.raises(HypercoreDepositVerificationError, match="last queried equity: 11146.946569") as failure,
+    ):
+        wait_for_vault_deposit_confirmation(MagicMock(), USER_ADDR, VAULT_ADDR, Decimal("28.175784"), existing_equity=Decimal("11144.875437"), timeout=60, poll_interval=2)
+
+    # 3. The live caller can persist these diagnostics and accept the submitted
+    # principal; the dependency retains strict behaviour for its other callers.
+    assert clock == 60
+    assert "existing equity: 11144.875437" in str(failure.value)
+    assert "does not prove" in str(failure.value)
+    assert polls > 1
+    assert all(call.kwargs["deadline"] == 60 for call in fetch.call_args_list)
