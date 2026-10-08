@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import duckdb
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -202,6 +203,39 @@ def read_permission_observations(connection: duckdb.DuckDBPyConnection) -> pd.Da
     return result
 
 
+#: End of an open-ended uncertainty interval, one without ``effective_to``.
+_OPEN_ENDED = pd.Timestamp.max.to_datetime64().astype("datetime64[ns]")
+
+
+def _to_datetime64(values: pd.Series) -> np.ndarray:
+    """Convert a naive datetime-like column to a ``datetime64[ns]`` array, NaT preserved."""
+    return pd.to_datetime(values).to_numpy(dtype="datetime64[ns]")
+
+
+def _uncertainty_gaps(boundaries: pd.DataFrame, timestamps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Test every uncertainty interval of a vault against every decision at once.
+
+    Applying boundaries one at a time costs a handful of pandas ``.loc``
+    assignments per boundary and vault. trading-strategy's copy of this
+    selector spent over four minutes that way on 78k HyperCore boundaries;
+    a ``(boundaries, decisions)`` boolean matrix evaluates them in one step.
+
+    :param boundaries:
+        A vault's ``uncertainty_boundary`` records, in their selection order.
+
+    :param timestamps:
+        The vault's decision timestamps as ``datetime64[ns]``.
+
+    :return: ``(in_gap, starts)`` where ``in_gap[b, d]`` tells whether decision ``d`` lies in interval ``b``.
+    """
+    starts = _to_datetime64(boundaries["effective_from"])
+    ends = _to_datetime64(boundaries["effective_to"])
+    ends = np.where(np.isnat(ends), _OPEN_ENDED, ends)
+    # NaT never compares true, so a boundary without a start covers nothing
+    in_gap = (timestamps[None, :] >= starts[:, None]) & (timestamps[None, :] < ends[:, None])
+    return in_gap, starts
+
+
 def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame, frequency: str | None = None, *, legacy_max_age: datetime.timedelta = datetime.timedelta(days=2)) -> pd.DataFrame:  # noqa: PLR0914
     """Select coherent permission snapshots available at each decision.
 
@@ -219,6 +253,22 @@ def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame,
     :param frequency: Optional Pandas decision frequency such as ``4h``.
     :param legacy_max_age: Maximum carry-forward age of an inferred backup flag, measured from its original price clock.
     :return: Decision frame plus snapshot values, provenance and original clocks.
+
+    Performance and limitations:
+
+    - All uncertainty boundaries of a vault are evaluated at once with numpy,
+      so the boundary count adds little cost. Memory per vault is a few
+      ``(boundaries, decisions)`` boolean matrices, e.g. 100 boundaries over
+      10,000 decisions take a few megabytes.
+    - Vaults are still processed one at a time, with a few as-of joins and
+      pandas assignments each. This costs roughly 10 milliseconds per vault,
+      e.g. about 8 seconds for 600 HyperCore vaults with 3,000 decisions each.
+    - The per-vault loop is kept because the output dtypes depend on it: each
+      vault's columns take the dtypes pandas assignment gives that vault's
+      data, e.g. ``None`` versus ``NaN`` in object columns, and
+      :py:func:`pandas.concat` unifies them. A whole-frame implementation needs an
+      explicit output dtype contract first, as consumers can treat ``NaN`` and
+      ``None`` differently.
     """
     output = decisions.reset_index(drop=True).copy()
     output["_decision_order"] = range(len(output))
@@ -278,32 +328,51 @@ def select_permission_state(observations: pd.DataFrame, decisions: pd.DataFrame,
         if not candidates.empty:
             group = pd.merge_asof(group.drop(columns=fields).sort_values("timestamp"), candidates[fields], left_on="timestamp", right_on="available_at", direction="backward")
         boundaries = boundary_groups.get(address, observations.iloc[:0])
-        for boundary in boundaries.itertuples():
-            start = pd.Timestamp(boundary.effective_from)
-            end = pd.Timestamp(boundary.effective_to) if pd.notna(boundary.effective_to) else pd.Timestamp.max
-            in_gap = (group["timestamp"] >= start) & (group["timestamp"] < end)
-            measured = pd.to_datetime(group["permission_observed_at"])
-            rounded = measured.dt.ceil(frequency) if frequency else measured
-            fresh = rounded.notna() & (rounded >= start) & (rounded <= group["timestamp"])
+        # Evaluate all of this vault's uncertainty boundaries together, see _uncertainty_gaps().
+        # The gap matrix is reused below by the inferred flag fallback.
+        in_gap = None
+        if not boundaries.empty:
+            timestamps = group["timestamp"].to_numpy(dtype="datetime64[ns]")
+            in_gap, starts = _uncertainty_gaps(boundaries, timestamps)
+            rounded = pd.to_datetime(group["permission_observed_at"])
+            if frequency:
+                rounded = rounded.dt.ceil(frequency)
+            rounded = rounded.to_numpy(dtype="datetime64[ns]")
+            # A receipt available inside the gap by the decision survives it.
+            # NaT comparisons are False, so an unmeasured decision is never fresh.
+            fresh = (rounded[None, :] >= starts[:, None]) & (rounded <= timestamps)[None, :]
+            # Snapshot candidates never carry legacy_closure_bounded provenance,
+            # so no decision is deny-only here. Keep the rule as stated, with
+            # unknown flags not exempting a decision.
             deny_only = group["provenance"].eq("legacy_closure_bounded") & (group["is_closed"].eq(True) | group["allow_deposits"].eq(False))
-            mask = in_gap & ~fresh & ~deny_only
-            for name in fields:
-                group.loc[mask, name] = pd.NaT if name.endswith("_at") else None
-            group.loc[mask, "provenance"] = "corrupted_unknown"
-            group.loc[mask, "reason"] = boundary.reason
+            deny_only = deny_only.fillna(False).to_numpy(dtype=bool)
+            masked = in_gap & ~fresh & ~deny_only[None, :]
+            mask = masked.any(axis=0)
+            if mask.any():
+                # Applied one at a time, the first masking boundary clears the
+                # decision's clocks and provenance. Every later covering boundary
+                # then masks it again, fresh or not, and overwrites the reason.
+                # So the last covering boundary from the first masking one on
+                # supplies the reason.
+                first = masked.argmax(axis=0)
+                covering_from_first = in_gap & (np.arange(len(boundaries))[:, None] >= first[None, :])
+                last = len(boundaries) - 1 - covering_from_first[::-1].argmax(axis=0)
+                for name in fields:
+                    group.loc[mask, name] = pd.NaT if name.endswith("_at") else None
+                group.loc[mask, "provenance"] = "corrupted_unknown"
+                group.loc[mask, "reason"] = boundaries["reason"].to_numpy(dtype=object)[last[mask]]
         closures = archive_groups.get(address, archive_closures.iloc[:0])
         fallback = inferred_groups.get(address, inferred.iloc[:0])
         if not fallback.empty:
             recovered = pd.merge_asof(group[["timestamp"]].sort_values("timestamp"), fallback[fields], left_on="timestamp", right_on="available_at", direction="backward")
             missing = group["observation_id"].isna().to_numpy() & recovered["observation_id"].notna().to_numpy()
             missing &= ((group["timestamp"] - recovered["permission_observed_at"]) <= pd.Timedelta(legacy_max_age)).to_numpy()
-            for boundary in boundaries.itertuples():
-                start = pd.Timestamp(boundary.effective_from)
-                end = pd.Timestamp(boundary.effective_to) if pd.notna(boundary.effective_to) else pd.Timestamp.max
+            if in_gap is not None:
                 # Fallback can recover a flag inside a gap, but an older flag
                 # cannot silently bridge a gap with no recoverable evidence.
-                in_gap = (group["timestamp"] >= start) & (group["timestamp"] < end)
-                missing &= ~(in_gap & (recovered["available_at"] < start)).to_numpy()
+                # Any covering boundary that starts after the flag blocks it.
+                recovered_at = _to_datetime64(recovered["available_at"])
+                missing &= ~(in_gap & (recovered_at[None, :] < starts[:, None])).any(axis=0)
             for name in fields:
                 group.loc[missing, name] = recovered.loc[missing, name].to_numpy()
         if not closures.empty:
