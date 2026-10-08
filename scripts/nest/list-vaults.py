@@ -2,10 +2,11 @@
 """Tabulate Nest routes against local scanner metadata and the vault export.
 
 Nest's TVL and SEC 30-day yield are product-wide snapshots. Export TVL and CAGR
-come from the selected entrypoint's price history. The public export lists one
-entrypoint per chain and share token, preferring USDC, then USDT, then pUSD.
-This catalogue audit also shows alternative entrypoints without export rows.
-Missing values stay missing.
+come from the selected entrypoint's price history. The public export lists each
+share token once, preferring Plume, Ethereum, then other chains alphabetically;
+within that chain it prefers USDC, USDT, then pUSD. This catalogue audit also
+shows alternative chain and deposit routes without export rows. Missing values
+stay missing.
 
 Set ``VAULT_DB_PATH`` and ``VAULT_EXPORT_PATH`` to audit local copies. Set
 ``ACTIVE_ONLY=false`` to include hidden and disabled catalogue routes.
@@ -153,7 +154,7 @@ def main() -> None:
     print(f"All-time CAGR coverage: {sum(row['All-time basis'] != '-' for row in rows)} routes")
     print("All-time means the available collected price history, starting at History since; it may be shorter than the vault lifetime.")
     print("Coverage counts refer to EVM entrypoints. Nest also publishes Solana deployments, which this scanner does not collect.")
-    print("Nest TVL and SEC30d yield are product-wide API snapshots; SEC30d can use a month-end window and differ from the website rolling NAV yield. Export TVL and CAGR use one entrypoint per chain and share token, preferring USDC, then USDT, then pUSD. Alternative entrypoints remain in this audit without export rows; do not sum repeated Nest API TVL.")
+    print("Nest TVL and SEC30d yield are product-wide API snapshots; SEC30d can use a month-end window and differ from the website rolling NAV yield. The export lists each share token once, preferring Plume, Ethereum, then chains alphabetically; within that chain it prefers USDC, USDT, then pUSD. TVL and CAGR belong to the selected chain; omitted chain balances are excluded. Alternative chain and deposit routes remain in this audit without export rows; do not sum repeated Nest API TVL.")
 
 
 if __name__ == "__main__":

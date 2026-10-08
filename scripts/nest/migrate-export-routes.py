@@ -1,9 +1,11 @@
-"""Remove duplicate Nest deposit routes from an existing public JSON export.
+"""Select one Nest chain and deposit route in an existing public JSON export.
 
-Use the recurring exporter's USDC, USDT, pUSD preference for each chain and
-share token. Recalculate category and risk-coverage aggregates using the
-selected records. Scanner metadata, price histories, reader state and sticky
-qualification records retain all legitimate deposit entrypoints.
+Use the recurring exporter's chain preference: Plume, Ethereum, then other
+chains alphabetically. Within the chosen chain prefer USDC, USDT, then pUSD.
+Each share token appears once. Recalculate category and risk-coverage aggregates
+using the selected records' own TVL and returns; balances on omitted chains
+are not included. Scanner metadata, price histories, reader state and sticky
+qualification records retain all legitimate chain and deposit routes.
 
 Preview, then apply:
 
@@ -71,7 +73,11 @@ def migrate_nest_export(data_dir: Path, *, dry_run: bool, export_path: Path | No
         selected = list(select_preferred_nest_routes(vaults))
         removed = len(vaults) - len(selected)
         nest_count = sum(record.get("protocol_slug") == "nest" for record in vaults)
-        logger.info("Nest listings: %d -> %d; %s %d alternative entrypoints", nest_count, nest_count - removed, "would remove" if dry_run else "removing", removed)
+        logger.info("Nest listings: %d -> %d; %s %d alternative chain and deposit routes", nest_count, nest_count - removed, "would remove" if dry_run else "removing", removed)
+        logger.info("Chain preference: Plume, Ethereum, then alphabetical; asset preference: USDC, USDT, pUSD")
+        before_tvl = sum(record.get("current_nav") or 0 for record in vaults if record.get("protocol_slug") == "nest")
+        selected_tvl = sum(record.get("current_nav") or 0 for record in selected if record.get("protocol_slug") == "nest")
+        logger.info("Nest selected-chain TVL: $%.2f -> $%.2f; balances on omitted chains are excluded", before_tvl, selected_tvl)
         if not removed:
             return 0
 
