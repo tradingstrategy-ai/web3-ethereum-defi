@@ -1280,6 +1280,7 @@ def main(
     core3_db_path: Path | None = None,
     xerberus_db_path: Path | None = None,
     feed_db_path: Path | None = None,
+    force_vault_ids: set[str] | None = None,
 ) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
 
@@ -1329,6 +1330,12 @@ def main(
         falling back to ``DB_PATH`` (used by the feed collector),
         then :py:data:`~eth_defi.feed.database.DEFAULT_VAULT_POST_DATABASE`.
         The database is only opened if the resolved file exists on disk.
+
+    :param force_vault_ids:
+        Vault identities whose metadata was repaired, formatted as
+        ``chain_id-address``. Recalculate their existing price observations
+        even when the metrics freshness cache would otherwise replay an old
+        classification. Normal TVL qualification still applies.
     """
     defaults = _resolve_default_paths(data_dir)
     data_dir = defaults["data_dir"]
@@ -1397,11 +1404,11 @@ def main(
         export_threshold_by_id,
         now,
     )
-    forced_vault_ids = _find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) & seen_vault_ids
+    forced_vault_ids = (_find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) | (force_vault_ids or set())) & seen_vault_ids
     due_vault_ids.update(forced_vault_ids)
     skipped_vault_ids.difference_update(forced_vault_ids)
     if forced_vault_ids:
-        logger.info("Vault export post-processing forced %d stale attribution rows through metrics", len(forced_vault_ids))
+        logger.info("Vault metadata repairs forced %d rows through metrics", len(forced_vault_ids))
     logger.info("Metrics freshness: %d vaults due, %d low-TVL vaults still fresh", len(due_vault_ids), len(skipped_vault_ids))
 
     # Read the full frame only for the due vaults: steady-state runs

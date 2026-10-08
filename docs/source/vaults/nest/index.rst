@@ -93,6 +93,15 @@ Pools on different chains remain separate listings.
 ``scripts/nest/migrate-export-routes.py`` can remove old duplicate listings
 from a saved public JSON export, recalculate its aggregates and save a backup.
 It preserves scanner metadata, all price histories and qualification state.
+For Arc rows previously classified as unknown ERC-7540, use
+``scripts/nest/migrate-vaults.py`` with ``NETWORKS=arc`` and
+``NEST_SCAN_PRICES=false``. It verifies the contracts, repairs their metadata,
+and rebuilds the public export and retained export records from collected
+prices. Normal TVL qualification applies; missing historical returns are not
+invented. ``NEST_EXPORT=false`` defers export rebuilding. Applied export
+rebuilds back up the existing public JSON and both export state files.
+Discovery-cache signatures include the classifier signature so future probe
+changes refresh old classifications without waiting for the cache to expire.
 The next normal export/upload publishes the selected routes. See the vault
 scripts README for local-copy and Docker commands. The table includes the
 price observation date, share price and history start date.

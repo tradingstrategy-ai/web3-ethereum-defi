@@ -303,6 +303,7 @@ def test_apply_backfills_when_metadata_is_already_current(migration_module: Modu
     VaultDatabase().write(vault_db_path)
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=5042))
     history_calls: list[int] = []
+    export_calls: list[set[str]] = []
     monkeypatch.setenv("NETWORKS", "arc")
     monkeypatch.setattr(migration_module, "fetch_nest_vaults", lambda **_kwargs: {"arc": arc_route})
     monkeypatch.setattr(migration_module, "read_json_rpc_url", lambda _: "https://rpc.example")
@@ -311,9 +312,50 @@ def test_apply_backfills_when_metadata_is_already_current(migration_module: Modu
     monkeypatch.setattr(migration_module, "plan_existing_metadata_updates", lambda *_args: {})
     monkeypatch.setattr(migration_module, "validate_history_paths", lambda *_args: None)
     monkeypatch.setattr(migration_module, "backfill_chain_history", lambda reader_web3, *_args, **_kwargs: history_calls.append(reader_web3.eth.chain_id) or {"chain": "arc", "cleaned_rows": 1})
+    monkeypatch.setattr(migration_module, "rebuild_nest_export", lambda _metadata, _prices, vault_ids: export_calls.append(vault_ids))
 
     migration_module.run_migration(dry_run=True, scan_prices=True, vault_db_path=vault_db_path)
     assert history_calls == []
+    assert export_calls == []
 
     migration_module.run_migration(dry_run=False, scan_prices=True, vault_db_path=vault_db_path)
     assert history_calls == [5042]
+    assert export_calls == [{f"5042-{ARC_VAULT_ADDRESS}"}]
+
+    # A focused Arc repair regenerates its public classification without backfill.
+    migration_module.run_migration(dry_run=False, scan_prices=False, vault_db_path=vault_db_path)
+    assert history_calls == [5042]
+    assert export_calls == [{f"5042-{ARC_VAULT_ADDRESS}"}] * 2
+
+
+def test_nest_export_backup_and_pipeline_isolation(migration_module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Back up export state and refuse overrides outside the private pipeline.
+
+    A migration using a metadata copy must not overwrite the shared metrics
+    or retained qualification state through an inherited environment setting.
+
+    :param migration_module: Operator migration module.
+    :param tmp_path: Private scanner directory.
+    :param monkeypatch: Replace expensive metric generation with a call capture.
+    :return: ``None`` after checking backups and isolated export arguments.
+    """
+    for name in ("VAULT_EXPORT_STATE_PATH", "VAULT_METRICS_STATE_PATH"):
+        monkeypatch.delenv(name, raising=False)
+    metadata = tmp_path / "vault-metadata-db.pickle"
+    prices = tmp_path / "cleaned-vault-prices-1h.parquet"
+    prices.touch()
+    originals = {name: name.encode() for name in ("top_vaults_by_chain.json", "vault-export-state.json", "vault-metrics-state.json")}
+    for name, content in originals.items():
+        (tmp_path / name).write_bytes(content)
+    calls: list[dict] = []
+    monkeypatch.setattr(migration_module, "export_vaults", lambda **kwargs: calls.append(kwargs))
+    vault_ids = {f"5042-{ARC_VAULT_ADDRESS}"}
+    migration_module.rebuild_nest_export(metadata, prices, vault_ids)
+    assert calls == [{"data_dir": tmp_path, "vault_db_path": metadata, "parquet_path": prices, "output_path": tmp_path / "top_vaults_by_chain.json", "core3_db_path": tmp_path / "core3/core3.duckdb", "xerberus_db_path": tmp_path / "xerberus/xerberus.duckdb", "feed_db_path": tmp_path / "vault-post-database.duckdb", "force_vault_ids": vault_ids}]
+    for name, content in originals.items():
+        assert (tmp_path / name).read_bytes() == content
+        assert (tmp_path / f"{name}.bak-nest-vaults").read_bytes() == content
+    monkeypatch.setenv("VAULT_EXPORT_STATE_PATH", str(tmp_path.parent / "shared-state.json"))
+    with pytest.raises(ValueError, match="state overrides"):
+        migration_module.rebuild_nest_export(metadata, prices, vault_ids)
+    assert len(calls) == 1

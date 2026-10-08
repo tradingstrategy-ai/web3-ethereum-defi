@@ -25,6 +25,9 @@ An applied change creates a unique sibling backup before atomically replacing
 the JSON. Unchanged exports are not rewritten. Price observation timestamps
 and build provenance are preserved; this is an offline repair, not a rescan.
 Publish the repaired file through the normal export/upload pipeline afterwards.
+For Arc rows saved as unknown ERC-7540 vaults, use ``migrate-vaults.py`` with
+``NETWORKS=arc NEST_SCAN_PRICES=false`` instead: it verifies the contracts,
+repairs metadata and rebuilds listings from collected history.
 """
 
 import json

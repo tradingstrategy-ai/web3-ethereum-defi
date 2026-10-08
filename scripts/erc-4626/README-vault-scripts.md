@@ -1708,7 +1708,7 @@ source .local-test.env && PYTHONPATH=. DRY_RUN=true poetry run python scripts/ne
 
 Apply the metadata and historical migration after coordinating with the
 looped scanner. The command holds the shared `scan-pipeline` writer lock from
-the metadata read through the final cleaned-price write. Its HyperSync cache
+the metadata read through the final export. Its HyperSync cache
 fill may take time on chains without a retained dense timestamp cache:
 
 ```shell
@@ -1723,7 +1723,7 @@ room for other processes using the same token. The cache reads timestamp-only
 pages and acquires a rate-limit slot for every HTTP request, then saves each
 500,000-block chunk. An exhausted quota stops the run; wait for the provider
 window to reset and rerun with a lower request rate or higher provider quota.
-Completed cache chunks are reused. Use `NETWORKS=plume` only for a reviewed focused repair. Set
+Completed cache chunks are reused. Use `NETWORKS` for a focused repair. Set
 `NEST_SCAN_PRICES=false` only when historical prices must deliberately be left
 unchanged. An isolated run must set `VAULT_DB_PATH`,
 `UNCLEANED_PRICE_DATABASE`, `CLEANED_PRICE_DATABASE` and
@@ -1739,6 +1739,46 @@ raw history already committed for that chain remains available for diagnosis.
 The migration preserves scheduled reader state, so a chain without saved
 progress can be rescanned by its first routine cycle. Prepopulate or restore
 the production timestamp cache before enabling the recurring price scanner.
+
+The final stage rebuilds the public JSON using the normal exporter, including
+the USDC, USDT, pUSD route preference and reviewed curator records. Selected
+Nest identities bypass the metrics freshness cache so repaired classifications
+replace stale retained records. Historical returns are calculated from the
+existing cleaned Parquet; the normal TVL qualification still applies. Export
+and metrics state are refreshed, with backups of their original files, while
+reader state and price files are preserved by a metadata-only run. Set
+`NEST_EXPORT=false` to defer the export stage. If the cleaned Parquet is absent,
+the script logs a warning and leaves export generation to a later run.
+
+#### Repair cached Arc classifications
+
+Arc rows discovered before Nest's Arc probe was enabled can still be saved as
+`<unknown ERC-7540>`. The discovery cache now includes the classifier signature,
+so future classifier changes invalidate it immediately. For an immediate repair,
+the migration verifies all three active Arc routes onchain, refreshes metadata,
+and regenerates listings from collected history. It requires `JSON_RPC_ARC`;
+this metadata and export repair does not require HyperSync.
+
+In Bash inside the scanner Docker container, preview then apply:
+
+```bash
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=true python scripts/nest/migrate-vaults.py
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=false python scripts/nest/migrate-vaults.py
+```
+
+Use the deployed checkout containing this fix and the normal mounted scanner
+data. To test a private copy locally, set `VAULT_DB_PATH` to its metadata pickle;
+the cleaned Parquet and rebuilt JSON default to that pickle's directory. Export
+state overrides must also stay in this directory. Use `source .local-test.env`
+and `PYTHONPATH=. poetry run python` for local commands. Vaults without enough
+price history or TVL remain absent from the public export. This repairs Arc's
+classification; it does not establish parity with Nest's product-level TVL.
+The rebuild covers the entire stablecoin export. Optional Core3, Xerberus and
+feed databases are read from this pipeline directory, never from a different
+checkout's default state. Copy those databases too when testing a complete
+export with risk scores and feed metadata; absent databases omit their optional
+enrichment. Export rebuilding can be rerun after metadata has already been
+repaired, including after an interrupted export stage.
 
 After the scan, run `scripts/nest/list-vaults.py` against the resulting metadata
 and export files to check route names, curator records, TVL, one-month CAGR and

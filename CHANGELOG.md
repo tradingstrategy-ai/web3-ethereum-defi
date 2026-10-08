@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Invalidate discovery caches after classifier changes and rebuild cached Arc Nest classifications, curator records and public listings during the Nest migration (2026-10-07).
 - fix: Publish one Nest vault entrypoint per chain and share token, preferring USDC, then USDT, then pUSD, and add an offline export migration to remove old duplicate listings and repeated pool TVL (2026-10-07).
 - feat: Expand Nest vault coverage to Arc, Worldchain and Plume, enrich product and curator metadata, and add historical migration and CAGR audit scripts (2026-10-07).
 - fix: Correct ApeX user-vault links and add a metadata-only migration for cached links, preserving the official-vault view (2026-10-05).
