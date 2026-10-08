@@ -73,7 +73,6 @@ def test_fetch_perpetual_instruments(session):
     assert instruments == sorted(instruments)
 
 
-@pytest.mark.skip(reason="derive v3 migration needed")
 @pytest.mark.timeout(60)
 def test_fetch_funding_rate_history(session: Session) -> None:
     """Fetch a published day of funding rates from the real API.
@@ -106,7 +105,6 @@ def test_fetch_funding_rate_history(session: Session) -> None:
         assert rates[i].timestamp_ms >= rates[i - 1].timestamp_ms
 
 
-@pytest.mark.skip(reason="derive v3 migration needed")
 @pytest.mark.timeout(60)
 def test_funding_rate_db_sync_and_resume(session: Session, tmp_path: Path) -> None:
     """Sync a published day and verify that resume inserts no duplicates.
@@ -144,7 +142,6 @@ def test_funding_rate_db_sync_and_resume(session: Session, tmp_path: Path) -> No
         db.close()
 
 
-@pytest.mark.skip(reason="derive v3 migration needed")
 @pytest.mark.timeout(60)
 def test_funding_rate_db_dataframe(session: Session, tmp_path: Path) -> None:
     """Read a persisted published day as a DataFrame.
