@@ -12,7 +12,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from cairosvg import svg2png
 from PIL import Image, ImageColor, ImageDraw
 
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
@@ -417,6 +416,11 @@ def render_sparkline_table_png(vault_prices_df: pd.DataFrame | SparklineData | b
     :return:
         Native 4:1 PNG bytes suitable for a 72 x 18 HTML image.
     """
+    # CairoSVG loads the native libcairo when imported. Importing it here keeps
+    # vault metadata parsing, which reaches this module via eth_defi.vault.curator,
+    # usable where only the scanner image installs libcairo2.
+    from cairosvg import svg2png  # noqa: PLC0415
+
     return svg2png(
         bytestring=vault_prices_df if isinstance(vault_prices_df, bytes) else render_sparkline_svg(vault_prices_df),
         output_width=SPARKLINE_TABLE_PNG_WIDTH,
