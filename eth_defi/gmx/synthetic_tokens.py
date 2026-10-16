@@ -14,7 +14,8 @@ from typing import Optional, Any, TypeAlias
 import cachetools
 from eth_typing import HexAddress
 
-from eth_defi.chain import get_chain_name
+from eth_defi.chain import get_chain_id_by_name, get_chain_name
+from eth_defi.gmx.constants import GMX_API_URLS
 from eth_defi.gmx.retry import GMXRetryConfig, make_gmx_api_request
 
 logger = logging.getLogger(__name__)
@@ -329,6 +330,21 @@ def reset_gmx_token_cache():
 def get_supported_gmx_chains() -> list[int]:
     """Get list of chain IDs that support GMX synthetic tokens.
 
-    :return: list of supported chain IDs
+    The chains are derived from the primary GMX REST API endpoints in
+    :data:`eth_defi.gmx.constants.GMX_API_URLS`, which are keyed by lowercase
+    chain name. Each name is translated back to a chain ID with
+    :func:`eth_defi.chain.get_chain_id_by_name`, the inverse of the lookup
+    :func:`fetch_gmx_synthetic_tokens` performs, so every returned chain ID can
+    be passed to it. See the `GMX REST API documentation <https://gmx-docs.io/docs/api/rest-v2>`__.
+
+    :return:
+        List of supported chain IDs, e.g. ``[42161, 43114, 421614]``
+
+    .. code-block:: python
+
+        # Fetch GMX synthetic tokens on every supported chain
+        for chain_id in get_supported_gmx_chains():
+            tokens = fetch_gmx_synthetic_tokens(chain_id=chain_id)
     """
-    return list(GMX_API_ENDPOINTS.keys())
+    chain_ids = (get_chain_id_by_name(chain_name) for chain_name in GMX_API_URLS)
+    return [chain_id for chain_id in chain_ids if chain_id is not None]
