@@ -314,7 +314,9 @@ EVM_BLOCK_TIMES = {
     998: 1,  # HyperEVM testnet, same dual-block architecture as mainnet
     4217: 0.5,  # Tempo, measured from recent block-header samples (timestamps have one-second resolution)
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
-    4663: 0.25,  # Robinhood Chain, Arbitrum L2; docs promise sub-second soft confirmations, fixed block time not published
+    # Measured from Robinhood Chain blocks 92,259,343 to 93,259,343 on 2026-10-20:
+    # 102,999 seconds / 1,000,000 blocks = 0.103 seconds per block.
+    4663: 0.1,  # Robinhood Chain, Arbitrum Orbit L2 with ~100 ms blocks
     11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)
     84532: 2,  # Base Sepolia (same as Base mainnet)
