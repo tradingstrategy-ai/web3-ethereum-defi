@@ -23,6 +23,7 @@ Limitations:
 
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -38,6 +39,7 @@ from freqtrade.exchange.exchange_types import CcxtOrder, FtHas
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.gmx.gas_refusal import GasRefusalProof, GasRejectedOrder, GMXPreflightGasError, is_gas_rejected_result
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import (
     GMX_SUPPORTED_CHAINS,
@@ -69,6 +71,15 @@ GMX_ORDER_MAX_AGE_MS = 10 * 60 * 1000
 #: instead of ``block.timestamp * 1000``). Skip zombie detection at this
 #: ceiling — see tradingstrategy-ai/gmx-strategies#67.
 GMX_ORDER_MAX_AGE_SANITY_CEILING_MS = 365 * 24 * 60 * 60 * 1000  # 1 year
+
+
+class GmxPreflightGasRefusal(InsufficientFundsError):
+    """Freqtrade-compatible refusal with exact pre-sign no-acceptance evidence."""
+
+    def __init__(self, proof: GasRefusalProof) -> None:
+        """Expose evidence without relying on the exception's message text."""
+        super().__init__(f"GMX preflight gas refusal for {proof.pair} ({proof.branch})")
+        self.proof = proof
 
 
 class Gmx(Exchange):
@@ -1896,6 +1907,53 @@ class Gmx(Exchange):
         if sent:
             logger.info("Order error Telegram alert sent for %s (%s: %s)", pair, exc_type, exc_msg[:80])
 
+    def gas_retry_not_before(self, pair: str) -> datetime | None:
+        """Read the actual UTC pair deadline without shortening its cooldown.
+
+        :param pair: CCXT pair identity.
+        :return: The in-process retry deadline, or no active deadline.
+        """
+        state = self._gas_critical_attempts.get(pair)
+        return datetime.fromtimestamp(state[2], timezone.utc) if state and state[2] > 0 else None
+
+    def _is_current_gas_preflight(self, proof: object, pair: str, started_at: datetime) -> bool:
+        """Check branch evidence before changing throttle state or stock behaviour.
+
+        :param proof: Lower SDK evidence, never an exception message or plain dict.
+        :param pair: Pair requested by this synchronous call.
+        :param started_at: Time this wrapper entered before delegating.
+        :return: Whether the exact lower preflight refused this call's identity.
+        """
+        return type(proof) is GasRefusalProof and type(proof.version) is int and proof.version == 1 and proof.branch in {"ccxt_critical_return", "ccxt_critical_raise"} and proof.phase == "pre_sign_pre_submit" and proof.signed is False and proof.broadcast is False and type(proof.chain_id) is int and proof.chain_id == self._api.web3.eth.chain_id and proof.payer == self._api._gas_payer_address and proof.pair == pair and type(proof.observed_at) is datetime and proof.observed_at.tzinfo is not None and started_at <= proof.observed_at <= datetime.now(timezone.utc) and proof.failure_count == 0 and type(proof.failure_count) is int and proof.retry_not_before is None
+
+    def _normalise_gas_refusal(self, proof: GasRefusalProof) -> GmxPreflightGasRefusal:
+        """Advance the existing throttle before normalising every proved refusal.
+
+        :param proof: Evidence from the exact lower preflight branch.
+        :return: A stock-compatible exception carrying counters and deadline.
+        """
+        now = time.time()
+        pair = proof.pair
+        count, window_start, paused_until = self._gas_critical_attempts.get(pair, (0, now, 0.0))
+        if now - window_start > _GAS_CRITICAL_WINDOW_SECS:
+            count, window_start = 0, now
+        count += 1
+        if count == _GAS_CRITICAL_MAX_RETRIES:
+            paused_until = now + _GAS_CRITICAL_PAUSE_SECS
+        self._gas_critical_attempts[pair] = (count, window_start, paused_until)
+        if count == _GAS_CRITICAL_MAX_RETRIES:
+            logger.error("Gas critical: %d failures for %s; pausing for %ds", count, pair, _GAS_CRITICAL_PAUSE_SECS)
+            self._send_gas_critical_telegram_alert(pair, count)
+        else:
+            logger.warning("Gas critical attempt %d/%d for %s", count, _GAS_CRITICAL_MAX_RETRIES, pair)
+        return GmxPreflightGasRefusal(
+            replace(
+                proof,
+                failure_count=count,
+                retry_not_before=self.gas_retry_not_before(pair),
+            )
+        )
+
     @retrier
     def create_order(
         self,
@@ -2027,6 +2085,7 @@ class Gmx(Exchange):
         # Pre-flight: skip immediately if this pair is in a gas-critical pause.
         # This prevents unnecessary GMX API calls (and keeper fee waste) while gas is low.
         _now = time.time()
+        started_at = datetime.now(timezone.utc)
         _gas_state = self._gas_critical_attempts.get(pair)
         if _gas_state is not None:
             _count, _win, _paused_until = _gas_state
@@ -2037,7 +2096,21 @@ class Gmx(Exchange):
                     pair,
                     _remaining,
                 )
-                raise InsufficientFundsError(f"GMX gas critical: exit orders paused for {pair} ({_remaining}s remaining). Top up wallet ETH to resume.")
+                raise GmxPreflightGasRefusal(
+                    GasRefusalProof(
+                        version=1,
+                        branch="freqtrade_pair_cooldown",
+                        phase="pre_sign_pre_submit",
+                        chain_id=self._api.web3.eth.chain_id,
+                        payer=self._api._gas_payer_address,
+                        pair=pair,
+                        observed_at=datetime.now(timezone.utc),
+                        signed=False,
+                        broadcast=False,
+                        failure_count=_count,
+                        retry_not_before=self.gas_retry_not_before(pair),
+                    )
+                )
             elif _paused_until > 0.0:
                 # Pause expired — clear state and log recovery
                 logger.info(
@@ -2079,6 +2152,12 @@ class Gmx(Exchange):
                 time_in_force=time_in_force,
                 **kwargs,
             )
+        except InsufficientFundsError as exc:
+            cause = exc.__cause__
+            if type(cause) is GMXPreflightGasError and self._is_current_gas_preflight(cause.proof, pair, started_at) and cause.proof.branch == "ccxt_critical_raise" and cause.proof.raw_result is None:
+                raise self._normalise_gas_refusal(cause.proof) from exc
+            self._send_order_error_telegram_alert(pair, reduceOnly, exc)
+            raise
         except Exception as exc:
             # Forward all order errors to Telegram so the operator is notified immediately.
             # Specific known patterns get a structured message; unknown errors get a generic one.
@@ -2132,64 +2211,14 @@ class Gmx(Exchange):
             logger.debug("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
         logger.debug("=" * 80)
 
-        # --- Gas-critical retry throttle ---
-        # When the CCXT layer returns a rejected order due to insufficient ETH gas
-        # (status="rejected", info.error="insufficient_gas"), freqtrade would
-        # normally continue past create_order, hit _notify_exit, and spam Telegram
-        # with "Exiting …" on every bot loop.  After _GAS_CRITICAL_MAX_RETRIES
-        # attempts we raise InsufficientFundsError instead, which freqtrade catches
-        # at execute_trade_exit:2151 and returns False — no Telegram notification,
-        # no DB entry, but the bot keeps running and will retry on the next loop
-        # once gas is topped up.
-
-        if order.get("status") == "rejected" and order.get("info", {}).get("error") == "insufficient_gas":
-            # Re-sample time here; _now (pre-flight) was taken before super().create_order()
-            # and may be several seconds stale after the GMX RPC round-trip.
-            now = time.time()
-            count, window_start, paused_until = self._gas_critical_attempts.get(pair, (0, now, 0.0))
-
-            # Reset window if it expired
-            if now - window_start > _GAS_CRITICAL_WINDOW_SECS:
-                count = 0
-                window_start = now
-
-            count += 1
-            self._gas_critical_attempts[pair] = (count, window_start, paused_until)
-
-            if count == _GAS_CRITICAL_MAX_RETRIES:
-                # First time hitting the threshold: send Telegram ONCE and start the pause.
-                paused_until = now + _GAS_CRITICAL_PAUSE_SECS
-                self._gas_critical_attempts[pair] = (count, window_start, paused_until)
-                logger.error(
-                    "🚫 Gas critical: %d consecutive failed attempts for %s. Pausing exit orders for %ds. Top up wallet ETH to resume trading.",
-                    count,
-                    pair,
-                    _GAS_CRITICAL_PAUSE_SECS,
-                )
-                self._send_gas_critical_telegram_alert(pair, count)
-                raise InsufficientFundsError(f"GMX gas critical after {count} attempts for {pair}. Exit orders paused for {_GAS_CRITICAL_PAUSE_SECS}s. Top up wallet ETH.")
-            elif count > _GAS_CRITICAL_MAX_RETRIES:
-                # Unreachable in steady-state: once count hits the threshold the pre-flight
-                # guard intercepts all subsequent calls before reaching this post-order block.
-                # Note: _gas_critical_attempts is in-memory and reset on bot restart, so a
-                # freshly-restarted bot will re-accumulate from count=0 (up to 3 retries)
-                # before pausing again — this branch is not reached in that case either.
-                logger.debug(
-                    "Gas still critical for %s (attempt %d, pause should be active)",
-                    pair,
-                    count,
-                )
-                raise InsufficientFundsError(f"GMX gas critical (attempt {count}) for {pair}. Pause is active.")
-            else:
-                logger.warning(
-                    "⛽ Gas critical attempt %d/%d for %s — will pause exit orders after %d failures.",
-                    count,
-                    _GAS_CRITICAL_MAX_RETRIES,
-                    pair,
-                    _GAS_CRITICAL_MAX_RETRIES,
-                )
-        # Successful order — reset the gas failure counter for this pair
-        elif pair in self._gas_critical_attempts:
+        # Only a typed result created by the lower pre-sign gas branch is proof.
+        # Plain dictionaries and message text cannot authorise marker release.
+        if type(order) is GasRejectedOrder and type(order.proof) is GasRefusalProof:
+            proof = order.proof
+            if self._is_current_gas_preflight(proof, pair, started_at) and proof.branch == "ccxt_critical_return" and proof.raw_result == dict(order) and is_gas_rejected_result(order):
+                raise self._normalise_gas_refusal(proof)
+        # Preserve the existing reset on a successfully accepted order.
+        elif pair in self._gas_critical_attempts and order.get("status") in ("open", "closed"):
             self._gas_critical_attempts.pop(pair)
 
         return order

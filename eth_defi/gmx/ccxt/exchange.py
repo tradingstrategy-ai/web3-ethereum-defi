@@ -26,7 +26,7 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -88,10 +88,10 @@ from eth_defi.gmx.events import (
     extract_order_execution_result,
     extract_order_key_from_receipt,
 )
+from eth_defi.gmx.gas_refusal import GasRefusalProof, GasRejectedOrder, GMXPreflightGasError
 from eth_defi.gmx.gas_monitor import (
     GasMonitorConfig,
     GMXGasMonitor,
-    InsufficientGasError,
 )
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order.cancel_order import CancelOrder
@@ -7481,7 +7481,20 @@ class GMX(ExchangeCompatible):
             if gas_check.status == "critical":
                 monitor.log_gas_check_warning(gas_check)
                 if gas_config.raise_on_critical:
-                    raise InsufficientGasError(gas_check.message, gas_check)
+                    raise GMXPreflightGasError(
+                        gas_check.message,
+                        GasRefusalProof(
+                            version=1,
+                            branch="ccxt_critical_raise",
+                            phase="pre_sign_pre_submit",
+                            chain_id=self.web3.eth.chain_id,
+                            payer=self._gas_payer_address,
+                            pair=symbol,
+                            observed_at=datetime.now(timezone.utc),
+                            signed=False,
+                            broadcast=False,
+                        ),
+                    )
                 # Return failed order dict instead of crashing.
                 # Use a unique timestamp-based ID so that freqtrade can INSERT
                 # multiple rejected orders for the same pair without hitting the
@@ -7489,7 +7502,7 @@ class GMX(ExchangeCompatible):
                 # gets stringified to the literal "None" by SQLAlchemy, which
                 # causes IntegrityError on the second rejection for the same pair.
                 _rejected_id = f"gas_rejected_{symbol.replace('/', '_').replace(':', '_')}_{self.milliseconds()}"
-                return {
+                rejected = {
                     "id": _rejected_id,
                     "clientOrderId": None,
                     "datetime": self.iso8601(self.milliseconds()),
@@ -7518,6 +7531,21 @@ class GMX(ExchangeCompatible):
                     "average": None,
                     "fees": [],
                 }
+                return GasRejectedOrder(
+                    rejected,
+                    GasRefusalProof(
+                        version=1,
+                        branch="ccxt_critical_return",
+                        phase="pre_sign_pre_submit",
+                        chain_id=self.web3.eth.chain_id,
+                        payer=self._gas_payer_address,
+                        pair=symbol,
+                        observed_at=datetime.now(timezone.utc),
+                        signed=False,
+                        broadcast=False,
+                        raw_result=rejected,
+                    ),
+                )
             elif gas_check.status == "warning":
                 monitor.log_gas_check_warning(gas_check)
 
