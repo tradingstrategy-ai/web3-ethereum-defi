@@ -38,6 +38,10 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
+from eth_defi.gmx.ccxt.token_symbols import (
+    resolve_market_token_symbol,
+    token_symbols_by_address,
+)
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
     _resolve_close_order_filled_amount,  # noqa: F401  # sync/async lockstep; async close paths reuse the same helper
@@ -1617,7 +1621,7 @@ class GMX(Exchange):
         await self.load_markets()
 
         market = self.market(symbol)
-        token_symbol = market["id"]
+        token_symbol = await self._resolve_market_token_symbol(market)
 
         # Fetch from GMX API
         try:
@@ -1812,6 +1816,35 @@ class GMX(Exchange):
 
         return result
 
+    async def _resolve_market_token_symbol(self, market_info: dict) -> str:
+        """Return the token symbol the GMX price endpoints accept.
+
+        Synthetic markets are named with a ``2`` suffix (``HYPE2``) and some
+        markets carry a ``k`` prefix; neither is a symbol in ``/tokens``, so
+        use the market's index token address instead. The address-to-symbol
+        map is fetched once per exchange instance.
+
+        :param market_info:
+            CCXT market dict.
+
+        :return:
+            GMX token symbol for the price request.
+        """
+        symbols_by_address = getattr(self, "_market_token_symbols", None)
+        if symbols_by_address is None:
+            try:
+                payload = await async_make_gmx_api_request(
+                    chain=self.chain,
+                    endpoint="/tokens",
+                    session=self.session,
+                )
+            except GMXAPIUnavailable as exc:
+                logger.warning("Could not load GMX token symbols for price lookup: %s", exc)
+                return market_info["id"]
+            symbols_by_address = token_symbols_by_address(payload)
+            self._market_token_symbols = symbols_by_address
+        return resolve_market_token_symbol(market_info, symbols_by_address)
+
     async def fetch_ohlcv(
         self,
         symbol: str,
@@ -1835,7 +1868,7 @@ class GMX(Exchange):
         await self.load_markets()
 
         market = self.market(symbol)
-        token_symbol = market["id"]
+        token_symbol = await self._resolve_market_token_symbol(market)
 
         if timeframe not in self.timeframes:
             raise ValueError(f"Invalid timeframe: {timeframe}")

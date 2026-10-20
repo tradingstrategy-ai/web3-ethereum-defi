@@ -101,6 +101,10 @@ from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.retry import GMXAPIUnavailable
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
+from eth_defi.gmx.ccxt.token_symbols import (
+    resolve_market_token_symbol,
+    token_symbols_by_address,
+)
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError, get_fallback_provider
@@ -3021,6 +3025,30 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def _resolve_market_token_symbol(self, market_info: dict[str, Any]) -> str:
+        """Return the token symbol the GMX price endpoints accept.
+
+        Synthetic markets are named with a ``2`` suffix (``HYPE2``) and some
+        markets carry a ``k`` prefix; neither is a symbol in ``/tokens``, so
+        use the market's index token address instead. The address-to-symbol
+        map is fetched once per exchange instance.
+
+        :param market_info:
+            CCXT market dict.
+
+        :return:
+            GMX token symbol for the price request.
+        """
+        symbols_by_address = getattr(self, "_market_token_symbols", None)
+        if symbols_by_address is None:
+            try:
+                symbols_by_address = token_symbols_by_address(self.api.get_tokens())
+            except GMXAPIUnavailable as exc:
+                logger.warning("Could not load GMX token symbols for price lookup: %s", exc)
+                return market_info["id"]
+            self._market_token_symbols = symbols_by_address
+        return resolve_market_token_symbol(market_info, symbols_by_address)
+
     def fetch_ohlcv(
         self,
         symbol: str,
@@ -3076,7 +3104,7 @@ class GMX(ExchangeCompatible):
 
         # Get market info and extract GMX token symbol
         market_info = self.market(symbol)
-        token_symbol = market_info["id"]  # GMX token symbol (e.g., "ETH")
+        token_symbol = self._resolve_market_token_symbol(market_info)
 
         # Validate timeframe
         if timeframe not in self.timeframes:
