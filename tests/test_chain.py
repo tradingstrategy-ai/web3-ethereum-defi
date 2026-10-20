@@ -8,9 +8,10 @@ from web3 import HTTPProvider, Web3
 from eth_defi.chain import get_chain_homepage, get_chain_id_by_name, get_chain_name, get_evm_block_time, has_graphql_support
 from eth_defi.provider.broken_provider import get_block_tip_latency
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 ROBINHOOD_CHAIN_ID = 4663
-ROBINHOOD_BLOCK_TIME = 0.25
+ROBINHOOD_BLOCK_TIME = 0.1
 TEMPO_CHAIN_ID = 4217
 TEMPO_BLOCK_TIME = 0.5
 ARC_CHAIN_ID = 5042
@@ -27,6 +28,22 @@ def test_robinhood_chain_metadata():
     assert get_json_rpc_env(ROBINHOOD_CHAIN_ID) == "JSON_RPC_ROBINHOOD"
     assert get_evm_block_time(ROBINHOOD_CHAIN_ID) == ROBINHOOD_BLOCK_TIME
     assert get_chain_homepage(ROBINHOOD_CHAIN_ID) == ("Robinhood", "https://robinhood.com/us/en/chain/")
+
+
+@pytest.mark.skipif(os.environ.get("JSON_RPC_ROBINHOOD") is None, reason="JSON_RPC_ROBINHOOD needed to measure the Robinhood block time")
+def test_robinhood_block_time_matches_chain():
+    """The configured Robinhood block time matches the block timestamps on the chain.
+
+    Block-range lookbacks such as a 14-day vault admission window or a daily
+    historical price step are converted with this value.
+    """
+
+    web3 = create_multi_provider_web3(read_json_rpc_url(ROBINHOOD_CHAIN_ID))
+    end_block = web3.eth.block_number
+    start_block = end_block - 100_000
+    elapsed = web3.eth.get_block(end_block)["timestamp"] - web3.eth.get_block(start_block)["timestamp"]
+    measured_block_time = elapsed / (end_block - start_block)
+    assert get_evm_block_time(ROBINHOOD_CHAIN_ID) == pytest.approx(measured_block_time, rel=0.25)
 
 
 def test_tempo_chain_metadata(monkeypatch: pytest.MonkeyPatch):
