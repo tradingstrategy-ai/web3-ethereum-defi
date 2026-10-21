@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Set the Robinhood Chain block time to the measured 0.1 seconds instead of 0.25 seconds, so block-range lookbacks and historical sampling steps on chain 4663 cover the requested wall-clock time (2026-10-20).
 - fix: Import CairoSVG only inside `render_sparkline_table_png()`, so importing `eth_defi.vault.curator` or `eth_defi.research.vault_metrics`, and parsing vault metadata in trading-strategy, no longer requires the native libcairo library (2026-10-14).
 - fix: Evaluate all HyperCore uncertainty boundaries of a vault at once in `select_permission_state()`, so permission projection no longer slows down with the boundary count, with unchanged output (2026-10-08).
 - fix: Invalidate discovery caches after classifier changes and rebuild cached Arc Nest classifications, curator records and public listings during the Nest migration (2026-10-07).
