@@ -1,0 +1,21 @@
+# Accountable's cached public metadata identifies company_name: Ryllo for
+# Monad share vault 0x899e270df335287f687fdac8a9089059b042044f and loan
+# 0x44DF31Ec2F1dD517268929903061a47edb7fbD1f. Reviewed 2026-10-22;
+# the live API returned HTTP 403, so this manager record was not refreshed.
+feeder-id: ryllo
+name: Ryllo
+role: curator
+accountable-company: Ryllo
+website: https://ryllo.co/
+short_description: Ryllo owns and operates sports and entertainment assets and offers fractional ownership opportunities.
+long_description: |
+  [Ryllo](https://ryllo.co/) owns and operates sports and entertainment assets, including the Glasgow Cosmic cricket franchise, and offers fractional ownership through its launchpad.
+  It is the manager of the [Glasgow Cosmic by Ryllo vault on Accountable](https://yield.accountable.capital/vaults/0x44DF31Ec2F1dD517268929903061a47edb7fbD1f).
+  The vault finances the team's working-capital requirements and is secured by the team's receivables.
+other-links:
+  - title: Ryllo official website - sports and entertainment ownership and Glasgow Cosmic offering
+    url: https://ryllo.co/
+  - title: Accountable YieldApp - Glasgow Cosmic by Ryllo vault
+    url: https://yield.accountable.capital/vaults/0x44DF31Ec2F1dD517268929903061a47edb7fbD1f
+  - title: Trading Strategy - Glasgow Cosmic vault address and receivables-backed working-capital strategy
+    url: https://tradingstrategy.ai/vaults/glasgow-cosmic-by-ryllo

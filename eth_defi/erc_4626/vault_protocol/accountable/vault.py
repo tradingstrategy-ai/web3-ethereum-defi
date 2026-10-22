@@ -24,6 +24,7 @@ from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     AccountableVaultMetadata,
     fetch_accountable_vault_metadata,
 )
+from eth_defi.erc_4626.vault_protocol.accountable.tags import MONAD_CHAIN_ID, STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.types import Percent
@@ -31,7 +32,7 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
-from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -556,13 +557,21 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         return None
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
-        """Return curator-maintained strategy tags for supported products.
+        """Return maintained strategy tags for supported Accountable products.
+
+        Monad's address-level classifications supplement the existing
+        cross-protocol curator mappings. Unreviewed products retain ``None``.
 
         :return:
-            Strategy tags for a reviewed curator product, otherwise ``None``.
+            A fresh set of strategy tags, otherwise ``None``.
         """
 
-        return lookup_curator_strategy_tags(self.chain_id, self.address)
+        tags = lookup_curator_strategy_tags(self.chain_id, self.address)
+        if self.chain_id == MONAD_CHAIN_ID:
+            protocol_tags = lookup_strategy_tags(STRATEGY_TAGS, self.address)
+            if protocol_tags is not None:
+                return (tags or set()) | protocol_tags
+        return tags
 
     @property
     def manager_name(self) -> str | None:
