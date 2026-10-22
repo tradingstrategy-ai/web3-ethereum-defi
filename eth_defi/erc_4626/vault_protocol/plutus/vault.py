@@ -14,6 +14,7 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager
+from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import (
@@ -23,6 +24,7 @@ from eth_defi.vault.base import (
     VaultHistoricalReader,
 )
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +194,17 @@ class PlutusVault(ERC4626Vault):
     - Docs: https://docs.plutusdao.io/plutus-docs
     - About plHEDGE vault: https://medium.com/@plutus.fi/introducing-plvhedge-an-automated-funding-arbitrage-vault-f2f222fa8c56
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained classifications for this reviewed deployment.
+
+        Only source-backed address entries are classified; an unreviewed
+        deployment retains the explicit missing-information result.
+
+        :return:
+            A fresh set of strategy tags, or ``None`` when information is missing.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def is_async_redemption_deployment(self) -> bool:
         """Return whether this deployment uses the ERC-7540-style async redemption.

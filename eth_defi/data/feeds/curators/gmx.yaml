@@ -1,0 +1,14 @@
+feeder-id: gmx
+name: GMX
+role: curator
+canonical-feeder-id: gmx
+short_description: GMX operates perpetual and spot trading markets with protocol liquidity pools.
+long_description: '[GMX](https://gmx.io/) is a decentralised perpetual and spot exchange. Its [GM and GLV liquidity
+  products](https://docs.gmx.io/docs/providing-liquidity/) supply trading liquidity and receive a share of protocol
+  fees while bearing pool inventory and trader profit-and-loss exposure. Pool exposure depends on the selected trading
+  market and its backing tokens.'
+other-links:
+- title: Official protocol website
+  url: https://gmx.io/
+- title: GM SKY [WETH-USDC] on chain 42161 - curator and strategy evidence
+  url: https://docs.gmx.io/docs/providing-liquidity/

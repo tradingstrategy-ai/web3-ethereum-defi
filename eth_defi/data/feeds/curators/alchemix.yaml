@@ -18,3 +18,5 @@ other-links:
     url: https://app.lagoon.finance/api/curators
   - title: Alchemix documentation - protocol overview and DAO-selected vault strategies
     url: https://docs.alchemix.fi/
+  - title: USDC Mix Yield Token on chain 1 - curator and strategy evidence
+    url: https://docs.alchemix.fi/dev/indexer-api

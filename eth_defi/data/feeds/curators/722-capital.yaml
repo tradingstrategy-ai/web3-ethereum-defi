@@ -17,3 +17,7 @@ other-links:
     url: https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
   - title: 722 Capital vault app - 722 USDC vault
     url: https://app.722.capital/v/722-usdc
+  - title: Trinity Trust on chain 1 - curator and strategy evidence
+    url: https://app.lagoon.finance/api/vault?chainId=1&address=0x71652d4898de9a7dd35e472a5fe4577ec69d82f2
+  - title: Unity Trust on chain 1 - curator and strategy evidence
+    url: https://app.lagoon.finance/api/vault?chainId=1&address=0x66dcb62da5430d800a1c807822c25be17138fda8

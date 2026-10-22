@@ -1,6 +1,7 @@
 feeder-id: hyperithm
 name: Hyperithm
 role: curator
+morpho-curator: Hyperithm
 symbiotic-curator: Hyperithm
 ipor-atomist: Hyperithm
 accountable-company: Hyperithm
@@ -15,3 +16,8 @@ linkedin: hyperithm
 rss: https://hyperithm.substack.com/feed
 rss-dead-at: 2026-04-06
 linkedin-rss-hub-disabled-at: 2026-06-09
+
+# Primary-source evidence for the reviewed 2026-10-21 vault mappings.
+other-links:
+  - title: Saturn USDC on chain 143 - curator and strategy evidence
+    url: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079

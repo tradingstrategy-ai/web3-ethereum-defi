@@ -412,3 +412,55 @@ def test_parse_boolean_env_requires_a_recognised_value() -> None:
     assert migration.parse_boolean_env("OFF", default=True) is False
     with pytest.raises(ValueError, match="Expected a boolean"):
         migration.parse_boolean_env("maybe", default=True)
+
+
+@pytest.mark.parametrize(
+    "chain_id,address,features,expected",
+    (
+        (1, "0x9fb7b4477576fe5b32be4c1843afb1e55f251b33", {ERC4626Feature.fluid_like}, {StrategyTag.lending}),
+        (1, "0x9be9294722f8aad37b11a9792be2c782182cafa2", {ERC4626Feature.ember_like}, {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.carry_trade, StrategyTag.multistrategy}),
+        (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a", {ERC4626Feature.plutus_like}, {StrategyTag.algorithmic_trading, StrategyTag.multistrategy}),
+        (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5", {ERC4626Feature.forty_acres_like}, {StrategyTag.lending}),
+        (8453, "0x9c6864105aec23388c89600046213a44c384c831", {ERC4626Feature.autopool_like}, {StrategyTag.algorithmic_trading, StrategyTag.liquidity_provider}),
+        (42161, "0x00310c6d8a9f821e3fe991f4835f2ca4d87034cf", {ERC4626Feature.gmx_gm}, {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_amm, StrategyTag.perpetual_futures}),
+        (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490", {ERC4626Feature.yearn_compounder_like}, {StrategyTag.lending}),
+    ),
+)
+def test_migrate_reviewed_curator_strategy_tags(chain_id: int, address: str, features: set[ERC4626Feature], expected: set[StrategyTag], tmp_path: Path) -> None:
+    """Persist the new adapter classifications without invoking live RPC.
+
+    Use an isolated pickle to exercise backup creation, persistence and
+    idempotence through the operator's existing migration entry point.
+
+    :param chain_id:
+        Reviewed deployment chain.
+    :param address:
+        Reviewed vault address.
+    :param features:
+        Persisted adapter detection features.
+    :param expected:
+        Exact maintained strategy classification.
+    :param tmp_path:
+        Isolated database directory.
+    :return:
+        ``None``; assertions cover persistence and repeat execution.
+    """
+    migration = load_migration_module()
+    spec = VaultSpec(chain_id, address)
+    path = tmp_path / "metadata.pickle"
+    VaultDatabase(rows={spec: {"Protocol": "Reviewed protocol", "_detection_data": create_detection(spec, features), "_strategy_tags": None}}).write(path)
+    assert migration.migrate_vault_strategy_tags(path, dry_run=True).updated_rows == 1
+    assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] is None
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 1
+    assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] == expected
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
+
+
+def test_new_strategy_resolvers_preserve_unreviewed_rows(tmp_path: Path) -> None:
+    """Keep manual classifications outside the reviewed address scope."""
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    path = tmp_path / "metadata.pickle"
+    VaultDatabase(rows={spec: {"Protocol": "Fluid", "_detection_data": create_detection(spec, {ERC4626Feature.fluid_like}), "_strategy_tags": {StrategyTag.carry_trade}}}).write(path)
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
+    assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] == {StrategyTag.carry_trade}

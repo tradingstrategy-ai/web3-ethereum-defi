@@ -1,0 +1,15 @@
+feeder-id: architect
+name: Architect
+role: curator
+website: https://architect.systems/
+morpho-curator: Architect
+twitter: xxi_eth
+short_description: Architect deploys long-term capital and operates onchain allocation vaults.
+long_description: '[Architect](https://architect.systems/) describes its mandate as deploying patient, long-term
+  capital. Its [Global Value vault on Base](https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7/architect-global-value)
+  allocates through selected lending curators, with Architect identified as the vault curator by Morpho.'
+other-links:
+- title: Official organisation website
+  url: https://architect.systems/
+- title: ARCHITECT Global Value on chain 8453 - curator and strategy evidence
+  url: https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7

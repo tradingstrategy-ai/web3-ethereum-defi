@@ -1,0 +1,13 @@
+feeder-id: plutus
+name: Plutus
+role: curator
+canonical-feeder-id: plutus
+short_description: Plutus develops automated DeFi yield strategies and governance products.
+long_description: '[Plutus](https://plutus.fi/) is a community-governed DeFi yield platform. Its [plvASSET vaults](https://docs.plutus.fi/products/plvassets)
+  include the in-house plvHEDGE strategy and an automated Dolomite strategy. These native products are operated
+  within the Plutus ecosystem.'
+other-links:
+- title: Official protocol website
+  url: https://plutus.fi/
+- title: Plutus Hedge Token on chain 42161 - curator and strategy evidence
+  url: https://docs.plutus.fi/products/plvassets

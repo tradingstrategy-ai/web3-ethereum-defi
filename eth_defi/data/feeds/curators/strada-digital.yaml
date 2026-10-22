@@ -1,0 +1,15 @@
+feeder-id: strada-digital
+name: Strada Digital
+role: curator
+website: https://www.strada-digital.com/
+lagoon-curator: Strada Digital
+short_description: Strada Digital operates digital asset yield strategies for professional investors.
+long_description: '[Strada Digital](https://www.strada-digital.com/) presents the Strada Yield Fund as a digital
+  asset yield product for professional and sophisticated investors, using a diversified loan book. Its [Ethereum
+  Lagoon vault](https://app.lagoon.finance/vault/1/0xcb58582b0d52ce5feecb06ba9ce66598b0d57886) identifies the product
+  as a public track record for Strada Digital.'
+other-links:
+- title: Official organisation website
+  url: https://www.strada-digital.com/
+- title: Strada USDC on chain 1 - curator and strategy evidence
+  url: https://app.lagoon.finance/api/vault?chainId=1&address=0xcb58582b0d52ce5feecb06ba9ce66598b0d57886

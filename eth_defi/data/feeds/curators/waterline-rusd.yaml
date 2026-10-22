@@ -1,21 +1,25 @@
-# Waterline RUSD curator label - feeds provided by curators/steakhouse-financial.yaml
+# Waterline curator - feeds provided by curators/steakhouse-financial.yaml.
+# Keep the established slug so existing links and exported identities remain stable.
 feeder-id: waterline-rusd
-name: Waterline RUSD
+name: Waterline
 role: curator
-morpho-curator: Waterline RUSD
+morpho-curator: Waterline
 curatorwatch: https://curatorwatch.com/curator/waterline-rusd
-short_description: Waterline RUSD is a Morpho vault curator label for Reservoir and infiniFi lending vaults associated with Steakhouse-curated strategies.
+short_description: Waterline develops onchain vaults tailored to partner specifications and risk frameworks.
 long_description: |
-  CuratorWatch tracks Waterline RUSD as a Morpho curator label with three Ethereum vaults: Waterline Reservoir USDC, Waterline InfiniFi USDC, and Waterline Reservoir rUSD. The official Morpho vault pages present these as Waterline vaults for Reservoir and infiniFi collateral strategies, while the Steakhouse vault application describes the same Morpho vault surface as institutional-grade strategies curated by Steakhouse Financial. Treat this YAML as an alias for the existing Steakhouse Financial feed instead of a standalone Waterline organisation until primary sources identify Waterline RUSD as a separate curator.
+  [Waterline](https://waterline.build/) develops onchain vault solutions around each partner's specifications and risk framework. Its published partnerships include M1 Capital, Tenbin, Reservoir and infiniFi. The website identifies [Steakhouse Financial](https://steakhouse.financial/) as its service provider, and Morpho identifies Waterline as curator of M1 USDC and Tenbin USDC.
 canonical-feeder-id: steakhouse-financial
 
 # Evidence and background references.
 #
-# CuratorWatch lists "Waterline RUSD" with approximately $33M AUM and three
-# Morpho vaults.  Official Morpho vault pages use Waterline naming, but
-# primary-source identity evidence points to the existing Steakhouse Financial
-# curator feed rather than a distinct Waterline organisation.
+# Morpho now identifies this curator as Waterline. Its official website links
+# the partner vaults and explicitly identifies Steakhouse Financial servicing.
+# Preserve historical source links and the established canonical feeder below.
 other-links:
+  - title: Waterline official website - partner vaults and Steakhouse Financial servicing relationship
+    url: https://waterline.build/
+  - title: Morpho verified Waterline curator - includes M1 USDC and Tenbin USDC
+    url: https://app.morpho.org/curator/eco-vaults-shf
   - title: CuratorWatch - Waterline RUSD curator profile lists three Morpho vaults
     url: https://curatorwatch.com/curator/waterline-rusd
   - title: Morpho - Waterline Reservoir USDC vault
@@ -26,3 +30,7 @@ other-links:
     url: https://app.morpho.org/ethereum/vault/0xBEeFf08E1887A11D91B9Ca68c133c08Ae3c4B44f/steakhouse-reservoir-rusd
   - title: Steakhouse app - Morpho vault strategies curated by Steakhouse Financial
     url: https://app.steakhouse.financial/earn/1/0xBEeFF047C03714965a54b671A37C18beF6b96210/waterline-reservoir-usdc
+  - title: M1 USDC on chain 1 - curator and strategy evidence
+    url: https://app.morpho.org/ethereum/vault/0xab5955eb671d150527f8e61a42b703832f86616c
+  - title: Tenbin USDC on chain 1 - curator and strategy evidence
+    url: https://app.morpho.org/ethereum/vault/0x7d4741ba166b21cf3168a9a0ea71388531c52ff7

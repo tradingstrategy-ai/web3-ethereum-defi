@@ -1,0 +1,14 @@
+feeder-id: auto-finance
+name: AUTO Finance
+role: curator
+canonical-feeder-id: auto-finance
+short_description: AUTO Finance operates autopools that automatically allocate liquidity across DeFi destinations.
+long_description: '[AUTO Finance](https://auto.finance/), formerly Tokemak, develops and operates autopools. Its
+  [protocol mechanics](https://docs.auto.finance/auto-pools-protocol/protocol-mechanics) describe automatic allocation
+  and rebalancing across eligible DeFi destinations. Users supply assets to an autopool whose rules determine eligible
+  allocation destinations and rebalancing.'
+other-links:
+- title: Official protocol website
+  url: https://auto.finance/
+- title: Anchorage/AUTOfinance anchrgUSD on chain 1 - curator and strategy evidence
+  url: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics

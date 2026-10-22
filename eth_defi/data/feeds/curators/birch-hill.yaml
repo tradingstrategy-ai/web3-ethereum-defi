@@ -1,0 +1,17 @@
+feeder-id: birch-hill
+name: Birch Hill
+role: curator
+website: https://birchhill.io/
+morpho-curator: Birch Hill
+twitter: BirchHill_io
+short_description: Birch Hill curates onchain credit markets backed by real-world assets.
+long_description: '[Birch Hill](https://birchhill.io/) brings credit underwriting and risk management to asset-backed
+  onchain lending. Its [first USDC vault on Base](https://research.birchhill.io/p/birch-hills-first-onchain-product)
+  lends against tokenised GromaREIT equity through Morpho. The product uses permissioned participation and publishes
+  its strategy and risk framework.'
+other-links:
+- title: Official organisation website
+  url: https://birchhill.io/
+- title: Birch Hill RWA USDC on chain 8453 - curator and strategy evidence
+  url: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
+linkedin: birch-hill-holdings

@@ -1,6 +1,7 @@
 feeder-id: sharpbyte
 name: SharpByte Capital
 role: curator
+morpho-curator: SharpByte
 upshift-strategist:
   - SharpByte
 website: https://www.sharpbyte.xyz/
@@ -11,3 +12,5 @@ long_description: |
 other-links:
   - title: Upshift - Nerona Dollar Yield Strategy vault
     url: https://app.upshift.finance/pools/25363/0xeaB765200189909c806FD6e20eBb4E57D6703C82
+  - title: SharpByte USDC High Yield on chain 143 - curator and strategy evidence
+    url: https://app.morpho.org/monad/vault/0xf57e9898575fab80b0f2acde5443276bec8c542d

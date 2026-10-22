@@ -1,0 +1,20 @@
+feeder-id: fluid
+name: Fluid
+role: curator
+canonical-feeder-id: fluid
+short_description: Fluid operates lending markets and protocol-managed yield vaults.
+long_description: '[Fluid](https://fluid.io/) is a lending and liquidity protocol developed by the Instadapp team.
+  Its [lending architecture](https://docs.fluid.instadapp.io/%2F) gives depositors access to the shared liquidity
+  layer through fTokens. Native lending and Lite vaults are protocol-operated; independent wrappers can have their
+  own operators.'
+other-links:
+- title: Official protocol website
+  url: https://fluid.io/
+- title: Fluid USD Coin on chain 1 - curator and strategy evidence
+  url: https://api.fluid.instadapp.io/v2/lending/1/tokens
+- title: Fluid USD Coin on chain 42161 - curator and strategy evidence
+  url: https://api.fluid.instadapp.io/v2/lending/42161/tokens
+- title: Fluid USD Coin on chain 8453 - curator and strategy evidence
+  url: https://api.fluid.instadapp.io/v2/lending/8453/tokens
+- title: Fluid Lite USD Vault on chain 1 - curator and strategy evidence
+  url: https://docs.fluid.instadapp.io/lite-usd/index.html

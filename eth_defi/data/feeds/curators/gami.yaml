@@ -13,3 +13,8 @@ long_description: |
   Gami also emphasises institutional infrastructure, multisig and HSM security, active risk management and governance-driven strategy support.
 twitter: GamiLabs
 # linkedin: not found
+
+# Primary-source evidence for the reviewed 2026-10-21 vault mappings.
+other-links:
+  - title: MSA - Portefeuille Dynamique  on chain 8453 - curator and strategy evidence
+    url: https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08

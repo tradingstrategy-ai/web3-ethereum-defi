@@ -1,0 +1,114 @@
+Curator attribution research and deployment follow-up — 21 October 2026
+
+Evidence and scope
+
+Production export: https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json
+Snapshot generated: 2026-10-21T14:39:20Z
+Snapshot SHA-256: 7a158175a79ea4678905d7f7c732218528cfe1afbb103f66df554a87ceb0ab45
+The complete snapshot contains 5,917 vaults. Comparing the original matcher
+with the updated matcher changes exactly 43 chain/address assignments:
+40 previously unmatched vaults and three corrections. No other assignment
+changes. The adjacent CSV records each changed vault, old/new attribution,
+old/new strategy tags, primary evidence and the reason for the decision.
+It also includes 53 existing D2 Finance rows now served by the new metadata
+alias; those rows retain their existing attribution and missing strategy tags.
+
+Created curator records
+
+Independent: presto, architect, birch-hill, almanak, strada-digital,
+third-eye, my-seed-advisor, nara-capital.
+Protocol aliases: fluid, plutus, auto-finance, 40acres, gmx, ember, d2-finance.
+The protocol aliases reuse their canonical protocol feeds and artwork.
+The missing 40acres protocol feeder has been added. Only verified social
+accounts are included; no unverified RSS feeds were added.
+
+Attribution and strategy decisions
+
+All 43 reviewed addresses are covered by focused curator and adapter tests.
+MSA – Portefeuille Dynamique exports Gami, as selected by the user. My Seed
+Advisor remains a separate metadata record and its joint participation is
+preserved in the Gami evidence and this report; it is not a second exported
+curator. Trinity Trust and Unity Trust resolve to 722 Capital. Waterline
+retains the waterline-rusd slug and canonical Steakhouse feed relationship.
+
+Corrections: GM SKY resolves to GMX instead of Sky; the reviewed Sentora
+PYUSD converter and one Sky USDS depositor resolve to Yearn. The exact six
+Yearn strategy addresses are supported by https://curation.yearn.fi/report/yearn-yvusd/.
+The three Mix Yield Token deployments were verified against the official
+Alchemix indexer/deployment documentation at https://docs.alchemix.fi/dev/indexer-api
+before assigning alchemix.
+
+Strada USDC, Trinity Trust and Unity Trust have insufficient public strategy
+information and retain the explicit missing-information result. D2's public
+organisation-level disclosures do not establish maintained strategy tags for
+its 53 individual snapshot rows, so these remain missing too. Other reviewed
+tags follow the published strategy and preserve existing classifications.
+The CSV lists the exact tag sets, including automatic Morpho lending tags.
+
+New identities do not participate in unrestricted vault-name matching.
+Reviewed chain/address overrides and exact protocol-manager aliases establish
+identity. TelosC Almanak, Trust Wallet wrappers, unrelated Ember operators and
+Venzo Third Eye retain their existing behaviour. A bare Waterline name cannot
+claim the unreviewed Avalanche Waterline USDe deployment.
+
+Unresolved evidence and artwork
+
+TESS, ByzPrime, Odyssey, undisclosed Nova operators and remaining speculative
+candidates await stronger address-level curator evidence. The unverified
+Arbitrum syrup looper and second Sky USDS depositor remain unchanged. Legacy
+Fluid Interest USD Coin (Ethereum 0x7f47b1ced85f5d773cd68ca606ed6f0fee381046)
+remains unmatched; current native fUSDC evidence was not extrapolated to it.
+
+Official originals and three 256×256 PNG variants were added for Presto,
+Architect, Birch Hill, Almanak, Strada Digital, Third Eye and My Seed Advisor.
+Each original-logo README records its source and any processing. Nara Capital
+is identified by Lagoon's vault record, but no independently verified official
+website, social account or artwork was found; those optional fields are absent.
+No substitute artwork was invented.
+
+Validation
+
+349 focused curator, canonical-feeder, strategy and migration tests passed.
+All 287 curator files load through the shared schema. Canonical alias export
+and duplicate prevention are tested; official logo dimensions are tested.
+Ruff formatting was checked for changed Python files. Legacy adapter files
+have pre-existing lint findings; no additional Ruff rule findings were added.
+The strategy migration now recognises the new native address tables and the
+reviewed Yearn wrappers. Tests cover dry runs, backups, application, repeated
+execution and preserving unreviewed native rows.
+
+Production follow-up — commands only, not executed
+
+Run after the changes are merged and the production image is built/deployed
+using the existing scripts/build-container.sh process. The service mounts the
+host ~/.tradingstrategy directory; keep HOME and these mounts unchanged.
+The one-shot service normally scans on entry, so every maintenance command
+below overrides its entrypoint. These scripts do not scan historical prices.
+
+Stop the persistent scanner before either metadata writer runs:
+
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+
+The reviewed static address overrides apply on the next metadata export.
+If persisted manager labels also need refreshing, the existing refresh script
+can target the reviewed Morpho and Lagoon addresses below. Start with the dry
+runs, inspect their output, then repeat the same command with DRY_RUN=false.
+The refresh script reports and changes _manager_name; it does not persist a
+new curator slug. Keep a backup of the metadata pickle before applying it.
+
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true PROTOCOL_ID=morpho VAULT_ID=1-0x133614490896bc02c774bc3399e4db1b6d05a2ca,1-0x68a65f315bcd3c3456d1368ff88bc661856548e1,8453-0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7,8453-0xb038cf3e233b78225f6d350ac8319bec8457db4a,143-0x75753e494e5e374c52e1d84fc04eb14b10f2c079,143-0xf57e9898575fab80b0f2acde5443276bec8c542d,1-0xab5955eb671d150527f8e61a42b703832f86616c,1-0x7d4741ba166b21cf3168a9a0ea71388531c52ff7,1-0xf28dc8b6ded7e45f8cf84b9972487c8e1857a442,1-0x59b6c75eeb7dfe417505919c3e5a919b7c1b0773,1-0xd362efc75ef1879f37a900823495f402cfdb0986,1-0x9b44efca3e2a707b63dc00ce79d646e5e5d24ba5,42161-0xeba62b842081cef5a8184318dc5c4e4aaca9f651,8453-0xb8befe5a6941ca4022a52042075ff269c3c67467 python scripts/erc-4626/update-vault-curators.py')
+
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true PROTOCOL_ID=lagoon-finance VAULT_ID=1-0xdcd0f5ab30856f28385f641580bbd85f88349124,1-0xcb58582b0d52ce5feecb06ba9ce66598b0d57886,8453-0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4,8453-0xf56bfe07b8d6e6d74258cdb6969a633629b06b08,1-0x71652d4898de9a7dd35e472a5fe4577ec69d82f2,1-0x66dcb62da5430d800a1c807822c25be17138fda8 python scripts/erc-4626/update-vault-curators.py')
+
+Recalculate the maintained strategy tags. Inspect the dry run before applying;
+the apply command creates a non-overwriting sibling metadata-pickle backup.
+This existing migration reviews the complete persisted database, so its output
+may also include changes from other deployed tag mappings.
+
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+
+The next normal scanner export publishes the revised curator metadata and
+attribution. No production writes, remote pushes or PR creation were performed
+as part of this implementation batch.

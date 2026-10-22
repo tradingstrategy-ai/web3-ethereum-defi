@@ -32,7 +32,9 @@ from eth_defi.erc_4626.vault_protocol.ember.offchain_metadata import (
     EmberVaultMetadata,
     fetch_ember_vault_metadata,
 )
+from eth_defi.erc_4626.vault_protocol.ember.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,17 @@ class EmberVault(ERC4626Vault):
     - Fee parameters available from the offchain API via :py:attr:`ember_metadata`
     - Withdrawals go through a pending queue with ``redeemShares`` -> ``processWithdrawalRequests``
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained classifications for this reviewed deployment.
+
+        Only source-backed address entries are classified; an unreviewed
+        deployment retains the explicit missing-information result.
+
+        :return:
+            A fresh set of strategy tags, or ``None`` when information is missing.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @cached_property
     def vault_contract(self) -> Contract:
