@@ -2,12 +2,19 @@
 
 ## Overview
 
-Derive.xyz (formerly Lyra) perpetuals and options DEX integration with
-EIP-191 session key authentication and LightAccount (ERC-4337) wallet support.
+Funding history and instrument discovery use Derive's public v3 API at
+`https://api.derive.xyz/v3`, following the [migration guide](https://docs.derive.xyz/migrating/breaking-changes).
+V3 settles on Ethereum. Historical open-interest snapshots still read legacy
+Derive Chain state; existing v2 funding rows are preserved because the v3
+endpoint does not currently expose the full older history.
+
+The authentication and onboarding modules below describe the legacy v2
+EIP-191 session keys and LightAccount wallets. They have not been migrated
+to v3; changing the public-data defaults does not change their endpoints.
 
 ## Architecture
 
-Derive uses a three-tier wallet system:
+The legacy v2 integration uses a three-tier wallet system:
 
 1. **Owner EOA** -- original Ethereum wallet
 2. **Derive Wallet** -- LightAccount smart contract wallet on Derive Chain (ERC-4337)
@@ -22,6 +29,9 @@ Account creation and initial session key registration require the Derive web int
 
 - `constants.py` -- API URLs, chain IDs, contract addresses, EIP-712 constants, enums
 - `session.py` -- HTTP session with SQLite-backed rate limiting
+- `api.py` -- v3 public funding/instrument reads and legacy onchain snapshots
+- `historical.py` -- persistent funding history and legacy open-interest storage
+- `v3_vaults.py` -- public v3 native vault collection
 - `authentication.py` -- DeriveApiClient with EIP-191 personal-sign auth
 - `account.py` -- balance and collateral reading functions
 - `onboarding.py` -- LightAccount address resolution and session key verification

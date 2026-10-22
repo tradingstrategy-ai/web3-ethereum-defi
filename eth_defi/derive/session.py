@@ -47,7 +47,7 @@ def create_derive_session(
         from eth_defi.derive.session import create_derive_session
 
         session = create_derive_session()
-        response = session.post("https://api.lyra.finance/private/get_account", json={...})
+        response = session.post("https://api.derive.xyz/v3/public/get_all_instruments", json={"instrument_type": "perp"})
 
     :param retries:
         Maximum number of retry attempts for failed requests

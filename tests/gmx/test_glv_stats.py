@@ -3,13 +3,20 @@ Tests for GMX GLV Stats Data Retrieval Module.
 """
 
 import logging
+import math
+from decimal import Decimal
 
 from collections import defaultdict
 
 import pytest
 from flaky import flaky
 
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.gmx.core.glv_stats import GlvStats
+from eth_defi.token import fetch_erc20_details
+
+#: Dust-supply MET market that exposed invalid GM price ceilings on 2026-10-22.
+MET_MARKET = "0xbA30e198CFFeBEf0A84D6943cC8B2e356E324112"
 
 
 def test_initialization_and_basic_functionality(get_glv_stats, gmx_config):
@@ -75,7 +82,7 @@ def test_glv_info_and_data_structures(get_glv_stats):
                 assert "balance" in market_data
                 assert "gm price" in market_data
                 assert market_data["balance"] >= 0
-                assert market_data["gm price"] >= 0
+                assert math.isfinite(market_data["gm price"])
 
     # Check that we have some GLVs
     assert len(results) > 0, "No GLVs found"
@@ -86,15 +93,19 @@ def test_glv_info_and_data_structures(get_glv_stats):
         logging.warning("No GLVs with price data available - this may be due to temporary network issues")
 
 
-def test_glv_price_calculation(get_glv_stats):
-    """Test that GLV price calculations make sense with real data."""
+def test_glv_price_calculation(get_glv_stats: GlvStats) -> None:
+    """Check finite GLV prices and balance-weighted composition values.
+
+    GM and GLV share supplies are independent. A dust GM supply can produce
+    an enormous per-token price while its actual GLV holding has modest value.
+
+    :param get_glv_stats: Live GLV statistics provider.
+    :return: ``None`` after checking non-empty valuation coverage.
+    """
     results = get_glv_stats.get_glv_stats_multicall()
 
-    # Verify at least one GLV has valid price data (but don't fail if none are available)
     glv_with_price = [g for g in results.values() if "glv_price" in g and g["glv_price"] > 0]
-    if len(glv_with_price) == 0:
-        logging.warning("No GLVs with valid price data available - this may be due to temporary network issues")
-        return
+    assert glv_with_price, "No GLVs with valid price data available"
 
     # Check price for each GLV with price data
     for glv_data in glv_with_price:
@@ -103,30 +114,23 @@ def test_glv_price_calculation(get_glv_stats):
         # GLV price should be positive
         assert glv_price > 0, f"GLV price should be positive, got {glv_price}"
 
-        # GLV price should be reasonable (not absurdly high)
-        assert glv_price < 100_000_000, f"GLV price too high: {glv_price}"
+        assert math.isfinite(glv_price)
 
         # Check market composition
         if "markets_metadata" in glv_data:
             total_value = 0
-            gm_prices = []
+            assert glv_data["markets_metadata"], "No market composition available"
             for market_data in glv_data["markets_metadata"].values():
                 balance = market_data["balance"]
                 gm_price = market_data["gm price"]
+                assert math.isfinite(balance) and balance >= 0
+                assert math.isfinite(gm_price)
                 market_value = balance * gm_price
+                assert math.isfinite(market_value)
                 total_value += market_value
-                if gm_price > 0:
-                    gm_prices.append(gm_price)
 
             # Total value should be positive
             assert total_value > 0, f"Total market value should be positive for GLV {glv_data['glv_address']}"
-
-            # GLV price should be in the same order of magnitude as average GM price
-            # GLVs are baskets of GM tokens, so prices should be comparable
-            if gm_prices:
-                avg_gm_price = sum(gm_prices) / len(gm_prices)
-                price_ratio = glv_price / avg_gm_price
-                assert 0.1 < price_ratio < 10, f"GLV price ratio out of bounds: {price_ratio} (glv_price={glv_price}, avg_gm_price={avg_gm_price}) for GLV {glv_data['glv_address']}"
 
 
 def test_market_composition_data(get_glv_stats):
@@ -215,9 +219,17 @@ def test_data_consistency(get_glv_stats):
                     assert price_change < 0.5, f"Price changed too much: {price1} -> {price2} for {market_addr}"
 
 
-def test_glv_price_bounds(get_glv_stats):
-    """Test that GLV prices stay within reasonable bounds with real data."""
+def test_glv_price_bounds(get_glv_stats: GlvStats) -> None:
+    """Check finite prices without imposing arbitrary share-price bounds.
+
+    GM reader prices are signed and depend on supply. Neither a distressed
+    negative value nor a dust-supply price is a decoding failure.
+
+    :param get_glv_stats: Live GLV statistics provider.
+    :return: ``None`` after checking available prices and balances.
+    """
     results = get_glv_stats.get_glv_stats_multicall()
+    assert results, "No GLVs found"
 
     for glv_address, glv_data in results.items():
         # GLV price should be positive
@@ -225,23 +237,13 @@ def test_glv_price_bounds(get_glv_stats):
             glv_price = glv_data["glv_price"]
             assert glv_price > 0, f"GLV price should be positive for {glv_address}"
 
-            # GLV price should not be absurdly high (checking for calculation errors)
-            assert glv_price < 10_000_000, f"GLV price too high: {glv_price} for {glv_address}"
-
-            # GLV price should not be too low (checking for calculation errors)
-            assert glv_price > 0.000001, f"GLV price too low: {glv_price} for {glv_address}"
+            assert math.isfinite(glv_price), f"Non-finite GLV price for {glv_address}"
 
         # Check market composition if present
         if "markets_metadata" in glv_data:
             for market_addr, market_data in glv_data["markets_metadata"].items():
-                # GM price should be positive
-                assert market_data["gm price"] > 0, f"GM price should be positive for {market_addr}"
-
-                # GM price should not be absurdly high
-                assert market_data["gm price"] < 100_000_000, f"GM price too high: {market_data['gm price']} for {market_addr}"
-
-                # GM price should not be too low
-                assert market_data["gm price"] > 0.000001, f"GM price too low: {market_data['gm price']} for {market_addr}"
+                assert math.isfinite(market_data["gm price"]), f"Non-finite GM price for {market_addr}"
+                assert math.isfinite(market_data["balance"]) and market_data["balance"] >= 0
 
 
 def test_special_glv_handling(get_glv_stats):
@@ -367,47 +369,64 @@ def test_glv_market_consistency(get_glv_stats):
         assert len(missing_markets) < len(all_glv_markets), f"All GLV markets missing from available markets: {missing_markets}"
 
 
-def test_glv_price_calculation_logic(get_glv_stats):
-    """Test the internal GLV price calculation logic with real data."""
+def test_gm_price_matches_pool_value(get_glv_stats: GlvStats) -> None:
+    """Verify real GM reader prices against pool value and same-block supply.
+
+    Check a representative market and Arbitrum's dust-supply MET market.
+    The reader uses signed pool value and a one-dollar zero-supply default:
+    https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/market/MarketUtils.sol.
+
+    :param get_glv_stats: Live GLV statistics provider.
+    :return: ``None`` after checking the reader formula and decoded USD price.
+    """
     results = get_glv_stats.get_glv_stats_multicall()
+    assert results, "No GLVs found"
+    glv_address, glv_data = next(iter(results.items()))
+    assert glv_data["markets_metadata"], "No market composition available"
+    market_addresses = {next(iter(glv_data["markets_metadata"]))}
+    if get_glv_stats.config.chain == "arbitrum":
+        market_addresses.add(MET_MARKET)
 
-    # For each GLV with price data
-    for glv_address, glv_data in results.items():
-        if "glv_price" not in glv_data or "markets_metadata" not in glv_data:
-            continue
+    web3 = get_glv_stats.config.web3
+    block = web3.eth.block_number
+    for market_address in sorted(market_addresses):
+        call = get_glv_stats.create_gm_price_call(glv_address, market_address)
+        assert call is not None, f"No price call for {market_address}"
+        result = call.call_as_result(web3, block_identifier=block)
+        assert result.success, f"Price read failed for {market_address}"
+        price_raw = int.from_bytes(result.result[:32], "big", signed=True)
+        pool_value_raw = int.from_bytes(result.result[32:64], "big", signed=True)
+        token = fetch_erc20_details(web3, market_address)
+        supply_raw = token.contract.functions.totalSupply().call(block_identifier=block)
+        if supply_raw == 0:
+            assert price_raw == 10**30
+        else:
+            # Solidity signed division truncates towards zero.
+            expected_raw = abs(pool_value_raw) * 10**18 // supply_raw
+            if pool_value_raw < 0:
+                expected_raw = -expected_raw
+            assert price_raw == expected_raw
 
-        glv_price = glv_data["glv_price"]
-        markets_metadata = glv_data["markets_metadata"]
+        price = get_glv_stats.extract_gm_price({f"gm_price_{market_address}": result}, market_address)
+        assert math.isfinite(price)
+        assert price == pytest.approx(float(Decimal(price_raw) / Decimal(10**30)))
 
-        # Calculate total value manually
-        total_value = 0
-        for market_addr, market_data in markets_metadata.items():
-            balance = market_data["balance"]
-            gm_price = market_data["gm price"]
-            market_value = balance * gm_price
-            total_value += market_value
 
-        # Calculate total supply (simplified)
-        # Note: This is a simplification as we don't have the actual total supply
-        # But we can check the relative proportions
-        if total_value > 0 and glv_price > 0:
-            # The total value should be proportional to GLV price * total supply
-            # We don't have total supply, but we can check the ratio between markets
-            market_values = []
-            for market_addr, market_data in markets_metadata.items():
-                balance = market_data["balance"]
-                gm_price = market_data["gm price"]
-                market_value = balance * gm_price
-                market_values.append(market_value)
+@pytest.mark.parametrize("price_raw", [15 * 10**29, 239 * 10**49, 10**30, 0, -2 * 10**30], ids=["ordinary", "dust-supply", "zero-supply-default", "zero", "negative"])
+def test_extract_gm_price_signed(price_raw: int) -> None:
+    """Decode ordinary, dust-supply, zero and distressed GM prices.
 
-            # Check that GLV price is consistent with market values
-            # (This is a simplified check as we don't have total supply)
-            # But GLV price should be in the same order of magnitude as GM prices
-            gm_prices = [m["gm price"] for m in markets_metadata.values()]
-            if gm_prices:
-                avg_gm_price = sum(gm_prices) / len(gm_prices)
-                price_ratio = glv_price / avg_gm_price
-                assert 0.1 < price_ratio < 10, f"GLV price ratio out of bounds: {price_ratio}"
+    Construct signed ABI results without a provider, so unsigned decoding or
+    clamping fails deterministically even when live pool conditions change.
+
+    :param price_raw: Signed reader price with 30 decimal places.
+    :return: ``None`` after checking the decoded USD value.
+    """
+    call = EncodedCall(address=MET_MARKET, data=b"", func_name="getMarketTokenPrice", extra_data={})
+    result = EncodedCallResult(call=call, success=True, result=price_raw.to_bytes(32, "big", signed=True) + bytes(32), block_identifier=1)
+    stats = GlvStats.__new__(GlvStats)
+    price = stats.extract_gm_price({f"gm_price_{MET_MARKET}": result}, MET_MARKET)
+    assert price == pytest.approx(float(Decimal(price_raw) / Decimal(10**30)))
 
 
 def test_glv_market_metadata_consistency(get_glv_stats):

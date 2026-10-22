@@ -17,13 +17,13 @@ import pytest
 from requests import Session
 
 from eth_defi.derive.api import FundingRateEntry, fetch_funding_rate_history, fetch_perpetual_instruments
+from eth_defi.derive.constants import DERIVE_V3_MAINNET_API_URL
 from eth_defi.derive.historical import DeriveFundingRateDatabase
 from eth_defi.derive.session import create_derive_session
 
-#: Verified 24 hourly samples on 2026-10-08. The rolling last-day checks failed
-#: on master, this PR and locally because the latest API sample was
-#: 2026-10-06 17:00 UTC. Keep real API/storage coverage on a fixed published day.
-FUNDING_HISTORY_START = datetime.datetime(2026, 4, 1)  # noqa: DTZ001 - Naive UTC API bounds.
+#: Verified 24 v3 hourly samples on 2026-10-22. V3 does not currently serve
+#: the April v2 history used before the October mainnet migration.
+FUNDING_HISTORY_START = datetime.datetime(2026, 10, 20)  # noqa: DTZ001 - Naive UTC API bounds.
 FUNDING_HISTORY_END = FUNDING_HISTORY_START + datetime.timedelta(days=1)
 #: Hourly observations in the verified published day.
 FUNDING_HISTORY_SAMPLES = 24
@@ -167,31 +167,74 @@ def test_funding_rate_db_dataframe(session: Session, tmp_path: Path) -> None:
 
 
 @pytest.mark.timeout(60)
-def test_fetch_early_history(session):
-    """Verify that the API returns funding rates from well before the 30-day window.
+def test_fetch_funding_rate_history_subwindow(session: Session) -> None:
+    """Clip real v3 hourly candles to a requested partial-day window.
 
-    The Derive API uses ``start_timestamp`` / ``end_timestamp`` params
-    (not ``start_time`` / ``end_time``) to query arbitrary historical
-    windows.  This test fetches one month of data from ~6 months ago
-    to confirm we can reach beyond the default 30-day window.
+    Use a published v3 day instead of assuming that the replacement endpoint
+    serves six-month-old v2 observations. Bucket starts outside the bounds
+    must not enter the caller's dataset.
 
-    1. Pick a 30-day window starting 6 months ago (clean day boundaries).
-    2. Fetch funding rate history for ETH-PERP in that window.
-    3. Assert we get hourly data and timestamps fall within the window.
+    :param session: Shared public Derive HTTP session.
+    :return: ``None`` after checking the six in-window hourly samples.
     """
-    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-
-    # 1. Pick a window 6 months ago, truncated to day boundaries
-    start = (now - datetime.timedelta(days=180 + 30)).replace(hour=0, minute=0, second=0, microsecond=0)
-    end = (now - datetime.timedelta(days=180)).replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # 2. Fetch
+    start = FUNDING_HISTORY_START + datetime.timedelta(hours=6, minutes=30)
+    end = FUNDING_HISTORY_START + datetime.timedelta(hours=12, minutes=30)
     rates = fetch_funding_rate_history(session, "ETH-PERP", start_time=start, end_time=end)
 
-    # 3. Assert we got data and it falls within the window
-    assert len(rates) >= 24 * 28, f"Expected at least 28 days of hourly data, got {len(rates)} entries"
+    assert [rate.timestamp for rate in rates] == [FUNDING_HISTORY_START + datetime.timedelta(hours=hour) for hour in range(7, 13)]
+    assert all(isinstance(rate.funding_rate, Decimal) for rate in rates)
 
-    for r in rates:
-        assert r.timestamp >= start, f"Entry {r.timestamp} is before start {start}"
-        assert r.timestamp <= end, f"Entry {r.timestamp} is after end {end}"
-        assert isinstance(r.funding_rate, Decimal)
+
+def test_funding_rate_db_preserves_v2_history(tmp_path: Path) -> None:
+    """Preserve stored v2 rows and watermarks when synchronising v3 data.
+
+    A file-backed database survives an empty API response, then appends v3
+    observations without replacing legacy rows. Repeating the v3 window
+    inserts no duplicates, and reopening retains both observations.
+
+    :param tmp_path: Private directory for the database.
+    :return: ``None`` after checking persistence and incremental state.
+    """
+    legacy_time = datetime.datetime(2026, 4, 1)  # noqa: DTZ001 - Naive UTC API bounds.
+    legacy_ms = int(legacy_time.replace(tzinfo=datetime.UTC).timestamp() * 1000)
+    v3_ms = int(FUNDING_HISTORY_START.replace(tzinfo=datetime.UTC).timestamp() * 1000)
+    legacy_response = MagicMock()
+    legacy_response.json.return_value = {"result": {"funding_rate_history": [{"timestamp": legacy_ms, "funding_rate": "0.00001"}]}}
+    empty_response = MagicMock()
+    empty_response.json.return_value = {"result": {"funding_rate_history": []}}
+    v3_response = MagicMock()
+    v3_response.json.return_value = {"result": {"funding_rate_history": [{"timestamp": v3_ms, "funding_rate": "0.0000125", "close": "0.0000125"}]}}
+    session = MagicMock()
+    session.post.side_effect = [legacy_response, empty_response, v3_response, v3_response]
+    path = tmp_path / "funding-rates.duckdb"
+
+    db = DeriveFundingRateDatabase(path)
+    try:
+        assert db.sync_instrument(session, "ETH-PERP", start_time=legacy_time, end_time=legacy_time + datetime.timedelta(days=1)) == 1
+        legacy_state = db.get_sync_state("ETH-PERP")
+    finally:
+        db.close()
+
+    db = DeriveFundingRateDatabase(path)
+    try:
+        assert db.sync_instrument(session, "ETH-PERP", end_time=legacy_time + datetime.timedelta(days=1)) == 0
+        assert db.get_sync_state("ETH-PERP") == legacy_state
+        assert db.get_row_count("ETH-PERP") == 1
+        assert db.sync_instrument(session, "ETH-PERP", start_time=FUNDING_HISTORY_START, end_time=FUNDING_HISTORY_END) == 1
+        assert db.sync_instrument(session, "ETH-PERP", end_time=FUNDING_HISTORY_END) == 0
+        state = db.get_sync_state("ETH-PERP")
+        assert state["oldest_ts"] == legacy_ms
+        assert state["newest_ts"] == v3_ms
+        assert state["row_count"] == 2
+    finally:
+        db.close()
+
+    db = DeriveFundingRateDatabase(path)
+    try:
+        rates = db.get_funding_rates("ETH-PERP")
+        assert [(rate.timestamp_ms, rate.funding_rate) for rate in rates] == [(legacy_ms, Decimal("0.00001")), (v3_ms, Decimal("0.0000125"))]
+        assert db.get_sync_state("ETH-PERP") == state
+    finally:
+        db.close()
+
+    assert all(call.args[0] == f"{DERIVE_V3_MAINNET_API_URL}/public/get_funding_rate_history" for call in session.post.call_args_list)

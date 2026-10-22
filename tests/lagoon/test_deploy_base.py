@@ -22,6 +22,26 @@ from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter
 
 
+#: On 2026-10-22, main CI attempt 2 stalled for 250 seconds in a deployment
+#: call and then hung during fork teardown. The same case passed locally in
+#: 6.48 seconds with the paired scanner check. Keep these transaction-heavy
+#: lifecycles in the serial slow workflow to reduce concurrent fork pressure.
+_FORK_ISOLATION_GROUP = "fork:base:lagoon-deployment"
+pytestmark = [pytest.mark.slow, pytest.mark.xdist_group(_FORK_ISOLATION_GROUP)]
+
+
+@pytest.fixture(scope="module")
+def anvil_fork_isolation_group() -> str:
+    """Keep deployment mutations on their own pooled fork.
+
+    Reuse the fixed block and warm RPC cache while preventing these lifecycle
+    tests from degrading the fork later used by valuation modules.
+
+    :return: Partition matching this module's xdist group.
+    """
+    return _FORK_ISOLATION_GROUP
+
+
 @pytest.fixture()
 def uniswap_v2(web3):
     return fetch_deployment(

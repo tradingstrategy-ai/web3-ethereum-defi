@@ -74,6 +74,18 @@ def test_block_number() -> int:
 
 
 @pytest.fixture(scope="module")
+def anvil_fork_isolation_group() -> str | None:
+    """Select an optional partition for independent mutable fork groups.
+
+    Transaction-heavy modules can override this fixture to avoid inheriting
+    an Anvil process degraded by another module's snapshot/revert cycles.
+
+    :return: Pool partition, or ``None`` for the existing shared fork.
+    """
+    return None
+
+
+@pytest.fixture(scope="module")
 def anvil_base_fork(
     request,
     anvil_fork_pool,
@@ -83,6 +95,7 @@ def anvil_base_fork(
     second_asset_manager,
     valuation_manager,
     test_block_number,
+    anvil_fork_isolation_group,
 ) -> AnvilLaunch:
     """Get a pooled fork of live Base chain.
 
@@ -103,6 +116,7 @@ def anvil_base_fork(
     return anvil_fork_pool.get_launch(
         JSON_RPC_BASE,
         fork_block_number=test_block_number,
+        isolation_group=anvil_fork_isolation_group,
         unlocked_addresses=[vault_owner, usdc_holder, asset_manager, second_asset_manager, valuation_manager],
     )
 
