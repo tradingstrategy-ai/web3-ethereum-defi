@@ -461,6 +461,7 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0xdcd0f5ab30856f28385f641580bbd85f88349124
     (1, "0xdcd0f5ab30856f28385f641580bbd85f88349124"): "almanak",
     #: Strada USDC (1), reviewed 2026-10-21.
+    #: The manager-authored description identifies Strada; the curator field is empty.
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0xcb58582b0d52ce5feecb06ba9ce66598b0d57886
     (1, "0xcb58582b0d52ce5feecb06ba9ce66598b0d57886"): "strada-digital",
     #: GUSDC (8453), reviewed 2026-10-21.
@@ -524,13 +525,16 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
     (8453, "0x9c6864105aec23388c89600046213a44c384c831"): "auto-finance",
     #: Aerodrome USDC (8453), reviewed 2026-10-21.
-    #: https://40acresfinance.substack.com/p/the-great-migration
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
     (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"): "40acres",
     #: Blackhole USDC (43114), reviewed 2026-10-21.
-    #: https://40acresfinance.substack.com/p/the-great-migration
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
     (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd"): "40acres",
     #: Pharaoh USDC (43114), reviewed 2026-10-21.
-    #: https://40acresfinance.substack.com/p/the-great-migration
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
     (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"): "40acres",
     #: GM SKY [WETH-USDC] (42161), reviewed 2026-10-21.
     #: https://docs.gmx.io/docs/providing-liquidity/
@@ -551,6 +555,8 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: https://curation.yearn.fi/report/yearn-yvusd/
     (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490"): "yearn",
     #: USDC To SKY USDS Depositor (1), reviewed 2026-10-21.
+    #: The report lists this as the revoked USDC to sUSDS Lender; attribution
+    #: records its historical operator, not current deployment status or strategy.
     #: https://curation.yearn.fi/report/yearn-yvusd/
     (1, "0x7130570bcefcedbe9d15b5b11a33006156460f8f"): "yearn",
     #: USDC Mix Yield Token (1), reviewed 2026-10-21.

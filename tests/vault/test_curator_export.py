@@ -208,7 +208,7 @@ def test_build_curators_for_export_ondo_protocol_curator_alias() -> None:
 def test_build_curators_for_export_d2_finance_protocol_curator() -> None:
     """D2 Finance protocol curator metadata uses its protocol feeder and logos.
 
-    1. Build the protocol-curator fallback record for D2 Finance.
+    1. Build the curator alias record for D2 Finance's protocol feeder.
     2. Assert protocol metadata and public logo URLs are exported.
     3. Assert risk and incident fields receive safe defaults.
     """
@@ -225,7 +225,7 @@ def test_build_curators_for_export_d2_finance_protocol_curator() -> None:
     assert rec["twitter"] == "https://x.com/D2_Finance"
     assert rec["linkedin"] == "https://www.linkedin.com/company/d2finance"
     assert rec["protocol_curator"] is True
-    assert rec["canonical_feeder_id"] is None
+    assert rec["canonical_feeder_id"] == "d2-finance"
     assert rec["risk"] == {"status": "unknown"}
     assert rec["incidents"] == []
     assert rec["logos"] == {

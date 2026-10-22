@@ -4,10 +4,18 @@ role: curator
 canonical-feeder-id: 40acres
 short_description: 40acres operates cashflow lending pools backed by revenue-generating digital assets.
 long_description: '[40acres](https://www.40acres.finance/) operates USDC supply pools that fund loans against revenue-generating
-  assets such as vote-escrowed NFTs. Its [lending model](https://40acresfinance.substack.com/p/the-great-migration)
-  directs borrower cashflows towards repayment and lender returns. The native supply pools are protocol-operated.'
+  assets such as vote-escrowed NFTs. Its [contract catalogue](https://docs.40acres.finance/contracts)
+  lists the supply vaults and linked loan contracts. Its [lending documentation](https://docs.40acres.finance/lending) explains how deposits fund loans and receive borrower rewards.'
 other-links:
 - title: Official protocol website
   url: https://www.40acres.finance/
 - title: Aerodrome USDC on chain 8453 - curator and strategy evidence
-  url: https://40acresfinance.substack.com/p/the-great-migration
+  url: https://docs.40acres.finance/contracts
+- title: Official lending supply-pool documentation
+  url: https://docs.40acres.finance/lending
+- title: Official aerodrome vault API with exact address and chain
+  url: https://app.40acres.finance/api/vaults/aerodrome
+- title: Official pharaoh vault API with exact address and chain
+  url: https://app.40acres.finance/api/vaults/pharaoh
+- title: Official blackhole vault API with exact address and chain
+  url: https://app.40acres.finance/api/vaults/blackhole

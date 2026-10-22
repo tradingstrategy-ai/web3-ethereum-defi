@@ -40,17 +40,17 @@ REVIEWED_VAULTS = (
     (1, "0x9fb7b4477576fe5b32be4c1843afb1e55f251b33", "fluid", "Fluid USD Coin", "fluid", ("lending",)),
     (42161, "0x1a996cb54bb95462040408c06122d45d6cdb6096", "fluid", "Fluid USD Coin", "fluid", ("lending",)),
     (8453, "0xf42f5795d9ac7e9d757db633d693cd548cfd9169", "fluid", "Fluid USD Coin", "fluid", ("lending",)),
-    (1, "0x273da948aca9261043fbdb2a857bc255ecc29012", "fluid", "Fluid Lite USD Vault", "fluid", ("lending",)),
+    (1, "0x273da948aca9261043fbdb2a857bc255ecc29012", "fluid", "Fluid Lite USD Vault", "fluid", None),
     (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a", "plutus", "Plutus Hedge Token", "plutus", ("algorithmic_trading", "multistrategy")),
     (42161, "0xf84eaa0685626f84fe17bc6c3c9eb2ac8a90d3c1", "plutus", "Plutus Dolomite vault", "plutus", ("algorithmic_trading",)),
-    (1, "0x1abd0403591be494771115d74ed9e120530f356e", "auto-finance", "Anchorage/AUTOfinance anchrgUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (1, "0x2916dfb3324377645cac4c5e78dffce910a61393", "auto-finance", "AUTOfinance gpuUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (1, "0x408b6a3e2daf288864968454aae786a2a042df36", "auto-finance", "Tokemak siloUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (1, "0xa7569a44f348d3d70d8ad5889e50f78e33d80d35", "auto-finance", "Tokemak autoUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (1, "0xc7d7f434c015f2a7e77df9763ade300f2171a05a", "auto-finance", "AUTOfinance infinifiUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (143, "0x288604ba0e9f08c22815eb36c2f4a49a44ee16bb", "auto-finance", "AUTOfinance monUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (42161, "0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c", "auto-finance", "Tokemak arbUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
-    (8453, "0x9c6864105aec23388c89600046213a44c384c831", "auto-finance", "Tokemak baseUSD", "auto-finance", ("algorithmic_trading", "liquidity_provider")),
+    (1, "0x1abd0403591be494771115d74ed9e120530f356e", "auto-finance", "Anchorage/AUTOfinance anchrgUSD", "auto-finance", ("algorithmic_trading",)),
+    (1, "0x2916dfb3324377645cac4c5e78dffce910a61393", "auto-finance", "AUTOfinance gpuUSD", "auto-finance", ("algorithmic_trading",)),
+    (1, "0x408b6a3e2daf288864968454aae786a2a042df36", "auto-finance", "Tokemak siloUSD", "auto-finance", ("algorithmic_trading",)),
+    (1, "0xa7569a44f348d3d70d8ad5889e50f78e33d80d35", "auto-finance", "Tokemak autoUSD", "auto-finance", ("algorithmic_trading",)),
+    (1, "0xc7d7f434c015f2a7e77df9763ade300f2171a05a", "auto-finance", "AUTOfinance infinifiUSD", "auto-finance", ("algorithmic_trading",)),
+    (143, "0x288604ba0e9f08c22815eb36c2f4a49a44ee16bb", "auto-finance", "AUTOfinance monUSD", "auto-finance", ("algorithmic_trading",)),
+    (42161, "0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c", "auto-finance", "Tokemak arbUSD", "auto-finance", ("algorithmic_trading",)),
+    (8453, "0x9c6864105aec23388c89600046213a44c384c831", "auto-finance", "Tokemak baseUSD", "auto-finance", ("algorithmic_trading",)),
     (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5", "40acres", "Aerodrome USDC", "40acres", ("lending",)),
     (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd", "40acres", "Blackhole USDC", "40acres", ("lending",)),
     (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7", "40acres", "Pharaoh USDC", "40acres", ("lending",)),
@@ -59,8 +59,8 @@ REVIEWED_VAULTS = (
     (1, "0x59b6c75eeb7dfe417505919c3e5a919b7c1b0773", "morpho", "syrupUSDC/USDC Morpho Looper", "yearn", ("lending", "lending_looping")),
     (1, "0xd362efc75ef1879f37a900823495f402cfdb0986", "morpho", "stcUSD/USDC Pawn Broker Looper", "yearn", ("lending", "lending_looping")),
     (1, "0x2f56d106c6df739bdbb777c2fee79ffaed88d179", "erc-4626", "Arbitrum syrupUSDC/USDC Morpho Looper", "yearn", ("lending", "lending_looping")),
-    (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490", "erc-4626", "Morpho V2 Sentora PYUSD Convertor", "yearn", ("lending",)),
-    (1, "0x7130570bcefcedbe9d15b5b11a33006156460f8f", "erc-4626", "USDC To SKY USDS Depositor", "yearn", ("carry_trade",)),
+    (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490", "erc-4626", "Morpho V2 Sentora PYUSD Convertor", "yearn", None),
+    (1, "0x7130570bcefcedbe9d15b5b11a33006156460f8f", "erc-4626", "USDC To SKY USDS Depositor", "yearn", None),
     (1, "0x9b44efca3e2a707b63dc00ce79d646e5e5d24ba5", "morpho", "USDC Mix Yield Token", "alchemix", ("lending", "multistrategy")),
     (42161, "0xeba62b842081cef5a8184318dc5c4e4aaca9f651", "morpho", "Arbitrum USDC Mix Yield Token", "alchemix", ("lending", "multistrategy")),
     (8453, "0xb8befe5a6941ca4022a52042075ff269c3c67467", "morpho", "USDC Mix Yield Token", "alchemix", ("lending", "multistrategy")),
@@ -110,7 +110,7 @@ def test_unreviewed_strategy_stays_missing(adapter: type) -> None:
 def test_generic_strategy_is_chain_scoped() -> None:
     """Do not classify an unrelated deployment reusing a Yearn wrapper address."""
     vault = object.__new__(ERC4626Vault)
-    vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x3d2467cbf82332dbfb38997cbc4d2192694d9490"))
+    vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x2f56d106c6df739bdbb777c2fee79ffaed88d179"))
     assert vault.get_strategy_tags() is None
 
 

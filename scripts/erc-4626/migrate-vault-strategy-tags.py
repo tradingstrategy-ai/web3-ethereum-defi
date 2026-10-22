@@ -58,6 +58,7 @@ from eth_defi.erc_4626.vault_protocol.forty_acres.tags import STRATEGY_TAGS as F
 from eth_defi.erc_4626.vault_protocol.gains.tags import STRATEGY_TAGS as GAINS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.ipor.tags import STRATEGY_TAGS as IPOR_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.kiloex.tags import STRATEGY_TAGS as KILOEX_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.lagoon.tags import lookup_lagoon_strategy_tags
 from eth_defi.erc_4626.vault_protocol.liquid_royalty.tags import STRATEGY_TAGS as LIQUID_ROYALTY_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as get_morpho_strategy_tags
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
@@ -425,6 +426,12 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         # Do not clear a manually persisted classification merely because this
         # migration has not yet learned about the adapter.
         return None
+
+    if evm_feature == ERC4626Feature.lagoon_like:
+        lagoon_tags = lookup_lagoon_strategy_tags(spec.chain_id, spec.vault_address)
+        if lagoon_tags is None and curator_tags is None:
+            return None
+        return (lagoon_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
     if evm_resolver is None:

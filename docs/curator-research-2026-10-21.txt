@@ -38,8 +38,9 @@ The three Mix Yield Token deployments were verified against the official
 Alchemix indexer/deployment documentation at https://docs.alchemix.fi/dev/indexer-api
 before assigning alchemix.
 
-Strada USDC, Trinity Trust and Unity Trust have insufficient public strategy
-information and retain the explicit missing-information result. D2's public
+Strada USDC, Trinity Trust, Unity Trust, Fluid Lite USD, the Sentora PYUSD
+converter and the revoked Yearn USDC to sUSDS lender have insufficient public
+strategy information and retain the explicit missing-information result. D2's public
 organisation-level disclosures do not establish maintained strategy tags for
 its 53 individual snapshot rows, so these remain missing too. Other reviewed
 tags follow the published strategy and preserve existing classifications.
@@ -68,13 +69,15 @@ No substitute artwork was invented.
 
 Validation
 
-349 focused curator, canonical-feeder, strategy and migration tests passed.
+366 focused curator, curator-export, canonical-feeder, strategy, migration
+and maturity-boundary tests passed on 22 October 2026.
 All 287 curator files load through the shared schema. Canonical alias export
 and duplicate prevention are tested; official logo dimensions are tested.
 Ruff formatting was checked for changed Python files. Legacy adapter files
 have pre-existing lint findings; no additional Ruff rule findings were added.
 The strategy migration now recognises the new native address tables and the
-reviewed Yearn wrappers. Tests cover dry runs, backups, application, repeated
+reviewed Yearn wrapper and Lagoon
+chain-aware mappings. Tests cover dry runs, backups, application, repeated
 execution and preserving unreviewed native rows.
 
 Production follow-up — commands only, not executed
@@ -112,3 +115,49 @@ source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi &
 The next normal scanner export publishes the revised curator metadata and
 attribution. No production writes, remote pushes or PR creation were performed
 as part of this implementation batch.
+
+Review follow-up — 22 October 2026
+
+Claude Sonnet 5.5 reviewed all 15 new curator records, 43 changed addresses,
+53 D2 metadata rows and seven logo sets. Its completed data and code reviews
+reported no proven wrong curator/address assignment and no blocking code defect
+in the local changes. A first broad review reached its 15-minute deadline
+without a final verdict and was superseded by bounded completed reviews.
+
+Data review corrections: remove unsupported strategy tags from Fluid Lite,
+the Sentora PYUSD converter and the revoked Yearn USDC to sUSDS lender. Retain
+Yearn as the historical operator of the revoked deployment; this is not a claim
+of current endorsement. AUTO's rule-based rebalancing is supported by its solver
+and onchain validation documentation, but its exact destination exposures are
+not established per vault, so lending/LP exposures are not inferred. Remove the
+unverified MSA custody claim and the unsourced AUTO rebranding phrase. Clarify
+that Strada attribution comes from the manager-authored vault description, not
+the empty API curator array. Preserve Presto's original orange/white palette.
+
+The 40acres assignments were reverified against the official contract catalogue
+and the app's aerodrome/pharaoh/blackhole vault APIs, all successful, including
+exact contractAddress, chainId and linkedLoanContractAddress. Replace the broad
+Substack citation with those sources and the official lending documentation.
+The three Fluid lending addresses were also reverified with successful native
+lending API reads. These are manual public-source checks, not CI integrations.
+
+Code review follow-up: fix the missing Lagoon migration path with the same
+chain-aware helper as the live adapter, and cover its reused-address collision.
+Update the D2 export expectation for its new canonical alias. The review's
+curator-overlay concern is hypothetical for this batch: none of the 43 reviewed
+addresses overlaps CURATOR_STRATEGY_TAGS. Generic fallback remains scoped to the
+verified Yearn feature and unclassified generic wrappers; no unreviewed adapter
+is assigned a strategy.
+
+Unrelated CI diagnosis: the existing YieldNest metadata test expired after its
+15 October maturity. It failed both locally and on CI; explicit before/at/after
+clock cases now pass, and the vault-protocol CI job passed. Other CI failures
+were Derive HTTP 503 responses and live GMX price-bound assertions in unchanged
+code paths. They were not hidden with retries or skips.
+
+A final Sonnet 5.5 pass confirmed that the DATA corrections resolve its earlier
+findings, with no remaining factual error identified. Its cosmetic YAML comma
+was corrected. The eight AUTO rows agree with their tag table and audit
+(the final review prose accidentally counted seven). Public-source availability
+limits remain documented; a completed review is not a guarantee that all
+external disclosures are comprehensive.

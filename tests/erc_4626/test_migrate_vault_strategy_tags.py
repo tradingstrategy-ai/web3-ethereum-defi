@@ -421,9 +421,14 @@ def test_parse_boolean_env_requires_a_recognised_value() -> None:
         (1, "0x9be9294722f8aad37b11a9792be2c782182cafa2", {ERC4626Feature.ember_like}, {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.carry_trade, StrategyTag.multistrategy}),
         (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a", {ERC4626Feature.plutus_like}, {StrategyTag.algorithmic_trading, StrategyTag.multistrategy}),
         (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5", {ERC4626Feature.forty_acres_like}, {StrategyTag.lending}),
-        (8453, "0x9c6864105aec23388c89600046213a44c384c831", {ERC4626Feature.autopool_like}, {StrategyTag.algorithmic_trading, StrategyTag.liquidity_provider}),
+        (8453, "0x9c6864105aec23388c89600046213a44c384c831", {ERC4626Feature.autopool_like}, {StrategyTag.algorithmic_trading}),
         (42161, "0x00310c6d8a9f821e3fe991f4835f2ca4d87034cf", {ERC4626Feature.gmx_gm}, {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_amm, StrategyTag.perpetual_futures}),
-        (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490", {ERC4626Feature.yearn_compounder_like}, {StrategyTag.lending}),
+        (1, "0x2f56d106c6df739bdbb777c2fee79ffaed88d179", {ERC4626Feature.yearn_compounder_like}, {StrategyTag.lending, StrategyTag.lending_looping}),
+        (8453, "0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4", {ERC4626Feature.lagoon_like}, {StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
+        (8453, "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08", {ERC4626Feature.lagoon_like}, {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy}),
+        (1, "0xdcd0f5ab30856f28385f641580bbd85f88349124", {ERC4626Feature.lagoon_like}, {StrategyTag.algorithmic_trading, StrategyTag.lending, StrategyTag.lending_optimisation}),
+        (1, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
+        (8453, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
     ),
 )
 def test_migrate_reviewed_curator_strategy_tags(chain_id: int, address: str, features: set[ERC4626Feature], expected: set[StrategyTag], tmp_path: Path) -> None:

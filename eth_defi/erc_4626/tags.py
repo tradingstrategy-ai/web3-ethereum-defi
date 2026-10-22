@@ -14,19 +14,13 @@ STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
     #: Sources:
     #: - https://curation.yearn.fi/report/yearn-yvusd/
     (1, "0x2f56d106c6df739bdbb777c2fee79ffaed88d179"): {StrategyTag.lending, StrategyTag.lending_looping},
-    #: Vault: Morpho V2 Sentora PYUSD Convertor (chain 1).
-    #: Added: 2026-10-21.
-    #: Decision material: Exact Yearn strategy address from the current official yvUSD report; underlying protocol names do not establish management.
-    #: Sources:
-    #: - https://curation.yearn.fi/report/yearn-yvusd/
-    (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490"): {StrategyTag.lending},
-    #: Vault: USDC To SKY USDS Depositor (chain 1).
-    #: Added: 2026-10-21.
-    #: Decision material: Exact Yearn strategy address from the current official yvUSD report; underlying protocol names do not establish management.
-    #: Sources:
-    #: - https://curation.yearn.fi/report/yearn-yvusd/
-    (1, "0x7130570bcefcedbe9d15b5b11a33006156460f8f"): {StrategyTag.carry_trade},
 }
+
+#: Reviewed 2026-10-22 but deliberately unclassified: the Yearn report lists
+#: Morpho V2 Sentora PYUSD Convertor (0x3d2467cbf82332dbfb38997cbc4d2192694d9490)
+#: and the revoked USDC to sUSDS Lender (0x7130570bcefcedbe9d15b5b11a33006156460f8f).
+#: The listed names establish neither exact strategy mechanics nor carry trading.
+#: https://curation.yearn.fi/report/yearn-yvusd/
 
 
 def lookup_erc4626_strategy_tags(chain_id: int, address: str) -> set[StrategyTag] | None:

@@ -22,10 +22,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://api.fluid.instadapp.io/v2/lending/8453/tokens
     "0xf42f5795d9ac7e9d757db633d693cd548cfd9169": {StrategyTag.lending},
-    #: Vault: Fluid Lite USD Vault (chain 1).
-    #: Added: 2026-10-21.
-    #: Decision material: Native Fluid lending deployment; excludes external wrappers and the unverified legacy fiUSDC deployment.
-    #: Sources:
-    #: - https://docs.fluid.instadapp.io/lite-usd/index.html
-    "0x273da948aca9261043fbdb2a857bc255ecc29012": {StrategyTag.lending},
 }
+
+#: Fluid Lite USD Vault (Ethereum 0x273da948aca9261043fbdb2a857bc255ecc29012)
+#: reviewed 2026-10-22: the deployment docs do not explain its yield strategy.
+#: Keep its classification missing instead of inferring lending from the brand.
+#: https://docs.fluid.instadapp.io/lite-usd/index.html
