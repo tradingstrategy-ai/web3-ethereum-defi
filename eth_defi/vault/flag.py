@@ -879,6 +879,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x5eb03d0fcfd3860be03b81a1ab3d46db3315202a": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 6 (Arbitrum)
     "0x3a87cf9af4d21778dad1ce7d0bf053f4b8f2631f": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 195, Peapods on Base (8453).
+    # Added 2026-10-22 following a user report that the vault is illiquid.
+    # Flagged illiquid at the user's request to exclude it from investable vaults;
+    # no independent liquidity measurements were supplied with the report.
+    # Sources:
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-195
+    # https://basescan.org/address/0x2efd686fe4023b683b67fe0b59a0f941ab381d84
+    "0x2efd686fe4023b683b67fe0b59a0f941ab381d84": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Curve Boosted crvUSD-fxSAVE Lender (Yearn on Ethereum)
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
     # Convex crvUSD-fxSAVE Lender (Yearn on Ethereum)

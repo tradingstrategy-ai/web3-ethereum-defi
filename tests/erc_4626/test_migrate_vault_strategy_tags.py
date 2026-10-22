@@ -112,6 +112,44 @@ def test_migrate_vault_strategy_tags_updates_evm_and_native_rows(tmp_path: Path)
     assert second_result.backup_path is None
 
 
+def test_migrate_accountable_glasgow_cosmic_strategy_tags(tmp_path: Path) -> None:
+    """Persist Ryllo's Monad classification without altering unrelated rows.
+
+    The migration must honour chain identity, preserve unreviewed manual tags,
+    leave the file untouched in dry-run mode and be idempotent after applying.
+
+    :param tmp_path:
+        Isolated metadata and backup directory.
+    :return:
+        ``None``. Assertions validate the persisted classifications.
+    """
+    migration = load_migration_module()
+    glasgow = VaultSpec(143, "0x899e270df335287f687fdac8a9089059b042044f")
+    other_chain = VaultSpec(1, glasgow.vault_address)
+    unreviewed = VaultSpec(143, "0x0000000000000000000000000000000000000001")
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(
+        rows={
+            spec: {
+                "Protocol": "Accountable",
+                "_detection_data": create_detection(spec, {ERC4626Feature.accountable_like}),
+                "_strategy_tags": {StrategyTag.unknown},
+            }
+            for spec in (glasgow, other_chain, unreviewed)
+        }
+    ).write(path)
+
+    assert migration.migrate_vault_strategy_tags(path, dry_run=True).updated_rows == 1
+    assert VaultDatabase.read(path).rows[glasgow]["_strategy_tags"] == {StrategyTag.unknown}
+
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 1
+    migrated = VaultDatabase.read(path)
+    assert migrated.rows[glasgow]["_strategy_tags"] == {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending}
+    assert migrated.rows[other_chain]["_strategy_tags"] == {StrategyTag.unknown}
+    assert migrated.rows[unreviewed]["_strategy_tags"] == {StrategyTag.unknown}
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
+
+
 def test_migrate_vault_strategy_tags_dry_run_preserves_database(tmp_path: Path) -> None:
     """Dry-run mode reports changes without creating a backup or writing rows."""
 
