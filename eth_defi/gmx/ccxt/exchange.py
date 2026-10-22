@@ -1589,6 +1589,9 @@ class GMX(ExchangeCompatible):
         events emitted by the GMX EventEmitter that match the caller's wallet address,
         market token, and position direction.
 
+        The returned ``order_type`` is ``None`` when receipt evidence is unavailable
+        or the executed order type is unrecognised.
+
         :param market_address: GMX market token address.
         :param is_long: ``True`` for long, ``False`` for short.
         :param wallet_addr: Trader wallet address.
@@ -1642,7 +1645,7 @@ class GMX(ExchangeCompatible):
                     except Exception:
                         pass
 
-                    order_type = _GMX_ORDER_TYPE_NAMES.get(order_type_int, "market_decrease")
+                    order_type = _GMX_ORDER_TYPE_NAMES.get(order_type_int)
 
                     try:
                         block = self.web3.eth.get_block(log["blockNumber"])
