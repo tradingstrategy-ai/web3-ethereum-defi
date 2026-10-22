@@ -442,13 +442,53 @@ rows are retained and labelled `ethereum`; no rescan is needed.
 
 Lighter pool fees are per-pool `operator_fee` values set by pool operators:
 
-- **Operator fee**: 0–100%, a performance fee deducted from PnL
+- **Operator fee**: 0–100%, a performance fee charged on a participant's positive profits upon withdrawal
 - **LLP**: 0% operator fee
 - **User pools**: Variable, as reported by each pool
 
-The fee mode is `internalised_skimming` — the operator fee is already
-reflected in the share prices returned by the API. The pipeline treats
-share prices as net of fees.
+The fee mode is `externalised`. The share prices returned by the API are gross
+of the investor's operator fee. Net-return calculations deduct the fee from
+positive investment-period profits before annualising the result; losses do
+not incur a performance fee. This follows the withdrawal-time fee description
+in the [Lighter public-pool documentation](https://docs.lighter.xyz/trading/public-pools)
+and the worked public-pool example in the independent
+[Cipher Intelligence guide](https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/).
+For example, a $1,000 deposit growing to $1,200 in a pool with a 30% operator
+fee pays $60 to the operator, leaving $1,140 for the participant.
+
+Raw and cleaned Parquet exports carry the current operator fee as a fraction
+in `performance_fee`, joined by deployment and account index. Unknown fees
+remain null in metadata, JSON and Parquet, and investor net returns stay
+unavailable until the fee is known. This metadata-based export does not
+reconstruct historical fee changes or alter the source share prices.
+
+#### Regenerating existing exports
+
+Changing the fee-mode constant does not update cached `FeeData` objects.
+The scheduled Lighter scan refreshes them automatically through its normal
+metadata merge. For an immediate correction without waiting for the next scan,
+refresh Lighter metadata with `merge_into_vault_database()` from the existing
+Lighter DuckDB, then regenerate raw and cleaned Parquet with the normal
+Lighter merge and cleaning functions. Preserve existing historical rows and
+scanner state; no historical RPC backfill is required.
+
+When regenerating JSON, pass the affected Lighter IDs to
+`eth_defi.vault.top_vaults_json.main(force_vault_ids=...)` so the metrics
+freshness gate cannot replay old gross-equals-net results from sticky state.
+This forces cached or sticky rows to update immediately; otherwise low-TVL
+metrics can remain cached for up to three days. Use the same pipeline directory
+for the metadata, Parquet and export state.
+
+The focused live check below writes an isolated Candle Effect v2 dataset and
+verifies both Parquet and JSON output, including an export starting from legacy
+internalised metadata. It does not publish data or modify the shared pipeline:
+
+```shell
+source .local-test.env && SAMPLE_DIR=/tmp/lighter-fee-check poetry run python scripts/lighter/check-fee-exports.py
+```
+
+In a worktree sharing the parent checkout's virtual environment, add
+`PYTHONPATH="$PWD"` before `poetry run` to import the worktree's changed code.
 
 ### Share price computation
 
