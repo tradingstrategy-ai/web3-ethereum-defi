@@ -1,0 +1,19 @@
+feeder-id: auto-finance
+name: AUTO Finance
+role: curator
+canonical-feeder-id: auto-finance
+short_description: AUTO Finance develops vaults that automatically allocate and rebalance deposits across DeFi opportunities.
+long_description: |
+  [AUTO Finance](https://auto.finance/) develops automated allocation vaults called autopools. Depositors
+  supply an asset to a pool with a defined set of eligible destinations. Its [allocation
+  process](https://docs.auto.finance/auto-pools-protocol/protocol-mechanics/components-and-logic) weighs
+  expected yield, transaction costs and risk constraints before moving capital, with software proposing
+  rebalances and onchain rules checking them. The documentation does not identify a separate investment
+  curator for the protocol's native autopools.
+other-links:
+- title: Official protocol website
+  url: https://auto.finance/
+- title: Anchorage/AUTOfinance anchrgUSD on Ethereum - vault details and attribution
+  url: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+- title: Autopool solver proposals, destination sets and onchain strategy validation
+  url: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics/components-and-logic

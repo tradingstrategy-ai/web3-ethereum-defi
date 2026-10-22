@@ -1,0 +1,21 @@
+feeder-id: birch-hill
+name: Birch Hill
+role: curator
+website: https://birchhill.io/
+morpho-curator: Birch Hill
+twitter: BirchHill_io
+short_description: Birch Hill specialises in onchain credit backed by real-world assets, starting with tokenised property equity.
+long_description: |
+  [Birch Hill](https://birchhill.io/) applies credit underwriting to loans backed by tokenised real-world
+  assets. Its [first product, launched in July
+  2026](https://research.birchhill.io/p/birch-hills-first-onchain-product), lends USDC on Base against GRO
+  tokens representing shares in GromaREIT, a private real estate investment trust focused on residential
+  property in the northeastern United States. The vault combines Morpho lending markets with Yearn vault
+  infrastructure. Both lenders and borrowers must pass identity and accredited-investor checks; Birch Hill
+  publishes the strategy's underwriting and risk documentation.
+other-links:
+- title: Official organisation website
+  url: https://birchhill.io/
+- title: Birch Hill RWA USDC on Base - vault details and attribution
+  url: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
+linkedin: birch-hill-holdings

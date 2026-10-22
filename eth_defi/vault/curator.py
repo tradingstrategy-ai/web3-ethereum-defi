@@ -222,6 +222,12 @@ PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
 #: GRVT GLP).
 #: Use :py:func:`is_protocol_curator` to check membership.
 ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
+    "auto-finance",
+    "40acres",
+    "ember",
+    "fluid",
+    "gmx",
+    "plutus",
     "hyperliquid",
     "lighter",
     "grvt",
@@ -234,6 +240,12 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "auto-finance": "AUTO Finance",
+    "40acres": "40acres",
+    "ember": "Ember",
+    "fluid": "Fluid",
+    "gmx": "GMX",
+    "plutus": "Plutus",
     "antarctic": "Antarctic",
     "arcus": "Arcus",
     "atoma": "Atoma",
@@ -267,6 +279,9 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 #: ``"Gamma Strategies"`` not ``"Gamma"`` (which would match
 #: ``"GammaSwap V1"``).
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
+    # Retain the historical label without claiming every Waterline-branded
+    # deployment (for example the unreviewed Avalanche Waterline USDe vault).
+    "waterline-rusd": ["Waterline RUSD"],
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
@@ -373,6 +388,32 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
     "frax-finance",
 }
 
+#: Curators attributed only by reviewed addresses or exact protocol metadata.
+#:
+#: Product names can contain another organisation's brand: TelosC Almanak,
+#: Venzo Third Eye, and Trust Wallet Fluid USDC are concrete examples. Adding
+#: a feeder must not claim those products merely because its brand occurs in
+#: the name. These records still participate in exact manager-name matching;
+#: separately reviewed supplementary aliases remain supported.
+METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    "waterline-rusd",
+    "presto",
+    "architect",
+    "birch-hill",
+    "almanak",
+    "strada-digital",
+    "third-eye",
+    "my-seed-advisor",
+    "nara-capital",
+    "fluid",
+    "plutus",
+    "auto-finance",
+    "40acres",
+    "gmx",
+    "ember",
+    "d2-finance",
+}
+
 #: Protocol-specific curator metadata fields in curator YAML files.
 PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "ipor-fusion": "ipor-atomist",
@@ -392,6 +433,141 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Presto USDC Prime (1), reviewed 2026-10-21.
+    #: https://app.morpho.org/ethereum/vault/0x133614490896bc02c774bc3399e4db1b6d05a2ca
+    (1, "0x133614490896bc02c774bc3399e4db1b6d05a2ca"): "presto",
+    #: Presto USDC Forte (1), reviewed 2026-10-21.
+    #: https://app.morpho.org/ethereum/vault/0x68a65f315bcd3c3456d1368ff88bc661856548e1
+    (1, "0x68a65f315bcd3c3456d1368ff88bc661856548e1"): "presto",
+    #: ARCHITECT Global Value (8453), reviewed 2026-10-21.
+    #: https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7
+    (8453, "0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7"): "architect",
+    #: Birch Hill RWA USDC (8453), reviewed 2026-10-21.
+    #: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
+    (8453, "0xb038cf3e233b78225f6d350ac8319bec8457db4a"): "birch-hill",
+    #: Saturn USDC (143), reviewed 2026-10-21.
+    #: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079
+    (143, "0x75753e494e5e374c52e1d84fc04eb14b10f2c079"): "hyperithm",
+    #: SharpByte USDC High Yield (143), reviewed 2026-10-21.
+    #: https://app.morpho.org/monad/vault/0xf57e9898575fab80b0f2acde5443276bec8c542d
+    (143, "0xf57e9898575fab80b0f2acde5443276bec8c542d"): "sharpbyte",
+    #: M1 USDC (1), reviewed 2026-10-21.
+    #: https://app.morpho.org/ethereum/vault/0xab5955eb671d150527f8e61a42b703832f86616c
+    (1, "0xab5955eb671d150527f8e61a42b703832f86616c"): "waterline-rusd",
+    #: Tenbin USDC (1), reviewed 2026-10-21.
+    #: https://app.morpho.org/ethereum/vault/0x7d4741ba166b21cf3168a9a0ea71388531c52ff7
+    (1, "0x7d4741ba166b21cf3168a9a0ea71388531c52ff7"): "waterline-rusd",
+    #: Autonomous Liquidity USD (1), reviewed 2026-10-21.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0xdcd0f5ab30856f28385f641580bbd85f88349124
+    (1, "0xdcd0f5ab30856f28385f641580bbd85f88349124"): "almanak",
+    #: Strada USDC (1), reviewed 2026-10-21.
+    #: The manager-authored description identifies Strada; the curator field is empty.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0xcb58582b0d52ce5feecb06ba9ce66598b0d57886
+    (1, "0xcb58582b0d52ce5feecb06ba9ce66598b0d57886"): "strada-digital",
+    #: GUSDC (8453), reviewed 2026-10-21.
+    #: https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4
+    (8453, "0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4"): "nara-capital",
+    #: MSA - Portefeuille Dynamique  (8453), reviewed 2026-10-21.
+    #: https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08
+    (8453, "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08"): "gami",
+    #: Trinity Trust (1), reviewed 2026-10-21.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x71652d4898de9a7dd35e472a5fe4577ec69d82f2
+    (1, "0x71652d4898de9a7dd35e472a5fe4577ec69d82f2"): "722-capital",
+    #: Unity Trust (1), reviewed 2026-10-21.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x66dcb62da5430d800a1c807822c25be17138fda8
+    (1, "0x66dcb62da5430d800a1c807822c25be17138fda8"): "722-capital",
+    #: Ember Third Eye (1), reviewed 2026-10-21.
+    #: https://vaults.api.sui-prod.bluefin.io/api/v2/vaults?chain=ethereum
+    (1, "0xf3190a3ecc109f88e7947b849b281918c798a0c4"): "third-eye",
+    #: Ember Earn (1), reviewed 2026-10-21.
+    #: https://vaults.api.sui-prod.bluefin.io/api/v2/vaults?chain=ethereum
+    (1, "0x9be9294722f8aad37b11a9792be2c782182cafa2"): "ember",
+    #: Fluid USD Coin (1), reviewed 2026-10-21.
+    #: https://api.fluid.instadapp.io/v2/lending/1/tokens
+    (1, "0x9fb7b4477576fe5b32be4c1843afb1e55f251b33"): "fluid",
+    #: Fluid USD Coin (42161), reviewed 2026-10-21.
+    #: https://api.fluid.instadapp.io/v2/lending/42161/tokens
+    (42161, "0x1a996cb54bb95462040408c06122d45d6cdb6096"): "fluid",
+    #: Fluid USD Coin (8453), reviewed 2026-10-21.
+    #: https://api.fluid.instadapp.io/v2/lending/8453/tokens
+    (8453, "0xf42f5795d9ac7e9d757db633d693cd548cfd9169"): "fluid",
+    #: Fluid Lite USD Vault (1), reviewed 2026-10-21.
+    #: https://docs.fluid.instadapp.io/lite-usd/index.html
+    (1, "0x273da948aca9261043fbdb2a857bc255ecc29012"): "fluid",
+    #: Plutus Hedge Token (42161), reviewed 2026-10-21.
+    #: https://docs.plutus.fi/products/plvassets
+    (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a"): "plutus",
+    #: Plutus Dolomite vault (42161), reviewed 2026-10-21.
+    #: https://docs.plutus.fi/products/plvassets
+    (42161, "0xf84eaa0685626f84fe17bc6c3c9eb2ac8a90d3c1"): "plutus",
+    #: Anchorage/AUTOfinance anchrgUSD (1), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (1, "0x1abd0403591be494771115d74ed9e120530f356e"): "auto-finance",
+    #: AUTOfinance gpuUSD (1), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (1, "0x2916dfb3324377645cac4c5e78dffce910a61393"): "auto-finance",
+    #: Tokemak siloUSD (1), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (1, "0x408b6a3e2daf288864968454aae786a2a042df36"): "auto-finance",
+    #: Tokemak autoUSD (1), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (1, "0xa7569a44f348d3d70d8ad5889e50f78e33d80d35"): "auto-finance",
+    #: AUTOfinance infinifiUSD (1), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (1, "0xc7d7f434c015f2a7e77df9763ade300f2171a05a"): "auto-finance",
+    #: AUTOfinance monUSD (143), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (143, "0x288604ba0e9f08c22815eb36c2f4a49a44ee16bb"): "auto-finance",
+    #: Tokemak arbUSD (42161), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (42161, "0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c"): "auto-finance",
+    #: Tokemak baseUSD (8453), reviewed 2026-10-21.
+    #: https://docs.auto.finance/auto-pools-protocol/protocol-mechanics
+    (8453, "0x9c6864105aec23388c89600046213a44c384c831"): "auto-finance",
+    #: Aerodrome USDC (8453), reviewed 2026-10-21.
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
+    (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"): "40acres",
+    #: Blackhole USDC (43114), reviewed 2026-10-21.
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
+    (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd"): "40acres",
+    #: Pharaoh USDC (43114), reviewed 2026-10-21.
+    #: https://docs.40acres.finance/contracts
+    #: Exact vault addresses and chain IDs are also published by the app vault API.
+    (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"): "40acres",
+    #: GM SKY [WETH-USDC] (42161), reviewed 2026-10-21.
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    (42161, "0x00310c6d8a9f821e3fe991f4835f2ca4d87034cf"): "gmx",
+    #: syrupUSDC/USDC Morpho Looper (1), reviewed 2026-10-21.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0xf28dc8b6ded7e45f8cf84b9972487c8e1857a442"): "yearn",
+    #: syrupUSDC/USDC Morpho Looper (1), reviewed 2026-10-21.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0x59b6c75eeb7dfe417505919c3e5a919b7c1b0773"): "yearn",
+    #: stcUSD/USDC Pawn Broker Looper (1), reviewed 2026-10-21.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0xd362efc75ef1879f37a900823495f402cfdb0986"): "yearn",
+    #: Arbitrum syrupUSDC/USDC Morpho Looper (1), reviewed 2026-10-21.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0x2f56d106c6df739bdbb777c2fee79ffaed88d179"): "yearn",
+    #: Morpho V2 Sentora PYUSD Convertor (1), reviewed 2026-10-21.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0x3d2467cbf82332dbfb38997cbc4d2192694d9490"): "yearn",
+    #: USDC To SKY USDS Depositor (1), reviewed 2026-10-21.
+    #: The report lists this as the revoked USDC to sUSDS Lender; attribution
+    #: records its historical operator, not current deployment status or strategy.
+    #: https://curation.yearn.fi/report/yearn-yvusd/
+    (1, "0x7130570bcefcedbe9d15b5b11a33006156460f8f"): "yearn",
+    #: USDC Mix Yield Token (1), reviewed 2026-10-21.
+    #: https://docs.alchemix.fi/dev/indexer-api
+    (1, "0x9b44efca3e2a707b63dc00ce79d646e5e5d24ba5"): "alchemix",
+    #: Arbitrum USDC Mix Yield Token (42161), reviewed 2026-10-21.
+    #: https://docs.alchemix.fi/dev/indexer-api
+    (42161, "0xeba62b842081cef5a8184318dc5c4e4aaca9f651"): "alchemix",
+    #: USDC Mix Yield Token (8453), reviewed 2026-10-21.
+    #: https://docs.alchemix.fi/dev/indexer-api
+    (8453, "0xb8befe5a6941ca4022a52042075ff269c3c67467"): "alchemix",
     # These Lighter pools share an L1 operator address. The automated breakout
     # pool directly identifies the operator's @dima_quant account, while the
     # adjacent pool names identify Dima and Systematic Strategies respectively.
@@ -838,8 +1014,9 @@ def _build_matching_patterns() -> list[tuple[re.Pattern, str]]:
     raw_pairs: list[tuple[str, str]] = []
 
     for slug, info in curator_map.items():
-        # Always include the YAML name
-        raw_pairs.append((info["name"], slug))
+        # Some organisation names also identify unrelated products or assets.
+        if slug not in METADATA_ONLY_CURATOR_SLUGS:
+            raw_pairs.append((info["name"], slug))
         # Include any supplementary patterns
         for extra in CURATOR_NAME_PATTERNS.get(slug, []):
             raw_pairs.append((extra, slug))

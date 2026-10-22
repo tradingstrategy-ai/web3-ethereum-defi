@@ -1,0 +1,19 @@
+feeder-id: third-eye
+name: Third Eye
+role: curator
+website: https://third-eye.co/
+short_description: Third Eye is a crypto investment firm trading liquid markets and special situations such as bankruptcy claims.
+long_description: |
+  [Third Eye](https://third-eye.co/) is a discretionary investment firm with offices in New York and Dubai:
+  its traders make investment decisions with support from quantitative models. Its liquid-market strategies
+  include options, relative-value trades and positions driven by economic or company events; its
+  special-situations business includes bankruptcy claims and stablecoins trading away from their pegs. Third
+  Eye also manages an [Ember stablecoin vault](https://ember.so/earn) that uses basis trades, seeking returns
+  from price differences between related instruments, alongside other opportunistic positions.
+other-links:
+- title: Official organisation website
+  url: https://third-eye.co/
+- title: Ember Third Eye on Ethereum - vault details and attribution
+  url: https://vaults.api.sui-prod.bluefin.io/api/v2/vaults?chain=ethereum
+twitter: thirdeye_fund
+linkedin: thirdeyeltd

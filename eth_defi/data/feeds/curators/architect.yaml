@@ -1,0 +1,17 @@
+feeder-id: architect
+name: Architect
+role: curator
+website: https://architect.systems/
+morpho-curator: Architect
+twitter: xxi_eth
+short_description: Architect invests long-term capital and curates an onchain lending portfolio on Base.
+long_description: |
+  [Architect](https://architect.systems/) invests with a long-term horizon. Its [Global Value vault on
+  Base](https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7/architect-global-value)
+  allocates deposits through selected lending curators on Morpho, bringing several managers' allocations into
+  one portfolio. Architect is responsible for curation of the overall vault.
+other-links:
+- title: Official organisation website
+  url: https://architect.systems/
+- title: ARCHITECT Global Value on Base - vault details and attribution
+  url: https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7

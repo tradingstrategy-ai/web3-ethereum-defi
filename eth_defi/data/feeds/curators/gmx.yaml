@@ -1,0 +1,16 @@
+feeder-id: gmx
+name: GMX
+role: curator
+canonical-feeder-id: gmx
+short_description: GMX is a decentralised exchange whose liquidity pools back leveraged trading and token swaps.
+long_description: |
+  [GMX](https://gmx.io/) offers perpetual futures, which have no expiry date, and token swaps. Liquidity
+  providers supply the assets used to support trades and receive a share of fees, while their returns also
+  reflect changes in pool asset prices and traders' profits or losses. Its [GM pools and GLV
+  vaults](https://docs.gmx.io/docs/providing-liquidity/) offer two allocation models: a GM pool serves one
+  market, while a GLV moves liquidity across approved markets within limits set by the GMX risk team.
+other-links:
+- title: Official protocol website
+  url: https://gmx.io/
+- title: GM SKY [WETH-USDC] on Arbitrum - vault details and attribution
+  url: https://docs.gmx.io/docs/providing-liquidity/

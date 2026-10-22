@@ -3,6 +3,18 @@
 from eth_defi.vault.strategy_tag import StrategyTag
 
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: GUSDC (chain 8453).
+    #: Added: 2026-10-21.
+    #: Decision material: Current Lagoon metadata identifies the curator; the MSA portfolio uses Gami by explicit user selection. Undisclosed strategies remain unmapped.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4
+    "0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4": {StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: MSA - Portefeuille Dynamique  (chain 8453).
+    #: Added: 2026-10-21.
+    #: Decision material: Current Lagoon metadata identifies the curator; the MSA portfolio uses Gami by explicit user selection. Undisclosed strategies remain unmapped.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08
+    "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08": {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy},
     #: Vault: DeltaUSD HyperLiquid USDN Funding Arb.
     #: Added: 2026-09-28.
     #: Decision material: The maintained Lagoon description documents

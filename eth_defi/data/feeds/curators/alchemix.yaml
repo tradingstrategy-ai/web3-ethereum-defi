@@ -4,9 +4,14 @@ name: Alchemix
 role: curator
 lagoon-curator: Alchemix
 canonical-feeder-id: alusd
-short_description: Alchemix is a DeFi protocol for saving, borrowing and earning fixed-yield returns.
+short_description: Alchemix combines yield vaults with borrowing that uses future investment returns to reduce debt.
 long_description: |
-  Alchemix describes its protocol as combining saving, borrowing and fixed-yield returns in one application. Its Mix-Yield Tokens represent portfolios of yield strategies selected and rebalanced by the Alchemix DAO. Depositors can use ETH or USDC in those vaults while accessing interest-free borrowing against their deposits.
+  [Alchemix](https://alchemix.fi/) introduced self-repaying loans in 2021, allowing users to borrow against
+  deposits whose future yield helps repay the debt. Its [Mix-Yield Tokens](https://docs.alchemix.fi/)
+  represent shares in portfolios selected and rebalanced by the Alchemix DAO, the protocol's governance
+  organisation. ETH and USDC depositors can earn variable returns and borrow synthetic assets against their
+  holdings. A separate product, the Transmuter, offers fixed-term redemption of those synthetic assets for the
+  underlying tokens.
 
 # Evidence and background references.
 #
@@ -18,3 +23,5 @@ other-links:
     url: https://app.lagoon.finance/api/curators
   - title: Alchemix documentation - protocol overview and DAO-selected vault strategies
     url: https://docs.alchemix.fi/
+  - title: USDC Mix Yield Token on Ethereum - vault details and attribution
+    url: https://docs.alchemix.fi/dev/indexer-api

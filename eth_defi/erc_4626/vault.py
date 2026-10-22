@@ -17,6 +17,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balances_multicall
 from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
+from eth_defi.erc_4626.tags import lookup_erc4626_strategy_tags
 from eth_defi.erc_4626.vault_token import (
     get_cached_vault_denomination_token_address,
     get_cached_vault_share_token_address,
@@ -34,6 +35,7 @@ from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, MIN_MEANINGFUL_TVL_E
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -951,6 +953,17 @@ class ERC4626Vault(VaultBase):
     - `Find the interface here <https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC4626.sol>`__
     - `EIP-7575 <https://eips.ethereum.org/EIPS/eip-7575>`__
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained classifications for this reviewed deployment.
+
+        Only source-backed address entries are classified; an unreviewed
+        deployment retains the explicit missing-information result.
+
+        :return:
+            A fresh set of strategy tags, or ``None`` when information is missing.
+        """
+        return lookup_erc4626_strategy_tags(self.chain_id, self.vault_address)
 
     def __init__(
         self,

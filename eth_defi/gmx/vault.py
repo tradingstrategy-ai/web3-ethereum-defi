@@ -25,6 +25,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.gmx.historical_context import GMXHistoricalContextStore, get_gmx_historical_context_path
 from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation
 from eth_defi.gmx.links import get_gmx_pool_details_link
+from eth_defi.gmx.tags import STRATEGY_TAGS
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
@@ -32,6 +33,7 @@ from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, Va
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Explanation returned for unsupported generic GMX flow operations.
 GMX_UNSUPPORTED_FLOW_REASON: str = "GMX liquidity deposits and withdrawals are asynchronous ExchangeRouter requests and are not supported by the generic vault transaction adapter"
@@ -127,6 +129,17 @@ class GMXHistoricalReader(VaultHistoricalReader):
 
 class GMXVaultBase(VaultBase):
     """Common read-only adapter surface for GM and GLV ERC-20 shares."""
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained classifications for this reviewed deployment.
+
+        Only source-backed address entries are classified; an unreviewed
+        deployment retains the explicit missing-information result.
+
+        :return:
+            A fresh set of strategy tags, or ``None`` when information is missing.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.address)
 
     #: Protocol feature selecting the concrete GM or GLV adapter.
     feature: ERC4626Feature

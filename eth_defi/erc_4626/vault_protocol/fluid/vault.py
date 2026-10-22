@@ -25,9 +25,11 @@ from typing import Iterable
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.fluid.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,17 @@ class FluidVault(ERC4626Vault):
     - Fees are internalised into the share price through interest accrual
     - No explicit deposit or withdrawal fees
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained classifications for this reviewed deployment.
+
+        Only source-backed address entries are classified; an unreviewed
+        deployment retains the explicit missing-information result.
+
+        :return:
+            A fresh set of strategy tags, or ``None`` when information is missing.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def has_custom_fees(self) -> bool:
         """Fluid has no deposit/withdrawal fees."""
