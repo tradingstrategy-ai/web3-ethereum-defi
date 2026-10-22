@@ -45,6 +45,8 @@ from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.tags import lookup_erc4626_strategy_tags
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
+from eth_defi.erc_4626.vault_protocol.accountable.tags import MONAD_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.accountable.tags import STRATEGY_TAGS as ACCOUNTABLE_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.autopool.tags import STRATEGY_TAGS as AUTOPOOL_STRATEGY_TAGS
@@ -432,6 +434,12 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         if lagoon_tags is None and curator_tags is None:
             return None
         return (lagoon_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
+
+    if evm_feature == ERC4626Feature.accountable_like:
+        accountable_tags = lookup_strategy_tags(ACCOUNTABLE_STRATEGY_TAGS, spec.vault_address) if spec.chain_id == MONAD_CHAIN_ID else None
+        if accountable_tags is None and curator_tags is None:
+            return None
+        return (accountable_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
     if evm_resolver is None:

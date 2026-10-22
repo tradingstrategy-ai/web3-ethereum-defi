@@ -1004,6 +1004,34 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
         assert slug == expected_slug, f"{vault_name!r} resolved to {slug!r}"
 
 
+def test_identify_ryllo_curator() -> None:
+    """Resolve Ryllo through Accountable metadata and vault branding.
+
+    Exact manager metadata must work independently of the vault name, and
+    the public export must include the organisation's descriptions and logos.
+
+    :return:
+        ``None``. Assertions validate attribution and exported metadata.
+    """
+    address = "0x899e270df335287f687fdac8a9089059b042044f"
+    assert identify_curator(143, "RYLG", "Unbranded vault", address, "accountable", manager_name=" Ryllo ") == "ryllo"
+    assert identify_curator(143, "RYLG", "Glasgow Cosmic by Ryllo", address, "accountable") == "ryllo"
+    assert get_curator_name("ryllo") == "Ryllo"
+    assert not is_protocol_curator("ryllo")
+
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/ryllo.yaml"), public_url="https://example.invalid")
+    assert metadata["website"] == "https://ryllo.co/"
+    assert metadata["short_description"]
+    assert "[Ryllo](https://ryllo.co/)" in metadata["long_description"]
+    assert "receivables" in metadata["long_description"]
+    assert metadata["protocol_curator"] is False
+    for variant in ("light", "dark"):
+        assert metadata["logos"][variant] == f"https://example.invalid/curator-metadata/ryllo/{variant}.png"
+        with Image.open(Path("eth_defi/data/vaults/formatted_logos/ryllo") / f"{variant}.png") as logo:
+            assert logo.size == (256, 256)
+            assert logo.mode == "RGBA"
+
+
 def test_identify_symbiotic_curators_by_official_metadata() -> None:
     """Resolve reviewed Symbiotic curator names without relying on vault branding."""
     cases = [
