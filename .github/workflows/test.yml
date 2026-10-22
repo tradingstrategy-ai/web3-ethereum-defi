@@ -195,7 +195,9 @@ jobs:
           set -o pipefail
           export TEST_TIMINGS_FILE=test-timings.jsonl
           export TEST_RESOURCES_DIR=test-resources
-          poetry run pytest --junitxml=test-results.xml --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
+          # Dump stacks for a stalled phase before the job cap cancels it, so
+          # fork setup/teardown hangs leave actionable diagnostics.
+          poetry run pytest --junitxml=test-results.xml --timeout-method=thread -o faulthandler_timeout=60 --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
         env:
           # Hypersync scan tests are disabled on CI by default; enable via
           # workflow_dispatch input or the RUN_HYPERSYNC_TESTS repo variable.

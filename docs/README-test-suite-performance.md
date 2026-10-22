@@ -1,5 +1,30 @@
 # Test suite performance plan
 
+## Lagoon fork contention (2026-10-22)
+
+The [first main-suite attempt for PR #1646](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/runs/39790133698/attempts/1)
+recorded a 250-second NAV fixture failure, then exhausted the 15-minute job cap
+during teardown. On the [second attempt](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/runs/39790133698/attempts/2),
+that NAV case passed but a Lagoon deployment call stalled for 252 seconds.
+A final YieldBasis test on another worker completed all recorded phases before
+its worker stopped responding. No Derive assertion failed in either attempt.
+
+The unchanged NAV case passed locally in 4.00 seconds. The deployment and
+YieldBasis cases passed together in 6.48 seconds. Move the two transaction-heavy
+Lagoon deployment/valuation modules into the existing serial slow workflow to
+reduce parallel fork pressure while retaining CI coverage. A combined local
+run also exhausted 180 seconds in post-valuation after deployment cases
+passed on the same shared fork. Give the two modules independent pool
+partitions and matching xdist groups so deployment snapshot/revert churn does
+not carry over into valuation. Keep their fixed block, warm cache and per-test
+snapshots. Other Lagoon modules retain their existing shared partition.
+The slow workflow's Foundry setup,
+RPC secrets and warm cache already support these deployed-ABI tests. Main CI
+also dumps Python stacks after a 60-second phase stall; its 15-minute cap is
+unchanged. After partitioning, the same combined local run passed eight tests
+with three existing skips in 14.71 seconds. A green run of both workflows is
+required to validate this change.
+
 Reduce repeated deployments, live data volume and CI setup while retaining
 meaningful real-provider and Anvil integration coverage. Controlled responses
 cover transformation and failure cases; real integrations verify each provider
