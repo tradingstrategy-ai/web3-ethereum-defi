@@ -93,10 +93,13 @@ LIGHTER_DEFAULT_REQUESTS_PER_SECOND: float = 2.0
 
 #: Fee mode for Lighter native pools.
 #:
-#: Pool operators can set an ``operator_fee`` (0-100%). The share prices
-#: from the API already reflect the operator's fee deduction, so the
-#: pipeline sees net-of-fees prices. This matches internalised skimming.
-LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
+#: Pool operators charge ``operator_fee`` (0-100%) on a participant's positive
+#: profits upon withdrawal. Share-price returns are gross of this investor fee.
+#: See `Lighter's public-pool documentation
+#: <https://docs.lighter.xyz/trading/public-pools>`__ and the independent
+#: `Cipher Intelligence public-pool example
+#: <https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/>`__.
+LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
 
 #: Pool denomination currency.
 #:
