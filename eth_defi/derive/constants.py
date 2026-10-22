@@ -7,11 +7,17 @@ from enum import Enum
 from pathlib import Path
 
 
-#: Derive mainnet API URL (formerly Lyra)
+#: Legacy v2 mainnet API URL, retained for the v2 authenticated client.
 DERIVE_MAINNET_API_URL = "https://api.lyra.finance"
 
 #: Derive testnet API URL
 DERIVE_TESTNET_API_URL = "https://api-demo.lyra.finance"
+
+#: Public v3 mainnet API; see https://docs.derive.xyz/migrating/breaking-changes.
+DERIVE_V3_MAINNET_API_URL = "https://api.derive.xyz/v3"
+
+#: Public v3 testnet API, deployed on Ethereum Sepolia.
+DERIVE_V3_TESTNET_API_URL = "https://testnet.api.derive.xyz/v3"
 
 #: Derive mainnet WebSocket URL
 DERIVE_MAINNET_WS_URL = "wss://api.lyra.finance/ws"

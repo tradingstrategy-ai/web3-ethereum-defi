@@ -527,7 +527,17 @@ class GlvStats(GetData):
         return 0.0
 
     def extract_gm_price(self, results: dict, market_address: str) -> float:
-        """Extract GM price from multicall results."""
+        """Extract a signed GM token price in USD from a reader result.
+
+        The reader returns ``(int256, MarketPoolValueInfo.Props)``. Prices
+        can be negative for distressed pools or very large for dust supplies;
+        neither value should be clamped or interpreted as an unsigned integer.
+        See https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/reader/Reader.sol.
+
+        :param results: Multicall results keyed by call type and market address.
+        :param market_address: Market token address identifying the price call.
+        :return: Signed USD price, or zero when the call failed or is missing.
+        """
         try:
             gm_price_key = f"gm_price_{market_address}"
             logger.debug("Looking for GM price key: %s in results keys: %s", gm_price_key, list(results.keys()))
@@ -545,8 +555,8 @@ class GlvStats(GetData):
                 logger.debug("GM price result bytes length for %s: %s", market_address, len(result_bytes) if result_bytes else 0)
 
                 if result_bytes and len(result_bytes) >= 32:
-                    # getMarketTokenPrice returns (uint256, uint256) - we want the first one
-                    price_raw = int.from_bytes(result_bytes[:32], byteorder="big")
+                    # The first ABI word is an int256 with 30 decimal places.
+                    price_raw = int.from_bytes(result_bytes[:32], byteorder="big", signed=True)
                     price_float = price_raw / 10**30
                     logger.debug("GM price for %s: %s raw -> %s", market_address, price_raw, price_float)
                     return price_float

@@ -1,18 +1,21 @@
 # Derive.xyz integration
 
-[Derive.xyz](https://derive.xyz/) (formerly Lyra) is a decentralised perpetuals and options exchange built on Derive Chain (OP Stack L2, chain ID 957).
+[Derive.xyz](https://derive.xyz/) (formerly Lyra) is a decentralised perpetuals and options exchange. Its v3 mainnet settles on Ethereum; Derive Chain (OP Stack L2, chain ID 957) remains a source of legacy v2 historical snapshots.
 
-The account, funding and open-interest modules below use the v2 API. For the
-separate v3 native vault API, see the [v3 vault collector](../../docs/source/api/derive/v3-vaults.rst).
+Funding history and instrument discovery use the public v3 mainnet API at
+`https://api.derive.xyz/v3`, following the [v3 migration guide](https://docs.derive.xyz/migrating/breaking-changes).
+Historical onchain open-interest reads continue to use legacy Derive Chain
+contracts; they do not provide current v3 open interest. Account authentication
+and onboarding remain v2 integrations and need a separate migration.
+For the v3 native vault API, see the [v3 vault collector](../../docs/source/api/derive/v3-vaults.rst).
 For operator commands and source limits, see the [Derive vault README](../../scripts/derive/README-Derive-vaults.md).
 Its public testnet endpoints can be scanned without credentials using
 `scripts/derive/scan-v3-vaults.py`; mainnet and testnet observations are stored
 separately.
 
-- [Derive API reference](https://docs.derive.xyz/reference/)
-- [Funding rate history endpoint](https://docs.derive.xyz/reference/post_public-get-funding-rate-history)
-- [Statistics endpoint](https://docs.derive.xyz/reference/post_public-statistics) (open interest)
-- [All instruments endpoint](https://docs.derive.xyz/reference/post_public-get-all-instruments)
+- [Derive API reference](https://docs.derive.xyz/)
+- [Funding rate history endpoint](https://docs.derive.xyz/api-reference/market-data/publicget_funding_rate_history)
+- [All instruments endpoint](https://docs.derive.xyz/api-reference/market-data/publicget_all_instruments)
 
 ## Collected data overview
 
@@ -20,10 +23,11 @@ Two datasets are collected and stored in a shared DuckDB database at `~/.trading
 
 | Dataset | Source | Resolution | History |
 |---|---|---|---|
-| Funding rates | Derive REST API (`get_funding_rate_history`) | Hourly | From instrument inception (~Dec 2023 for BTC/ETH) |
-| Open interest + prices | On-chain via Multicall3 on Derive Chain | Hourly | From Multicall3 deployment (2023-12-30) |
+| Funding rates | Derive v3 REST API (`get_funding_rate_history`) | Hourly closing rate | Available v3 history; existing v2 rows retained |
+| Legacy open interest + prices | Onchain via Multicall3 on Derive Chain | Hourly | Legacy v2 state from Multicall3 deployment (2023-12-30) |
 
-Both datasets cover all active perpetual instruments (currently 12: BTC, ETH, SOL, AAVE, DOGE, LINK, OP, SUI, HYPE, BNB, ENA, XRP).
+Instruments are discovered from the v3 API. On 2026-10-22 it listed 15 active
+perpetuals and retained legacy contract addresses for existing instruments.
 
 ### Example database size (as of 2026-03-20)
 
@@ -82,7 +86,7 @@ Primary key: `(instrument, data_type)`
 
 ### `scripts/derive/scan-funding-rates.py`
 
-Fetches hourly funding rate snapshots from the Derive REST API. On first run, auto-detects each instrument's inception date via binary search and fetches the full history in 28-day chunks. Subsequent runs resume from the last stored timestamp.
+Fetches hourly funding-rate closing values from the Derive v3 REST API. On first run, auto-detects the earliest available v3 observations via binary search and fetches history in 28-day chunks. Subsequent runs resume from the last stored timestamp. Existing v2 observations remain in the database: v3 returned no April 2026 data when checked on 2026-10-22, so a new database cannot currently reconstruct that history.
 
 ```shell
 # Full sync (all instruments, full history, ~2-3 min first run)
@@ -101,7 +105,7 @@ LIMIT_DAYS=1 INSTRUMENTS=ETH-PERP poetry run python scripts/derive/scan-funding-
 
 ### `scripts/derive/scan-open-interest.py`
 
-Fetches hourly open interest, perp price, and index price by reading on-chain state from the Derive Chain archive node via parallel Multicall3 reads. On first run, fetches the full history from each instrument's activation date. Subsequent runs resume incrementally.
+Fetches hourly legacy open interest, perp price, and index price by reading onchain state from the Derive Chain archive node via parallel Multicall3 reads. These observations are v2 history, not current v3 exchange state. On first run, fetches history from each instrument's activation date. Subsequent runs resume incrementally.
 
 The script prints current DB size, existing entries, scan start/end dates, and a running rows-written counter in the progress bar.
 
@@ -180,16 +184,17 @@ Tests use the public Derive Chain RPC and REST API (no credentials needed).
 
 ## API quirks
 
-### Funding rate API (discovered 2026-03-18)
+### Funding rate API
 
 - **Parameter names**: The API requires `start_timestamp` / `end_timestamp` (not `start_time` / `end_time` as the docs suggest). Using the wrong names silently falls back to the most recent 30 days.
 - **Boundary samples**: The API may include the hourly sample immediately before `start_timestamp`. `fetch_funding_rate_history()` clips returned rows to the requested inclusive bounds before returning or persisting them.
 - **Maximum window**: The API returns empty results for windows >= 30 days. The maximum usable window is **28 days** (29 days also works but 28 is a safe round number).
 - **Pagination ignored**: `page` and `page_size` parameters are accepted but have no effect — the API always returns all entries in the requested time window.
-- **Full history available**: Despite the docs claiming a 30-day limit, the correct parameter names allow querying data back to instrument inception (ETH-PERP since 2024-01-05, ~800+ days).
+- **V3 history boundary**: On 2026-10-22, ETH funding candles began in October 2026. The former v2 API exposed older data, but its replacement currently returns empty results for those windows. Empty responses never erase existing rows or reset sync state.
+- **OHLC candles**: V3 includes hourly open/high/low/close rates; the backward-compatible `funding_rate` field mirrors `close` and is stored without changing the database schema.
 - **Hourly resolution**: Data is returned at 1-hour intervals. A 28-day chunk returns ~672 entries.
 
-### Statistics API / open interest (discovered 2026-03-19)
+### Legacy statistics API and open interest
 
 - **Statistics endpoint ignores timestamps**: The `POST /public/statistics` endpoint accepts `end_time` and `end_timestamp` parameters but always returns the current live open interest. Tested with millisecond timestamps, second timestamps, and both parameter names — all return identical current values. This is why on-chain reads are used instead.
 - **Function selectors**: The correct selector for `openInterest(uint256)` is `0x88e53ec8` (the parameterless `openInterest()` selector `0xfa5a2e62` reverts). `getPerpPrice()` is `0x90f76b18` and `getIndexPrice()` is `0x58c0994a` — both return `(uint256 price, uint256 confidence)` tuples.
@@ -197,7 +202,7 @@ Tests use the public Derive Chain RPC and REST API (no credentials needed).
 
 ## On-chain data source details
 
-The open interest scanner reads state directly from perp contracts on Derive Chain:
+The open-interest scanner reads legacy v2 state directly from perp contracts on Derive Chain. It is not a current v3 data source:
 
 | Data point | Contract function | Selector | Description |
 |---|---|---|---|

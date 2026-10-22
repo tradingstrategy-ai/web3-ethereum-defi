@@ -2,6 +2,11 @@
 
 Typed wrappers for public (unauthenticated) Derive API endpoints.
 
+Instrument discovery and funding history use the v3 API described in
+https://docs.derive.xyz/migrating/breaking-changes. Onchain functions read
+legacy Derive Chain history, not the Ethereum-settled v3 exchange state.
+The legacy ``fetch_open_interest()`` statistics wrapper remains a v2 API.
+
 Uses :py:func:`~eth_defi.derive.session.create_derive_session` for
 HTTP connections with rate limiting and retry logic.
 
@@ -36,7 +41,7 @@ from decimal import Decimal
 from requests import Session
 from web3 import Web3
 
-from eth_defi.derive.constants import DERIVE_MAINNET_API_URL
+from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_V3_MAINNET_API_URL
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 
 logger = logging.getLogger(__name__)
@@ -121,7 +126,7 @@ def _unwrap_result(data: dict, method: str) -> dict:
 def fetch_perpetual_instruments(
     session: Session,
     currency: str | None = None,
-    base_url: str = DERIVE_MAINNET_API_URL,
+    base_url: str = DERIVE_V3_MAINNET_API_URL,
     timeout: float = 30.0,
 ) -> list[str]:
     """Fetch all active perpetual instrument names from Derive.
@@ -199,7 +204,7 @@ def fetch_funding_rate_history(
     instrument_name: str,
     start_time: datetime.datetime | None = None,
     end_time: datetime.datetime | None = None,
-    base_url: str = DERIVE_MAINNET_API_URL,
+    base_url: str = DERIVE_V3_MAINNET_API_URL,
     timeout: float = 30.0,
 ) -> list[FundingRateEntry]:
     """Fetch funding rate history for a Derive perpetual instrument.
@@ -208,8 +213,11 @@ def fetch_funding_rate_history(
     No authentication required.
 
     Data is returned at hourly resolution — the native funding rate
-    interval on Derive.  The full history is available back to
-    instrument inception (ETH-PERP since 2024-01-05).
+    interval on Derive. V3 candles expose their hourly closing rate as
+    ``funding_rate``. The v3 endpoint does not currently serve the full
+    legacy v2 history; previously stored observations must be preserved.
+
+    See https://docs.derive.xyz/api-reference/market-data/publicget_funding_rate_history.
 
     For best results, keep the query window to one day at a time
     and use :py:class:`~eth_defi.derive.historical.DeriveFundingRateDatabase`
@@ -589,14 +597,17 @@ def fetch_perp_snapshots_multicall(
 
 def fetch_instrument_details(
     session: Session,
-    base_url: str = DERIVE_MAINNET_API_URL,
+    base_url: str = DERIVE_V3_MAINNET_API_URL,
     timeout: float = 30.0,
 ) -> dict[str, dict]:
-    """Fetch instrument details including on-chain contract addresses.
+    """Fetch v3 instrument details including legacy contract identifiers.
 
     Returns a mapping of instrument name to instrument metadata dict,
-    including ``base_asset_address`` (the on-chain perp contract),
+    including ``base_asset_address`` (the legacy Derive Chain perp contract),
     ``scheduled_activation`` (Unix timestamp of listing), and other fields.
+    These identifiers do not make Derive Chain a source of current v3 state.
+
+    See https://docs.derive.xyz/api-reference/market-data/publicget_all_instruments.
 
     Example::
 

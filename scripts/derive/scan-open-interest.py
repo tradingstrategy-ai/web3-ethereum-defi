@@ -1,7 +1,8 @@
-"""Scan Derive perp snapshots (OI + prices) and store in DuckDB.
+"""Scan legacy Derive Chain perp snapshots (OI + prices) into DuckDB.
 
-Fetches hourly snapshots for Derive perpetual instruments by reading
-on-chain state from the Derive Chain archive node.  Three view functions
+Fetches hourly legacy v2 snapshots, not current Ethereum-settled v3 state.
+Instrument metadata comes from v3, while snapshots read onchain state from
+the legacy Derive Chain archive node. Three view functions
 are batched via Multicall3 per hour per instrument: ``openInterest(uint256)``,
 ``getPerpPrice()``, ``getIndexPrice()``.
 

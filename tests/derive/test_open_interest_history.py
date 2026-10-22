@@ -1,4 +1,4 @@
-"""Test Derive perp snapshot onchain fetch and DuckDB storage.
+"""Test legacy Derive Chain snapshots and DuckDB storage.
 
 Tests the onchain approach to historical open interest, perp price, and
 index price data via Multicall3-batched view function calls on Derive Chain
@@ -6,7 +6,8 @@ perp contracts, and DuckDB snapshot persistence via
 :py:class:`DeriveFundingRateDatabase`.
 
 Requires a live connection to the Derive Chain RPC (https://rpc.derive.xyz)
-and the Derive REST API.  No credentials required.
+and the v3 Derive REST API for legacy instrument metadata. No credentials
+required. These snapshots do not describe current Ethereum-settled v3 state.
 
 Price-dependent tests use a verified historical window because even the
 current oracle can refuse stale prices. Live open interest is tested
@@ -60,29 +61,18 @@ def w3() -> Web3:
 
 
 @pytest.mark.timeout(60)
-def test_fetch_open_interest_onchain_current(w3: Web3) -> None:
-    """Fetch the current ETH-PERP open interest from the onchain contract.
+def test_fetch_open_interest_onchain_legacy(w3: Web3) -> None:
+    """Fetch legacy ETH-PERP open interest at a verified Derive Chain block.
 
-    Verifies that the ``openInterest(uint256)`` view function on the Derive
-    Chain returns a positive value at the latest block.
+    The v3 exchange settles on Ethereum. Read a fixed legacy block so that
+    this test does not describe frozen v2 state as current open interest.
 
-    1. Get the latest block number.
-    2. Call openInterest(0) at that block.
-    3. Assert the result is a positive Decimal.
+    :param w3: Web3 connection to the legacy Derive Chain archive.
+    :return: ``None`` after checking the historical observation.
     """
-    # 1. Get latest block
-    latest = w3.eth.block_number
-    assert latest > 0
-
-    # 2. Fetch on-chain OI at latest block
-    oi = fetch_open_interest_onchain(w3, ETH_PERP_CONTRACT, block_number=latest)
-
-    # 3. Assert positive result
-    assert oi is not None, "Expected non-None OI at latest block for ETH-PERP"
+    oi = fetch_open_interest_onchain(w3, ETH_PERP_CONTRACT, block_number=ETH_PERP_PRICED_BLOCK)
     assert isinstance(oi, Decimal)
-    assert oi > 0, f"Expected positive OI, got {oi}"
-    assert oi > 100, f"Suspiciously low OI: {oi}"
-    assert oi < 1_000_000, f"Suspiciously high OI: {oi}"
+    assert oi == Decimal("14728.347742960263774203")
 
 
 @pytest.mark.timeout(60)

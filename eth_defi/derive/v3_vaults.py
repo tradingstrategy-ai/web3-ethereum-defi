@@ -20,12 +20,11 @@ from requests import Session
 from requests.adapters import HTTPAdapter
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.derive.constants import DERIVE_V3_MAINNET_API_URL, DERIVE_V3_TESTNET_API_URL
 from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
-DERIVE_V3_MAINNET_API_URL = "https://api.derive.xyz/v3"
-DERIVE_V3_TESTNET_API_URL = "https://testnet.api.derive.xyz/v3"
 _MILLISECONDS_THRESHOLD = 100_000_000_000
 _MAX_VAULT_PAGE_SIZE = 100
 _MAX_PERFORMANCE_PAGE_SIZE = 10_000
