@@ -3,9 +3,14 @@ feeder-id: yearn
 name: Yearn
 role: curator
 website: https://curation.yearn.fi/
-short_description: Yearn Curation selects, monitors and manages DeFi lending-market exposure for Yearn-curated vaults.
+short_description: Yearn develops automated DeFi yield vaults and curates lending portfolios using published risk assessments.
 long_description: |
-  [Yearn Curation](https://curation.yearn.fi/) is Yearn’s risk-management practice for selecting and overseeing DeFi lending markets and vaults. It publishes assessments of contract, control, funds-management, liquidity and operational risks, then uses them to set exposure limits and pursue risk-adjusted yield rather than simply the highest yield. Automated monitoring tracks market liquidity, utilisation, governance and contract changes; when alerts trigger, Yearn can reduce allocations or move funds out of affected markets. These controls seek to manage risk, but they cannot remove the smart-contract, liquidity, market or governance risks of DeFi.
+  [Yearn](https://yearn.fi/) develops automated investment vaults that allocate deposits to DeFi strategies.
+  Its [curation practice](https://docs.yearn.fi/getting-started/products/curating/introduction) grew out of
+  monitoring the Morpho vaults used by Yearn's own strategies. Before allocating to a lending market, it
+  assesses collateral, contract controls and liquidity, then sets exposure limits and monitors changes. Yearn
+  publishes its [risk reports and market exposures](https://curation.yearn.fi/) so depositors can examine the
+  information behind those decisions.
 canonical-feeder-id: yearn
 
 # Evidence and background references.
@@ -21,5 +26,5 @@ other-links:
     url: https://curation.yearn.fi/reports/
   - title: Morpho app - Yearn curator vaults
     url: https://app.morpho.org/curator/yearn
-  - title: syrupUSDC/USDC Morpho Looper on chain 1 - curator and strategy evidence
+  - title: syrupUSDC/USDC Morpho Looper on Ethereum - vault details and attribution
     url: https://curation.yearn.fi/report/yearn-yvusd/

@@ -6,11 +6,14 @@ symbiotic-curator: Hyperithm
 ipor-atomist: Hyperithm
 accountable-company: Hyperithm
 website: https://www.hyperithm.com
-short_description: Hyperithm is a digital asset gateway for institutions focused on asset management, quant trading and venture investments.
+short_description: Hyperithm is a Tokyo- and Seoul-based asset manager specialising in systematic trading and arbitrage.
 long_description: |
-  Hyperithm is a digital asset manager based in Tokyo and Seoul, serving institutions and high-net-worth individuals.
-  Its homepage describes quant trading, algorithmic and HFT market-neutral strategies, diversified arbitrage and risk management as part of its asset management work.
-  Hyperithm also makes venture investments in Web3 teams and operates with regulatory registrations in Japan and Korea.
+  [Hyperithm](https://www.hyperithm.com/) was founded in 2018 and serves institutions and high-net-worth
+  investors from Tokyo and Seoul. It uses algorithmic trading and arbitrage across centralised exchanges and
+  onchain markets, aiming to earn returns with limited dependence on market direction. The firm also makes
+  venture investments related to its asset-management business. Its onchain products include Morpho lending
+  vaults such as [Saturn USDC on
+  Monad](https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079).
 twitter: hyperithm
 linkedin: hyperithm
 rss: https://hyperithm.substack.com/feed
@@ -19,5 +22,5 @@ linkedin-rss-hub-disabled-at: 2026-06-09
 
 # Primary-source evidence for the reviewed 2026-10-21 vault mappings.
 other-links:
-  - title: Saturn USDC on chain 143 - curator and strategy evidence
+  - title: Saturn USDC on Monad - vault details and attribution
     url: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079

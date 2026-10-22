@@ -6,15 +6,18 @@ t3tris-curator: Gami Labs
 upshift-strategist:
   - Gami Labs
 website: https://gamilabs.io
-short_description: Gami provides institutional-grade DeFi vaults with onchain curation and dynamic risk management.
+short_description: Gami manages DeFi vaults across lending, exchange liquidity and structured yield markets.
 long_description: |
-  Gami Labs offers DeFi vaults designed to give users access to professionally curated onchain yield strategies.
-  Its site describes a restricted set of vetted protocols across lending markets, liquidity engines and structured yield markets, with vaults that are dynamically rebalanced.
-  Gami also emphasises institutional infrastructure, multisig and HSM security, active risk management and governance-driven strategy support.
+  [Gami](https://gamilabs.io/) selects and rebalances investments across a restricted set of DeFi protocols.
+  These include Aave, Morpho and Silo for lending, Curve for exchange liquidity, and Pendle and Spectra for
+  trading future yield. It also uses governance positions to direct protocol reward distributions towards its
+  strategies. Lagoon lists Gami alongside My Seed Advisor for the [Portefeuille Dynamique
+  vault](https://app.lagoon.finance/vault/8453/0xf56bfe07b8d6e6d74258cdb6969a633629b06b08), which combines
+  crypto asset selection with DeFi yield strategies.
 twitter: GamiLabs
 # linkedin: not found
 
 # Primary-source evidence for the reviewed 2026-10-21 vault mappings.
 other-links:
-  - title: MSA - Portefeuille Dynamique  on chain 8453 - curator and strategy evidence
+  - title: MSA - Portefeuille Dynamique on Base - vault details and attribution
     url: https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08

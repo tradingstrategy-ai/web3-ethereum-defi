@@ -161,3 +161,42 @@ was corrected. The eight AUTO rows agree with their tag table and audit
 (the final review prose accidentally counted seven). Public-source availability
 limits remain documented; a completed review is not a guarantee that all
 external disclosures are comprehensive.
+
+Editorial review — 22 October 2026
+
+Reviewed and rewrote the short and long descriptions of all 22 curator records
+added or changed in this PR, for readers familiar with finance and crypto who
+do not necessarily know each DeFi protocol. This pass does not cover the other
+265 curator records. Removed promotional claims, repeated homepage summaries
+and explanations of internal attribution decisions from the public copy.
+Evidence-link titles now use chain names instead of numeric chain IDs.
+
+The revised profiles explain the organisation, its investment approach and
+specific products or relationships. Primary-source details include Presto's
+trading background; Birch Hill's property-equity collateral and investor
+eligibility; D2's derivatives strategies; Third Eye's bankruptcy-claim investing;
+Strada's lending mandate; Plutus's redemption process; 40acres' collateral-reward
+income; and Yearn's origins in monitoring its own Morpho allocations. The
+Almanak description distinguishes AI-assisted development from automated vault
+execution. Basis trades, perpetual futures, delta-neutral positions and
+vote-escrowed collateral receive brief explanations where they are relevant.
+
+Checked the official websites and product documentation linked in the rewritten
+descriptions. Direct public API reads reconfirmed the descriptions for Almanak,
+GUSDC, MSA/Gami, Ember Earn and Ember Third Eye. Strada's site was readable with
+a direct HTTP request after the search tool could not open it. The previously
+reviewed address evidence remains in other-links and the per-vault CSV.
+
+Retained the limits of available evidence: Nara's Lagoon listing provides no
+company website or team biography; Architect's profile remains brief where
+public information is limited; Waterline's service relationship is distinguished
+from its partners' mandates; native AUTO pools have no separately named curator.
+Removed the old broad Hyperithm regulatory-registration statement rather than
+repeat it without entity-level, jurisdiction-specific evidence. No new custody,
+licensing, performance or safety claims were inferred from marketing language.
+
+Validation: all 287 curator records load through the shared strict schema and
+have both descriptions. All 22 edited records retain their identity, matching,
+feed and canonical-feeder fields, plus the original supporting evidence URLs.
+The focused curator, export and canonical-feeder suite passed: 216 tests.
+This editorial follow-up changes no vault attribution or strategy tags.

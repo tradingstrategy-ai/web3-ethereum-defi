@@ -2,9 +2,13 @@ feeder-id: d2-finance
 name: D2 Finance
 role: curator
 canonical-feeder-id: d2-finance
-short_description: D2 Finance operates actively managed onchain investment strategies.
-long_description: '[D2 Finance](https://d2.finance/) develops and operates onchain investment strategies. Its native
-  vaults, including HYPE++, represent protocol-managed strategies rather than independently branded external curators.'
+short_description: D2 Finance manages onchain investment vaults specialising in derivatives and hedging strategies.
+long_description: |
+  [D2 Finance](https://d2.finance/) is an investment manager focused on derivatives strategies executed
+  onchain. Its approach includes volatility arbitrage, relative-value trading, dynamic hedging and positions
+  taken around market events. Investors access these strategies through tokenised vaults, with onchain
+  accounting for their holdings. The platform places limits on which actions its traders can take and requires
+  multiple approvals for critical operations.
 other-links:
 - title: Official protocol website
   url: https://d2.finance/

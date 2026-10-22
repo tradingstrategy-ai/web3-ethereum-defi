@@ -2,10 +2,13 @@ feeder-id: nara-capital
 name: Nara Capital
 role: curator
 lagoon-curator: Nara Capital
-short_description: Nara Capital curates stablecoin yield strategies on Lagoon Finance.
-long_description: Nara Capital is identified as the curator of [GUSDC on Lagoon Finance](https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4).
-  The published vault description covers lending, liquidity provision and delta-neutral positions across blockchains,
-  with redemption requests typically settled within 48 hours.
+short_description: Nara Capital curates a stablecoin portfolio that combines lending, liquidity provision and hedged trading.
+long_description: |
+  Nara Capital is the curator of [GUSDC on Lagoon
+  Finance](https://app.lagoon.finance/vault/8453/0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4). The portfolio
+  operates across blockchains and combines lending, liquidity provision and delta-neutral positions, which aim
+  to limit sensitivity to market price movements. Lagoon's published description states that withdrawals are
+  available within 48 hours. The listing does not provide a company website or information about the team.
 other-links:
 - title: Lagoon Finance API - GUSDC explicitly names Nara Capital as curator
   url: https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4

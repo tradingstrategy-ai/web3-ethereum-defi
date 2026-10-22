@@ -2,14 +2,15 @@ feeder-id: ember
 name: Ember
 role: curator
 canonical-feeder-id: ember
-short_description: Ember provides infrastructure for onchain investment products and operates its own flagship yield
-  vault.
-long_description: '[Ember](https://ember.so/) provides a platform for investment products managed by both its own
-  team and external managers. Its [vault API](https://vaults.api.sui-prod.bluefin.io/api/v2/vaults?chain=ethereum)
-  names Ember as manager of Ember Earn, a stablecoin product allocating across fixed income, liquidity provision,
-  lending and carry. Other Ember products retain their disclosed external manager identities.'
+short_description: Ember offers onchain investment products from its own team and external asset managers.
+long_description: |
+  [Ember](https://ember.so/) provides the platform for a range of managed onchain investment products. Its own
+  Ember Earn vault allocates stablecoins across fixed income, decentralised exchange liquidity, lending and
+  trades that seek to capture differences in interest rates. The [product catalogue](https://ember.so/earn)
+  also includes strategies run by external managers such as Third Eye and RockawayX. Responsibility for
+  investment decisions therefore depends on the manager of each vault.
 other-links:
 - title: Official protocol website
   url: https://ember.so/
-- title: Ember Earn on chain 1 - curator and strategy evidence
+- title: Ember Earn on Ethereum - vault details and attribution
   url: https://vaults.api.sui-prod.bluefin.io/api/v2/vaults?chain=ethereum

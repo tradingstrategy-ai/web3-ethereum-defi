@@ -2,19 +2,21 @@ feeder-id: fluid
 name: Fluid
 role: curator
 canonical-feeder-id: fluid
-short_description: Fluid operates lending markets and protocol-managed yield vaults.
-long_description: '[Fluid](https://fluid.io/) is a lending and liquidity protocol developed by the Instadapp team.
-  Its [lending architecture](https://docs.fluid.instadapp.io/%2F) gives depositors access to the shared liquidity
-  layer through fTokens. Native lending and Lite vaults are protocol-operated; independent wrappers can have their
-  own operators.'
+short_description: Fluid combines lending and decentralised trading through a shared pool of liquidity.
+long_description: |
+  [Fluid](https://fluid.io/), developed by the Instadapp team, combines lending, borrowing and decentralised
+  trading. Its [lending pools](https://docs.fluid.instadapp.io/) let users supply assets such as USDC and earn
+  interest, receiving fTokens that represent their deposits and accrued returns. These pools draw on a shared
+  liquidity layer used by Fluid's lending and trading products. Native Fluid products are operated by the
+  protocol; products built on top of Fluid by other organisations can have separate managers.
 other-links:
 - title: Official protocol website
   url: https://fluid.io/
-- title: Fluid USD Coin on chain 1 - curator and strategy evidence
+- title: Fluid USD Coin on Ethereum - vault details and attribution
   url: https://api.fluid.instadapp.io/v2/lending/1/tokens
-- title: Fluid USD Coin on chain 42161 - curator and strategy evidence
+- title: Fluid USD Coin on Arbitrum - vault details and attribution
   url: https://api.fluid.instadapp.io/v2/lending/42161/tokens
-- title: Fluid USD Coin on chain 8453 - curator and strategy evidence
+- title: Fluid USD Coin on Base - vault details and attribution
   url: https://api.fluid.instadapp.io/v2/lending/8453/tokens
-- title: Fluid Lite USD Vault on chain 1 - curator and strategy evidence
+- title: Fluid Lite USD Vault on Ethereum - vault details and attribution
   url: https://docs.fluid.instadapp.io/lite-usd/index.html

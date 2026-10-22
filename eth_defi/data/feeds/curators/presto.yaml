@@ -4,17 +4,20 @@ role: curator
 website: https://www.prestolabs.io/
 morpho-curator: Presto
 twitter: Presto_Labs
-short_description: Presto is a quantitative trading firm building automated trading systems and curating onchain
-  lending vaults.
-long_description: '[Presto](https://www.prestolabs.io/) is a quantitative trading firm established in 2014. Its
-  Morpho USDC Prime vault lends against blue-chip collateral, while USDC Forte targets selected real-world asset
-  collateral through its partnership with 3F. The firm describes collateral review, liquidation participation and
-  active allocation in its [curator launch announcement](https://www.linkedin.com/posts/presto-official_were-proud-to-announce-that-presto-is-now-activity-7488515573493190656-QRRJ).'
+short_description: Presto is a quantitative trading firm that builds automated trading systems and manages DeFi lending vaults.
+long_description: |
+  [Presto](https://www.prestolabs.io/) was founded in 2014 and works in high-frequency trading, market making
+  and portfolio management. It builds its own trading systems and market simulators to research and execute
+  strategies. Its [Morpho lending
+  business](https://www.linkedin.com/posts/presto-official_were-proud-to-announce-that-presto-is-now-activity-7488515573493190656-QRRJ)
+  includes USDC Prime, which lends against established crypto assets, and USDC Forte, which targets tokenised
+  real-world collateral in partnership with 3F. Presto's role includes reviewing collateral, allocating
+  deposits and participating in liquidations when borrowers' collateral must be sold.
 other-links:
 - title: Official organisation website
   url: https://www.prestolabs.io/
-- title: Presto USDC Prime on chain 1 - curator and strategy evidence
+- title: Presto USDC Prime on Ethereum - vault details and attribution
   url: https://app.morpho.org/ethereum/vault/0x133614490896bc02c774bc3399e4db1b6d05a2ca
-- title: Presto USDC Forte on chain 1 - curator and strategy evidence
+- title: Presto USDC Forte on Ethereum - vault details and attribution
   url: https://app.morpho.org/ethereum/vault/0x68a65f315bcd3c3456d1368ff88bc661856548e1
 linkedin: prestolabs

@@ -3,14 +3,17 @@ name: Almanak
 role: curator
 website: https://almanak.co/
 lagoon-curator: Almanak
-short_description: Almanak develops automated onchain investment strategies and yield infrastructure.
-long_description: '[Almanak](https://almanak.co/) develops tools for automated onchain investment strategies. Its
-  [Autonomous Liquidity USD vault](https://app.almanak.run/) allocates and rebalances USDC across DeFi yield opportunities.
-  The published strategy description distinguishes deployed smart contract execution from the AI tools used to develop
-  the strategy.'
+short_description: Almanak builds software for researching, testing and running automated investment strategies.
+long_description: |
+  [Almanak](https://almanak.co/) provides tools for building and testing investment strategies across lending,
+  liquidity provision and derivatives. Developers can use AI assistants to write strategy code and simulate
+  trades before committing funds. Its [Autonomous Liquidity USD
+  vault](https://app.lagoon.finance/vault/1/0xdcd0f5ab30856f28385f641580bbd85f88349124) reallocates USDC
+  between DeFi opportunities when the expected improvement in yield justifies transaction costs. AI tools
+  helped develop this vault's strategy; deployed code governs its trading decisions.
 other-links:
 - title: Official organisation website
   url: https://almanak.co/
-- title: Autonomous Liquidity USD on chain 1 - curator and strategy evidence
+- title: Autonomous Liquidity USD on Ethereum - vault details and attribution
   url: https://app.lagoon.finance/api/vault?chainId=1&address=0xdcd0f5ab30856f28385f641580bbd85f88349124
 twitter: Almanak
