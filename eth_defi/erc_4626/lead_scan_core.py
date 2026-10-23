@@ -24,14 +24,15 @@ from eth_defi.erc_4626.classification import create_vault_classifier_signature
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
-from eth_defi.erc_4626.scan import fetch_vault_scan_record_in_worker
+from eth_defi.erc_4626.scan import ACTIVITY_STATUS_MIN_NAV, fetch_vault_scan_record_in_worker
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE
 from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.rpc_batch import fetch_metadata_snapshots
+from eth_defi.vault.rpc_batch import prepare_metadata_batch
 from eth_defi.vault.rpc_scan_state import is_metadata_due, load_rpc_scan_state, record_metadata_failure, save_rpc_scan_state
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -121,6 +122,7 @@ def scan_leads(
     force_metadata_refresh: bool = False,
     force_classification_refresh: bool = False,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -137,6 +139,7 @@ def scan_leads(
     :param backend: ``auto`` or ``hypersync``; legacy ``rpc`` is rejected.
     :param max_getlogs_range: Deprecated compatibility argument, ignored.
     :param hypersync_api_key: Supplied Hypersync API key, or environment default.
+    :param batch_size: Regular metadata and token-warmup payload limit.
     :param greylist:
         Caller-selected targets for isolated feature-probe requests on this chain.
         Defaults to empty. Classification remains strict on transport failures;
@@ -183,7 +186,7 @@ def scan_leads(
     # storm the primary provider with eth_chainId probes and trip HTTP 429. Seed
     # the verified chain ID so worker-side provider switchover still rejects an
     # endpoint that mis-routes to the wrong chain.
-    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
+    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats, multicall_batch_size=batch_size)
 
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
@@ -342,18 +345,11 @@ def scan_leads(
     save_rpc_scan_state(pending_path, pending)
     if rpc_request_stats is not None:
         rpc_request_stats.operation = "metadata_inputs"
-    snapshots = fetch_metadata_snapshots(vault_detections, web3factory, end_block, max_workers)
-    # Warm the shared ERC-20 cache from raw asset/share addresses before the
-    # threaded metadata reads. This avoids one token metadata request sequence
-    # per vault when many candidates use the same denomination or share token.
-    token_addresses = {d.address for d in vault_detections if d.address.lower() in snapshots}
-    token_addresses.update("0x" + value[-20:].hex() for snapshot in snapshots.values() for key, value in snapshot.items() if key in {"asset", "share"} and isinstance(value, bytes) and any(value))
-    if token_addresses:
-        token_cache = TokenDiskCache()
-        try:
-            token_cache.load_token_details_with_multicall(chain_id, web3factory, sorted(token_addresses), block_identifier=end_block, max_workers=max_workers, display_progress=True)
-        finally:
-            token_cache.close()
+    token_cache = TokenDiskCache()
+    try:
+        snapshots = prepare_metadata_batch(vault_detections, web3factory, end_block, max_workers, token_cache, min_lending_nav=ACTIVITY_STATUS_MIN_NAV, batch_size=batch_size)
+    finally:
+        token_cache.close()
     rows = []
     for row in tqdm(worker_processor(delayed(fetch_vault_scan_record_in_worker)(web3factory, d, end_block, metadata_snapshot=snapshots.get(d.address.lower()), current_state=current_state) for d in vault_detections), total=len(vault_detections), desc=desc):
         detection = row["_detection_data"]
@@ -477,7 +473,7 @@ def _record_metadata_success(row: dict[str, Any], previous: dict[str, Any], pend
     observations[address] = entry
 
 
-def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: Path, max_workers: int, rpc_request_stats: RPCRequestStats) -> int:
+def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file: Path, max_workers: int, rpc_request_stats: RPCRequestStats, batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE) -> int:
     """Resume due candidate metadata without repeating event discovery.
 
     Pending leads already exist durably in the legacy catalogue before its
@@ -494,6 +490,7 @@ def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file:
     :param vault_db_file: Shared metadata pickle under the writer lock.
     :param max_workers: Maximum metadata thread concurrency.
     :param rpc_request_stats: Parent physical-attempt accumulator.
+    :param batch_size: Regular metadata and token-warmup payload limit.
     :return: Remaining pending candidate count, including not-yet-due entries.
     """
     chain_id = web3.eth.chain_id
@@ -519,10 +516,14 @@ def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file:
     save_rpc_scan_state(path, pending)
     if not detections:
         return len(pending)
-    factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
+    factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats, multicall_batch_size=batch_size)
     rpc_request_stats.operation = "metadata_inputs"
     block = web3.eth.block_number
-    snapshots = fetch_metadata_snapshots(detections, factory, block, max_workers)
+    token_cache = TokenDiskCache()
+    try:
+        snapshots = prepare_metadata_batch(detections, factory, block, max_workers, token_cache, min_lending_nav=ACTIVITY_STATUS_MIN_NAV, batch_size=batch_size)
+    finally:
+        token_cache.close()
     metadata_path = vault_db_file.parent / f"rpc-metadata-{chain_id}.json"
     metadata_entries = load_rpc_scan_state(metadata_path)
     classifier_version = create_vault_classifier_signature()

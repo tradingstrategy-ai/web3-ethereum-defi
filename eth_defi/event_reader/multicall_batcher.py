@@ -64,6 +64,26 @@ logger = logging.getLogger(__name__)
 #: positional ABI arguments, before encoding the Multicall payload.
 CallData: TypeAlias = tuple[str | HexAddress, tuple]
 
+#: Maximum regular encoded subcalls per request; scanner callers can override it.
+DEFAULT_MULTICALL_BATCH_SIZE: Final[int] = 100
+
+
+def get_multicall_batch_size_from_env() -> int:
+    """Read the scanner's regular payload limit.
+
+    A smaller explicit value provides a deployment rollback without changing
+    catalogue, token caches or reader state.
+
+    :return: Positive limit from ``MULTICALL_BATCH_SIZE`` or the shared default.
+    :raises ValueError: If the supplied value is not a positive integer.
+    """
+    size = int(os.environ.get("MULTICALL_BATCH_SIZE", DEFAULT_MULTICALL_BATCH_SIZE))
+    if size <= 0:
+        raise ValueError("MULTICALL_BATCH_SIZE must be positive")
+    logger.info("Configured regular Multicall batch size: %d", size)
+    return size
+
+
 #: Default Multicall3 address
 MULTICALL_DEPLOY_ADDRESS: Final[str] = "0xca11bde05977b3631167028862be2a173976ca11"
 
@@ -654,6 +674,16 @@ class BatchCallState(abc.ABC):
 
     - Mostly useful for historical mutlticall read and frequency management
     """
+
+    def requires_result_feedback(self) -> bool:
+        """Whether subsequent scheduling needs the completed observation.
+
+        Consumers must process a complete yielded block before requesting the
+        next result. Legacy states keep their existing buffered behaviour.
+
+        :return: True when the scheduler must drain its current block buffer.
+        """
+        return False
 
     @abstractmethod
     def should_invoke(
@@ -1311,7 +1341,7 @@ class MultiprocessMulticallReader:
     def __init__(
         self,
         web3factory: Web3Factory | Web3,
-        batch_size: int = 40,
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
         backswitch_threshold: int = 100,
         rate_limit_sleep: float = 61.0,
         rpc_request_stats: RPCRequestStats | None = None,
@@ -1358,18 +1388,13 @@ class MultiprocessMulticallReader:
         self.chain_id = self.web3.eth.chain_id
         name = get_provider_name(self.web3.provider)
 
-        logger.info(
-            "Initialising multiprocess multicall handler, process %s, thread %s, provider %s",
-            os.getpid(),
-            threading.current_thread(),
-            name,
-        )
         assert batch_size > 0 and greylist_batch_size > 0
         self.greylist_batch_size = greylist_batch_size
         # Snapshot caller policy: worker reuse must never follow a mutable list
         # or implicitly acquire another chain's address-specific exceptions.
         self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
         self.batch_size = batch_size
+        logger.info("Initialising multiprocess multicall handler, process %s, thread %s, provider %s, chain %d, requested_size=%d regular_size=%d greylist_size=%d", os.getpid(), threading.current_thread(), name, self.chain_id, batch_size, self.get_batch_size(self.chain_id), greylist_batch_size)
 
         # How many calls we have done in this subprocess
         self.calls = 0
@@ -1417,14 +1442,19 @@ class MultiprocessMulticallReader:
         """Apply normal-lane chain limits without shrinking unrelated greylist work.
 
         Mantle and Gnosis retain the existing conservative limit for provider
-        execution constraints. All other chains use the configured normal limit;
-        reviewed HyperEVM targets have a separate planner limit.
+        execution constraints. Regular HyperEVM requests stay capped at 40;
+        reviewed targets additionally retain their separate isolated-lane limit.
+        Other chains use the configured regular limit.
 
         :param chain_id: Already verified chain ID; this performs no network read.
         :return: Positive maximum encoded subcalls per normal request.
         """
 
-        return 16 if chain_id in (5000, 100) else self.batch_size
+        if chain_id in (5000, 100):
+            return min(self.batch_size, 16)
+        if chain_id == 999:
+            return min(self.batch_size, 40)
+        return self.batch_size
 
     def fetch_multicall_with_batch_size(
         self,
@@ -2004,6 +2034,7 @@ def read_multicall_historical(
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch stateless historical samples with process-local Multicall workers.
 
@@ -2012,6 +2043,7 @@ def read_multicall_historical(
     to avoid one header RPC per task. Isolation follows the caller-supplied target list
     without altering the requested source block.
 
+    :param batch_size: Positive regular encoded-subcall limit per physical request.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2137,6 +2169,7 @@ def read_multicall_historical(
                 calls_pickle_friendly,
                 timestamp=timestamps[block_number] if timestamps is not None else None,
                 require_multicall_result=require_multicall_result,
+                batch_size=batch_size,
                 greylist_batch_size=greylist_batch_size,
                 greylist=greylist,
                 allow_greylist_unavailable=allow_greylist_unavailable,
@@ -2194,6 +2227,7 @@ def read_multicall_historical_stateful(
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch historical samples with adaptive scheduling and bounded state feedback.
 
@@ -2202,6 +2236,7 @@ def read_multicall_historical_stateful(
     next chunk is scheduled. This balances parallel reads against the need to
     update TVL, errors and polling frequency from completed source observations.
 
+    :param batch_size: Positive regular encoded-subcall limit per physical request.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2232,18 +2267,18 @@ def read_multicall_historical_stateful(
     :return: Combined samples with their adaptive states reattached.
 
     :param chunk_size:
-        We guarantee to update the reader state at least this many steps.
-
-        24 = 24h hours per day, assuming we update state once for every day data read.
-
-        Between chunks we blindly push data to subprocesses for speedup,
-        do not attempt to hear back from the multiprocess to update the state.
+        Positive maximum buffered block tasks. Feedback-dependent states drain
+        the buffer earlier. The consumer must process each complete block before
+        requesting another result; prefetching defeats the feedback guarantee.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
     assert type(end_block) == int, f"Got: {end_block}"
     assert type(step) == int, f"Got: {step}"
     assert type(chain_id) == int, f"Got: {step}"
+
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
 
     worker_processor = Parallel(
         n_jobs=max_workers,
@@ -2253,20 +2288,21 @@ def read_multicall_historical_stateful(
         return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
-    iter_count = end_block - start_block + 1
-    total = iter_count
+    total = end_block - start_block
+    sample_count = len(range(start_block, end_block, step))
 
-    logger.info("Doing %d historical multicall block polls for blocks %d to %d with step %d", total, start_block, end_block, step)
+    logger.info("Scheduling %d historical sample blocks from %d to %d (exclusive), step %d", sample_count, start_block, end_block, step)
 
     if display_progress:
         if type(display_progress) == str:
             desc = display_progress
         else:
-            desc = f"Reading chain data w/historical multicall, {total} tasks, using {max_workers} CPUs"
+            desc = f"Reading historical multicall, {sample_count} sample blocks, using {max_workers} CPUs"
         progress_bar = tqdm(
             total=total,
             desc=desc,
             unit_scale=True,
+            unit="block",
         )
     else:
         progress_bar = None
@@ -2322,81 +2358,84 @@ def read_multicall_historical_stateful(
 
     logger.info("Starting the main historical state read loop from block %d to %d", start_block, end_block)
 
-    metrics = {}
-    for block_number in range(start_block, end_block, step):
-        # Map prefetch timestamp
-        timestamp = timestamps[block_number]
+    try:
+        metrics = {}
+        feedback_flushes = capacity_flushes = 0
+        for block_number in range(start_block, end_block, step):
+            # Map prefetch timestamp
+            timestamp = timestamps[block_number]
 
-        accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+            accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
-        total_blocks += 1
-        total_accepted_calls += len(accepted_calls)
+            total_blocks += 1
+            total_accepted_calls += len(accepted_calls)
 
-        # These counts describe scheduled subcall states, not distinct vaults:
-        # several methods can share one adaptive reader state.
-        metrics = Counter()
-        for state in calls.values():
-            freq_type = state.vault_poll_frequency or "unknown"
-            if state.unsupported_token:
-                metrics["unsupported_token"] += 1
-            metrics[freq_type] += 1
-            metrics["total"] += 1
+            # These counts describe scheduled subcall states, not distinct vaults:
+            # several methods can share one adaptive reader state.
+            metrics = Counter()
+            for state in calls.values():
+                freq_type = state.vault_poll_frequency or "unknown"
+                if state.unsupported_token:
+                    metrics["unsupported_token"] += 1
+                metrics[freq_type] += 1
+                metrics["total"] += 1
 
-        logger.debug("Scheduling block=%d timestamp=%s available_subcalls=%d accepted_subcalls=%d call_state_metrics=%s", block_number, timestamp, len(all_calls), len(accepted_calls), dict(metrics))
+            logger.debug("Scheduling block=%d timestamp=%s available_subcalls=%d accepted_subcalls=%d call_state_metrics=%s", block_number, timestamp, len(all_calls), len(accepted_calls), dict(metrics))
 
-        if len(accepted_calls) == 0:
-            logger.debug("Block %d has no calls to perform, skipping", block_number)
-            continue
+            if len(accepted_calls) == 0:
+                logger.debug("Block %d has no calls to perform, skipping", block_number)
+                continue
 
-        task = MulticallHistoricalTask(
-            chain_id,
-            web3factory,
-            block_number,
-            accepted_calls,
-            timestamp=timestamp,
-            require_multicall_result=require_multicall_result,
-            greylist_batch_size=greylist_batch_size,
-            greylist=greylist,
-            allow_greylist_unavailable=allow_greylist_unavailable,
-            collect_rpc_request_stats=rpc_request_stats is not None,
-        )
+            task = MulticallHistoricalTask(
+                chain_id,
+                web3factory,
+                block_number,
+                accepted_calls,
+                timestamp=timestamp,
+                require_multicall_result=require_multicall_result,
+                batch_size=batch_size,
+                greylist_batch_size=greylist_batch_size,
+                greylist=greylist,
+                allow_greylist_unavailable=allow_greylist_unavailable,
+                collect_rpc_request_stats=rpc_request_stats is not None,
+            )
 
-        chunk.append(task)
+            chunk.append(task)
 
-        # Check if we are ready to process chunk blocks at a time
-        if len(chunk) > chunk_size:
-            if progress_bar:
-                block_now = chunk[-1].block_number
-                blocks_done = block_now - last_block
-                last_block = block_now
-                progress_bar.update(blocks_done)
-                if progress_suffix is not None:
-                    suffixes = progress_suffix()
-                    progress_bar.set_postfix(suffixes)
+            # Check if we are ready to process chunk blocks at a time
+            # Evaluate every request so all run-local feedback markers are set.
+            feedback_needed = sum(calls[call].requires_result_feedback() for call in accepted_calls) > 0
+            if feedback_needed or len(chunk) >= chunk_size:
+                feedback_flushes += int(feedback_needed)
+                capacity_flushes += int(not feedback_needed)
+                if progress_bar:
+                    block_now = chunk[-1].block_number
+                    blocks_done = block_now - last_block
+                    last_block = block_now
+                    progress_bar.update(blocks_done)
+                    if progress_suffix is not None:
+                        suffixes = progress_suffix()
+                        progress_bar.set_postfix(suffixes)
 
-            for combined_result in _flush_chunk(chunk):
-                logger.debug("Updating states for timestamp=%s block=%d", combined_result.timestamp, combined_result.block_number)
-                yield combined_result
+                for combined_result in _flush_chunk(chunk):
+                    logger.debug("Updating states for timestamp=%s block=%d", combined_result.timestamp, combined_result.block_number)
+                    yield combined_result
 
-            chunk = []
+                chunk = []
 
-    logger.info(
-        "Total blocks %d, total accepted calls over the period: %d",
-        total_blocks,
-        total_accepted_calls,
-    )
+        logger.info("Historical scheduling: blocks=%d subcalls=%d feedback_flushes=%d capacity_flushes=%d", total_blocks, total_accepted_calls, feedback_flushes, capacity_flushes)
+        logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
 
-    logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
+        # Process the remaning uneven chunk
+        yield from _flush_chunk(chunk)
 
-    # Process the remaning uneven chunk
-    yield from _flush_chunk(chunk)
+    finally:
+        if progress_bar:
+            progress_bar.close()
 
-    if progress_bar:
-        progress_bar.close()
-
-    timestamp_cache_close = getattr(timestamps, "close", None)
-    if callable(timestamp_cache_close):
-        timestamp_cache_close()
+        timestamp_cache_close = getattr(timestamps, "close", None)
+        if callable(timestamp_cache_close):
+            timestamp_cache_close()
 
 
 def read_multicall_chunked(
@@ -2404,16 +2443,17 @@ def read_multicall_chunked(
     web3factory: Web3Factory,
     calls: list[EncodedCall],
     block_identifier: BlockIdentifier,
-    max_workers=8,
-    timeout=1800,
-    chunk_size: int = 40,
+    max_workers: int = 8,
+    timeout: float | None = 1800,
+    chunk_size: int | None = None,
     progress_bar_desc: str | None = None,
-    timestamped_results=True,
-    backend="loky",
+    timestamped_results: bool = True,
+    backend: str = "loky",
     rpc_request_stats: RPCRequestStats | None = None,
     refresh_current_block: bool = False,
     greylist_batch_size: int = 1,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int | None = None,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2476,6 +2516,7 @@ def read_multicall_chunked(
                 addr_to_balance[token_address] = value
 
 
+    :param batch_size: Positive physical limit; defaults to the factory phase limit or shared default.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2540,6 +2581,14 @@ def read_multicall_chunked(
     if max_workers == 1:
         timeout = None  # No timeout for single process
 
+    if batch_size is None:
+        phase_size = getattr(web3factory, "multicall_batch_size", None)
+        batch_size = DEFAULT_MULTICALL_BATCH_SIZE if phase_size is None else phase_size
+    if chunk_size is None:
+        chunk_size = batch_size
+    if chunk_size <= 0 or batch_size <= 0:
+        raise ValueError("chunk_size and batch_size must be positive")
+
     worker_processor = Parallel(
         n_jobs=max_workers,
         backend=backend,
@@ -2576,6 +2625,7 @@ def read_multicall_chunked(
                 block_identifier,
                 chunk,
                 timestamp=ts,
+                batch_size=batch_size,
                 greylist_batch_size=greylist_batch_size,
                 greylist=greylist,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
@@ -2676,6 +2726,9 @@ class MulticallHistoricalTask:
     #: Refresh a safe numeric head per batch for current-state feature probes.
     refresh_current_block: bool = False
 
+    #: Regular physical payload limit, part of worker connection identity.
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE
+
     def __post_init__(self) -> None:
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -2723,12 +2776,13 @@ def _execute_multicall_in_worker(
     # lower-case greylisted targets). A reused worker must retain neither a
     # previous limit nor a different caller's address-specific routing policy.
     greylist = frozenset(HexAddress(address.lower()) for address in task.greylist)
-    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size, greylist)
+    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size, greylist, task.batch_size)
     reader = per_chain_readers.get(reader_key)
     if reader is None:
         reader = per_chain_readers[reader_key] = MultiprocessMulticallReader(
             task.web3factory,
             rpc_request_stats=task_rpc_request_stats,
+            batch_size=task.batch_size,
             greylist_batch_size=task.greylist_batch_size,
             greylist=greylist,
         )

@@ -46,6 +46,7 @@ from filelock import Timeout as FileLockTimeout
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.lead_scan_core import scan_leads
+from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
@@ -106,6 +107,7 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
         json_rpc_urls=json_rpc_url,
         vault_db_file=vault_db_file,
         max_workers=max_workers,
+        batch_size=get_multicall_batch_size_from_env(),
         start_block=None,
         end_block=end_block,
         printer=print,

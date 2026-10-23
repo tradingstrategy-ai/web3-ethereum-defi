@@ -1,5 +1,9 @@
 # 1.2
 
+- perf: Increase regular vault Multicall batches from 40 to 100, retain constrained-chain limits, and allow a complete scanner rollback through `MULTICALL_BATCH_SIZE`, including token-cache warmup (2026-10-23).
+
+- perf: Stop repeated low-frequency vault polls within historical buffers and batch paused, fee and lending metadata inputs while preserving source blocks and pending recovery (2026-10-23).
+
 - fix: Treat Lighter operator performance fees as externalised withdrawal-time charges in JSON and Parquet exports, correct protocol documentation, and add a live Candle Effect v2 export check (2026-10-22).
 - feat: Add Ryllo curator metadata and official artwork, and classify its Glasgow Cosmic vault as receivables-backed RWA lending (2026-10-22).
 - feat: Add verified independent and protocol curator metadata, repair 43 address-scoped vault assignments, and maintain reviewed strategy tags and official artwork (2026-10-22).

@@ -46,7 +46,7 @@ def test_unsupported_constructor_isolated_and_programming_error_fatal(monkeypatc
 
 def test_pending_metadata_resumes_candidates_without_event_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Restart drains successes and schedules permanent negatives weekly."""
-    monkeypatch.setattr(lead_scan_core, "fetch_metadata_snapshots", lambda *args, **kwargs: {})
+    monkeypatch.setattr(lead_scan_core, "prepare_metadata_batch", lambda *args, **kwargs: {})
     path = tmp_path / "metadata.pickle"
     addresses = ["0x" + "1" * 40, "0x" + "2" * 40]
     first_seen = datetime.datetime(2026, 1, 1)
@@ -131,7 +131,7 @@ def test_metadata_schedule_rebuilds_missing_rows_and_honours_classification_repa
     monkeypatch.setattr(lead_scan_core, "HypersyncVaultDiscover", lambda *args, **kwargs: discoverer)
     monkeypatch.setattr(lead_scan_core, "get_provider_name", lambda provider: "test provider")
     monkeypatch.setattr(lead_scan_core, "configure_hypersync_from_env", lambda *args, **kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"))
-    monkeypatch.setattr(lead_scan_core, "fetch_metadata_snapshots", lambda *args, **kwargs: {})
+    monkeypatch.setattr(lead_scan_core, "prepare_metadata_batch", lambda *args, **kwargs: {})
     monkeypatch.setattr(lead_scan_core, "display_vaults_table", lambda *args, **kwargs: None)
     seen = []
 
@@ -192,7 +192,7 @@ def test_address_scoped_repair_bypasses_not_due_admission_hint(tmp_path: Path, m
         constructed.append(args[1])
         return vault
 
-    def fetch_probes(vaults: list, factory: object, block: int, workers: int) -> list:
+    def fetch_probes(vaults: list, factory: object, block: int, workers: int, **kwargs: object) -> list:
         """Supply verified admission without masking which candidates are due.
 
         :param vaults: Candidates sent to the shared batch path.
@@ -430,3 +430,41 @@ def test_failed_reclassification_does_not_certify_old_economics() -> None:
     observations = {detection.address: {"features": [], "status": "unavailable"}}
     lead_scan_core._record_metadata_success(row, {"_available_liquidity": Decimal(100)}, {}, observations, 123, "signature", now)
     assert row["_available_liquidity"] is None
+
+
+def test_pending_preparation_transport_failure_keeps_catalogue_and_queue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shared preparation failure never expands into per-candidate retries.
+
+    The durable pending hint and catalogue survive unchanged, while the old
+    detection block is replaced by a fresh head for the attempted preparation.
+    """
+    path = tmp_path / "metadata.pickle"
+    address = "0x" + "1" * 40
+    first_seen = datetime.datetime(2026, 1, 1)
+    lead = PotentialVaultMatch(chain=1, address=address, first_seen_at_block=1, first_seen_at=first_seen, deposit_count=100, withdrawal_count=0)
+    detection = ERC4262VaultDetection(chain=1, address=address, features=set(), updated_at=first_seen, first_seen_at_block=1, first_seen_at=first_seen, deposit_count=100, redeem_count=0)
+    database = VaultDatabase()
+    database.update_leads_and_rows(1, 123, {address: lead}, {detection.get_spec(): {"Name": "previous", "_detection_data": detection}})
+    database.write(path)
+    pending_path = tmp_path / "rpc-pending-metadata-1.json"
+    pending = {address: {"next_attempt_at": first_seen.isoformat(), "features": []}}
+    save_rpc_scan_state(pending_path, pending)
+    attempted = []
+
+    def unavailable(candidates: list, factory: object, block: int, *args: object, **kwargs: object) -> None:
+        """Record the fresh source block and stop before any metadata workers."""
+        attempted.append(block)
+        raise ConnectionError("shared enrichment unavailable")
+
+    def unexpected_worker(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Preparation failure must not schedule direct fallbacks")
+
+    monkeypatch.setattr(lead_scan_core, "prepare_metadata_batch", unavailable)
+    monkeypatch.setattr(lead_scan_core, "fetch_vault_scan_record_in_worker", unexpected_worker)
+    with pytest.raises(ConnectionError, match="shared enrichment"):
+        lead_scan_core.resume_pending_vault_metadata(SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=999)), "https://rpc.example", path, 1, RPCRequestStats())
+    assert attempted == [999]
+    assert load_rpc_scan_state(pending_path) == pending
+    restored = VaultDatabase.read(path)
+    assert restored.last_scanned_block == {1: 123}
+    assert restored.rows[detection.get_spec()]["Name"] == "previous"

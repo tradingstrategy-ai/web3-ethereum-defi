@@ -219,6 +219,9 @@ class VaultReaderState(BatchCallState):
         #: When this vault received its last eth_call update
         self.last_call_at: datetime.datetime | None = None
 
+        #: Run-local feedback request marker, deliberately excluded from saved progress.
+        self._last_feedback_observation: tuple[datetime.datetime | None, Decimal | None] | None = None
+
         #: When this vault received its last eth_call update
         self.last_block: int | None = None
 
@@ -425,6 +428,26 @@ class VaultReaderState(BatchCallState):
             # adding keys that would break a rollback's serialisation loader.
             return bool(self.token_symbol and not self.unsupported_token) and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
         return self.exchange_rate != UNKNOWN_EXCHANGE_RATE and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
+
+    def requires_result_feedback(self) -> bool:
+        """Drain pending observations before choosing another low-frequency read.
+
+        Request feedback once for each new first/low-frequency observation.
+        Remember the request locally so an unchanged failed reader cannot force
+        every block into a separate flush. Unknown TVL keeps its existing hourly
+        buffering after the first attempt. This marker never advances saved state.
+
+        :return: Whether the next sampled block needs this result first.
+        """
+        if self.last_call_at is not None:
+            _, interval = self.get_frequency()
+            if interval is None or interval <= datetime.timedelta(hours=1):
+                return False
+        observation = (self.last_call_at, self.last_tvl)
+        if observation == self._last_feedback_observation:
+            return False
+        self._last_feedback_observation = observation
+        return True
 
     def should_invoke(
         self,
@@ -1495,13 +1518,40 @@ class ERC4626Vault(VaultBase):
         vault_info = self.fetch_vault_info()
         return vault_info
 
+    def _get_metadata_snapshot(self, block_identifier: BlockIdentifier) -> dict:
+        """Return optional inputs only when all observation identities match.
+
+        Enriched inputs must not replace an explicit latest read or inputs for
+        a different adapter, chain, vault or block.
+
+        :param block_identifier: Exact requested source block.
+        :return: Validated input mapping, or an empty mapping for direct fallback.
+        """
+        snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+        if snapshot.get("block") == block_identifier and snapshot.get("chain") == self.chain_id and snapshot.get("vault") == self.address.lower() and snapshot.get("adapter") == type(self).__name__:
+            return snapshot
+        return {}
+
+    def _get_metadata_input(self, function: str, block_identifier: BlockIdentifier) -> bytes | None:
+        """Read one validated ABI word from optional prepared metadata.
+
+        Absent or malformed fields fall back to the adapter's direct getter.
+        Served reverts are handled separately for optional probes.
+
+        :param function: Prepared raw field name.
+        :param block_identifier: Exact requested source block.
+        :return: One complete ABI word, or None for direct fallback.
+        """
+        value = self._get_metadata_snapshot(block_identifier).get(function)
+        return value if isinstance(value, bytes) and len(value) == 32 else None
+
     def fetch_idle_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
         """Read the idle balance once for adapters with idle-based utilisation.
 
         This helper is opt-in: idle assets are not redeemable liquidity for
         every lending protocol. See the protocol's liquidity documentation.
 
-        Morpho v1 and IPOR metadata call this after reading total assets, avoiding
+        Morpho v1/v2 and IPOR metadata call this after reading total assets, avoiding
         duplicate idle-balance reads for liquidity and utilisation. Reuse the
         exact raw assets only when their source block and decimal value match;
         converting an externally supplied Decimal back to raw units is a fallback
@@ -1511,7 +1561,7 @@ class ERC4626Vault(VaultBase):
         :param block_identifier: Numeric block used for both economic inputs.
         :return:
             ``(idle_liquidity, utilisation)``: a Decimal balance in denomination
-            token units and the fraction of total assets allocated (0 to 1).
+            token units and the unclamped fraction of total assets allocated.
             Both members are None when the denomination token is unavailable;
             zero total assets produces zero utilisation.
         """
@@ -1525,7 +1575,12 @@ class ERC4626Vault(VaultBase):
             # Public callers may supply a TVL without a prior adapter read.
             # Scanner metadata always uses the observed raw integer above.
             total_raw = token.convert_to_raw(total_assets)
-        idle_raw = token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+        snapshot = self._get_metadata_snapshot(block_identifier)
+        idle = self._get_metadata_input("idle_balance", block_identifier)
+        if idle is not None and snapshot.get("idle_token") == token.address.lower():
+            idle_raw = int.from_bytes(idle, "big")
+        else:
+            idle_raw = token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
         return token.convert_to_decimals(idle_raw), (total_raw - idle_raw) / total_raw if total_raw else 0.0
 
     def fetch_nav(self, block_identifier=None) -> Decimal:
@@ -1724,15 +1779,19 @@ class ERC4626Vault(VaultBase):
             extra_data=None,
         )
         try:
-            result = paused_call.call(
-                self.web3,
-                block_identifier=block_identifier,
-                silent_error=True,
-                ignore_error=True,
-                attempts=2,
-                retry_sleep=1.0,
-                retry_exceptions={ReadTimeout},
-            )
+            result = self._get_metadata_input("paused", block_identifier)
+            if result is None and self._get_metadata_snapshot(block_identifier).get("paused_reverted"):
+                result = bytes(32)
+            if result is None:
+                result = paused_call.call(
+                    self.web3,
+                    block_identifier=block_identifier,
+                    silent_error=True,
+                    ignore_error=True,
+                    attempts=2,
+                    retry_sleep=1.0,
+                    retry_exceptions={ReadTimeout},
+                )
             paused = convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             paused = False

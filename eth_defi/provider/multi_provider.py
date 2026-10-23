@@ -474,9 +474,17 @@ class MultiProviderWeb3Factory:
     """Needed to pass RPC URL as :py:data:`Web3Factory`
 
     - Allows creating web3 connections from a config line in multiprocessing worker pools
+
+    ``multicall_batch_size`` optionally carries the scanner phase limit to
+    dispatch callers such as classification, without changing provider routing.
+    Explicit dispatch arguments still take precedence.
     """
 
-    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None):
+    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None, multicall_batch_size: int | None = None) -> None:
+        if multicall_batch_size is not None and multicall_batch_size <= 0:
+            raise ValueError("multicall_batch_size must be positive")
+        #: Optional phase-wide regular limit for callers using shared dispatch defaults.
+        self.multicall_batch_size = multicall_batch_size
         self.rpc_url = rpc_url
         call_endpoints = [endpoint for endpoint in rpc_url.split() if not endpoint.startswith("mev+")]
         self.retries = retries if retries is not None else _resolve_default_retries(call_endpoints)

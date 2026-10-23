@@ -97,6 +97,7 @@ def test_mellow_lido_earn_usd(web3: Web3) -> None:
     assert fee_data.performance == 0.0
     assert fee_data.deposit == 0.0
     assert fee_data.withdraw == 0.0
+    assert vault.get_fee_data(FORK_BLOCK) == fee_data
 
     share_token = vault.share_token
     assert share_token.address == LIDO_EARN_USD_SHARE_MANAGER

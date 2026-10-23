@@ -228,7 +228,7 @@ def test_historical_consumers_must_opt_in_to_unavailable_results(recording_reade
     monkeypatch.setattr(multicall_batcher, "fetch_block_timestamps_multiprocess_auto_backend", lambda **_: timestamps)
     calls = calls_for([HYPED])
     if stateful:
-        states = {call: SimpleNamespace(should_invoke=lambda *_: True, vault_poll_frequency="test", unsupported_token=False) for call in calls}
+        states = {call: SimpleNamespace(should_invoke=lambda *_: True, requires_result_feedback=lambda: False, vault_poll_frequency="test", unsupported_token=False) for call in calls}
         generator = multicall_batcher.read_multicall_historical_stateful
     else:
         states = calls
