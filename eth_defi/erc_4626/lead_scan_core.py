@@ -186,7 +186,7 @@ def scan_leads(
     # storm the primary provider with eth_chainId probes and trip HTTP 429. Seed
     # the verified chain ID so worker-side provider switchover still rejects an
     # endpoint that mis-routes to the wrong chain.
-    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
+    web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats, multicall_batch_size=batch_size)
 
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
@@ -516,7 +516,7 @@ def resume_pending_vault_metadata(web3: Web3, json_rpc_urls: str, vault_db_file:
     save_rpc_scan_state(path, pending)
     if not detections:
         return len(pending)
-    factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats)
+    factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5, skip_verification=True, expected_chain_id=chain_id, rpc_request_stats=rpc_request_stats, multicall_batch_size=batch_size)
     rpc_request_stats.operation = "metadata_inputs"
     block = web3.eth.block_number
     token_cache = TokenDiskCache()

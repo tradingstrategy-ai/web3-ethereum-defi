@@ -12,6 +12,11 @@ Multiple options are offered to save the block data (headers, events), so that
 any historical event scan that takes long time be interrupted and successfully
 resumed from the data on disk.
 
+:meth:`eth_defi.event_reader.multicall_batcher.BatchCallState.requires_result_feedback`
+lets adaptive historical readers drain complete observations before selecting
+another block. Regular payloads default to 100 subcalls; block-task buffering
+and greylisted isolation remain separate limits.
+
 .. autosummary::
    :toctree: _autosummary_event_reader
    :recursive:

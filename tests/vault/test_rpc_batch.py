@@ -127,7 +127,8 @@ def test_metadata_batches_use_raw_shared_inputs(recording_factory, batch_size: i
     assert all(snapshot["block"] == 20_000_000 for snapshot in snapshots.values())
     assert all({"asset", "totalAssets", "totalSupply", "share_reverted", "block"} == snapshot.keys() for snapshot in snapshots.values())
     subcall_count = len(detections) * 4
-    expected_requests = 4 if batch_size is None else (subcall_count + batch_size - 1) // batch_size
+    limit = multicall_batcher.DEFAULT_MULTICALL_BATCH_SIZE if batch_size is None else batch_size
+    expected_requests = (subcall_count + limit - 1) // limit
     assert methods.count("eth_call") == expected_requests
     assert "eth_getBlockByNumber" not in methods
 
@@ -310,3 +311,17 @@ def test_regular_chain_caps_honour_smaller_overrides(chain_id: int, requested: i
     reader = object.__new__(multicall_batcher.MultiprocessMulticallReader)
     reader.batch_size = requested
     assert reader.get_batch_size(chain_id) == expected
+
+
+def test_phase_limit_reaches_implicit_classification_dispatch(recording_factory) -> None:
+    """A scanner phase override also bounds consumers using dispatch defaults.
+
+    Classification deliberately uses the shared dispatch path. Its factory
+    carries the phase size without changing classifier provenance or behaviour.
+    """
+    factory, _, _ = recording_factory
+    factory.multicall_batch_size = 7
+    calls = [multicall_batcher.EncodedCall.from_keccak_signature(address=f"0x{n:040x}", function="totalAssets", signature=Web3.keccak(text="totalAssets()")[:4], data=b"", extra_data={}) for n in range(1, 22)]
+    results = list(multicall_batcher.read_multicall_chunked(1, factory, calls, 20_000_000, max_workers=1, backend="threading", timestamped_results=False))
+    assert len(results) == len(calls)
+    assert factory.recorded_payload_sizes == [7, 7, 7]

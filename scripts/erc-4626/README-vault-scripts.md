@@ -3895,12 +3895,13 @@ Token reads use threads and daily negative retries. HyperEVM batches refresh
 current heads, and Monad state-window measurements remain bounded.
 `fetch_batched_tvl_probes()` and `fetch_metadata_snapshots()` in
 [`eth_defi/vault/rpc_batch.py`](../../eth_defi/vault/rpc_batch.py) take a
-keyword-only `batch_size` argument, defaulting to 40 **encoded subcalls** per
-chunk. Ordinary admission uses one subcall per vault; metadata uses four.
-Scanner call sites use these defaults. Python callers can pass `batch_size=20`
-for a constrained provider; chain limits and Multicall failure handling may
-split chunks further. Batch sizes are configured through these function
-arguments rather than environment variables.
+keyword-only `batch_size` argument, defaulting to 100 **encoded subcalls** per
+chunk. `prepare_metadata_batch()` also includes paused/fee inputs, shared token
+warmup and eligible idle balances. Scanner entrypoints read `MULTICALL_BATCH_SIZE`
+(default 100); set it to 40 for a complete payload rollback, including discovery
+classification and token warmup. Python callers can pass a smaller explicit
+limit. Mantle/Gnosis retain a maximum of 16, regular HyperEVM retains 40, and
+greylisted reads remain isolated. Existing bounded retries can split further.
 The scanner has no switch to restore the expensive unoptimised paths.
 
 HyperEVM retains specialised current-state paths, while explicit historical
@@ -4197,3 +4198,28 @@ successful subcalls, served reverts and exhausted gas failures are distinguished
 The pure-EVM USDt0 control must succeed; failed Core reads are recorded explicitly.
 Compare availability rather than expecting identical live-Core values across
 separate requests. Do not repeatedly rerun the check during an upstream outage.
+
+### Manual RPC reduction checks
+
+Run the guarded checks with the current checkout importable; when using a parent
+Poetry environment in a worktree, set ``PYTHONPATH="$PWD"``. All scan output,
+reader state and caches are temporary. Supply credentials through the existing
+local secrets loader, never as command arguments.
+
+```shell
+source .local-test.env
+PYTHONPATH="$PWD" RPC_PARITY_CHECK=true timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+PYTHONPATH="$PWD" RPC_SCAN_CHECK=true MULTICALL_BATCH_SIZE=100 MAX_WORKERS=2 timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+PYTHONPATH="$PWD" RPC_BATCH_CHECK=true RPC_CHECK_CHAIN_ID=42161 timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+```
+
+Metadata parity covers reviewed Ethereum, Arbitrum and Base targets; set
+`RPC_CHECK_CHAIN_ID` to check one chain. The Arbitrum scan uses nine hourly-grid
+samples within 129,600 blocks and verifies prices and saved progress through the
+real Parquet writer. Repeat with `MULTICALL_BATCH_SIZE=40` and the printed
+`START_BLOCK`/`END_BLOCK` to compare identical source observations. The small
+scan does not claim a full 100-call payload saving. The separate batch-size
+check reads known distinct targets from the local catalogue (`VAULT_DATABASE`
+can select a read-only copy) and compares raw metadata inputs and all attempts.
+Hypersync rate limits can dominate elapsed time; retain the response and allow
+the configured backoff rather than treating retries as a faster scanner.

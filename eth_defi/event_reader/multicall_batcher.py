@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 CallData: TypeAlias = tuple[str | HexAddress, tuple]
 
 #: Maximum regular encoded subcalls per request; scanner callers can override it.
-DEFAULT_MULTICALL_BATCH_SIZE: Final[int] = 40
+DEFAULT_MULTICALL_BATCH_SIZE: Final[int] = 100
 
 
 def get_multicall_batch_size_from_env() -> int:
@@ -1446,8 +1446,9 @@ class MultiprocessMulticallReader:
         """Apply normal-lane chain limits without shrinking unrelated greylist work.
 
         Mantle and Gnosis retain the existing conservative limit for provider
-        execution constraints. All other chains use the configured normal limit;
-        reviewed HyperEVM targets have a separate planner limit.
+        execution constraints. Regular HyperEVM requests stay capped at 40;
+        reviewed targets additionally retain their separate isolated-lane limit.
+        Other chains use the configured regular limit.
 
         :param chain_id: Already verified chain ID; this performs no network read.
         :return: Positive maximum encoded subcalls per normal request.
@@ -2448,7 +2449,7 @@ def read_multicall_chunked(
     block_identifier: BlockIdentifier,
     max_workers=8,
     timeout=1800,
-    chunk_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
+    chunk_size: int | None = None,
     progress_bar_desc: str | None = None,
     timestamped_results=True,
     backend="loky",
@@ -2456,7 +2457,7 @@ def read_multicall_chunked(
     refresh_current_block: bool = False,
     greylist_batch_size: int = 1,
     greylist: frozenset[HexAddress] = frozenset(),
-    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
+    batch_size: int | None = None,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2519,7 +2520,7 @@ def read_multicall_chunked(
                 addr_to_balance[token_address] = value
 
 
-    :param batch_size: Positive regular encoded-subcall limit per physical request.
+    :param batch_size: Positive physical limit; defaults to the factory phase limit or shared default.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2584,6 +2585,11 @@ def read_multicall_chunked(
     if max_workers == 1:
         timeout = None  # No timeout for single process
 
+    if batch_size is None:
+        phase_size = getattr(web3factory, "multicall_batch_size", None)
+        batch_size = DEFAULT_MULTICALL_BATCH_SIZE if phase_size is None else phase_size
+    if chunk_size is None:
+        chunk_size = batch_size
     if chunk_size <= 0 or batch_size <= 0:
         raise ValueError("chunk_size and batch_size must be positive")
 

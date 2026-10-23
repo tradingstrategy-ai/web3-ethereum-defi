@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factory: MultiProviderWeb3Factory, block_identifier: int, max_workers: int, *, batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE, include_optional: bool = False) -> dict[str, dict]:
     """Read ordinary metadata inputs in shared batches at one source block.
 
-    Only generic ERC-4626, Morpho v1 and IPOR are enabled initially. Adapter
+    Only generic ERC-4626, Morpho v1/v2 and IPOR are enabled. Adapter
     consumers additionally verify method identity and the source block.
     HyperEVM and custom share-token paths keep their specialised reads.
 
@@ -49,7 +49,7 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
     :param block_identifier: Common numeric block for this bounded batch.
     :param max_workers: Maximum threaded read concurrency.
     :param batch_size:
-        Positive maximum encoded subcalls per chunk, default 40. Each vault
+        Positive maximum encoded subcalls per chunk, default 100. Each vault
         contributes four subcalls, so this counts calls rather than vaults.
         Discovery and pending-metadata recovery use the default; direct callers
         can pass a smaller limit for a constrained provider. Existing Multicall
@@ -251,7 +251,7 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
     :param block_identifier: Numeric source block for ordinary batched reads.
     :param max_workers: Maximum threaded read concurrency.
     :param batch_size:
-        Positive maximum encoded subcalls per chunk, default 40. Each ordinary
+        Positive maximum encoded subcalls per chunk, default 100. Each ordinary
         vault contributes one totalAssets subcall. The all-chain admission
         selector uses the default; direct callers can pass a smaller limit for
         a constrained provider. Existing Multicall chain limits and failure
