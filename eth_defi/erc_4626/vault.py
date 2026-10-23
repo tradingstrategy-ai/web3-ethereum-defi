@@ -426,6 +426,19 @@ class VaultReaderState(BatchCallState):
             return bool(self.token_symbol and not self.unsupported_token) and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
         return self.exchange_rate != UNKNOWN_EXCHANGE_RATE and is_meaningful_usd_tvl(self.last_tvl, self.max_tvl)
 
+    def requires_result_feedback(self) -> bool:
+        """Drain pending observations before choosing another low-frequency read.
+
+        First reads and unknown TVL also require feedback because their next
+        cadence is chosen from the completed result, including subclass policies.
+
+        :return: Whether the next sampled block needs this result first.
+        """
+        if self.last_call_at is None or self.last_tvl is None:
+            return True
+        _, interval = self.get_frequency()
+        return interval is not None and interval > datetime.timedelta(hours=1)
+
     def should_invoke(
         self,
         call: "EncodedCall",

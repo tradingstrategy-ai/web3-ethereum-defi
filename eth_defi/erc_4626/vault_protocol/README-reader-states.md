@@ -150,3 +150,11 @@ failure as a deterministic contract failure.
 | `eth_defi/erc_4626/warmup.py` | Warmup functions |
 | `eth_defi/vault/historical.py` | VaultHistoricalReadMulticaller._run_warmup() |
 | `scripts/erc-4626/check-reader-states.py` | Helper script to examine states |
+
+### Buffered scheduling feedback
+
+Daily and weekly readers, first observations and unknown TVL drain the current
+block-task buffer before the next block is selected. The historical consumer
+processes each complete block before advancing the generator, so dispatch never
+counts as saved reader progress. Established hourly readers retain buffering
+and the existing process-worker backend.

@@ -655,6 +655,16 @@ class BatchCallState(abc.ABC):
     - Mostly useful for historical mutlticall read and frequency management
     """
 
+    def requires_result_feedback(self) -> bool:
+        """Whether subsequent scheduling needs the completed observation.
+
+        Consumers must process a complete yielded block before requesting the
+        next result. Legacy states keep their existing buffered behaviour.
+
+        :return: True when the scheduler must drain its current block buffer.
+        """
+        return False
+
     @abstractmethod
     def should_invoke(
         self,
@@ -2232,18 +2242,18 @@ def read_multicall_historical_stateful(
     :return: Combined samples with their adaptive states reattached.
 
     :param chunk_size:
-        We guarantee to update the reader state at least this many steps.
-
-        24 = 24h hours per day, assuming we update state once for every day data read.
-
-        Between chunks we blindly push data to subprocesses for speedup,
-        do not attempt to hear back from the multiprocess to update the state.
+        Positive maximum buffered block tasks. Feedback-dependent states drain
+        the buffer earlier. The consumer must process each complete block before
+        requesting another result; prefetching defeats the feedback guarantee.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
     assert type(end_block) == int, f"Got: {end_block}"
     assert type(step) == int, f"Got: {step}"
     assert type(chain_id) == int, f"Got: {step}"
+
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
 
     worker_processor = Parallel(
         n_jobs=max_workers,
@@ -2322,81 +2332,88 @@ def read_multicall_historical_stateful(
 
     logger.info("Starting the main historical state read loop from block %d to %d", start_block, end_block)
 
-    metrics = {}
-    for block_number in range(start_block, end_block, step):
-        # Map prefetch timestamp
-        timestamp = timestamps[block_number]
+    try:
+        metrics = {}
+        feedback_flushes = capacity_flushes = 0
+        for block_number in range(start_block, end_block, step):
+            # Map prefetch timestamp
+            timestamp = timestamps[block_number]
 
-        accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+            accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
-        total_blocks += 1
-        total_accepted_calls += len(accepted_calls)
+            total_blocks += 1
+            total_accepted_calls += len(accepted_calls)
 
-        # These counts describe scheduled subcall states, not distinct vaults:
-        # several methods can share one adaptive reader state.
-        metrics = Counter()
-        for state in calls.values():
-            freq_type = state.vault_poll_frequency or "unknown"
-            if state.unsupported_token:
-                metrics["unsupported_token"] += 1
-            metrics[freq_type] += 1
-            metrics["total"] += 1
+            # These counts describe scheduled subcall states, not distinct vaults:
+            # several methods can share one adaptive reader state.
+            metrics = Counter()
+            for state in calls.values():
+                freq_type = state.vault_poll_frequency or "unknown"
+                if state.unsupported_token:
+                    metrics["unsupported_token"] += 1
+                metrics[freq_type] += 1
+                metrics["total"] += 1
 
-        logger.debug("Scheduling block=%d timestamp=%s available_subcalls=%d accepted_subcalls=%d call_state_metrics=%s", block_number, timestamp, len(all_calls), len(accepted_calls), dict(metrics))
+            logger.debug("Scheduling block=%d timestamp=%s available_subcalls=%d accepted_subcalls=%d call_state_metrics=%s", block_number, timestamp, len(all_calls), len(accepted_calls), dict(metrics))
 
-        if len(accepted_calls) == 0:
-            logger.debug("Block %d has no calls to perform, skipping", block_number)
-            continue
+            if len(accepted_calls) == 0:
+                logger.debug("Block %d has no calls to perform, skipping", block_number)
+                continue
 
-        task = MulticallHistoricalTask(
-            chain_id,
-            web3factory,
-            block_number,
-            accepted_calls,
-            timestamp=timestamp,
-            require_multicall_result=require_multicall_result,
-            greylist_batch_size=greylist_batch_size,
-            greylist=greylist,
-            allow_greylist_unavailable=allow_greylist_unavailable,
-            collect_rpc_request_stats=rpc_request_stats is not None,
+            task = MulticallHistoricalTask(
+                chain_id,
+                web3factory,
+                block_number,
+                accepted_calls,
+                timestamp=timestamp,
+                require_multicall_result=require_multicall_result,
+                greylist_batch_size=greylist_batch_size,
+                greylist=greylist,
+                allow_greylist_unavailable=allow_greylist_unavailable,
+                collect_rpc_request_stats=rpc_request_stats is not None,
+            )
+
+            chunk.append(task)
+
+            # Check if we are ready to process chunk blocks at a time
+            feedback_needed = any(calls[call].requires_result_feedback() for call in accepted_calls)
+            if feedback_needed or len(chunk) >= chunk_size:
+                feedback_flushes += int(feedback_needed)
+                capacity_flushes += int(not feedback_needed)
+                if progress_bar:
+                    block_now = chunk[-1].block_number
+                    blocks_done = block_now - last_block
+                    last_block = block_now
+                    progress_bar.update(blocks_done)
+                    if progress_suffix is not None:
+                        suffixes = progress_suffix()
+                        progress_bar.set_postfix(suffixes)
+
+                for combined_result in _flush_chunk(chunk):
+                    logger.debug("Updating states for timestamp=%s block=%d", combined_result.timestamp, combined_result.block_number)
+                    yield combined_result
+
+                chunk = []
+
+        logger.info(
+            "Total blocks %d, total accepted calls over the period: %d",
+            total_blocks,
+            total_accepted_calls,
         )
 
-        chunk.append(task)
+        logger.info("Historical scheduling: blocks=%d subcalls=%d feedback_flushes=%d capacity_flushes=%d", total_blocks, total_accepted_calls, feedback_flushes, capacity_flushes)
+        logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
 
-        # Check if we are ready to process chunk blocks at a time
-        if len(chunk) > chunk_size:
-            if progress_bar:
-                block_now = chunk[-1].block_number
-                blocks_done = block_now - last_block
-                last_block = block_now
-                progress_bar.update(blocks_done)
-                if progress_suffix is not None:
-                    suffixes = progress_suffix()
-                    progress_bar.set_postfix(suffixes)
+        # Process the remaning uneven chunk
+        yield from _flush_chunk(chunk)
 
-            for combined_result in _flush_chunk(chunk):
-                logger.debug("Updating states for timestamp=%s block=%d", combined_result.timestamp, combined_result.block_number)
-                yield combined_result
+    finally:
+        if progress_bar:
+            progress_bar.close()
 
-            chunk = []
-
-    logger.info(
-        "Total blocks %d, total accepted calls over the period: %d",
-        total_blocks,
-        total_accepted_calls,
-    )
-
-    logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
-
-    # Process the remaning uneven chunk
-    yield from _flush_chunk(chunk)
-
-    if progress_bar:
-        progress_bar.close()
-
-    timestamp_cache_close = getattr(timestamps, "close", None)
-    if callable(timestamp_cache_close):
-        timestamp_cache_close()
+        timestamp_cache_close = getattr(timestamps, "close", None)
+        if callable(timestamp_cache_close):
+            timestamp_cache_close()
 
 
 def read_multicall_chunked(
