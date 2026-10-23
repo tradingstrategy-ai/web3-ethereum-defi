@@ -4223,3 +4223,12 @@ check reads known distinct targets from the local catalogue (`VAULT_DATABASE`
 can select a read-only copy) and compares raw metadata inputs and all attempts.
 Hypersync rate limits can dominate elapsed time; retain the response and allow
 the configured backoff rather than treating retries as a faster scanner.
+
+For a recent HyperEVM check, use `RPC_SCAN_CHECK=true RPC_CHECK_CHAIN_ID=999`
+with the same command. It uses `JSON_RPC_HYPERLIQUID`, nine samples across at most
+90 recent blocks, the existing regular 40-call cap and the isolated greylist.
+Unavailable isolated observations are reported separately. Native-asset
+placeholders with unavailable decimals fail metadata validation; successful
+HyperCore calls alone do not establish historical NAV semantics. As recorded in
+the 2026-10-23 validation results, the two regular controls passed while HYPED's
+native-HYPE denomination metadata failed.
