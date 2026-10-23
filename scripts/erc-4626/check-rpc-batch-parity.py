@@ -196,15 +196,14 @@ def check_historical_scan(chain_id: int, batch_size: int, max_workers: int, dire
             direct_price = vault.denomination_token.convert_to_decimals(raw_price)
             assert math.isclose(float(direct_assets), row["total_assets"], rel_tol=1e-8)
             assert math.isclose(float(direct_price), row["share_price"], rel_tol=1e-8)
-            state = report["reader_states"][vault.spec]
             assert state["last_block"] == row["block_number"]
             logger.info("PASS scan vault=%s rows=%d last_block=%d cadence=%s timestamps=%s..%s", address, len(observed), state["last_block"], state["vault_poll_frequency"], observed[0]["timestamp"], row["timestamp"])
         # Keep comparable rows in the log, excluding volatile write timestamps.
         logger.info("Scan values: %s", [(r["address"], r["block_number"], r["share_price"], r["total_assets"]) for r in samples])
     finally:
         cache.close()
-    log_requests(stats, f"{chain_name} scan {start_block}..{end_block} size={batch_size}", time.monotonic() - started)
-    logger.info("Operation requests: %s", dict(stats.operation_calls))
+        log_requests(stats, f"{chain_name} scan {start_block}..{end_block} size={batch_size}", time.monotonic() - started)
+        logger.info("Operation requests: %s", dict(stats.operation_calls))
     assert not invalid_metadata, f"Invalid token decimals for scanned vaults: {invalid_metadata}"
 
 
@@ -240,7 +239,7 @@ def main() -> None:
     """Run only explicitly enabled manual integration checks.
 
     Separate modes keep the historical scan bounded and avoid requiring other
-    chains' credentials for an Arbitrum-only run.
+    chains' credentials for a single-chain run.
 
     :return: None; failed or incomplete checks exit with an exception.
     """

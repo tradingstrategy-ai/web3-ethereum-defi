@@ -480,7 +480,7 @@ class MultiProviderWeb3Factory:
     Explicit dispatch arguments still take precedence.
     """
 
-    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None, multicall_batch_size: int | None = None):
+    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None, multicall_batch_size: int | None = None) -> None:
         if multicall_batch_size is not None and multicall_batch_size <= 0:
             raise ValueError("multicall_batch_size must be positive")
         #: Optional phase-wide regular limit for callers using shared dispatch defaults.

@@ -80,6 +80,7 @@ def get_multicall_batch_size_from_env() -> int:
     size = int(os.environ.get("MULTICALL_BATCH_SIZE", DEFAULT_MULTICALL_BATCH_SIZE))
     if size <= 0:
         raise ValueError("MULTICALL_BATCH_SIZE must be positive")
+    logger.info("Configured regular Multicall batch size: %d", size)
     return size
 
 
@@ -1387,18 +1388,13 @@ class MultiprocessMulticallReader:
         self.chain_id = self.web3.eth.chain_id
         name = get_provider_name(self.web3.provider)
 
-        logger.info(
-            "Initialising multiprocess multicall handler, process %s, thread %s, provider %s",
-            os.getpid(),
-            threading.current_thread(),
-            name,
-        )
         assert batch_size > 0 and greylist_batch_size > 0
         self.greylist_batch_size = greylist_batch_size
         # Snapshot caller policy: worker reuse must never follow a mutable list
         # or implicitly acquire another chain's address-specific exceptions.
         self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
         self.batch_size = batch_size
+        logger.info("Initialising multiprocess multicall handler, process %s, thread %s, provider %s, chain %d, requested_size=%d regular_size=%d greylist_size=%d", os.getpid(), threading.current_thread(), name, self.chain_id, batch_size, self.get_batch_size(self.chain_id), greylist_batch_size)
 
         # How many calls we have done in this subprocess
         self.calls = 0
@@ -1454,7 +1450,11 @@ class MultiprocessMulticallReader:
         :return: Positive maximum encoded subcalls per normal request.
         """
 
-        return min(self.batch_size, 16) if chain_id in (5000, 100) else min(self.batch_size, 40) if chain_id == 999 else self.batch_size
+        if chain_id in (5000, 100):
+            return min(self.batch_size, 16)
+        if chain_id == 999:
+            return min(self.batch_size, 40)
+        return self.batch_size
 
     def fetch_multicall_with_batch_size(
         self,
@@ -2288,20 +2288,21 @@ def read_multicall_historical_stateful(
         return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
-    iter_count = end_block - start_block + 1
-    total = iter_count
+    total = end_block - start_block
+    sample_count = len(range(start_block, end_block, step))
 
-    logger.info("Doing %d historical multicall block polls for blocks %d to %d with step %d", total, start_block, end_block, step)
+    logger.info("Scheduling %d historical sample blocks from %d to %d (exclusive), step %d", sample_count, start_block, end_block, step)
 
     if display_progress:
         if type(display_progress) == str:
             desc = display_progress
         else:
-            desc = f"Reading chain data w/historical multicall, {total} tasks, using {max_workers} CPUs"
+            desc = f"Reading historical multicall, {sample_count} sample blocks, using {max_workers} CPUs"
         progress_bar = tqdm(
             total=total,
             desc=desc,
             unit_scale=True,
+            unit="block",
         )
     else:
         progress_bar = None
@@ -2402,7 +2403,8 @@ def read_multicall_historical_stateful(
             chunk.append(task)
 
             # Check if we are ready to process chunk blocks at a time
-            feedback_needed = any(calls[call].requires_result_feedback() for call in accepted_calls)
+            # Evaluate every request so all run-local feedback markers are set.
+            feedback_needed = sum(calls[call].requires_result_feedback() for call in accepted_calls) > 0
             if feedback_needed or len(chunk) >= chunk_size:
                 feedback_flushes += int(feedback_needed)
                 capacity_flushes += int(not feedback_needed)
@@ -2420,12 +2422,6 @@ def read_multicall_historical_stateful(
                     yield combined_result
 
                 chunk = []
-
-        logger.info(
-            "Total blocks %d, total accepted calls over the period: %d",
-            total_blocks,
-            total_accepted_calls,
-        )
 
         logger.info("Historical scheduling: blocks=%d subcalls=%d feedback_flushes=%d capacity_flushes=%d", total_blocks, total_accepted_calls, feedback_flushes, capacity_flushes)
         logger.info("Last scheduled subcall-state counts: %s", dict(metrics))
@@ -2447,12 +2443,12 @@ def read_multicall_chunked(
     web3factory: Web3Factory,
     calls: list[EncodedCall],
     block_identifier: BlockIdentifier,
-    max_workers=8,
-    timeout=1800,
+    max_workers: int = 8,
+    timeout: float | None = 1800,
     chunk_size: int | None = None,
     progress_bar_desc: str | None = None,
-    timestamped_results=True,
-    backend="loky",
+    timestamped_results: bool = True,
+    backend: str = "loky",
     rpc_request_stats: RPCRequestStats | None = None,
     refresh_current_block: bool = False,
     greylist_batch_size: int = 1,
@@ -2727,11 +2723,11 @@ class MulticallHistoricalTask:
     #: Included in worker identity so policy changes cannot reuse stale routing.
     greylist: frozenset[HexAddress] = frozenset()
 
-    #: Regular physical payload limit, part of worker connection identity.
-    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE
-
     #: Refresh a safe numeric head per batch for current-state feature probes.
     refresh_current_block: bool = False
+
+    #: Regular physical payload limit, part of worker connection identity.
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE
 
     def __post_init__(self) -> None:
         assert callable(self.web3factory)

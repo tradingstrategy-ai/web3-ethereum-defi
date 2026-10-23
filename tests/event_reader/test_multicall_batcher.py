@@ -510,3 +510,58 @@ def test_stateful_rejects_invalid_buffer_size(chunk_size: int) -> None:
     """Reject invalid task limits before opening timestamp or worker resources."""
     with pytest.raises(ValueError, match="chunk_size must be positive"):
         list(multicall_batcher.read_multicall_historical_stateful(1, lambda: None, {}, 1, 2, 1, chunk_size=chunk_size))
+
+
+@pytest.mark.parametrize("unpriced_progress", [False, True])
+def test_failed_reader_does_not_serialise_hourly_cohort(monkeypatch: pytest.MonkeyPatch, unpriced_progress: bool) -> None:
+    """Retain capacity buffering after an unsuccessful first observation.
+
+    Multiple reverting readers never advance; missing-denomination readers can
+    advance source time without TVL. Mark every reader on the first flush rather
+    than flushing once per failed reader or once per hourly block.
+    """
+    origin = datetime.datetime(2026, 1, 1)
+    timestamps = MagicMock()
+    timestamps.get_last_block.return_value = 51
+    timestamps.__getitem__.side_effect = lambda block: origin + datetime.timedelta(hours=block - 1)
+    monkeypatch.setattr(multicall_batcher, "fetch_block_timestamps_multiprocess_auto_backend", lambda **kwargs: timestamps)
+    chunks = []
+
+    def parallel(**kwargs: object) -> ParallelExecutor:
+        """Record each submitted buffer before executing its delayed tasks."""
+
+        def execute(tasks: Iterable[object]) -> Iterator[object]:
+            batch = list(tasks)
+            chunks.append(len(batch))
+            yield from make_executing_parallel()(batch)
+
+        return execute
+
+    monkeypatch.setattr(multicall_batcher, "Parallel", parallel)
+    calls = {}
+    states = []
+    for index in (1, 2, 3):
+        address = f"0x{index:040x}"
+        vault = SimpleNamespace(first_seen_at_block=None, spec=VaultSpec(1, address), vault_address=address, denomination_token=SimpleNamespace(symbol="USDC"))
+        state = VaultReaderState(vault)
+        if index == 1:
+            state.last_tvl = Decimal(50_000)
+            state.last_call_at = origin - datetime.timedelta(hours=1)
+        call = multicall_batcher.EncodedCall.from_keccak_signature(address=address, function="totalAssets", signature=Web3.keccak(text="totalAssets()")[:4], data=b"", extra_data={})
+        calls[call] = state
+        states.append(state)
+
+    def execute(task: multicall_batcher.MulticallHistoricalTask) -> multicall_batcher.CombinedEncodedCallResult:
+        """Return observations without inventing successful reader progress."""
+        results = [multicall_batcher.EncodedCallResult(call, True, bytes(32), task.block_number, task.timestamp) for call in task.calls]
+        return multicall_batcher.CombinedEncodedCallResult(task.block_number, task.timestamp, results)
+
+    monkeypatch.setattr(multicall_batcher, "_execute_multicall_in_worker", execute)
+    for combined in multicall_batcher.read_multicall_historical_stateful(1, lambda: None, calls, 1, 51, 1, display_progress=False):
+        states[0].last_call_at = combined.timestamp
+        if unpriced_progress:
+            for state in states[1:]:
+                state.last_call_at = combined.timestamp
+    assert chunks == [1, 48, 1]
+    assert all(state.last_tvl is None and state.last_block is None for state in states[1:])
+    assert all("_last_feedback_observation" not in state.save() for state in states[1:])

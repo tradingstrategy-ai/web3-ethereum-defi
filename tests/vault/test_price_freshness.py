@@ -13,6 +13,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.erc_4626.vault import VaultReaderState
+from eth_defi.event_reader import multicall_batcher
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
@@ -170,6 +171,41 @@ def test_low_activity_tvl_probe_uses_reader_conversion() -> None:
 
     vault.denomination_token = DummyToken("UNRECOGNISED")
     assert fetch_current_vault_tvl_usd(vault) == (None, True)
+
+
+def test_real_consumer_updates_daily_reader_before_next_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Process a real daily reader state before selecting another sample block.
+
+    Only provider execution and reader preparation are replaced. The production
+    consumer must decode the observation and call on_called before resuming the
+    production scheduler, including when it yields a row to its own caller.
+    """
+    origin = datetime.datetime(2026, 1, 1)
+    timestamps = MagicMock()
+    timestamps.get_last_block.return_value = 10
+    timestamps.__getitem__.side_effect = lambda block: origin + datetime.timedelta(hours=block - 1)
+    monkeypatch.setattr(multicall_batcher, "fetch_block_timestamps_multiprocess_auto_backend", lambda **kwargs: timestamps)
+    monkeypatch.setattr(multicall_batcher, "Parallel", lambda **kwargs: lambda tasks: (function(*args, **options) for function, args, options in tasks))
+    vault = DummyVault(VaultSpec(1, "0x0000000000000000000000000000000000000001"), DummyToken())
+    reader = DummyReader(vault, [origin])
+    reader.reader_state.peaked_at = None
+    scanner = make_offline_scan(monkeypatch, reader)
+    scanner.web3factory = lambda: None
+    dispatched = []
+
+    def execute(task: multicall_batcher.MulticallHistoricalTask) -> multicall_batcher.CombinedEncodedCallResult:
+        """Supply encoded observations to the unchanged historical consumer."""
+        dispatched.append(task.block_number)
+        results = [EncodedCallResult(call, True, bytes(32), task.block_number, task.timestamp) for call in task.calls]
+        return multicall_batcher.CombinedEncodedCallResult(task.block_number, task.timestamp, results)
+
+    monkeypatch.setattr(multicall_batcher, "_execute_multicall_in_worker", execute)
+    rows = list(scanner.read_historical([vault], 1, 10, 1, reader_func=multicall_batcher.read_multicall_historical_stateful))
+    assert dispatched == [1]
+    assert [row.block_number for row in rows] == [1]
+    assert reader.reader_state.last_call_at == origin
+    assert reader.reader_state.last_block == 1
+    assert reader.reader_state.last_tvl == Decimal(2_000)
 
 
 @pytest.mark.parametrize("write_all_samples", [False, True])

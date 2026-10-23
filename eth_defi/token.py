@@ -39,7 +39,7 @@ with warnings.catch_warnings():
             pass
 
 
-from eth_typing import HexAddress
+from eth_typing import BlockIdentifier, HexAddress
 from requests.exceptions import ReadTimeout
 from web3 import Web3
 from web3.contract import Contract
@@ -1052,8 +1052,8 @@ class TokenDiskCache(PersistentKeyValueStore):
         web3factory: Web3Factory,
         addresses: list[HexAddress],
         display_progress: str | bool = False,
-        max_workers=8,
-        block_identifier="latest",
+        max_workers: int = 8,
+        block_identifier: BlockIdentifier = "latest",
         checkpoint: int = 32,
         batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     ) -> TokenCacheWarmupResult:

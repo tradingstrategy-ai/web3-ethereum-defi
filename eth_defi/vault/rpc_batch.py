@@ -36,7 +36,7 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
 
     Only generic ERC-4626, Morpho v1/v2 and IPOR are enabled. Adapter
     consumers additionally verify method identity and the source block.
-    HyperEVM and custom share-token paths keep their specialised reads.
+    HyperEVM and other adapter families keep their specialised reads.
 
     Called by lead discovery and pending-metadata recovery after scheduling has
     selected candidates. These are raw inputs, not final metadata records:
@@ -50,9 +50,9 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
     :param max_workers: Maximum threaded read concurrency.
     :param batch_size:
         Positive maximum encoded subcalls per chunk, default 100. Each vault
-        contributes four subcalls, so this counts calls rather than vaults.
-        Discovery and pending-metadata recovery use the default; direct callers
-        can pass a smaller limit for a constrained provider. Existing Multicall
+        contributes four core subcalls, plus optional paused/fee probes when
+        requested. This counts calls rather than vaults. Scanner entrypoints
+        can override the default for a constrained provider. Existing Multicall
         chain limits and failure handling may further split a chunk.
     :return: Lower-case address to successful raw inputs and source block.
     :param include_optional: Include reviewed paused/fee inputs in the core pass.
@@ -70,17 +70,18 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
         raise ValueError("Metadata source block must be numeric")
     if not eligible:
         return {}
-    # Batch limits count encoded subcalls, not vaults (four per candidate here).
+    # Batch limits count encoded subcalls, not vaults.
     # Metadata consumers need the source block but no block timestamp, so
     # timestamped_results=False avoids an otherwise redundant RPC per chunk.
     calls = []
     for detection in eligible:
         functions = ["asset", "totalAssets", "totalSupply", "share"]
         if include_optional:
+            adapter = _metadata_adapter(detection)
             functions.append("paused")
-            if _metadata_adapter(detection) is MorphoV1Vault:
+            if adapter is MorphoV1Vault:
                 functions.append("fee")
-            elif _metadata_adapter(detection) is MorphoV2Vault:
+            elif adapter is MorphoV2Vault:
                 functions.extend(("performanceFee", "managementFee"))
         calls.extend(EncodedCall.from_keccak_signature(address=Web3.to_checksum_address(detection.address), function=function, signature=Web3.keccak(text=function + "()")[:4], data=b"", extra_data={}) for function in functions)
 
@@ -253,8 +254,8 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
     :param batch_size:
         Positive maximum encoded subcalls per chunk, default 100. Each ordinary
         vault contributes one totalAssets subcall. The all-chain admission
-        selector uses the default; direct callers can pass a smaller limit for
-        a constrained provider. Existing Multicall chain limits and failure
+        selector passes the scanner's configured limit; direct callers can
+        override it as well. Existing Multicall chain limits and failure
         handling may further split a chunk. Specialised reads are unaffected.
     :return:
         Iterator of ``(vault, tvl_usd, unsupported_conversion)`` tuples.

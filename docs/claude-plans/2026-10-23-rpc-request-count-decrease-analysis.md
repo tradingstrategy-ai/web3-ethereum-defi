@@ -1,6 +1,6 @@
 # RPC request count decrease analysis
 
-Status: **Analysis — implementation plan pending**. Written 2026-10-23. This document records the investigation and candidate optimisations for later refinement into an implementation plan.
+Status: **Analysis complete; selected optimisations implemented**. Written 2026-10-23. This document preserves the original investigation and estimates. The [implementation plan](2026-10-23-rpc-request-count-decrease-plan.md) selects the first two opportunities and larger regular Multicall batches; the [validation record](2026-10-23-rpc-request-count-decrease-validation.md) reports measured results and limits. The remaining opportunities are not implemented here.
 
 The strongest opportunities are correcting repeated historical polling within a scheduling buffer and extending metadata batching. This investigation follows the [earlier vault scanner RPC reduction work](2026-09-30-vault-scanner-rpc-reduction.md); its measurements describe a later production window and should not be added to that earlier baseline.
 
@@ -60,9 +60,11 @@ ORDER BY cycle_started;
 
 ## Opportunities
 
+The code descriptions in this section refer to inspected baseline `7f6671c64`, before this PR. Source links are pinned to that revision. Subsequent implementation and measurements are recorded separately above.
+
 ### 1. Fix repeated polling within historical batches
 
-**Confirmed code behaviour:** the [stateful scheduling loop](../../eth_defi/event_reader/multicall_batcher.py) calls `state.should_invoke()` for multiple sample blocks before flushing its buffered tasks and yielding results. `VaultReaderState.should_invoke()` compares each timestamp against `last_call_at`, which changes when results are processed. A daily or weekly reader that is already due can therefore be selected repeatedly within the same buffer. The default buffer parameter is 48; the current `len(chunk) > chunk_size` condition flushes after the 49th scheduled task.
+**Confirmed code behaviour:** the [stateful scheduling loop](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/7f6671c64316f468b9c57c3afb4d4d8389bb5a63/eth_defi/event_reader/multicall_batcher.py) calls `state.should_invoke()` for multiple sample blocks before flushing its buffered tasks and yielding results. `VaultReaderState.should_invoke()` compares each timestamp against `last_call_at`, which changes when results are processed. A daily or weekly reader that is already due can therefore be selected repeatedly within the same buffer. The default buffer parameter is 48; the baseline `len(chunk) > chunk_size` condition flushes after the 49th scheduled task.
 
 A small offline replay extracted the actual `VaultReaderState.should_invoke()` method from the inspected source and evaluated nine hourly slots. With the initial state held until the buffer completed, an already-due daily reader and an already-due weekly reader each accepted all nine slots. Updating `last_call_at` after each simulated successful result reduced both to one accepted slot. The hourly reader accepted nine in both cases. The replay did not perform network reads or modify scanner state.
 
@@ -76,9 +78,9 @@ The 23 October Ethereum scan at 03:32 logged nine sample blocks and 83,286 accep
 
 **Measured opportunity:** per-vault metadata extraction consumed 167,672 requests during the week, including the large refreshes above.
 
-The [shared metadata snapshot path](../../eth_defi/vault/rpc_batch.py) currently batches four raw inputs (`asset`, `totalAssets`, `totalSupply` and `share`) for a narrow adapter allowlist. The [record assembly path](../../eth_defi/erc_4626/scan.py) still invokes adapter methods for fees, flags, permissions and lending fields. Extending shared inputs requires adapter-specific semantic checks; implementing the ERC-4626 interface alone does not establish that an adapter can consume a generic snapshot.
+The [shared metadata snapshot path](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/7f6671c64316f468b9c57c3afb4d4d8389bb5a63/eth_defi/vault/rpc_batch.py) batched four raw inputs at that revision (`asset`, `totalAssets`, `totalSupply` and `share`) for a narrow adapter allowlist. The [record assembly path](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/7f6671c64316f468b9c57c3afb4d4d8389bb5a63/eth_defi/erc_4626/scan.py) still invokes adapter methods for fees, flags, permissions and lending fields. Extending shared inputs requires adapter-specific semantic checks; implementing the ERC-4626 interface alone does not establish that an adapter can consume a generic snapshot.
 
-One concrete duplication remains in [Morpho v2 lending reads](../../eth_defi/erc_4626/vault_protocol/morpho/vault_v2.py): `fetch_available_liquidity()` reads the idle balance, and `fetch_utilisation_percent()` reads that balance again and also reads total assets. The metadata caller already has total assets. Morpho v1 has an existing combined lending snapshot that illustrates the reuse opportunity.
+One concrete duplication was present in [Morpho v2 lending reads](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/7f6671c64316f468b9c57c3afb4d4d8389bb5a63/eth_defi/erc_4626/vault_protocol/morpho/vault_v2.py): `fetch_available_liquidity()` reads the idle balance, and `fetch_utilisation_percent()` reads that balance again and also reads total assets. The metadata caller already has total assets. Morpho v1 has an existing combined lending snapshot that illustrates the reuse opportunity.
 
 **Candidate change:** reuse economic inputs at the same source block, expand batching for explicitly supported adapters, and share immutable or suitably cached metadata. Preserve protocol-specific accounting and continue refreshing dynamic flags and permissions. Add selector/protocol attribution before claiming which additional adapter work dominates the remaining cost.
 
@@ -88,7 +90,7 @@ One concrete duplication remains in [Morpho v2 lending reads](../../eth_defi/erc
 
 **Measured opportunity:** TVL admission consumed 35,456 requests during the week. The 23 October Ethereum scan reported `due=980`, `cached=2682`, `qualified=0`, `unverified=981` and `blacklisted=104`. The unverified count includes constructor failures, so it is not a one-to-one denominator for the due-probe count.
 
-The [admission scheduling helper](../../eth_defi/vault/rpc_scan_state.py) schedules every error for another probe after one day. Persistent unsupported denomination conversions therefore share the same interval as temporary failures.
+The [admission scheduling helper](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/7f6671c64316f468b9c57c3afb4d4d8389bb5a63/eth_defi/vault/rpc_scan_state.py) schedules every error for another probe after one day. Persistent unsupported denomination conversions therefore share the same interval as temporary failures.
 
 **Candidate change:** distinguish persistent unsupported conversions and deterministic adapter failures from transient failures. Give mature persistent failures a longer bounded retry interval, with invalidation when relevant metadata or adapter capabilities change. Preserve ordinary scanning for previously qualified vaults and the opportunity for new vaults to become active.
 
@@ -96,7 +98,7 @@ The [admission scheduling helper](../../eth_defi/vault/rpc_scan_state.py) schedu
 
 ### 4. Benchmark larger regular Multicall batches
 
-**Confirmed configuration:** the regular Multicall batch default is 40 encoded subcalls. Certain chains use smaller limits, and greylisted targets have separate isolation rules.
+**Confirmed baseline configuration:** the regular Multicall batch default was 40 encoded subcalls. Certain chains use smaller limits, and greylisted targets have separate isolation rules.
 
 **Candidate change:** benchmark regular batches of 100 and 200 against the current limit, using compatible workloads and chain/provider-specific acceptance checks. Keep expensive HyperEVM targets isolated and retain smaller limits where needed. Compare returned observations, failed attempts and physical requests, rather than successful batch count alone.
 
@@ -112,8 +114,8 @@ The generic ERC-4626 metadata path, for example, probes `paused()`. The historic
 
 **Expected benefit:** fewer repeated optional probes. Measure selector-level outcomes before setting a reduction target.
 
-## Priorities and open decisions
+## Original priorities and open decisions
 
-Start implementation planning with the scheduling behaviour, followed by metadata batching and reuse. Admission backoff and larger regular batches need bounded experiments and explicit recovery/freshness decisions. Optional-method caching needs better error attribution. Provider verification and timestamp requests are smaller measured opportunities in this window.
+The investigation prioritised scheduling behaviour, followed by metadata batching and reuse. Larger regular batches subsequently joined the implementation scope, with bounded experiments recorded in the validation results. Admission backoff still needs explicit recovery/freshness decisions; optional-method caching needs better error attribution. Provider verification and timestamp requests are smaller measured opportunities in this window.
 
-The eventual before/after comparison should cover a complete metadata-refresh cycle and compare physical requests alongside vault coverage, failed observations and source freshness. No global saving is claimed from adding the individual opportunities. This analysis introduces no runtime changes, API changes, production deployment or historical-data migration.
+The eventual production before/after comparison should cover a complete metadata-refresh cycle and compare physical requests alongside vault coverage, failed observations and source freshness. No global saving is claimed from adding the individual opportunities. This document records the analysis; subsequent runtime and additive API changes are described in the implementation plan. Production deployment and historical-data migration remain outside scope.

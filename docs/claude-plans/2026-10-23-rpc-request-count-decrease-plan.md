@@ -1,6 +1,6 @@
 # RPC request count decrease implementation plan
 
-Status: **Implemented and locally validated, 2026-10-23.** See the [validation results](2026-10-23-rpc-request-count-decrease-validation.md). Earlier reviews are recorded in the [review history](2026-10-23-rpc-request-count-decrease-review.md); their verdicts apply to those revisions. Based on `9d366717a`, this plan addresses findings 1, 2 and 4 in the [RPC usage analysis](2026-10-23-rpc-request-count-decrease-analysis.md), tracked by [PR #1650](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1650).
+Status: **Implemented; focused checks passed, deployment validation pending, 2026-10-23.** See the [validation results](2026-10-23-rpc-request-count-decrease-validation.md), including HyperEVM's partial failure and the unmeasured full-chain duration. Earlier reviews are recorded in the [review history](2026-10-23-rpc-request-count-decrease-review.md); their verdicts apply to those revisions. Based on `9d366717a`, this plan addresses findings 1, 2 and 4 in the [RPC usage analysis](2026-10-23-rpc-request-count-decrease-analysis.md), tracked by [PR #1650](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1650).
 
 ## Scope and order
 
@@ -18,7 +18,7 @@ Preserve sampling policy, protocol economics, unavailable-data handling and save
 
 `read_multicall_historical_stateful()` selects several blocks before yielding results. Reader timestamps advance only when the caller processes those results, so a due daily/weekly reader can be selected repeatedly within the buffer.
 
-- Add concrete `BatchCallState.requires_result_feedback() -> bool`, defaulting to `False`. `VaultReaderState` returns `True` for a first observation, unknown TVL, or a polymorphic `get_frequency()` interval greater than one hour. Existing disabled-state and subclass policies continue to apply.
+- Add concrete `BatchCallState.requires_result_feedback() -> bool`, defaulting to `False`. `VaultReaderState` requests feedback for a first observation or a polymorphic `get_frequency()` interval greater than one hour. A run-local observation marker suppresses repeated requests when failed feedback leaves progress unchanged; it is not persisted and never advances reader progress. Unknown TVL retains its existing hourly buffering after the first attempt. Existing disabled-state and subclass policies continue to apply.
 - Collect all accepted methods for one block. If any accepted state requires feedback, flush the buffer and yield complete ordered block results before selecting the next block. The real `VaultHistoricalReadMulticaller` consumer already processes/restores all reader states before pulling the next combined result; preserve and document that contract.
 - Keep normal buffering for established hourly readers. Preserve the existing `loky` process backend and reusable worker pool. Do not change concurrency architecture or persist speculative reader progress. A failed observation remains eligible under the existing failure policy.
 - Validate positive scheduling `chunk_size` and use `>=` for the buffer ceiling. This parameter counts block tasks, independently of physical Multicall size and Parquet row buffering. Keep owned-resource cleanup correct when touching the generator.

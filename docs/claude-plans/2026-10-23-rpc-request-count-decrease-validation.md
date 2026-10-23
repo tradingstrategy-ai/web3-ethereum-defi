@@ -4,7 +4,7 @@ Date: 2026-10-23 UTC. These are local manual checks, not CI or production measur
 
 ## Focused regression checks
 
-Python 3.14.6 with the existing parent Poetry environment, importing this worktree. The following passed **132 tests**, including request budgets, reader scheduling, metadata recovery, HyperEVM isolation, timestamps, freshness and existing-row preservation:
+Python 3.14.6 with the existing parent Poetry environment, importing this worktree. The final run passed **135 tests**, including request budgets, reader scheduling, metadata recovery, HyperEVM isolation, timestamps, freshness and existing-row preservation:
 
 ```shell
 source .local-test.env
@@ -12,6 +12,13 @@ timeout 180 poetry run pytest tests/event_reader/test_multicall_batcher.py tests
 ```
 
 Formatting and whitespace checks passed. No Sphinx build was run. Recording-transport tests verify the 1,000-subcall budget of 25 requests at size 40 versus 10 at size 100, worker reuse, explicit lower limits and cold-cache warmup limits.
+
+The final review added coverage for an hourly cohort plus two readers that never
+advance, and two that advance source time without TVL. Both cases dispatch buffers
+of 1, 48 and 1 blocks over 50 slots, rather than 50 single-block flushes. A
+separate test drives the real historical consumer and scheduler together: a
+daily reader receives one observation across nine hourly slots. The feedback
+request marker is transient and excluded from persisted progress.
 
 ## Real-provider metadata parity
 
@@ -49,7 +56,11 @@ Rows, numeric values and reader progress matched exactly between sizes. Independ
 
 Both runs recorded **22 physical RPC attempts**, including preparation and direct verification; the cohort does not fill 100 subcalls. The 100-call run took 2.06 seconds. The 40-call run took 59.43 seconds because Hypersync returned its 15-request rate limit during timestamp collection; the existing bounded backoff waited and recovered. This is not evidence that batch size 100 made historical execution faster. JSON-RPC provider domains were `arb-mainnet.g.alchemy.com`, `edge.goldsky.com` and `lb.drpc.org`.
 
-The initial smoke-check implementation was corrected to read the existing Parquet `chain` column and to validate the reader's `convertToAssets` price instead of the different assets/supply helper. The passing results above were produced after those corrections.
+After fixing the review's unchanged-feedback finding, both exact-range commands
+passed again at 14:21–14:22 UTC. Size 100 used 22 attempts in 2.08 seconds; size
+40 used 22 attempts in 2.13 seconds, without transport errors. Rows, economics
+and reader progress remained identical. The timing above records the earlier
+rate-limited run; neither small-cohort comparison establishes fleet throughput.
 
 ## Real full-batch comparison
 
@@ -62,14 +73,14 @@ Passed on Arbitrum block **517,522,497**, using 26 distinct targets read from th
 
 ## Scheduling throughput limit
 
-An offline comparison ran the baseline scheduler from `9d366717a` and the new generator on the same staggered states, holding physical size at 100. The cohort had 100 hourly and 1,000 daily readers, with four methods each. Simulated requests cost three milliseconds and used eight dispatch slots; this models latency rather than running real providers or measuring process startup/serialisation.
+An offline comparison, repeated after the code-review fixes, ran the baseline scheduler from `9d366717a` and the new generator on the same staggered states, holding physical size at 100. The cohort had 100 hourly and 1,000 daily readers, with four methods each. Simulated requests cost three milliseconds and used eight dispatch slots; this models latency rather than running real providers or measuring process startup/serialisation.
 
 | Hourly slots | Baseline modelled requests | Feedback modelled requests | Baseline elapsed | Feedback elapsed |
 |---|---:|---:|---:|---:|
-| 9 | 114 | 54 | 0.143 s | 0.258 s |
-| 50 | 1,711 | 300 | 1.188 s | 1.462 s |
+| 9 | 114 | 54 | 0.141 s | 0.267 s |
+| 50 | 1,711 | 300 | 1.147 s | 1.327 s |
 
-A second run replaced 50 daily readers with permanently unknown-TVL readers. At nine slots, modelled requests fell from 130 to 72 while elapsed time rose from 0.151 to 0.326 seconds; at 50 slots, requests fell from 1,738 to 400 while elapsed rose from 1.181 to 1.746 seconds.
+A second run replaced 50 daily readers with permanently unknown-TVL readers. At nine slots, modelled requests fell from 130 to 72 while elapsed time rose from 0.148 to 0.317 seconds; at 50 slots, requests fell from 1,738 to 400 while elapsed rose from 1.223 to 1.812 seconds.
 
 The feedback barrier saves requests but can increase elapsed time by removing cross-block parallelism. A real full-chain duration and production refresh-cycle comparison remain deployment observations. No fixed slowdown threshold, production speedup or global savings percentage is claimed.
 

@@ -4142,7 +4142,8 @@ PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" RPC_PARITY_CHECK=true \
   poetry run python scripts/erc-4626/check-rpc-batch-parity.py
 ```
 
-A successful run logs `PASS` for all three products and the block number.
+A successful run logs `PASS` and the source block for all selected targets
+(six across Ethereum, Arbitrum and Base by default).
 The transport-level unit tests separately assert that 40 ordinary TVLs require
 one physical `eth_call`, with equal values and no timestamp requests.
 

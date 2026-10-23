@@ -116,15 +116,16 @@ def test_vault_reader_state_unknown_conversion_cannot_certify_tvl() -> None:
 
 
 def test_feedback_follows_adaptive_cadence() -> None:
-    """Request completed results for first, unknown and low-frequency reads.
+    """Request completed results for first and low-frequency reads.
 
     Hourly readers retain buffering; a weekly reader that recovers can opt out
     immediately after its result changes the policy.
     """
     state = VaultReaderState(DummyVault(VaultSpec(1, "0x" + "1" * 40), DummyDenominationToken("USDC")))
     assert state.requires_result_feedback()
+    assert not state.requires_result_feedback(), "Unchanged failures must not repeatedly drain the buffer"
     state.last_call_at = datetime.datetime(2026, 1, 1)
-    assert state.requires_result_feedback()
+    assert not state.requires_result_feedback(), "Unknown TVL retains its hourly cadence"
     state.last_tvl = Decimal(1500)
     assert state.requires_result_feedback()
     state.last_tvl = Decimal(50_000)

@@ -153,8 +153,10 @@ failure as a deterministic contract failure.
 
 ### Buffered scheduling feedback
 
-Daily and weekly readers, first observations and unknown TVL drain the current
-block-task buffer before the next block is selected. The historical consumer
-processes each complete block before advancing the generator, so dispatch never
-counts as saved reader progress. Established hourly readers retain buffering
-and the existing process-worker backend.
+Daily and weekly readers and first observations drain the current block-task
+buffer before the next block is selected. A run-local marker suppresses another
+feedback request while the reader's observation is unchanged: a permanently
+failed reader cannot serialise every sampled block. Unknown TVL retains its
+hourly buffering after the first attempt. The historical consumer processes each
+complete block before advancing the generator; neither dispatch nor the marker
+counts as saved progress. The existing process-worker backend is unchanged.
