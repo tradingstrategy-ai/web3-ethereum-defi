@@ -128,3 +128,31 @@ same 35 attempts and the same scaling symptom. The manual harness was then
 strengthened to log denomination/share metadata and fail on unavailable decimals;
 the second run above is the authoritative result, rather than a false pass from
 checking only finite numbers.
+
+## CI compatibility follow-up
+
+The first CI run exposed deterministic assertion/API failures, not transient
+provider failures. They were reproduced locally before applying corrections:
+
+- The stateful Base integration still expected 75 buffered duplicate reads for
+  its zero-TVL daily reader. The 112-hourly-slot range correctly produces five
+  daily observations with result feedback. Other economic/row assertions pass.
+- Mellow's fee-assembly override lacked the newly optional source-block argument.
+  It now accepts an explicit block while preserving its configured metadata
+  block for no-argument calls. Three offline cases cover omitted, latest and
+  numeric blocks, and the existing real fork test compares explicit-block fees.
+- The current `master` was merged so local tests use the same manual flags as
+  GitHub's merge commit. [PR #1649](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1649)
+  made YieldNest RWA MAX illiquid, so its three clock scenarios must expect
+  blacklisted risk, independently of historical fork time.
+
+The following focused checks passed locally on 2026-10-23 UTC: **23 tests** in
+25.46 seconds, plus **one real Mellow fork integration** in 0.94 seconds. They
+used the supplied local environment and existing shared fixed-fork cache; no
+production scanner state was changed.
+
+```shell
+source .local-test.env
+timeout 180 poetry run pytest tests/mellow/test_mellow_classification.py tests/erc_4626/test_4626_historical_data.py::test_4626_historical_vault_data_stateful tests/erc_4626/vault_protocol/test_yieldnest.py::test_yieldnest_ynrwax_metadata -q --tb=short
+timeout 180 poetry run pytest tests/erc_4626/vault_protocol/test_mellow.py::test_mellow_lido_earn_usd -q --tb=short
+```

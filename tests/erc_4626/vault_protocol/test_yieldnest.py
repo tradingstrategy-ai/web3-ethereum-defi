@@ -108,7 +108,8 @@ def test_yieldnest_ynrwax_metadata(web3: Web3, monkeypatch: pytest.MonkeyPatch, 
 
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
-    assert vault.get_risk() is VaultTechnicalRisk.low
+    # The manual illiquidity flag from PR #1649 applies independently of fork time.
+    assert vault.get_risk() is VaultTechnicalRisk.blacklisted
 
     monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.yieldnest.vault.native_datetime_utc_now", lambda: now)
     assert vault.get_estimated_lock_up() == expected_lock_up

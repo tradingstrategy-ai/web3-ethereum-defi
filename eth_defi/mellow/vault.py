@@ -685,7 +685,7 @@ class MellowVault(VaultBase):
             min_price_d18=int(min_price_d18),
         )
 
-    def get_fee_data(self) -> FeeData:
+    def get_fee_data(self, block_identifier: BlockIdentifier | None = None) -> FeeData:
         """Return Mellow fee data.
 
         Mellow fees are configured through ``FeeManager`` as D6 rates and paid
@@ -694,11 +694,14 @@ class MellowVault(VaultBase):
         the performance-fee field, while deposit and redeem D6 rates map to the
         shared deposit and withdraw fee fields.
 
+        :param block_identifier:
+            Explicit source block or tag. Omit to retain the adapter's configured
+            metadata block, falling back to ``latest`` when none is configured.
         :return:
             Fee data, or ``BROKEN_FEE_DATA`` if the FeeManager cannot be read.
         """
 
-        fee_configuration = self.fetch_fee_configuration(self._get_block_identifier())
+        fee_configuration = self.fetch_fee_configuration(self._get_block_identifier() if block_identifier is None else block_identifier)
         if fee_configuration is None:
             return BROKEN_FEE_DATA
 
