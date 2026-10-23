@@ -16,7 +16,6 @@ from web3.types import BlockIdentifier
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
-from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -29,6 +28,7 @@ from eth_defi.vault.base import VaultBase, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
+from eth_defi.vault.rpc_batch import is_metadata_snapshot_compatible
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
 
 logger = logging.getLogger(__name__)
@@ -435,7 +435,7 @@ def create_vault_scan_record(
         # Probably not ERC-4626
         return empty_record
 
-    if isinstance(vault, ERC4626Vault) and metadata_snapshot and metadata_snapshot.get("block") == block_identifier:
+    if metadata_snapshot and is_metadata_snapshot_compatible(vault, metadata_snapshot, block_identifier):
         # Attach observations only at the source block used to construct the
         # adapter. Each consuming method still guards its own requested block;
         # specialised methods are free to bypass these ordinary raw inputs.
@@ -443,7 +443,7 @@ def create_vault_scan_record(
 
     try:
         try:
-            fees = vault.get_fee_data()
+            fees = vault.get_fee_data(block_identifier=block_identifier) if type(vault) in (MorphoV1Vault, MorphoV2Vault) and type(vault).get_fee_data is VaultBase.get_fee_data else vault.get_fee_data()
         except (NotImplementedError, ValueError):
             fees = BROKEN_FEE_DATA
 

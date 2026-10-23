@@ -22,7 +22,7 @@ from web3.contract.contract import ContractFunction, ContractFunctions
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
@@ -1055,6 +1055,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         max_workers=8,
         block_identifier="latest",
         checkpoint: int = 32,
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     ) -> TokenCacheWarmupResult:
         """Populate the shared token cache with bounded concurrent Multicalls.
 
@@ -1068,6 +1069,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         :param display_progress: Whether to display warmup progress.
         :param max_workers: Maximum threaded request concurrency.
         :param block_identifier: Source block for uncached metadata reads.
+        :param batch_size: Regular encoded-subcall limit, including cold-cache reads.
         :param checkpoint: Number of entries between cache syncs.
         :return: Token and encoded-subcall counts as a TokenCacheWarmupResult.
         """
@@ -1098,6 +1100,8 @@ class TokenDiskCache(PersistentKeyValueStore):
             block_identifier=block_identifier,
             progress_bar_desc=progress_bar_desc,
             max_workers=max_workers,
+            chunk_size=batch_size,
+            batch_size=batch_size,
             timestamped_results=False,
             backend="threading",
         ):

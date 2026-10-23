@@ -10,10 +10,10 @@ from unittest.mock import MagicMock
 import pytest
 from web3 import HTTPProvider, Web3
 
-from eth_defi.event_reader import multicall_batcher
 from eth_defi.erc_4626.vault import VaultReaderState
-from eth_defi.vault.base import VaultSpec
+from eth_defi.event_reader import multicall_batcher
 from eth_defi.provider.rpcdb import RPCRequestStats
+from eth_defi.vault.base import VaultSpec
 
 ParallelExecutor = Callable[[Iterable[object]], Iterator[object]]
 HTTP_OK = 200

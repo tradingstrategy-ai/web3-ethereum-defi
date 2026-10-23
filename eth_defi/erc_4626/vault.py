@@ -1508,6 +1508,33 @@ class ERC4626Vault(VaultBase):
         vault_info = self.fetch_vault_info()
         return vault_info
 
+    def _get_metadata_snapshot(self, block_identifier: BlockIdentifier) -> dict:
+        """Return optional inputs only when all observation identities match.
+
+        Enriched inputs must not replace an explicit latest read or inputs for
+        a different adapter, chain, vault or block.
+
+        :param block_identifier: Exact requested source block.
+        :return: Validated input mapping, or an empty mapping for direct fallback.
+        """
+        snapshot = getattr(self, "_rpc_metadata_snapshot", {})
+        if snapshot.get("block") == block_identifier and snapshot.get("chain") == self.chain_id and snapshot.get("vault") == self.address.lower() and snapshot.get("adapter") == type(self).__name__:
+            return snapshot
+        return {}
+
+    def _get_metadata_input(self, function: str, block_identifier: BlockIdentifier) -> bytes | None:
+        """Read one validated ABI word from optional prepared metadata.
+
+        Absent or malformed fields fall back to the adapter's direct getter.
+        Served reverts are handled separately for optional probes.
+
+        :param function: Prepared raw field name.
+        :param block_identifier: Exact requested source block.
+        :return: One complete ABI word, or None for direct fallback.
+        """
+        value = self._get_metadata_snapshot(block_identifier).get(function)
+        return value if isinstance(value, bytes) and len(value) == 32 else None
+
     def fetch_idle_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
         """Read the idle balance once for adapters with idle-based utilisation.
 
@@ -1538,7 +1565,12 @@ class ERC4626Vault(VaultBase):
             # Public callers may supply a TVL without a prior adapter read.
             # Scanner metadata always uses the observed raw integer above.
             total_raw = token.convert_to_raw(total_assets)
-        idle_raw = token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+        snapshot = self._get_metadata_snapshot(block_identifier)
+        idle = self._get_metadata_input("idle_balance", block_identifier)
+        if idle is not None and snapshot.get("idle_token") == token.address.lower():
+            idle_raw = int.from_bytes(idle, "big")
+        else:
+            idle_raw = token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
         return token.convert_to_decimals(idle_raw), (total_raw - idle_raw) / total_raw if total_raw else 0.0
 
     def fetch_nav(self, block_identifier=None) -> Decimal:
@@ -1737,15 +1769,19 @@ class ERC4626Vault(VaultBase):
             extra_data=None,
         )
         try:
-            result = paused_call.call(
-                self.web3,
-                block_identifier=block_identifier,
-                silent_error=True,
-                ignore_error=True,
-                attempts=2,
-                retry_sleep=1.0,
-                retry_exceptions={ReadTimeout},
-            )
+            result = self._get_metadata_input("paused", block_identifier)
+            if result is None and self._get_metadata_snapshot(block_identifier).get("paused_reverted"):
+                result = bytes(32)
+            if result is None:
+                result = paused_call.call(
+                    self.web3,
+                    block_identifier=block_identifier,
+                    silent_error=True,
+                    ignore_error=True,
+                    attempts=2,
+                    retry_sleep=1.0,
+                    retry_exceptions={ReadTimeout},
+                )
             paused = convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             paused = False

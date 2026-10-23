@@ -320,7 +320,9 @@ class MorphoV1Vault(ERC4626Vault):
             },
         )
         try:
-            data = fee_call.call(self.web3, block_identifier)
+            data = self._get_metadata_input("fee", block_identifier)
+            if data is None:
+                data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
             logger.info(
                 "Performance read reverted on Morpho V1 vault %s: %s",

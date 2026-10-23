@@ -64,6 +64,25 @@ logger = logging.getLogger(__name__)
 #: positional ABI arguments, before encoding the Multicall payload.
 CallData: TypeAlias = tuple[str | HexAddress, tuple]
 
+#: Maximum regular encoded subcalls per request; scanner callers can override it.
+DEFAULT_MULTICALL_BATCH_SIZE: Final[int] = 40
+
+
+def get_multicall_batch_size_from_env() -> int:
+    """Read the scanner's regular payload limit.
+
+    A smaller explicit value provides a deployment rollback without changing
+    catalogue, token caches or reader state.
+
+    :return: Positive limit from ``MULTICALL_BATCH_SIZE`` or the shared default.
+    :raises ValueError: If the supplied value is not a positive integer.
+    """
+    size = int(os.environ.get("MULTICALL_BATCH_SIZE", DEFAULT_MULTICALL_BATCH_SIZE))
+    if size <= 0:
+        raise ValueError("MULTICALL_BATCH_SIZE must be positive")
+    return size
+
+
 #: Default Multicall3 address
 MULTICALL_DEPLOY_ADDRESS: Final[str] = "0xca11bde05977b3631167028862be2a173976ca11"
 
@@ -1321,7 +1340,7 @@ class MultiprocessMulticallReader:
     def __init__(
         self,
         web3factory: Web3Factory | Web3,
-        batch_size: int = 40,
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
         backswitch_threshold: int = 100,
         rate_limit_sleep: float = 61.0,
         rpc_request_stats: RPCRequestStats | None = None,
@@ -1434,7 +1453,7 @@ class MultiprocessMulticallReader:
         :return: Positive maximum encoded subcalls per normal request.
         """
 
-        return 16 if chain_id in (5000, 100) else self.batch_size
+        return min(self.batch_size, 16) if chain_id in (5000, 100) else min(self.batch_size, 40) if chain_id == 999 else self.batch_size
 
     def fetch_multicall_with_batch_size(
         self,
@@ -2014,6 +2033,7 @@ def read_multicall_historical(
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch stateless historical samples with process-local Multicall workers.
 
@@ -2022,6 +2042,7 @@ def read_multicall_historical(
     to avoid one header RPC per task. Isolation follows the caller-supplied target list
     without altering the requested source block.
 
+    :param batch_size: Positive regular encoded-subcall limit per physical request.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2147,6 +2168,7 @@ def read_multicall_historical(
                 calls_pickle_friendly,
                 timestamp=timestamps[block_number] if timestamps is not None else None,
                 require_multicall_result=require_multicall_result,
+                batch_size=batch_size,
                 greylist_batch_size=greylist_batch_size,
                 greylist=greylist,
                 allow_greylist_unavailable=allow_greylist_unavailable,
@@ -2204,6 +2226,7 @@ def read_multicall_historical_stateful(
     greylist_batch_size: int = 1,
     allow_greylist_unavailable: bool = False,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> Iterator[CombinedEncodedCallResult]:
     """Fetch historical samples with adaptive scheduling and bounded state feedback.
 
@@ -2212,6 +2235,7 @@ def read_multicall_historical_stateful(
     next chunk is scheduled. This balances parallel reads against the need to
     update TVL, errors and polling frequency from completed source observations.
 
+    :param batch_size: Positive regular encoded-subcall limit per physical request.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2367,6 +2391,7 @@ def read_multicall_historical_stateful(
                 accepted_calls,
                 timestamp=timestamp,
                 require_multicall_result=require_multicall_result,
+                batch_size=batch_size,
                 greylist_batch_size=greylist_batch_size,
                 greylist=greylist,
                 allow_greylist_unavailable=allow_greylist_unavailable,
@@ -2423,7 +2448,7 @@ def read_multicall_chunked(
     block_identifier: BlockIdentifier,
     max_workers=8,
     timeout=1800,
-    chunk_size: int = 40,
+    chunk_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     progress_bar_desc: str | None = None,
     timestamped_results=True,
     backend="loky",
@@ -2431,6 +2456,7 @@ def read_multicall_chunked(
     refresh_current_block: bool = False,
     greylist_batch_size: int = 1,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -2493,6 +2519,7 @@ def read_multicall_chunked(
                 addr_to_balance[token_address] = value
 
 
+    :param batch_size: Positive regular encoded-subcall limit per physical request.
     :param greylist:
         Caller-selected target addresses for this chain, matched case-insensitively.
         Defaults to empty: readers never import or select chain-specific policies.
@@ -2557,6 +2584,9 @@ def read_multicall_chunked(
     if max_workers == 1:
         timeout = None  # No timeout for single process
 
+    if chunk_size <= 0 or batch_size <= 0:
+        raise ValueError("chunk_size and batch_size must be positive")
+
     worker_processor = Parallel(
         n_jobs=max_workers,
         backend=backend,
@@ -2593,6 +2623,7 @@ def read_multicall_chunked(
                 block_identifier,
                 chunk,
                 timestamp=ts,
+                batch_size=batch_size,
                 greylist_batch_size=greylist_batch_size,
                 greylist=greylist,
                 collect_rpc_request_stats=backend == "loky" and rpc_request_stats is not None,
@@ -2690,6 +2721,9 @@ class MulticallHistoricalTask:
     #: Included in worker identity so policy changes cannot reuse stale routing.
     greylist: frozenset[HexAddress] = frozenset()
 
+    #: Regular physical payload limit, part of worker connection identity.
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE
+
     #: Refresh a safe numeric head per batch for current-state feature probes.
     refresh_current_block: bool = False
 
@@ -2740,12 +2774,13 @@ def _execute_multicall_in_worker(
     # lower-case greylisted targets). A reused worker must retain neither a
     # previous limit nor a different caller's address-specific routing policy.
     greylist = frozenset(HexAddress(address.lower()) for address in task.greylist)
-    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size, greylist)
+    reader_key = (task.chain_id, getattr(task.web3factory, "rpc_url", task.web3factory), task.greylist_batch_size, greylist, task.batch_size)
     reader = per_chain_readers.get(reader_key)
     if reader is None:
         reader = per_chain_readers[reader_key] = MultiprocessMulticallReader(
             task.web3factory,
             rpc_request_stats=task_rpc_request_stats,
+            batch_size=task.batch_size,
             greylist_batch_size=task.greylist_batch_size,
             greylist=greylist,
         )
