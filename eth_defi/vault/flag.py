@@ -531,14 +531,8 @@ PROTOCOL_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "Summer.fi": (VaultFlag.illiquid, SUMMER_FI_ILLIQUID),
 }
 
-YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
-
-Fees: 0%.
-
-Fixed Maturity Date: 15 Oct, 2026.
-
-Although the vault has long lock up matching the duration of the underlying real-world asset instrument, [the share token can be traded against the secondary liquidity available at Curve DEX](https://www.curve.finance/dex/ethereum/pools/factory-stable-ng-650/swap).
-"""
+#: YieldNest RWA MAX collateral liquidation warning.
+YIELDNEST_YNRWAX = "The vault is currently ongoing of collateral liquidation process which may take long time. Do not deposit."
 
 ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
 
@@ -813,8 +807,16 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # and StablR USDR), so it is no longer caught by the USDR depeg blacklist now that
     # USDR is matched by contract only. Keep it suppressed via a manual flag.
     "0x3839a0dd920463eb5d8231efe4d8c5edc44145ec": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
-    # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
-    "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
+    # YieldNest RWA MAX (ynRWAx) on Ethereum, protocol and curator YieldNest.
+    # Updated 2026-10-23 following a user report that collateral liquidation is
+    # ongoing and may take a long time. Flagged illiquid at the user's request
+    # to exclude it from investable vaults and warn against further deposits.
+    # The liquidation information is user-reported; no independent incident
+    # report was supplied. Replaces the earlier fixed-maturity and liquidity note.
+    #
+    # - https://tradingstrategy.ai/vaults/yieldnest-rwa-max
+    # - https://etherscan.io/address/0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8
+    "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (VaultFlag.illiquid, YIELDNEST_YNRWAX),
     # Supply USDC on ZeroLend RWA Market
     "0x887d57a509070a0843c6418eb5cffc090dcbbe95": (VaultFlag.illiquid, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
     # Re7 USDC (Euler on Sonic)
