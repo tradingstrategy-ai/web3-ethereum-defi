@@ -22,3 +22,9 @@ Claude CLI used the explicitly requested `claude-opus-5-5` model for a grounded 
 The final focused verdict was **no actionable correctness issues; the previous minor finding is resolved**. The reviewed implementation Python diff from `9d366717a` has SHA-256 `c0d78118e21c0d0e0f2733ee9d70acd651462065ef86c5994217258efe53df76`.
 
 The primary agent's final focused run passed 135 tests, and both bounded Arbitrum scans passed again after the unchanged-feedback fix. Full-chain scan duration and production refresh-cycle savings remain unverified. HYPED's existing native-HYPE metadata failure remains recorded as a failed manual validation, not a pass. See the validation results for commands, measurements and limits.
+
+Subsequent CI compatibility corrections are outside the reviewed Python diff
+above: Mellow's fee override now accepts the optional block, and integration
+assertions reflect reduced polling and the current YieldNest illiquidity flag.
+The validation record documents their local reproduction and the passing
+23-test follow-up plus the real Mellow fork check.
