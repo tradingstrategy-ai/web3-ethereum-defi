@@ -2,11 +2,27 @@
 
 import pytest
 
-from eth_defi.gmx.freqtrade.sensitive_filter import patch_logging
+from eth_defi.gmx.freqtrade.sensitive_filter import is_logging_patched, patch_logging, unpatch_logging
 
+_logging_was_patched = is_logging_patched()
 patch_logging()
 
-from eth_defi.gmx.ccxt.exchange import GMX  # ruff: ignore[E402]
+from eth_defi.gmx.ccxt.exchange import GMX  # ruff: ignore[module-import-not-at-top-of-file]
+
+if not _logging_was_patched:
+    unpatch_logging()
+
+
+@pytest.fixture(autouse=True)
+def scoped_sensitive_logging():
+    """Keep redaction scoped so collection cannot change unrelated log tests."""
+    already_patched = is_logging_patched()
+    patch_logging()
+    try:
+        yield
+    finally:
+        if not already_patched:
+            unpatch_logging()
 
 
 @pytest.mark.parametrize("prices", [[100, 102, 99, 101], ["100", "102", "99", "101"]])
