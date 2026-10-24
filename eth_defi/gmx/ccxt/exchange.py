@@ -5649,7 +5649,7 @@ class GMX(ExchangeCompatible):
             float(ohlcv[2]),  # High
             float(ohlcv[3]),  # Low
             float(ohlcv[4]),  # Close
-            1.0,  # Volume (GMX doesn't provide volume data, use dummy value to avoid Freqtrade filtering)
+            0.0,  # Oracle candles have no native volume; keep trade/proxy volume separate.
         ]
 
     def parse_timeframe(self, timeframe: str) -> int:
