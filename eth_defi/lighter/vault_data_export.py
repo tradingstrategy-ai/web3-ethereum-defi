@@ -51,6 +51,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -148,6 +149,7 @@ def create_lighter_pool_row(
     """
     address = deployment.format_pool_address(account_index)
     chain_id = deployment.chain_id
+    handwritten_metadata = get_handwritten_vault_metadata(chain_id, address)
 
     # LLP is the canonical protocol pool on every Lighter deployment. The API
     # returns the same name for Ethereum and Robinhood, but vault slugs derive
@@ -214,8 +216,8 @@ def create_lighter_pool_row(
         "_flags": flags,
         "_strategy_tags": get_strategy_tags(address),
         "_lockup": deployment.lockup,
-        "_description": description,
-        "_short_description": description.split(".")[0].strip() + "." if description else None,
+        "_description": handwritten_metadata.description if handwritten_metadata else description,
+        "_short_description": handwritten_metadata.short_description if handwritten_metadata else (description.split(".")[0].strip() + "." if description else None),
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": deposit_closed_reason,

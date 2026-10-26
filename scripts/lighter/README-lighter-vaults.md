@@ -36,6 +36,21 @@ No Lighter-specific Parquet or JSON transformation is used.
 - [API reference (Swagger)](https://apidocs.lighter.xyz/)
 - [DeFi Llama](https://defillama.com/protocol/lighter-perps)
 
+## Centaur curator metadata
+
+The six [Centaur-operated pools](https://docs.centaur.io/strategies/lighter-pools/overview)
+use reviewed descriptions from `eth_defi/vault/handwritten_metadata.py`,
+address-specific curator attribution and maintained strategy tags. Their
+synthetic addresses use the Ethereum prefix `lighter-pool-`; Robinhood pools
+with the same account indices do not inherit these overrides.
+
+After deployment, the next normal Ethereum Lighter scan and metadata merge
+refreshes existing vault descriptions and tags. The normal vault analysis and
+curator metadata exports then publish the changes and logo assets. No bespoke
+schema migration or historical price backfill is needed. At onboarding on
+2026-10-26, all six pools met the default minimum TVL of $1,000 and were within
+the default 200-pool scan limit; existing scan and website filters still apply.
+
 ## Architecture
 
 ```
