@@ -19,7 +19,7 @@ from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 26
-EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 233
+EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
