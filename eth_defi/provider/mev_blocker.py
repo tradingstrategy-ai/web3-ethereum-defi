@@ -23,6 +23,7 @@ from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.provider.named import BaseNamedProvider
+from eth_defi.rpc_url import register_rpc_url
 
 #: List of RPC methods that execution transactions
 #:
@@ -48,6 +49,10 @@ class MEVBlockerProvider(BaseNamedProvider):
         transact_methods=TRANSACT_METHODS,
     ):
         super().__init__()
+        for provider in (call_provider, transact_provider):
+            endpoint = getattr(provider, "endpoint_uri", None)
+            if isinstance(endpoint, str):
+                register_rpc_url(endpoint)
         self.call_provider = call_provider
         self.transact_provider = transact_provider
         self.transact_methods = transact_methods

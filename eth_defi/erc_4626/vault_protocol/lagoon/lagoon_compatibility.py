@@ -4,28 +4,26 @@ import datetime
 import logging
 import pickle
 import textwrap
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from pprint import pformat
 from statistics import mean
 
 from atomicwrites import atomic_write
-
+from eth_typing import HexAddress
+from tqdm_loggable.auto import tqdm
 from web3 import Web3
 from web3.contract.contract import ContractFunction
-from eth_typing import HexAddress
-
-from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
-from eth_defi.provider.anvil import mine, launch_anvil, set_balance
+from eth_defi.provider.anvil import launch_anvil, mine, set_balance
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details, is_stablecoin_like
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
+from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.trade import TradeSuccess
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
@@ -34,7 +32,6 @@ from eth_defi.uniswap_v2.liquidity import get_liquidity
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import VaultSpec
 from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
-
 
 logger = logging.getLogger(__name__)
 
@@ -464,7 +461,7 @@ def check_lagoon_compatibility_with_database(
         # Normal path
         json_rpc_url = provider.endpoint_uri
 
-    assert " " not in json_rpc_url, f"JSON-RPC URL must not contain spaces: {json_rpc_url}, provider is {provider}"
+    assert " " not in json_rpc_url, "JSON-RPC URL must contain a single endpoint"
 
     database = None
     if database_file.exists():

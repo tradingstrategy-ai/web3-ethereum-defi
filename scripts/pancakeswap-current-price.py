@@ -1,10 +1,11 @@
 # Get the current BNB/BUSD price on PancakeSwap
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.uniswap_v2.pair import fetch_pair_details
 
-web3 = Web3(HTTPProvider("https://bsc-dataseed.bnbchain.org"))
+web3 = Web3(create_http_provider("https://bsc-dataseed.bnbchain.org"))
 
 print(f"Connected to chain {web3.eth.chain_id}")
 

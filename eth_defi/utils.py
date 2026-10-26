@@ -11,13 +11,14 @@ from contextlib import contextmanager
 from itertools import islice
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
 
 import psutil
 from eth_typing import HexAddress, HexStr
 from filelock import FileLock
 
 from eth_defi.coloured_logging import setup_console_logging as setup_console_logging
+from eth_defi.rpc_url import get_url_domain as get_url_domain
+from eth_defi.rpc_url import redact_rpc_urls
 
 logger = logging.getLogger(__name__)
 
@@ -177,20 +178,23 @@ def shutdown_hard(
         for line in process.stdout.readlines():
             stdout += line
             if log_level is not None:
-                logger._log(log_level, "stdout: %s", line.decode("utf-8").strip())
+                logger.log(log_level, "stdout: %s", redact_rpc_urls(line.decode("utf-8", errors="replace").strip()))
         process.stdout.close()
 
     if process.stderr is not None and not process.stderr.closed:
         for line in process.stderr.readlines():
             stderr += line
             if log_level is not None:
-                logger._log(log_level, "stderr: %s", line.decode("utf-8").strip())
+                logger.log(log_level, "stderr: %s", redact_rpc_urls(line.decode("utf-8", errors="replace").strip()))
         process.stderr.close()
 
     # Wait for the process to terminate to avoid ResourceWarning about
     # subprocess still running. Do this after reading stdout/stderr.
     if process.poll() is None:
         process.wait()
+
+    for thread in vars(process).get("_rpc_output_threads", ()):
+        thread.join(timeout=block_timeout)
 
     if block:
         assert check_port is not None, "Give check_port to block the execution"
@@ -240,27 +244,6 @@ def from_unix_timestamp(timestamp: float) -> datetime.datetime:
     """
     assert type(timestamp) in (int, float), f"Got {type(timestamp)}: {timestamp}"
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
-
-
-def get_url_domain(url: str) -> str:
-    """Redact URL so that only domain is displayed.
-
-    Some services e.g. infura use path as an API key.
-
-    .. note::
-
-        Unlike other secrets, JSON-RPC API keys are **not** security critical:
-        they only meter/authorise read access to public blockchain data, so an
-        accidental exposure (e.g. a key leaking into a CI log via a raw
-        exception message) does no real harm. It should still be avoided —
-        prefer this redaction when logging provider URLs — but it is not an
-        incident on the level of a leaked private key or database credential.
-    """
-    parsed = urlparse(url)
-    if parsed.port in (80, 443, None):
-        return parsed.hostname
-    else:
-        return f"{parsed.hostname}:{parsed.port}"
 
 
 def chunked(iterable, chunk_size):

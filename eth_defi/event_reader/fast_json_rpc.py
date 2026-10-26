@@ -16,6 +16,7 @@ from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.compat import get_response_from_post_request, sessions
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ def _fast_decode_rpc_response(raw_response: bytes) -> RPCResponse:
 def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     """Add response headers logging in case of exception raised."""
 
+    register_rpc_url(str(self.endpoint_uri))
     request_data = self.encode_rpc_request(method, params)
 
     # Clear the last headers
@@ -68,7 +70,7 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         )
     except Exception as e:
         # Low level network error like ConnectionErro
-        last_headers_storage.headers = {"exception": str(e), "method": method, "endpoint_uri": get_url_domain(self.endpoint_uri)}
+        last_headers_storage.headers = {"exception": redact_rpc_urls(str(e)), "method": method, "endpoint_uri": get_url_domain(self.endpoint_uri)}
         raise
 
     counter = getattr(last_headers_storage, "counter", 0)

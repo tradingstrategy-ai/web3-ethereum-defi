@@ -58,8 +58,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from tabulate import tabulate
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 
 logger = logging.getLogger(__name__)
@@ -179,7 +180,7 @@ def _run_worker(
             launch_wait_seconds=20,
         )
 
-        web3 = Web3(HTTPProvider(launch.json_rpc_url, request_kwargs={"timeout": 3}))
+        web3 = Web3(create_http_provider(launch.json_rpc_url, request_kwargs={"timeout": 3}))
         chain_id = web3.eth.chain_id
         if chain_id != EXPECTED_CHAIN_ID:
             raise RuntimeError(

@@ -276,7 +276,7 @@ def wait_transactions_to_complete(
                 provider.switch_provider()
                 next_node_switch = native_datetime_utc_now() + node_switch_timeout
             else:
-                logger.warning("TX confirmation takes long time. No alternative node available: %s", web3.provider)
+                logger.warning("TX confirmation takes long time. No alternative node available: %s", get_provider_name(web3.provider))
 
     return receipts_received
 
@@ -989,8 +989,8 @@ def wait_and_broadcast_multiple_nodes(
         providers = [transact_provider]
         logger.info(
             "MEV blocking enabled.\nBroadcast only through: %s\nAll providers: %s",
-            providers,
-            all_providers,
+            [get_provider_name(p) for p in providers],
+            [get_provider_name(p) for p in all_providers],
         )
     else:
         logger.info("No MEV blocker enable, Anvil is %s", anviled)
@@ -1169,18 +1169,18 @@ def wait_and_broadcast_multiple_nodes(
 
         if native_datetime_utc_now() >= next_node_switch:
             if transact_provider:
-                logger.info(f"Broadcast failed with {transact_provider} - trying again")
+                logger.info(f"Broadcast failed with {get_provider_name(transact_provider)} - trying again")
             else:
                 # Check if it time to try a better node provider
                 logger.warning(
                     "Timeout %s reached with this node provider. Trying confirm tx success with an alternative node provider: %s.",
                     node_switch_timeout,
-                    provider,
+                    get_provider_name(provider),
                 )
                 if hasattr(provider, "switch_provider"):
                     provider.switch_provider()
                 else:
-                    logger.warning(f"Unknown provider {provider} of {providers} - cannot switch. Not sure what's going on")
+                    logger.warning(f"Unknown provider {get_provider_name(provider)} of {[get_provider_name(p) for p in providers]} - cannot switch. Not sure what's going on")
 
             next_node_switch = native_datetime_utc_now() + node_switch_timeout
 
@@ -1543,7 +1543,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s, timeout is %s",
         len(txs),
         anviled,
-        transaction_provider,
+        get_provider_name(transaction_provider),
         max_timeout,
     )
 
@@ -1576,7 +1576,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         time.sleep(broadcast_and_read_delay.total_seconds())
 
                 if time.time() > try_other_provider_timeout:
-                    logger.info("Checking receipt through fallback provider %s", backup_provider)
+                    logger.info("Checking receipt through fallback provider %s", get_provider_name(backup_provider))
                     try:
                         backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
                     except TransactionNotFound:
@@ -1599,7 +1599,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         logger.info(
                             "No receipt, attempting to broadcast with hash: %s with backup provider %s",
                             tx.hash.hex(),
-                            backup_provider,
+                            get_provider_name(backup_provider),
                         )
                         try:
                             raw_bytes = get_tx_broadcast_data(tx)

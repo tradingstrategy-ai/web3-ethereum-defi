@@ -60,19 +60,20 @@ See Also
 import logging
 import os
 import sys
+import traceback
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized, get_tokens_address_dict
 from eth_defi.gmx.gas_monitor import GasMonitorConfig
-from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import get_tokens_address_dict, get_contract_addresses, get_token_address_normalized
-from rich.console import Console
-
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -110,7 +111,7 @@ def main():
         block_number = web3.eth.block_number
         console.print(f"Connected to network, current block: {block_number}")
     except Exception as e:
-        console.print(f"Failed to connect to RPC: {e}")
+        console.print(redact_rpc_urls(f"Failed to connect to RPC: {e}"))
         sys.exit(1)
 
     # Get chain from web3 object
@@ -122,7 +123,7 @@ def main():
         token_addresses = get_tokens_address_dict(chain)
         console.print(f"Available tokens for {chain}: {list(token_addresses.keys())}")
     except Exception as e:
-        console.print(f"Could not retrieve token addresses for {chain}: {e}")
+        console.print(redact_rpc_urls(f"Could not retrieve token addresses for {chain}: {e}"))
         sys.exit(1)
 
     # Create wallet from private key
@@ -249,11 +250,10 @@ def main():
                 console.print(f"Sufficient allowance already exists for {collateral_symbol}")
 
         except Exception as e:
-            console.print(f"Token approval failed: {str(e)}")
+            console.print(redact_rpc_urls(f"Token approval failed: {str(e)}"))
             console.print("You may need to approve tokens manually before submitting the transaction")
-            import traceback
 
-            traceback.print_exc()
+            sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
 
         # Sign and send the main transaction using wallet
         try:
@@ -278,7 +278,7 @@ def main():
             console.print(f"Block number: {receipt['blockNumber']}")
 
         except Exception as e:
-            console.print(f"Position transaction submission failed: {str(e)}")
+            console.print(redact_rpc_urls(f"Position transaction submission failed: {str(e)}"))
             console.print("This is expected if using a test wallet without sufficient ETH for gas fees or tokens for collateral")
             console.print("\nTo successfully execute transactions, ensure:")
             console.print("   - Sufficient token balance in wallet")
@@ -289,10 +289,9 @@ def main():
         console.print("\n[green]GMX Position Opening Test completed successfully![/green]")
 
     except Exception as e:
-        console.print(f"Error during execution: {str(e)}")
-        import traceback
+        console.print(redact_rpc_urls(f"Error during execution: {str(e)}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
 

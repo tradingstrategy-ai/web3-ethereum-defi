@@ -13,9 +13,15 @@ Usage:
 """
 
 import os
+import sys
+import traceback
+
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 
 def example_fetch_positions(gmx: GMX):
@@ -78,9 +84,9 @@ def example_fetch_positions(gmx: GMX):
                 print(f"  Margin Ratio: {pos['marginRatio']:.4f}" if pos["marginRatio"] else "  Margin Ratio: N/A")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def example_set_leverage(gmx: GMX):
@@ -108,9 +114,9 @@ def example_set_leverage(gmx: GMX):
         print("\nNote: Leverage settings are stored locally for future order creation")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def example_fetch_leverage(gmx: GMX):
@@ -138,9 +144,9 @@ def example_fetch_leverage(gmx: GMX):
             print(f"  {symbol:12} {leverage:.1f}x")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def main():
@@ -157,7 +163,7 @@ def main():
     print(f"\nUsing wallet address: {wallet_address}")
 
     try:
-        web3 = Web3(Web3.HTTPProvider(rpc))
+        web3 = Web3(create_http_provider(rpc))
         config = GMXConfig(web3, user_wallet_address=wallet_address)
         gmx = GMX(config)
 
@@ -174,10 +180,9 @@ def main():
         print("=" * 60 + "\n")
 
     except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
+        print(redact_rpc_urls(f"\nError: {e}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         raise
 
 

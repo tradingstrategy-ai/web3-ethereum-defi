@@ -66,13 +66,16 @@ See Also
 
 import os
 import sys
+import traceback
 
 from rich.console import Console
 from rich.table import Table
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.utils import get_url_domain
 
 console = Console()
 
@@ -94,7 +97,7 @@ def main():
         sys.exit(1)
 
     console.print("[bold]GMX CCXT-Style Order Creation Example[/bold]")
-    console.print(f"RPC URL: {rpc_url}")
+    console.print(f"RPC URL: {get_url_domain(rpc_url)}")
 
     # Initialize GMX with CCXT-style parameters
     console.print("\n[blue]Step 1: Initializing GMX with CCXT-style parameters...[/blue]")
@@ -165,10 +168,9 @@ def main():
             console.print("[green]Transaction verified successfully[/green]")
 
     except Exception as e:
-        console.print(f"[red]Failed to create buy order: {e}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"[red]Failed to create buy order: {e}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     # Note: In a real scenario, you would need to execute the order as a keeper
@@ -205,7 +207,7 @@ def main():
             console.print("[yellow]No open positions found (order may not be executed yet)[/yellow]")
 
     except Exception as e:
-        console.print(f"[yellow]Could not fetch positions: {e}[/yellow]")
+        console.print(redact_rpc_urls(f"[yellow]Could not fetch positions: {e}[/yellow]"))
 
     # Example: Close position with market sell order
     console.print("\n[blue]Step 5: Example - Closing position with market sell order...[/blue]")

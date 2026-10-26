@@ -33,13 +33,13 @@ from pathlib import Path
 from eth_account import Account
 
 try:
+    from rich import box
     from rich.console import Console
     from rich.logging import RichHandler
     from rich.panel import Panel
     from rich.prompt import Prompt
     from rich.table import Table
     from rich.text import Text
-    from rich import box
 except ImportError as _rich_err:
     print("Error: 'rich' is required by this script. Install it with: pip install rich")
     raise SystemExit(1) from _rich_err
@@ -49,6 +49,7 @@ from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 
 console = Console()
 
@@ -184,7 +185,7 @@ def _prompt_selection(orders: list[PendingOrder]) -> list[PendingOrder]:
         indices = [int(x.strip()) - 1 for x in choice.split(",")]
         return [orders[i] for i in indices]
     except (ValueError, IndexError) as exc:
-        console.print(f"[bold red]Invalid selection '{choice}': {exc}[/bold red]")
+        console.print(redact_rpc_urls(f"[bold red]Invalid selection '{choice}': {exc}[/bold red]"))
         sys.exit(1)
 
 

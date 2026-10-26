@@ -16,18 +16,19 @@ Requirements:
 import sys
 import time
 
-
-from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMX
-
-import pandas as pd
 import numpy as np
+import pandas as pd
+from rich import box
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import track
-from rich import box
+from rich.table import Table
+from web3 import Web3
+
+from eth_defi.compat import create_http_provider
+from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 console = Console()
 
@@ -85,7 +86,7 @@ def fetch_ohlcv_example():
     )
 
     # Setup GMX connection (Arbitrum mainnet)
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
 
     # Create CCXT-compatible wrapper
@@ -166,7 +167,7 @@ def fetch_multiple_timeframes():
     console.print("\n\n")
     console.print(Panel.fit("[bold cyan]Example 2: Multiple Timeframes Analysis[/bold cyan]", border_style="cyan"))
 
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     exchange = GMX(config)
 
@@ -222,7 +223,7 @@ def fetch_with_since_parameter():
         Panel.fit("[bold cyan]Example 3: Historical Analysis with 'since' Parameter[/bold cyan]", border_style="cyan"),
     )
 
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     exchange = GMX(config)
 
@@ -291,7 +292,7 @@ def compare_multiple_tokens():
         Panel.fit("[bold cyan]Example 4: Multi-Token Comparison & Correlation[/bold cyan]", border_style="cyan"),
     )
 
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     exchange = GMX(config)
 
@@ -312,7 +313,7 @@ def compare_multiple_tokens():
             df = calculate_technical_indicators(df)
             dfs[symbol] = df
         except Exception as e:
-            console.print(f"[red]Error fetching {symbol}: {e}[/red]")
+            console.print(redact_rpc_urls(f"[red]Error fetching {symbol}: {e}[/red]"))
 
     # Create comparison table
     comp_table = Table(title="Token Comparison (24h)", box=box.ROUNDED)
@@ -415,7 +416,7 @@ def main():
         compare_multiple_tokens()
 
     except Exception as e:
-        console.print(f"\n[bold red]Error:[/bold red] {e}")
+        console.print(redact_rpc_urls(f"\n[bold red]Error:[/bold red] {e}"))
         import traceback
 
         console.print(f"[dim]{traceback.format_exc()}[/dim]")

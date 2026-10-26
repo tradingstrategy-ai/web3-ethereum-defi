@@ -145,11 +145,12 @@ from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNE
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
 from eth_defi.provider.anvil import ANVIL_PRIVATE_KEY, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import get_url_domain, setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
@@ -361,7 +362,7 @@ def _do_withdraw(
             "Withdrawal failed (expected if vault has lock-up period): %s",
             str(e)[:200],
         )
-        print(f"\nWithdrawal skipped: {str(e)[:200]}")
+        print(redact_rpc_urls(f"\nWithdrawal skipped: {str(e)[:200]}"))
         return
 
     # CoreWriter actions are asynchronous: the EVM transaction only queues
@@ -461,14 +462,14 @@ def main():
     # Connect to network
     anvil = None
     if simulate:
-        logger.info("SIMULATE mode: forking HyperEVM %s via Anvil (RPC: %s)", network, json_rpc)
+        logger.info("SIMULATE mode: forking HyperEVM %s via Anvil (RPC: %s)", network, get_url_domain(json_rpc))
         anvil = fork_network_anvil(
             json_rpc,
             gas_limit=30_000_000,
         )
         web3 = create_multi_provider_web3(anvil.json_rpc_url, default_http_timeout=(3, 500.0))
     else:
-        logger.info("Live %s mode (RPC: %s)", network, json_rpc)
+        logger.info("Live %s mode (RPC: %s)", network, get_url_domain(json_rpc))
         web3 = create_multi_provider_web3(json_rpc, default_http_timeout=(3, 500.0))
 
     chain_id = web3.eth.chain_id

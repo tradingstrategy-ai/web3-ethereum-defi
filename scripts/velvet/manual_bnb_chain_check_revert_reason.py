@@ -8,11 +8,11 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 from web3.datastructures import AttributeDict
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware, create_http_provider
 from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import fetch_transaction_revert_reason
@@ -23,7 +23,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 node = os.environ["JSON_RPC_BINANCE"]
 private_key = os.environ["PRIVATE_KEY"]
 
-web3 = Web3(HTTPProvider(node))
+web3 = Web3(create_http_provider(node))
 
 # We need
 account: LocalAccount = Account.from_key(private_key)

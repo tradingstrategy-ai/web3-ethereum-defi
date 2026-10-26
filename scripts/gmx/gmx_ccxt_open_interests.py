@@ -5,12 +5,14 @@ Uses the fetch_open_interests() method to efficiently query multiple symbols.
 """
 
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
 
 
 def main():
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     gmx = GMX(config)
 

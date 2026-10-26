@@ -53,6 +53,7 @@ from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
@@ -214,7 +215,7 @@ def close_position(
             order_key = extract_order_key_from_receipt(web3, creation_receipt)
             console.print(f"  Order key: [cyan]{order_key.hex()[:16]}...[/cyan]")
         except ValueError as e:
-            console.print(f"  [red]Failed to extract order key: {e}[/red]")
+            console.print(redact_rpc_urls(f"  [red]Failed to extract order key: {e}[/red]"))
             return False
 
         # Poll until the keeper has executed (or we time out)
@@ -263,7 +264,7 @@ def close_position(
             return False
 
     except Exception as e:
-        console.print(f"  [red]Error closing position: {e}[/red]")
+        console.print(redact_rpc_urls(f"  [red]Error closing position: {e}[/red]"))
         logger.exception("Failed to close position %s", position_key)
         return False
 
@@ -309,7 +310,7 @@ def main() -> None:
         chain = get_chain_name(chain_id).lower()
         console.print(f"Connected — chain: {chain}, chain_id: {chain_id}, block: {block_number}")
     except Exception as e:
-        console.print(f"[red]Failed to connect: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect: {e}[/red]"))
         sys.exit(1)
 
     # --- Initialise asset manager hot wallet ---
@@ -332,7 +333,7 @@ def main() -> None:
     try:
         vault_info = vault.fetch_info()
     except Exception as e:
-        console.print(f"[red]vault.fetch_info() failed: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]vault.fetch_info() failed: {e}[/red]"))
         sys.exit(1)
 
     modules = vault_info.get("modules", [])
