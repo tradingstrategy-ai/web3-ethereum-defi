@@ -8,7 +8,10 @@ long_description: |
 
   [Centaur Strategies](https://docs.centaur.io/strategies/lighter-pools/overview) are Centaur-operated public pools on Lighter, each anchored to one public trader. Its extraction pipeline identifies signals, which Centaur interprets, maps to perpetual markets, sizes and risk-manages; a Centaur operator makes every final trade decision under its published [methodology](https://docs.centaur.io/strategies/lighter-pools/methodology). Centaur publishes the reasoning behind its trades rather than replicating the trader's actual portfolio.
 
-  Operator fees are not retained as revenue: they fund discretionary depositor loss rebates, or purchases and permanent burns of $ANSEM for Black Bull, as described in the [fee policy](https://docs.centaur.io/strategies/lighter-pools/fees). The tracked traders are unaffiliated with Centaur, do not operate the pools and have not endorsed them, as explained in its [disclosures](https://docs.centaur.io/strategies/lighter-pools/disclosures).
+  Under its [fee policy](https://docs.centaur.io/strategies/lighter-pools/fees), Centaur does not retain operator fees as revenue: five pools fund random, discretionary rebates for depositors with realised losses, while Black Bull funds purchases and permanent burns of $ANSEM. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. The tracked traders are unaffiliated with Centaur, do not operate the pools and have not endorsed them, as explained in its [disclosures](https://docs.centaur.io/strategies/lighter-pools/disclosures).
+
+# Listing copy supplied in the requester's Centaur onboarding request on 2026-10-26,
+# lightly edited and corroborated against the official sources below.
 
 # Official evidence for Centaur's responsibility for the six public pools.
 other-links:

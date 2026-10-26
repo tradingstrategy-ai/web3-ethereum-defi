@@ -55,9 +55,14 @@ def test_centaur_pool_metadata(account_index: int, name: str, slug: str, trader:
     assert "not affiliated with Centaur" in row["_description"]
     if name == "Black Bull":
         assert "buy and permanently burn $ANSEM on Solana" in row["_description"]
-        assert "discretionary depositor loss rebates" not in row["_description"]
+        assert "rebates" not in row["_description"]
     else:
-        assert "discretionary depositor loss rebates" in row["_description"]
+        assert "random, discretionary rebates" in row["_description"]
+        assert "depositors with realised losses" in row["_description"]
+        assert "not insurance and do not guarantee recovery of losses or any return" in row["_description"]
+        assert "No depositor has a right to a rebate" in row["_description"]
+        assert "alter, suspend or stop the programme" in row["_description"]
+        assert "https://docs.centaur.io/strategies/lighter-pools/fees" in row["_description"]
     if name == "Inverse 1000x":
         assert "opposite side" in row["_description"]
         assert "Market-wide index calls are excluded" in row["_description"]
@@ -122,7 +127,11 @@ def test_centaur_curator_export() -> None:
     assert "[Centaur](https://www.centaur.io/)" in metadata["long_description"]
     assert "operator makes every final trade decision" in metadata["long_description"]
     assert "unaffiliated" in metadata["long_description"]
-    assert "discretionary depositor loss rebates" in metadata["long_description"]
+    assert "random, discretionary rebates" in metadata["long_description"]
+    assert "depositors with realised losses" in metadata["long_description"]
+    assert "not insurance and do not guarantee recovery of losses or any return" in metadata["long_description"]
+    assert "No depositor has a right to a rebate" in metadata["long_description"]
+    assert "alter, suspend or stop the programme" in metadata["long_description"]
     assert "$ANSEM" in metadata["long_description"]
     assert metadata["protocol_curator"] is False
     assert not is_protocol_curator("centaur")

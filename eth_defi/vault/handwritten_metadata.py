@@ -64,6 +64,12 @@ MORINI_CAPITAL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVau
 
 #: Centaur's Ethereum-deployment Lighter pools, verified on 2026-10-26.
 #:
+#: Listing copy was supplied by the requester in the Centaur /add-curator request
+#: on 2026-10-26 and lightly edited for publication. The supplied copy is the
+#: source for the thematic/global equity remit of Post Fiat and the swing
+#: trading across majors and memecoins described for Kole World; these
+#: details are not quoted from the linked strategy pages. Official pages
+#: corroborate identities, operator discretion, non-affiliation and fee use.
 #: These are native pool identifiers on synthetic chain 9998, not EVM addresses.
 #: The authoritative overview links each pool to its individual strategy page:
 #: https://docs.centaur.io/strategies/lighter-pools/overview
@@ -71,31 +77,31 @@ CENTAUR_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] =
     (9998, "lighter-pool-281474976488848"): HandwrittenVaultMetadata(
         name="Post Fiat",
         short_description="Discretionary long/short equity and macro trading based on goodalexander's public posts.",
-        description=("Discretionary long/short book across global equities and macro, built from @goodalexander's public posts. Thematic single-stock longs and shorts are held until he signals an exit or a level is hit. Operator fees fund discretionary depositor loss rebates. @goodalexander is not affiliated with Centaur. See the [Post Fiat strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/post-fiat)."),
+        description=("Discretionary long/short book across global equities and macro, built from @goodalexander's public posts. Thematic single-stock longs and shorts are held until he signals an exit or a level is hit. Operator fees fund [random, discretionary rebates](https://docs.centaur.io/strategies/lighter-pools/fees) for depositors with realised losses. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. @goodalexander is not affiliated with Centaur. See the [Post Fiat strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/post-fiat)."),
         link="https://docs.centaur.io/strategies/lighter-pools/vaults/post-fiat",
     ),
     (9998, "lighter-pool-281474976488851"): HandwrittenVaultMetadata(
         name="Inverse 1000x",
         short_description="Takes the opposite side of Jonah's public crypto and US technology calls.",
-        description=("A fade vault taking the opposite side of Jonah's (@jvb_xyz) calls on crypto and US technology, sourced from his X posts and the 1000x livestream and podcast. Market-wide index calls are excluded. Operator fees fund discretionary depositor loss rebates. Jonah is not affiliated with Centaur. See the [Inverse 1000x strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/inverse-1000x)."),
+        description=("A fade vault taking the opposite side of Jonah's (@jvb_xyz) calls on crypto and US technology, sourced from his X posts and the 1000x livestream and podcast. Market-wide index calls are excluded. Operator fees fund [random, discretionary rebates](https://docs.centaur.io/strategies/lighter-pools/fees) for depositors with realised losses. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. Jonah is not affiliated with Centaur. See the [Inverse 1000x strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/inverse-1000x)."),
         link="https://docs.centaur.io/strategies/lighter-pools/vaults/inverse-1000x",
     ),
     (9998, "lighter-pool-281474976488853"): HandwrittenVaultMetadata(
         name="Serenity",
         short_description="Long exposure to semiconductors, memory and Korean technology based on aleabitoreddit's public thesis.",
-        description=("Long book built from @aleabitoreddit's AI-bottleneck thesis: semiconductors, memory and Korean technology. Operator fees fund discretionary depositor loss rebates. @aleabitoreddit is not affiliated with Centaur. See the [Serenity strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/serenity)."),
+        description=("Long book built from @aleabitoreddit's AI-bottleneck thesis: semiconductors, memory and Korean technology. Operator fees fund [random, discretionary rebates](https://docs.centaur.io/strategies/lighter-pools/fees) for depositors with realised losses. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. @aleabitoreddit is not affiliated with Centaur. See the [Serenity strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/serenity)."),
         link="https://docs.centaur.io/strategies/lighter-pools/vaults/serenity",
     ),
     (9998, "lighter-pool-281474976488856"): HandwrittenVaultMetadata(
         name="Lazy Villager",
         short_description="Concentrated, high-conviction crypto trading based on The Giver's public posts.",
-        description=("Concentrated, high-conviction crypto book built from The Giver's (@lazyvillager1) posts: contrarian swings, sized large and managed tightly. Operator fees fund discretionary depositor loss rebates. The Giver is not affiliated with Centaur. See the [Lazy Villager strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/lazy-villager)."),
+        description=("Concentrated, high-conviction crypto book built from The Giver's (@lazyvillager1) posts, taking contrarian positions. Operator fees fund [random, discretionary rebates](https://docs.centaur.io/strategies/lighter-pools/fees) for depositors with realised losses. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. The Giver is not affiliated with Centaur. See the [Lazy Villager strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/lazy-villager)."),
         link="https://docs.centaur.io/strategies/lighter-pools/vaults/lazy-villager",
     ),
     (9998, "lighter-pool-281474976489166"): HandwrittenVaultMetadata(
         name="Kole World",
         short_description="Crypto swing trading across majors and memecoins based on Zoran Kole's public signals.",
-        description=("Crypto swing book built from Zoran Kole's (@captain_kole) signals, spanning majors and memecoins. Operator fees fund discretionary depositor loss rebates. Zoran Kole is not affiliated with Centaur. See the [Kole World strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/kole-world)."),
+        description=("Crypto swing book built from Zoran Kole's (@captain_kole) signals, spanning majors and memecoins. Operator fees fund [random, discretionary rebates](https://docs.centaur.io/strategies/lighter-pools/fees) for depositors with realised losses. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. Zoran Kole is not affiliated with Centaur. See the [Kole World strategy](https://docs.centaur.io/strategies/lighter-pools/vaults/kole-world)."),
         link="https://docs.centaur.io/strategies/lighter-pools/vaults/kole-world",
     ),
     (9998, "lighter-pool-281474976489165"): HandwrittenVaultMetadata(
