@@ -33,6 +33,7 @@ from pathlib import Path
 
 import duckdb
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
@@ -2661,12 +2662,14 @@ def _load_last_timestamps(
 ) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
-    Reads only the ``chain`` and ``timestamp`` columns for efficiency.
+    Reads only the ``chain`` and ``timestamp`` columns for efficiency, plus
+    ``address`` for the shared Lighter chain.
 
     :param uncleaned_price_path:
         Path to the uncleaned parquet.  ``None`` uses the default.
     :return:
         Mapping of chain name to formatted date string (YYYY-MM-DD HH:MM).
+        Lighter deployments are additionally keyed by their dashboard names.
     """
     path = uncleaned_price_path or DEFAULT_UNCLEANED_PRICE_DATABASE
     if not path.exists():
@@ -2688,6 +2691,16 @@ def _load_last_timestamps(
                 name = str(chain_id)
             # Use lowercase keys so dashboard lookup is case-insensitive
             result[name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
+
+        # Lighter deployments share one synthetic chain but have one dashboard
+        # row each, so split that chain's rows by synthetic address prefix.
+        lighter_chain_ids = sorted({deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS})
+        lighter_table = pq.read_table(path, columns=["address", "timestamp"], filters=[("chain", "in", lighter_chain_ids)])
+        for deployment in LIGHTER_DEPLOYMENTS:
+            mask = pc.match_substring_regex(lighter_table["address"], deployment.pool_address_pattern)
+            timestamp = pc.max(pc.filter(lighter_table["timestamp"], mask)).as_py()
+            if timestamp is not None:
+                result[deployment.name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
         return result
     except (OSError, ValueError, pa.ArrowException) as e:
         logger.warning("Could not read last timestamps from parquet: %s", e)

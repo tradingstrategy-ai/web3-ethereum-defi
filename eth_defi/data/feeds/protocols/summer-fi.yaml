@@ -4,5 +4,11 @@ role: protocol
 website: https://summer.fi/
 twitter: summerfinance_
 linkedin: summerfi
-rss: https://blog.summer.fi/rss/
+# 2026-10-26 maintain-curators: Summer.fi is winding down — summer.fi says the
+# app is deactivated and the Lazy Summer Protocol is in withdraw-only mode.  The
+# Ghost blog (blog.summer.fi, CNAME summer-fi-blog.ghost.io) has been removed and
+# now fails TLS with a Fastly fallback certificate.  Repointed to the Summer
+# community Discourse feed, which carries the wind-down governance posts
+# (newest item 2026-08-17).
+rss: https://forum.summer.fi/latest.rss
 linkedin-rss-hub-disabled-at: 2026-06-09

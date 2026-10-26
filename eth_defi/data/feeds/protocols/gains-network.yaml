@@ -4,5 +4,9 @@ role: protocol
 website: https://gains.trade/
 twitter: GainsNetwork_io
 # linkedin: not found
-# Gains Medium is stale; use the active governance/forum RSS.
-rss: https://gov.gains.trade/latest.rss
+# 2026-10-26 maintain-curators: gov.gains.trade is NXDOMAIN on 8.8.8.8 and
+# 1.1.1.1 — its CNAME gainsnetwork.hosted-by-discourse.com no longer exists, so
+# the hosted Discourse forum is gone and no successor forum was found
+# (governance runs on Snapshot, which has no RSS).  Repointed back to the
+# official Medium feed (newest item 2026-01-16, within 12 months).
+rss: https://medium.com/feed/gains-network
