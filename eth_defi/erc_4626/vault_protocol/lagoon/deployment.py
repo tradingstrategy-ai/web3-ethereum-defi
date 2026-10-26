@@ -87,9 +87,13 @@ DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 #: Default fixed window for the asset-manager's gross Lagoon settlement budget.
 DEFAULT_LAGOON_SETTLEMENT_WINDOW = 24 * 60 * 60
 
-#: Initial Lagoon subscription for a Lighter-enabled vault. One USDC is then
-#: transferred to Lighter activation, retaining 19 USDC in the Safe reserve.
-LIGHTER_BOOTSTRAP_SUBSCRIPTION = Decimal(20)
+#: Initial Lagoon subscription for a Lighter-enabled vault.
+#:
+#: The minimum: it pays exactly the Lighter activation deposit, which is the
+#: 1 USDC minimum of a direct Ethereum deposit, so the Safe holds no USDC
+#: after deployment. Add operating capital through a normal Lagoon
+#: subscription afterwards.
+LIGHTER_BOOTSTRAP_SUBSCRIPTION = LIGHTER_MIN_MAINNET_USDC
 
 DEFAULT_MANAGEMENT_RATE = 200
 
@@ -426,7 +430,7 @@ class LagoonConfig:
     #:
     #: This Ethereum-only deployment ceremony funds the Safe through Lagoon,
     #: subscribes :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` through Lagoon, transfers
-    #: one USDC to Lighter, then performs ``changePubKey`` before the requested
+    #: it to Lighter, then performs ``changePubKey`` before the requested
     #: Safe owners and threshold are configured. The deployer remains an owner,
     #: matching the existing Lagoon deployment flow.
     generate_lighter_api_key: bool = False
@@ -2782,8 +2786,9 @@ def deploy_automated_lagoon_vault(
         configuration object.
 
     :param generate_lighter_api_key:
-        Activate a canonical Ethereum Lighter account after a fixed 20 USDC
-        Lagoon bootstrap subscription and register a new API key before the
+        Activate a canonical Ethereum Lighter account after a fixed
+        :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` Lagoon bootstrap subscription,
+        the 1 USDC activation minimum, and register a new API key before the
         Safe owners are finalised. Defaults to ``False``.
 
     :param lighter_api_key_index:

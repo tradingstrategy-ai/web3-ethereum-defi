@@ -145,7 +145,7 @@ def test_lagoon_deployment_report_is_private_and_exclusive(tmp_path: Path) -> No
 def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatch: pytest.MonkeyPatch) -> None:
     """The deployment ceremony deposits, observes and registers one API key."""
     events: list[object] = []
-    balances = iter((Decimal(0), Decimal(0), Decimal(20)))
+    balances = iter((Decimal(0), Decimal(0), lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION))
     token = SimpleNamespace(
         address=UNDERLYING,
         symbol="USDC",
@@ -210,7 +210,7 @@ def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatc
     )
 
     assert events == [
-        ("fund", Decimal(20)),
+        ("fund", lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION),
         ("sleep", lagoon_deployment.LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS),
         ("deposit", Decimal(1), MODULE),
         ("account", SAFE),
@@ -239,7 +239,7 @@ def test_activate_lighter_account_keys_sub_accounts_outside_reports(monkeypatch:
     """
     sub_indices = [2**47 + 2, 2**47 + 1]
     events: list[object] = []
-    balances = iter((Decimal(0), Decimal(20)))
+    balances = iter((Decimal(0), lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION))
     token = SimpleNamespace(address=UNDERLYING, symbol="USDC", fetch_balance_of=lambda _address: next(balances), convert_to_raw=lambda amount: int(amount * 10**6))
     session = SimpleNamespace(close=lambda: events.append("close"))
     keys = {index: LighterApiKey(api_key_index=API_KEY_INDEX, private_key=f"0x{index:080x}", public_key="0x" + f"{index % 251:02x}" * 40) for index in (0, 1, 2)}
@@ -353,7 +353,7 @@ def create_valid_lighter_config() -> tuple[dict[str, object], HotWallet]:
         ({"existing_safe_address": SAFE}, ValueError, "new full Lagoon vault"),
         ({"primary_asset_manager": ASSET_MANAGER}, ValueError, "primary asset manager"),
         ({"lighter_api_key_index": 255}, ValueError, "lighter_api_key_index"),
-        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 20"),
+        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 1 for Lighter bootstrap"),
     ],
 )
 def test_validate_lighter_api_key_deployment_rejects_invalid_config(
@@ -374,9 +374,9 @@ def test_validate_lighter_api_key_deployment_rejects_invalid_config(
 def test_validate_lighter_api_key_deployment_checks_deployer_balance(monkeypatch: pytest.MonkeyPatch) -> None:
     """Activation validation requires the fixed 20-USDC Lagoon subscription."""
     kwargs, _deployer = create_valid_lighter_config()
-    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("19.99")))
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("0.99")))
 
-    with pytest.raises(ValueError, match="at least 20 USDC"):
+    with pytest.raises(ValueError, match="at least 1 USDC"):
         lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
 
 

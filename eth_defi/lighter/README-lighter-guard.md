@@ -213,12 +213,15 @@ to replay.
 
 ### Lagoon bootstrap reserve
 
-A Lighter-enabled Lagoon deployment subscribes an initial 20 USDC through the
-normal Lagoon lifecycle, then transfers 1 USDC from the Safe to Lighter for
-account activation. This leaves 19 USDC in the Safe as an executor reserve.
+A Lighter-enabled Lagoon deployment subscribes an initial 1 USDC through the
+normal Lagoon lifecycle, then transfers it from the Safe to Lighter for
+account activation. This is the minimum direct Ethereum deposit, so the Safe
+holds no USDC after deployment; add operating capital with a normal Lagoon
+subscription.
+
 The settlement budget applies equally to every automated Lagoon settlement,
 including the initial subscription. With a 5,000-USDC budget, the bootstrap
-subscription and next 20-USDC investor settlement use 40 USDC together.
+subscription and a following 20-USDC investor settlement use 21 USDC together.
 Account activation remains an ordinary direct Safe transfer.
 
 Lighter's

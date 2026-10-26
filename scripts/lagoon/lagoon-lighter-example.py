@@ -1,8 +1,8 @@
 """Deploy and activate a Lighter-enabled Lagoon vault on Ethereum mainnet.
 
 This is a one-shot manual provider check for the package deployment path. It
-creates a fresh Lagoon vault, makes the fixed 20 USDC accounted bootstrap
-subscription, transfers 1 USDC to Lighter, registers a Lighter API key before the requested Safe owners and
+creates a fresh Lagoon vault, makes the fixed 1 USDC accounted bootstrap
+subscription, transfers it to Lighter, registers a Lighter API key before the requested Safe owners and
 threshold are configured, writes the secret-bearing report with mode ``0600``,
 and prints only a redacted summary. It does not trade, withdraw, resume a
 previous run, or attempt recovery.
