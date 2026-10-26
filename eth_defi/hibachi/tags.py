@@ -13,12 +13,15 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: Hibachi identifies this as Growi Finance's core
     #: vault and describes its strategy as systematic mean-reversion on crypto
     #: perpetual futures.
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
     #: Sources:
     #: - https://data-api.hibachi.xyz/vault/info?vaultId=2
     #: - https://hibachi.xyz/vaults
     #: - eth_defi/hibachi/README.md
     "hibachi-vault-2": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
     #: Vault: Fire Liquidity Provider.

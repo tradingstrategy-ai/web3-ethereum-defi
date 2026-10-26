@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add the high-frequency, high-win-rate strategy category with drawdown context and a required algorithmic trading pairing, and classify 12 reviewed Growi, Gucky, Candle Effect, Cold Process, Steady Wealth Builder, BitRocket and Stratwise vaults (2026-10-26).
 - feat: Export Kestner's 2013 K-ratio for every vault metric lookback, including USD views, using a reusable NumPy calculator (2026-10-26).
 - fix: Shorten configured RPC URLs throughout logs, exception tracebacks, Anvil output and example scripts, while preserving unrelated links (2026-10-26).
 - fix: Treat Lighter operator performance fees as externalised withdrawal-time charges in JSON and Parquet exports, correct protocol documentation, and add a live Candle Effect v2 export check (2026-10-22).

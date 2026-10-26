@@ -1,11 +1,13 @@
 """Tests for native perpetual DEX vault strategy classifications."""
 
 import datetime
+from collections.abc import Callable
 
 import pytest
 
 from eth_defi.apex import tags as apex_tags
 from eth_defi.apex.vault_data_export import create_apex_vault_row
+from eth_defi.erc_4626.vault_protocol.morpho import tags as morpho_tags
 from eth_defi.grvt import tags as grvt_tags
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi import tags as hibachi_tags
@@ -17,7 +19,7 @@ from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 26
-EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 231
+EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 233
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
@@ -140,6 +142,7 @@ def test_growi_vaults_are_mean_reversion() -> None:
     """Growi's Hyperliquid and Hibachi vaults have mean-reversion tags."""
     expected = {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.perpetual_futures,
     }
@@ -176,9 +179,9 @@ def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
             "0xbe9ee55bc95b43b6a31bad63d5934492b99c6a87",
             {StrategyTag.directional_trading, StrategyTag.grid_trading},
         ),
-        ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.grid_trading}),
-        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.grid_trading}),
-        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.grid_trading}),
+        ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
+        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
+        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
         (
             "0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b",
             {StrategyTag.algorithmic_trading, StrategyTag.grid_trading},
@@ -205,6 +208,7 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     }
 
@@ -212,10 +216,100 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
 def test_lighter_grid_description_is_tagged() -> None:
     """The long-only Lighter grid pool receives its supported tags."""
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.perpetual_futures,
     }
+
+
+@pytest.mark.parametrize(
+    ("resolve_tags", "address"),
+    [
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x1e37a337ed460039d1b15bd3bc489de789768d5e", id="growi-hf"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x9b5b1931fa5838a891973f9877c7648c93ee80cc", id="growi-hf-2"),
+        pytest.param(hibachi_tags.get_strategy_tags, "hibachi-vault-2", id="growi-alpha"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11", id="cold-process"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0xd2f03635901956b950737bbf02463dfad9f2e9e1", id="gucky-1coin"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x3a6747c8e913085e243a2c22d188dafa8c6a612a", id="gucky-2coin"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", id="gucky-4coin"),
+        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976552443", id="steady-wealth-builder"),
+        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976620676", id="candle-effect-v1"),
+        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976543116", id="candle-effect-v2"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0", id="bitrocket"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x0ff219ac20596b457558341bc410bc7a08a1394c", id="stratwise"),
+    ],
+)
+def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[StrategyTag]], address: str) -> None:
+    """Tag every confirmed vault without changing its earlier classifications.
+
+    The new category supplements the maintained mapping and native defaults,
+    including Stratwise's existing spot-only exception.
+
+    :param resolve_tags: Protocol resolver used by the native exporter.
+    :param address: Confirmed vault address or synthetic pool identifier.
+    :return: ``None`` after checking the complete classification.
+    """
+    new_tag = StrategyTag.high_frequency_high_win_rate
+    previous_tags = {
+        "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
+        "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
+        "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
+        "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
+        "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
+        "lighter-pool-281474976552443": {StrategyTag.directional_trading, StrategyTag.grid_trading},
+        "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
+            StrategyTag.algorithmic_trading,
+            StrategyTag.directional_trading,
+            StrategyTag.grid_trading,
+            StrategyTag.mean_reversion,
+        },
+    }.get(address, set())
+    defaults = set() if address in hyperliquid_tags.NON_PERPETUAL_VAULTS else {StrategyTag.perpetual_futures}
+
+    assert resolve_tags(address) == previous_tags | defaults | {StrategyTag.algorithmic_trading, new_tag}
+
+
+def test_high_frequency_high_win_rate_requires_algorithmic_trading() -> None:
+    """Require the algorithmic parent tag for every high-frequency entry.
+
+    The category always describes programmed trading. Check all maintained
+    native mappings so future entries cannot silently omit its parent tag.
+
+    :return: ``None`` after checking the classification invariant.
+    """
+    for module in (apex_tags, grvt_tags, hibachi_tags, hyperliquid_tags, lighter_tags):
+        for address, tags in module.STRATEGY_TAGS.items():
+            if StrategyTag.high_frequency_high_win_rate in tags:
+                assert StrategyTag.algorithmic_trading in tags, f"{module.__name__}: {address} must include algorithmic_trading"
+
+
+@pytest.mark.parametrize(
+    ("resolve_tags", "address"),
+    [
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x0512943ce80e9ff832c3b4a3b25df9e9ed64d911", id="growi-test"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66", id="hypertwin"),
+        pytest.param(morpho_tags.get_strategy_tags, "0x54e24c904cfc563af7a1ee9dfaf1354d034e44e4", id="growi-lending"),
+        pytest.param(morpho_tags.get_strategy_tags, "0x2c8cb6b6aa7a4c8d68863d4cab8d5967d73d3c9e", id="growi-usdt-lending"),
+        pytest.param(morpho_tags.get_strategy_tags, "0x2b9bd297c98f7c199fb5b4a2ee5a851434cb5aea", id="growi-metavault"),
+        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1905364278131687424", id="apex-candle-effect"),
+        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1909694993409376256", id="apex-candle-effect-1-0"),
+        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1945398400010813440", id="apex-candle-effect-lightning"),
+        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1947683078407323648", id="apex-candle-effect-fire"),
+    ],
+)
+def test_high_frequency_high_win_rate_excludes_other_variants(resolve_tags: Callable[[str], set[StrategyTag]], address: str) -> None:
+    """Keep related names outside the explicitly selected vault scope.
+
+    Growi test, copycat and lending products and ApeX Candle Effect vaults
+    retain their existing classifications without acquiring the new category.
+
+    :param resolve_tags: Protocol strategy resolver.
+    :param address: Excluded vault address or synthetic identifier.
+    :return: ``None`` after checking the category is absent.
+    """
+    assert StrategyTag.high_frequency_high_win_rate not in resolve_tags(address)
 
 
 def test_lighter_auto_rebalanced_pools_are_directional_leverage() -> None:
