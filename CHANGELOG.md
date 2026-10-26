@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Apex Quant Capital curator metadata, official artwork and reviewed Infinit vault attribution (2026-10-26).
 - feat: Add Infinit APEX MultiStrategy data with Dangerous risk, source-gap preservation, indexed receipt supply and staged local migration and backfill scripts (2026-10-26).
 - feat: Add the high-frequency, high-win-rate strategy category with drawdown context and a required algorithmic trading pairing, and classify 12 reviewed Growi, Gucky, Candle Effect, Cold Process, Steady Wealth Builder, BitRocket and Stratwise vaults (2026-10-26).
 - feat: Export Kestner's 2013 K-ratio for every vault metric lookback, including USD views, using a reusable NumPy calculator (2026-10-26).

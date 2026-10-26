@@ -3,7 +3,9 @@ Infinit
 
 `Infinit <https://www.infinit.tech/>`__ publishes the
 `APEX MultiStrategy vault <https://app.infinit.tech/vaults/apex-multistrategy>`__,
-managed by APEX Quants. Its deterministic relative-strength strategy targets matched
+managed by `Apex Quant Capital <https://www.apexquants.xyz/>`__, identified through
+Infinit's manager links. Its curator metadata slug is ``apex-quants``.
+Its deterministic relative-strength strategy targets matched
 long and short Hyperliquid perpetual positions. The integration assigns
 ``Dangerous`` technical risk and supports data reads only. Transaction requests
 raise ``VaultFlowUnavailable`` and public transaction capability is unavailable.

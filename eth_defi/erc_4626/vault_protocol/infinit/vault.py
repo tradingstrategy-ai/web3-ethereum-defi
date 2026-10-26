@@ -106,15 +106,15 @@ class InfinitVault(VaultBase):
 
     @property
     def manager_name(self) -> str:
-        return "APEX Quants"
+        return "Apex Quant Capital"
 
     @property
     def short_description(self) -> str:
-        return "Dollar-neutral relative-strength long/short perpetual-futures strategy managed by APEX Quants."
+        return "Dollar-neutral relative-strength long/short perpetual-futures strategy managed by Apex Quant Capital."
 
     @property
     def description(self) -> str:
-        return "APEX Quants runs a deterministic relative-strength strategy across liquid Hyperliquid perpetual markets. Matched long and short books seek returns from relative performance. Deposits pass through a custody Safe and an Arbitrum funding EOA to a separate Hyperliquid trading account. Receipt tokens are locked until maturity; trading, custody, settlement and valuation-source risks remain."
+        return "Apex Quant Capital runs a deterministic relative-strength strategy across liquid Hyperliquid perpetual markets. Matched long and short books seek returns from relative performance. Deposits pass through a custody Safe and an Arbitrum funding EOA to a separate Hyperliquid trading account. Receipt tokens are locked until maturity; trading, custody, settlement and valuation-source risks remain."
 
     def fetch_share_token(self) -> TokenDetails:
         return fetch_erc20_details(self.web3, self.manager_record[0], cache=self.token_cache, chain_id=self.chain_id)

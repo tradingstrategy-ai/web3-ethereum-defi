@@ -396,6 +396,7 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    "apex-quants",
     "waterline-rusd",
     "presto",
     "architect",
@@ -433,6 +434,13 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: APEX MultiStrategy, Infinit on Arbitrum (42161), reviewed 2026-10-26.
+    #: The vault's manager links identify the Apex Quant Capital website.
+    #: Address attribution also covers cached rows without the manager label;
+    #: investing in the legacy native vault does not establish its curator.
+    #: https://app.infinit.tech/vaults/apex-multistrategy
+    #: https://www.apexquants.xyz/
+    (42161, "0xe64655e24b66073c73300aa924cd6df5c716638f"): "apex-quants",
     #: Presto USDC Prime (1), reviewed 2026-10-21.
     #: https://app.morpho.org/ethereum/vault/0x133614490896bc02c774bc3399e4db1b6d05a2ca
     (1, "0x133614490896bc02c774bc3399e4db1b6d05a2ca"): "presto",

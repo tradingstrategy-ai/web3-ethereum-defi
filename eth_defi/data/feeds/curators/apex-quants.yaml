@@ -1,0 +1,21 @@
+# Infinit's manager links identify the Apex Quant Capital website.
+# This organisation is distinct from the ApeX exchange (protocol feeder apex).
+feeder-id: apex-quants
+name: Apex Quant Capital
+role: curator
+website: https://www.apexquants.xyz/
+twitter: apexquantchef
+short_description: Apex Quant Capital develops systematic trading strategies and trading infrastructure across equities, indices, commodities and crypto markets.
+long_description: |
+  [Apex Quant Capital](https://www.apexquants.xyz/) develops and operates systematic multi-asset trading strategies and provides trading systems, market-making and advisory services.
+  Infinit lists the organisation's website, X account and Telegram channel in the manager links on the [APEX MultiStrategy vault page](https://app.infinit.tech/vaults/apex-multistrategy).
+  The vault's [published strategy](https://docs.infinit.tech/infinit-ai-managed-trading-strategy-marketplace/the-debut-vault) uses deterministic relative-strength rules and matched long and short positions in Hyperliquid perpetual futures.
+other-links:
+  - title: Apex Quant Capital official website - organisation, systematic strategies and trading services
+    url: https://www.apexquants.xyz/
+  - title: Infinit APEX MultiStrategy - manager website, X account and vault relationship
+    url: https://app.infinit.tech/vaults/apex-multistrategy
+  - title: Infinit debut vault documentation - dollar-neutral relative-strength strategy and deterministic execution
+    url: https://docs.infinit.tech/infinit-ai-managed-trading-strategy-marketplace/the-debut-vault
+  - title: Apex Quant Capital Telegram channel linked from the Infinit vault page
+    url: https://t.me/apexquantcap
