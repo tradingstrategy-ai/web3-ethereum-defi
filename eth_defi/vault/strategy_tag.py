@@ -50,6 +50,7 @@ class StrategyTag(str, enum.Enum):
 
     #: High-frequency strategies with many small wins and potential severe
     #: drawdowns when positions cannot be closed profitably.
+    #: Must always be paired with :attr:`algorithmic_trading`.
     #: Example vault: Growi HF (Hyperliquid).
     high_frequency_high_win_rate = "high_frequency_high_win_rate"
 

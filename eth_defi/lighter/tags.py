@@ -2087,6 +2087,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
     "lighter-pool-281474976552443": {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
@@ -2098,7 +2099,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.lighter.xyz/public-pools/281474976620676
-    "lighter-pool-281474976620676": {StrategyTag.high_frequency_high_win_rate},
+    "lighter-pool-281474976620676": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Candle Effect v2.
     #: Added: 2026-10-26.
     #: Decision material: Maintainer assigned high-frequency, high-win-rate
@@ -2106,7 +2107,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.lighter.xyz/public-pools/281474976543116
-    "lighter-pool-281474976543116": {StrategyTag.high_frequency_high_win_rate},
+    "lighter-pool-281474976543116": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
 }
 
 #: Lighter's documented auto-rebalanced 2x long/short products maintain a

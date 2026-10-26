@@ -179,9 +179,9 @@ def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
             "0xbe9ee55bc95b43b6a31bad63d5934492b99c6a87",
             {StrategyTag.directional_trading, StrategyTag.grid_trading},
         ),
-        ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
-        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
-        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
+        ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
+        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
+        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
         (
             "0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b",
             {StrategyTag.algorithmic_trading, StrategyTag.grid_trading},
@@ -216,6 +216,7 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
 def test_lighter_grid_description_is_tagged() -> None:
     """The long-only Lighter grid pool receives its supported tags."""
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
@@ -267,7 +268,21 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
     }.get(address, set())
     defaults = set() if address in hyperliquid_tags.NON_PERPETUAL_VAULTS else {StrategyTag.perpetual_futures}
 
-    assert resolve_tags(address) == previous_tags | defaults | {new_tag}
+    assert resolve_tags(address) == previous_tags | defaults | {StrategyTag.algorithmic_trading, new_tag}
+
+
+def test_high_frequency_high_win_rate_requires_algorithmic_trading() -> None:
+    """Require the algorithmic parent tag for every high-frequency entry.
+
+    The category always describes programmed trading. Check all maintained
+    native mappings so future entries cannot silently omit its parent tag.
+
+    :return: ``None`` after checking the classification invariant.
+    """
+    for module in (apex_tags, grvt_tags, hibachi_tags, hyperliquid_tags, lighter_tags):
+        for address, tags in module.STRATEGY_TAGS.items():
+            if StrategyTag.high_frequency_high_win_rate in tags:
+                assert StrategyTag.algorithmic_trading in tags, f"{module.__name__}: {address} must include algorithmic_trading"
 
 
 @pytest.mark.parametrize(

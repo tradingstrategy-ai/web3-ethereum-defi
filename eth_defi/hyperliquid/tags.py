@@ -84,7 +84,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0x9b5b1931fa5838a891973f9877c7648c93ee80cc
-    "0x9b5b1931fa5838a891973f9877c7648c93ee80cc": {StrategyTag.high_frequency_high_win_rate},
+    "0x9b5b1931fa5838a891973f9877c7648c93ee80cc": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Cold Process.
     #: Added: 2026-10-26.
     #: Decision material: Maintainer assigned high-frequency, high-win-rate
@@ -92,7 +92,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11
-    "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11": {StrategyTag.high_frequency_high_win_rate},
+    "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: BitRocket.
     #: Added: 2026-10-26.
     #: Decision material: Maintainer assigned high-frequency, high-win-rate
@@ -100,7 +100,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
-    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.high_frequency_high_win_rate},
+    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gen Wealth Algo.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -211,7 +211,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://api.hyperliquid.xyz/info
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
-    "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
+    "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gucky_2coin_1dot75x.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
@@ -222,7 +222,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://api.hyperliquid.xyz/info
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
-    "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
+    "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gucky_4coin_2dot5x.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
@@ -233,7 +233,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://api.hyperliquid.xyz/info
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
-    "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
+    "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Hype $1 Club.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
