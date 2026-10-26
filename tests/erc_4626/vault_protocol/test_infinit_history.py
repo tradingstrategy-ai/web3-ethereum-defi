@@ -31,6 +31,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.tags import get_strategy_tags
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.research.vault_metrics import PeriodMetrics, calculate_hourly_returns_for_all_vaults
 from eth_defi.research.wrangle_vault_prices import calculate_vault_returns, forward_fill_vault
+from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VAULT_PROTOCOL_RISK_MATRIX, VaultTechnicalRisk
 
@@ -146,6 +147,36 @@ def test_infinit_store_retention_and_supply(tmp_path: Path) -> None:
             store.store(APEX_PRODUCT, history, history.points, blocks, [], 1, 30, expected_supply=90)
         assert store.activity_counts(APEX_PRODUCT)["mint"] == 1
         assert not store.connection.execute("SELECT * FROM duckdb_constraints()").fetchall()
+
+
+def test_infinit_hourly_reader_preserves_source_offsets_and_gaps(tmp_path: Path) -> None:
+    """Observed hourly samples retain timestamp offsets, gaps and block-matched supply."""
+    history = parse_history_response(
+        flight(
+            [
+                {"timestamp": "2026-07-30T10:00:01Z", "unitPrice": 0},
+                {"timestamp": "2026-08-04T02:00:01Z", "unitPrice": 1.05},
+                {"timestamp": "2026-08-04T02:15:01Z", "unitPrice": 1.06},
+            ]
+        )
+    )
+    blocks = dict(zip((point.timestamp for point in history.points), (10, 20, 30), strict=True))
+    events = [InfinitEvent(1, 0, 0, "created", 0, "0x1"), InfinitEvent(2, 0, 0, "mint", 1000000, "0x2"), InfinitEvent(15, 0, 0, "burn", 500000, "0x3")]
+    vault = object.__new__(InfinitVault)
+    vault.product = APEX_PRODUCT
+    vault.historical_context_path = tmp_path / "context.duckdb"
+    vault.share_token = TokenDetails(contract=None, decimals=6)
+    with InfinitHistoricalContextStore(vault.historical_context_path) as store:
+        store.store(APEX_PRODUCT, history, history.points, blocks, events, 1, 31, expected_supply=500000)
+    reads = tuple(vault.get_historical_reader(stateful=False).fetch_contextual_historical_reads(1, 31, 1))
+    assert len(reads) == 2
+    assert reads[0].share_price is None
+    assert reads[0].total_assets is None
+    assert reads[0].total_supply == Decimal(1)
+    assert reads[1].timestamp == history.points[1].timestamp
+    assert reads[1].share_price == Decimal("1.05")
+    assert reads[1].total_supply == Decimal("0.5")
+    assert reads[1].total_assets == Decimal("0.525")
 
 
 def test_infinit_dense_mapping(tmp_path: Path) -> None:
@@ -279,6 +310,23 @@ def test_infinit_defaults_and_unreadable_parquet(tmp_path: Path, monkeypatch: py
     with pytest.raises(pa.ArrowInvalid, match="Parquet"):
         run_staged(config, (config.raw,), lambda _staged: {})
     assert config.raw.read_bytes() == b"unreadable parquet must survive"
+
+
+def test_infinit_uncheckpointed_stage_is_not_published(tmp_path: Path) -> None:
+    """A leftover staged WAL must not be separated from its committed database."""
+    target = tmp_path / "context.duckdb"
+    target.write_bytes(b"original")
+    config = InfinitMigrationConfig(tmp_path, tmp_path / "metadata", tmp_path / "raw", tmp_path / "cleaned", target, tmp_path, dry_run=False)
+
+    def update(staged: dict[Path, Path]) -> dict[str, int]:
+        """Simulate a callback returning before its staged database checkpoint."""
+        staged[target].write_bytes(b"updated")
+        Path(str(staged[target]) + ".wal").write_bytes(b"uncheckpointed writes")
+        return {"rows": 1}
+
+    with pytest.raises(ValueError, match="uncheckpointed WAL"):
+        run_staged(config, (target,), update)
+    assert target.read_bytes() == b"original"
 
 
 def test_infinit_display_daily_and_period_gap_preservation() -> None:

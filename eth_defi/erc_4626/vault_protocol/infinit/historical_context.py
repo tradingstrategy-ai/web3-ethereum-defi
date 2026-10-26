@@ -31,6 +31,10 @@ from eth_defi.vault.vaultdb import get_pipeline_data_dir
 logger = logging.getLogger(__name__)
 
 
+class InfinitHistoryCoverageError(ValueError):
+    """Existing prices need source-context restoration before they can be replaced."""
+
+
 def get_infinit_historical_context_path() -> Path:
     """Resolve the contextual cache beneath the active pipeline directory.
 
@@ -116,7 +120,9 @@ def validate_infinit_price_coverage(price_path: Path, context_path: Path, produc
 
     A restored or lost context database must not let a shortened API response
     erase older Parquet history. Every existing source timestamp in the selected
-    replacement range must still be present in the context's hourly output.
+    replacement range must still be present in the original source context.
+    A newly arrived earlier sample may legitimately become the hourly output
+    while the previously exported sample remains retained in that context.
     Unreadable existing Parquet propagates as an error.
 
     :param price_path: Existing shared raw price Parquet, if any.
@@ -134,10 +140,16 @@ def validate_infinit_price_coverage(price_path: Path, context_path: Path, produc
         filters=[("chain", "=", INFINIT_CHAIN_ID), ("address", "=", product.address), ("block_number", ">=", start_block), ("block_number", "<", end_block)],
     )
     with InfinitHistoricalContextStore(context_path, read_only=True) as store:
-        retained = {timestamp for timestamp, *_ in store.iter_prices(product, start_block, end_block)}
+        retained = {
+            row[0]
+            for row in store.connection.execute(
+                "SELECT timestamp FROM infinit_prices WHERE vault_address=? AND block_number>=? AND block_number<?",
+                [product.address, start_block, end_block],
+            ).fetchall()
+        }
     missing = set(previous.column("timestamp").to_pylist()) - retained
     if missing:
-        raise ValueError(f"Infinit context lacks {len(missing)} existing price observations; restore its backup before replacing history")
+        raise InfinitHistoryCoverageError(f"Infinit context lacks {len(missing)} existing price observations; restore its backup before replacing history")
 
 
 class InfinitHistoricalContextStore(AbstractContextManager):

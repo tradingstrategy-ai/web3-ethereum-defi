@@ -3,6 +3,7 @@
 """Infinit's reviewed contract identities on the shared Arbitrum fork."""
 
 import datetime
+import json
 import os
 import pickle  # noqa: S403 - local test fixtures only
 from decimal import Decimal
@@ -90,8 +91,9 @@ def test_infinit_recurring_scan_late_prices(web3: Web3, tmp_path: Path, monkeypa
     state_bytes = state.read_bytes()
     output = tmp_path / "prices.parquet"
     context = tmp_path / "history.duckdb"
-    points = [InfinitPricePoint(stamp - datetime.timedelta(hours=3), Decimal("1.01")), InfinitPricePoint(stamp - datetime.timedelta(hours=1), Decimal("1.03"))]
+    points = [InfinitPricePoint(stamp - datetime.timedelta(hours=3) + datetime.timedelta(minutes=15), Decimal("1.01")), InfinitPricePoint(stamp - datetime.timedelta(hours=1), Decimal("1.03"))]
     block_map = {stamp - datetime.timedelta(hours=i): end - i * 10000 for i in (1, 2, 3)}
+    block_map[points[0].timestamp] = end - 29000
     events = [InfinitEvent(APEX_PRODUCT.deployment_block, 0, 0, "created", 0, "0x1"), InfinitEvent(APEX_PRODUCT.deployment_block, 1, 0, "mint", 506013231165, "0x2")]
     cache = TokenDiskCache(tmp_path / "tokens.sqlite")
 
@@ -118,14 +120,16 @@ def test_infinit_recurring_scan_late_prices(web3: Web3, tmp_path: Path, monkeypa
         sentinel = first.iloc[[0]].copy()
         sentinel["address"] = sentinel_spec.vault_address
         pd.concat([first, sentinel]).to_parquet(output, index=False)
-        # This newly published source observation predates the unrelated EVM cursor.
+        # Both a missing hour and an earlier sample within an exported hour
+        # can arrive behind the unrelated EVM cursor.
         points.insert(1, InfinitPricePoint(stamp - datetime.timedelta(hours=2), Decimal("1.02")))
+        points.insert(0, InfinitPricePoint(stamp - datetime.timedelta(hours=3), Decimal("1.005")))
         for _ in range(2):
             success, metrics = scan_all_chains.scan_prices_for_chain(**options)
             assert success, metrics
             prices = pd.read_parquet(output)
             own = prices[prices.address == APEX_PRODUCT.address].sort_values("timestamp")
-            assert own.share_price.tolist() == pytest.approx([1.01, 1.02, 1.03])
+            assert own.share_price.tolist() == pytest.approx([1.005, 1.02, 1.03])
             pd.testing.assert_frame_equal(prices[prices.address == sentinel_spec.vault_address].reset_index(drop=True), sentinel.reset_index(drop=True))
             assert state.read_bytes() == state_bytes
         before = output.read_bytes()
@@ -136,8 +140,9 @@ def test_infinit_recurring_scan_late_prices(web3: Web3, tmp_path: Path, monkeypa
             raise source_error(message)
 
         monkeypatch.setattr(scan_all_chains, "fetch_and_store_infinit_history", unavailable)
-        success, _ = scan_all_chains.scan_prices_for_chain(**options)
-        assert not success
+        success, metrics = scan_all_chains.scan_prices_for_chain(**options)
+        assert success
+        assert "Infinit history deferred" in metrics["warning"]
         assert output.read_bytes() == before
         assert state.read_bytes() == state_bytes
         # A lost context plus a truncated API must never erase retained Parquet.
@@ -145,9 +150,30 @@ def test_infinit_recurring_scan_late_prices(web3: Web3, tmp_path: Path, monkeypa
         del points[0]
         monkeypatch.setattr(scan_all_chains, "fetch_and_store_infinit_history", prefill)
         success, metrics = scan_all_chains.scan_prices_for_chain(**options)
-        assert not success
+        assert success
         assert metrics["infinit_deferred"] == [APEX_PRODUCT.address]
         assert output.read_bytes() == before
         assert state.read_bytes() == state_bytes
+        # A partial source outage remains visible without activating backoff
+        # or disabling settlement scans for unrelated Arbitrum products.
+        monkeypatch.setenv("JSON_RPC_ARBITRUM", "https://recorded.invalid")
+        monkeypatch.setattr(scan_all_chains, "verify_rpc_provider_capabilities", lambda rpc, _name: (rpc, end))
+        for _ in range(2):
+            result = scan_all_chains.scan_chain(
+                scan_all_chains.ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM", False),
+                scan_prices=True,
+                max_workers=1,
+                frequency="1h",
+                retry_attempt=0,
+                vault_db_path=metadata,
+                uncleaned_price_path=output,
+                reader_state_path=state,
+                historical_context_path=context,
+            )
+            assert result.status == "success"
+            assert result.price_scan_ok
+            assert "Infinit history deferred" in result.warning
+            backoff = tmp_path / "rpc-chain-backoff.json"
+            assert not backoff.exists() or "Arbitrum" not in json.loads(backoff.read_text())
     finally:
         cache.close()

@@ -173,6 +173,9 @@ def run_staged(config: InfinitMigrationConfig, targets: tuple[Path, ...], operat
                     raise ValueError(f"Maintenance did not produce its staged output: {stage.name}")
                 if stage.suffix == ".parquet":
                     pq.ParquetFile(stage)
+                if stage.suffix == ".duckdb" and Path(str(stage) + ".wal").exists():
+                    msg = "Staged Infinit context has an uncheckpointed WAL; refusing incomplete publication"
+                    raise ValueError(msg)
             if not config.dry_run:
                 # A live WAL beside a replaced DuckDB would replay the old
                 # database's writes. Refuse it instead of deleting evidence.

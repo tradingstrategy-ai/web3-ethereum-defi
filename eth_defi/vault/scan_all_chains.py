@@ -85,7 +85,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
-from eth_defi.erc_4626.vault_protocol.infinit.historical_context import fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
+from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoryCoverageError, fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
@@ -598,6 +598,9 @@ class ChainResult:
 
     #: Error message if failed
     error: str | None = None
+
+    #: Visible partial-source warning that does not trigger whole-chain backoff.
+    warning: str | None = None
 
     #: Full traceback string if failed
     traceback_str: str | None = None
@@ -1410,6 +1413,7 @@ def scan_prices_for_chain(
         # mixed-chain continuation point, including on recovery after failure.
         infinit_rows_written = 0
         infinit_scanned = 0
+        infinit_overdue = {}
         metrics["infinit_deferred"] = []
         for vault in tuple(vaults):
             if not isinstance(vault, InfinitVault):
@@ -1437,20 +1441,32 @@ def scan_prices_for_chain(
                     frequency=frequency,
                     hypersync_client=hypersync_config.hypersync_client,
                     vault_addresses={vault.address.lower()},
+                    enforce_live_freshness=live_freshness,
                 )
+            except InfinitHistoryCoverageError as error:
+                logger.exception("Infinit history requires context restoration for %s: %s", vault.address, error)
+                metrics["infinit_deferred"].append(vault.address.lower())
+                continue
             except (OSError, ValueError, RuntimeError, Web3Exception, HypersyncFlaky, duckdb.Error) as error:
                 logger.warning("Infinit history deferred for %s: %s", vault.address, error)
                 metrics["infinit_deferred"].append(vault.address.lower())
                 continue
             infinit_rows_written += infinit_result["rows_written"]
+            infinit_overdue.update(infinit_result.get("overdue_vaults", {}))
+            if infinit_result.get("audit_error"):
+                metrics["infinit_deferred"].append(vault.address.lower())
             infinit_scanned += 1
             try:
                 validation = vault.fetch_valuation_validation()
                 logger.info("Infinit current valuation check for %s: %s", vault.address, validation)
             except (OSError, ValueError, KeyError, ArithmeticError, Web3Exception) as error:
                 logger.warning("Infinit current account validation deferred for %s: %s", vault.address, error)
+        if metrics["infinit_deferred"]:
+            metrics["warning"] = f"Infinit history deferred for {', '.join(metrics['infinit_deferred'])}; inspect source/context diagnostics"
+        elif infinit_overdue:
+            metrics["warning"] = "Infinit source prices are overdue; replayed rows retain their original dates"
         if not vaults:
-            return bool(infinit_scanned), {**metrics, "items_scanned": infinit_scanned, "rows_written": infinit_rows_written + antarctic_repair_rows, "end_block": current_end_block}
+            return True, {**metrics, "items_scanned": infinit_scanned, "rows_written": infinit_rows_written + antarctic_repair_rows, "end_block": current_end_block, "overdue_vaults": infinit_overdue}
 
         metrics["items_scanned"] = len(vaults) + infinit_scanned
 
@@ -1507,7 +1523,7 @@ def scan_prices_for_chain(
             "rows_written": result["rows_written"] + antarctic_repair_rows + infinit_rows_written,
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
-            "overdue_vaults": result["overdue_vaults"],
+            "overdue_vaults": result["overdue_vaults"] | infinit_overdue,
             "unknown_conversion_vaults": result["unknown_conversion_vaults"],
             "denomination_unavailable_vaults": result.get("denomination_unavailable_vaults", []),
             "start_block": result["start_block"],
@@ -1690,6 +1706,7 @@ def scan_chain(
         record_rpc_usage("price_scan", price_stats, price_metrics)
         result.price_scan_ok = price_success
         result.chain_id = price_metrics.get("chain_id") or result.chain_id
+        result.warning = price_metrics.get("warning")
 
         if price_success:
             result.price_rows = price_metrics.get("rows_written")
@@ -2758,6 +2775,8 @@ def print_dashboard(
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
             line += f"  {error_msg}"
+        elif result.warning:
+            line += f"  WARNING: {result.warning}"
         lines.append(line)
 
     # Summary

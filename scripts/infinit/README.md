@@ -62,6 +62,14 @@ and loss of context followed by a shortened API response. Missing historical
 coverage now refuses publication. Normal scans extend a warm dense timestamp
 cache before fetching source prices; manual migrations keep it read-only.
 
+Claude CLI reviews used ``claude-opus-5-5``. Findings led to coverage checks
+against all retained source samples, staged-WAL refusal, freshness auditing,
+and dashboard warnings for Infinit outages without Arbitrum-wide backoff.
+The final protocol/scanner subset passed **58 tests**, including two consecutive
+chain ticks after a source failure. The cleaner subset passed **50**, focused
+metric regressions **13**, and real provider checks **2**. A final dry-run
+backfill against the production copies reproduced the counts above.
+
 Ruff checks and formatting passed for the new Python modules and scripts.
 Protocol metadata parsed successfully, including both official processed
 256×256 logo variants. Sphinx was not built.

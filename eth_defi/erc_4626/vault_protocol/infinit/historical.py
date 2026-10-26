@@ -13,7 +13,7 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 
 
 class InfinitHistoricalReader(VaultHistoricalReader):
-    """Read exact hourly source observations with event-matched receipt supply."""
+    """Read the first actual sample per hour with event-matched receipt supply."""
 
     @property
     def uses_contextual_history(self) -> bool:
@@ -35,7 +35,10 @@ class InfinitHistoricalReader(VaultHistoricalReader):
         raise RuntimeError(msg)
 
     def fetch_contextual_historical_reads(self, start_block: int, end_block: int, step: int) -> Iterator[VaultHistoricalRead]:
-        """Yield actual hourly observations, including explicit missing rows.
+        """Yield hourly observations, masking reviewed corrupt prices as missing.
+
+        Hours without a source observation remain absent; only observed samples
+        inside the reviewed corrupt periods produce explicit null valuations.
 
         :param start_block: Inclusive source block.
         :param end_block: Exclusive source block.

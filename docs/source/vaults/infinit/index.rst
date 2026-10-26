@@ -171,7 +171,12 @@ reader states are preserved. Before replacing prices, the scanner requires the
 context to cover every existing Infinit source timestamp in the replacement
 range. If the context is lost and the API has shortened its history, restore
 the context backup; the scanner refuses to erase those older prices. A failed
-source read withholds Infinit from publication and logs the reason. The separate current Hyperliquid equity
+source read withholds Infinit from publication and logs the reason. Other
+Arbitrum readers and settlement scans still run. The chain dashboard displays
+an Infinit warning without imposing whole-chain RPC backoff.
+Missing source coverage requires operator restoration and is logged as an error.
+The shared fourteen-day source freshness audit includes Infinit's actual
+observations; rewriting old rows does not make them fresh. The separate current Hyperliquid equity
 check is diagnostic and never replaces historical API prices.
 
 The address-scoped refresh uses the shared atomic Parquet writer, so it incurs
@@ -250,6 +255,12 @@ persistent host state. Override the entrypoint explicitly. Ensure no scanner
 is running a conflicting write and that the mounted dense timestamp cache is
 ready before backfill. Run leads, metadata, then history, each dry run before
 apply. For example, from the production checkout:
+
+For history, explicitly set ``END_BLOCK`` to the exclusive end of the restored
+dense cache (at most its last contiguous block plus one). The default RPC head
+minus 64 can advance beyond that read-only cache while maintenance is running;
+it is suitable only when the cache already covers that exact boundary. Pass
+the same explicit end to both the dry run and apply.
 
 .. code-block:: shell
 
