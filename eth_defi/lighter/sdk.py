@@ -22,12 +22,16 @@ Authoritative Lighter documentation:
 - Transaction API: https://github.com/elliottech/lighter-python/blob/main/docs/TransactionApi.md
 """
 
+import importlib
 import logging
 import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TypeVar
+from types import ModuleType
+from typing import Any, TypeVar
+
+from eth_defi.lighter.constants import LIGHTER_API_URL
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,61 @@ DEFAULT_LIGHTER_AUTH_TOKEN_REFRESH_MARGIN = 30.0
 
 class LighterAuthTokenError(RuntimeError):
     """Raised when an authenticated Lighter SDK token cannot be created."""
+
+
+class LighterSDKNotInstalled(ImportError):
+    """Raised when an operation needs the optional official Lighter SDK."""
+
+
+def import_lighter_sdk() -> ModuleType:
+    """Import the optional official Lighter SDK.
+
+    The SDK is deliberately not an eth-defi dependency: it ships native signer
+    libraries and is pinned by the downstream application. Operations that
+    sign Lighter L2 transactions, such as sub-account creation or account
+    transfers, call this function so that importing eth-defi never requires
+    the SDK.
+
+    :return:
+        The ``lighter`` package.
+    :raises LighterSDKNotInstalled:
+        If the SDK is not installed.
+    """
+    try:
+        return importlib.import_module("lighter")
+    except ImportError as error:
+        message = "This operation needs the official Lighter SDK (the lighter-python package, imported as 'lighter'). Install the revision pinned by your application, for example trade-executor's lighter-sdk dependency."
+        raise LighterSDKNotInstalled(message) from error
+
+
+def create_lighter_signer_client(
+    account_index: int,
+    api_key_index: int,
+    api_private_key: str,
+    api_url: str = LIGHTER_API_URL,
+) -> Any:
+    """Create an official SDK signer bound to one Lighter account and API key.
+
+    The returned client holds the private key in memory. Close it with
+    ``await client.close()`` when done. Never log the client or its key.
+
+    :param account_index:
+        Lighter account the client signs for.
+    :param api_key_index:
+        Registered API-key slot.
+    :param api_private_key:
+        Private key registered at ``api_key_index``.
+    :param api_url:
+        Lighter API base URL. The SDK derives the Lighter chain id from it.
+    :return:
+        A ``lighter.SignerClient`` instance.
+    """
+    lighter = import_lighter_sdk()
+    return lighter.SignerClient(
+        url=api_url,
+        account_index=account_index,
+        api_private_keys={api_key_index: api_private_key},
+    )
 
 
 def is_lighter_unauthorized_exception(error: BaseException) -> bool:

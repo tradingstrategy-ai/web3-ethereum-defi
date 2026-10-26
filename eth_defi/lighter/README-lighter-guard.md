@@ -263,6 +263,56 @@ Builder**, where the owners co-sign. The `eth_defi.lighter.pubkey` helpers
 `build_change_pubkey_safe_tx`, and `execute_change_pubkey` for a single-owner
 Safe) back it.
 
+## Sub-accounts
+
+A Safe-owned master account can own sub-accounts, each with its own
+balances, positions and API-key slots. This lets one vault give each external
+trading strategy its own isolated account and key. No guard change is needed.
+
+| Step | Mechanism | Signer |
+|------|-----------|--------|
+| Create a sub-account | L2 `CreateSubAccount` (`tx_type = 9`) | Master API key |
+| Register its API key | L1 `changePubKey(subAccountIndex, apiKeyIndex, pubKey)` from the Safe | Safe owners |
+| Fund it | L1 `deposit` to the Safe's master, then L2 `Transfer` master to sub-account | Asset manager, then master API key |
+| Drain it to the Safe | L1 `withdraw(subAccountIndex, ...)` through the guard, then `withdrawPendingBalance` | Asset manager only |
+
+The verified `ZkLighter` source forwards `changePubKey` and `withdraw` with
+`masterAccountIndex = validateAndGetAccountIndexFromAddress(msg.sender)` and
+only range-checks the supplied account index. The sequencer accepts the
+request when the index is the caller's master or one of its sub-accounts.
+The proceeds of every account's withdrawal join one pending balance keyed by
+the master, which the existing receiver-checked claim releases to the Safe.
+An L1 deposit always credits the master; a sub-account is funded by an L2
+transfer afterwards.
+
+The L1 `withdraw` path needs no API key, so the vault can drain a
+sub-account whose key is held only by the external trader. It goes through
+the same secure-withdrawal delay as an API-key withdrawal.
+
+Helpers:
+
+- `eth_defi.lighter.api.fetch_lighter_accounts()` and
+  `eth_defi.lighter.valuation.fetch_lighter_accounts_equity()` read the
+  account tree and one consistent equity snapshot for the Safe
+- `eth_defi.lighter.sub_account.create_lighter_sub_accounts()` creates
+  sub-accounts with the master key
+- `eth_defi.lighter.transfer` quotes, submits and confirms same-owner
+  transfers
+- `eth_defi.lighter.lagoon.request_usdc_withdrawal_from_lighter_account()`
+  and `wait_for_lighter_pending_balance()` run the key-free withdrawal
+- `deploy_automated_lagoon_vault(..., lighter_sub_account_count=N)` creates
+  and keys N sub-accounts during activation; the sub-account private keys are
+  never written to deployment reports, see
+  `LighterSubAccountSetup.as_handover_dict()`
+- `scripts/lighter/lagoon-lighter-create-subaccounts.py` creates
+  sub-accounts for an existing deployment
+
+Sub-account creation and transfers sign L2 transactions with the official
+Lighter SDK, which stays an optional dependency imported on use.
+
+On an Anvil fork, `eth_defi.lighter.testing.credit_lighter_pending_balance_on_anvil()`
+forges the proof-backed pending balance so the real claim can be exercised.
+
 ## Operator setup (Python)
 
 ```python

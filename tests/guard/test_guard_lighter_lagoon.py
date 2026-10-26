@@ -16,6 +16,9 @@ The tests verify:
    random selector, and a wrong target contract are rejected.
 4. Execution path: approve + deposit run end-to-end through
    ``SimpleVaultV0.performCall`` and USDC actually leaves the vault.
+5. Sub-account egress: an L1 ``withdraw`` of a sub-account index passes the
+   guard and the protocol, and the forged pending balance is claimed through
+   the guard.
 """
 
 import os
@@ -30,8 +33,10 @@ from web3.exceptions import ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT, LIGHTER_USDC_ETHEREUM
+from eth_defi.lighter.api import LIGHTER_SUB_ACCOUNT_INDEX_START
 from eth_defi.lighter.deployment import LighterDeployment, deploy_lighter_lib, setup_lighter_whitelisting
-from eth_defi.lighter.testing import deploy_lighter_simple_vault
+from eth_defi.lighter.lagoon import fetch_lighter_pending_balance, wait_for_lighter_pending_balance
+from eth_defi.lighter.testing import credit_lighter_pending_balance_on_anvil, deploy_lighter_simple_vault, register_lighter_account_on_anvil
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
@@ -337,3 +342,55 @@ def test_guard_lighter_withdraw_account_index_bound_by_protocol(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert not_registered_selector in str(excinfo.value).lower(), f"Expected AccountIsNotRegistered ({not_registered_selector}), got: {excinfo.value}"
+
+
+def test_guard_lighter_sub_account_withdraw_and_claim(
+    web3: Web3,
+    vault: Contract,
+    guard: Contract,
+    zk_lighter: Contract,
+    usdc: TokenDetails,
+    owner: str,
+    asset_manager: str,
+):
+    """A vault drains a sub-account with the key-free L1 withdraw path.
+
+    A Lighter sub-account belongs to its owner's master account. Its API key
+    may be held by an external trader, so the vault must be able to pull
+    capital out of it without that key: the L1 ``withdraw(subAccountIndex)``
+    priority request is bound to the caller's master and the proceeds join the
+    owner's pending balance. The proof that makes a balance claimable cannot
+    run on a fork, so it is forged with the storage fixture; the guard check,
+    the protocol call and the claim are real.
+
+    1. Register the vault as a Lighter master account on the fork and allow it as the claim receiver.
+    2. Execute ``withdraw(subAccountIndex, USDC, Perps, amount)`` through the guard.
+    3. Forge the proof-backed pending balance and wait for it with the public reader.
+    4. Claim the pending balance through the guard and check the vault received the USDC.
+    """
+    zk_address = Web3.to_checksum_address(LIGHTER_L1_CONTRACT)
+    asset_index = zk_lighter.functions.USDC_ASSET_INDEX().call()
+    master_index = 4242
+    sub_account_index = LIGHTER_SUB_ACCOUNT_INDEX_START + 7
+    amount = 25 * 10**6
+
+    # 1. Register the vault as a Lighter master account on the fork and allow it as the claim receiver.
+    register_lighter_account_on_anvil(web3, vault.address, master_index)
+    assert_transaction_success_with_explanation(web3, guard.functions.allowReceiver(vault.address, "Lighter claim receiver").transact({"from": owner}))
+
+    # 2. Execute withdraw(subAccountIndex, USDC, Perps, amount) through the guard.
+    target, call_data = encode_simple_vault_transaction(zk_lighter.functions.withdraw(sub_account_index, asset_index, 0, amount))
+    assert_transaction_success_with_explanation(web3, vault.functions.performCall(target, call_data).transact({"from": asset_manager}))
+
+    # 3. Forge the proof-backed pending balance and wait for it with the public reader.
+    assert fetch_lighter_pending_balance(web3, owner=vault.address, usdc=usdc) == 0
+    assert credit_lighter_pending_balance_on_anvil(web3, vault.address, amount) == amount
+    pending = wait_for_lighter_pending_balance(web3, owner=vault.address, usdc=usdc, minimum=usdc.convert_to_decimals(amount), timeout=5, poll_seconds=1)
+    assert pending == usdc.convert_to_decimals(amount)
+
+    # 4. Claim the pending balance through the guard and check the vault received the USDC.
+    target, call_data = encode_simple_vault_transaction(zk_lighter.functions.withdrawPendingBalance(vault.address, asset_index, amount))
+    assert_transaction_success_with_explanation(web3, vault.functions.performCall(target, call_data).transact({"from": asset_manager}))
+    assert usdc.contract.functions.balanceOf(vault.address).call() == amount
+    assert fetch_lighter_pending_balance(web3, owner=vault.address, usdc=usdc) == 0
+    assert zk_address == target
