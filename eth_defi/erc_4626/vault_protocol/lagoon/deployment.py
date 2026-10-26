@@ -54,12 +54,12 @@ from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, wait_for_lighter_account, wait_for_lighter_api_key, wait_for_lighter_collateral
-from eth_defi.lighter.api_key import generate_lighter_api_key as generate_lighter_api_key_pair
+from eth_defi.lighter.api_key import LighterApiKey, generate_lighter_api_key as generate_lighter_api_key_pair
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX, execute_change_pubkey
-from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.session import LighterSession, create_lighter_session
 from eth_defi.lighter.sub_account import LIGHTER_MAX_SUB_ACCOUNTS, create_lighter_sub_accounts
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import (
@@ -443,6 +443,10 @@ class LagoonConfig:
     #: Each sub-account gets one API key at
     #: :attr:`lighter_sub_account_api_key_index` for an external trading
     #: process. Sub-accounts are not funded during deployment.
+    #:
+    #: The generated master and sub-account private keys exist only in the
+    #: returned deployment object until the caller writes them out, so a
+    #: failure after activation loses them.
     lighter_sub_account_count: int = 0
 
     #: API-key slot registered on every created sub-account.
@@ -594,9 +598,9 @@ class LighterSubAccountSetup:
     """A Lighter sub-account created and keyed during Lagoon deployment.
 
     The API key is meant for an external trading process, such as a Nautilus
-    strategy. Its private key is present only on a successful in-memory
-    deployment and is never written to deployment reports; use
-    :py:meth:`as_handover_dict` to write the protected hand-over file.
+    strategy. Its private key exists only in the deployment object returned
+    by a successful deployment and is never written to deployment reports;
+    the caller writes it out with :py:meth:`as_handover_dict`.
     """
 
     #: Sub-account index owned by the Safe's master account.
@@ -2414,7 +2418,7 @@ def _validate_lighter_api_key_deployment_config(
         raise ValueError(message)
     if not generate_lighter_api_key:
         return
-    if type(lighter_sub_account_count) is not int or not 0 <= lighter_sub_account_count <= LIGHTER_MAX_SUB_ACCOUNTS:
+    if not 0 <= lighter_sub_account_count <= LIGHTER_MAX_SUB_ACCOUNTS:
         raise ValueError(f"lighter_sub_account_count must be 0..{LIGHTER_MAX_SUB_ACCOUNTS}")
     if not MIN_API_KEY_INDEX <= lighter_sub_account_api_key_index <= MAX_API_KEY_INDEX:
         raise ValueError(f"lighter_sub_account_api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX}")
@@ -2552,36 +2556,44 @@ def _activate_lighter_account(
             account_index,
             LIGHTER_MIN_MAINNET_USDC,
         )
-        api_key = generate_lighter_api_key_pair(api_key_index)
-        change_pubkey_tx_hash = execute_change_pubkey(
-            web3=web3,
-            safe=safe,
-            owner_private_key=deployer.private_key.hex(),
-            account_index=account_index,
-            api_key_index=api_key.api_key_index,
-            pubkey=bytes.fromhex(api_key.public_key.removeprefix("0x")),
-            zk_lighter=lighter_deployment.zk_lighter,
-            hot_wallet=deployer,
-        )
-        wait_for_lighter_api_key(
-            session,
-            account_index,
-            api_key.api_key_index,
-            api_key.public_key,
-            timeout=900,
-        )
-        sub_accounts = _create_lighter_sub_accounts_with_keys(
+        api_key, change_pubkey_tx_hash = _register_lighter_api_key(
             web3=web3,
             deployer=deployer,
             safe=safe,
             session=session,
-            master_account_index=account_index,
-            master_api_key_index=api_key.api_key_index,
-            master_api_private_key=api_key.private_key,
-            count=sub_account_count,
-            sub_account_api_key_index=sub_account_api_key_index,
+            account_index=account_index,
+            api_key_index=api_key_index,
             zk_lighter=lighter_deployment.zk_lighter,
         )
+        sub_accounts = []
+        if sub_account_count:
+            sub_account_indices = create_lighter_sub_accounts(
+                session=session,
+                l1_address=safe.address,
+                master_account_index=account_index,
+                api_key_index=api_key.api_key_index,
+                api_private_key=api_key.private_key,
+                count=sub_account_count,
+            )
+            for sub_index in sub_account_indices:
+                sub_key, sub_tx_hash = _register_lighter_api_key(
+                    web3=web3,
+                    deployer=deployer,
+                    safe=safe,
+                    session=session,
+                    account_index=sub_index,
+                    api_key_index=sub_account_api_key_index,
+                    zk_lighter=lighter_deployment.zk_lighter,
+                )
+                sub_accounts.append(
+                    LighterSubAccountSetup(
+                        account_index=sub_index,
+                        api_key_index=sub_key.api_key_index,
+                        private_key=sub_key.private_key,
+                        public_key=sub_key.public_key,
+                        change_pubkey_tx_hash=Web3.to_hex(sub_tx_hash),
+                    )
+                )
     finally:
         session.close()
 
@@ -2594,93 +2606,65 @@ def _activate_lighter_account(
         deposit_tx_hash=deposit_tx_hash,
         change_pubkey_tx_hash=Web3.to_hex(change_pubkey_tx_hash),
         observed_collateral=observed_collateral,
-        sub_accounts=sub_accounts,
+        sub_accounts=tuple(sub_accounts),
     )
 
 
-def _create_lighter_sub_accounts_with_keys(
+def _register_lighter_api_key(
     *,
     web3: Web3,
     deployer: HotWallet,
     safe: Safe,
-    session: Any,
-    master_account_index: int,
-    master_api_key_index: int,
-    master_api_private_key: str,
-    count: int,
-    sub_account_api_key_index: int,
+    session: LighterSession,
+    account_index: int,
+    api_key_index: int,
     zk_lighter: HexAddress,
-) -> tuple[LighterSubAccountSetup, ...]:
-    """Create Lighter sub-accounts and register one API key on each.
+) -> tuple[LighterApiKey, HexBytes]:
+    """Generate an API key and register it on a Safe-owned Lighter account.
 
-    Sub-account creation is an L2 transaction signed by the master API key.
-    Each sub-account key is then registered by a Safe ``changePubKey``
-    transaction, executed while the deployer is still the sole Safe owner.
+    The key is registered by a Safe ``changePubKey`` transaction, executed
+    while the deployer is still the sole Safe owner, and then awaited in the
+    public API. ``account_index`` can be the master account or one of its
+    sub-accounts.
+
+    See https://apidocs.lighter.xyz/docs/api-keys
 
     :param web3:
         Ethereum Web3 connection.
     :param deployer:
         Sole Safe owner executing ``changePubKey``.
     :param safe:
-        Safe owning the master account.
+        Safe owning the Lighter account.
     :param session:
         Public Lighter HTTP session.
-    :param master_account_index:
-        Safe-owned master account.
-    :param master_api_key_index:
-        Master API-key slot signing the sub-account creations.
-    :param master_api_private_key:
-        Master API private key. Never logged.
-    :param count:
-        Number of sub-accounts to create; zero creates none.
-    :param sub_account_api_key_index:
-        API-key slot registered on each sub-account.
+    :param account_index:
+        Master or sub-account index to key.
+    :param api_key_index:
+        API-key slot to register.
     :param zk_lighter:
         ZkLighter L1 contract address.
     :return:
-        Created sub-accounts in creation order.
+        Generated key and the ``changePubKey`` transaction hash.
     """
-    if count == 0:
-        return ()
-    indices = create_lighter_sub_accounts(
-        session=session,
-        l1_address=safe.address,
-        master_account_index=master_account_index,
-        api_key_index=master_api_key_index,
-        api_private_key=master_api_private_key,
-        count=count,
+    api_key = generate_lighter_api_key_pair(api_key_index)
+    tx_hash = execute_change_pubkey(
+        web3=web3,
+        safe=safe,
+        owner_private_key=deployer.private_key.hex(),
+        account_index=account_index,
+        api_key_index=api_key.api_key_index,
+        pubkey=bytes.fromhex(api_key.public_key.removeprefix("0x")),
+        zk_lighter=zk_lighter,
+        hot_wallet=deployer,
     )
-    sub_accounts = []
-    for sub_index in indices:
-        sub_key = generate_lighter_api_key_pair(sub_account_api_key_index)
-        tx_hash = execute_change_pubkey(
-            web3=web3,
-            safe=safe,
-            owner_private_key=deployer.private_key.hex(),
-            account_index=sub_index,
-            api_key_index=sub_key.api_key_index,
-            pubkey=bytes.fromhex(sub_key.public_key.removeprefix("0x")),
-            zk_lighter=zk_lighter,
-            hot_wallet=deployer,
-        )
-        wait_for_lighter_api_key(
-            session,
-            sub_index,
-            sub_key.api_key_index,
-            sub_key.public_key,
-            timeout=900,
-        )
-        sub_accounts.append(
-            LighterSubAccountSetup(
-                account_index=sub_index,
-                api_key_index=sub_key.api_key_index,
-                private_key=sub_key.private_key,
-                public_key=sub_key.public_key,
-                change_pubkey_tx_hash=Web3.to_hex(tx_hash),
-            )
-        )
-    logger.info("Registered API keys on %d Lighter sub-accounts", len(sub_accounts))
-    return tuple(sub_accounts)
+    wait_for_lighter_api_key(
+        session,
+        account_index,
+        api_key.api_key_index,
+        api_key.public_key,
+        timeout=900,
+    )
+    return api_key, tx_hash
 
 
 def deploy_automated_lagoon_vault(

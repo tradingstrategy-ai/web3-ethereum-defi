@@ -43,6 +43,9 @@ DEFAULT_LIGHTER_AUTH_TOKEN_TIMEOUT = 10 * 60.0
 #: Refresh a token before its nominal expiry to allow for request latency.
 DEFAULT_LIGHTER_AUTH_TOKEN_REFRESH_MARGIN = 30.0
 
+#: Successful Lighter ``sendTx`` response code.
+LIGHTER_RESPONSE_CODE_OK = 200
+
 
 class LighterAuthTokenError(RuntimeError):
     """Raised when an authenticated Lighter SDK token cannot be created."""
@@ -81,8 +84,14 @@ def create_lighter_signer_client(
 ) -> Any:
     """Create an official SDK signer bound to one Lighter account and API key.
 
-    The returned client holds the private key in memory. Close it with
-    ``await client.close()`` when done. Never log the client or its key.
+    The SDK client opens an ``aiohttp`` session in its constructor, so call
+    this inside a running asyncio event loop, for example at the start of the
+    coroutine that uses the client. The returned client holds the private key
+    in memory: close it with ``await client.close()`` when done and never log
+    the client or its key.
+
+    See the `SignerClient source
+    <https://github.com/elliottech/lighter-python/blob/main/lighter/signer_client.py>`__.
 
     :param account_index:
         Lighter account the client signs for.
@@ -101,6 +110,25 @@ def create_lighter_signer_client(
         account_index=account_index,
         api_private_keys={api_key_index: api_private_key},
     )
+
+
+def is_lighter_tx_accepted(response: Any, error: Any) -> bool:
+    """Check whether the sequencer accepted a signed L2 transaction.
+
+    SDK transaction methods return ``(tx_info, response, error)``. A
+    transaction is accepted only when signing produced no error and
+    ``sendTx`` answered with :py:data:`LIGHTER_RESPONSE_CODE_OK`.
+
+    See the `sendTx API reference <https://apidocs.lighter.xyz/reference/sendtx>`__.
+
+    :param response:
+        ``RespSendTx`` returned by the SDK, or ``None``.
+    :param error:
+        Signing error returned by the SDK, or ``None``.
+    :return:
+        ``True`` if the transaction was accepted.
+    """
+    return error is None and response is not None and response.code == LIGHTER_RESPONSE_CODE_OK
 
 
 def is_lighter_unauthorized_exception(error: BaseException) -> bool:

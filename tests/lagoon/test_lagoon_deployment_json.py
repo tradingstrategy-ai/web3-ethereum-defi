@@ -372,7 +372,7 @@ def test_validate_lighter_api_key_deployment_rejects_invalid_config(
 
 
 def test_validate_lighter_api_key_deployment_checks_deployer_balance(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Activation validation requires the fixed 20-USDC Lagoon subscription."""
+    """Activation validation requires the deployer to hold the bootstrap subscription."""
     kwargs, _deployer = create_valid_lighter_config()
     monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("0.99")))
 

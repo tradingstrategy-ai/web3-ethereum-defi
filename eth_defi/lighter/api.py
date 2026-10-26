@@ -48,9 +48,10 @@ LIGHTER_API_KEY_NOT_FOUND_CODE = 21109
 
 #: First account index in Lighter's sub-account range.
 #:
-#: Master accounts count up from zero in ``[0, 2**47 - 1]``. Sub-accounts and
-#: pools count down from ``2**48 - 2``, so every sub-account index is at least
-#: ``2**47``. See https://docs.lighter.xyz/evm/interop/accounts.md
+#: Master account indices lie in ``[0, 2**47 - 1]`` and sub-account indices in
+#: ``[2**47, 2**48 - 2]``. Lighter allocates sub-accounts and pools counting
+#: down from the top of that range. See the Lighter Core part of
+#: https://docs.lighter.xyz/evm/interop/accounts.md
 LIGHTER_SUB_ACCOUNT_INDEX_START = 2**47
 
 #: ``account_type`` of a master account in Lighter account responses.
@@ -87,17 +88,6 @@ class LighterAccounts:
             Every account index owned by the L1 address.
         """
         return (self.master_index, *self.sub_account_indices)
-
-
-def is_lighter_sub_account_index(account_index: int) -> bool:
-    """Check whether an account index lies in Lighter's sub-account range.
-
-    :param account_index:
-        Lighter account index.
-    :return:
-        ``True`` for a sub-account or pool index, ``False`` for a master account.
-    """
-    return account_index >= LIGHTER_SUB_ACCOUNT_INDEX_START
 
 
 def fetch_lighter_withdrawal_delay(
@@ -206,6 +196,37 @@ def _has_lighter_error_code(response: Response, expected_code: int) -> bool:
     return data.get("code") == expected_code
 
 
+def _fetch_lighter_accounts_by_l1_address(
+    session: LighterSession,
+    l1_address: HexAddress | str,
+    timeout: float,
+) -> list[dict[str, Any]]:
+    """Fetch the raw ``accountsByL1Address`` entries of an L1 address.
+
+    Authoritative endpoint documentation:
+    https://apidocs.lighter.xyz/reference/accountsbyl1address
+
+    :param session:
+        Configured Lighter HTTP session.
+    :param l1_address:
+        L1 address which owns the Lighter accounts.
+    :param timeout:
+        Per-request timeout in seconds.
+    :return:
+        Raw account entries, empty until Lighter exposes an account.
+    """
+    response = session.get(
+        f"{session.api_url}/api/v1/accountsByL1Address",
+        params={"l1_address": Web3.to_checksum_address(l1_address)},
+        timeout=timeout,
+    )
+    if _has_lighter_error_code(response, LIGHTER_ACCOUNT_NOT_FOUND_CODE):
+        return []
+    response.raise_for_status()
+    data = response.json()
+    return data.get("sub_accounts") or data.get("subAccounts") or []
+
+
 def fetch_lighter_account_index(
     session: LighterSession,
     l1_address: HexAddress | str,
@@ -228,16 +249,7 @@ def fetch_lighter_account_index(
     :return:
         The lowest account index, or ``None`` until Lighter exposes one.
     """
-    response = session.get(
-        f"{session.api_url}/api/v1/accountsByL1Address",
-        params={"l1_address": Web3.to_checksum_address(l1_address)},
-        timeout=timeout,
-    )
-    if _has_lighter_error_code(response, LIGHTER_ACCOUNT_NOT_FOUND_CODE):
-        return None
-    response.raise_for_status()
-    data = response.json()
-    accounts = data.get("sub_accounts") or data.get("subAccounts") or []
+    accounts = _fetch_lighter_accounts_by_l1_address(session, l1_address, timeout)
     if not accounts:
         return None
 
@@ -257,9 +269,7 @@ def fetch_lighter_accounts(
 
     ``accountsByL1Address`` lists the master account, its sub-accounts and
     any pools the address operates in one response. Entries are classified by
-    ``account_type``; when a response omits it, the index range decides,
-    because a sub-account index is never close to the master index. Pools are
-    ignored.
+    their ``account_type``; pools are ignored.
 
     Authoritative endpoint documentation:
     https://apidocs.lighter.xyz/reference/accountsbyl1address
@@ -274,38 +284,20 @@ def fetch_lighter_accounts(
         Owned accounts, or ``None`` until Lighter exposes the master account.
     :raises ValueError:
         If the response has no master account, several master accounts or a
-        malformed index.
+        malformed index or account type.
     """
-    response = session.get(
-        f"{session.api_url}/api/v1/accountsByL1Address",
-        params={"l1_address": Web3.to_checksum_address(l1_address)},
-        timeout=timeout,
-    )
-    if _has_lighter_error_code(response, LIGHTER_ACCOUNT_NOT_FOUND_CODE):
-        return None
-    response.raise_for_status()
-    data = response.json()
-    accounts = data.get("sub_accounts") or data.get("subAccounts") or []
+    accounts = _fetch_lighter_accounts_by_l1_address(session, l1_address, timeout)
     if not accounts:
         return None
 
-    masters = set()
-    sub_accounts = set()
     try:
-        for account in accounts:
-            index = int(account["index"])
-            account_type = account.get("account_type")
-            if account_type is None:
-                account_type = LIGHTER_ACCOUNT_TYPE_SUB_ACCOUNT if is_lighter_sub_account_index(index) else LIGHTER_ACCOUNT_TYPE_MASTER
-            account_type = int(account_type)
-            if account_type == LIGHTER_ACCOUNT_TYPE_MASTER:
-                masters.add(index)
-            elif account_type == LIGHTER_ACCOUNT_TYPE_SUB_ACCOUNT:
-                sub_accounts.add(index)
+        typed_indices = [(int(account["account_type"]), int(account["index"])) for account in accounts]
     except (KeyError, TypeError, ValueError) as error:
         message = "Lighter accountsByL1Address response contains an invalid account index or type"
         raise ValueError(message) from error
 
+    masters = {index for account_type, index in typed_indices if account_type == LIGHTER_ACCOUNT_TYPE_MASTER}
+    sub_accounts = {index for account_type, index in typed_indices if account_type == LIGHTER_ACCOUNT_TYPE_SUB_ACCOUNT}
     if len(masters) != 1:
         message = f"Lighter accountsByL1Address returned {len(masters)} master accounts, expected one"
         raise ValueError(message)

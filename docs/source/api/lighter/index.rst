@@ -62,9 +62,9 @@ The guarded Lagoon/Safe surface supports the manual mainnet custody lifecycle:
 - Deployment-time trading API-key generation without an SDK dependency;
   the separate trading tutorial uses Lighter's official SDK for order signing
 - Generic auth-token refresh and retry for authenticated, idempotent SDK calls
-- Sub-account creation and key registration for a Safe-owned master account,
-  same-owner USDC transfers, and the key-free L1 ``withdraw`` path that
-  drains any owned account to the Safe
+- Sub-account discovery, one-snapshot equity, creation and key registration
+  for a Safe-owned master account, fee-free same-owner USDC transfers, and the
+  key-free L1 ``withdraw`` path that drains any owned account to the Safe
 
 Tutorials
 ~~~~~~~~~
@@ -72,6 +72,7 @@ Tutorials
 - :doc:`Lighter: benchmark pools </tutorials/lighter-vault-benchmark>` - Benchmark Lighter pool performance, equity curves, and rolling returns
 - ``scripts/lagoon/lagoon-lighter-example.py`` - Deploy and activate a Lagoon vault with a Lighter API key
 - ``scripts/lagoon/lagoon-lighter-trade-example.py`` - Deploy, open and close a small ETH perpetual, and read NAV
+- ``scripts/lighter/lagoon-lighter-create-subaccounts.py`` - Create sub-accounts for an existing Safe-owned master account
 
 For architecture details, API endpoint reference, DuckDB schema, and
 fee model documentation, see

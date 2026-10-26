@@ -1,20 +1,25 @@
 """Lighter transfers between accounts owned by the same L1 address.
 
-A Safe-owned Lighter master account can fund its own sub-accounts with an L2
-``Transfer`` transaction signed by the master account's API key. Transfers
+A Safe-owned Lighter master account funds its own sub-accounts with an L2
+``Transfer`` transaction signed by the source account's API key. Transfers
 between accounts of the same owner need no L1 signature, which a Safe could
 not produce. Transfers to another owner are out of scope.
 
-The transfer fee is charged on top of the transferred amount. Lighter documents
-transfers between sub-accounts as free, but the fee is still read from
-``transferFeeInfo`` so the signed amount always matches the sequencer's value.
+The fee is charged on top of the transferred amount and the signed fee must
+match the sequencer's value exactly, so it is always read from the
+authenticated ``transferFeeInfo`` endpoint. Observed on Ethereum mainnet on
+2026-10-26: the authenticated endpoint quoted 0 USDC for same-owner transfers
+(master to sub-account and between sub-accounts) and 1 USDC to a different
+owner, and Lighter charged nothing for the same-owner transfers. The public,
+unauthenticated endpoint quotes 1 USDC regardless of the destination, so do
+not use it for same-owner transfers. Lighter's minimum transfer is 1 USDC.
 
 These helpers need the optional official Lighter SDK; see
 :py:func:`eth_defi.lighter.sdk.import_lighter_sdk`.
 
 Authoritative Lighter documentation:
 
-- Transfers: https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
+- Transfers and minimums: https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 - Transfer fee: https://docs.lighter.xyz/api/info/transferfeeinfo.md
 - Transfer history: https://docs.lighter.xyz/api/transactions/transfer_history.md
 """
@@ -28,21 +33,16 @@ from decimal import Decimal
 from typing import Any
 
 from eth_defi.lighter.api import LIGHTER_STATE_POLL_SECONDS
-from eth_defi.lighter.sdk import LighterAuthTokenManager, import_lighter_sdk
+from eth_defi.lighter.constants import LIGHTER_ROUTE_PERP
+from eth_defi.lighter.sdk import LighterAuthTokenManager, import_lighter_sdk, is_lighter_tx_accepted
 
 logger = logging.getLogger(__name__)
 
 #: Native USDC precision on Lighter.
 LIGHTER_USDC_DECIMALS = 6
 
-#: Lighter perpetuals route for both the source and destination balance.
-LIGHTER_ROUTE_PERP = 0
-
 #: Transfers require an exactly 32-byte memo; an empty memo is all zeroes.
 LIGHTER_EMPTY_TRANSFER_MEMO = "0x" + "00" * 32
-
-#: Successful Lighter ``sendTx`` response code.
-LIGHTER_RESPONSE_CODE_OK = 200
 
 
 class LighterTransferError(RuntimeError):
@@ -74,6 +74,9 @@ class LighterTransferRecord:
 
 def convert_usdc_to_lighter_raw(amount: Decimal) -> int:
     """Convert a USDC amount to Lighter's integer base units.
+
+    Lighter USDC has six decimals. Unlike rounding, this refuses amounts that
+    a signed transaction cannot represent exactly.
 
     :param amount:
         Non-negative USDC amount with at most six decimals.
@@ -116,6 +119,12 @@ def get_sdk_float_amount(amount: Decimal) -> float:
 def create_lighter_auth_token_manager(client: Any, api_key_index: int) -> LighterAuthTokenManager:
     """Create an auth-token manager for authenticated SDK reads.
 
+    The fee quote and transfer history are authenticated reads, so they are
+    retried once with a fresh token if Lighter rejects an expired one.
+    Transfer submission is not wrapped.
+
+    See https://apidocs.lighter.xyz/docs/authentication
+
     :param client:
         ``lighter.SignerClient`` bound to the account being read.
     :param api_key_index:
@@ -138,6 +147,9 @@ async def fetch_lighter_transfer_fee(
 ) -> Decimal:
     """Read the USDC fee Lighter charges for one transfer.
 
+    Uses the authenticated ``transferFeeInfo`` endpoint, which quotes 0 USDC
+    between accounts of the same owner. See the module docstring.
+
     :param client:
         ``lighter.SignerClient`` bound to the source account.
     :param auth_manager:
@@ -157,10 +169,7 @@ async def fetch_lighter_transfer_fee(
         ),
         operation_name="transfer fee",
     )
-    fee_raw = int(info.transfer_fee_usdc)
-    if fee_raw < 0:
-        raise LighterTransferError("Lighter returned a negative transfer fee")
-    return Decimal(fee_raw).scaleb(-LIGHTER_USDC_DECIMALS)
+    return Decimal(int(info.transfer_fee_usdc)).scaleb(-LIGHTER_USDC_DECIMALS)
 
 
 async def request_lighter_transfer(
@@ -173,6 +182,10 @@ async def request_lighter_transfer(
 ) -> str:
     """Submit one same-owner USDC transfer from the client's account.
 
+    Signs an L2 ``Transfer`` between perpetuals balances with the SDK's
+    ``transfer_same_master_account``. See
+    https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
+
     The submission is not idempotent: do not retry it blindly. Persist the
     returned hash first, then confirm it with :py:func:`wait_for_lighter_transfer`.
 
@@ -181,9 +194,10 @@ async def request_lighter_transfer(
     :param to_account_index:
         Destination account owned by the same L1 address.
     :param amount:
-        USDC amount credited to the destination.
+        USDC amount credited to the destination. Lighter's minimum is 1 USDC.
     :param fee:
-        Exact fee from :py:func:`fetch_lighter_transfer_fee`.
+        Exact fee from :py:func:`fetch_lighter_transfer_fee`. A negative fee
+        is rejected.
     :param api_key_index:
         API-key slot that signs the transfer.
     :return:
@@ -202,7 +216,7 @@ async def request_lighter_transfer(
         memo=LIGHTER_EMPTY_TRANSFER_MEMO,
         api_key_index=api_key_index,
     )
-    if error or response is None or getattr(response, "code", LIGHTER_RESPONSE_CODE_OK) != LIGHTER_RESPONSE_CODE_OK:
+    if not is_lighter_tx_accepted(response, error):
         raise LighterTransferError("Lighter transfer was rejected")
     tx_hash = str(response.tx_hash)
     logger.info(
@@ -224,6 +238,12 @@ async def fetch_lighter_transfer_record(
     tx_hash: str,
 ) -> LighterTransferRecord | None:
     """Find one transfer in an account's transfer history.
+
+    Transfer history is the authoritative record of an executed transfer,
+    including the fee actually charged. Balance changes are not used because
+    other activity on the account can mask them.
+
+    See https://docs.lighter.xyz/api/transactions/transfer_history.md
 
     :param client:
         ``lighter.SignerClient`` bound to ``account_index``.
@@ -270,6 +290,10 @@ async def wait_for_lighter_transfer(
     timeout: float,
 ) -> LighterTransferRecord:
     """Wait until a submitted transfer appears in transfer history.
+
+    Polls :py:func:`fetch_lighter_transfer_record` every
+    :py:data:`~eth_defi.lighter.api.LIGHTER_STATE_POLL_SECONDS` until the
+    sequencer has executed the transfer.
 
     :param client:
         ``lighter.SignerClient`` bound to ``account_index``.

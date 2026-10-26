@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from safe_eth.safe.safe import Safe
 from web3 import Web3
 
@@ -75,25 +76,26 @@ def sweep_safe_to_owner(
     safe_address = Web3.to_checksum_address(safe_address)
     safe = Safe(safe_address, create_safe_ethereum_client(web3))
     info = safe.retrieve_all_info()
-    if info.threshold != 1 or Web3.to_checksum_address(owner.address) not in [Web3.to_checksum_address(address) for address in info.owners]:
+    if info.threshold != 1 or Web3.to_checksum_address(owner.address) not in info.owners:
         raise ValueError(f"Safe {safe_address} needs threshold 1 with {owner.address} as an owner to sweep")
 
-    transfers = []
+    # (symbol, amount, target, value, data) of each Safe call
     calls = []
     for token in tokens:
         balance = token.fetch_balance_of(safe_address)
         if balance > 0:
             data = token.contract.functions.transfer(owner.address, token.convert_to_raw(balance))._encode_transaction_data()
-            calls.append((token.symbol, balance, token.address, 0, bytes.fromhex(data[2:])))
+            calls.append((token.symbol, balance, token.address, 0, HexBytes(data)))
     if include_eth:
         eth_raw = web3.eth.get_balance(safe_address)
         if eth_raw > 0:
-            calls.append(("ETH", Decimal(eth_raw) / Decimal(10**18), owner.address, eth_raw, b""))
+            calls.append(("ETH", Web3.from_wei(eth_raw, "ether"), owner.address, eth_raw, b""))
 
+    owner.sync_nonce(web3)
+    transfers = []
     for symbol, amount, target, value, data in calls:
         safe_tx = safe.build_multisig_tx(target, value, data)
         safe_tx.sign(owner.private_key.hex())
-        owner.sync_nonce(web3)
         tx_hash, _tx = execute_safe_tx(
             safe_tx,
             tx_sender_private_key=owner.private_key.hex(),

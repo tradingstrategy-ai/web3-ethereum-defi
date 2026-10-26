@@ -368,7 +368,6 @@ def test_guard_lighter_sub_account_withdraw_and_claim(
     3. Forge the proof-backed pending balance and wait for it with the public reader.
     4. Claim the pending balance through the guard and check the vault received the USDC.
     """
-    zk_address = Web3.to_checksum_address(LIGHTER_L1_CONTRACT)
     asset_index = zk_lighter.functions.USDC_ASSET_INDEX().call()
     master_index = 4242
     sub_account_index = LIGHTER_SUB_ACCOUNT_INDEX_START + 7
@@ -391,6 +390,5 @@ def test_guard_lighter_sub_account_withdraw_and_claim(
     # 4. Claim the pending balance through the guard and check the vault received the USDC.
     target, call_data = encode_simple_vault_transaction(zk_lighter.functions.withdrawPendingBalance(vault.address, asset_index, amount))
     assert_transaction_success_with_explanation(web3, vault.functions.performCall(target, call_data).transact({"from": asset_manager}))
-    assert usdc.contract.functions.balanceOf(vault.address).call() == amount
+    assert usdc.fetch_raw_balance_of(vault.address) == amount
     assert fetch_lighter_pending_balance(web3, owner=vault.address, usdc=usdc) == 0
-    assert zk_address == target

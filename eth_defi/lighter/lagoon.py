@@ -1,17 +1,22 @@
-"""Lagoon Safe helpers for Lighter L1 deposits and secure-withdrawal claims.
+"""Lagoon Safe helpers for Lighter L1 deposits, withdrawals and claims.
 
 The deployment flow transfers the minimum accounted USDC balance from a Lagoon
-Safe to Lighter through ``TradingStrategyModuleV0``. A Lighter API-key secure
-withdrawal is requested off-chain; once Lighter makes it claimable, this module
-claims its L1 pending balance back to the same Safe.
+Safe to Lighter through ``TradingStrategyModuleV0``. A secure withdrawal is
+requested either off-chain with a Lighter API key or onchain with the key-free
+L1 ``withdraw`` call of :py:func:`request_usdc_withdrawal_from_lighter_account`,
+which also works for sub-accounts. Once Lighter makes it claimable, this module
+claims the Safe's L1 pending balance back to the same Safe.
 
 The secure-withdrawal delay is dynamic. Read
 :py:func:`eth_defi.lighter.api.fetch_lighter_withdrawal_delay` for an operator
-estimate, but only a ``claimable`` withdrawal-history status permits the L1
-claim. Fast withdrawals require the L1 account's EOA private key and are not
-available to a contract-owned Safe.
+estimate; on 2026-10-26 an L1 withdrawal from a mainnet sub-account became
+claimable after about 29 minutes. Only a claimable withdrawal, visible as a
+``claimable`` withdrawal-history status or as an onchain pending balance,
+permits the L1 claim. Secure withdrawals and direct Ethereum deposits have a
+1 USDC minimum. Fast withdrawals (4 USDC minimum) require the L1 account's EOA
+private key and are not available to a contract-owned Safe.
 
-Authoritative Lighter deposit documentation:
+Authoritative Lighter deposit and withdrawal documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
 
@@ -29,13 +34,10 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, LIGHTER_STATE_POLL_SECONDS
-from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
+from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT, LIGHTER_ROUTE_PERP
 from eth_defi.token import TokenDetails
 
 logger = logging.getLogger(__name__)
-
-#: Perpetual balances live on route 0.
-LIGHTER_ROUTE_PERP = 0
 
 #: Gas limit for an L1 ``withdraw`` priority request wrapped by the Lagoon module.
 LIGHTER_L1_WITHDRAW_GAS_LIMIT = 500_000
@@ -147,10 +149,12 @@ def claim_usdc_to_lagoon_safe_from_lighter(
     """Claim an already-claimable secure Lighter USDC withdrawal to the Safe.
 
     This helper deliberately does not request a withdrawal. The request is an
-    L2 API-key operation; this is the Safe-gated L1 egress step and can only
-    name :attr:`LagoonVault.safe_address` as its receiver. Lighter's dynamic
+    L2 API-key operation or :py:func:`request_usdc_withdrawal_from_lighter_account`;
+    this is the Safe-gated L1 egress step and can only name
+    :attr:`LagoonVault.safe_address` as its receiver. Lighter's dynamic
     secure-withdrawal delay is informational only: claim only after the
-    matching withdrawal history item is ``claimable``. A fast withdrawal is
+    withdrawal is claimable, see :py:func:`wait_for_lighter_pending_balance`.
+    A fast withdrawal is
     not an alternative for this flow because it needs the L1 account's EOA
     private key, whereas the account owner is a Safe contract.
 
@@ -308,8 +312,9 @@ def wait_for_lighter_pending_balance(
     """Wait until the owner's claimable Lighter balance reaches ``minimum``.
 
     An L1 ``withdraw`` request becomes claimable when Lighter verifies the
-    batch containing it, typically after its dynamic secure-withdrawal delay.
-    This polls the contract only, so it needs no API key.
+    batch containing it, after its dynamic secure-withdrawal delay; about 29
+    minutes for a mainnet sub-account withdrawal on 2026-10-26. This polls the
+    contract only, so it needs no API key.
 
     :param web3:
         Ethereum connection.

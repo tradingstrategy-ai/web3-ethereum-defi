@@ -67,7 +67,6 @@ class FakeSession:
 
     def get(self, url: str, params: dict, timeout: float) -> FakeResponse:
         """Return the next payload."""
-        del url, params, timeout
         return FakeResponse(self.responses.pop(0))
 
 
@@ -197,7 +196,7 @@ def test_lighter_transfer_helpers_use_exact_amounts(mocker: MockerFixture) -> No
 
     class FakeInfoApi:
         def __init__(self, api_client: object) -> None:
-            del api_client
+            pass
 
         async def transfer_fee_info(self, authorization: str, account_index: int, to_account_index: int) -> Any:
             assert authorization == "token-4"
@@ -206,7 +205,7 @@ def test_lighter_transfer_helpers_use_exact_amounts(mocker: MockerFixture) -> No
 
     class FakeTransactionApi:
         def __init__(self, api_client: object) -> None:
-            del api_client
+            pass
 
         async def transfer_history(self, account_index: int, authorization: str) -> Any:
             assert account_index == MASTER_INDEX

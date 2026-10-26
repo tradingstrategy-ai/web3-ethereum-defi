@@ -22,22 +22,18 @@ Authoritative Lighter documentation:
 
 import asyncio
 import logging
-from typing import Any
 
 from eth_typing import HexAddress
 
 from eth_defi.lighter.api import fetch_lighter_accounts, wait_for_lighter_sub_accounts
 from eth_defi.lighter.constants import LIGHTER_API_URL
-from eth_defi.lighter.sdk import create_lighter_signer_client
+from eth_defi.lighter.sdk import create_lighter_signer_client, is_lighter_tx_accepted
 from eth_defi.lighter.session import LighterSession
 
 logger = logging.getLogger(__name__)
 
 #: Highest sub-account count any Lighter account tier allows.
 LIGHTER_MAX_SUB_ACCOUNTS = 64
-
-#: Successful Lighter ``sendTx`` response code.
-LIGHTER_RESPONSE_CODE_OK = 200
 
 
 class LighterSubAccountError(RuntimeError):
@@ -53,14 +49,13 @@ async def _submit_sub_account_creations(
 ) -> None:
     """Submit ``count`` sub-account creation transactions one at a time.
 
-    The SDK client opens an ``aiohttp`` connector, which needs a running event
-    loop, so it is created inside this coroutine.
+    The SDK client needs a running event loop, so it is created inside this
+    coroutine.
 
     :param master_account_index:
         Master account signing the creations.
     :param api_key_index:
-        Master API-key slot; the client holds only this key, so its nonce
-        manager signs with it.
+        Master API-key slot. The client holds only this key.
     :param api_private_key:
         Master API private key. Never logged.
     :param count:
@@ -71,12 +66,12 @@ async def _submit_sub_account_creations(
     client = create_lighter_signer_client(master_account_index, api_key_index, api_private_key, api_url=api_url)
     try:
         for number in range(1, count + 1):
-            # Let the SDK's nonce manager assign consecutive nonces locally. An
-            # explicit key slot makes the signer fetch the next nonce from the
-            # API for every transaction, which can repeat a nonce while the
-            # previous creation is still queued.
+            # Do not pass api_key_index: the SDK's nonce manager then assigns
+            # consecutive nonces locally. With an explicit key slot the signer
+            # fetches the next nonce from the API for every transaction, which
+            # can repeat a nonce while the previous creation is still queued.
             _tx_info, response, error = await client.create_sub_account()
-            if error or response is None or getattr(response, "code", LIGHTER_RESPONSE_CODE_OK) != LIGHTER_RESPONSE_CODE_OK:
+            if not is_lighter_tx_accepted(response, error):
                 raise LighterSubAccountError(f"Lighter rejected sub-account creation {number} of {count}")
             logger.info("Lighter sub-account creation %d of %d accepted, tx %s", number, count, response.tx_hash)
     finally:
