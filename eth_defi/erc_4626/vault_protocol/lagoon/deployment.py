@@ -23,6 +23,7 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
+from collections.abc import Sequence
 from typing import Any, Callable, Literal
 
 import eth_abi
@@ -450,6 +451,9 @@ class LagoonConfig:
     #: failure after activation loses them.
     lighter_sub_account_count: int = 0
 
+    #: Stable ids of the sub-accounts to create, in creation order; overrides the count.
+    lighter_sub_account_labels: tuple[str, ...] = ()
+
     #: API-key slot registered on every created sub-account.
     lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX
 
@@ -619,6 +623,9 @@ class LighterSubAccountSetup:
     #: Safe ``changePubKey`` transaction hash for this sub-account.
     change_pubkey_tx_hash: str
 
+    #: Stable id the strategy gave this sub-account, recorded in every report.
+    label: str | None = None
+
     def as_public_dict(self) -> dict[str, Any]:
         """Return the public metadata of the sub-account.
 
@@ -630,6 +637,7 @@ class LighterSubAccountSetup:
             "api_key_index": self.api_key_index,
             "public_key": self.public_key,
             "change_pubkey_tx_hash": self.change_pubkey_tx_hash,
+            "label": self.label,
         }
 
     def as_handover_dict(self, *, safe_address: HexAddress | str, vault_address: HexAddress | str | None) -> dict[str, Any]:
@@ -668,6 +676,7 @@ class LighterSubAccountSetup:
             private_key=None,
             public_key=data["public_key"],
             change_pubkey_tx_hash=data["change_pubkey_tx_hash"],
+            label=data.get("label"),
         )
 
 
@@ -2475,6 +2484,7 @@ def _activate_lighter_account(
     api_key_index: int,
     sub_account_count: int = 0,
     sub_account_api_key_index: int = MIN_API_KEY_INDEX,
+    sub_account_labels: Sequence[str] = (),
 ) -> LighterAccountSetup:
     """Fund, activate and register a Lighter API key for a newly deployed Safe.
 
@@ -2571,6 +2581,7 @@ def _activate_lighter_account(
             zk_lighter=lighter_deployment.zk_lighter,
         )
         sub_accounts = []
+        sub_account_count = len(sub_account_labels) or sub_account_count
         if sub_account_count:
             sub_account_indices = create_lighter_sub_accounts(
                 session=session,
@@ -2580,7 +2591,7 @@ def _activate_lighter_account(
                 api_private_key=api_key.private_key,
                 count=sub_account_count,
             )
-            for sub_index in sub_account_indices:
+            for number, sub_index in enumerate(sub_account_indices):
                 sub_key, sub_tx_hash = _register_lighter_api_key(
                     web3=web3,
                     deployer=deployer,
@@ -2597,6 +2608,7 @@ def _activate_lighter_account(
                         private_key=sub_key.private_key,
                         public_key=sub_key.public_key,
                         change_pubkey_tx_hash=Web3.to_hex(sub_tx_hash),
+                        label=sub_account_labels[number] if sub_account_labels else None,
                     )
                 )
     finally:
@@ -2693,6 +2705,7 @@ def deploy_automated_lagoon_vault(
     lighter_api_key_index: int = MIN_API_KEY_INDEX,
     lighter_sub_account_count: int = 0,
     lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX,
+    lighter_sub_account_labels: Sequence[str] = (),
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
@@ -2791,6 +2804,10 @@ def deploy_automated_lagoon_vault(
     :param lighter_sub_account_api_key_index:
         API-key slot registered on each created sub-account.
 
+    :param lighter_sub_account_labels:
+        Stable ids of the sub-accounts to create, in creation order. When
+        given, one sub-account is created per id and the count is ignored.
+
     :param max_settlement_amount:
         Optional maximum gross Lagoon settlement for one asset-manager module
         transaction, expressed in human-readable underlying-token units as a
@@ -2847,6 +2864,7 @@ def deploy_automated_lagoon_vault(
         lighter_api_key_index = config.lighter_api_key_index
         lighter_sub_account_count = config.lighter_sub_account_count
         lighter_sub_account_api_key_index = config.lighter_sub_account_api_key_index
+        lighter_sub_account_labels = config.lighter_sub_account_labels
         cctp_deployment = config.cctp_deployment
         any_hypercore_vault = config.any_hypercore_vault
         any_asset = config.any_asset
@@ -2911,9 +2929,11 @@ def deploy_automated_lagoon_vault(
         existing_vault_address=existing_vault_address,
         existing_safe_address=existing_safe_address,
         max_settlement_amount=max_settlement_amount,
-        lighter_sub_account_count=lighter_sub_account_count,
+        lighter_sub_account_count=len(lighter_sub_account_labels) or lighter_sub_account_count,
         lighter_sub_account_api_key_index=lighter_sub_account_api_key_index,
     )
+    if len(set(lighter_sub_account_labels)) != len(lighter_sub_account_labels):
+        raise ValueError(f"lighter_sub_account_labels must be unique: {lighter_sub_account_labels}")
 
     legacy = vault_abi == LEGACY_LAGOON_VAULT_JSON
 
@@ -3315,6 +3335,7 @@ def deploy_automated_lagoon_vault(
                 lighter_deployment=lighter_deployment,
                 api_key_index=lighter_api_key_index,
                 sub_account_count=lighter_sub_account_count,
+        sub_account_labels=lighter_sub_account_labels,
                 sub_account_api_key_index=lighter_sub_account_api_key_index,
             )
 
