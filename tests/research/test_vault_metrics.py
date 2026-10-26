@@ -25,6 +25,7 @@ from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.research import vault_metrics
+from eth_defi.research.k_ratio import calculate_k_ratio
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.research.vault_metrics import (
@@ -75,6 +76,91 @@ def test_sparse_share_prices_are_regularised_once_for_daily_risk_metrics() -> No
     assert daily_returns.iloc[1:].tolist() == pytest.approx([0.0, 0.0, 0.21])
     assert calculate_annualised_volatility_from_daily_returns(daily_returns) == pytest.approx(daily_returns.dropna().std() * 365**0.5)
     assert calculate_sharpe_ratio_from_returns(daily_returns) == pytest.approx(daily_returns.dropna().mean() / daily_returns.dropna().std() * 365**0.5)
+
+
+@pytest.mark.parametrize("period, lookback_days", [("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("lifetime", None)])
+def test_period_k_ratio_uses_complete_daily_price_window(period: vault_metrics.Period, lookback_days: int | None) -> None:
+    """Fit every lookback's prices, including its first day, on the existing fee basis."""
+    index = pd.date_range("2025-01-01 12:00:00", periods=401, freq="D")
+    t = np.arange(len(index))
+    observations = pd.Series(np.exp(0.0005 * t + 0.01 * np.sin(t / 5)), index=index)
+    daily_prices, daily_returns = prepare_daily_share_price_series(observations)
+    fees = FeeData(fee_mode=VaultFeeMode.externalised, management=0.02, performance=0.2, deposit=0.0, withdraw=0.0)
+
+    result = calculate_period_metrics(
+        period=period,
+        gross_fee_data=fees,
+        net_fee_data=fees.get_net_fees(),
+        share_price_hourly=observations,
+        share_price_daily=daily_prices,
+        daily_returns=daily_returns,
+        tvl=pd.Series(1_000.0, index=index),
+        now_=index[-1],
+    )
+
+    window = daily_prices if lookback_days is None else daily_prices.iloc[-(lookback_days + 1) :]
+    assert result.error_reason is None
+    assert result.daily_samples == len(window)
+    assert result.k_ratio == pytest.approx(calculate_k_ratio(window))
+    assert result.k_ratio != pytest.approx(calculate_k_ratio(window.iloc[1:]))
+    exported = export_lifetime_row(pd.Series({"period_results": [result]}))
+    assert exported["period_results"][0]["k_ratio"] == result.k_ratio
+    json.dumps(exported, allow_nan=False)
+
+
+def test_period_k_ratio_preserves_forward_filled_days() -> None:
+    """Sparse prices fit a consecutive daily curve rather than compressed observations."""
+    observations = pd.Series([100.0, 108.0, 104.0, 112.0], index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-04 12:00:00", "2026-01-10 12:00:00", "2026-01-16 12:00:00"]))
+    daily_prices, daily_returns = prepare_daily_share_price_series(observations)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0)
+
+    result = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fees,
+        net_fee_data=fees,
+        share_price_hourly=observations,
+        share_price_daily=daily_prices,
+        daily_returns=daily_returns,
+        tvl=pd.Series(1_000.0, index=observations.index),
+        now_=observations.index[-1],
+    )
+
+    assert result.error_reason is None
+    assert result.daily_samples == 16
+    assert result.k_ratio == pytest.approx(calculate_k_ratio(daily_prices))
+    assert result.k_ratio != pytest.approx(calculate_k_ratio(observations))
+
+
+@pytest.mark.parametrize("curve", ["flat", "exponential", "zero", "negative", "nan", "infinite"])
+def test_period_k_ratio_exports_undefined_curves_as_null(curve: str) -> None:
+    """An unusable wealth curve leaves the score null without discarding the period."""
+    index = pd.date_range("2026-01-01", periods=20, freq="D")
+    t = np.arange(len(index))
+    prices = np.ones(len(index)) if curve == "flat" else np.exp(0.001 * t)
+    if curve not in {"flat", "exponential"}:
+        prices *= np.exp(0.01 * np.sin(t))
+    observations = pd.Series(prices, index=index)
+    daily_prices = observations.copy()
+    if curve in {"zero", "negative", "nan", "infinite"}:
+        daily_prices.iloc[5] = {"zero": 0.0, "negative": -1.0, "nan": np.nan, "infinite": np.inf}[curve]
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0)
+
+    result = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fees,
+        net_fee_data=fees,
+        share_price_hourly=observations,
+        share_price_daily=daily_prices,
+        daily_returns=daily_prices.pct_change(fill_method=None),
+        tvl=pd.Series(1_000.0, index=index),
+        now_=index[-1],
+    )
+
+    assert result.error_reason is None
+    assert result.k_ratio is None
+    exported = export_lifetime_row(pd.Series({"period_results": [result]}))
+    assert exported["period_results"][0]["k_ratio"] is None
+    json.dumps(exported, allow_nan=False)
 
 
 def test_calculate_sharpe_requires_two_weeks_and_ten_price_samples() -> None:
@@ -131,6 +217,7 @@ def test_period_metrics_rejects_empty_share_price_series_cleanly() -> None:
 
     assert result.error_reason == "Vault has no usable share-price observations"
     assert result.raw_samples == 0
+    assert result.k_ratio is None
 
 
 @pytest.mark.parametrize("period", ["1M", "3M", "lifetime"])
@@ -509,6 +596,12 @@ def test_usd_period_metrics_include_underlying_exchange_rate_endpoints() -> None
     lifetime = next(metric for metric in metrics if metric.period == "lifetime")
     assert lifetime.exchange_rate_start == pytest.approx(1_000.0)
     assert lifetime.exchange_rate_end == pytest.approx(2_000.0)
+    assert lifetime.k_ratio == pytest.approx(calculate_k_ratio(daily_native_prices * rates))
+    assert np.isnan(calculate_k_ratio(daily_native_prices))
+    exported = export_lifetime_row(pd.Series({"periodic_metrics_usd": metrics}))
+    assert all("k_ratio" in metric for metric in exported["periodic_metrics_usd"])
+    assert next(metric for metric in exported["periodic_metrics_usd"] if metric["period"] == "lifetime")["k_ratio"] == lifetime.k_ratio
+    json.dumps(exported, allow_nan=False)
 
 
 def test_usd_period_metrics_restart_lifetime_after_long_rate_gap() -> None:
@@ -2156,6 +2249,14 @@ def test_export_lifetime_metrics(
     # Verify they serialize to JSON properly (None becomes null)
     assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
     assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))
+
+    assert {pm["period"] for pm in r["period_results"]} == {"1W", "1M", "3M", "6M", "1Y", "lifetime"}
+    assert all("k_ratio" in pm for pm in r["period_results"])
+    observations = price_df.loc[price_df["id"] == r["id"], "share_price"].sort_index()
+    daily_prices, _ = prepare_daily_share_price_series(observations)
+    lifetime = next(pm for pm in r["period_results"] if pm["period"] == "lifetime")
+    assert lifetime["k_ratio"] == pytest.approx(calculate_k_ratio(daily_prices))
+    json.dumps(rows, allow_nan=False)
 
 
 def test_calculate_lifetime_metrics_exports_share_price_source(
