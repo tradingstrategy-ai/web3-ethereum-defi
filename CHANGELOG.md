@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Infinit APEX MultiStrategy data with Dangerous risk, source-gap preservation, indexed receipt supply and staged local migration and backfill scripts (2026-10-26).
 - fix: Shorten configured RPC URLs throughout logs, exception tracebacks, Anvil output and example scripts, while preserving unrelated links (2026-10-26).
 - fix: Treat Lighter operator performance fees as externalised withdrawal-time charges in JSON and Parquet exports, correct protocol documentation, and add a live Candle Effect v2 export check (2026-10-22).
 - feat: Add Ryllo curator metadata and official artwork, and classify its Glasgow Cosmic vault as receivables-backed RWA lending (2026-10-22).

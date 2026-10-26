@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1640" viewBox="0 0 1280 1640" role="img" aria-labelledby="title desc">
+<title id="title">Observed Infinit fund movements</title>
+<desc id="desc">Actual Arbitrum deposit calls mint inUSDC while USDC goes to a custody Safe. Separate wallet transfers fund the Hyperliquid bridge. The credited account deposits into and withdraws from a legacy native vault, then moves collateral between native and xyz balances. Reviewed on 26 October 2026 through Arbitrum block 518462154.</desc>
+<defs><marker id="cash" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#176b58" /></marker><marker id="call" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#68529a" /></marker></defs>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#172b40}.heading{font-size:28px;font-weight:700}.sub{font-size:16px;fill:#40566b}.group{font-size:21px;font-weight:700}.node-title{font-size:19px;font-weight:700}.address{font-size:16px;font-family:monospace;fill:#40566b}.detail{font-size:15px;fill:#40566b}.edge{font-size:16px;font-weight:600;}.cash{fill:none;stroke:#176b58;stroke-width:3;marker-end:url(#cash)}.call{fill:none;stroke:#68529a;stroke-width:2.5;stroke-dasharray:7 6;marker-end:url(#call)}</style>
+<rect width="1280" height="1640" fill="white" />
+<text x="40" y="43" class="heading">Observed Infinit fund movements</text>
+<text x="40" y="76" class="sub">Transaction evidence checked 26 October 2026 · Arbitrum scan through block 518,462,154</text>
+<rect x="20" y="100" width="1240" height="930" rx="16" fill="#f8fafc" stroke="#bccbda" />
+<text x="40" y="133" class="group">Arbitrum</text>
+<rect x="20" y="1060" width="1240" height="465" rx="16" fill="#f3faf7" stroke="#a8cabc" />
+<text x="40" y="1093" class="group">Hyperliquid</text>
+<rect x="80" y="155" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="186" text-anchor="middle" class="node-title">Depositors</text>
+<text x="295" y="214" text-anchor="middle" class="address">22 addresses</text>
+<text x="295" y="238" text-anchor="middle" class="detail">28 deposits; 16–26 July 2026</text>
+<rect x="80" y="375" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="406" text-anchor="middle" class="node-title">Custody Safe</text>
+<text x="295" y="434" text-anchor="middle" class="address">0x79e7…164d</text>
+<rect x="80" y="595" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="626" text-anchor="middle" class="node-title">Funding wallet — EOA</text>
+<text x="295" y="654" text-anchor="middle" class="address">0xf246…0aaf</text>
+<text x="295" y="678" text-anchor="middle" class="detail">Sender of the bridge transfers</text>
+<rect x="80" y="815" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="846" text-anchor="middle" class="node-title">Hyperliquid bridge</text>
+<text x="295" y="874" text-anchor="middle" class="address">0x2df1…3df7</text>
+<rect x="760" y="155" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="975" y="186" text-anchor="middle" class="node-title">VaultManager</text>
+<text x="975" y="214" text-anchor="middle" class="address">0xafe4…62ee</text>
+<text x="975" y="238" text-anchor="middle" class="detail">Actual traced deposit call</text>
+<rect x="760" y="375" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="975" y="406" text-anchor="middle" class="node-title">Vault contract</text>
+<text x="975" y="434" text-anchor="middle" class="address">0xe646…638f</text>
+<text x="975" y="458" text-anchor="middle" class="detail">No USDC transfers observed in scan</text>
+<rect x="760" y="595" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="975" y="626" text-anchor="middle" class="node-title">inUSDC receipt token</text>
+<text x="975" y="654" text-anchor="middle" class="address">0xb5fb…5c08</text>
+<text x="975" y="678" text-anchor="middle" class="detail">506,137.385298 receipts issued</text>
+<path d="M295 255 V375" class="cash" />
+<rect x="207.25" y="274.0" width="175.5" height="25" rx="3" fill="#f8fafc" /><text x="295" y="292" text-anchor="middle" class="edge">506,137.385298 USDC</text>
+<rect x="203.0" y="301.0" width="184.0" height="25" rx="3" fill="#f8fafc" /><text x="295" y="319" text-anchor="middle" class="edge">Manager transferFrom</text>
+<path d="M295 475 V595" class="cash" />
+<rect x="203.0" y="494.0" width="184.0" height="25" rx="3" fill="#f8fafc" /><text x="295" y="512" text-anchor="middle" class="edge">3 Aug: two transfers</text>
+<rect x="186.0" y="521.0" width="218.0" height="25" rx="3" fill="#f8fafc" /><text x="295" y="539" text-anchor="middle" class="edge">10 + 506,127.385398 USDC</text>
+<path d="M295 695 V815" class="cash" />
+<rect x="164.75" y="714.0" width="260.5" height="25" rx="3" fill="#f8fafc" /><text x="295" y="732" text-anchor="middle" class="edge">3 Aug: three bridge transfers</text>
+<rect x="186.0" y="741.0" width="218.0" height="25" rx="3" fill="#f8fafc" /><text x="295" y="759" text-anchor="middle" class="edge">5 + 10 + 506,127.39 USDC</text>
+<path d="M510 185 H760" class="call" />
+<rect x="551.5" y="155.0" width="167.0" height="25" rx="3" fill="#f8fafc" /><text x="635" y="173" text-anchor="middle" class="edge">deposit(1, amount)</text>
+<path d="M975 255 V375" class="call" />
+<rect x="878.75" y="289.0" width="192.5" height="25" rx="3" fill="#f8fafc" /><text x="975" y="307" text-anchor="middle" class="edge">deposit(user, amount)</text>
+<path d="M975 475 V595" class="call" />
+<rect x="891.5" y="509.0" width="167.0" height="25" rx="3" fill="#f8fafc" /><text x="975" y="527" text-anchor="middle" class="edge">mint(user, amount)</text>
+<path d="M760 645 H650 V225 H510" class="call" />
+<rect x="486.75" y="452.0" width="294.5" height="25" rx="3" fill="#f8fafc" transform="rotate(-90 634 470)" /><text x="634" y="470" text-anchor="middle" transform="rotate(-90 634 470)" class="edge">Receipts issued 1:1 to depositors</text>
+<text x="975" y="830" text-anchor="middle" class="sub">Solid arrows: USDC</text>
+<text x="975" y="865" text-anchor="middle" class="sub">Dotted arrows: calls / receipt issuance</text>
+<path d="M295 915 V1130" class="cash" />
+<rect x="152.0" y="948.0" width="286.0" height="25" rx="3" fill="#f8fafc" /><text x="295" y="966" text-anchor="middle" class="edge">Same transaction hashes recorded</text>
+<rect x="181.75" y="975.0" width="226.5" height="25" rx="3" fill="#f8fafc" /><text x="295" y="993" text-anchor="middle" class="edge">as credits on Hyperliquid</text>
+<rect x="80" y="1130" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="1161" text-anchor="middle" class="node-title">Native perp balance</text>
+<text x="295" y="1189" text-anchor="middle" class="address">0xf246…0aaf</text>
+<text x="295" y="1213" text-anchor="middle" class="detail">Same address as the Arbitrum funding wallet</text>
+<rect x="760" y="1130" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="975" y="1161" text-anchor="middle" class="node-title">Legacy native vault</text>
+<text x="975" y="1189" text-anchor="middle" class="address">0x8220…7388</text>
+<rect x="80" y="1390" width="430" height="100" rx="12" fill="white" stroke="#8da5bb" stroke-width="1.5" />
+<text x="295" y="1421" text-anchor="middle" class="node-title">xyz collateral balance</text>
+<text x="295" y="1449" text-anchor="middle" class="address">Same 0xf246…0aaf account</text>
+<path d="M510 1160 H760" class="cash" />
+<rect x="534.5" y="1126.0" width="201.0" height="25" rx="3" fill="#f8fafc" /><text x="635" y="1144" text-anchor="middle" class="edge">3 Aug: 506,142.39 USDC</text>
+<path d="M760 1210 H510" class="cash" />
+<rect x="534.5" y="1236.0" width="201.0" height="25" rx="3" fill="#f8fafc" /><text x="635" y="1254" text-anchor="middle" class="edge">6 Aug: 505,859.98 USDC</text>
+<path d="M185 1230 V1390" class="cash" />
+<rect x="110.0" y="1265.0" width="150.0" height="25" rx="3" fill="#f8fafc" /><text x="185" y="1283" text-anchor="middle" class="edge">Aug–Oct: 643,058</text>
+<rect x="114.25" y="1292.0" width="141.5" height="25" rx="3" fill="#f8fafc" /><text x="185" y="1310" text-anchor="middle" class="edge">USDC cumulative</text>
+<path d="M405 1390 V1230" class="cash" />
+<rect x="330.0" y="1322.0" width="150.0" height="25" rx="3" fill="#f8fafc" /><text x="405" y="1340" text-anchor="middle" class="edge">Sep–Oct: 301,500</text>
+<rect x="334.25" y="1349.0" width="141.5" height="25" rx="3" fill="#f8fafc" /><text x="405" y="1367" text-anchor="middle" class="edge">USDC cumulative</text>
+<text x="40" y="1562" class="sub">Collateral figures are cumulative transfers. Bridge and legacy-vault totals include a separate 5 USDC test deposit.</text>
+<text x="40" y="1593" class="sub">Minor auxiliary funding and dust are omitted. No completed return-to-vault redemption leg was observed.</text>
+</svg>

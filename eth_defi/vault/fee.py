@@ -50,6 +50,10 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    # Verified contracts have no strategy-fee accounting. Operator settlement
+    # and published API prices do not establish fee internalisation; see
+    # eth_defi/abi/infinit/README.md.
+    "Infinit": None,
     # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
     # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
     # investor-return fields are comparable with USDC-denominated vaults.

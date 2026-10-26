@@ -96,6 +96,9 @@ class ERC4626Feature(enum.Enum):
     #: https://www.antarctic.exchange/lp/amlp
     antarctic_like = "antarctic_like"
 
+    #: Infinit managed trading vaults: https://www.infinit.tech/.
+    infinit_like = "infinit_like"
+
     #: Franklin Templeton Benji tokenised fund share.
     #:
     #: https://digitalassets.franklintempleton.com/benji/
@@ -1062,6 +1065,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
             ERC4626Feature.antarctic_like,
+            ERC4626Feature.infinit_like,
             ERC4626Feature.nest_like,
         )
     )
@@ -1171,6 +1175,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Asseto"
     elif ERC4626Feature.antarctic_like in features:
         return "Antarctic"
+    elif ERC4626Feature.infinit_like in features:
+        return "Infinit"
     elif ERC4626Feature.rysk_premium_like in features:
         return "Rysk"
     elif ERC4626Feature.franklin_like in features:

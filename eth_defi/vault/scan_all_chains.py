@@ -85,6 +85,8 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
+from eth_defi.erc_4626.vault_protocol.infinit.historical_context import fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
+from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -98,6 +100,7 @@ from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hiba
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
@@ -1140,6 +1143,8 @@ def scan_prices_for_chain(
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
                 elif ERC4626Feature.antarctic_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_antarctic_historical_context_path()
+                elif ERC4626Feature.infinit_like in detection.features:
+                    vault.historical_context_path = historical_context_path or get_infinit_historical_context_path()
                 elif ERC4626Feature.rysk_premium_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
                 if active:
@@ -1400,7 +1405,54 @@ def scan_prices_for_chain(
                 # An empty cycle must neither restart at deployment nor rewrite it.
                 return True, {**metrics, "items_scanned": len(vaults), "rows_written": antarctic_repair_rows, "end_block": current_end_block, "antarctic_observations_inserted": antarctic_prefill.observations_inserted}
 
-        metrics["items_scanned"] = len(vaults)
+        # The application can publish observations behind the EVM reader cursor.
+        # Replay this small retained history by address, independently of the
+        # mixed-chain continuation point, including on recovery after failure.
+        infinit_rows_written = 0
+        infinit_scanned = 0
+        metrics["infinit_deferred"] = []
+        for vault in tuple(vaults):
+            if not isinstance(vault, InfinitVault):
+                continue
+            vaults.remove(vault)
+            try:
+                if hypersync_config.hypersync_client is None:
+                    message = "Infinit indexed supply requires Hypersync"
+                    raise ValueError(message)
+                source_end = min(current_end_block, get_almost_latest_block_number(web3))
+                fetch_infinit_timestamp_tail(hypersync_config.hypersync_client, vault.product, source_end)
+                fetch_and_store_infinit_history(web3=web3, hypersync_client=hypersync_config.hypersync_client, product=vault.product, end_block=source_end, context_path=vault.historical_context_path)
+                source_start = max(vault.product.deployment_block, start_block or 0)
+                validate_infinit_price_coverage(uncleaned_price_path, vault.historical_context_path, vault.product, source_start, source_end)
+                infinit_result = scan_historical_prices_to_parquet(
+                    output_fname=uncleaned_price_path,
+                    web3=web3,
+                    web3factory=web3factory,
+                    vaults=[vault],
+                    greylist=greylist,
+                    token_cache=token_cache,
+                    start_block=source_start,
+                    end_block=source_end,
+                    max_workers=max_workers,
+                    frequency=frequency,
+                    hypersync_client=hypersync_config.hypersync_client,
+                    vault_addresses={vault.address.lower()},
+                )
+            except (OSError, ValueError, RuntimeError, Web3Exception, HypersyncFlaky, duckdb.Error) as error:
+                logger.warning("Infinit history deferred for %s: %s", vault.address, error)
+                metrics["infinit_deferred"].append(vault.address.lower())
+                continue
+            infinit_rows_written += infinit_result["rows_written"]
+            infinit_scanned += 1
+            try:
+                validation = vault.fetch_valuation_validation()
+                logger.info("Infinit current valuation check for %s: %s", vault.address, validation)
+            except (OSError, ValueError, KeyError, ArithmeticError, Web3Exception) as error:
+                logger.warning("Infinit current account validation deferred for %s: %s", vault.address, error)
+        if not vaults:
+            return bool(infinit_scanned), {**metrics, "items_scanned": infinit_scanned, "rows_written": infinit_rows_written + antarctic_repair_rows, "end_block": current_end_block}
+
+        metrics["items_scanned"] = len(vaults) + infinit_scanned
 
         # Dedicated, activity-filtered or context-withheld vault states must
         # not move this batch's continuation point. Merge the updated subset
@@ -1452,7 +1504,7 @@ def scan_prices_for_chain(
             **metrics,
             "error": result.get("audit_error"),
             "error_category": "internal" if result.get("audit_error") else None,
-            "rows_written": result["rows_written"] + antarctic_repair_rows,
+            "rows_written": result["rows_written"] + antarctic_repair_rows + infinit_rows_written,
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
             "overdue_vaults": result["overdue_vaults"],

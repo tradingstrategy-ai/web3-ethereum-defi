@@ -27,6 +27,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.constants import FRANKENCOIN_S
 from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinSharesVault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_PRODUCTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
@@ -392,6 +393,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address in INFINIT_PRODUCTS:
+        return {ERC4626Feature.infinit_like} if chain_id == INFINIT_CHAIN_ID else None
     if normalised_address in ANTARCTIC_BY_ADDRESS:
         return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
     if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
@@ -2332,6 +2335,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 
         return AntarcticVault(web3, spec, **kwargs)
+    elif ERC4626Feature.infinit_like in features:
+        from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault  # noqa: PLC0415 - load optional protocol dependencies only after classification
+
+        return InfinitVault(web3, spec, **kwargs)
     elif ERC4626Feature.rysk_premium_like in features:
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
@@ -2854,6 +2861,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **{address: {ERC4626Feature.infinit_like} for address in INFINIT_PRODUCTS},
     **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,

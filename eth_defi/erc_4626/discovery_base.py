@@ -35,6 +35,7 @@ from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
@@ -71,6 +72,7 @@ HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 
 #: Protocol deployments that cannot be discovered from supported vault events.
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("Infinit", INFINIT_HARDCODED_LEADS),
     ("Antarctic", ANTARCTIC_HARDCODED_LEADS),
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
@@ -930,9 +932,9 @@ class VaultDiscoveryBase(abc.ABC):
                     first_seen_at=first_seen_at,
                     deposit_count=0,
                     withdrawal_count=0,
-                    # Reviewed migration-pool deployments have a verified
-                    # T3tris configuration event but no vault-local flow log.
-                    configuration_count=1 if protocol_name == "T3tris" else 0,
+                    # Reviewed T3tris and Infinit deployments have a verified
+                    # configuration event but no generic vault-local flow log.
+                    configuration_count=1 if protocol_name in {"T3tris", "Infinit"} else 0,
                 )
                 report.new_leads += 1
                 logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
