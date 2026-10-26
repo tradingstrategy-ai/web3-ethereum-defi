@@ -124,9 +124,9 @@ class FakeSignerClient:
         self.transfers: list[dict[str, Any]] = []
         self.closed = False
 
-    async def create_sub_account(self, api_key_index: int) -> tuple[str, Any, str | None]:
-        """Accept or reject one sub-account creation."""
-        assert api_key_index == 4
+    async def create_sub_account(self, api_key_index: int = 255) -> tuple[str, Any, str | None]:
+        """Accept or reject one sub-account creation signed through the nonce manager."""
+        assert api_key_index == 255
         if self.reject:
             return None, None, "rejected"
         self.created += 1

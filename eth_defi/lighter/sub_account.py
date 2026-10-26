@@ -50,13 +50,19 @@ async def _submit_sub_account_creations(client: Any, api_key_index: int, count: 
     :param client:
         ``lighter.SignerClient`` bound to the master account.
     :param api_key_index:
-        Master API-key slot signing the transactions.
+        Master API-key slot; the client holds only this key, so its nonce
+        manager signs with it.
     :param count:
         Number of sub-accounts to create.
     """
+    del api_key_index
     try:
         for number in range(1, count + 1):
-            _tx_info, response, error = await client.create_sub_account(api_key_index=api_key_index)
+            # Let the SDK's nonce manager assign consecutive nonces locally. An
+            # explicit key slot makes the signer fetch the next nonce from the
+            # API for every transaction, which can repeat a nonce while the
+            # previous creation is still queued.
+            _tx_info, response, error = await client.create_sub_account()
             if error or response is None or getattr(response, "code", LIGHTER_RESPONSE_CODE_OK) != LIGHTER_RESPONSE_CODE_OK:
                 raise LighterSubAccountError(f"Lighter rejected sub-account creation {number} of {count}")
             logger.info("Lighter sub-account creation %d of %d accepted, tx %s", number, count, response.tx_hash)
