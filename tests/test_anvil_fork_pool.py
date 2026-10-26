@@ -3,6 +3,7 @@
 from unittest.mock import ANY, Mock
 
 import pytest
+import requests
 
 from eth_defi.provider import anvil as anvil_module
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
@@ -154,6 +155,75 @@ def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.Monkey
     assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) == pytest.approx(expected_timeout)
     assert preflight.call_args.kwargs["rpc_url"] == proxy.url
     assert preflight.call_args.kwargs["timeout"] == pytest.approx(expected_timeout)
+    assert preflight.call_args.kwargs["max_attempts"] == 1
+
+
+@pytest.mark.parametrize("error_type", [requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError])
+def test_archive_preflight_retries_direct_transport_failure(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, error_type: type[requests.exceptions.RequestException]) -> None:
+    """Recover from one transient direct-provider transport failure.
+
+    The 2026-10-26 Base CI probe timed out while the same fixed-block test
+    passed locally. Keep each request's timeout intact and retry only transport
+    failures, with a domain-only warning and no traceback.
+
+    :param monkeypatch: Pytest patching fixture.
+    :param caplog: Captured log records.
+    :param error_type: Retryable transport exception class.
+    :return: None.
+    """
+    response = Mock(ok=True, headers={})
+    response.json.return_value = {"result": "0x0"}
+    post = Mock(side_effect=[error_type("transient failure"), response])
+    monkeypatch.setattr(anvil_module.requests, "post", post)
+
+    anvil_module._verify_archive_node_access(Mock(), "https://archive.example/api-key", 50, 100)
+
+    assert post.call_count == 2
+    assert all(call.kwargs["timeout"] == 3.0 for call in post.call_args_list)
+    assert "archive.example" in caplog.text
+    assert "api-key" not in caplog.text
+    assert len(caplog.records) == 1
+    assert caplog.records[0].exc_info is None
+
+
+@pytest.mark.parametrize("max_attempts", [1, 2])
+def test_archive_preflight_bounds_transport_retries(monkeypatch: pytest.MonkeyPatch, max_attempts: int) -> None:
+    """Stop after the configured direct or proxy-owned transport budget.
+
+    A persistent timeout remains a hard failure rather than allowing Anvil
+    to launch without a successful archive check.
+
+    :param monkeypatch: Pytest patching fixture.
+    :param max_attempts: Number of attempts permitted for this probe.
+    :return: None.
+    """
+    post = Mock(side_effect=requests.exceptions.ReadTimeout("provider unavailable"))
+    monkeypatch.setattr(anvil_module.requests, "post", post)
+
+    with pytest.raises(anvil_module.ArchiveNodeRequired, match="provider unavailable"):
+        anvil_module._verify_archive_node_access(Mock(), "https://archive.example/api-key", 50, 100, max_attempts=max_attempts)
+
+    assert post.call_count == max_attempts
+
+
+def test_archive_preflight_does_not_retry_pruned_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject evicted historical state without retrying an impossible read.
+
+    Transport recovery must never retry a provider's explicit missing-state
+    response, including Monad's provider-dependent historical-state boundary.
+
+    :param monkeypatch: Pytest patching fixture.
+    :return: None.
+    """
+    response = Mock(ok=True, headers={})
+    response.json.return_value = {"error": {"code": -32000, "message": "missing trie node"}}
+    post = Mock(return_value=response)
+    monkeypatch.setattr(anvil_module.requests, "post", post)
+
+    with pytest.raises(anvil_module.ArchiveNodeRequired, match="does not provide archive access"):
+        anvil_module._verify_archive_node_access(Mock(), "https://archive.example/api-key", 50, 100)
+
+    assert post.call_count == 1
 
 
 def test_archive_preflight_rejects_proxy_failure(monkeypatch: pytest.MonkeyPatch) -> None:

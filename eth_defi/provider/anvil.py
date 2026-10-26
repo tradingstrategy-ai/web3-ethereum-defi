@@ -935,6 +935,7 @@ def _verify_archive_node_access(
     fork_block_number: int,
     current_block: int,
     timeout: float = 3.0,
+    max_attempts: int = 2,
 ) -> None:
     """Verify that the RPC endpoint can access historical blocks.
 
@@ -972,10 +973,17 @@ def _verify_archive_node_access(
     :param timeout:
         Request timeout in seconds
 
+    :param max_attempts:
+        Maximum transport attempts. Direct probes retry a timeout or connection
+        failure once; proxied probes use one attempt because the proxy already
+        owns the bounded failover budget. RPC and archive-state errors are never
+        retried here.
+
     :raises ArchiveNodeRequired:
         If the RPC cannot access the historical block
     """
     register_rpc_url(rpc_url)
+    assert max_attempts >= 1
 
     # Try to get balance at the historical block - this is a cheap call
     # that will fail if the RPC doesn't have archive data
@@ -989,12 +997,26 @@ def _verify_archive_node_access(
             "params": [test_address, hex(fork_block_number)],
             "id": 1,
         }
-        response = requests.post(
-            rpc_url,
-            json=payload,
-            timeout=timeout,
-            headers={"Content-Type": "application/json"},
-        )
+        for attempt in range(max_attempts):
+            try:
+                response = requests.post(
+                    rpc_url,
+                    json=payload,
+                    timeout=timeout,
+                    headers={"Content-Type": "application/json"},
+                )
+                break
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt + 1 == max_attempts:
+                    raise
+                logger.warning(
+                    "Archive access probe for %s at block %d failed with %s; retrying transport (%d/%d)",
+                    get_url_domain(rpc_url),
+                    fork_block_number,
+                    type(e).__name__,
+                    attempt + 2,
+                    max_attempts,
+                )
         response_headers = dict(response.headers)
         response_data = response.json()
 
@@ -1577,6 +1599,7 @@ def launch_anvil(
                 # The preflight uses the same proxied request budget as the
                 # smoke test, not the shorter direct-provider timeout.
                 timeout=smoke_test_timeout,
+                max_attempts=1 if proxy is not None else 2,
             )
 
     # Validate command options before taking a port lease. These assertions do
