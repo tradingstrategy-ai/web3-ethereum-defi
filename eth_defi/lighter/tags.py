@@ -2081,13 +2081,33 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-18.
     #: Decision material: The current Lighter description explicitly calls
     #: this a long-only DCA grid strategy, supporting directional grid trading.
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
     "lighter-pool-281474976552443": {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
     },
+    #: Vault: Candle Effect v1.
+    #: Added: 2026-10-26.
+    #: Decision material: Maintainer assigned high-frequency, high-win-rate
+    #: trading to both Lighter versions; identity verified in current metadata.
+    #: Sources:
+    #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+    #: - https://app.lighter.xyz/public-pools/281474976620676
+    "lighter-pool-281474976620676": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: Vault: Candle Effect v2.
+    #: Added: 2026-10-26.
+    #: Decision material: Maintainer assigned high-frequency, high-win-rate
+    #: trading to both Lighter versions; identity verified in current metadata.
+    #: Sources:
+    #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+    #: - https://app.lighter.xyz/public-pools/281474976543116
+    "lighter-pool-281474976543116": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
 }
 
 #: Lighter's documented auto-rebalanced 2x long/short products maintain a
