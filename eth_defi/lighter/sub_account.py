@@ -44,18 +44,31 @@ class LighterSubAccountError(RuntimeError):
     """Raised when Lighter rejects a sub-account creation."""
 
 
-async def _submit_sub_account_creations(client: Any, api_key_index: int, count: int) -> None:
+async def _submit_sub_account_creations(
+    master_account_index: int,
+    api_key_index: int,
+    api_private_key: str,
+    count: int,
+    api_url: str,
+) -> None:
     """Submit ``count`` sub-account creation transactions one at a time.
 
-    :param client:
-        ``lighter.SignerClient`` bound to the master account.
+    The SDK client opens an ``aiohttp`` connector, which needs a running event
+    loop, so it is created inside this coroutine.
+
+    :param master_account_index:
+        Master account signing the creations.
     :param api_key_index:
         Master API-key slot; the client holds only this key, so its nonce
         manager signs with it.
+    :param api_private_key:
+        Master API private key. Never logged.
     :param count:
         Number of sub-accounts to create.
+    :param api_url:
+        Lighter API base URL.
     """
-    del api_key_index
+    client = create_lighter_signer_client(master_account_index, api_key_index, api_private_key, api_url=api_url)
     try:
         for number in range(1, count + 1):
             # Let the SDK's nonce manager assign consecutive nonces locally. An
@@ -116,8 +129,7 @@ def create_lighter_sub_accounts(
         raise LighterSubAccountError(f"L1 address {l1_address} does not own Lighter master account {master_account_index}")
     existing_indices = set(existing.sub_account_indices)
 
-    client = create_lighter_signer_client(master_account_index, api_key_index, api_private_key, api_url=api_url)
-    asyncio.run(_submit_sub_account_creations(client, api_key_index, count))
+    asyncio.run(_submit_sub_account_creations(master_account_index, api_key_index, api_private_key, count, api_url))
 
     accounts = wait_for_lighter_sub_accounts(session, l1_address, len(existing_indices) + count, timeout=timeout)
     new_indices = [index for index in accounts.sub_account_indices if index not in existing_indices]

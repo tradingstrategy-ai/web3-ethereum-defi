@@ -111,6 +111,12 @@ def test_fetch_lighter_accounts_and_equity_classify_owned_accounts() -> None:
         fetch_lighter_accounts(FakeSession([{"sub_accounts": [{"index": 1, "account_type": 0}, {"index": 2, "account_type": 0}]}]), OWNER)  # type: ignore[arg-type]
 
 
+def _require_event_loop(client: "FakeSignerClient") -> "FakeSignerClient":
+    """Return the fake client, failing like ``aiohttp`` outside a running event loop."""
+    asyncio.get_running_loop()
+    return client
+
+
 class FakeSignerClient:
     """Stand-in for ``lighter.SignerClient`` recording signed L2 transactions."""
 
@@ -150,7 +156,9 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
     """Create sub-accounts with the master API key and return only the new indices.
 
     Sub-account creation is an L2 transaction signed by the master key, and an
-    earlier sub-account must not be mistaken for a new one.
+    earlier sub-account must not be mistaken for a new one. The real SDK
+    client opens an ``aiohttp`` connector, which fails outside a running event
+    loop, so the fake factory requires one too.
 
     1. Create two sub-accounts for a master that already owns one.
     2. Assert the new indices in creation order and that the signer was closed.
@@ -159,7 +167,7 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
     # 1. Create two sub-accounts for a master that already owns one.
     existing = LIGHTER_SUB_ACCOUNT_INDEX_START + 10
     client = FakeSignerClient(MASTER_INDEX)
-    mocker.patch.object(sub_account_module, "create_lighter_signer_client", return_value=client)
+    mocker.patch.object(sub_account_module, "create_lighter_signer_client", side_effect=lambda *_args, **_kwargs: _require_event_loop(client))
     session = FakeSession([_accounts_payload(existing), _accounts_payload(existing, SUB_1, SUB_2)])
     indices = create_lighter_sub_accounts(session=session, l1_address=OWNER, master_account_index=MASTER_INDEX, api_key_index=4, api_private_key="0x" + "22" * 40, count=2, timeout=1)  # type: ignore[arg-type]
 
@@ -169,7 +177,8 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
     assert client.closed
 
     # 3. Raise a public error when Lighter rejects a creation.
-    mocker.patch.object(sub_account_module, "create_lighter_signer_client", return_value=FakeSignerClient(MASTER_INDEX, reject=True))
+    rejecting_client = FakeSignerClient(MASTER_INDEX, reject=True)
+    mocker.patch.object(sub_account_module, "create_lighter_signer_client", side_effect=lambda *_args, **_kwargs: _require_event_loop(rejecting_client))
     with pytest.raises(LighterSubAccountError, match="rejected"):
         create_lighter_sub_accounts(session=FakeSession([_accounts_payload()]), l1_address=OWNER, master_account_index=MASTER_INDEX, api_key_index=4, api_private_key="0x" + "22" * 40, count=1, timeout=1)  # type: ignore[arg-type]
 
