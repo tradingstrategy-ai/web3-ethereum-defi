@@ -35,6 +35,7 @@ from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
+from eth_defi.research.k_ratio import MINIMUM_K_RATIO_OBSERVATIONS, calculate_k_ratio
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault, sanitise_share_price_observations
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
@@ -157,6 +158,13 @@ VAULT_SCAN_CYCLE_NOTES = {
 class PeriodMetrics:
     """Tearsheet metrics for one period.
 
+    :attr:`k_ratio` uses :func:`~eth_defi.research.k_ratio.calculate_k_ratio`
+    with the 2013 scaling and 365 observations per year. Its wealth curve is
+    the same daily share-price curve used for drawdown, including its first
+    price and forward-filled days. It retains the adapter's existing fee
+    treatment without constructing a separate investor-net curve. Sparse
+    prices make the score an approximation. Undefined scores remain null.
+
     :attr:`flow_value` is the signed investor flow for the period: deposits
     minus redemptions. It is available from either separately observed flows or
     a state-based estimate. Stablecoin-denominated ERC-4626 vaults use an
@@ -235,6 +243,10 @@ class PeriodMetrics:
     #: days are forward filled and the result is an approximation. Eligible
     #: periods with no measurable return dispersion use the export value zero.
     sharpe: float | None = None
+
+    #: Kestner's 2013 K-ratio of daily share prices, with 365 observations per
+    #: year. Invalid or numerically log-linear curves have no defined score.
+    k_ratio: float | None = None
 
     #: Period maximum drawdown
     max_drawdown: Percent | None = None
@@ -2273,7 +2285,7 @@ def _calculate_period_metrics_from_arrays(
     # next event day. Volatility and Sharpe are cadence-sensitive approximations.
     # The daily return at daily_start belongs to the preceding day-to-day
     # interval, which begins outside this period. Exclude it consistently for
-    # every risk metric: start strictly after daily_start.
+    # every return-based risk metric: start strictly after daily_start.
     returns_start = int(np.searchsorted(inputs.daily_return_ns, daily_start_ns, side="right"))
     returns_end = int(np.searchsorted(inputs.daily_return_ns, samples_end_ns, side="right"))
     # Volatility and Sharpe share one cleaned return array instead of each
@@ -2295,6 +2307,15 @@ def _calculate_period_metrics_from_arrays(
     )
     if sharpe is not None and not np.isfinite(sharpe):
         sharpe = None
+
+    # K-ratio fits the complete daily wealth path, including its first price.
+    # Keep invalid points in the calendar: removing them would change the
+    # sampling frequency and manufacture a different fitted path.
+    k_ratio = None
+    if len(period_samples_daily) >= MINIMUM_K_RATIO_OBSERVATIONS and np.all(np.isfinite(period_samples_daily)) and np.all(period_samples_daily > 0):
+        score = calculate_k_ratio(period_samples_daily)
+        if math.isfinite(score):
+            k_ratio = score
 
     # Calculate max drawdown directly from share prices.
     # Forward-filled daily prices put every vault on the same calendar while
@@ -2358,6 +2379,7 @@ def _calculate_period_metrics_from_arrays(
         annualisation_error_reason=annualisation_error_reason,
         volatility=volatility,
         sharpe=sharpe,
+        k_ratio=k_ratio,
         max_drawdown=max_drawdown,
         tvl_start=tvl_start,
         tvl_end=tvl_end,
@@ -2386,6 +2408,10 @@ def calculate_period_metrics(
     :func:`_period_inputs_from_series` and delegates to
     :func:`_calculate_period_metrics_from_arrays`. Batch calculations should
     convert once per vault and call :func:`calculate_period_results` instead.
+
+    K-ratio uses the 2013 convention on the supplied daily price curve, with
+    365 observations per year and no additional fee adjustment. See
+    :func:`~eth_defi.research.k_ratio.calculate_k_ratio` and :class:`PeriodMetrics`.
 
     :param period:
         Period identifier (1W, 1M, 3M, 6M, 1Y, lifetime)
@@ -2489,7 +2515,7 @@ def calculate_period_results(
 
     The sparse observations preserve the established endpoint, raw-sample and
     fee semantics. The daily curve is independently supplied for volatility,
-    Sharpe and drawdown. USD metrics reuse this helper with native fee-basis
+    Sharpe, K-ratio and drawdown. USD metrics reuse this helper with native fee-basis
     prices and matching USD-per-underlying rates.
 
     The pandas inputs are converted to arrays once and shared by all six
@@ -4078,6 +4104,12 @@ def calculate_lifetime_metrics(
     - Volatility (3M)
 
     Lookback based on the last entry.
+
+    Every ``period_results`` entry includes ``k_ratio``, calculated with the
+    2013 formula on forward-filled daily share prices at 365 observations per
+    year. It follows the existing price basis rather than estimating a separate
+    net wealth curve; undefined values are ``None``. The same calculation uses
+    USD-converted daily prices in ``periodic_metrics_usd``, when available.
 
     Performance: the frame's metric columns are converted to NumPy once
     (:func:`_prepare_vault_price_frame`), and each vault is then a set of
