@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Apex Quant Capital curator metadata and artwork, attribute the reviewed Infinit vault, and consolidate Infinit migration into one script with a DRY_RUN switch (2026-10-26).
 - feat: Add Centaur curator metadata, descriptions and discretionary directional strategy tags for six Lighter pools, with supplied brand artwork (2026-10-26).
 - feat: Add Infinit APEX MultiStrategy data with Dangerous risk, source-gap preservation, indexed receipt supply and staged local migration and backfill scripts (2026-10-26).
 - feat: Add the high-frequency, high-win-rate strategy category with drawdown context and a required algorithmic trading pairing, and classify 12 reviewed Growi, Gucky, Candle Effect, Cold Process, Steady Wealth Builder, BitRocket and Stratwise vaults (2026-10-26).

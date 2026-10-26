@@ -14,16 +14,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import duckdb
 import pyarrow.parquet as pq
 from tabulate import tabulate
+from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT, INFINIT_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.infinit.events import fetch_infinit_events
-from eth_defi.erc_4626.vault_protocol.infinit.historical_context import fetch_and_store_infinit_history, validate_infinit_price_coverage
+from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoricalContextStore, fetch_and_store_infinit_history, validate_infinit_price_coverage
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.hypersync.utils import configure_hypersync_from_env
@@ -57,7 +58,7 @@ def read_bool(name: str, *, default: bool) -> bool:
 
 @dataclass(slots=True)
 class InfinitMigrationConfig:
-    """Explicit paths and safe defaults shared by the three entry points."""
+    """Dataset paths and the single dry-run/apply switch."""
 
     #: Pipeline directory owning the scanner lock and temporary staging.
     directory: Path
@@ -73,10 +74,6 @@ class InfinitMigrationConfig:
     timestamp_cache: Path
     #: Stage real reads without publishing outputs.
     dry_run: bool = True
-    #: Recompute only Infinit's cleaned history after raw backfill.
-    clean_prices: bool = False
-    #: Exclusive source horizon, defaulting to a safe RPC head.
-    end_block: int | None = None
     #: Common historical writer's maximum worker count.
     max_workers: int = 4
 
@@ -100,8 +97,6 @@ class InfinitMigrationConfig:
             context=path("HISTORICAL_CONTEXT_PATH", "vault-historical-context.duckdb"),
             timestamp_cache=Path(os.environ.get("TIMESTAMP_CACHE_PATH", DEFAULT_TIMESTAMP_CACHE_FOLDER)).expanduser().resolve(),
             dry_run=read_bool("DRY_RUN", default=True),
-            clean_prices=read_bool("CLEAN_PRICES", default=False),
-            end_block=int(os.environ["END_BLOCK"]) if os.environ.get("END_BLOCK") else None,
             max_workers=int(os.environ.get("MAX_WORKERS", "4")),
         )
 
@@ -186,107 +181,124 @@ def run_staged(config: InfinitMigrationConfig, targets: tuple[Path, ...], operat
             return summary | {"mode": "dry-run" if config.dry_run else "applied"}
 
 
-def run_infinit_migration(mode: str, config: InfinitMigrationConfig) -> dict[str, object]:
-    """Read reviewed sources and update only the selected Infinit dataset.
+def fetch_migration_end_block(web3: Web3, cache_path: Path) -> int:
+    """Choose an exclusive source boundary covered by the existing cache.
 
-    Leads, metadata and history are separate operator steps. Chain cursors and
-    reader-state pickles are deliberately outside the write set.
+    The migration leaves the timestamp cache unchanged and limits its source
+    horizon to both cached history and the safe RPC head. Dense coverage is
+    checked by the historical reader before any outputs are published.
 
-    :param mode: ``leads``, ``metadata`` or ``history``.
-    :param config: Explicit paths and dry-run setting.
-    :return: Observable source and row counts.
+    :param web3: Configured Arbitrum connection.
+    :param cache_path: Directory containing the dense per-chain timestamp cache.
+    :return: Exclusive cached block boundary, at most RPC head minus 64.
     """
-    if mode not in {"leads", "metadata", "history"}:
-        raise ValueError(f"Unknown Infinit migration: {mode}")
+    path = cache_path / f"{INFINIT_CHAIN_ID}-timestamps.duckdb"
+    if not path.exists():
+        raise ValueError(f"Restore or prepopulate the dense Arbitrum timestamp cache: {path}")
+    safe_end = web3.eth.block_number - 64
+    with duckdb.connect(str(path), read_only=True) as connection:
+        first, last = connection.execute(
+            """SELECT min(block_number),
+                min(block_number) FILTER (WHERE next_block IS NULL OR next_block<>block_number+1)
+            FROM (
+                SELECT block_number,lead(block_number) OVER (ORDER BY block_number) AS next_block
+                FROM block_timestamps WHERE block_number>=? AND block_number<?
+            )""",
+            [APEX_PRODUCT.deployment_block, safe_end],
+        ).fetchone()
+    if first != APEX_PRODUCT.deployment_block or last is None:
+        msg = "Arbitrum timestamp cache does not cover the Infinit deployment"
+        raise ValueError(msg)
+    end = last + 1
+    logger.info("Infinit history will run through cached block %s", end - 1)
+    return end
+
+
+def run_infinit_migration(config: InfinitMigrationConfig) -> dict[str, object]:
+    """Migrate Infinit discovery, metadata and history together.
+
+    One staged operation recovers provenance, refreshes metadata, backfills raw
+    prices and updates cleaned history when that dataset exists. A failed step
+    prevents publication of every output. Chain cursors and reader state remain
+    outside the write set. See https://app.infinit.tech/vaults/apex-multistrategy.
+
+    :param config: Dataset paths and dry-run/apply setting.
+    :return: Source, metadata and price counts with publication mode.
+    """
+    if not config.metadata.is_file():
+        raise ValueError(f"Existing vault metadata database required: {config.metadata}")
     factory = MultiProviderWeb3Factory(read_json_rpc_url(INFINIT_CHAIN_ID))
     web3 = factory()
     if web3.eth.chain_id != INFINIT_CHAIN_ID:
         msg = "Infinit requires Arbitrum RPC"
         raise ValueError(msg)
-    end = config.end_block or web3.eth.block_number - 64
-    if end <= APEX_PRODUCT.deployment_block:
-        msg = "END_BLOCK must follow the reviewed deployment"
+    end = fetch_migration_end_block(web3, config.timestamp_cache)
+    client = configure_hypersync_from_env(web3).hypersync_client
+    if client is None:
+        msg = "Hypersync is required for Infinit provenance and supply"
         raise ValueError(msg)
-    targets = (config.metadata,) if mode != "history" else (config.context, config.raw) + ((config.cleaned,) if config.clean_prices else ())
+    targets = (config.metadata, config.context, config.raw) + ((config.cleaned,) if config.cleaned.exists() else ())
 
-    def operation(staged: dict[Path, Path]) -> dict[str, object]:  # noqa: PLR0914 - scoped maintenance orchestration
-        metadata_path = staged.get(config.metadata, config.metadata)
-        db = VaultDatabase.read(metadata_path) if metadata_path.exists() else VaultDatabase()
-        summary = {"operation": mode, "vault": str(SPEC), "end_block_exclusive": end}
-        if mode == "leads":
-            client = configure_hypersync_from_env(web3).hypersync_client
-            if client is None:
-                msg = "Hypersync is required for Infinit provenance"
-                raise ValueError(msg)
-            events = tuple(fetch_infinit_events(client, APEX_PRODUCT, end, config.timestamp_cache))
-            creations = [e for e in events if e.kind == "created"]
-            if len(creations) != 1 or creations[0].block_number != APEX_PRODUCT.deployment_block:
+    def operation(staged: dict[Path, Path]) -> dict[str, object]:
+        metadata_path = staged[config.metadata]
+        db = VaultDatabase.read(metadata_path)
+        logger.info("Infinit: collecting source prices and indexed deployment/activity/supply")
+        count = fetch_and_store_infinit_history(web3=web3, hypersync_client=client, product=APEX_PRODUCT, end_block=end, context_path=staged[config.context], timestamp_cache_path=config.timestamp_cache)
+        with InfinitHistoricalContextStore(staged[config.context], read_only=True) as store:
+            creations = store.connection.execute("SELECT block_number,transaction_hash FROM infinit_events WHERE vault_address=? AND kind='created' AND block_number<?", [APEX_PRODUCT.address, end]).fetchall()
+            if len(creations) != 1 or creations[0][0] != APEX_PRODUCT.deployment_block:
                 msg = "Reviewed Infinit factory creation was not recovered"
                 raise ValueError(msg)
-            deposits = sum(e.kind == "deposit" for e in events)
-            withdrawals = sum(e.kind == "withdraw" for e in events)
-            db.leads[SPEC] = PotentialVaultMatch(INFINIT_CHAIN_ID, APEX_PRODUCT.address, APEX_PRODUCT.deployment_block, APEX_PRODUCT.deployed_at, deposits, withdrawals, configuration_count=1)
-            db.write(metadata_path)
-            summary.update(deposits=deposits, withdrawals=withdrawals, creation_transaction=creations[0].transaction_hash)
-        elif mode == "metadata":
-            lead = db.leads.get(SPEC)
-            if lead is None:
-                msg = "Run migrate-historical-leads.py first"
-                raise ValueError(msg)
-            detection = ERC4262VaultDetection(INFINIT_CHAIN_ID, APEX_PRODUCT.address, APEX_PRODUCT.deployment_block, APEX_PRODUCT.deployed_at, {ERC4626Feature.infinit_like}, native_datetime_utc_now(), lead.deposit_count, lead.withdrawal_count, configuration_count=1)
-            row = create_vault_scan_record(web3, detection, end - 1, token_cache={})
-            if row["Protocol"] != "Infinit" or row["Name"].startswith("<") or row.get("_fees") is None:
-                msg = "Infinit metadata validation failed; refusing to publish a broken row"
-                raise ValueError(msg)
-            db.rows[SPEC] = db.rows.get(SPEC, {}) | row | {"_risk": VaultTechnicalRisk.dangerous}
-            db.write(metadata_path)
-            summary.update(name=row["Name"], risk="dangerous", shares=str(row["Shares"]), nav=str(row["NAV"]))
-        else:
-            if SPEC not in db.rows:
-                msg = "Run migrate-metadata.py first"
-                raise ValueError(msg)
-            client = configure_hypersync_from_env(web3).hypersync_client
-            if client is None:
-                msg = "Hypersync is required for Infinit supply"
-                raise ValueError(msg)
-            count = fetch_and_store_infinit_history(web3=web3, hypersync_client=client, product=APEX_PRODUCT, end_block=end, context_path=staged[config.context], timestamp_cache_path=config.timestamp_cache)
-            validate_infinit_price_coverage(staged[config.raw], staged[config.context], APEX_PRODUCT, APEX_PRODUCT.deployment_block, end)
-            vault = InfinitVault(web3, SPEC, token_cache={}, default_block_identifier=end - 1)
-            vault.historical_context_path = staged[config.context]
-            token_cache = TokenDiskCache(staged[config.raw].parent / "tokens.sqlite")
-            try:
-                result = scan_historical_prices_to_parquet(
-                    output_fname=staged[config.raw],
-                    web3=web3,
-                    web3factory=factory,
-                    vaults=[vault],
-                    token_cache=token_cache,
-                    start_block=APEX_PRODUCT.deployment_block,
-                    end_block=end,
-                    max_workers=config.max_workers,
-                    frequency="1h",
-                    hypersync_client=client,
-                    timestamp_cache_file=config.timestamp_cache,
-                    vault_addresses={APEX_PRODUCT.address},
-                )
-            finally:
-                token_cache.close()
-            summary.update(source_observations=count, raw_rows=result["rows_written"])
-            if config.clean_prices:
-                summary["cleaned_rows"] = replace_cleaned_vault_histories({f"{INFINIT_CHAIN_ID}-{APEX_PRODUCT.address}"}, vault_db_path=config.metadata, raw_price_df_path=staged[config.raw], cleaned_price_df_path=staged[config.cleaned], logger=logger.info)
+            activity = dict(store.connection.execute("SELECT kind,count(*) FROM infinit_events WHERE vault_address=? AND block_number<? GROUP BY kind", [APEX_PRODUCT.address, end]).fetchall())
+        deposits, withdrawals = activity.get("deposit", 0), activity.get("withdraw", 0)
+        logger.info("Infinit: refreshing lead and metadata (%s deposits, %s withdrawals)", deposits, withdrawals)
+        db.leads[SPEC] = PotentialVaultMatch(INFINIT_CHAIN_ID, APEX_PRODUCT.address, APEX_PRODUCT.deployment_block, APEX_PRODUCT.deployed_at, deposits, withdrawals, configuration_count=1)
+        detection = ERC4262VaultDetection(INFINIT_CHAIN_ID, APEX_PRODUCT.address, APEX_PRODUCT.deployment_block, APEX_PRODUCT.deployed_at, {ERC4626Feature.infinit_like}, native_datetime_utc_now(), deposits, withdrawals, configuration_count=1)
+        row = create_vault_scan_record(web3, detection, end - 1, token_cache={})
+        if row["Protocol"] != "Infinit" or row["Name"].startswith("<") or row.get("_fees") is None:
+            msg = "Infinit metadata validation failed; refusing to publish a broken row"
+            raise ValueError(msg)
+        db.rows[SPEC] = db.rows.get(SPEC, {}) | row | {"_risk": VaultTechnicalRisk.dangerous}
+        db.write(metadata_path)
+        validate_infinit_price_coverage(staged[config.raw], staged[config.context], APEX_PRODUCT, APEX_PRODUCT.deployment_block, end)
+        vault = InfinitVault(web3, SPEC, token_cache={}, default_block_identifier=end - 1)
+        vault.historical_context_path = staged[config.context]
+        logger.info("Infinit: writing hourly history")
+        token_cache = TokenDiskCache(staged[config.raw].parent / "tokens.sqlite")
+        try:
+            result = scan_historical_prices_to_parquet(
+                output_fname=staged[config.raw],
+                web3=web3,
+                web3factory=factory,
+                vaults=[vault],
+                token_cache=token_cache,
+                start_block=APEX_PRODUCT.deployment_block,
+                end_block=end,
+                max_workers=config.max_workers,
+                frequency="1h",
+                hypersync_client=client,
+                timestamp_cache_file=config.timestamp_cache,
+                vault_addresses={APEX_PRODUCT.address},
+            )
+        finally:
+            token_cache.close()
+        summary = {"vault": SPEC.as_string_id(), "end_block_exclusive": end, "creation_transaction": creations[0][1], "deposits": deposits, "withdrawals": withdrawals, "name": row["Name"], "risk": "dangerous", "shares": str(row["Shares"]), "nav": str(row["NAV"]), "source_observations": count, "raw_rows": result["rows_written"]}
+        if config.cleaned in staged:
+            logger.info("Infinit: refreshing existing cleaned history")
+            summary["cleaned_rows"] = replace_cleaned_vault_histories({SPEC.as_string_id()}, vault_db_path=metadata_path, raw_price_df_path=staged[config.raw], cleaned_price_df_path=staged[config.cleaned], logger=logger.info)
         return summary
 
     return run_staged(config, targets, operation)
 
 
-def main(mode: str) -> None:
-    """Run an environment-configured maintenance entry point.
+def main() -> None:
+    """Run the single Infinit migration with ``DRY_RUN=true`` by default.
 
     Logging remains visible during source scans and staging. Failures abort
     without publishing incomplete output.
 
-    :param mode: Selected maintenance operation.
+    :return: ``None`` after logging the complete migration summary.
     """
-    setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
-    summary = run_infinit_migration(mode, InfinitMigrationConfig.from_env())
+    setup_console_logging(default_log_level="info", std_out_log_level="info")
+    summary = run_infinit_migration(InfinitMigrationConfig.from_env())
     logger.info("\n%s", tabulate([summary], headers="keys", tablefmt="github"))

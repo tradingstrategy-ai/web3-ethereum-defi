@@ -3,7 +3,9 @@ Infinit
 
 `Infinit <https://www.infinit.tech/>`__ publishes the
 `APEX MultiStrategy vault <https://app.infinit.tech/vaults/apex-multistrategy>`__,
-managed by APEX Quants. Its deterministic relative-strength strategy targets matched
+managed by `Apex Quant Capital <https://www.apexquants.xyz/>`__, identified through
+Infinit's manager links. Its curator metadata slug is ``apex-quants``.
+Its deterministic relative-strength strategy targets matched
 long and short Hyperliquid perpetual positions. The integration assigns
 ``Dangerous`` technical risk and supports data reads only. Transaction requests
 raise ``VaultFlowUnavailable`` and public transaction capability is unavailable.
@@ -167,7 +169,7 @@ the reviewed deployment and classifies it by chain and address, without
 depending on ERC-4626 events or valuation methods. Future deployments require
 their own reviewed product mapping.
 
-After the initial leads, metadata and history migrations, each price cycle
+After the initial migration, each price cycle
 extends the already bootstrapped dense timestamp cache, fetches public prices
 and indexed supply, and validates that supply against RPC. The shared writer
 then refreshes only Infinit's retained hourly history. This small history is
@@ -191,92 +193,51 @@ not advance adaptive ERC-4626 reader state; its event cursor lives in the
 context database. Source observations retain their actual dates, and stale
 prices are not advanced to the current time.
 
-Local rehearsal
----------------
+Migration
+---------
 
-Use the existing gitignored ``.local-test.env`` without editing it. It supplies
-``JSON_RPC_ARBITRUM`` and ``HYPERSYNC_API_KEY``. Copy datasets into an isolated
-directory before applying a rehearsal. Do not change ``HOME``.
+Run ``scripts/infinit/migrate-infinit.py`` once to recover discovery provenance,
+refresh metadata and backfill Infinit history. It also updates cleaned history
+when that dataset exists. ``DRY_RUN`` is the only operation switch: it defaults
+to ``true`` and performs the complete operation on temporary copies; ``false``
+publishes validated outputs with unique backups under the pipeline lock.
+Unrelated vaults, reader state and discovery cursors are preserved.
+
+Local use:
 
 .. code-block:: shell
 
    source .local-test.env
-   export PIPELINE_DATA_DIR=/tmp/infinit-rehearsal
-   mkdir -p "$PIPELINE_DATA_DIR"
-   cp ~/.tradingstrategy/vaults/vault-metadata-db.pickle "$PIPELINE_DATA_DIR/"
-   cp ~/.tradingstrategy/vaults/vault-prices-1h.parquet "$PIPELINE_DATA_DIR/"
-   cp ~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet "$PIPELINE_DATA_DIR/"
-   cp ~/.tradingstrategy/vaults/vault-historical-context.duckdb "$PIPELINE_DATA_DIR/"
-   cp ~/.tradingstrategy/vaults/vault-reader-state-1h.pickle "$PIPELINE_DATA_DIR/"
-   export DRY_RUN=true
-   poetry run python scripts/infinit/migrate-historical-leads.py
-   DRY_RUN=false poetry run python scripts/infinit/migrate-historical-leads.py
-   poetry run python scripts/infinit/migrate-metadata.py
-   DRY_RUN=false poetry run python scripts/infinit/migrate-metadata.py
-   CLEAN_PRICES=true poetry run python scripts/infinit/backfill-history.py
-   DRY_RUN=false CLEAN_PRICES=true poetry run python scripts/infinit/backfill-history.py
+   DRY_RUN=true poetry run python scripts/infinit/migrate-infinit.py
+   DRY_RUN=false poetry run python scripts/infinit/migrate-infinit.py
 
-Each dry run executes real reads and stages changes temporarily. It does not
-publish datasets. Apply requires the scanner's ``scan-pipeline`` lock, writes
-non-overwriting backups, validates staging and atomically replaces each file.
-Publication spans multiple files; the lock prevents concurrent readers/writers
-using the pipeline lock, and I/O failures trigger restoration from backups.
-Interrupted processes can be recovered from those backups. Existing unreadable
-Parquet is a hard error. Reader state and chain discovery cursors are untouched.
+For an isolated rehearsal, set ``PIPELINE_DATA_DIR`` to copied pipeline datasets
+and ``TIMESTAMP_CACHE_PATH`` to a directory containing a copy of
+``42161-timestamps.duckdb`` before running those same commands. Existing
+file-path overrides remain available. The script reads the dense Arbitrum
+timestamp cache without changing it and automatically limits history to its
+contiguous cached range after deployment, bounded by the safe RPC head. Restore
+that cache first if it does not cover deployment. Cache preparation uses
+``fetch_block_timestamps_using_hypersync_cached()``.
+There are no stage, cleaning or block-range switches to configure.
 
-Optional overrides are ``VAULT_DB_PATH``, ``UNCLEANED_PRICE_DATABASE``,
-``CLEANED_PRICE_DATABASE``, ``HISTORICAL_CONTEXT_PATH``, ``TIMESTAMP_CACHE_PATH``
-(a directory), ``END_BLOCK`` (exclusive), ``MAX_WORKERS`` and ``LOG_LEVEL``.
-Keep output paths on the same filesystem as the staging directory. Use
-``CLEAN_PRICES=true`` only when an existing cleaned Parquet is available.
-
-History requires dense timestamps for the requested deployment-to-end range.
-The script refuses sparse coverage. Restore or prepopulate the cache first,
-using an isolated directory for rehearsal:
-
-.. code-block:: python
-
-   from pathlib import Path
-   from eth_defi.hypersync.utils import configure_hypersync_from_env
-   from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached
-
-   client = configure_hypersync_from_env(42161).hypersync_client
-   stamps = fetch_block_timestamps_using_hypersync_cached(
-       client=client, chain_id=42161, start_block=483358787,
-       end_block=505781463, cache_path=Path("/tmp/infinit-rehearsal/timestamps"),
-   )
-   stamps.close()
-
-Run that snippet with ``poetry run python``. Then set
-``TIMESTAMP_CACHE_PATH=/tmp/infinit-rehearsal/timestamps`` and
-``END_BLOCK=505781464`` for the bounded rehearsal above. The timestamp helper's
-end is inclusive, whereas the migration's end is exclusive.
-
-Production operation
---------------------
-
-Deployment remains an operator action. Inspect ``docker-compose.yml`` first:
-``vault-scanner-oneshot`` inherits the all-chain scan entrypoint and mounts
-persistent host state. Override the entrypoint explicitly. Ensure no scanner
-is running a conflicting write and that the mounted dense timestamp cache is
-ready before backfill. Run leads, metadata, then history, each dry run before
-apply. For example, from the production checkout:
-
-For history, explicitly set ``END_BLOCK`` to the exclusive end of the restored
-dense cache (at most its last contiguous block plus one). The default RPC head
-minus 64 can advance beyond that read-only cache while maintenance is running;
-it is suitable only when the cache already covers that exact boundary. Pass
-the same explicit end to both the dry run and apply.
+Production use, after deploying the intended image and stopping conflicting
+scanner writes, from ``~/vault-scanner/web3-ethereum-defi``:
 
 .. code-block:: shell
 
    source ~/vault-scanner/vault-rpc.env
-   docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc \
-     'DRY_RUN=true python scripts/infinit/migrate-historical-leads.py'
+   docker compose stop vault-scanner-looped
+   docker compose run --rm -e DRY_RUN=true --entrypoint poetry vault-scanner-oneshot run python scripts/infinit/migrate-infinit.py
+   docker compose run --rm -e DRY_RUN=false --entrypoint poetry vault-scanner-oneshot run python scripts/infinit/migrate-infinit.py
 
-Use the same mounted one-shot service for metadata and history. Change
-``DRY_RUN=false`` only after reviewing the corresponding dry run. Do not reset
-chain cursors, remove reader state, change ``HOME`` or use an unmounted container.
+Review the dry-run summary before apply, then resume the scanner with
+``docker compose up -d vault-scanner-looped``. This uses the
+service's normal persistent mounts and overrides its all-chain entrypoint.
+Do not change ``HOME`` or remove reader state. Publication replaces each file
+atomically; an interrupted multi-file publication can require restoring backups.
+Unreadable Parquet, incomplete source coverage and uncheckpointed context WALs
+abort publication.
 
 Real integration checks
 -----------------------
@@ -288,5 +249,5 @@ Real integration checks
    INFINIT_LIVE_TEST=true timeout 180s poetry run pytest tests/erc_4626/vault_protocol/test_infinit_live.py -q --override-ini='addopts='
 
 The second command checks the actual public app and current account valuation.
-The lead and history rehearsal commands exercise the authenticated configured
+The migration exercises the authenticated configured
 Hypersync provider. No credentials are included in output.
