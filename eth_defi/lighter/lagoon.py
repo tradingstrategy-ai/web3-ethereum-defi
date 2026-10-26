@@ -219,7 +219,8 @@ def fetch_lighter_pending_balance(
 
     Lighter credits secure withdrawals from the master account and every
     sub-account to one pending balance keyed by the owner's master account.
-    The claim is ``withdrawPendingBalance(owner, ...)``.
+    The claim is ``withdrawPendingBalance(owner, ...)``. See Lighter's
+    `deposit, transfer and withdrawal documentation <https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals>`__.
 
     :param web3:
         Ethereum connection.

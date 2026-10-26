@@ -14,6 +14,8 @@ and the guard tests: `USDC_ASSET_INDEX`, `addressToAccountIndex`,
 | Earlier implementation | [`0x831ef69bab8af8b1037a4961b8d0674b124e7008`](https://etherscan.io/address/0x831ef69bab8af8b1037a4961b8d0674b124e7008) |
 
 `getPendingBalance(address,uint16) returns (uint128)` (selector `0xd1cbc64f`)
-was added on 2026-10-26. Its selector is present in the bytecode of both
-implementations above, and a call through the proxy on mainnet decodes with
-this fragment.
+was added on 2026-10-26. The entry is copied unchanged from the
+[Sourcify exact-match ABI](https://sourcify.dev/server/v2/contract/1/0x831ef69bab8af8b1037a4961b8d0674b124e7008?fields=abi)
+of the earlier implementation. The current implementation is not verified on
+Sourcify, but the selector is present in its bytecode and a call through the
+proxy on mainnet decodes with this entry.

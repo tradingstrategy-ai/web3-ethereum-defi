@@ -59,6 +59,7 @@ from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX, execute_change_pubkey
+from eth_defi.lighter.sdk import import_lighter_sdk
 from eth_defi.lighter.session import LighterSession, create_lighter_session
 from eth_defi.lighter.sub_account import LIGHTER_MAX_SUB_ACCOUNTS, create_lighter_sub_accounts
 from eth_defi.provider.anvil import is_anvil
@@ -2422,6 +2423,10 @@ def _validate_lighter_api_key_deployment_config(
         raise ValueError(f"lighter_sub_account_count must be 0..{LIGHTER_MAX_SUB_ACCOUNTS}")
     if not MIN_API_KEY_INDEX <= lighter_sub_account_api_key_index <= MAX_API_KEY_INDEX:
         raise ValueError(f"lighter_sub_account_api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX}")
+    if lighter_sub_account_count:
+        # Sub-account creation needs the optional SDK. Fail before any
+        # contract deployment or USDC deposit rather than after activation.
+        import_lighter_sdk()
 
     if not isinstance(deployer, HotWallet):
         message = "generate_lighter_api_key requires a HotWallet deployer"

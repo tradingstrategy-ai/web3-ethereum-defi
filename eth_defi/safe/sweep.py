@@ -58,7 +58,9 @@ def sweep_safe_to_owner(
     """Move all listed token balances and native ETH from a Safe to its sole owner.
 
     Each non-zero balance is sent with its own Safe transaction. The Safe must
-    have a signing threshold of one and ``owner`` must be one of its owners.
+    have ``owner`` as its only owner and a signing threshold of one, so the
+    helper cannot empty a shared Safe. See the
+    `Safe smart account documentation <https://docs.safe.global/advanced/smart-account-overview>`__.
 
     :param web3:
         Connection to the Safe's chain.
@@ -76,8 +78,8 @@ def sweep_safe_to_owner(
     safe_address = Web3.to_checksum_address(safe_address)
     safe = Safe(safe_address, create_safe_ethereum_client(web3))
     info = safe.retrieve_all_info()
-    if info.threshold != 1 or Web3.to_checksum_address(owner.address) not in info.owners:
-        raise ValueError(f"Safe {safe_address} needs threshold 1 with {owner.address} as an owner to sweep")
+    if info.threshold != 1 or list(info.owners) != [Web3.to_checksum_address(owner.address)]:
+        raise ValueError(f"Safe {safe_address} must have {owner.address} as its only owner and a threshold of 1 to sweep")
 
     # (symbol, amount, target, value, data) of each Safe call
     calls = []
