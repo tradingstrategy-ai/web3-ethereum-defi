@@ -13,10 +13,16 @@ Usage:
 """
 
 import os
+import sys
+import traceback
 from datetime import datetime, timedelta
+
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 
 def example_fetch_balance(gmx: GMX):
@@ -53,9 +59,9 @@ def example_fetch_balance(gmx: GMX):
             print(f"\nShowing {shown} tokens with balance")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def example_fetch_open_orders(gmx: GMX):
@@ -90,9 +96,9 @@ def example_fetch_open_orders(gmx: GMX):
             print(f"\nFiltered to {first_symbol}: {len(filtered)} positions")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def example_fetch_my_trades(gmx: GMX):
@@ -123,9 +129,9 @@ def example_fetch_my_trades(gmx: GMX):
             print(f"{time_str}  {symbol:12} {side:4}  Amount: {amount:>10}  Price: {price:>12}  Cost: {cost:>15}")
 
     except ValueError as e:
-        print(f"Skipped: {e}")
+        print(redact_rpc_urls(f"Skipped: {e}"))
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
 
 def main():
@@ -143,7 +149,7 @@ def main():
     print(f"\nUsing wallet address: {wallet_address}")
 
     try:
-        web3 = Web3(Web3.HTTPProvider(rpc))
+        web3 = Web3(create_http_provider(rpc))
         config = GMXConfig(web3, user_wallet_address=wallet_address)
         gmx = GMX(config)
 
@@ -160,10 +166,9 @@ def main():
         print("=" * 60 + "\n")
 
     except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
+        print(redact_rpc_urls(f"\nError: {e}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         raise
 
 

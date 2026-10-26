@@ -23,6 +23,7 @@ from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats, normalise_rpc_error
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -289,6 +290,9 @@ def create_multi_provider_web3(
     assert configuration_line is not None, f"create_multi_provider_web3(): JSON-RPC URL configuration line is missing, hint {hint}"
     assert type(configuration_line) == str, f"create_multi_provider_web3(): JSON-RPC URL configuration line is not a string, got {type(configuration_line)}"
 
+    register_rpc_url(configuration_line)
+    safe_configuration = ", ".join(get_url_domain(endpoint) for endpoint in configuration_line.split())
+
     items = configuration_line.split()
 
     urls: List[Url] = []
@@ -298,27 +302,27 @@ def create_multi_provider_web3(
         try:
             url = parse_url(parsable)
         except Exception as e:
-            raise MultiProviderConfigurationError(f"Could not parse JSON-RPC configuration URL: {parsable}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Could not parse JSON-RPC configuration URL: {get_url_domain(parsable)}. Hint is {hint}.")) from None
 
         if not url.scheme:
-            raise MultiProviderConfigurationError(f"Bad URL: {parsable}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Bad URL: {get_url_domain(parsable)}. Hint is {hint}."))
 
         if url in urls:
-            raise MultiProviderConfigurationError(f"Entry appears twice: {url}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Entry appears twice: {get_url_domain(url.url)}. Hint is {hint}."))
 
         urls.append(url)
 
     if len(urls) == 0:
-        raise MultiProviderConfigurationError(f"No configured endpoints: The config line is '{configuration_line}'. Hint is {hint}.")
+        raise MultiProviderConfigurationError(redact_rpc_urls(f"No configured endpoints: The config line is '{safe_configuration}'. Hint is {hint}."))
 
     transact_endpoints = [url.url.replace("mev+", "") for url in urls if url.scheme.startswith("mev+")]
     call_endpoints = [url.url for url in urls if not url.scheme.startswith("mev+")]
 
     if len(transact_endpoints) > 1:
-        raise MultiProviderConfigurationError(f"Only one execution endpoint can be specified, got {transact_endpoints}. Hint is {hint}.")
+        raise MultiProviderConfigurationError(redact_rpc_urls(f"Only one execution endpoint can be specified, got {[get_url_domain(endpoint) for endpoint in transact_endpoints]}. Hint is {hint}."))
 
     if len(call_endpoints) == 0:
-        raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
+        raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {safe_configuration}")
 
     if retries is None:
         retries = _resolve_default_retries(call_endpoints)
@@ -382,7 +386,7 @@ def create_multi_provider_web3(
     transact_provider = None
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]
-        transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs, session=session)
+        transact_provider = create_http_provider(transact_endpoint, request_kwargs=request_kwargs, session=session)
         _apply_anvil_launch_metadata(transact_provider)
 
         _fix_provider(transact_provider)

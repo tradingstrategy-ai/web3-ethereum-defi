@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 
 from eth_utils import to_checksum_address
 from rich.console import Console
@@ -27,12 +28,14 @@ from web3 import Web3
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import get_token_address_normalized
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
+from eth_defi.utils import get_url_domain
 
 # Configure logging to show detailed output from fork_helpers
 FORMAT = "%(message)s"
@@ -206,7 +209,7 @@ def main():
                 launch.json_rpc_url,
                 default_http_timeout=(3.0, 180.0),
             )
-            console.print(f"  Anvil fork started on {launch.json_rpc_url}")
+            console.print(f"  Anvil fork started on {get_url_domain(launch.json_rpc_url)}")
 
         # Setup network and oracle
         chain = setup_fork_network(web3)
@@ -331,7 +334,7 @@ def main():
                     order_key = extract_order_key_from_receipt(receipt)
                     console.print(f"\n[green]Order Key: {order_key.hex()}[/green]")
                 except Exception as e:
-                    console.print(f"\n[yellow]Could not extract order key: {e}[/yellow]")
+                    console.print(redact_rpc_urls(f"\n[yellow]Could not extract order key: {e}[/yellow]"))
 
                 if order_key:
                     console.print("\n[bold]Executing order as keeper...[/bold]")
@@ -344,7 +347,7 @@ def main():
                         console.print(f"  Gas used: {exec_receipt['gasUsed']}")
 
                     except Exception as e:
-                        console.print(f"[red]Keeper execution failed: {e}[/red]")
+                        console.print(redact_rpc_urls(f"[red]Keeper execution failed: {e}[/red]"))
 
                 # ========================================================================
                 # STEP 6: Verify Position via CCXT
@@ -485,10 +488,9 @@ def main():
                                 console.print("[red]Close order failed[/red]")
 
                     except Exception as e:
-                        console.print(f"[red]Close position failed: {e}[/red]")
-                        import traceback
+                        console.print(redact_rpc_urls(f"[red]Close position failed: {e}[/red]"))
 
-                        traceback.print_exc()
+                        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
 
                 else:
                     console.print("[yellow]No positions found[/yellow]")
@@ -498,15 +500,14 @@ def main():
                 try:
                     assert_transaction_success_with_explanation(web3, tx_hash_bytes)
                 except Exception as e:
-                    console.print(f"  Error: {str(e)}")
+                    console.print(redact_rpc_urls(f"  Error: {str(e)}"))
         else:
             console.print("[yellow]No transaction hash found in order[/yellow]")
 
     except Exception as e:
-        console.print(f"\n[red]Error: {str(e)}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"\n[red]Error: {str(e)}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     finally:

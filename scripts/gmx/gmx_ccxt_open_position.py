@@ -53,6 +53,7 @@ import json
 import logging
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from rich.console import Console
@@ -63,6 +64,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
@@ -128,7 +130,7 @@ def main():
     try:
         config = load_config(config_path)
     except (FileNotFoundError, ValueError) as e:
-        console.print(f"[red]Error loading config: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Error loading config: {e}[/red]"))
         sys.exit(1)
 
     ccxt_config = config["exchange"]["ccxt_config"]
@@ -163,7 +165,7 @@ def main():
         chain_name = get_chain_name(chain_id)
         console.print(f"[green]Connected![/green] Chain: {chain_name}, Chain ID: {chain_id}, Block: {block_number}")
     except Exception as e:
-        console.print(f"[red]Failed to connect to RPC: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect to RPC: {e}[/red]"))
         sys.exit(1)
 
     # Create wallet
@@ -292,10 +294,9 @@ def main():
         console.print("\n[bold green]Order creation completed successfully![/bold green]")
 
     except Exception as e:
-        console.print(f"[red]Failed to create order: {e}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"[red]Failed to create order: {e}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
 

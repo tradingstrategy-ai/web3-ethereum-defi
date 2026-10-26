@@ -10,9 +10,13 @@ Or with custom RPC:
 """
 
 import sys
-from web3 import Web3
-from eth_abi import encode
 
+from eth_abi import encode
+from web3 import Web3
+
+from eth_defi.compat import create_http_provider
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.utils import get_url_domain
 
 # Configuration
 DEFAULT_RPC_URL = "https://virtual.arbitrum.eu.rpc.tenderly.co/add2d7e4-4957-47a0-92f7-73fa23189bd0"
@@ -109,10 +113,10 @@ def decode_position(position_data: bytes) -> dict:
 
 def fetch_positions(rpc_url: str, account: str):
     """Fetch and display all open positions for an account."""
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    w3 = Web3(create_http_provider(rpc_url))
 
     if not w3.is_connected():
-        print(f"❌ Failed to connect to RPC: {rpc_url}")
+        print(f"❌ Failed to connect to RPC: {get_url_domain(rpc_url)}")
         sys.exit(1)
 
     print(f"✓ Connected to Arbitrum (Chain ID: {w3.eth.chain_id})")
@@ -196,7 +200,7 @@ if __name__ == "__main__":
     try:
         fetch_positions(rpc_url, account)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(redact_rpc_urls(f"❌ Error: {e}"))
         import traceback
 
         traceback.print_exc()

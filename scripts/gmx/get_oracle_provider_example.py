@@ -7,6 +7,7 @@ the oracle provider configured for a specific token.
 
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract
 from eth_defi.gmx.keys import oracle_provider_for_token_key
 
@@ -51,7 +52,7 @@ def example_usage():
         return
 
     # Connect to Arbitrum
-    web3 = Web3(Web3.HTTPProvider(rpc_url))
+    web3 = Web3(create_http_provider(rpc_url))
     chain = "arbitrum"
 
     # Get GMX contract addresses (includes Oracle address)

@@ -125,7 +125,7 @@ if JSON_RPC_URL is None:
     try:
         urlparse(JSON_RPC_URL)
     except ValueError as e:
-        raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}") from e
+        raise ValueError("Invalid JSON_RPC URL configuration") from e
 
 
 def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:

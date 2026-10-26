@@ -17,25 +17,29 @@ Usage:
 import argparse
 import logging
 import os
+import sys
+import traceback
 
+from ccxt.base.errors import NotSupported, OrderNotFound
 from eth_utils import to_checksum_address
+from rich.console import Console
 from rich.logging import RichHandler
 from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_addresses
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core import GetOpenPositions
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.gmx.testing import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt
-from rich.console import Console
-from ccxt.base.errors import NotSupported, OrderNotFound
+from eth_defi.utils import get_url_domain
 
 print = Console().print
 
@@ -305,10 +309,9 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet, rpc_url: str)
         return True
 
     except Exception as e:
-        print(f"\nError creating order: {e}")
-        import traceback
+        print(redact_rpc_urls(f"\nError creating order: {e}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         return False
 
 
@@ -424,7 +427,7 @@ def test_error_handling(web3: Web3, rpc_url: str):
         print("Should have raised ValueError")
         return False
     except ValueError as e:
-        print(f"Correctly raised ValueError: {e}")
+        print(redact_rpc_urls(f"Correctly raised ValueError: {e}"))
         return True
 
 
@@ -488,9 +491,9 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet, rpc_url: str):
             print(f"  {name} should raise {expected_error.__name__}")
             all_passed = False
         except expected_error as e:
-            print(f"  {name}: {str(e)[:60]}...")
+            print(redact_rpc_urls(f"  {name}: {str(e)[:60]}..."))
         except Exception as e:
-            print(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}")
+            print(redact_rpc_urls(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}"))
             all_passed = False
 
     print("\nSupported methods with expected errors:")
@@ -500,9 +503,9 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet, rpc_url: str):
             print(f"  {name} should raise {expected_error.__name__}")
             all_passed = False
         except expected_error as e:
-            print(f"  {name}: {str(e)[:60]}...")
+            print(redact_rpc_urls(f"  {name}: {str(e)[:60]}..."))
         except Exception as e:
-            print(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}")
+            print(redact_rpc_urls(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}"))
             all_passed = False
 
     print("\nNot yet implemented (NotImplementedError):")
@@ -512,9 +515,9 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet, rpc_url: str):
             print(f"  {name} should raise {expected_error.__name__}")
             all_passed = False
         except expected_error as e:
-            print(f"  {name}: {str(e)[:60]}...")
+            print(redact_rpc_urls(f"  {name}: {str(e)[:60]}..."))
         except Exception as e:
-            print(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}")
+            print(redact_rpc_urls(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}"))
             all_passed = False
 
     return all_passed
@@ -565,7 +568,7 @@ def main():
 
     print(f"Mode: {mode}")
     if not args.tenderly and not args.rpc:
-        print(f"Fork source: {rpc_url}")
+        print(f"Fork source: {get_url_domain(rpc_url)}")
         print(f"Fork block: {FORK_BLOCK or 'latest'}")
 
     try:
@@ -586,9 +589,9 @@ def main():
                     unlocked_addresses=[LARGE_USDC_HOLDER, LARGE_WETH_HOLDER],
                 )
             rpc_url = launch.json_rpc_url
-            print(f"  Anvil fork started on {rpc_url}")
+            print(f"  Anvil fork started on {get_url_domain(rpc_url)}")
         else:
-            print(f"\nConnecting to: {rpc_url}")
+            print(f"\nConnecting to: {get_url_domain(rpc_url)}")
 
         # Connect to fork
         web3 = create_multi_provider_web3(
@@ -637,10 +640,9 @@ def main():
             return 1
 
     except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
+        print(redact_rpc_urls(f"\nError: {e}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         return 1
 
     finally:

@@ -4,12 +4,11 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Optional, Collection, Iterable, Hashable
+from typing import Collection, Dict, Hashable, Iterable, Optional
 
 import cachetools
 import requests.exceptions
 from eth_typing import BlockNumber, HexAddress
-
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, InvalidAddress
@@ -18,14 +17,13 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import get_contract
 from eth_defi.event import fetch_all_events
 from eth_defi.event_reader.conversion import convert_address_to_bytes32, convert_int256_bytes_to_int
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked
-from eth_defi.event_reader.multicall_batcher import get_multicall_contract, MulticallWrapper, call_multicall, call_multicall_batched_single_thread
+from eth_defi.event_reader.multicall_batcher import EncodedCall, MulticallWrapper, call_multicall, call_multicall_batched_single_thread, get_multicall_contract, read_multicall_chunked
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.named import get_provider_name
-from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
+from eth_defi.token import DEFAULT_TOKEN_CACHE, fetch_erc20_details
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 logger = logging.getLogger(__name__)
@@ -362,7 +360,7 @@ def fetch_erc20_balances_multicall_v6(
     # Handle our special MEV + Fallback (read) providers
     provider = web3.provider
     if isinstance(provider, MEVBlockerProvider):
-        logger.info("Skipping MEV RPC provider, using %s for multicall", provider.call_provider)
+        logger.info("Skipping MEV RPC provider, using %s for multicall", get_provider_name(provider.call_provider))
         web3 = Web3(provider.call_provider)
 
     chain_id = web3.eth.chain_id
@@ -560,7 +558,7 @@ def fetch_erc20_balances_multicall_v7(
     # Handle our special MEV + Fallback (read) providers
     provider = web3.provider
     if isinstance(provider, MEVBlockerProvider):
-        logger.info("Skipping MEV RPC provider, using %s for multicall", provider.call_provider)
+        logger.info("Skipping MEV RPC provider, using %s for multicall", get_provider_name(provider.call_provider))
         web3 = Web3(provider.call_provider)
 
     chain_id = web3.eth.chain_id

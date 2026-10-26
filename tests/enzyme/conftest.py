@@ -26,6 +26,7 @@ from eth_defi.uniswap_v2.deployment import (
     deploy_uniswap_v2_like,
 )
 from eth_defi.usdc.deployment import deploy_fiat_token
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def anvil(request: FixtureRequest) -> AnvilLaunch:
         # web3 = Web3(HTTPProvider(anvil.json_rpc_url))
         # snapshot_id = make_anvil_custom_rpc_request(web3, "evm_snapshot")
         # assert snapshot_id == "0x0"
-        logger.info("Anvil launched at %s", anvil.json_rpc_url)
+        logger.info("Anvil launched at %s", get_url_domain(anvil.json_rpc_url))
         yield anvil
     finally:
         anvil.close(log_level=log_level)

@@ -63,8 +63,11 @@ import argparse
 import os
 import sys
 
+from web3 import Web3
+
 from eth_defi.abi import get_contract
-from web3 import HTTPProvider, Web3
+from eth_defi.compat import create_http_provider
+from eth_defi.rpc_url import redact_rpc_urls
 
 #: Lagoon vault whose Guard is being updated. Default is the gmx_ai production vault.
 DEFAULT_VAULT = "0xEb49c6f1078FbB69f953F4A3e4B87A70acfed1d3"
@@ -123,7 +126,7 @@ def resolve_web3() -> Web3:
     url = os.environ.get("JSON_RPC_ARBITRUM") or os.environ.get("ARBITRUM_CHAIN_JSON_RPC")
     if not url:
         sys.exit("Set JSON_RPC_ARBITRUM to an Arbitrum RPC endpoint (read-only access is enough).")
-    web3 = Web3(HTTPProvider(url))
+    web3 = Web3(create_http_provider(url))
     if web3.eth.chain_id != 42161:
         sys.exit(f"Expected Arbitrum mainnet (chain 42161), connected to chain {web3.eth.chain_id}.")
     return web3
@@ -286,7 +289,7 @@ def main() -> int:
         web3.eth.call({"to": guard_address, "from": safe_address, "data": data})
         print("\n  Simulation from the Safe: OK — this call succeeds at the current block.")
     except Exception as exc:  # noqa: BLE001 - surface whatever the node reports
-        print(f"\n  Simulation from the Safe: FAILED — {type(exc).__name__}: {exc}")
+        print(redact_rpc_urls(f"\n  Simulation from the Safe: FAILED — {type(exc).__name__}: {exc}"))
         print("  Do not submit. Investigate before signing.")
         return 1
 

@@ -43,9 +43,10 @@ import os
 import sys
 
 from tabulate import tabulate
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.whitelist import (
     GMX_ARBITRUM_ADDRESSES,
     GMX_POPULAR_MARKETS,
@@ -80,7 +81,7 @@ def main():
         rpc_url = rpc_url.split()[0]
 
     # Connect to blockchain
-    web3 = Web3(HTTPProvider(rpc_url, request_kwargs={"timeout": 60}))
+    web3 = Web3(create_http_provider(rpc_url, request_kwargs={"timeout": 60}))
     install_chain_middleware(web3)
 
     if not web3.is_connected():

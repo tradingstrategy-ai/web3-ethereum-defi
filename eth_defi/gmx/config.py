@@ -94,6 +94,7 @@ from web3 import Web3
 from eth_defi.chain import get_chain_name
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.multi_provider import MultiProviderWeb3, create_multi_provider_web3
+from eth_defi.rpc_url import register_rpc_url
 
 
 class GMXConfigManager:
@@ -218,6 +219,9 @@ class GMXConfig:
             When the Web3 connection targets an unsupported blockchain network
             or automatic network detection fails due to connectivity issues
         """
+        endpoint = getattr(web3.provider, "endpoint_uri", None)
+        if isinstance(endpoint, str):
+            register_rpc_url(endpoint)
         self.web3 = web3
         self.wallet = wallet  # Store wallet for CCXT auto-approval use case
         self.referral_code = referral_code

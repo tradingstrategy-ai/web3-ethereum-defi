@@ -18,6 +18,8 @@ from typing import Any, Self
 from requests import HTTPError
 from tabulate import tabulate
 
+from eth_defi.rpc_url import redact_rpc_urls
+
 try:
     import duckdb
 except ImportError:
@@ -70,7 +72,7 @@ def normalise_rpc_error(error: BaseException | dict[str, Any]) -> tuple[str, str
     if payload is not None:
         code = str(payload.get("code", "unknown"))
         message = str(payload.get("message", payload))
-        return code, message
+        return code, redact_rpc_urls(message)
 
     if isinstance(error, HTTPError) and error.response is not None:
         code = f"http_{error.response.status_code}"
@@ -79,7 +81,7 @@ def normalise_rpc_error(error: BaseException | dict[str, Any]) -> tuple[str, str
     else:
         code = "unknown"
 
-    return code, str(error)
+    return code, redact_rpc_urls(str(error))
 
 
 @dataclass(slots=True)

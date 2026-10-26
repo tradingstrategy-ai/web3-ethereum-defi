@@ -22,13 +22,13 @@ from eth_account import Account
 from eth_typing import HexAddress
 from requests.exceptions import RequestException
 from tabulate import tabulate
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, TimeExhausted, TransactionNotFound, Web3Exception
 from web3.types import TxReceipt
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.compat import create_http_provider, native_datetime_utc_now
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
@@ -859,7 +859,7 @@ def run_from_environment() -> int:  # noqa: PLR0914
         fork_block_number = None
         try:
             launch = fork_network_anvil(read_json_rpc_url(candidate_chain_id))
-            web3 = Web3(HTTPProvider(launch.json_rpc_url))
+            web3 = Web3(create_http_provider(launch.json_rpc_url))
             _assert_anvil_target(web3, launch.json_rpc_url, candidate_chain_id)
             if launch.chain_id != candidate_chain_id:
                 raise RuntimeError(f"Anvil launch chain id {launch.chain_id} does not match {candidate_chain_id}")

@@ -89,7 +89,9 @@ See Also
 import logging
 import os
 import sys
+import traceback
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 from eth_defi.chain import get_chain_name
@@ -98,9 +100,9 @@ from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from rich.console import Console
 
 console = Console()
 
@@ -177,7 +179,7 @@ def main():
         console.print(f"  Block: {block_number}")
         console.print(f"  Chain: {chain} (ID: {chain_id})")
     except Exception as e:
-        console.print(f"[red]Failed to connect to RPC: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect to RPC: {e}[/red]"))
         sys.exit(1)
 
     # Setup wallet
@@ -371,10 +373,9 @@ def main():
         console.print("[dim]   }[/dim]")
 
     except Exception as e:
-        console.print(f"\n[red]Error creating order: {e}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"\n[red]Error creating order: {e}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
 

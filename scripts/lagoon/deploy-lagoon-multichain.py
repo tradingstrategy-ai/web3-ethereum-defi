@@ -161,7 +161,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import get_url_domain, setup_console_logging
 
 logger = logging.getLogger(__name__)
 
@@ -555,7 +555,7 @@ def setup_simulate_chains(
         )
         assert web3.eth.chain_id == chain_id, f"Expected chain {chain_id} for {chain_name}, got {web3.eth.chain_id}"
         chain_web3[chain_name] = web3
-        logger.info("Anvil fork for %s (chain %d) started at %s", chain_name, chain_id, launch.json_rpc_url)
+        logger.info("Anvil fork for %s (chain %d) started at %s", chain_name, chain_id, get_url_domain(launch.json_rpc_url))
 
     return chain_web3, anvil_launches
 

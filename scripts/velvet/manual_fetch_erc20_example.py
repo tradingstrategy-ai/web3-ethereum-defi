@@ -1,15 +1,16 @@
 """A sample script to manually test brokeness of BSC nodes."""
 
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 
 from eth_defi.balances import fetch_erc20_balances_by_transfer_event
+from eth_defi.compat import create_http_provider
 
 # node = ""https://bsc-dataseed1.defibit.io/""
 # node = "https://bsc-dataseed.binance.org/"
 node = "https://rpc.ankr.com/bsc"
 
 
-web3 = Web3(HTTPProvider(node))
+web3 = Web3(create_http_provider(node))
 
 print(f"{node} current block is {web3.eth.block_number:,}")
 

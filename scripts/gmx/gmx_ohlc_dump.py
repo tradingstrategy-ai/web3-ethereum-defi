@@ -14,18 +14,20 @@ Output:
 """
 
 import os
-import pandas as pd
-from pathlib import Path
 import time
 from datetime import datetime
+from pathlib import Path
 
+import pandas as pd
 from rich.console import Console
 from tqdm.rich import tqdm
 
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.utils import get_url_domain
 
 console = Console()
 
@@ -91,7 +93,7 @@ def get_available_symbols(config: GMXConfig) -> list:
         return symbols
 
     except Exception as e:
-        console.print(f"Error getting symbols: {e}")
+        console.print(redact_rpc_urls(f"Error getting symbols: {e}"))
         # Fallback to known major symbols
         return ["ETH", "BTC", "LINK", "ARB", "AVAX", "SOL", "UNI"]
 
@@ -173,7 +175,7 @@ def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
             time.sleep(0.5)
 
         except Exception as e:
-            console.print(f"{symbol}: Error - {e}", style="red")
+            console.print(redact_rpc_urls(f"{symbol}: Error - {e}"), style="red")
             continue
 
     console.print(f"Completed {chain} {timeframe}: {len(chain_data)} symbols collected")
@@ -189,7 +191,7 @@ def main():
     if not arbitrum_rpc:
         console.print("JSON_RPC_ARBITRUM not found in environment")
         arbitrum_rpc = CHAINS["arbitrum"]
-        console.print(f"Using default RPC: {arbitrum_rpc}")
+        console.print(f"Using default RPC: {get_url_domain(arbitrum_rpc)}")
     else:
         console.print("Using RPC from environment variable")
 
@@ -210,14 +212,14 @@ def main():
             arbitrum_data = collect_chain_data("arbitrum", arbitrum_rpc, timeframe)
             all_timeframe_data.extend(arbitrum_data)
         except Exception as e:
-            console.print(f"Failed to process Arbitrum {timeframe}: {e}")
+            console.print(redact_rpc_urls(f"Failed to process Arbitrum {timeframe}: {e}"))
 
         # Collect Avalanche data
         try:
             avalanche_data = collect_chain_data("avalanche", avalanche_rpc, timeframe)
             all_timeframe_data.extend(avalanche_data)
         except Exception as e:
-            console.print(f"Failed to process Avalanche {timeframe}: {e}")
+            console.print(redact_rpc_urls(f"Failed to process Avalanche {timeframe}: {e}"))
 
         # Combine and save all data for this timeframe
         if all_timeframe_data:

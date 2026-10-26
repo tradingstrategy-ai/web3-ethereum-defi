@@ -34,8 +34,9 @@ See the Anvil fork caching design doc for the full strategy:
 import logging
 from collections.abc import Iterator
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.provider.anvil import AnvilLaunch
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def evm_snapshot_revert(fork: AnvilLaunch | str, *, strict: bool = False) -> Ite
         <https://book.getfoundry.sh/anvil/#custom-methods>`_
     """
     url = fork if isinstance(fork, str) else fork.json_rpc_url
-    web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": SNAPSHOT_HTTP_TIMEOUT}))
+    web3 = Web3(create_http_provider(url, request_kwargs={"timeout": SNAPSHOT_HTTP_TIMEOUT}))
     snap_response = web3.provider.make_request("evm_snapshot", [])
     snap_id = snap_response.get("result")
     if snap_id is None:

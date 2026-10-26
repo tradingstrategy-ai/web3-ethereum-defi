@@ -229,7 +229,7 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     assert start_rpc_proxy.call_args.kwargs["config"] is explicit_config
 
     start_rpc_proxy.reset_mock()
-    with pytest.raises(ValueError, match="RPC smoke test failed for http://127.0.0.1:[12]"):
+    with pytest.raises(ValueError, match="RPC smoke test failed for 127.0.0.1:[12]"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=False,

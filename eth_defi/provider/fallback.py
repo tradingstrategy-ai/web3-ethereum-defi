@@ -22,6 +22,7 @@ from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats, normalise_rpc_error
+from eth_defi.rpc_url import register_rpc_url
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -206,6 +207,8 @@ class FallbackProvider(BaseNamedProvider):
         self.rpc_provider_domains: dict[int, str] = {}
         for provider in providers:
             endpoint_uri = getattr(provider, "endpoint_uri", None)
+            if isinstance(endpoint_uri, str):
+                register_rpc_url(endpoint_uri)
             try:
                 provider_domain = get_url_domain(str(endpoint_uri)) if endpoint_uri else None
             except (TypeError, ValueError):

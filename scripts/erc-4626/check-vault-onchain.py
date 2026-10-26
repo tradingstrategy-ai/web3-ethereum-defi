@@ -22,6 +22,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
@@ -83,25 +84,25 @@ try:
     max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
     print(f"  maxDeposit(address(0)): {max_deposit}")
 except Exception as e:
-    print(f"  maxDeposit(address(0)): ERROR - {e}")
+    print(redact_rpc_urls(f"  maxDeposit(address(0)): ERROR - {e}"))
 
 try:
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     print(f"  maxRedeem(address(0)): {max_redeem}")
 except Exception as e:
-    print(f"  maxRedeem(address(0)): ERROR - {e}")
+    print(redact_rpc_urls(f"  maxRedeem(address(0)): ERROR - {e}"))
 
 # Protocol-specific close reasons
 try:
     deposit_closed = vault.fetch_deposit_closed_reason()
     print(f"  Deposit closed reason: {deposit_closed or '-'}")
 except Exception as e:
-    print(f"  Deposit closed reason: ERROR - {e}")
+    print(redact_rpc_urls(f"  Deposit closed reason: ERROR - {e}"))
 
 try:
     redemption_closed = vault.fetch_redemption_closed_reason()
     print(f"  Redemption closed reason: {redemption_closed or '-'}")
 except Exception as e:
-    print(f"  Redemption closed reason: ERROR - {e}")
+    print(redact_rpc_urls(f"  Redemption closed reason: ERROR - {e}"))
 
 print("-" * 80)

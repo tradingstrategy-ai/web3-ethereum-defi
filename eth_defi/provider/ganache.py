@@ -40,15 +40,15 @@ from typing import Dict, List, Tuple, Union
 
 import psutil
 import requests
-
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from psutil import NoSuchProcess
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 from web3.types import Wei
 
+from eth_defi.compat import create_http_provider
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import is_localhost_port_listening
-
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,8 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
 
     Args:
         cmd: command string to execute as subprocess"""
+    if kwargs.get("fork"):
+        register_rpc_url(str(kwargs["fork"]))
     if sys.platform == "win32" and not cmd.split(" ")[0].endswith(".cmd"):
         if " " in cmd:
             cmd = cmd.replace(" ", ".cmd ", 1)
@@ -155,12 +157,12 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
                     cmd_list.extend([cli_flags[key], str(value)])
             except KeyError:
                 warnings.warn(
-                    f"Ignoring invalid commandline setting for ganache-cli: '{key}' with value '{value}'.",
+                    f"Ignoring invalid commandline setting for ganache-cli: '{key}'.",
                     InvalidArgumentWarning,
                 )
     out = DEVNULL if sys.platform == "win32" else PIPE
 
-    logger.info("Launching ganache-cli: %s", " ".join(cmd_list))
+    logger.info("Launching ganache-cli: %s", redact_rpc_urls(" ".join(cmd_list)))
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
@@ -403,7 +405,7 @@ def fork_network(
     current_block = None
 
     # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
-    web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
+    web3 = Web3(create_http_provider(url, request_kwargs={"timeout": 1.0}))
     while time.time() < timeout:
         if process.poll() is not None:
             output = process.communicate()[0].decode("utf-8")

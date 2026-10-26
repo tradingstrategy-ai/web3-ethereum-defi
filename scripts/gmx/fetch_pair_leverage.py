@@ -7,8 +7,10 @@ Usage:
 """
 
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt.exchange import GMX
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
 
@@ -16,7 +18,7 @@ def main():
     """Fetch and display leverage limits for all GMX pairs."""
 
     # Initialize GMX CCXT exchange
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     gmx = GMX(config)
 

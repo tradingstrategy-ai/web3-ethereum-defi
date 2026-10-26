@@ -31,9 +31,8 @@ import time
 from pathlib import Path
 
 from rich.console import Console
-from rich.table import Table
-
 from rich.logging import RichHandler
+from rich.table import Table
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
@@ -45,6 +44,7 @@ from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -234,7 +234,7 @@ def close_position(
             order_key = extract_order_key_from_receipt(web3, creation_receipt)
             console.print(f"  Order key: [cyan]{order_key.hex()[:16]}...[/cyan]")
         except ValueError as e:
-            console.print(f"  [red]Failed to extract order key: {e}[/red]")
+            console.print(redact_rpc_urls(f"  [red]Failed to extract order key: {e}[/red]"))
             return False
 
         # Wait for keeper execution (GMX orders are executed in a separate tx)
@@ -285,7 +285,7 @@ def close_position(
             return False
 
     except Exception as e:
-        console.print(f"  [red]Error closing position: {e}[/red]")
+        console.print(redact_rpc_urls(f"  [red]Error closing position: {e}[/red]"))
         logger.exception("Failed to close position %s", position_key)
         return False
 
@@ -327,7 +327,7 @@ def main():
     try:
         secrets = load_secrets(secrets_path)
     except (FileNotFoundError, ValueError) as e:
-        console.print(f"[red]Error loading secrets: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Error loading secrets: {e}[/red]"))
         sys.exit(1)
 
     ccxt_config = secrets["exchange"]["ccxt_config"]
@@ -344,7 +344,7 @@ def main():
         chain = get_chain_name(chain_id).lower()
         console.print(f"Connected! Chain: {chain}, Chain ID: {chain_id}, Block: {block_number}")
     except Exception as e:
-        console.print(f"[red]Failed to connect to RPC: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect to RPC: {e}[/red]"))
         sys.exit(1)
 
     # Create wallet

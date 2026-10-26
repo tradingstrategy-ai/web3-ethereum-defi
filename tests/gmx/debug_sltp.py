@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 
 from eth_utils import to_checksum_address
 from rich.console import Console
@@ -28,17 +29,19 @@ from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.gmx.trading import GMXTrading
-from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.gmx.testing import (
     execute_order_as_keeper,
     extract_order_key_from_receipt,
     setup_mock_oracle,
 )
+from eth_defi.gmx.trading import GMXTrading
+from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.token import fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.utils import get_url_domain
 
 FORMAT = "%(message)s"
 logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
@@ -219,7 +222,7 @@ def main():
                 launch.json_rpc_url,
                 default_http_timeout=(3.0, 180.0),
             )
-            console.print(f"  Anvil fork started on {launch.json_rpc_url}")
+            console.print(f"  Anvil fork started on {get_url_domain(launch.json_rpc_url)}")
 
         chain = setup_fork_network(web3)
 
@@ -472,10 +475,9 @@ def main():
         console.print("[dim]On mainnet, keepers will execute when conditions are met.[/dim]")
 
     except Exception as e:
-        console.print(f"\n[red]Error: {str(e)}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"\n[red]Error: {str(e)}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     finally:

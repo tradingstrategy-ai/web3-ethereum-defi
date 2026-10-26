@@ -18,9 +18,10 @@ import os
 from functools import partial
 from typing import cast
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import Web3EventReader, read_events
@@ -33,7 +34,7 @@ def main():
     start_block = 26_050_000
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

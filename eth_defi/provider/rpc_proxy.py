@@ -53,6 +53,7 @@ from eth_defi.middleware import (
     DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES,
 )
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain, is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
@@ -361,7 +362,7 @@ class UpstreamRPCProviderStatistics:
                 "timestamp": now,
                 "method": method,
                 "http_status": http_status,
-                "error": error_summary,
+                "error": redact_rpc_urls(error_summary),
             }
             self.error_replies.append(entry)
             # Trim oldest entries if over limit
@@ -467,7 +468,7 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             except (ConnectionError, Timeout, OSError) as e:
                 # Connection-level failure — always retry
                 duration = time.time() - t0
-                error_msg = f"{e.__class__.__name__}: {e}"
+                error_msg = redact_rpc_urls(f"{e.__class__.__name__}: {e}")
                 stats.record_failure(method, error_msg, http_status=None, max_error_replies=self.server.config.max_error_replies)
                 total_requests = sum(s.request_count for s in self.server.provider_stats.values())
                 logger.log(
@@ -841,7 +842,9 @@ def start_rpc_proxy(
         A running :py:class:`RPCProxy` instance.
         Call :py:meth:`RPCProxy.close` when done.
     """
-    assert len(rpc_urls) >= 1, f"At least one RPC URL is required, got {rpc_urls}"
+    for rpc_url in rpc_urls:
+        register_rpc_url(rpc_url)
+    assert len(rpc_urls) >= 1, "At least one RPC URL is required"
 
     # Build effective configuration
     if config is None:
@@ -922,7 +925,7 @@ def start_rpc_proxy(
     logger.info(
         "RPC proxy %r started at %s with %d upstream providers: %s, config: %s",
         proxy_name,
-        url,
+        get_url_domain(url),
         len(rpc_urls),
         ", ".join(provider_keys),
         config.describe(),
