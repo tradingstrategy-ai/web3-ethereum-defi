@@ -267,12 +267,41 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
 
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
-    descriptions = [re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values()]
-    assert all(description.count(".") == 1 for description in descriptions)
-    assert all(len(description) <= max_description_length for description in descriptions)
+    descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
+    #: This maintainer-requested category includes a second sentence explaining
+    #: the drawdown risk alongside its trading activity.
+    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate]
+    assert all(description.count(".") == 1 for description in short_descriptions)
+    assert all(len(description) <= max_description_length for description in short_descriptions)
+    descriptions = descriptions_by_tag.values()
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
     assert all("we " not in description.lower() for description in descriptions)
     assert all("documented assets" not in description.lower() for description in descriptions)
+
+
+@pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
+def test_high_frequency_high_win_rate_category_export(has_vault: bool) -> None:
+    """Export the full category metadata even without a participating vault.
+
+    The public string identifier remains stable and the risk description is
+    preserved without truncation in both empty and populated exports.
+
+    :param has_vault: Whether to supply a vault carrying the new tag.
+    :return: ``None`` after checking the exported category record.
+    """
+    tag = StrategyTag.high_frequency_high_win_rate
+    assert tag.value == "high_frequency_high_win_rate"
+    vaults = [{"strategy_tags": [tag.value], "current_nav": 100.0}] if has_vault else []
+
+    categories = top_vaults_json.build_strategy_categories_for_export(vaults)
+
+    assert categories[tag.value] == {
+        "label": "High-frequency, high-win-rate trading",
+        "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
+        "vault_count": 1 if has_vault else 0,
+        "tvl_usd": 100.0 if has_vault else 0.0,
+        "one_month_apy": None,
+    }
 
 
 def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:

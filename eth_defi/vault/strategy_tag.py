@@ -48,6 +48,11 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Silentist BALANCE (GRVT).
     algorithmic_trading = "algorithmic_trading"
 
+    #: High-frequency strategies with many small wins and potential severe
+    #: drawdowns when positions cannot be closed profitably.
+    #: Example vault: Growi HF (Hyperliquid).
+    high_frequency_high_win_rate = "high_frequency_high_win_rate"
+
     #: Captures price differences between markets or related instruments.
     #: Example vault: Axis Origin (Upshift).
     arbitrage = "arbitrage"
@@ -225,6 +230,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.algorithmic_trading: {
         "label": "Algorithmic trading",
         "description": "[Software-driven rules](https://tradingstrategy.ai/glossary/algorithmic-trading) choose, execute and manage trades automatically.",
+    },
+    StrategyTag.high_frequency_high_win_rate: {
+        "label": "High-frequency, high-win-rate trading",
+        "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
     },
     StrategyTag.arbitrage: {
         "label": "Arbitrage",
