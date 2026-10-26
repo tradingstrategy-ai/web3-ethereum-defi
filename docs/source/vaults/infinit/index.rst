@@ -37,8 +37,14 @@ USDC                  0xaf88d065e77c8cc2239327c5edb3a432268e5831
 The application UUID is ``019f5a8e-62cf-752c-9e2f-8640768c7d3d``.
 Vault creation is block 483358787, transaction
 ``0xbef5388cf1f6da875e50693ae33632a5d2ad3c366dd6ff802bf7d6d36cf53506``.
-The older native Hyperliquid vault
-``0x8220ed9e3d84da5e9d5f6d115a28a0b28b967388`` remains a separate product.
+The `legacy Infinit Multi-Strategy vault <https://tradingstrategy.ai/vaults/infinit-multi-strategy>`__
+at ``0x8220ed9e3d84da5e9d5f6d115a28a0b28b967388`` is a separate native
+Hyperliquid product. The trading account temporarily invested in it between
+3 and 6 August 2026, as established by the ledger entries below. The withdrawal
+returned funds to the trading account on Hyperliquid, not to Arbitrum or
+investors. These products retain separate identities and performance histories;
+the legacy vault's returns and fees do not establish this product's investor
+returns or fee terms.
 
 The audit identifies `Saprolings/vault-contracts <https://github.com/Saprolings/vault-contracts>`__
 and review commit ``d1fd00f8``. The repository returned 404 during review on
