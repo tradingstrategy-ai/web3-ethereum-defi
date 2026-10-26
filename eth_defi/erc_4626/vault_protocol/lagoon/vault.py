@@ -5,7 +5,9 @@ back to the historical ``pendingSilo()`` probe for deployments without a
 version getter. Lagoon v0.6 and the characterised v1.0 deployment share the
 official v0.6 read interface used here. The v1 implementation is unverified,
 so compatibility is limited to the calls and storage fields covered by the
-fixed-block Base integration test.
+fixed-block Base integration test. Lagoon v0.5.2 keeps the v0.5.0 ABI and
+storage layout, but reads its whitelist flag from storage because its
+``isWhitelisted(0x0)`` always returns ``True``.
 
 Deployment support remains pinned to Lagoon v0.5 artefacts. See the
 `official Lagoon source <https://github.com/hopperlabsxyz/lagoon-v0>`__ and the
@@ -148,6 +150,7 @@ class LagoonVersion(enum.Enum):
 
     legacy = "legacy"
     v_0_5_0 = "v0.5.0"
+    v_0_5_2 = "v0.5.2"
     v_0_4_0 = "v0.4.0"
     v_0_6_0 = "v0.6.0"
     v_1_0_0 = "v1.0.0"
@@ -194,13 +197,25 @@ LAGOON_PENDING_SILO_STORAGE_SLOT = int(
     16,
 )
 
+#: ``WhitelistableStorage.isActivated`` in the official Lagoon v0.5.2 storage
+#: layout: the ERC-7201 ``hopper.storage.Whitelistable`` slot plus a one-slot
+#: offset after the ``isWhitelisted`` mapping. This is the same slot number as
+#: :data:`LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT`, but it holds a ``bool``.
+#: https://github.com/hopperlabsxyz/lagoon-v0/blob/921c038263c51658b07b3e1877cdefd465f6b734/src/v0.5.2/Whitelistable.sol
+LAGOON_V0_5_2_WHITELIST_ACTIVATED_STORAGE_SLOT = int(
+    "0x083cc98ab296d1a1f01854b5f7a2f47df4425a56ba7b35f7faa3a336067e4801",
+    16,
+)
+
 #: ABI selected after ``version()`` detection. The adapter historically used
-#: the v0.5 ABI for v0.4. The unverified v1 deployment uses the official v0.6
-#: ABI only as a fixed-block-tested compatibility interface.
+#: the v0.5 ABI for v0.4. Lagoon v0.5.2 exposes every v0.5.0 ABI function and
+#: keeps the v0.5.0 storage layout. The unverified v1 deployment uses the
+#: official v0.6 ABI only as a fixed-block-tested compatibility interface.
 LAGOON_VAULT_ABI_BY_VERSION: dict[LagoonVersion, str] = {
     LagoonVersion.legacy: "lagoon/Vault.json",
     LagoonVersion.v_0_4_0: "lagoon/v0.5.0/Vault.json",
     LagoonVersion.v_0_5_0: "lagoon/v0.5.0/Vault.json",
+    LagoonVersion.v_0_5_2: "lagoon/v0.5.0/Vault.json",
     LagoonVersion.v_0_6_0: "lagoon/v0.6.0/Vault.json",
     LagoonVersion.v_1_0_0: "lagoon/v0.6.0/Vault.json",
 }
@@ -742,6 +757,13 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         are permissionless.  This follows the v0.5 implementation's
         ``isWhitelisted`` branch for a disabled whitelist.
 
+        The `v0.5.2 Whitelistable source
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/921c038263c51658b07b3e1877cdefd465f6b734/src/v0.5.2/Whitelistable.sol>`__
+        makes ``isWhitelisted(0x0)`` unconditionally ``True``, which would
+        misreport every v0.5.2 vault as permissionless. For v0.5.2 the adapter
+        instead reads ``WhitelistableStorage.isActivated`` directly from its
+        unchanged ERC-7201 storage slot.
+
         Lagoon v0.6 replaces ``Whitelistable`` with an access layer supporting
         whitelist mode, blacklist mode and an external sanctions oracle. The
         adapter reads the canonical `AccessableStorage.accessMode field
@@ -764,6 +786,9 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """
         if self.version in LAGOON_MODERN_VERSIONS:
             return self._fetch_modern_access_mode(self._get_block_identifier()) is LagoonAccessMode.whitelist
+
+        if self.version is LagoonVersion.v_0_5_2:
+            return self._fetch_v0_5_2_whitelist_activated(self._get_block_identifier())
 
         try:
             return bool(self.whitelist_contract.functions.isWhitelistActivated().call(block_identifier=self._get_block_identifier()))
@@ -917,6 +942,33 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
             block_identifier=block_identifier,
         )
         return LagoonAccessMode(int.from_bytes(value, byteorder="big"))
+
+    def _fetch_v0_5_2_whitelist_activated(self, block_identifier: BlockIdentifier) -> bool:
+        """Read the Lagoon v0.5.2 whitelist activation flag from storage.
+
+        The official `v0.5.2 WhitelistableStorage layout
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/921c038263c51658b07b3e1877cdefd465f6b734/src/v0.5.2/Whitelistable.sol>`__
+        stores ``isActivated`` as a ``bool`` at offset one in its ERC-7201
+        namespace. v0.5.2 has no public getter for it.
+
+        :param block_identifier:
+            Historical block at which to read the whitelist configuration.
+
+        :return:
+            ``True`` when whitelist enforcement is active.
+
+        :raises ValueError:
+            If the storage word is not a valid Solidity ``bool``.
+        """
+        value = self.web3.eth.get_storage_at(
+            self.vault_address,
+            LAGOON_V0_5_2_WHITELIST_ACTIVATED_STORAGE_SLOT,
+            block_identifier=block_identifier,
+        )
+        activated = int.from_bytes(value, byteorder="big")
+        if activated not in (0, 1):
+            raise ValueError(f"Lagoon v0.5.2 vault {self.address} has non-boolean whitelist flag {activated:#x} at block {block_identifier}")
+        return activated == 1
 
     def _fetch_modern_roles(self, block_identifier: BlockIdentifier) -> tuple[HexAddress, HexAddress, HexAddress, HexAddress, HexAddress]:
         """Read the modern Lagoon role addresses from ERC-7201 storage.

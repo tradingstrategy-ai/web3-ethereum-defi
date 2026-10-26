@@ -27,6 +27,7 @@ name** (not chain id), then block, then the cache file:
 rpc_cache_seed/
   mainnet/24496689/storage.json  # Ember redemption lifecycle
   mainnet/25598869/storage.json
+  mainnet/26279104/storage.json  # Lagoon v0.5.2 production characterisation
   arbitrum/487039644/storage.json
   base/30659990/storage.json  # Lagoon Base lifecycle characterisation
   base/49030926/storage.json
@@ -44,6 +45,15 @@ was observed failing, and is required by
 `tests/lagoon/test_lagoon_v1.py`. The canonical Base midnight block predates
 that deployment, so replacing this seed with a midnight block would not test
 the production compatibility boundary.
+
+`mainnet/26279104/` is the fixed Ethereum block at which the production
+scanner rejected the RockSolid rETH Lagoon vault's `v0.5.2` version, required
+by `tests/lagoon/test_lagoon_v052.py`. The vault was upgraded in place from
+`v0.5.0` at block 26,136,796, after the canonical Ethereum midnight block. The
+seed was captured on 2026-10-26 with CI-pinned Anvil `v1.3.2` from an empty
+block cache, after the module passed and Anvil closed gracefully. It contains
+17 accounts and 23 storage slots, and a rerun seeded only from the committed
+file made no additional reads.
 
 `mainnet/24496689/` is the fixed Ethereum block used by
 `tests/lagoon/test_lagoon_ember.py` to exercise its historical Ember redemption

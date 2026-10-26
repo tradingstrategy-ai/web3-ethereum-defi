@@ -881,6 +881,39 @@ class LighterDailyMetricsDatabase:
         ).fetchone()
         return result[0] if result else 0
 
+    def get_pools_with_latest_tvl_at_least(self, deployment: str, min_tvl: float) -> set[int]:
+        """Get pools whose most recent stored daily row meets a TVL threshold.
+
+        The daily scan uses this to revisit pools that have drained below its
+        listing filter since they were last stored. Without one more fetch,
+        the final stored row keeps the pre-drain TVL indefinitely, and
+        downstream freshness checks and published metadata treat the pool as
+        still holding that capital.
+
+        :param deployment:
+            Stable deployment slug.
+        :param min_tvl:
+            Minimum TVL of the latest stored daily row, in the deployment's
+            collateral currency. A latest row with a null or NaN TVL does
+            not qualify, so such pools are not rescanned on every run.
+        :return:
+            Pool account indices.
+        """
+        rows = self.con.execute(
+            """
+            SELECT account_index
+            FROM (
+                SELECT account_index, tvl
+                FROM pool_daily_prices
+                WHERE deployment = ?
+                QUALIFY row_number() OVER (PARTITION BY account_index ORDER BY date DESC) = 1
+            )
+            WHERE tvl >= ? AND NOT isnan(tvl)
+            """,
+            [deployment, min_tvl],
+        ).fetchall()
+        return {row[0] for row in rows}
+
     def get_pool_last_date(self, account_index: int, deployment: str = LIGHTER_ETHEREUM.slug) -> datetime.date | None:
         """Get the latest date with price data for a pool.
 
@@ -1065,7 +1098,9 @@ def run_daily_scan(
     """Run the daily Lighter pool metrics scan.
 
     1. Bulk-fetches all pools from ``publicPoolsMetadata``
-    2. Filters by TVL and pool limit (or by explicit index list)
+    2. Filters by TVL and pool limit (or by explicit index list), adding
+       pools whose latest stored row is above ``min_tvl`` but which have
+       since drained below it
     3. Fetches per-pool details, daily PnL, and share-price history in parallel
     4. Stores daily history and an append-only current-state snapshot in DuckDB
 
@@ -1122,6 +1157,15 @@ def run_daily_scan(
         # Sort by TVL descending and limit
         filtered.sort(key=lambda s: s.total_asset_value, reverse=True)
         filtered = filtered[:max_pools]
+
+        # Revisit pools that drained below the filter since their last stored
+        # row. One more fetch records the drop, after which the latest row is
+        # below the threshold and the pool is no longer selected here.
+        drained_indices = db.get_pools_with_latest_tvl_at_least(session.deployment.slug, min_tvl)
+        drained = [p for p in all_pools if p.total_asset_value < min_tvl and p.account_index in drained_indices]
+        if drained:
+            logger.info("Rescanning %d pools that drained below min_tvl since their last stored row", len(drained))
+            filtered.extend(drained)
 
     logger.info("Processing %d pools", len(filtered))
 

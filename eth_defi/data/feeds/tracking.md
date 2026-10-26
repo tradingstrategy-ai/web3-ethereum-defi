@@ -49,7 +49,7 @@ YAML files are written to:
 | ✅ | eth-strategy | ETH Strategy | https://www.ethstrat.xyz/ | eth_strategy | | https://blog.ethstrat.xyz/feed |
 | ✅ | ethena | Ethena | https://ethena.fi/ | ethena_labs | ethena-labs | https://ethena.fi/blog/feed |
 | ✅ | euler | Euler | https://www.euler.finance/ | eulerfinance | euler-xyz | https://newsletter.euler.finance/feed |
-| ✅ | fluid | Fluid | https://fluid.io/ | 0xfluid | instadapp | https://blog.instadapp.io/rss/ |
+| ✅ | fluid | Fluid | https://fluid.io/ | 0xfluid | instadapp | https://gov.fluid.io/latest.rss |
 | ✅ | foxify | Foxify | https://www.foxify.trade/ | foxifytrade | | https://medium.com/feed/@foxifytrade |
 | ✅ | frax-finance | Frax Finance | https://frax.com/ | fraxfinance | fraxfinance | https://news.frax.com/feed |
 | ✅ | gains-network | Gains Network | https://gains.trade/ | GainsNetwork_io | | https://medium.com/feed/gains-network |
@@ -85,7 +85,7 @@ YAML files are written to:
 | ✅ | sky | Sky | https://sky.money/ | SkyEcosystem | skyecosystem | https://makerdaoupdates.substack.com/feed |
 | ✅ | spark | Spark | https://spark.fi/ | sparkdotfi | spark-protocol | |
 | ✅ | spectra | Spectra | https://www.spectra.finance/ | spectra_finance | spectrafinance | |
-| ✅ | summer-fi | Summer.fi | https://summer.fi/ | summerfinance_ | summerfi | https://blog.summer.fi/rss/ |
+| ✅ | summer-fi | Summer.fi | https://summer.fi/ | summerfinance_ | summerfi | https://forum.summer.fi/latest.rss |
 | ✅ | superform | Superform | https://www.superform.xyz/ | Superformxyz | superformxyz | https://medium.com/feed/@superformco |
 | ✅ | teller | Teller | https://www.teller.org/ | useteller | teller-protocol | https://blog.teller.org/rss/ |
 | ✅ | term-finance | Term Finance | https://www.term.finance/ | term_labs | | https://medium.com/feed/@term_finance |
@@ -353,7 +353,7 @@ YAML files are written to:
 | ✅ | vai | Venus Protocol VAI | https://venus.io/ | VenusProtocol | venusdefi | https://medium.com/feed/venusprotocol |
 | ✅ | vbusdc | Katana Bridged USDC | https://katana.network/ | katana | katananetwork | https://medium.com/feed/@katananetwork |
 | ✅ | vbusdt | Katana Bridged USDT | https://katana.network/ | katana | katananetwork | https://medium.com/feed/@katananetwork |
-| ✅ | veur | VNX Euro | https://vnx.li/ | VNX_fi | vnx-io | https://vnx.li/feed/ |
+| ✅ | veur | VNX Euro | https://vnx.li/ | VNX_fi | vnx-io | |
 | ✅ | vst | Vesta Stable | https://vestafinance.xyz/ | vestafinance | usevesta | https://medium.com/feed/@VestaFinance |
 | ✅ | vusd-hemi | Hemi VUSD | | hemi_xyz | | |
 | ✅ | vusd-vesper | Vesper V-Dollar | https://vesper.finance/ | VesperFi | vesperfinance | https://medium.com/feed/vesperfinance |
