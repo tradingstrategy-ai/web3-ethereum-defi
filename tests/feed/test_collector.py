@@ -8,7 +8,7 @@ import pytest
 import requests
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.feed.collector import AllBridgesFailedError, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
+from eth_defi.feed.collector import DEFAULT_LINKEDIN_URL_TEMPLATES, AllBridgesFailedError, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -53,14 +53,7 @@ GAUNTLET_TWITTER_LIVE_TEMPLATES = [
     "https://nitter.cf/{handle}/rss",
 ]
 
-GAUNTLET_LINKEDIN_LIVE_TEMPLATES = [
-    "https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts",
-    "https://rss.owo.nz/linkedin/company/{company_id}/posts",
-    "https://rsshub.umzzz.com/linkedin/company/{company_id}/posts",
-    "https://rsshub.isrss.com/linkedin/company/{company_id}/posts",
-    "https://rss.datuan.dev/linkedin/company/{company_id}/posts",
-    "https://rsshub.cups.moe/linkedin/company/{company_id}/posts",
-]
+GAUNTLET_LINKEDIN_LIVE_TEMPLATES = DEFAULT_LINKEDIN_URL_TEMPLATES
 
 
 @dataclass(slots=True)
@@ -347,6 +340,37 @@ def test_linkedin_disabled_mapping_is_skipped(tmp_path: Path) -> None:
     assert len(sources) == 1
     assert sources[0].source_type == "twitter"
     assert sources[0].feeder_id == "apostro"
+
+
+def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> None:
+    """The default LinkedIn bridge returns real posts for a large company page.
+
+    Unlike the Gauntlet collection test, this does not tolerate bridge
+    failure: it exists to detect when the community-run default bridge stops
+    serving LinkedIn, as the previous bridges did on 2026-10-10.
+
+    1. Load a VanEck feeder YAML with only a LinkedIn source.
+    2. Collect posts through ``DEFAULT_LINKEDIN_URL_TEMPLATES``.
+    3. Assert posts link back to VanEck's LinkedIn posts.
+    """
+    # 1. Load a VanEck feeder YAML with only a LinkedIn source.
+    (tmp_path / "vaneck.yaml").write_text("feeder-id: vaneck\nname: VanEck\nrole: stablecoin\nlinkedin: vaneck\n")
+    sources, _, _ = load_post_sources(tmp_path)
+    linkedin_source = next(s for s in sources if s.source_type == "linkedin")
+
+    # 2. Collect posts through DEFAULT_LINKEDIN_URL_TEMPLATES.
+    posts = collect_posts_for_source(
+        linkedin_source,
+        max_posts_per_source=5,
+        request_timeout=60,
+        twitter_rss_base_urls=[],
+        linkedin_url_templates=DEFAULT_LINKEDIN_URL_TEMPLATES,
+    )
+
+    # 3. Assert posts link back to VanEck's LinkedIn posts.
+    assert len(posts) == 5
+    assert all(post.post_url.startswith("https://www.linkedin.com/posts/vaneck_") for post in posts)
+    assert all(post.published_at is not None for post in posts)
 
 
 @pytest.mark.skip(reason="Live RSS bridge conditions changed — bridges now return connection errors and 5xx instead of auth blocks")

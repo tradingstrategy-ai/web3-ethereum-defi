@@ -76,7 +76,10 @@ DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
 
 #: Default LinkedIn RSS bridge URL templates used when no ``LINKEDIN_FEED_URL_TEMPLATES``
 #: environment variable is set.  Each template must contain a ``{company_id}`` placeholder.
-#: Verified working as of 2026-04-03.
+#: Verified working as of 2026-10-26.  The previous instances (``rsshub.pseudoyu.com``,
+#: ``rss.owo.nz`` and ``rsshub.umzzz.com``) stopped serving LinkedIn on 2026-10-10, and
+#: this was the only `listed public RSSHub instance <https://docs.rsshub.app/guide/instances>`__
+#: still returning LinkedIn posts.  It is community-run, so expect to replace it again.
 #:
 #: .. note::
 #:
@@ -87,9 +90,7 @@ DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
 #:     this pattern it writes ``linkedin-rss-hub-disabled-at`` to the feeder YAML so
 #:     future runs skip the source without retrying.
 DEFAULT_LINKEDIN_URL_TEMPLATES: list[str] = [
-    "https://rsshub.pseudoyu.com/linkedin/company/{company_id}/posts",
-    "https://rss.owo.nz/linkedin/company/{company_id}/posts",
-    "https://rsshub.umzzz.com/linkedin/company/{company_id}/posts",
+    "https://rsshub-balancer.virworks.moe/linkedin/company/{company_id}/posts",
 ]
 
 
