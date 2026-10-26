@@ -32,6 +32,7 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
+from eth_defi.erc_4626.vault_protocol.infinit.cleaning import apply_period_gap_exclusions, mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
@@ -3799,6 +3800,7 @@ def _calculate_vault_record_from_arrays(
         inputs=period_inputs,
         now_=now_,
     )
+    period_results = list(apply_period_gap_exclusions(vault_spec, period_results))
     flow_current_day_is_provisional = vault_metadata.get("_daily_flow_current_day_is_provisional", False)
     _attach_period_flow_metrics(
         period_results,
@@ -5529,6 +5531,10 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
         regular = _regularise_daily_with_arrays(df_work, returns_column)
     else:
         regular = _regularise_daily_per_vault(df_work, returns_column, sparse_daily_input=sparse_daily_input)
+    # Protocol-reviewed source exclusions must survive calendar regularisation
+    # and the generic forward fill used for other vaults.
+    mask_infinit_source_gaps(regular)
+    mask_infinit_gap_returns(regular, returns_column=returns_column)
     return pd.concat([regular, observed]).sort_index(kind="stable") if not observed.empty else regular
 
 

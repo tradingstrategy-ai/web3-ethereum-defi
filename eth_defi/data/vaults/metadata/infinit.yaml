@@ -1,0 +1,44 @@
+name: Infinit
+slug: infinit
+short_description: |
+  USDC-denominated managed trading vaults, including APEX Quants' long/short perpetual-futures strategy.
+long_description: |
+  [Infinit](https://www.infinit.tech/) offers managed trading vaults. Its
+  [APEX MultiStrategy product](https://app.infinit.tech/vaults/apex-multistrategy)
+  is managed by APEX Quants and trades Hyperliquid perpetual futures using
+  deterministic relative-strength rules. Long and short positions target
+  dollar-neutral exposure; this does not eliminate trading losses or liquidation risk.
+
+  Investors contribute [USDC](https://www.circle.com/usdc) on Arbitrum and receive
+  inUSDC receipts. The [vault terms](https://docs.infinit.tech/infinit-ai-managed-trading-strategy-marketplace/vault-terms)
+  specify a deposit window followed by a 90-day trading term. This deployment's
+  deposit window ended on 30 July 2026, with maturity on 28 October 2026.
+  Redemption depends on custody settlement and available funds. Observed funding
+  passed from a custody Safe through the Arbitrum
+  [funding EOA](https://arbiscan.io/address/0xf2460f28c9bacb35ac6fef048b661d33ad070aaf)
+  to the separate Hyperliquid account with the same address. The EOA
+  [transferred funds to the Hyperliquid bridge](https://arbiscan.io/tx/0x0719cf323b9415a354187383600e52e024c07a0f60135894ff1230c0def54a05)
+  on 3 August 2026. Its Arbitrum transfers are not governed by the custody Safe's
+  signature threshold; its key-management arrangements are unverified.
+  The transaction review on 26 October 2026 did not establish a completed return
+  from Hyperliquid to Arbitrum or the redemption vault. Investors bear manager,
+  custody, smart-contract, market, stablecoin and settlement risks.
+  The application restricts access from certain jurisdictions.
+fee_description: |
+  The [published terms](https://docs.infinit.tech/infinit-ai-managed-trading-strategy-marketplace/vault-terms)
+  state a 2% annual management fee and a 20% performance fee subject to a
+  high-water mark. Whether published unit prices already account for these
+  fees has not been established. Other fee rates are unconfirmed.
+links:
+  homepage: https://www.infinit.tech/
+  app: https://app.infinit.tech/vaults/apex-multistrategy
+  twitter: https://x.com/Infinit_Labs
+  github: https://github.com/Saprolings/vault-contracts
+  documentation: https://docs.infinit.tech/
+  defillama: https://defillama.com/protocol/infinit
+  audits: https://docs.infinit.tech/peckshield-report
+  fees: https://docs.infinit.tech/infinit-ai-managed-trading-strategy-marketplace/vault-terms
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/infinit
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/infinit/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xe64655E24b66073C73300aA924cD6dF5C716638F
