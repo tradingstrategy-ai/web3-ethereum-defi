@@ -34,6 +34,9 @@ LAGOON_V052_FEE_RECEIVER: HexAddress = "0xe841d56c504C55693A098948Bd3b74F4e01e59
 LAGOON_V052_FEE_REGISTRY: HexAddress = "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C"
 LAGOON_V052_VALUATION_MANAGER: HexAddress = "0x5856FcBE7B15a5A2CDCCfF5051b59bB8BDD54204"
 
+#: Arbitrary account that is not on any whitelist.
+UNLISTED_ACCOUNT: HexAddress = "0x000000000000000000000000000000000000dEaD"
+
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
     pytest.mark.xdist_group("fork:ethereum:26279104"),
@@ -110,6 +113,9 @@ def test_lagoon_v052_fixed_block_erc4626_access_and_fees(lagoon_v052: LagoonVaul
     assert vault.fetch_share_price(block) == Decimal("1.021635997372755696842129249")
 
     assert vault.is_account_whitelisted(ZERO_ADDRESS_STR) is True
+    # An arbitrary account is admitted only when the whitelist is inactive,
+    # which ties the storage flag read to the contract's own logic.
+    assert vault.is_account_whitelisted(UNLISTED_ACCOUNT) is True
     assert vault._fetch_v0_5_2_whitelist_activated(block) is False
     assert vault.is_whitelisted_deposit() is False
 

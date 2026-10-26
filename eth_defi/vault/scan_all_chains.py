@@ -2692,8 +2692,14 @@ def _load_last_timestamps(
             # Use lowercase keys so dashboard lookup is case-insensitive
             result[name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
 
-        # Lighter deployments share one synthetic chain but have one dashboard
-        # row each, so split that chain's rows by synthetic address prefix.
+    except (OSError, ValueError, pa.ArrowException) as e:
+        logger.warning("Could not read last timestamps from parquet: %s", e)
+        return {}
+
+    # Lighter deployments share one synthetic chain but have one dashboard
+    # row each, so split that chain's rows by synthetic address prefix.
+    # A failure here must not blank the other chains' timestamps.
+    try:
         lighter_chain_ids = sorted({deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS})
         lighter_table = pq.read_table(path, columns=["address", "timestamp"], filters=[("chain", "in", lighter_chain_ids)])
         for deployment in LIGHTER_DEPLOYMENTS:
@@ -2701,10 +2707,9 @@ def _load_last_timestamps(
             timestamp = pc.max(pc.filter(lighter_table["timestamp"], mask)).as_py()
             if timestamp is not None:
                 result[deployment.name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
-        return result
     except (OSError, ValueError, pa.ArrowException) as e:
-        logger.warning("Could not read last timestamps from parquet: %s", e)
-        return {}
+        logger.warning("Could not read Lighter last timestamps from parquet: %s", e)
+    return result
 
 
 def _append_result_error(result: ChainResult, error: str, traceback_str: str | None = None) -> None:
@@ -2744,9 +2749,10 @@ def print_dashboard(
     :param display_order: Optional list of chain names specifying display order
     :param uncleaned_price_path: Path to the uncleaned parquet for timestamps
     """
-    # Chain timestamps need only two Arrow columns. Protocol freshness is
-    # resolved once per tick and stored on ``ChainResult`` to avoid repeatedly
-    # materialising the much larger address column on every dashboard redraw.
+    # Chain timestamps need only two Arrow columns, plus addresses for the
+    # shared Lighter chain. Protocol freshness is resolved once per tick and
+    # stored on ``ChainResult`` to avoid materialising every address on each
+    # dashboard redraw.
     last_timestamps = _load_last_timestamps(uncleaned_price_path)
 
     # Clear screen (simple approach)

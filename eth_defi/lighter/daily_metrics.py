@@ -894,17 +894,21 @@ class LighterDailyMetricsDatabase:
             Stable deployment slug.
         :param min_tvl:
             Minimum TVL of the latest stored daily row, in the deployment's
-            collateral currency. Rows with a null TVL do not qualify.
+            collateral currency. A latest row with a null or NaN TVL does
+            not qualify, so such pools are not rescanned on every run.
         :return:
             Pool account indices.
         """
         rows = self.con.execute(
             """
             SELECT account_index
-            FROM pool_daily_prices
-            WHERE deployment = ?
-            GROUP BY account_index
-            HAVING arg_max(tvl, date) >= ?
+            FROM (
+                SELECT account_index, tvl
+                FROM pool_daily_prices
+                WHERE deployment = ?
+                QUALIFY row_number() OVER (PARTITION BY account_index ORDER BY date DESC) = 1
+            )
+            WHERE tvl >= ? AND NOT isnan(tvl)
             """,
             [deployment, min_tvl],
         ).fetchall()

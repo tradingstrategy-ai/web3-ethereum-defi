@@ -26,6 +26,10 @@ SETTLED_POOL = 103
 #: Pool never stored and below the filter.
 UNKNOWN_POOL = 104
 
+#: Pools whose latest stored row has no usable TVL.
+NULL_TVL_POOL = 105
+NAN_TVL_POOL = 106
+
 
 def _summary(account_index: int, tvl: float) -> LighterPoolSummary:
     """Create a minimal bulk-listing pool summary.
@@ -53,7 +57,7 @@ def _summary(account_index: int, tvl: float) -> LighterPoolSummary:
     )
 
 
-def _price_row(account_index: int, date: datetime.date, tvl: float) -> LighterDailyPriceRow:
+def _price_row(account_index: int, date: datetime.date, tvl: float | None) -> LighterDailyPriceRow:
     """Create one stored daily price row.
 
     :param account_index:
@@ -91,6 +95,10 @@ def test_run_daily_scan_rescans_pools_drained_since_last_row(tmp_path: Path, mon
                 _price_row(DRAINED_POOL, datetime.date(2026, 8, 2), 400_000.0),
                 _price_row(SETTLED_POOL, datetime.date(2026, 8, 1), 400_000.0),
                 _price_row(SETTLED_POOL, datetime.date(2026, 8, 2), 50.0),
+                _price_row(NULL_TVL_POOL, datetime.date(2026, 8, 1), 5_000.0),
+                _price_row(NULL_TVL_POOL, datetime.date(2026, 8, 2), None),
+                _price_row(NAN_TVL_POOL, datetime.date(2026, 8, 1), 5_000.0),
+                _price_row(NAN_TVL_POOL, datetime.date(2026, 8, 2), float("nan")),
             ],
         )
         assert db.get_pools_with_latest_tvl_at_least(LIGHTER_ETHEREUM.slug, 1_000) == {DRAINED_POOL}
@@ -103,6 +111,8 @@ def test_run_daily_scan_rescans_pools_drained_since_last_row(tmp_path: Path, mon
         _summary(DRAINED_POOL, 49.0),
         _summary(SETTLED_POOL, 10.0),
         _summary(UNKNOWN_POOL, 20.0),
+        _summary(NULL_TVL_POOL, 20.0),
+        _summary(NAN_TVL_POOL, 20.0),
     ]
     processed: list[int] = []
 
@@ -147,3 +157,19 @@ def test_load_last_timestamps_splits_lighter_deployments(tmp_path: Path) -> None
     assert timestamps["ethereum"] == "2026-10-26 10:00"
     assert timestamps["lighter ethereum"] == "2026-10-26 00:00"
     assert timestamps["lighter robinhood"] == "2026-10-24 00:00"
+
+
+def test_load_last_timestamps_keeps_chains_without_address_column(tmp_path: Path) -> None:
+    """A failed Lighter split does not blank the other chains' timestamps."""
+    path = tmp_path / "prices.parquet"
+    table = pa.table(
+        {
+            "chain": pa.array([1], type=pa.uint32()),
+            "timestamp": pa.array([datetime.datetime(2026, 10, 26, 10)], type=pa.timestamp("ms")),
+        }
+    )
+    pq.write_table(table, path)
+
+    timestamps = _load_last_timestamps(path)
+
+    assert timestamps == {"ethereum": "2026-10-26 10:00"}
