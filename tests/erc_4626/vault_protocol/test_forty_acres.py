@@ -247,6 +247,10 @@ def test_pharaoh_anvil_capacity_increase_preserves_real_redemption(
     assert vault.denomination_token.fetch_raw_balance_of(owner) > balance_before
 
 
+# 2026-10-27, CI after the Anvil v1.8.6 upgrade: the liquidity-intervention transaction was
+# not mined within 120 s while the Base upstream providers rate-limited the parallel workers
+# (42 HTTP 429 replies in that job); passes locally in under 30 s from the committed seed.
+@flaky.flaky
 @pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")
 @pytest.mark.xdist_group("fork:base:midnight")
 def test_aerodrome_redemption_capacity_preflight_and_anvil_liquidity_intervention(

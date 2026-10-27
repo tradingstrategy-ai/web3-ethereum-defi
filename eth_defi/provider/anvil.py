@@ -113,6 +113,13 @@ ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 #: keeps teardown from hanging.
 ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
 
+#: Environment variable capping how many upstream compute units per second a
+#: forked Anvil spends (``anvil --compute-units-per-second``, default 330).
+#: Several parallel fork workers sharing one provider key exceed the provider's
+#: budget and get HTTP 429 replies, which stall Anvil mid-request; CI sets a
+#: lower cap so cold reads queue locally instead of being rejected upstream.
+ANVIL_COMPUTE_UNITS_PER_SECOND_ENV = "ANVIL_COMPUTE_UNITS_PER_SECOND"
+
 
 def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> tuple[Path, Path] | None:
     """Return the shared and per-endpoint Foundry fork cache files for a fork.
@@ -654,6 +661,7 @@ CLI_FLAGS = {
     "host": "--host",
     "fork": "--fork-url",
     "fork_block_number": "--fork-block-number",
+    "compute_units_per_second": "--compute-units-per-second",
     "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
@@ -1786,6 +1794,9 @@ def launch_anvil(
 
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
+
+    if cleaned_fork_url and os.environ.get(ANVIL_COMPUTE_UNITS_PER_SECOND_ENV):
+        args["compute_units_per_second"] = int(os.environ[ANVIL_COMPUTE_UNITS_PER_SECOND_ENV])
 
     if block_time not in (0, None):
         args["block_time"] = block_time
