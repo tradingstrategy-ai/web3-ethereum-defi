@@ -12,7 +12,7 @@ import logging
 import shutil
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -21,6 +21,7 @@ import requests
 
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.rpc_proxy import (
+    TRANSACTION_LOOKUP_METHODS,
     RPCProxyConfig,
     _ProxyRequestHandler,  # noqa: PLC2701
     default_failure_handler,
@@ -333,69 +334,136 @@ def test_proxy_answers_anvil_probe_methods_locally(two_anvil_upstreams: tuple[An
         proxy.close()
 
 
-#: Delay of the slow upstream in :func:`slow_upstream_url`, in seconds.
+#: Delay of the slow upstreams started by :func:`fake_upstream`, in seconds.
 SLOW_UPSTREAM_DELAY = 3.0
 
+#: Proxy configuration that hedges transaction lookups, as Anvil launches do.
+HEDGED_CONFIG = RPCProxyConfig(hedged_methods=TRANSACTION_LOOKUP_METHODS)
 
-class _SlowNullHandler(BaseHTTPRequestHandler):
-    """Upstream that answers every JSON-RPC call with ``null`` after a delay."""
-
-    def do_POST(self) -> None:
-        self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        time.sleep(SLOW_UPSTREAM_DELAY)
-        body = b'{"jsonrpc":"2.0","id":1,"result":null}'
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, format: str, *args) -> None:
-        pass
+#: Unknown transaction hash used for lookups.
+UNKNOWN_HASH = "0x" + "ab" * 32
 
 
 @pytest.fixture()
-def slow_upstream_url() -> Iterator[str]:
-    """Start a local upstream that answers ``null`` after :data:`SLOW_UPSTREAM_DELAY`.
+def fake_upstream() -> Iterator[Callable[[float, bytes], str]]:
+    """Start local upstreams that answer every JSON-RPC call with a fixed reply after a delay.
 
-    :return: Upstream URL.
+    :return: Factory taking ``(delay_seconds, response_body)`` and returning the upstream URL.
     """
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _SlowNullHandler)
-    server.daemon_threads = True
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    servers: list[ThreadingHTTPServer] = []
+
+    def start(delay: float, response_body: bytes) -> str:
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                time.sleep(delay)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(response_body)))
+                self.end_headers()
+                self.wfile.write(response_body)
+
+            def log_message(self, format: str, *args) -> None:
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        servers.append(server)
+        return f"http://127.0.0.1:{server.server_address[1]}"
+
     try:
-        yield f"http://127.0.0.1:{server.server_address[1]}"
+        yield start
     finally:
-        server.shutdown()
-        server.server_close()
+        for server in servers:
+            server.shutdown()
+            server.server_close()
 
 
-def test_proxy_hedges_transaction_hash_lookups(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch], slow_upstream_url: str):
-    """A hash lookup is answered by the fastest upstream, not the current one.
+def _timed_call(proxy_url: str, method: str, params: list | None = None) -> tuple[dict, float]:
+    """Make a raw JSON-RPC call and measure its duration.
 
-    1. Start a proxy whose current upstream answers after a delay
+    :return: ``(response, seconds)``.
+    """
+    started = time.time()
+    return _rpc_call(proxy_url, method, params), time.time() - started
+
+
+def test_proxy_hedges_transaction_hash_lookups(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch], fake_upstream: Callable[[float, bytes], str]):
+    """A hedged hash lookup is answered by the fastest upstream, not the current one.
+
+    1. Start a hedging proxy whose current upstream answers after a delay
     2. Look up an unknown transaction receipt through the proxy
     3. Verify the fast upstream's reply arrives before the slow one could answer
     4. Verify ordinary methods still use the slow current upstream
     """
     anvil_a, _ = two_anvil_upstreams
 
-    # 1. Start a proxy whose current upstream answers after a delay
-    proxy = start_rpc_proxy([slow_upstream_url, anvil_a.json_rpc_url])
+    # 1. Start a hedging proxy whose current upstream answers after a delay
+    slow_url = fake_upstream(SLOW_UPSTREAM_DELAY, b'{"jsonrpc":"2.0","id":1,"result":null}')
+    proxy = start_rpc_proxy([slow_url, anvil_a.json_rpc_url], config=HEDGED_CONFIG)
     try:
         # 2. Look up an unknown transaction receipt through the proxy
-        started = time.time()
-        result = _rpc_call(proxy.url, "eth_getTransactionReceipt", ["0x" + "ab" * 32])
+        result, duration = _timed_call(proxy.url, "eth_getTransactionReceipt", [UNKNOWN_HASH])
 
         # 3. Verify the fast upstream's reply arrives before the slow one could answer
         assert result["result"] is None
-        assert time.time() - started < SLOW_UPSTREAM_DELAY - 1
+        assert duration < SLOW_UPSTREAM_DELAY - 1
         assert all(stats.method_counts["eth_getTransactionReceipt"] == 1 for stats in proxy.get_stats().values())
 
         # 4. Verify ordinary methods still use the slow current upstream
-        started = time.time()
-        assert _rpc_call(proxy.url, "eth_chainId")["result"] is None
-        assert time.time() - started >= SLOW_UPSTREAM_DELAY
+        result, duration = _timed_call(proxy.url, "eth_chainId")
+        assert result["result"] is None
+        assert duration >= SLOW_UPSTREAM_DELAY
+    finally:
+        proxy.close()
+
+
+def test_proxy_does_not_hedge_by_default(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch], fake_upstream: Callable[[float, bytes], str]):
+    """Without ``hedged_methods`` a hash lookup uses the current upstream only."""
+    anvil_a, _ = two_anvil_upstreams
+    slow_url = fake_upstream(SLOW_UPSTREAM_DELAY, b'{"jsonrpc":"2.0","id":1,"result":null}')
+    proxy = start_rpc_proxy([slow_url, anvil_a.json_rpc_url])
+    try:
+        _, duration = _timed_call(proxy.url, "eth_getTransactionReceipt", [UNKNOWN_HASH])
+        assert duration >= SLOW_UPSTREAM_DELAY
+        assert [stats.method_counts.get("eth_getTransactionReceipt", 0) for stats in proxy.get_stats().values()] == [1, 0]
+    finally:
+        proxy.close()
+
+
+def test_proxy_hedge_prefers_slow_success_over_fast_error(fake_upstream: Callable[[float, bytes], str]):
+    """A fast non-retryable error does not beat a slower successful reply."""
+    receipt = b'{"jsonrpc":"2.0","id":1,"result":{"status":"0x1"}}'
+    slow_success_url = fake_upstream(1.0, receipt)
+    fast_error_url = fake_upstream(0.0, b'{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"invalid argument"}}')
+    proxy = start_rpc_proxy([fast_error_url, slow_success_url], config=HEDGED_CONFIG)
+    try:
+        result, _ = _timed_call(proxy.url, "eth_getTransactionReceipt", [UNKNOWN_HASH])
+        assert result["result"] == {"status": "0x1"}
+    finally:
+        proxy.close()
+
+
+def test_proxy_hedging_is_bounded(fake_upstream: Callable[[float, bytes], str]):
+    """While the hedging limit is used up, lookups fall back to the normal failover path.
+
+    1. Start a proxy that allows one outstanding hedged request, with a fast and a slow upstream
+    2. The first lookup returns fast but leaves its slow attempt running
+    3. The second lookup cannot hedge and waits for the current, slow upstream
+    """
+    null_reply = b'{"jsonrpc":"2.0","id":1,"result":null}'
+
+    # 1. Start a proxy that allows one outstanding hedged request, with a fast and a slow upstream
+    config = RPCProxyConfig(hedged_methods=TRANSACTION_LOOKUP_METHODS, max_hedged_requests=1)
+    proxy = start_rpc_proxy([fake_upstream(SLOW_UPSTREAM_DELAY, null_reply), fake_upstream(0.0, null_reply)], config=config)
+    try:
+        # 2. The first lookup returns fast but leaves its slow attempt running
+        _, duration = _timed_call(proxy.url, "eth_getTransactionReceipt", [UNKNOWN_HASH])
+        assert duration < SLOW_UPSTREAM_DELAY - 1
+
+        # 3. The second lookup cannot hedge and waits for the current, slow upstream
+        _, duration = _timed_call(proxy.url, "eth_getTransactionReceipt", [UNKNOWN_HASH])
+        assert duration >= SLOW_UPSTREAM_DELAY - 1
     finally:
         proxy.close()

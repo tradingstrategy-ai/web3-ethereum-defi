@@ -38,7 +38,7 @@ import logging
 import socketserver
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable, TypeAlias
@@ -58,6 +58,10 @@ from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain, is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
+
+#: Transaction lookups by hash that a forked Anvil forwards upstream for every
+#: transaction it has not mined yet. See :py:attr:`RPCProxyConfig.hedged_methods`.
+TRANSACTION_LOOKUP_METHODS: frozenset[str] = frozenset({"eth_getTransactionReceipt", "eth_getTransactionByHash"})
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +244,7 @@ class RPCProxyConfig:
     unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"})
 
     #: JSON-RPC methods sent to every upstream at once, answering with the
-    #: first successful reply.
+    #: first successful reply. Empty by default.
     #:
     #: Anvil >= 1.8 mines automined transactions asynchronously and asks the
     #: fork upstream for any receipt or transaction it has not mined yet, in
@@ -248,9 +252,23 @@ class RPCProxyConfig:
     #: local miner therefore becomes an upstream lookup of a hash that does
     #: not exist there. Some providers answer such misses slowly (Goldsky
     #: Arbitrum took 2.3-2.6 s against 0.05-0.2 s elsewhere on 2026-10-27),
-    #: which added seconds to every transaction in fork tests. With a single
-    #: upstream these methods use the normal failover path.
-    hedged_methods: frozenset[str] = frozenset({"eth_getTransactionReceipt", "eth_getTransactionByHash"})
+    #: which added seconds to every transaction in fork tests, so the Anvil
+    #: launch code sets :py:data:`TRANSACTION_LOOKUP_METHODS` here.
+    #:
+    #: The first reply wins, so a lagging upstream answering ``null`` for an
+    #: existing transaction could hide it; do not enable this for live-chain
+    #: traffic. With a single upstream these methods use the normal failover
+    #: path.
+    hedged_methods: frozenset[str] = frozenset()
+
+    #: Maximum number of hedged requests whose upstream attempts may be in
+    #: flight at once.
+    #:
+    #: The slower attempts of a hedged request keep running after the first
+    #: reply has been returned. When this many hedged requests still have
+    #: attempts outstanding, for example because one upstream stalls, further
+    #: requests use the normal failover path instead.
+    max_hedged_requests: int = 8
 
     def __post_init__(self):
         if self.failure_handler is None:
@@ -597,19 +615,25 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
     def _try_hedged(self, method: str, body: bytes) -> tuple[int, bytes] | None:
         """Send one request to every upstream and keep the first successful reply.
 
-        See :py:attr:`RPCProxyConfig.hedged_methods`. Slower replies are
-        discarded; their requests still finish in the background.
+        See :py:attr:`RPCProxyConfig.hedged_methods`. Only an HTTP 200
+        JSON-RPC reply with a ``result`` wins. Slower replies are discarded;
+        their requests still finish in the background on the proxy's shared
+        executor, bounded by :py:attr:`RPCProxyConfig.max_hedged_requests`.
 
         :param method:
             JSON-RPC method, for statistics.
         :param body:
             Raw request body bytes.
         :return:
-            ``(http_status, response_body)`` of the first reply that is not a
-            retryable failure, or ``None`` if every upstream failed, in which
-            case the caller falls back to the normal failover loop.
+            ``(http_status, response_body)`` of the first successful reply,
+            or ``None`` if no upstream succeeded or the hedging limit is
+            reached, in which case the caller falls back to the normal
+            failover loop.
         """
         config = self.server.config
+        slots = self.server.hedge_slots
+        if not slots.acquire(blocking=False):
+            return None
 
         def attempt(index: int) -> tuple[int, bytes] | None:
             provider_key = self.server.provider_keys[index]
@@ -627,18 +651,29 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             if config.failure_handler(resp.status_code, parsed_response):
                 stats.record_failure(method, _summarise_error(resp.status_code, parsed_response), http_status=resp.status_code, max_error_replies=config.max_error_replies)
                 return None
+            # A non-retryable error must not beat a slower successful reply
+            if resp.status_code != 200 or not isinstance(parsed_response, dict) or "result" not in parsed_response:
+                return None
             return resp.status_code, resp.content
 
-        executor = ThreadPoolExecutor(max_workers=len(self.server.rpc_urls), thread_name_prefix=f"{self.server.proxy_name}-hedged")
-        try:
-            futures = [executor.submit(attempt, index) for index in range(len(self.server.rpc_urls))]
-            for future in as_completed(futures):
-                if (result := future.result()) is not None:
-                    return result
-            return None
-        finally:
-            # Do not wait for the slower upstreams
-            executor.shutdown(wait=False)
+        provider_count = len(self.server.rpc_urls)
+        outstanding = [provider_count]
+        outstanding_lock = threading.Lock()
+
+        def release_slot(future: Future) -> None:
+            with outstanding_lock:
+                outstanding[0] -= 1
+                finished = outstanding[0] == 0
+            if finished:
+                slots.release()
+
+        futures = [self.server.hedge_executor.submit(attempt, index) for index in range(provider_count)]
+        for future in futures:
+            future.add_done_callback(release_slot)
+        for future in as_completed(futures):
+            if (result := future.result()) is not None:
+                return result
+        return None
 
     def _try_upstream(self, url: str, body: bytes, timeout: float) -> requests.Response:
         """Make a single POST request to an upstream provider.
@@ -848,6 +883,7 @@ class RPCProxy:
         """
         self._http_server.shutdown()
         self._server_thread.join(timeout=10)
+        self._http_server.hedge_executor.shutdown(wait=False, cancel_futures=True)
         self._log_stats()
 
     def get_stats(self) -> dict[str, UpstreamRPCProviderStatistics]:
@@ -988,6 +1024,8 @@ def start_rpc_proxy(
     server.provider_lock = threading.Lock()
     server.current_provider_index = 0
     server.requests_on_current_provider = 0
+    server.hedge_slots = threading.BoundedSemaphore(config.max_hedged_requests)
+    server.hedge_executor = ThreadPoolExecutor(max_workers=config.max_hedged_requests * len(rpc_urls), thread_name_prefix=f"{proxy_name}-hedged")
 
     # Start server on a daemon thread
     server_thread = threading.Thread(

@@ -82,7 +82,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_foundry_network_name
 from eth_defi.compat import create_http_provider
-from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig, start_rpc_proxy
+from eth_defi.provider.rpc_proxy import TRANSACTION_LOOKUP_METHODS, RPCProxy, RPCProxyConfig, start_rpc_proxy
 from eth_defi.rpc_url import get_url_domain, redact_rpc_urls, register_rpc_url
 from eth_defi.testing.rpc_cache import get_foundry_rpc_cache_dir
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
@@ -595,6 +595,10 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         backoff=0.0,
         # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
         switchover_log_level=logging.WARNING,
+        # Anvil >= 1.8 forwards receipt polls for its own unmined transactions
+        # upstream; the forks are at fixed past blocks, so any upstream's
+        # first reply is authoritative.
+        hedged_methods=TRANSACTION_LOOKUP_METHODS,
     )
 
 
