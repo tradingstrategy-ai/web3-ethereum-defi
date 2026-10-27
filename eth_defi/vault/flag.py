@@ -547,6 +547,19 @@ Third-party comment:
 
 LIQUID_ROYALTY_NOTE = "Early withdrawal within 7-day cooldown incurs a 20% liquidation penalty on the unstaked amount. Initiate cooldown and wait 7 days to withdraw without penalty."
 
+#: Asseto IP Vault launch context, product roles and outstanding manual review.
+ASSETO_IP_VAULT_NOTE = """[Soneium announced IP Vault with Asseto](https://x.com/soneium/status/2114999606400692706) on 27 October 2026, with opening scheduled for 28 October. The announcement described a $549 million underlying royalties fund; this figure is the fund's size as reported at launch, not the amount deposited in IP Vault.
+
+Asseto provides the tokenised exposure to Partners Group Diversified Royalties Opportunities Evergreen, a fund launched in 2025 and managed by Partners Group. The vault holds an interest in that fund, whose investments span entertainment, media and other royalty opportunities. Investors hold vault shares rather than directly owning individual songs, films or patents. The [underlying fund documentation](https://ipusd.gitbook.io/ipusd-docs/general/the-underlying-fund-and-strategy) states that Partners Group is not affiliated with ipUSD or IP Vault and does not endorse them. Published historical fund and strategy returns are separate from this new vault's performance; its advertised 5–9% annual target is an estimate.
+
+The vault runs on Soneium, the Ethereum network developed by Sony Block Solutions Labs, a [joint venture of Sony Group and Startale](https://soneium.org/en/blog/introducing-soneium-by-sony-block-solutions-labs-for-the-future-of-web3/). This identifies the organisations behind the network, rather than a guarantee of the vault's investments.
+
+Users subscribe with ipUSD and receive sIPUSD investment shares after settlement. Returns and losses are reflected in the value of each share. Holding the ipUSD stablecoin alone does not earn the vault's royalty returns. See the [product overview](https://ipusd.gitbook.io/ipusd-docs/general/understanding-ipusd-and-the-ip-vault).
+
+The [withdrawal documentation](https://ipusd.gitbook.io/ipusd-docs/user-guide/exiting-the-ip-vault) describes instant withdrawals with a 5% protocol fee, subject to available capacity. Standard withdrawals have no protocol withdrawal fee but wait in a queue. When the vault needs proceeds from the underlying fund, the wait can extend to several months; the documentation gives an example of approximately six months. There is no guaranteed settlement date, and the share value can change while waiting.
+
+IP Vault is still under verification. At Soneium block 29,979,401 on 27 October 2026, the live administrative delay was three minutes, while the [contract disclosures](https://ipusd.gitbook.io/ipusd-docs/technical-reference/contracts-roles-and-disclosures) stated three days. The administrator can change this delay, as shown in the [deployed timelock](https://soneium.blockscout.com/address/0x921530D47da54b3461704A804b4F9E686989B77F?tab=contract). Valuations can reuse older fund prices and include assets awaiting settlement. Governance, valuation and withdrawal arrangements remain under review; these observations precede the announced opening."""
+
 INVERSE_SDOLA_FLASH_LOAN_EXPLOIT = "An attacker used ~$30M in flash loans to inflate the sDOLA exchange rate (from ~1.188 to ~1.358 per DOLA) by donating assets directly into the vault. This triggered faulty oracle pricing on LlamaLend, force-liquidating ~27 user positions (DOLA-backed leveraged longs) and letting the attacker profit ~$240K in liquidation rewards."
 
 LIGHTER_LLP_STAKING = """LLP (Lighter Liquidity Provider) is the protocol's community-owned market-making pool providing liquidity and handling liquidations on Lighter DEX.
@@ -587,6 +600,24 @@ The system checks your total equity meets the minimum for your tier when you att
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
+    # IP Vault / Staked IPUSD (sIPUSD), Asseto, Soneium (1868).
+    # Added 2026-10-27 at the user's request for launch context and an explicit
+    # under-verification status. Manual Codex review (GPT-6), not an automated
+    # investability decision: retain review_needed without blacklisting.
+    # At block 29,979,401 on 2026-10-27, timelock DELAY was 180 seconds versus
+    # the documented three days; the administrator can change it directly.
+    # Assets and supply were zero before the announced opening. The launch's
+    # $549M fund figure must not be presented as this vault's TVL. Reviewers
+    # should reconcile governance disclosures, price freshness, settlement
+    # accounting and withdrawal terms before clearing the review status.
+    # No Trading Strategy vault listing was identified at the time of addition.
+    # https://x.com/soneium/status/2114999606400692706
+    # https://ipusd.xyz/
+    # https://ipusd.gitbook.io/ipusd-docs/general/the-underlying-fund-and-strategy
+    # https://ipusd.gitbook.io/ipusd-docs/technical-reference/contracts-roles-and-disclosures
+    # https://soneium.blockscout.com/address/0x2Ba3FC5BDbBE7BE2630fB71e759739625246bCd9?tab=contract
+    # https://soneium.blockscout.com/address/0x921530D47da54b3461704A804b4F9E686989B77F?tab=contract
+    "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9": (VaultFlag.review_needed, ASSETO_IP_VAULT_NOTE),
     # Tulipa USDC
     "0xce0b790ae0d8cf91e01f3fb69025e14569b574f3": (VaultFlag.misleading_valuation, MISLEADING_VALUATION),
     # Borrowable USDC Deposit, SiloId: 127
