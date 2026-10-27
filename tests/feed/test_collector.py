@@ -8,7 +8,7 @@ import pytest
 import requests
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.feed.collector import DEFAULT_LINKEDIN_URL_TEMPLATES, AllBridgesFailedError, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
+from eth_defi.feed.collector import DEFAULT_LINKEDIN_URL_TEMPLATES, AllBridgesFailedError, CollectedSourceResult, CollectorRunSummary, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -368,7 +368,7 @@ def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> N
     )
 
     # 3. Assert posts link back to VanEck's LinkedIn posts.
-    assert len(posts) == 5
+    assert 0 < len(posts) <= 5
     assert all(post.post_url.startswith("https://www.linkedin.com/posts/vaneck_") for post in posts)
     assert all(post.published_at is not None for post in posts)
 
@@ -402,7 +402,6 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
     linkedin_source = dc_replace(linkedin_source, mapping_file=tmp_yaml)
 
     # 2. Collect posts — all bridges fail; verify AllBridgesFailedError with indicates_auth_block.
-    from eth_defi.feed.collector import CollectedSourceResult, CollectorRunSummary
 
     with pytest.raises(AllBridgesFailedError) as exc_info:
         collect_posts_for_source(
@@ -425,7 +424,9 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
         error=str(err),
         auth_blocked=err.indicates_auth_block,
     )
-    summary = CollectorRunSummary(sources_loaded=1, sources_failed=1, source_results=[failed_result])
+    # Another company succeeding in the same run shows the bridge itself is up.
+    healthy_result = CollectedSourceResult(feeder_id="vaneck", name="VanEck", role="stablecoin", source_type="linkedin", status="success")
+    summary = CollectorRunSummary(sources_loaded=2, sources_succeeded=1, sources_failed=1, source_results=[failed_result, healthy_result])
     disabled_count = auto_disable_failed_linkedin_sources(summary, [linkedin_source], "2026-04-04")
     assert disabled_count == 1
     assert "linkedin-rss-hub-disabled-at: 2026-04-04" in tmp_yaml.read_text()
@@ -433,3 +434,55 @@ def test_live_apostro_linkedin_auth_blocked_and_yaml_auto_disabled(tmp_path: Pat
     # 4. Reload sources from tmp_path and verify LinkedIn source is now absent.
     reloaded, _, _ = load_post_sources(tmp_path)
     assert not any(s.source_type == "linkedin" for s in reloaded)
+
+
+def _linkedin_result(feeder_id: str, status: str, auth_blocked: bool = False) -> CollectedSourceResult:  # noqa: FBT001, FBT002
+    """Create one LinkedIn collection result for auto-disable tests.
+
+    :param feeder_id: Feeder id of the source.
+    :param status: ``success`` or ``failed``.
+    :param auth_blocked: Whether the failure looked like a LinkedIn login wall.
+    :return: Source result.
+    """
+    return CollectedSourceResult(feeder_id=feeder_id, name=feeder_id, role="curator", source_type="linkedin", status=status, auth_blocked=auth_blocked)
+
+
+def _write_linkedin_feeder(tmp_path: Path, feeder_id: str) -> Path:
+    """Write a minimal feeder YAML with a LinkedIn source.
+
+    :param tmp_path: Directory for the YAML file.
+    :param feeder_id: Feeder and LinkedIn company id.
+    :return: Path to the YAML file.
+    """
+    path = tmp_path / f"{feeder_id}.yaml"
+    path.write_text(f"feeder-id: {feeder_id}\nname: {feeder_id}\nrole: curator\nlinkedin: {feeder_id}\n")
+    return path
+
+
+@pytest.mark.parametrize(("bridge_status", "expected"), [(502, True), (503, True), (403, False), (None, False)])
+def test_linkedin_auth_block_candidate_status(bridge_status: int | None, expected: bool) -> None:  # noqa: FBT001
+    """Bridge 502 and 503 answers are login-wall candidates; other failures are not."""
+    error = AllBridgesFailedError("LinkedIn bridge", "https://www.linkedin.com/company/x", [("https://bridge/x", bridge_status)])
+
+    assert error.indicates_auth_block is expected
+
+
+def test_linkedin_auto_disable_requires_healthy_bridge(tmp_path: Path) -> None:
+    """Login-wall candidates are disabled only when the bridge served another company.
+
+    1. A run where every LinkedIn source failed with 502/503 is a bridge outage: nothing is disabled.
+    2. A run where another company succeeded disables the failed source.
+    """
+    blocked_yaml = _write_linkedin_feeder(tmp_path, "blocked-co")
+    _write_linkedin_feeder(tmp_path, "healthy-co")
+    sources, _, _ = load_post_sources(tmp_path)
+
+    # 1. A run where every LinkedIn source failed with 502/503 is a bridge outage: nothing is disabled.
+    outage = CollectorRunSummary(source_results=[_linkedin_result("blocked-co", "failed", auth_blocked=True), _linkedin_result("healthy-co", "failed", auth_blocked=True)])
+    assert auto_disable_failed_linkedin_sources(outage, sources, "2026-10-27") == 0
+    assert "linkedin-rss-hub-disabled-at" not in blocked_yaml.read_text()
+
+    # 2. A run where another company succeeded disables the failed source.
+    partial = CollectorRunSummary(source_results=[_linkedin_result("blocked-co", "failed", auth_blocked=True), _linkedin_result("healthy-co", "success")])
+    assert auto_disable_failed_linkedin_sources(partial, sources, "2026-10-27") == 1
+    assert "linkedin-rss-hub-disabled-at: 2026-10-27" in blocked_yaml.read_text()

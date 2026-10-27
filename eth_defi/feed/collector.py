@@ -32,6 +32,10 @@ _RETRYABLE_STATUS_CODES = {403, 429, 502, 503, 504}
 #: These should fail immediately without proxy rotation or retry.
 _PERMANENT_FAILURE_STATUS_CODES = {404, 410}
 
+#: Bridge responses that may mean LinkedIn put the company page behind its login wall.
+#: ``rsshub-balancer.virworks.moe`` answers 502 and older RSSHub instances answer 503.
+_AUTH_BLOCK_CANDIDATE_STATUS_CODES = {502, 503}
+
 #: Smallest title/description preview that can accommodate an ellipsis.
 _MIN_POST_PREVIEW_LENGTH = 4
 
@@ -57,14 +61,16 @@ class AllBridgesFailedError(RuntimeError):
 
     @property
     def indicates_auth_block(self) -> bool:
-        """Return True when at least one bridge returned HTTP 503 (LinkedIn auth barrier).
+        """Return True when a bridge answered with HTTP 502 or 503 (possible LinkedIn auth barrier).
 
-        When all bridges fail and at least one specifically returns 503, LinkedIn is most
-        likely redirecting unauthenticated requests to the login page for this company.
-        Bridges that are simply down (502 or connection error) do not indicate anything
-        about LinkedIn's stance on the company page, so they are not required to return 503.
+        RSSHub bridges answer 502 or 503 when LinkedIn redirects their unauthenticated
+        scraper to the login page for this company. A bridge-wide outage produces the same
+        status codes, so this is only a candidate: auto-disabling additionally requires the
+        bridge to have served other companies in the same run, see
+        :py:func:`~eth_defi.feed.sources.auto_disable_failed_linkedin_sources`.
+        Connection errors and other statuses never indicate an auth barrier.
         """
-        return bool(self.bridge_errors) and any(code == 503 for _, code in self.bridge_errors)
+        return bool(self.bridge_errors) and any(code in _AUTH_BLOCK_CANDIDATE_STATUS_CODES for _, code in self.bridge_errors)
 
 
 #: Default Twitter/X RSS bridge URL templates used when no ``TWITTER_FEED_URL_TEMPLATES``
@@ -85,10 +91,11 @@ DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
 #:
 #:     RSSHub bridges rely on unauthenticated LinkedIn access.  LinkedIn serves public
 #:     company post feeds only for large or verified organisations.  Smaller companies
-#:     redirect unauthenticated scrapers to the login page, causing every bridge to
-#:     return 503 regardless of which instance is used.  When the standard scan detects
-#:     this pattern it writes ``linkedin-rss-hub-disabled-at`` to the feeder YAML so
-#:     future runs skip the source without retrying.
+#:     redirect unauthenticated scrapers to the login page, causing bridges to return
+#:     502 or 503 (the bridge's error page does not say why).  When a source fails this
+#:     way while the bridge serves other companies in the same run, the standard scan
+#:     writes ``linkedin-rss-hub-disabled-at`` to the feeder YAML so future runs skip the
+#:     source without retrying.
 DEFAULT_LINKEDIN_URL_TEMPLATES: list[str] = [
     "https://rsshub-balancer.virworks.moe/linkedin/company/{company_id}/posts",
 ]

@@ -872,30 +872,41 @@ def auto_disable_failed_linkedin_sources(
     sources: Sequence[TrackedPostSource],
     disabled_at: str,
 ) -> int:
-    """Write ``linkedin-rss-hub-disabled-at`` to YAML for every all-503 LinkedIn failure.
+    """Write ``linkedin-rss-hub-disabled-at`` to YAML for LinkedIn sources behind the login wall.
 
-    When all configured RSSHub bridges return HTTP 503 for a LinkedIn source, LinkedIn is
-    gating that company page behind authentication.  This function stamps the feeder YAML
-    so future scan runs skip the source entirely rather than retrying.
+    When the RSSHub bridges answer HTTP 502 or 503 for a LinkedIn source, LinkedIn is
+    probably gating that company page behind authentication.  The bridge error page gives
+    no reason, and a bridge-wide outage returns the same status codes, so sources are only
+    disabled when at least one other LinkedIn source succeeded in the same run.  Without
+    that guard, one bridge outage would permanently disable every LinkedIn source.
+    This function stamps the feeder YAML so future scan runs skip the source entirely
+    rather than retrying.
 
     :param summary: Collector run result from :func:`~eth_defi.feed.collector.collect_posts`.
     :param sources: Source list passed to the same :func:`~eth_defi.feed.collector.collect_posts` call.
     :param disabled_at: ISO date string to stamp in the YAML, e.g. ``2026-04-04``.
     :return: Number of YAML files updated.
     """
+    linkedin_results = [result for result in summary.source_results or [] if result.source_type == "linkedin"]
+    blocked_count = sum(1 for result in linkedin_results if result.status == "failed" and result.auth_blocked)
+    if blocked_count and not any(result.status == "success" for result in linkedin_results):
+        logger.warning(
+            "LinkedIn bridges served no company this run; treating %d HTTP 502/503 failures as a bridge outage and not auto-disabling them",
+            blocked_count,
+        )
+        return 0
+
     linkedin_yaml: dict[str, Path] = {s.feeder_id: s.mapping_file for s in sources if s.source_type == "linkedin"}
     count = 0
-    for result in summary.source_results or []:
-        if result.source_type != "linkedin" or result.status != "failed":
-            continue
-        if not result.auth_blocked:
+    for result in linkedin_results:
+        if result.status != "failed" or not result.auth_blocked:
             continue
         yaml_path = linkedin_yaml.get(result.feeder_id)
         if yaml_path is None:
             continue
         if mark_linkedin_source_disabled(yaml_path, disabled_at):
             logger.info(
-                "Auto-disabled LinkedIn feed for %s in %s (all bridges returned 503)",
+                "Auto-disabled LinkedIn feed for %s in %s (bridges returned HTTP 502/503 while serving other companies)",
                 result.feeder_id,
                 yaml_path.name,
             )
