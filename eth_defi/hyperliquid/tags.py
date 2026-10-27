@@ -43,12 +43,22 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-17.
     #: Decision material: Maintainer classification marks pmalt's former
     #: Hyperliquid strategy as algorithmic trading and pair trading.
+    #: Updated: 2026-10-27. The latest 2,000 aggregated public fills cover
+    #: 2026-07-15 to 2026-10-15. Reconstructing complete, gap-free, non-flipping
+    #: position round trips gives 104 profitable closes out of 110 after trading
+    #: fees, before funding, with a median holding time of about one hour. Typical
+    #: wins are small relative to the largest losing position, supporting
+    #: high-frequency, high-win-rate trading. Incomplete positions are excluded
+    #: from that sample statistic; it is not an account-wide win rate.
     #: Sources:
     #: - eth_defi/data/feeds/curators/pmalt.yaml
     #: - https://app.hyperliquid.xyz/vaults/0x4dec0a851849056e259128464ef28ce78afa27f6
     #: - https://app.lighter.xyz/public-pools/281474976552918
+    #: - https://api.hyperliquid.xyz/info
+    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     "0x4dec0a851849056e259128464ef28ce78afa27f6": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.pair_trading,
     },
     #: Vault: Hyperliquidity Provider (HLP).

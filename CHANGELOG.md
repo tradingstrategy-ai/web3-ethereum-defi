@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Classify pmalt's Hyperliquid and Lighter vaults as high-frequency, high-win-rate strategies using reviewed public trade samples, preserving their algorithmic and pair-trading tags (2026-10-27).
 - feat: Add the hardcoded Soneium IP Vault under Asseto with read-only valuation, under-verification status and a targeted metadata migration (2026-10-27).
 - fix: Classify Shift ltPARA, extUSD and ltLLP as DeFi vaults, read their live investor allow-list policy, and provide a metadata-only repair preserving historical prices (2026-10-27).
 - feat: Add ipUSD stablecoin classification, verified Soneium metadata, news source and official token artwork (2026-10-27).

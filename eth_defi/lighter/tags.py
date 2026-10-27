@@ -2070,11 +2070,24 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-17.
     #: Decision material: Maintainer classification marks pmalt's public
     #: Lighter pool as algorithmic trading and pair trading.
+    #: Updated: 2026-10-27. The live description still identifies directional
+    #: stock bets and crypto pair trading. The latest 2,000 public trades cover
+    #: 2026-09-21 to 2026-10-27 and contain 24 fully observed, non-flipping
+    #: position round trips, all gross-profitable, with a median holding time
+    #: of about 15 minutes. Other fills include substantially larger realised
+    #: losses, supporting the frequent-small-win and adverse-tail pattern.
+    #: The completed-position sample excludes incomplete positions and is
+    #: before trading fees and funding; it is not an account-wide win rate.
     #: Sources:
     #: - eth_defi/data/feeds/curators/pmalt.yaml
     #: - https://app.lighter.xyz/public-pools/281474976552918
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552918
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/trades?account_index=281474976552918&sort_by=timestamp&limit=100
+    #: - https://apidocs.lighter.xyz/reference/account-1
+    #: - https://apidocs.lighter.xyz/reference/trades
     "lighter-pool-281474976552918": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.pair_trading,
     },
     #: Vault: Steady Wealth Builder.
