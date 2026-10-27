@@ -3335,7 +3335,7 @@ def deploy_automated_lagoon_vault(
                 lighter_deployment=lighter_deployment,
                 api_key_index=lighter_api_key_index,
                 sub_account_count=lighter_sub_account_count,
-        sub_account_labels=lighter_sub_account_labels,
+                sub_account_labels=lighter_sub_account_labels,
                 sub_account_api_key_index=lighter_sub_account_api_key_index,
             )
 
