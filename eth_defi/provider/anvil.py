@@ -528,7 +528,7 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
     :return:
         Bounded automatic proxy configuration.
     """
-    assert provider_count > 1, f"Anvil proxy needs multiple providers, got {provider_count}"
+    assert provider_count >= 1, f"Anvil proxy needs at least one provider, got {provider_count}"
     per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / provider_count
     if per_provider_budget <= 10:
         # Requests applies the same value separately to connect and read when
@@ -1666,47 +1666,33 @@ def launch_anvil(
     # Track whether we manage the proxy lifecycle (True) or the caller does (False)
     proxy_managed = True
 
-    if fork_url and " " in fork_url:
+    if fork_url:
         # Multi-RPC syntax: filter out mev+ prefixed endpoints
         # (MEV-protected sequencer endpoints that don't support standard RPC calls).
         all_rpcs = [u for u in fork_url.split(" ") if u]
         available_rpcs = [u for u in all_rpcs if not u.startswith("mev+")]
         if not available_rpcs:
-            # All endpoints are mev+, strip the prefix as a fallback
             available_rpcs = [u.replace("mev+", "", 1) for u in all_rpcs]
         upstream_rpc_urls = tuple(available_rpcs)
-
-        if len(available_rpcs) > 1 and proxy_multiple_upstream is not False:
+        # Every fork goes through the local proxy, also with a single upstream:
+        # it answers Anvil >= 1.8's probe methods locally (see
+        # RPCProxyConfig.unsupported_methods), bounds each upstream attempt and
+        # logs the reason whenever a cold read fails or stalls.
+        if proxy_multiple_upstream is not False:
             if isinstance(proxy_multiple_upstream, RPCProxy):
-                # Caller provided a pre-built proxy — use it, but don't
-                # manage its lifecycle (caller is responsible for close()).
                 proxy = proxy_multiple_upstream
                 proxy_managed = False
                 cleaned_fork_url = proxy.url
-                logger.info(
-                    "Using caller-provided RPC proxy at %s",
-                    proxy.url,
-                )
+                logger.info("Using caller-provided RPC proxy at %s", proxy.url)
             else:
-                # Start a failover proxy that sits between Anvil and multiple
-                # upstream RPCs, providing retry/timeout/switchover handling.
                 if isinstance(proxy_multiple_upstream, RPCProxyConfig):
                     config = proxy_multiple_upstream
                 else:
-                    # Automatic Anvil proxying makes one bounded pass across
-                    # the configured providers. Retrying the same provider
-                    # again is left to an explicit caller configuration.
                     config = _create_default_anvil_proxy_config(len(available_rpcs))
                 proxy = start_rpc_proxy(available_rpcs, config=config, suppress_client_disconnect_errors=True)
                 cleaned_fork_url = proxy.url
-                logger.info(
-                    "Started RPC failover proxy at %s for %d upstream providers",
-                    proxy.url,
-                    len(available_rpcs),
-                )
+                logger.info("Started RPC failover proxy at %s for %d upstream providers", proxy.url, len(available_rpcs))
         else:
-            # proxy_multiple_upstream is False, or only one RPC available —
-            # fall back to legacy round-robin across launches.
             if not hasattr(_anvil_rpc_state, "rpc_index"):
                 _anvil_rpc_state.rpc_index = random.randint(0, len(available_rpcs) - 1)
             else:
@@ -1715,9 +1701,7 @@ def launch_anvil(
             cleaned_fork_url = available_rpcs[rpc_index]
             logger.info("Using Anvil at RPC endpoint %d/%d: %s", rpc_index + 1, len(available_rpcs), get_url_domain(cleaned_fork_url))
     else:
-        cleaned_fork_url = fork_url if not fork_url or not fork_url.startswith("mev+") else fork_url.replace("mev+", "", 1)
-        if cleaned_fork_url:
-            upstream_rpc_urls = (cleaned_fork_url,)
+        cleaned_fork_url = None
 
     # From this point onwards the wrapper owns managed proxy cleanup until a
     # fully initialised AnvilLaunch is returned. Caller-provided proxies are
