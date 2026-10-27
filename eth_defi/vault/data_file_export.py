@@ -275,14 +275,14 @@ def main(
     snapshot already used for crypto USD metrics. Standalone use materialises a
     fresh snapshot before upload.
 
+    Logging is configured by the standalone script, not here: the scanner calls
+    this in-process, and reconfiguring would remove its log file handler.
+
     :param exchange_rate_parquet_path:
         Optional verified Parquet snapshot created earlier in this scan cycle.
     :param exchange_rate_parquet_error:
         Earlier materialisation failure. Unrelated files still upload, after
         which this error is propagated and stale Parquet is omitted.
-    Logging is configured by the standalone script, not here: the scanner calls
-    this in-process, and reconfiguring would remove its log file handler.
-
     :return: Per-database backup statuses, reported separately from successful price publication.
     """
     # Data-file exports deliberately target only the private bucket. Public
