@@ -22,6 +22,10 @@ from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowU
 #: https://github.com/morpho-org/vault-v2/blob/main/src/libraries/SafeERC20Lib.sol
 MORPHO_V2_TRANSFER_REVERTED_SELECTOR = HexBytes("0xace2a47e")
 
+#: Divisor for the Anvil liquidity injection margin: ``10_000`` adds one basis
+#: point of the required payout to cover interest accrued before the retry block.
+MORPHO_V2_REDEMPTION_MARGIN_DIVISOR = 10_000
+
 
 class MorphoV2DepositManager(ERC4626DepositManager):
     """Simulate Morpho Vault V2 redemptions before transaction broadcast.
@@ -73,7 +77,8 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         the caller retry the unchanged redemption transaction. A deployment
         without a liquidity adapter is provisioned at the vault's idle-asset
         balance instead. Vault V2 accounts through its stored ``_totalAssets``;
-        the helper adds one native unit for retry-time fee rounding. No gate,
+        the helper adds a one basis point margin for interest accrued before the
+        retry block. No gate,
         minimum or time condition is bypassed.
 
         :param owner:
@@ -113,9 +118,11 @@ class MorphoV2DepositManager(ERC4626DepositManager):
             target, target_balance_raw, available_raw = self.fetch_redemption_liquidity()
             if available_raw >= required_raw:
                 break
-            # Include one native unit because Vault V2's fee/accrual rounding
-            # can increase previewRedeem between the provisioning reads.
-            top_up_raw = required_raw - available_raw + 1
+            # Vault V2 accrues interest per second, and Anvil stamps the retry
+            # block with wall-clock time, so previewRedeem can grow by a few
+            # units between these reads and the mined redemption. A one basis
+            # point margin covers hours of accrual.
+            top_up_raw = required_raw - available_raw + max(1, required_raw // MORPHO_V2_REDEMPTION_MARGIN_DIVISOR)
             fund_erc20_on_anvil(
                 self.web3,
                 token.address,

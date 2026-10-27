@@ -1,5 +1,24 @@
 # Test suite performance plan
 
+## Anvil 1.8 fork slowdown (2026-10-27)
+
+After CI moved to Foundry/Anvil `v1.8.6`
+([PR #1662](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1662)),
+the GMX job went from about 4.5 minutes to hitting its 15-minute limit. Four
+reference GMX tests took 95–105 s against 48–60 s on `v1.3.2`. There were two
+causes, both now fixed:
+
+- Anvil `v1.8` discards a fork cache whose `meta.source_id` does not match the
+  fork URL, so the committed seeds, captured through another proxy port, were
+  never loaded.
+- Anvil `v1.8` mines asynchronously and asks the fork upstream for every
+  receipt it has not mined yet. Goldsky Arbitrum answers those unknown-hash
+  lookups in about 2.5 s, which made every transaction take about 2.5 s.
+
+With the `source_id` rewrite and hedged receipt lookups, the four tests take
+14–17 s. Details, the full behaviour table and a diagnosis checklist are in
+[Anvil 1.8 behaviour and mitigations](../eth_defi/testing/README.md#anvil-18-behaviour-and-mitigations).
+
 ## Lagoon fork contention (2026-10-22)
 
 The [first main-suite attempt for PR #1646](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/runs/39790133698/attempts/1)
