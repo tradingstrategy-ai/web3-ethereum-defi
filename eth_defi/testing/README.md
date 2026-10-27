@@ -174,7 +174,14 @@ Two more Anvil `v1.8` behaviour changes matter for tests:
 
 - `eth_sendTransaction` / `eth_sendRawTransaction` return the hash before the
   automined block exists. Wait for the receipt before reading state, and
-  expect one extra `eth_getTransactionReceipt` poll per transaction.
+  expect one extra `eth_getTransactionReceipt` poll per transaction. A forked
+  Anvil forwards that poll to the fork upstream while the block is still being
+  mined, in case the hash predates the fork. Some providers answer such misses
+  slowly (Goldsky Arbitrum took about 2.5 s per lookup), so the local failover
+  proxy sends `eth_getTransactionReceipt` and `eth_getTransactionByHash` to all
+  upstreams at once and returns the first successful reply; see
+  `RPCProxyConfig.hedged_methods`. This took the four reference GMX tests from
+  95–105 s to 14–17 s.
 - `evm_revert` to an older snapshot invalidates newer ones, as documented.
   Older releases silently restored an invalidated snapshot, which let two
   autouse reset fixtures share one fork; a module that keeps its own checkpoint

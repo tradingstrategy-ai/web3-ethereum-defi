@@ -36,6 +36,7 @@ See :py:func:`eth_defi.provider.anvil.launch_anvil` for automatic integration.
 import datetime
 import logging
 import socketserver
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import threading
 import time
 from dataclasses import dataclass, field
@@ -237,6 +238,19 @@ class RPCProxyConfig:
     #: legacy ``eth_getBalance`` / ``eth_getTransactionCount`` / ``eth_getCode``
     #: reads that the committed fork cache seeds also cover.
     unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"})
+
+    #: JSON-RPC methods sent to every upstream at once, answering with the
+    #: first successful reply.
+    #:
+    #: Anvil >= 1.8 mines automined transactions asynchronously and asks the
+    #: fork upstream for any receipt or transaction it has not mined yet, in
+    #: case the hash predates the fork. Every receipt poll that races the
+    #: local miner therefore becomes an upstream lookup of a hash that does
+    #: not exist there. Some providers answer such misses slowly (Goldsky
+    #: Arbitrum took 2.3-2.6 s against 0.05-0.2 s elsewhere on 2026-10-27),
+    #: which added seconds to every transaction in fork tests. With a single
+    #: upstream these methods use the normal failover path.
+    hedged_methods: frozenset[str] = frozenset({"eth_getTransactionReceipt", "eth_getTransactionByHash"})
 
     def __post_init__(self):
         if self.failure_handler is None:
@@ -459,6 +473,12 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(200, response_body)
             return
 
+        if method in self.server.config.hedged_methods and len(self.server.rpc_urls) > 1:
+            response = self._try_hedged(method, body)
+            if response is not None:
+                self._send_json_response(*response)
+                return
+
         # Try upstream providers with failover
         last_error = None
         last_status = None
@@ -573,6 +593,54 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
                 }
             )
             self._send_json_response(502, error_body)
+
+    def _try_hedged(self, method: str, body: bytes) -> tuple[int, bytes] | None:
+        """Send one request to every upstream and keep the first successful reply.
+
+        See :py:attr:`RPCProxyConfig.hedged_methods`. Slower replies are
+        discarded; their requests still finish in the background.
+
+        :param method:
+            JSON-RPC method, for statistics.
+        :param body:
+            Raw request body bytes.
+        :return:
+            ``(http_status, response_body)`` of the first reply that is not a
+            retryable failure, or ``None`` if every upstream failed, in which
+            case the caller falls back to the normal failover loop.
+        """
+        config = self.server.config
+
+        def attempt(index: int) -> tuple[int, bytes] | None:
+            provider_key = self.server.provider_keys[index]
+            stats = self.server.provider_stats[provider_key]
+            stats.record_request(method)
+            try:
+                resp = self._try_upstream(self.server.rpc_urls[index], body, config.timeout)
+            except (ConnectionError, Timeout, OSError) as e:
+                stats.record_failure(method, redact_rpc_urls(f"{e.__class__.__name__}: {e}"), http_status=None, max_error_replies=config.max_error_replies)
+                return None
+            try:
+                parsed_response = orjson.loads(resp.content)
+            except (orjson.JSONDecodeError, ValueError):
+                parsed_response = None
+            if config.failure_handler(resp.status_code, parsed_response):
+                stats.record_failure(method, _summarise_error(resp.status_code, parsed_response), http_status=resp.status_code, max_error_replies=config.max_error_replies)
+                return None
+            return resp.status_code, resp.content
+
+        executor = ThreadPoolExecutor(max_workers=len(self.server.rpc_urls), thread_name_prefix=f"{self.server.proxy_name}-hedged")
+        try:
+            pending = {executor.submit(attempt, index) for index in range(len(self.server.rpc_urls))}
+            while pending:
+                done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for future in done:
+                    result = future.result()
+                    if result is not None:
+                        return result
+        finally:
+            executor.shutdown(wait=False)
+        return None
 
     def _try_upstream(self, url: str, body: bytes, timeout: float) -> requests.Response:
         """Make a single POST request to an upstream provider.

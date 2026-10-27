@@ -10,6 +10,10 @@ To run::
 
 import logging
 import shutil
+import threading
+import time
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import pytest
@@ -325,5 +329,73 @@ def test_proxy_answers_anvil_probe_methods_locally(two_anvil_upstreams: tuple[An
 
         # Ordinary methods still reach the upstreams
         assert _rpc_call(proxy.url, "eth_blockNumber")["result"].startswith("0x")
+    finally:
+        proxy.close()
+
+
+#: Delay of the slow upstream in :func:`slow_upstream_url`, in seconds.
+SLOW_UPSTREAM_DELAY = 3.0
+
+
+class _SlowNullHandler(BaseHTTPRequestHandler):
+    """Upstream that answers every JSON-RPC call with ``null`` after a delay."""
+
+    def do_POST(self) -> None:
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        time.sleep(SLOW_UPSTREAM_DELAY)
+        body = b'{"jsonrpc":"2.0","id":1,"result":null}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args) -> None:
+        pass
+
+
+@pytest.fixture()
+def slow_upstream_url() -> Iterator[str]:
+    """Start a local upstream that answers ``null`` after :data:`SLOW_UPSTREAM_DELAY`.
+
+    :return: Upstream URL.
+    """
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _SlowNullHandler)
+    server.daemon_threads = True
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_proxy_hedges_transaction_hash_lookups(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch], slow_upstream_url: str):
+    """A hash lookup is answered by the fastest upstream, not the current one.
+
+    1. Start a proxy whose current upstream answers after a delay
+    2. Look up an unknown transaction receipt through the proxy
+    3. Verify the fast upstream's reply arrives before the slow one could answer
+    4. Verify ordinary methods still use the slow current upstream
+    """
+    anvil_a, _ = two_anvil_upstreams
+
+    # 1. Start a proxy whose current upstream answers after a delay
+    proxy = start_rpc_proxy([slow_upstream_url, anvil_a.json_rpc_url])
+    try:
+        # 2. Look up an unknown transaction receipt through the proxy
+        started = time.time()
+        result = _rpc_call(proxy.url, "eth_getTransactionReceipt", ["0x" + "ab" * 32])
+
+        # 3. Verify the fast upstream's reply arrives before the slow one could answer
+        assert result["result"] is None
+        assert time.time() - started < SLOW_UPSTREAM_DELAY - 1
+        assert all(stats.method_counts["eth_getTransactionReceipt"] == 1 for stats in proxy.get_stats().values())
+
+        # 4. Verify ordinary methods still use the slow current upstream
+        started = time.time()
+        assert _rpc_call(proxy.url, "eth_chainId")["result"] is None
+        assert time.time() - started >= SLOW_UPSTREAM_DELAY
     finally:
         proxy.close()
