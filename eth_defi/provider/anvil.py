@@ -113,6 +113,10 @@ ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 #: keeps teardown from hanging.
 ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
 
+#: Gateway statuses the archive preflight retries within its attempt budget.
+#: The local failover proxy returns 502 after every upstream attempt failed.
+_TRANSIENT_GATEWAY_STATUSES = frozenset({502, 503, 504})
+
 #: Environment variable capping how many upstream compute units per second a
 #: forked Anvil spends (``anvil --compute-units-per-second``, default 330).
 #: Several parallel fork workers sharing one provider key exceed the provider's
@@ -529,7 +533,10 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         Bounded automatic proxy configuration.
     """
     assert provider_count >= 1, f"Anvil proxy needs at least one provider, got {provider_count}"
-    per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / provider_count
+    # A single upstream still gets two bounded attempts so one slow reply does
+    # not fail a fork; several upstreams get one attempt each.
+    retries = max(provider_count, 2)
+    per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / retries
     if per_provider_budget <= 10:
         # Requests applies the same value separately to connect and read when
         # both fit below its five-second connect cap.
@@ -538,7 +545,7 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         attempt_timeout = per_provider_budget - 5
     return RPCProxyConfig(
         timeout=min(ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT, attempt_timeout),
-        retries=provider_count,
+        retries=retries,
         backoff=0.0,
         # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
         switchover_log_level=logging.WARNING,
@@ -1164,6 +1171,19 @@ def _verify_archive_node_access(
                     timeout=timeout,
                     headers={"Content-Type": "application/json"},
                 )
+                if response.status_code in _TRANSIENT_GATEWAY_STATUSES and attempt + 1 < max_attempts:
+                    # The local failover proxy answers HTTP 502 when every upstream
+                    # attempt timed out. That is a transport failure of this probe,
+                    # not evidence that the provider lacks archive state.
+                    logger.warning(
+                        "Archive access probe for %s at block %d got HTTP %d; retrying transport (%d/%d)",
+                        get_url_domain(rpc_url),
+                        fork_block_number,
+                        response.status_code,
+                        attempt + 2,
+                        max_attempts,
+                    )
+                    continue
                 break
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
                 if attempt + 1 == max_attempts:
@@ -1742,6 +1762,8 @@ def launch_anvil(
                 # The preflight uses the same proxied request budget as the
                 # smoke test, not the shorter direct-provider timeout.
                 timeout=smoke_test_timeout,
+                # The proxy owns the failover budget (two bounded attempts for a
+                # single upstream, one per upstream otherwise), so probe it once.
                 max_attempts=1 if proxy is not None else 2,
             )
 
