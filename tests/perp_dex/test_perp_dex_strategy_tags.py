@@ -128,11 +128,13 @@ def test_pmalt_native_vaults_are_algorithmic_pair_trading() -> None:
     """pmalt's Hyperliquid and Lighter vaults have their maintained tags."""
     assert hyperliquid_tags.get_strategy_tags("0x4dec0a851849056e259128464ef28ce78afa27f6") == {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.perpetual_futures,
         StrategyTag.pair_trading,
     }
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552918") == {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.perpetual_futures,
         StrategyTag.pair_trading,
     }
@@ -228,6 +230,8 @@ def test_lighter_grid_description_is_tagged() -> None:
     ("resolve_tags", "address"),
     [
         pytest.param(hyperliquid_tags.get_strategy_tags, "0x1e37a337ed460039d1b15bd3bc489de789768d5e", id="growi-hf"),
+        pytest.param(hyperliquid_tags.get_strategy_tags, "0x4dec0a851849056e259128464ef28ce78afa27f6", id="pmalt-hyperliquid"),
+        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976552918", id="pmalt-lighter"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0x9b5b1931fa5838a891973f9877c7648c93ee80cc", id="growi-hf-2"),
         pytest.param(hibachi_tags.get_strategy_tags, "hibachi-vault-2", id="growi-alpha"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11", id="cold-process"),
@@ -253,6 +257,8 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
     """
     new_tag = StrategyTag.high_frequency_high_win_rate
     previous_tags = {
+        "0x4dec0a851849056e259128464ef28ce78afa27f6": {StrategyTag.pair_trading},
+        "lighter-pool-281474976552918": {StrategyTag.pair_trading},
         "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
