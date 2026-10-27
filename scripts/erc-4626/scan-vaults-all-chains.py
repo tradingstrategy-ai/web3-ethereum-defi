@@ -131,6 +131,8 @@ Environment variables:
     - XERBERUS_FETCH_REPORTS: "false" to skip dendrogram report URL backfill (default: "true")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
+    - MULTICALL_BATCH_SIZE: Regular encoded subcalls per request (default: "100");
+      set "40" to roll back payload size, including classification and token warmup.
     - FREQUENCY: "1h" or "1d" (default: "1h")
     - LOG_LEVEL: Logging level (default: "warning")
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)

@@ -42,7 +42,7 @@ from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626HistoricalReader, VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
@@ -259,12 +259,14 @@ class VaultHistoricalReadMulticaller:
         rpc_request_stats: RPCRequestStats | None = None,
         allow_greylist_unavailable: bool = False,
         greylist: frozenset[HexAddress] = frozenset(),
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     ) -> None:
         """Configure the multicall reader and its live-row retention state.
 
         The reader keeps source timestamps in memory for one scan. The Parquet
         writer seeds them from committed rows before the scan begins.
 
+        :param batch_size: Regular physical Multicall limit, including token warmup.
         :param greylist:
             Caller-selected vault/target addresses for this chain. The same policy
             controls request isolation and whole-observation deferral, preventing
@@ -306,6 +308,7 @@ class VaultHistoricalReadMulticaller:
                 assert isinstance(a, TokenDetails)
 
         self.supported_quote_tokens = supported_quote_tokens
+        self.batch_size = batch_size
         self.web3factory = web3factory
         self.max_workers = max_workers
         self.hypersync_client = hypersync_client
@@ -528,6 +531,8 @@ class VaultHistoricalReadMulticaller:
             chain_id=chain_id,
             web3factory=self.web3factory,
             addresses=addresses,
+            max_workers=self.max_workers,
+            batch_size=self.batch_size,
         )
 
         # Because of JSON-RPC eth_call asset() call in fetch_denomination_token()
@@ -764,6 +769,7 @@ class VaultHistoricalReadMulticaller:
                 rpc_request_stats=self.rpc_request_stats,
                 allow_greylist_unavailable=self.allow_greylist_unavailable,
                 greylist=self.greylist,
+                batch_size=self.batch_size,
             )
             if static_readers
             else ()
@@ -962,6 +968,7 @@ def scan_historical_prices_to_parquet(
     rpc_request_stats: RPCRequestStats | None = None,
     reader_state_journal_path: Path | None = None,
     greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> ParquetScanResult:
     """Scan vault prices and atomically update the shared raw Parquet file.
 
@@ -971,6 +978,7 @@ def scan_historical_prices_to_parquet(
     sparse value-change sampling. Monad scans start at the provider's readable
     historical-state boundary and preserve earlier committed rows.
 
+    :param batch_size: Regular physical Multicall limit, including token warmup.
     :param greylist:
         Caller-selected vault/target addresses for this chain, empty by default.
         Shared with the Multicall workers and preservation filter so unavailable
@@ -1162,6 +1170,7 @@ def scan_historical_prices_to_parquet(
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
+        batch_size=batch_size,
         max_workers=max_workers,
         token_cache=token_cache,
         require_multicall_result=require_multicall_result,

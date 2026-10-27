@@ -462,7 +462,9 @@ class MorphoV2Vault(ERC4626Vault):
             extra_data={"vault": self.address},
         )
         try:
-            data = fee_call.call(self.web3, block_identifier)
+            data = self._get_metadata_input("managementFee", block_identifier)
+            if data is None:
+                data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
             logger.warning(
                 "Management fee read reverted on Morpho V2 vault %s: %s",
@@ -491,7 +493,9 @@ class MorphoV2Vault(ERC4626Vault):
             extra_data={"vault": self.address},
         )
         try:
-            data = fee_call.call(self.web3, block_identifier)
+            data = self._get_metadata_input("performanceFee", block_identifier)
+            if data is None:
+                data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
             logger.warning(
                 "Performance fee read reverted on Morpho V2 vault %s: %s",
@@ -594,6 +598,18 @@ class MorphoV2Vault(ERC4626Vault):
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get Morpho V2-specific historical reader with utilisation metrics."""
         return MorphoV2VaultHistoricalReader(self, stateful)
+
+    def fetch_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
+        """Reuse one idle observation for Morpho v2 lending economics.
+
+        Metadata has already read total assets at this block. The shared helper
+        preserves zero-assets handling and the unclamped utilisation formula.
+
+        :param total_assets: Previously observed assets in denomination units.
+        :param block_identifier: Common numeric source block.
+        :return: Idle liquidity and the allocated-assets fraction.
+        """
+        return self.fetch_idle_lending_snapshot(total_assets, block_identifier)
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.

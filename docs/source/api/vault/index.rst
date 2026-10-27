@@ -19,6 +19,10 @@ The `vault scan manifest contract <https://github.com/tradingstrategy-ai/web3-et
 describes private R2 keys, freshness timestamps and cache policy for live
 strategy readiness polling.
 
+:meth:`eth_defi.vault.base.VaultBase.get_fee_data` accepts an optional source
+block. Reviewed metadata adapters use it to keep prepared fees and valuations
+at the same numeric block while no-argument callers retain latest-state reads.
+
 .. autosummary::
    :toctree: _autosummary_vault
    :recursive:

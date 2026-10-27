@@ -89,6 +89,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip
 from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoryCoverageError, fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
+from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -815,7 +816,7 @@ def scan_vaults_for_chain(
             assert existing_db is not None
             assert state is not None
             last_block = existing_db.last_scanned_block[chain_id]
-            pending_candidates = resume_pending_vault_metadata(web3, rpc_url, vault_db_path, max_workers, stats)
+            pending_candidates = resume_pending_vault_metadata(web3, rpc_url, vault_db_path, max_workers, stats, batch_size=get_multicall_batch_size_from_env())
             gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
             if yield_basis_preparation is not None:
                 yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
@@ -851,6 +852,7 @@ def scan_vaults_for_chain(
             signature,
         )
         report = scan_leads(
+            batch_size=get_multicall_batch_size_from_env(),
             json_rpc_urls=rpc_url,
             vault_db_file=vault_db_path,
             max_workers=max_workers,
@@ -1163,7 +1165,7 @@ def scan_prices_for_chain(
             # change the meaning of reader eligibility.
             stats.operation = "tvl_admission"
             candidates_by_address = {vault.address.lower(): detection for detection, vault in low_activity_candidates}
-            probes = fetch_batched_tvl_probes([vault for _, vault in low_activity_candidates], web3factory, current_end_block, max_workers)
+            probes = fetch_batched_tvl_probes([vault for _, vault in low_activity_candidates], web3factory, current_end_block, max_workers, batch_size=get_multicall_batch_size_from_env())
             for vault, tvl_usd, unknown_conversion in tqdm(probes, total=len(low_activity_candidates), desc=f"Checking low-activity TVL on chain {chain_id}"):
                 detection = candidates_by_address[vault.address.lower()]
                 spec = VaultSpec(chain_id, detection.address.lower())
@@ -1387,6 +1389,7 @@ def scan_prices_for_chain(
                 # where an orphaned subscription has no replacement event.
                 repair_vaults = [vault for vault in antarctic_vaults if vault.address in antarctic_prefill.repair_from_blocks]
                 repair = scan_historical_prices_to_parquet(
+                    batch_size=get_multicall_batch_size_from_env(),
                     output_fname=uncleaned_price_path,
                     web3=web3,
                     web3factory=web3factory,
@@ -1430,6 +1433,7 @@ def scan_prices_for_chain(
                 source_start = max(vault.product.deployment_block, start_block or 0)
                 validate_infinit_price_coverage(uncleaned_price_path, vault.historical_context_path, vault.product, source_start, source_end)
                 infinit_result = scan_historical_prices_to_parquet(
+                    batch_size=get_multicall_batch_size_from_env(),
                     output_fname=uncleaned_price_path,
                     web3=web3,
                     web3factory=web3factory,
@@ -1480,6 +1484,7 @@ def scan_prices_for_chain(
         # Scan historical prices
         stats.operation = "historical_multicall"
         result = scan_historical_prices_to_parquet(
+            batch_size=get_multicall_batch_size_from_env(),
             output_fname=uncleaned_price_path,
             web3=web3,
             web3factory=web3factory,

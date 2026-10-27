@@ -1810,9 +1810,14 @@ class VaultBase(ABC):
         protocol = self.get_protocol_name()
         return get_vault_fee_mode(protocol, address)
 
-    def get_fee_data(self) -> FeeData:
+    def get_fee_data(self, block_identifier: BlockIdentifier = "latest") -> FeeData:
         """Get fee data structure for this vault.
 
+        Component fee reads share the requested block. Existing no-argument
+        callers retain latest-state behaviour.
+
+        :param block_identifier: Common fee source block, default latest.
+        :return: Fee mode and component fractions.
         :raise ValueError:
             In the case of broken or unimplemented fee reading methods in the smart contract
         """
@@ -1821,10 +1826,10 @@ class VaultBase(ABC):
 
         fees = FeeData(
             fee_mode=fee_mode,
-            management=self.get_management_fee(block_identifier="latest"),
-            performance=self.get_performance_fee(block_identifier="latest"),
-            deposit=self.get_deposit_fee(block_identifier="latest"),
-            withdraw=self.get_withdraw_fee(block_identifier="latest"),
+            management=self.get_management_fee(block_identifier=block_identifier),
+            performance=self.get_performance_fee(block_identifier=block_identifier),
+            deposit=self.get_deposit_fee(block_identifier=block_identifier),
+            withdraw=self.get_withdraw_fee(block_identifier=block_identifier),
         )
         return fees
 

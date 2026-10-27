@@ -17,22 +17,26 @@ from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626Vault, VaultReaderState
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, EncodedCall, read_multicall_chunked
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
+from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultBase
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factory: MultiProviderWeb3Factory, block_identifier: int, max_workers: int, *, batch_size: int = 40) -> dict[str, dict]:
+def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factory: MultiProviderWeb3Factory, block_identifier: int, max_workers: int, *, batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE, include_optional: bool = False) -> dict[str, dict]:
     """Read ordinary metadata inputs in shared batches at one source block.
 
-    Only generic ERC-4626, Morpho v1 and IPOR are enabled initially. Adapter
+    Only generic ERC-4626, Morpho v1/v2 and IPOR are enabled. Adapter
     consumers additionally verify method identity and the source block.
-    HyperEVM and custom share-token paths keep their specialised reads.
+    HyperEVM and other adapter families keep their specialised reads.
 
     Called by lead discovery and pending-metadata recovery after scheduling has
     selected candidates. These are raw inputs, not final metadata records:
@@ -45,12 +49,13 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
     :param block_identifier: Common numeric block for this bounded batch.
     :param max_workers: Maximum threaded read concurrency.
     :param batch_size:
-        Positive maximum encoded subcalls per chunk, default 40. Each vault
-        contributes four subcalls, so this counts calls rather than vaults.
-        Discovery and pending-metadata recovery use the default; direct callers
-        can pass a smaller limit for a constrained provider. Existing Multicall
+        Positive maximum encoded subcalls per chunk, default 100. Each vault
+        contributes four core subcalls, plus optional paused/fee probes when
+        requested. This counts calls rather than vaults. Scanner entrypoints
+        can override the default for a constrained provider. Existing Multicall
         chain limits and failure handling may further split a chunk.
     :return: Lower-case address to successful raw inputs and source block.
+    :param include_optional: Include reviewed paused/fee inputs in the core pass.
     :raises ValueError: If batch_size is not positive.
     """
     if batch_size <= 0:
@@ -58,23 +63,142 @@ def fetch_metadata_snapshots(detections: list[ERC4262VaultDetection], web3factor
     # This allowlist is deliberately narrower than the ERC-4626 interface.
     # Protocol detection does not prove that an adapter's asset/share methods
     # have standard semantics. Extend it only alongside adapter parity checks.
-    eligible = [d for d in detections if d.chain != 999 and (not d.features or d.features <= {ERC4626Feature.morpho_like, ERC4626Feature.ipor_like})]
+    eligible = [d for d in detections if _metadata_adapter(d) is not None]
+    if len({d.chain for d in detections}) > 1:
+        raise ValueError("Metadata batches must contain one chain")
+    if type(block_identifier) is not int:
+        raise ValueError("Metadata source block must be numeric")
     if not eligible:
         return {}
-    # Batch limits count encoded subcalls, not vaults (four per candidate here).
+    # Batch limits count encoded subcalls, not vaults.
     # Metadata consumers need the source block but no block timestamp, so
     # timestamped_results=False avoids an otherwise redundant RPC per chunk.
-    calls = [EncodedCall.from_keccak_signature(address=Web3.to_checksum_address(detection.address), function=function, signature=Web3.keccak(text=function + "()")[:4], data=b"", extra_data={}) for detection in eligible for function in ("asset", "totalAssets", "totalSupply", "share")]
+    calls = []
+    for detection in eligible:
+        functions = ["asset", "totalAssets", "totalSupply", "share"]
+        if include_optional:
+            adapter = _metadata_adapter(detection)
+            functions.append("paused")
+            if adapter is MorphoV1Vault:
+                functions.append("fee")
+            elif adapter is MorphoV2Vault:
+                functions.extend(("performanceFee", "managementFee"))
+        calls.extend(EncodedCall.from_keccak_signature(address=Web3.to_checksum_address(detection.address), function=function, signature=Web3.keccak(text=function + "()")[:4], data=b"", extra_data={}) for function in functions)
+
     snapshots = {}
-    for result in read_multicall_chunked(eligible[0].chain, web3factory, calls, block_identifier=block_identifier, max_workers=max_workers, chunk_size=batch_size, timestamped_results=False, backend="threading", progress_bar_desc="Batched metadata inputs", rpc_request_stats=web3factory.rpc_request_stats):
+    for result in read_multicall_chunked(eligible[0].chain, web3factory, calls, block_identifier=block_identifier, max_workers=max_workers, chunk_size=batch_size, batch_size=batch_size, timestamped_results=False, backend="threading", progress_bar_desc="Batched metadata inputs", rpc_request_stats=web3factory.rpc_request_stats):
         snapshot = snapshots.setdefault(result.call.address.lower(), {"block": block_identifier})
         if result.success and len(result.result) == 32:
             snapshot[result.call.func_name] = result.result
+        elif not result.success and result.call.func_name == "paused" and include_optional:
+            snapshot["paused_reverted"] = True
         elif not result.success and result.call.func_name == "share":
             # Ordinary vaults are their own share token when share() reverts.
             # Empty successful data is not proof of that convention; leave it
             # absent so the adapter performs its normal validation/fallback.
             snapshot["share_reverted"] = True
+    return snapshots
+
+
+def _metadata_adapter(detection: ERC4262VaultDetection) -> type[ERC4626Vault] | None:
+    """Select only the exact feature sets whose raw inputs have been reviewed.
+
+    Specialised or ambiguous detections retain adapter-owned reads. Ordinary
+    ERC-4626 semantics are defined at https://eips.ethereum.org/EIPS/eip-4626.
+
+    :param detection: Candidate with chain and classifier features.
+    :return: Reviewed adapter class, or None when batching is inappropriate.
+    """
+    if detection.chain == 999:
+        return None
+    families = {frozenset(): ERC4626Vault, frozenset({ERC4626Feature.morpho_like}): MorphoV1Vault, frozenset({ERC4626Feature.ipor_like}): IPORVault, frozenset({ERC4626Feature.morpho_v2_like}): MorphoV2Vault}
+    return families.get(frozenset(detection.features))
+
+
+def is_metadata_snapshot_compatible(vault: VaultBase, snapshot: dict, block_identifier: int) -> bool:
+    """Validate ephemeral input identity before attaching it to an adapter.
+
+    Exact adapter classes exclude specialised subclasses with different
+    economics. Legacy core-only snapshots retain their existing block check.
+
+    :param vault: Actual constructed adapter, never a planning-only instance.
+    :param snapshot: Raw observations from metadata preparation.
+    :param block_identifier: Requested numeric metadata source block.
+    :return: Whether the snapshot can be consumed by this adapter.
+    """
+    if type(vault) not in (ERC4626Vault, MorphoV1Vault, IPORVault, MorphoV2Vault):
+        return False
+    if snapshot.get("block") != block_identifier:
+        return False
+    if "adapter" not in snapshot:
+        return True
+    return snapshot.get("adapter") == type(vault).__name__ and snapshot.get("chain") == vault.chain_id and snapshot.get("vault") == vault.address.lower()
+
+
+def prepare_metadata_batch(
+    detections: list[ERC4262VaultDetection],
+    web3factory: MultiProviderWeb3Factory,
+    block_identifier: int,
+    max_workers: int,
+    token_cache: TokenDiskCache,
+    *,
+    min_lending_nav: Decimal,
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
+) -> dict[str, dict]:
+    """Prepare shared metadata, token details and eligible idle balances.
+
+    Normal discovery and retry recovery use the same fixed-block inputs.
+    Exhausted transport failures propagate before any per-vault fallback work;
+    snapshots and partially completed batches are never durable catalogue state.
+
+    :param detections: Due candidates from one chain.
+    :param web3factory: Verified-chain worker factory with request accounting.
+    :param block_identifier: Numeric block for all economic inputs.
+    :param max_workers: Maximum concurrent threaded batch reads.
+    :param token_cache: Caller-owned token cache, warmed before metadata workers.
+    :param min_lending_nav: Existing scan eligibility threshold in token units.
+    :param batch_size: Positive regular payload limit, also used for token warmup.
+    :return: Lower-case vault address to ephemeral source-identified snapshots.
+    """
+    snapshots = fetch_metadata_snapshots(detections, web3factory, block_identifier, max_workers, batch_size=batch_size, include_optional=True)
+    if not snapshots:
+        return snapshots
+    by_address = {d.address.lower(): d for d in detections}
+    token_addresses = set()
+    for address, snapshot in snapshots.items():
+        detection = by_address[address]
+        snapshot.update(chain=detection.chain, vault=address, adapter=_metadata_adapter(detection).__name__)
+        token_addresses.add(Web3.to_checksum_address(address))
+        for field in ("asset", "share"):
+            value = snapshot.get(field)
+            if value is not None and any(value) and not any(value[:12]):
+                token_addresses.add(Web3.to_checksum_address("0x" + value[-20:].hex()))
+    chain_id = detections[0].chain
+    token_cache.load_token_details_with_multicall(chain_id, web3factory, sorted(token_addresses), block_identifier=block_identifier, max_workers=max_workers, batch_size=batch_size, display_progress=True)
+    web3 = web3factory()
+    idle_calls = []
+    for address, snapshot in snapshots.items():
+        if snapshot["adapter"] not in ("MorphoV1Vault", "MorphoV2Vault", "IPORVault"):
+            continue
+        asset, assets = snapshot.get("asset"), snapshot.get("totalAssets")
+        if asset is None or assets is None or any(asset[:12]) or not any(asset):
+            continue
+        token_address = Web3.to_checksum_address("0x" + asset[-20:].hex())
+        entry = token_cache.get(TokenDetails.generate_cache_key(chain_id, token_address))
+        # Supported scanner denomination tokens have positive decimals. Zero is
+        # expected unavailable metadata; retain adapter fallback, without new
+        # token-cache provenance fields or a zero-decimal support path.
+        if entry is None or not 0 < entry.get("decimals", 0) <= 255:
+            continue
+        token = fetch_erc20_details(web3, token_address, chain_id=chain_id, cache=token_cache)
+        if token.convert_to_decimals(int.from_bytes(assets, "big")) <= min_lending_nav:
+            continue
+        snapshot["idle_token"] = token_address.lower()
+        idle_calls.append(EncodedCall.from_keccak_signature(address=token_address, function="balanceOf", signature=Web3.keccak(text="balanceOf(address)")[:4], data=bytes.fromhex(address[2:]).rjust(32, b"\0"), extra_data={"vault": address}))
+    for result in read_multicall_chunked(chain_id, web3factory, idle_calls, block_identifier=block_identifier, max_workers=max_workers, chunk_size=batch_size, batch_size=batch_size, timestamped_results=False, backend="threading", rpc_request_stats=web3factory.rpc_request_stats):
+        if result.success and len(result.result) == 32:
+            snapshots[result.call.extra_data["vault"]]["idle_balance"] = result.result
+    logger.info("Prepared metadata: candidates=%d snapshots=%d tokens=%d idle_subcalls=%d", len(detections), len(snapshots), len(token_addresses), len(idle_calls))
     return snapshots
 
 
@@ -111,7 +235,7 @@ def fetch_current_vault_tvl_usd(vault: VaultBase) -> tuple[Decimal | None, bool]
         return None, False
 
 
-def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProviderWeb3Factory, block_identifier: int, max_workers: int, *, batch_size: int = 40) -> Iterator[tuple[VaultBase, Decimal | None, bool]]:
+def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProviderWeb3Factory, block_identifier: int, max_workers: int, *, batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE) -> Iterator[tuple[VaultBase, Decimal | None, bool]]:
     """Batch canonical total assets and preserve specialised NAV conversions.
 
     Method-identity checks keep adapters with overridden NAV/assets paths on
@@ -128,10 +252,10 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
     :param block_identifier: Numeric source block for ordinary batched reads.
     :param max_workers: Maximum threaded read concurrency.
     :param batch_size:
-        Positive maximum encoded subcalls per chunk, default 40. Each ordinary
+        Positive maximum encoded subcalls per chunk, default 100. Each ordinary
         vault contributes one totalAssets subcall. The all-chain admission
-        selector uses the default; direct callers can pass a smaller limit for
-        a constrained provider. Existing Multicall chain limits and failure
+        selector passes the scanner's configured limit; direct callers can
+        override it as well. Existing Multicall chain limits and failure
         handling may further split a chunk. Specialised reads are unaffected.
     :return:
         Iterator of ``(vault, tvl_usd, unsupported_conversion)`` tuples.
@@ -189,7 +313,7 @@ def fetch_batched_tvl_probes(vaults: list[VaultBase], web3factory: MultiProvider
     if calls:
         observed = set()
         try:
-            for result in read_multicall_chunked(ordinary[0].chain_id, web3factory, calls, block_identifier=block_identifier, max_workers=max_workers, chunk_size=batch_size, timestamped_results=False, backend="threading", progress_bar_desc="Batched admission TVL", rpc_request_stats=web3factory.rpc_request_stats):
+            for result in read_multicall_chunked(ordinary[0].chain_id, web3factory, calls, block_identifier=block_identifier, max_workers=max_workers, chunk_size=batch_size, batch_size=batch_size, timestamped_results=False, backend="threading", progress_bar_desc="Batched admission TVL", rpc_request_stats=web3factory.rpc_request_stats):
                 vault = by_address[result.call.address.lower()]
                 observed.add(vault.address.lower())
                 if not result.success or len(result.result) != 32:

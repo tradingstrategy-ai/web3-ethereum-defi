@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 from eth_abi import encode
 from eth_abi.exceptions import DecodingError
+from eth_typing import BlockIdentifier
 from web3 import Web3
 
 from eth_defi.abi import get_abi_by_filename
@@ -18,6 +19,7 @@ from eth_defi.mellow.discovery import decode_mellow_created_event, fetch_mellow_
 from eth_defi.mellow.offchain_metadata import MellowApiVaultMetadata
 from eth_defi.mellow.vault import MellowVault
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.fee import BROKEN_FEE_DATA
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
 TOPIC_HEX_LENGTH = 66
@@ -176,6 +178,31 @@ def test_mellow_fee_accessors_match_vault_base_surface() -> None:
         base_parameters = tuple(inspect.signature(base_method).parameters)
         mellow_parameters = tuple(inspect.signature(mellow_method).parameters)
         assert mellow_parameters == base_parameters
+
+
+@pytest.mark.parametrize("block_identifier,expected", [(None, 123), ("latest", "latest"), (456, 456)])
+def test_mellow_fee_data_uses_requested_block(monkeypatch: pytest.MonkeyPatch, block_identifier: BlockIdentifier | None, expected: BlockIdentifier) -> None:
+    """Keep default metadata reads pinned while honouring explicit fee blocks.
+
+    A served missing configuration returns the existing unavailable-fee marker;
+    selecting a block must not cause a second configuration read.
+
+    :param monkeypatch: Replace the configuration fetch without network access.
+    :param block_identifier: Explicit fee source, or an omitted argument.
+    :param expected: Source passed to the configuration read.
+    :return: None.
+    """
+    vault = MellowVault(Web3(), VaultSpec(1, LIDO_EARN_USD_VAULT), default_block_identifier=123)
+    blocks = []
+
+    def fetch_configuration(block: BlockIdentifier) -> None:
+        """Record the requested source and return an unavailable configuration."""
+        blocks.append(block)
+
+    monkeypatch.setattr(vault, "fetch_fee_configuration", fetch_configuration)
+    fees = vault.get_fee_data() if block_identifier is None else vault.get_fee_data(block_identifier)
+    assert fees is BROKEN_FEE_DATA
+    assert blocks == [expected]
 
 
 def test_mellow_factory_registry_matches_documented_core_deployments(monkeypatch: pytest.MonkeyPatch) -> None:
