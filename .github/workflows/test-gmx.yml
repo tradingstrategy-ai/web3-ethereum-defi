@@ -176,6 +176,10 @@ jobs:
           export TEST_RESOURCES_DIR=test-resources
           poetry run pytest --junitxml=test-results.xml tests/gmx/ --timeout-method=thread --tb=native -n 4 --dist loadgroup -v -s --capture=no
         env:
+          # Parallel fork workers share one provider key; cap each Anvil's upstream
+          # request rate (default 330) so cold reads queue locally instead of
+          # drawing HTTP 429 replies that stall the fork mid-request.
+          ANVIL_COMPUTE_UNITS_PER_SECOND: "150"
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
