@@ -15,6 +15,12 @@
 - fix: Point `DeriveApiClient` at the Derive v3 API with the `X-DeriveWallet`, `X-DeriveTimestamp` and `X-DeriveSignature` headers, discover subaccounts through the public v3 endpoint and read v3 collateral balances, as the v2 API at `api.lyra.finance` is shut down (2026-10-27).
 - fix: Whitelist ERC-4626 vaults on HyperEVM two per GuardV0 multicall: a `whitelistERC4626()` call writes about 30 storage slots, so a batch of the generic 40 ran out of a HyperEVM fast block's 2M gas and reverted the satellite guard setup (2026-10-27).
 - fix: Build HyperCore deposit and withdrawal calls for a `LagoonSatelliteVault` on HyperEVM, which has no vault contract or `spec`; its Safe's USDC is the chain's native USDC (2026-10-27).
+- fix: Fund multichain Lighter activation directly from 1 prefunded Ethereum USDC, removing the deployment-time hub subscription and CCTP bridge (2026-10-27).
+
+- feat: Require prefunded gas and native USDC on every chain in manual Lagoon deployments, and add an opt-in Ethereum USDC transfer to the LI.FI gas distribution script (2026-10-27).
+
+- feat: Add a three-chain Lagoon manual tutorial with Arbitrum subscriptions, Hypercore and Lighter satellite investments, saved-state manual unwind and full fork simulation (2026-10-27).
+
 - feat: Add Lighter Core pool execution helpers and accounted Ethereum satellite activation for multichain Lagoon deployments, with protected key backups and manual lifecycle scripts (2026-10-27).
 - chore: Disable Aave v2/v3 integration tests, the Hardhat-based Aave test deployment, its Anvil saved state and the Aave ABI builds as unsupported until a reintegration with Aave v4, and upgrade the CI Foundry/Anvil toolchain from v1.3.2 to v1.8.6 so the committed fork RPC cache seeds load again (2026-10-27).
 - fix: Alias committed Anvil fork cache seeds to Anvil 1.8's per-endpoint `storage-<keccak256(fork_url)>.json` name and merge them back on shutdown, count `transaction already imported` replies as successful broadcasts, and wait for receipts in tests that read state right after sending, because Anvil 1.8 automines asynchronously (2026-10-27).

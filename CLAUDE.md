@@ -12,6 +12,10 @@ touches the relevant area:
 - `docs/README-lighter-core-execution.md` — read before changing Lighter pool
   execution or multichain activation scripts; covers script defaults, custody
   boundaries, recovery and the remaining funded verification requirements.
+- [`.claude/docs/manual-tutorial-script.md`](.claude/docs/manual-tutorial-script.md)
+  — read before creating or materially changing manual deployment, trading or
+  vault-lifecycle tutorial scripts; covers structure, existing examples, execution
+  modes, sensible defaults, delayed unwinding and recovery guidance.
 
 ## Agents
 

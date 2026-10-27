@@ -26,10 +26,50 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
-from eth_defi.token import TokenDiskCache
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDiskCache, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
+
+
+#: Deployer-owned contingency reserve on each satellite, outside vault NAV.
+SATELLITE_DEPLOYER_USDC = Decimal("1")
+
+
+def check_multichain_deployer_funding(
+    chain_web3: dict[str, Web3],
+    deployer: HexAddress,
+    hub_chain: str,
+    subscription: Decimal,
+) -> None:
+    """Require prefunded native gas and USDC before a manual deployment.
+
+    The hub needs the full subscription and each satellite needs a small
+    deployer-owned reserve. Reserves are not deposited into the Safes and must
+    not be counted in Lagoon NAV. A positive gas balance is a basic preflight,
+    not a guarantee that it covers deployment and a later unwind.
+
+    :param chain_web3: Already chain-checked RPC connections.
+    :param deployer: Investor/deployer wallet, not the deterministic Safe.
+    :param hub_chain: Chain receiving the accounted subscription.
+    :param subscription: Human-readable USDC required on the hub.
+    :return: None if all funding checks pass; otherwise raise ValueError.
+    """
+    assert hub_chain in chain_web3
+    assert subscription.is_finite() and subscription > 0
+    missing = []
+    for chain, web3 in chain_web3.items():
+        token = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
+        usdc = token.fetch_balance_of(deployer)
+        native = web3.eth.get_balance(deployer)
+        required = subscription if chain == hub_chain else SATELLITE_DEPLOYER_USDC
+        logger.info("Deployer funding on %s: %s native, %s USDC (required %s USDC)", chain, web3.from_wei(native, "ether"), usdc, required)
+        if native <= 0:
+            missing.append(f"{chain}: native gas balance is zero")
+        if usdc < required:
+            missing.append(f"{chain}: needs {required} native USDC, has {usdc}")
+    if missing:
+        raise ValueError("Prefund deployer " + deployer + " before deployment: " + "; ".join(missing) + ". See scripts/lifi/feed-cross-chain.py for gas and optional Ethereum USDC funding.")
 
 
 def fund_lagoon_vault(  # noqa: PLR0917

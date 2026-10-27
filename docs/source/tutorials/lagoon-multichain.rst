@@ -133,7 +133,8 @@ You need:
 
 - A deployer wallet with native gas tokens on all target chains
   (ETH on Arbitrum/Ethereum/Base, HYPE on HyperEVM, MON on Monad)
-- At least 2 USDC on the source chain for vault funding and bridge testing
+- At least 2 native USDC on the source chain for vault funding and bridge testing
+- At least 1 native USDC in the deployer wallet on every satellite chain
 - RPC URLs for all chains (archive nodes recommended)
 - Refer to the script source below for the full list of environment variables
 
@@ -215,29 +216,156 @@ Manual Lighter satellite deployment
 ``scripts/lagoon/deploy-lagoon-lighter-multichain.py`` extends this deployment
 pattern with an Ethereum satellite Safe for Lighter Core. It defaults to a
 HyperEVM hub with Hypercore HLP and Felix USDC ERC-4626 permissions. All
-contracts are deployed before the hub subscription, CCTP bridge and Lighter
-activation. The deployer remains the sole owner of each test Safe.
+contracts are deployed before activation. The deployer remains the sole owner
+of each test Safe.
 
-Load ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY`` and the selected chain RPC variables
-from your private environment. The deployer needs at least 20 native USDC on
-the hub and gas tokens on all selected chains. The bridge fee ceiling defaults to 0.01 USDC within that subscription. Run:
+Load ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY`` and the selected RPC variables from
+your private environment. Prefund the deployer with **1 native USDC on Ethereum**
+and native gas on all selected chains. This deployment-only script requires no
+USDC on the hub or other satellites. Use :ref:`lifi-feed-crosschain` and its
+optional ``ETHEREUM_USDC_AMOUNT`` transfer to prepare the Ethereum wallet.
 
 .. code-block:: shell
 
     PREFLIGHT_ONLY=true poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
     poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
 
-The second command sends real mainnet transactions. Set
-``CHAINS=base,hyperliquid,ethereum`` to test CCTP Fast Transfer from Base;
-HyperEVM uses its already-fast standard finality. The script checks live fees
-and allowance before burning and waits for actual destination USDC.
+The second command sends real mainnet transactions. After all contracts exist,
+it transfers exactly 1 USDC from the deployer's Ethereum wallet to the satellite
+Safe, deposits through the Lighter guard, then registers and verifies the API key.
+There is no hub subscription, CCTP fee setting, burn, attestation or relay during
+activation. CCTP permissions remain configured for subsequent strategy transfers.
 
-The mode-0600 JSONL report contains the generated Lighter API private key,
+The activation amount is a deployer contribution, with no Lagoon shares issued.
+Its resulting collateral must be included once in initial multichain NAV before
+settling future subscriptions. The protected report distinguishes the contribution
+from subscription capital and records its funding transaction.
+
+The mode-0600 JSONL report also contains the generated Lighter API private key,
 saved before registration, and progress for manual recovery. Re-running starts
 a fresh deployment; reconcile any incomplete operation first. This checks
 deployment and activation only. Pool investment, withdrawal and multichain NAV
 conservation require a separate lifecycle test. See the script's module
 docstring for all environment variables and recovery limitations.
+
+.. _lagoon-multichain-core-roundtrip:
+
+Manual Core investment and delayed unwind
+-----------------------------------------
+
+``scripts/lagoon/lagoon-multichain-core-roundtrip.py`` deploys the main Lagoon
+vault on Arbitrum and satellite Safes on Ethereum and HyperEVM. It subscribes
+accounted capital, bridges native USDC, and invests in one open Hypercore user
+vault and one Lighter public pool. The deployer is the sole Safe owner and
+manager for this manual test.
+
+Load ``JSON_RPC_ARBITRUM``, ``JSON_RPC_ETHEREUM``, ``JSON_RPC_HYPERLIQUID`` and,
+for live transactions, ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY`` from a private
+environment. Install the optional Lighter SDK using the pinned instructions in
+``scripts/lagoon/lagoon-lighter-trade-example.py``. Live deployment needs ETH on
+Arbitrum/Ethereum, HYPE on HyperEVM, at least 1 native USDC on each satellite,
+and the following Arbitrum USDC budget:
+
+=============================== ===========
+Allocation                      USDC
+=============================== ===========
+Hypercore position + activation 12.00
+Lighter position + activation   11.00
+Outbound bridge fee ceilings    0.02
+Initial funding floor           23.02
+Default subscription            25.00
+=============================== ===========
+
+The deployer must be prefunded on **every chain before starting**. At the defaults,
+this means 27 USDC total: 25 on Arbitrum, 1 on Ethereum and 1 on HyperEVM.
+Satellite reserves remain in the deployer wallet and are excluded from vault NAV,
+subscription proceeds and final redemption. Investment capital still reaches the
+Safes through the accounted hub subscription and CCTP transfers.
+
+These amounts assume the deployer is already an activated Hypercore user.
+HyperEVM gas funding alone does not activate that account, which is required
+to enable large blocks for contract deployment. The tutorial checks this before
+deploying any chain. Check with
+:py:func:`eth_defi.hyperliquid.evm_escrow.is_account_activated`; the existing
+:py:func:`eth_defi.hyperliquid.evm_escrow.activate_account_sponsored` helper can
+activate the deployer's own address using an additional 2 HyperEVM USDC.
+Keep the 1-USDC reserve afterwards. Alternatively, use the documented
+`native HYPE transfer to Core <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers>`_.
+This separate deployer activation is outside Lagoon accounting.
+
+Use the :ref:`gas distribution script <lifi-feed-crosschain>` before deployment.
+Its optional ``ETHEREUM_USDC_AMOUNT=5`` adds an Ethereum USDC transfer;
+``DRY_RUN=true`` shows quotes without spending. Prefund HyperEVM USDC separately.
+Check that the remaining Arbitrum balance still covers the subscription after
+funding transfers and fees. Non-zero gas checks do not guarantee enough gas for
+deployment and tomorrow's unwind; keep a buffer on each chain.
+
+Return fees come from recovered funds. Activation deposits include recoverable
+collateral; they are not entirely spent fees. A 5-USDC allocation per protocol
+can use a 15-USDC subscription plus the two 1-USDC satellite reserves
+(17 USDC total), subject to current pool constraints.
+
+.. code-block:: shell
+
+    # Day one: deploy, invest, save state and exit.
+    poetry run python scripts/lagoon/lagoon-multichain-core-roundtrip.py
+
+    # Read-only diagnostics, including actual locks and pending operations.
+    ACTION=status poetry run python scripts/lagoon/lagoon-multichain-core-roundtrip.py
+
+    # Run manually after unlock; repeat if settlement/liquidity remains pending.
+    ACTION=unwind poetry run python scripts/lagoon/lagoon-multichain-core-roundtrip.py
+
+    # Entire local fork workflow with explicit Core mocks and no lock delay.
+    SIMULATE=true poetry run python scripts/lagoon/lagoon-multichain-core-roundtrip.py
+
+Hypercore user-vault locks and current withdrawal liquidity determine when exit
+is possible. HLP and LLP are excluded from automatic selection. The Lighter
+position remains open until manual unwind; redemption, secure withdrawal and
+Ethereum claim are separate stages. The script does not wait overnight or
+schedule future transactions. Exit code 2 means a known pending delay; code 1
+means failure or uncertain execution. Code 0 means the requested command
+completed; read the outcome to distinguish ``invested`` from final redemption.
+
+State defaults to
+``~/.tradingstrategy/lagoon-multichain-core-roundtrip/mainnet/state.json``.
+It stores the original deployment, targets, signed-operation identities and
+withdrawal/bridge evidence. The generated Lighter key is backed up in an adjacent
+0600 file. ``STATE_PATH`` optionally selects a new run location; deployment never
+overwrites a prior run. Status requires no EOA key. Unwind loads current holdings,
+reconciles original submissions, returns both satellites' capital and redeems
+through Lagoon. A terminal unwind is safe to repeat. Ambiguous Core execution
+requires inspection rather than automatically submitting another action.
+
+``USDC_AMOUNT``, ``POSITION_USDC``, ``CCTP_MAX_FEE_USDC``,
+``MAX_RESIDUAL_USDC`` and target overrides are optional; see the module docstring
+for defaults. The default aggregate residual budget is 0.01 USDC, only for
+measured non-recoverable cash after positions/receivables are resolved. Such a
+run ends as ``redeemed_with_dust``, with its amount/location disclosed. A zero
+residual budget requires an exact drain.
+
+Simulation uses canonical-block Anvil forks and real Lagoon/Safe/guard/CCTP and
+Lighter custody calls. Only Core sequencing, API signatures, prices and proof
+settlement are mocked. It reloads state between investment and exit, models a
+small gain, checks cash conservation and repeats the terminal unwind to check
+idempotence. Simulation uses a separate state directory and needs no real key
+or funds. Its ephemeral forks cannot be resumed after shutdown. A simulation
+pass does not establish live sequencer or funded lifecycle readiness.
+
+================================ ================================================
+Observation                      Next action
+================================ ================================================
+Position locked or pool illiquid  Use status; repeat unwind after the reported delay
+CCTP burn awaiting settlement    Reconcile/relay the saved message; do not burn again
+Core receipt but no investment   Inspect spot/perp/escrow and original action evidence
+Lighter withdrawal unindexed     Continue the saved hash/history match; no new request
+Lagoon redemption already queued Continue its saved settlement/claim stage
+================================ ================================================
+
+The manual script-writing reference is
+``.claude/docs/manual-tutorial-script.md``. The API workflow is documented at
+:py:mod:`eth_defi.erc_4626.vault_protocol.lagoon.roundtrip`, and the explicit
+simulation boundary at :py:mod:`eth_defi.testing.lagoon_roundtrip`.
 
 API documentation
 -----------------

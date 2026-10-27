@@ -8,25 +8,29 @@ handover or a resumable deployment tool. No pool trades are made.
 The default hub is HyperEVM, with an Ethereum satellite for Lighter. Hypercore
 HLP and the Felix USDC ERC-4626 vault are whitelisted on HyperEVM. Optional
 Base/Arbitrum chains can be selected, with the first chain acting as the hub.
-All contracts are deployed before the accounted 20-USDC hub subscription,
-CCTP transfer, 1-USDC Lighter deposit and Safe-owner API-key registration.
+All contracts are deployed before transferring 1 prefunded native USDC from
+the deployer on Ethereum to the satellite Safe, depositing it into Lighter and
+registering the API key. No hub subscription or activation bridge is performed.
+This is a deployer contribution: it mints no Lagoon shares. Include the resulting
+collateral once in multichain NAV before settling future investor subscriptions.
 
 Environment variables
 ---------------------
 
 ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY``
     Required deployer key, using the earlier tutorial's variable spelling.
-    Needs at least 20 native USDC on the hub BEFORE deployment, plus native
-    gas tokens on every selected chain. Never put the key in shell history.
+    Needs at least 1 native USDC on Ethereum BEFORE deployment and native gas
+    on every selected chain. No USDC is required on the hub or other satellites
+    for this deployment-only script. Never put the key in shell history.
+    The deployer must already be activated on Hypercore for HyperEVM large-block
+    deployment. Native HYPE alone is insufficient; see
+    ``docs/README-lighter-core-execution.md#deployment`` for activation guidance.
 ``CHAINS``
     Default ``hyperliquid,ethereum``. Must include both; the first is the hub
     and cannot be Ethereum. Also supports ``base`` and ``arbitrum``.
-    Example: ``base,hyperliquid,ethereum`` exercises CCTP Fast Transfer.
+    Example: ``arbitrum,hyperliquid,ethereum`` selects an Arbitrum hub.
 ``JSON_RPC_HYPERLIQUID``, ``JSON_RPC_ETHEREUM``, ``JSON_RPC_BASE``, ``JSON_RPC_ARBITRUM``
     RPC connections for the selected chains; fallback URL format is supported.
-``CCTP_MAX_FEE_USDC``
-    Optional maximum fee, default ``0.01``. Bridge 1 USDC plus this
-    allowance, within the 20-USDC subscription. Unspent funds stay in Safes.
 ``SALT_NONCE``
     Optional fresh deterministic Safe salt, random by default.
 ``LIGHTER_API_KEY_INDEX``
@@ -36,28 +40,64 @@ Environment variables
     Created exclusively with mode 0600. Contains recovery stages, transaction
     identifiers and the generated API PRIVATE KEY. Keep this file protected.
 ``PREFLIGHT_ONLY``
-    Set to ``true`` to check RPCs, funding, configuration and Circle quotes
+    Set to ``true`` to check RPCs, Ethereum funding and configuration
     without deploying contracts or sending transactions.
 ``LOG_LEVEL``
     Optional, default ``info``.
+
+Prefund the deployer before deployment
+-------------------------------------
+
+After loading your private environment, run the following from the repository
+root. It uses the SAME wallet as deployment, spends Arbitrum USDC for native gas
+on Ethereum and HyperEVM, and additionally sends USDC to Ethereum for Lighter.
+These destinations cover both the default topology and
+``CHAINS=arbitrum,hyperliquid,ethereum``.
+
+Start with 30 native USDC and ETH for source transactions on Arbitrum:
+USD 10 per low-gas destination, plus 5 USDC for the Ethereum transfer, leaving
+about 5 USDC of headroom for quote pricing. Check the actual combined spend.
+Arbitrum's own gas must already be funded; the distributor cannot create source
+funds. The deployment-only script needs no remaining Arbitrum/HyperEVM USDC.
+
+First inspect balances and quotes without sending transactions::
+
+    PRIVATE_KEY="${LAGOON_MULTCHAIN_TEST_PRIVATE_KEY:?Load the deployment key first}" \\
+    SOURCE_CHAIN=arbitrum TARGET_CHAINS=ethereum,hyperliquid SOURCE_TOKEN=usdc \\
+    MIN_GAS_USD=5 TOP_UP_GAS_USD=10 ETHEREUM_USDC_AMOUNT=5 DRY_RUN=true \\
+    poetry run python scripts/lifi/feed-cross-chain.py
+
+Then run the same distribution with execution enabled and confirm its prompt::
+
+    PRIVATE_KEY="${LAGOON_MULTCHAIN_TEST_PRIVATE_KEY:?Load the deployment key first}" \\
+    SOURCE_CHAIN=arbitrum TARGET_CHAINS=ethereum,hyperliquid SOURCE_TOKEN=usdc \\
+    MIN_GAS_USD=5 TOP_UP_GAS_USD=10 ETHEREUM_USDC_AMOUNT=5 DRY_RUN=false \\
+    poetry run python scripts/lifi/feed-cross-chain.py
+
+Gas transfers are skipped when a destination already holds at least USD 5 of
+native gas. The 5-USDC transfer is an explicit source spend on every invocation;
+set ``ETHEREUM_USDC_AMOUNT=0`` if Ethereum already has its required 1 USDC.
+Review fees and confirm the final Ethereum balance is at least 1 native USDC.
+Keep ETH on Arbitrum/Ethereum and HYPE on HyperEVM for deployment; USD thresholds
+are funding defaults, not a guarantee against changing gas prices. If selecting
+Base as an additional chain, add ``base`` to ``TARGET_CHAINS`` and provide another
+10 USDC of source funding for its gas top-up. See :ref:`lifi-feed-crosschain`.
 
 Run after loading the RPCs and deployer key from your private environment::
 
     PREFLIGHT_ONLY=true poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
     poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
 
-Fast Transfer is selected on Base/Arbitrum. HyperEVM uses its already-fast
-standard finality, as documented in `Circle's source-chain support table
-<https://developers.circle.com/cctp/concepts/supported-chains-and-domains>`_.
-There is no slow fallback or automatic second burn after a timeout. Lighter
-indexing/key registration still takes time; all waits are bounded and logged.
+CCTP permissions remain configured for subsequent strategy transfers; deployment
+makes no Circle API calls or CCTP burns/relays. Lighter indexing and key
+registration still take time; all waits are bounded and logged.
 
 On interruption, inspect the protected JSONL report and transaction logs before
 manual recovery. Re-running creates a NEW deployment; it does not resume the
 old one. A partial contract deployment may require recovering addresses from
 the deployment logs and the recorded deployer nonces. Do not settle the hub
-again until multichain NAV accounting includes the satellite and Lighter assets.
-A successful run proves deployment, bridging and activation, not pool execution
+until multichain NAV accounting includes the satellite and Lighter assets.
+A successful run proves deployment and activation, not pool execution
 or NAV conservation through mint/burn/withdrawal.
 """
 
@@ -65,7 +105,6 @@ import logging
 import os
 import secrets
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
 
 from eth_typing import HexAddress
@@ -75,9 +114,8 @@ from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, deploy_multichain_lagoon_vault
-from eth_defi.erc_4626.vault_protocol.lagoon.lighter import LIGHTER_MULTICHAIN_BOOTSTRAP_SUBSCRIPTION, LagoonLighterActivation, preflight_lighter_multichain
+from eth_defi.erc_4626.vault_protocol.lagoon.lighter import LagoonLighterActivation, preflight_lighter_multichain
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC
 from eth_defi.lighter.deployment import LighterDeployment
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -88,10 +126,6 @@ logger = logging.getLogger(__name__)
 
 #: Mainnet chains deliberately supported by this small rehearsal.
 CHAIN_IDS = {"hyperliquid": 999, "ethereum": 1, "base": 8453, "arbitrum": 42161}
-#: Accounted bootstrap capital, including the bridge fee allowance.
-SUBSCRIPTION_USDC = LIGHTER_MULTICHAIN_BOOTSTRAP_SUBSCRIPTION
-#: Minimum Lighter activation deposit.
-ACTIVATION_USDC = LIGHTER_MIN_MAINNET_USDC
 #: Same Hypercore and ERC-4626 examples as the earlier multichain tutorial.
 HLP = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
 FELIX_USDC = "0x8a862fd6c12f9ad34c9c2ff45ab2b6712e8cea27"
@@ -103,8 +137,6 @@ class Settings:
 
     #: Ordered chain names; first is the hub.
     chains: tuple[str, ...]
-    #: Explicit USDC fee ceiling, included in the bridge amount.
-    max_fee: Decimal
     #: Shared deterministic Safe salt.
     salt_nonce: int
     #: Lighter user API-key slot.
@@ -122,8 +154,6 @@ class Settings:
         assert len(chains) == len(set(chains)) and set(chains) <= CHAIN_IDS.keys(), "CHAINS contains duplicate or unsupported chains"
         assert {"hyperliquid", "ethereum"} <= set(chains), "CHAINS must include HyperEVM and Ethereum"
         assert chains[0] != "ethereum", "Ethereum must be a Lighter satellite, not the hub"
-        fee = Decimal(os.environ.get("CCTP_MAX_FEE_USDC", "0.01"))
-        assert fee.is_finite() and Decimal(0) <= fee <= SUBSCRIPTION_USDC - ACTIVATION_USDC, "Fee allowance must fit the 20-USDC subscription"
         salt = int(os.environ.get("SALT_NONCE", str(secrets.randbits(64))))
         assert 0 <= salt < 2**256, "SALT_NONCE must fit uint256"
         key_index = int(os.environ.get("LIGHTER_API_KEY_INDEX", str(MIN_API_KEY_INDEX)))
@@ -131,7 +161,7 @@ class Settings:
         default = Path.home() / ".tradingstrategy/examples" / f"lighter-multichain-{native_datetime_utc_now():%Y%m%dT%H%M%S}-{salt}.jsonl"
         report = Path(os.environ.get("LIGHTER_DEPLOYMENT_REPORT", str(default))).expanduser()
         assert not report.exists(), "Report already exists; inspect it before manual recovery, do not overwrite it"
-        return cls(chains, fee, salt, key_index, report)
+        return cls(chains, salt, key_index, report)
 
 
 def build_configs(settings: Settings, chain_web3: dict[str, Web3], owner: HexAddress) -> dict[str, LagoonConfig]:
@@ -165,7 +195,6 @@ def build_configs(settings: Settings, chain_web3: dict[str, Web3], owner: HexAdd
             lighter_deployment=LighterDeployment.create_ethereum() if chain_id == 1 else None,
             generate_lighter_api_key=False,
             cctp_deployment=CCTPDeployment.create_for_chain(chain_id, allowed_destinations=[CHAIN_IDS[c] for c in settings.chains if c != name]),
-            max_settlement_amount=None if satellite else SUBSCRIPTION_USDC,
         )
     return configs
 
@@ -178,8 +207,15 @@ def run_deployment(settings: Settings, chain_web3: dict[str, Web3], deployer: Ho
     :param deployer: Funded test deployer and sole Safe owner.
     :param preflight_only: Perform checks without sending transactions.
     """
+    for name, web3 in chain_web3.items():
+        assert web3.eth.chain_id == CHAIN_IDS[name], f"Wrong RPC chain for {name}"
     configs = build_configs(settings, chain_web3, deployer.address)
-    activation = LagoonLighterActivation(hub_chain=settings.chains[0], max_bridge_fee=settings.max_fee, api_key_index=settings.api_key_index, report_path=settings.report)
+    activation = LagoonLighterActivation(hub_chain=settings.chains[0], api_key_index=settings.api_key_index, report_path=settings.report)
+    # Both branches use the library's prefunding asserts before any deployment:
+    # native gas on every selected chain and >= 1 native USDC on Ethereum.
+    # See ``docs/README-lighter-core-execution.md#deployment``; from the repo root:
+    # PRIVATE_KEY="${LAGOON_MULTCHAIN_TEST_PRIVATE_KEY:?Load the deployment key first}" SOURCE_CHAIN=arbitrum TARGET_CHAINS=ethereum,hyperliquid SOURCE_TOKEN=usdc MIN_GAS_USD=5 TOP_UP_GAS_USD=10 ETHEREUM_USDC_AMOUNT=5 DRY_RUN=false poetry run python scripts/lifi/feed-cross-chain.py
+    # Add any extra selected destinations (e.g. base) to TARGET_CHAINS.
     if preflight_only:
         preflight_lighter_multichain(chain_web3, configs, deployer.account, activation)
         logger.info("Preflight passed; no transactions sent")

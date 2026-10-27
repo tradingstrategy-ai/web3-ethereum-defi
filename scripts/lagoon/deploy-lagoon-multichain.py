@@ -6,10 +6,14 @@ Supports two network modes:
 - **testnet**: 2 chains — Arbitrum Sepolia, Base Sepolia (no vault whitelisting)
 
 All chains share the same deterministic Safe address via CREATE2.
-After deployment, bridges 1 USDC from the source vault to each other
+After deployment, bridges 0.1 USDC from the source vault to each other
 chain via Circle's CCTP V2 protocol to verify cross-chain connectivity.
 
-The deployer needs ETH, HYPE and MONAD balance on all chains.
+Before deployment, prefund the deployer with native gas on every selected chain,
+the full USDC_AMOUNT on the hub and at least 1 native USDC on each satellite.
+Satellite reserves stay in the deployer wallet, outside vault NAV. Use
+``scripts/lifi/feed-cross-chain.py`` for gas distribution and optional
+``ETHEREUM_USDC_AMOUNT=5`` funding; see :ref:`lifi-feed-crosschain`.
 
 Environment variables
 ---------------------
@@ -152,7 +156,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import build_multichain_guard_config, fetch_guard_config_events, format_guard_config_report
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
-from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import check_multichain_deployer_funding, fund_lagoon_vault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -863,19 +867,7 @@ def main():
 
         # --- Step 3: Check deployer balance on all chains ---
         if not simulate:
-            print("\nChecking deployer balances...")
-            insufficient = []
-            for chain_name, web3 in chain_web3.items():
-                balance_wei = web3.eth.get_balance(deployer.address)
-                balance_eth = balance_wei / 10**18
-                status = "OK" if balance_wei > 0 else "EMPTY"
-                print(f"  {chain_name}: {balance_eth:.6f} native ({status})")
-                if balance_wei == 0:
-                    insufficient.append(chain_name)
-            if insufficient:
-                print(f"\n  WARNING: Deployer has zero balance on: {', '.join(insufficient)}")
-                print(f"  Deployment will fail on chains without gas. Fund {deployer.address} first.")
-                raise SystemExit(1)
+            check_multichain_deployer_funding(chain_web3, deployer.address, source_chain, usdc_amount)
 
         # --- Step 4: Build per-chain configurations ---
         print("\nBuilding per-chain whitelisting configurations...")

@@ -59,8 +59,7 @@ from eth_defi.lifi.constants import (
     LIFI_NATIVE_TOKEN_ADDRESS,
 )
 from eth_defi.lifi.quote import LifiQuote, fetch_lifi_quote
-from eth_defi.token import TokenDetails, fetch_erc20_details
-
+from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
 
@@ -394,6 +393,27 @@ def _parse_int(val) -> int:
     return int(val)
 
 
+def _approve_source_token(web3: Web3, wallet: HotWallet, swap: CrossChainSwap) -> None:
+    """Confirm the quoted ERC-20 allowance before executing a bridge.
+
+    Native routes need no approval. ERC-20 routes approve only this spend,
+    using the spender from the refreshed quote. See
+    `LI.FI allowance guidance <https://help.li.fi/hc/en-us/articles/13305031013275>`_.
+
+    :param web3: Source chain connection.
+    :param wallet: Signer with its nonce already synchronised.
+    :param swap: Current executable quote.
+    """
+    if swap.quote.from_token == LIFI_NATIVE_TOKEN_ADDRESS:
+        return
+    token = fetch_erc20_details(web3, swap.quote.from_token)
+    spender = Web3.to_checksum_address(swap.quote.data["estimate"]["approvalAddress"])
+    if token.contract.functions.allowance(wallet.address, spender).call() < swap.from_amount_raw:
+        logger.info("Approving %s %s for LI.FI spender %s", token.convert_to_decimals(swap.from_amount_raw), token.symbol, spender)
+        signed = wallet.sign_bound_call_with_new_nonce(token.approve(spender, token.convert_to_decimals(swap.from_amount_raw)), web3=web3, fill_gas_price=True)
+        broadcast_and_wait_transactions_to_complete(web3, [signed], confirm_ok=True)
+
+
 def execute_crosschain_swaps(
     wallet: HotWallet,
     source_web3: Web3,
@@ -436,6 +456,11 @@ def execute_crosschain_swaps(
         logger.info("No swaps to execute")
         return []
 
+    assert all(s.source_chain_id == source_web3.eth.chain_id for s in swaps), "Swap source chain mismatch"
+    # Validate the combined token spend before approving or broadcasting any leg.
+    for address in {s.quote.from_token for s in swaps if s.quote.from_token != LIFI_NATIVE_TOKEN_ADDRESS}:
+        token = fetch_erc20_details(source_web3, address)
+        assert token.fetch_raw_balance_of(wallet.address) >= sum(s.from_amount_raw for s in swaps if s.quote.from_token.lower() == address.lower()), f"Insufficient combined {token.symbol} balance for requested transfers"
     wallet.sync_nonce(source_web3)
     results = []
 
@@ -492,6 +517,8 @@ def execute_crosschain_swaps(
                 transaction_request=tx_request_new,
                 quote=quote,
             )
+
+        _approve_source_token(source_web3, wallet, swap)
 
         tx_request = swap.transaction_request.copy()
 
@@ -606,7 +633,7 @@ def wait_crosschain_swaps(
                 pbar.set_postfix_str(target_name)
 
             status_response = fetch_lifi_status(
-                tx_hash=tx_hash.hex(),
+                tx_hash=tx_hash.to_0x_hex(),
                 from_chain_id=result.swap.source_chain_id,
                 to_chain_id=result.swap.target_chain_id,
             )

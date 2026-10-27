@@ -412,14 +412,17 @@ def fetch_user_abstraction_mode(
         Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
 
     :param user:
-        On-chain address to query.
+        Onchain address to query.
 
     :param timeout:
         HTTP request timeout in seconds.
 
     :return:
-        Hyperliquid account abstraction mode such as ``"standard"`` or
-        ``"unifiedAccount"``.
+        Raw ``userAbstraction`` mode: ``"default"``, ``"disabled"``,
+        ``"unifiedAccount"``, ``"portfolioMargin"`` or ``"dexAbstraction"``.
+        Manual/standard accounts use ``"default"`` or ``"disabled"``;
+        ``"standard"`` is not an API response value. See the
+        `info endpoint <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint#query-a-users-abstraction-state>`__.
     """
     response = session.post_info({"type": "userAbstraction", "user": user}, timeout=timeout)
     response.raise_for_status()

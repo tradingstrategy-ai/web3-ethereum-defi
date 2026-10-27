@@ -60,7 +60,7 @@ from eth_defi.hyperliquid.constants import HYPERCORE_BRIDGE_FEE_MARGIN
 from eth_defi.token import USDC_NATIVE_TOKEN
 
 if TYPE_CHECKING:
-    from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
+    from eth_defi.erc_4626.vault_protocol.lagoon.vault import AutomatedSafe
 
 #: CoreWriter system contract address on HyperEVM
 CORE_WRITER_ADDRESS: HexAddress = HexAddress("0x3333333333333333333333333333333333333333")
@@ -318,7 +318,7 @@ def get_core_writer_contract(web3: Web3) -> Contract:
 
 
 def _get_hypercore_contracts(
-    lagoon_vault: LagoonVault | LagoonSatelliteVault,
+    lagoon_vault: AutomatedSafe,
 ) -> tuple[Contract, Contract, Contract]:
     """Resolve the Safe's USDC, CoreDepositWallet, and CoreWriter contracts.
 
@@ -372,7 +372,7 @@ def _encode_perform_call(
 
 
 def build_hypercore_approve_deposit_wallet_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
 ) -> ContractFunction:
     """Build a single Safe transaction that approves USDC to CoreDepositWallet."""
@@ -386,7 +386,7 @@ def build_hypercore_approve_deposit_wallet_call(
 
 
 def build_hypercore_deposit_to_spot_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
 ) -> ContractFunction:
     """Build a single Safe transaction that bridges USDC from HyperEVM to HyperCore spot."""
@@ -400,7 +400,7 @@ def build_hypercore_deposit_to_spot_call(
 
 
 def build_hypercore_deposit_for_spot_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
     destination: HexAddress | str | None = None,
 ) -> ContractFunction:
@@ -417,7 +417,7 @@ def build_hypercore_deposit_for_spot_call(
 
 
 def _build_hypercore_send_raw_action_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     raw_action: bytes,
 ) -> ContractFunction:
     """Build a single Safe transaction that forwards one CoreWriter raw action."""
@@ -426,7 +426,7 @@ def _build_hypercore_send_raw_action_call(
 
 
 def build_hypercore_vault_transfer_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     vault_address: HexAddress | str,
     hypercore_usdc_amount: int,
     to_vault: bool,
@@ -458,7 +458,7 @@ def build_hypercore_vault_transfer_call(
 
 
 def build_hypercore_deposit_to_vault_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     vault_address: HexAddress | str,
     hypercore_usdc_amount: int,
 ) -> ContractFunction:
@@ -472,7 +472,7 @@ def build_hypercore_deposit_to_vault_call(
 
 
 def build_hypercore_withdraw_from_vault_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     vault_address: HexAddress | str,
     hypercore_usdc_amount: int,
 ) -> ContractFunction:
@@ -486,7 +486,7 @@ def build_hypercore_withdraw_from_vault_call(
 
 
 def build_hypercore_transfer_usd_class_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     hypercore_usdc_amount: int,
     to_perp: bool,
 ) -> ContractFunction:
@@ -498,7 +498,7 @@ def build_hypercore_transfer_usd_class_call(
 
 
 def build_hypercore_spot_send_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     destination: HexAddress | str,
     hypercore_usdc_amount: int,
 ) -> ContractFunction:
@@ -510,7 +510,7 @@ def build_hypercore_spot_send_call(
 
 
 def build_hypercore_send_asset_to_evm_call(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
 ) -> ContractFunction:
     """Build a single Safe transaction that bridges USDC from HyperCore spot back to HyperEVM.
@@ -578,7 +578,7 @@ def compute_spot_to_evm_withdrawal_amount(
 
 
 def build_hypercore_deposit_multicall(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
@@ -728,7 +728,7 @@ def build_hypercore_deposit_multicall(
 
 
 def build_activate_account_multicall(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     activation_amount: int | None = None,
 ) -> ContractFunction:
     """Build a multicall to activate a Safe's HyperCore account.
@@ -790,7 +790,7 @@ def build_activate_account_multicall(
 
 
 def build_hypercore_deposit_phase1(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
 ) -> ContractFunction:
     """Build phase 1 of a two-phase Hypercore deposit: bridge USDC to HyperCore spot.
@@ -865,7 +865,7 @@ def build_hypercore_deposit_phase1(
 
 
 def build_hypercore_deposit_phase2(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
 ) -> ContractFunction:
@@ -922,7 +922,7 @@ def build_hypercore_deposit_phase2(
 
 
 def build_hypercore_withdraw_multicall(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: AutomatedSafe,
     evm_usdc_amount: int,
     vault_address: HexAddress | str,
 ) -> ContractFunction:

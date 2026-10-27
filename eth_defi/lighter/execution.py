@@ -317,7 +317,10 @@ def _parse_pool_holding(row: dict[str, Any], pool: LighterPoolState) -> LighterP
     shares = int(row["shares_amount"])
     principal = _required_decimal(row, "principal_amount")
     gross = shares * pool.share_value
-    return LighterPoolHolding(pool.pool_index, shares, _required_decimal(row, "entry_usdc"), principal, datetime.datetime.fromtimestamp(int(row["entry_timestamp"]), datetime.UTC).replace(tzinfo=None), gross, max(gross - principal, Decimal(0)) * pool.operator_fee, pool.observed_at)
+    # PublicPoolShare.entry_timestamp is Unix milliseconds. Keep the fractional
+    # second for cooldown checks without converting through a floating point value.
+    entered_at = datetime.datetime.fromtimestamp(0, datetime.UTC).replace(tzinfo=None) + datetime.timedelta(milliseconds=row["entry_timestamp"])
+    return LighterPoolHolding(pool.pool_index, shares, _required_decimal(row, "entry_usdc"), principal, entered_at, gross, max(gross - principal, Decimal(0)) * pool.operator_fee, pool.observed_at)
 
 
 def prepare_pool_amount(
@@ -426,16 +429,19 @@ class LighterPoolExecutor:
     Persistence is injected so downstream callers can use their existing state.
     """
 
-    def __init__(self, session: LighterSession, identity: LighterAccountIdentity, signer: LighterSyncSigner, persist: Callable[[LighterOperation], None]) -> None:
+    def __init__(self, session: LighterSession, identity: LighterAccountIdentity, signer: LighterSyncSigner, persist: Callable[[LighterOperation], None], *, submission_session_factory: Callable[[], requests.Session] | None = None) -> None:
         """Bind a signer and mandatory durable recorder without submitting.
 
         :param session: Original Ethereum Lighter session.
         :param identity: Deployment and key identity.
         :param signer: Official signer's synchronous methods or a compatible adapter.
         :param persist: Must durably record the operation before returning.
+        :param submission_session_factory: Optional local simulation transport. Live defaults
+            to a plain HTTP session without automatic mutation retries.
         """
         _assert_ethereum(session)
         self.session, self.identity, self.signer, self.persist = session, identity, signer, persist
+        self._submission_session_factory = submission_session_factory
         self._lock = threading.RLock()
         self._pending: LighterOperation | None = None
         self._next_nonce: int | None = None
@@ -497,7 +503,7 @@ class LighterPoolExecutor:
             operation.stage = LighterOperationStage.unknown
             self.persist(operation)
             # A plain requests session prevents custom read retry adapters from replaying mutations.
-            with requests.Session() as submission:
+            with (self._submission_session_factory or requests.Session)() as submission:
                 response = submission.post(f"{self.session.api_url}/api/v1/sendTx", data={"tx_type": operation.tx_type, "tx_info": operation.tx_info}, timeout=30, allow_redirects=False)
             # The API uses HTTP 400 for explicit transaction rejections.
             # Other HTTP failures leave the outcome uncertain.
@@ -694,7 +700,7 @@ def reconcile_bootstrap(subscription: Decimal, safe_balances: tuple[Decimal, ...
     Values must refer to the same observation boundary. A bridge receivable is
     removed when its destination receipt is counted. A missing value is an error.
 
-    :param subscription: Accounted initial subscription in USDC.
+    :param subscription: Initial funding in USDC: a subscription or a separately recorded deployer contribution.
     :param safe_balances: All participating Safes' settled native USDC.
     :param lighter_collateral: Confirmed account collateral, with no pool exposure.
     :param bridge_receivables: Net unsettled incoming USDC, counted only once.
@@ -705,7 +711,7 @@ def reconcile_bootstrap(subscription: Decimal, safe_balances: tuple[Decimal, ...
     assert tolerance.is_finite() and tolerance >= 0
     assert all(isinstance(v, Decimal) and v.is_finite() and v >= 0 for v in values), "Bootstrap valuation is unavailable"
     observed = sum(safe_balances, Decimal(0)) + lighter_collateral + bridge_receivables + actual_fees
-    assert abs(observed - subscription) <= tolerance, f"Bootstrap does not reconcile: subscription {subscription}, assets plus fees {observed}"
+    assert abs(observed - subscription) <= tolerance, f"Bootstrap does not reconcile: funding {subscription}, assets plus fees {observed}"
 
 
 def prepare_pool_deposit(executor: LighterPoolExecutor, pool_index: int, amount_usdc: Decimal, auth_token: str | None = None) -> LighterOperation:
