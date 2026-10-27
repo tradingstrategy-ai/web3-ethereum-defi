@@ -129,6 +129,13 @@ DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 #: to consume less than 2M gas on the fixed HyperEVM fork.
 HYPERCORE_MULTICALL_CHUNK_SIZE = 40
 
+#: Maximum ERC-4626 vaults whitelisted in one GuardV0 multicall on HyperEVM.
+#: ``whitelistERC4626()`` writes about 30 fresh storage slots per vault (its
+#: call sites, approval destination and both tokens), roughly 750k gas, so
+#: three vaults already exceed the 2M gas of a HyperEVM fast block, where guard
+#: configuration runs. The generic ``multicall_chunk_size`` of 40 cannot apply.
+HYPEREVM_ERC_4626_MULTICALL_CHUNK_SIZE = 2
+
 #: Maximum wait for a load-balanced read RPC to observe activation funding.
 LIGHTER_ACTIVATION_BALANCE_TIMEOUT = 120
 
@@ -2081,7 +2088,9 @@ def setup_guard(
         # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
 
         # Do N vaults per one multicall
-        for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, multicall_chunk_size), start=1):
+        # HyperEVM guard configuration runs in a 2M gas fast block.
+        erc_4626_chunk_size = min(multicall_chunk_size, HYPEREVM_ERC_4626_MULTICALL_CHUNK_SIZE) if web3.eth.chain_id in (998, 999) else multicall_chunk_size
+        for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, erc_4626_chunk_size), start=1):
             multicalls = []
             logger.info("Processing ERC-4626 vaults chunk #%d, size %d", chunk_id, len(chunk))
 

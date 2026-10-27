@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Whitelist ERC-4626 vaults on HyperEVM two per GuardV0 multicall: a `whitelistERC4626()` call writes about 30 storage slots, so a batch of the generic 40 ran out of a HyperEVM fast block's 2M gas and reverted the satellite guard setup (2026-10-27).
 - fix: Build HyperCore deposit and withdrawal calls for a `LagoonSatelliteVault` on HyperEVM, which has no vault contract or `spec`; its Safe's USDC is the chain's native USDC (2026-10-27).
 - feat: Add Lighter Core pool execution helpers and accounted Ethereum satellite activation for multichain Lagoon deployments, with protected key backups and manual lifecycle scripts (2026-10-27).
 - chore: Disable Aave v2/v3 integration tests, the Hardhat-based Aave test deployment, its Anvil saved state and the Aave ABI builds as unsupported until a reintegration with Aave v4, and upgrade the CI Foundry/Anvil toolchain from v1.3.2 to v1.8.6 so the committed fork RPC cache seeds load again (2026-10-27).
