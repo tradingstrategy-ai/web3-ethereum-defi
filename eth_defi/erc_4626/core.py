@@ -85,6 +85,9 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Asseto IP Vault on Soneium; separate onchain reader, still under verification.
+    asseto_royalty_like = "asseto_royalty_like"
+
     #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
     #:
     #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
@@ -1065,6 +1068,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
             ERC4626Feature.antarctic_like,
+            ERC4626Feature.asseto_royalty_like,
             ERC4626Feature.infinit_like,
             ERC4626Feature.nest_like,
         )
@@ -1171,7 +1175,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "YieldBasis"
     elif ERC4626Feature.flying_tulip_like in features:
         return "Flying Tulip"
-    elif ERC4626Feature.asseto_like in features:
+    elif ERC4626Feature.asseto_like in features or ERC4626Feature.asseto_royalty_like in features:
         return "Asseto"
     elif ERC4626Feature.antarctic_like in features:
         return "Antarctic"
