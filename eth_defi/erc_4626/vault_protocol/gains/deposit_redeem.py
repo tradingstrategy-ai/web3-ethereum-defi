@@ -8,6 +8,7 @@ import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -47,6 +48,9 @@ from eth_defi.vault.flow_events import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault
 
 #: ``EndOfEpoch()`` custom-error selector, reverted by Gains GToken
 #: ``makeWithdrawRequest`` / ``redeem`` when called outside the per-epoch
@@ -162,7 +166,7 @@ class GainsDepositManager(ERC4626DepositManager):
     rather than reporting a false success.
     """
 
-    def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
+    def __init__(self, vault: "GainsVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
         assert isinstance(vault, GainsVault), f"Got {type(vault)}"
@@ -770,7 +774,7 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     mock path executes its deterministic settlement round.
     """
 
-    def __init__(self, vault: "eth_defi.erc_4626.vault_protocol.gains.vault.OstiumVault"):
+    def __init__(self, vault: "OstiumVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault, OstiumVersion
 
         assert isinstance(vault, OstiumVault), f"Got {type(vault)}"

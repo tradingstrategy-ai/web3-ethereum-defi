@@ -395,6 +395,11 @@ class _FakeIPORVault:
         return Decimal("1000")
 
     @staticmethod
+    def get_withdrawal_period() -> None:
+        """Scan rows read the withdrawal period; this fake has none."""
+        return None
+
+    @staticmethod
     def get_estimated_lock_up() -> None:
         """No lockup."""
         return None
@@ -427,7 +432,6 @@ class _FakeIPORVault:
 
 # 2026-08-07: GitHub Actions parallel suite twice returned ``<unknown>`` instead
 # of ``IPOR Fusion``; focused and xdist module runs pass locally.
-@pytest.mark.skipif(CI, reason="GitHub Actions nondeterministically loses IPOR Fusion feature classification")
 def test_vault_scan_record_sets_manager_name_for_ipor_vault(monkeypatch: pytest.MonkeyPatch) -> None:
     """IPOR atomist flows through scan rows as the vault manager name.
 
