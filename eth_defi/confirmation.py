@@ -722,6 +722,23 @@ def _fetch_timed_out_transaction(provider: BaseProvider, tx_hash: HexBytes) -> d
 _DUPLICATE_BROADCAST_FRAGMENTS = ("already known", "ALREADY_EXISTS", "already imported")
 
 
+#: JSON-RPC error fragments meaning another broadcast of ours already advanced the
+#: nonce, e.g. the first provider mined the transaction before the second saw it.
+_NONCE_RACE_FRAGMENTS = ("nonce too low", "nonce too high")
+
+
+def _is_nonce_race_error(error: BaseException) -> bool:
+    """Tell whether a broadcast error is a nonce race between our own providers.
+
+    :param error:
+        Exception raised by ``eth_sendRawTransaction``.
+    :return:
+        ``True`` when the node reports the nonce as already used or ahead.
+    """
+    message = str(error)
+    return any(fragment in message for fragment in _NONCE_RACE_FRAGMENTS)
+
+
 def _is_duplicate_broadcast_error(error: BaseException) -> bool:
     """Tell whether a broadcast error means the node already has the transaction.
 
@@ -840,9 +857,14 @@ def _broadcast_multiple_nodes(
                 raise ValueError(f"Does not know how to handle error: {e}\nTx: {tx_hash}, nonce {nonce}, address {address}, see logs for further details") from e
 
         except Exception as e:
+            # web3 raises Web3RPCError, not ValueError, for JSON-RPC errors, so the
+            # same benign replies must be classified here as well.
             if _is_duplicate_broadcast_error(e):
                 logger.info("Node already holds tx %s, counting broadcast through %s as successful: %s", tx_hash, name, e)
                 success.add(p)
+            elif _is_nonce_race_error(e):
+                # Mirrors the ValueError branch above: the receipt poll decides.
+                logger.info("Nonce race for tx %s through %s, leaving confirmation to the receipt poll: %s", tx_hash, name, e)
             else:
                 exceptions[p] = e
 
