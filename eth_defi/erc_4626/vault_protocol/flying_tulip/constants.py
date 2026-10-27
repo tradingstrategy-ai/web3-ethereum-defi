@@ -80,7 +80,11 @@ FLYING_TULIP_HARDCODED_LEADS = (
 )
 
 #: Human-readable scanner description.
-FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions. See the [Flying Tulip strategy documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) for its yield sources and strategy design."
+#:
+#: Plain text only: Markdown is not allowed in a vault short description,
+#: because listings and tables render it verbatim. Put documentation links in
+#: :py:data:`FLYING_TULIP_NOTES` instead.
+FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
 
 #: USDC ``MintAndRedeem`` fees used to model Flying Tulip vault equivalents.
 #:
