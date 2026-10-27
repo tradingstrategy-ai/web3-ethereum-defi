@@ -274,6 +274,7 @@ STABLECOIN_LIKE = set(
         "GYEN",
         "HAI",
         "HUSD",
+        "IPUSD",
         "IRON",
         "JCHF",
         "JPYC",
