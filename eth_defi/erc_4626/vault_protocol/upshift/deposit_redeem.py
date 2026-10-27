@@ -15,6 +15,7 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626Depos
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -593,6 +594,8 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
             raise UnsupportedVaultSimulation("Upshift mock settlement vault must match the manager vault", unsupported_reason="mock_settlement_vault_mismatch")
         status_before = self.get_redemption_request_status(ticket)
         tx_hash = mock.functions.processAllClaimsByDate(ticket.year, ticket.month, ticket.day, 1).transact({"from": self.web3.eth.accounts[0]})
+        # Anvil >= 1.8 returns the hash before the automined block exists.
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
         status_after = self.get_redemption_request_status(ticket)
         if status_after is not AsyncVaultRequestStatus.claimable:
             raise UnsupportedVaultSimulation(
