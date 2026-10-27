@@ -75,7 +75,7 @@ def test_seed_and_merge_fork_cache_alias(cache_dir: Path) -> None:
     merged = _read_fork_cache(shared)
     assert set(merged["accounts"]) == {"0xaa", "0xbb", "0xcc"}
     assert merged["storage"] == {"0xaa": {"0x1": "0x10", "0x2": "0x20", "0x3": "0x30"}, "0xcc": {"0x1": "0x11"}}
-    assert merged["meta"]["hosts"] == ["lb.drpc.org", "127.0.0.1"]
+    assert merged["meta"]["hosts"] == ["127.0.0.1"]
     assert shared.read_bytes()[:4] == bytes.fromhex("28b52ffd")
 
 

@@ -80,9 +80,11 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import Web3
 
+from eth_defi.chain import get_foundry_network_name
 from eth_defi.compat import create_http_provider
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig, start_rpc_proxy
 from eth_defi.rpc_url import get_url_domain, redact_rpc_urls, register_rpc_url
+from eth_defi.testing.rpc_cache import get_foundry_rpc_cache_dir
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 
 if TYPE_CHECKING:
@@ -159,8 +161,9 @@ def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain
     Every launch here forks through a local failover proxy on a fresh port, so
     the per-endpoint file would never be reused and the committed seeds in the
     release-agnostic ``storage.json`` would never be read. The launch code
-    therefore copies ``storage.json`` to the endpoint file before Anvil starts
-    and merges it back after a graceful shutdown.
+    therefore aliases ``storage.json`` to the endpoint file before Anvil starts
+    (:func:`_seed_fork_cache_alias`) and merges it back after a graceful
+    shutdown (:func:`_merge_fork_cache_alias`).
 
     :param fork_url:
         Exact ``--fork-url`` string given to Anvil.
@@ -174,9 +177,6 @@ def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain
     """
     if not fork_url or not fork_block_number or chain_id is None:
         return None
-    from eth_defi.chain import get_foundry_network_name
-    from eth_defi.testing.rpc_cache import get_foundry_rpc_cache_dir
-
     network = get_foundry_network_name(chain_id) or str(chain_id)
     cache_dir = get_foundry_rpc_cache_dir() / network / str(fork_block_number)
     digest = Web3.keccak(text=fork_url).hex().removeprefix("0x")
@@ -224,16 +224,10 @@ def _seed_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, 
         return
     try:
         data = _read_fork_cache(shared)
-    except (OSError, ValueError) as e:
-        logger.warning("Could not read shared fork cache %s: %s", shared, e)
-        return
-    # Anvil 1.8 discards a cache whose ``meta.source_id`` differs from the
-    # current fork source, and the shared file carries the id of whichever
-    # proxy port last wrote it
-    data.setdefault("meta", {})["source_id"] = _fork_source_id(fork_url)
-    try:
+        # The shared file carries the source id of whichever proxy port last wrote it
+        data.setdefault("meta", {})["source_id"] = _fork_source_id(fork_url)
         _write_fork_cache(endpoint, data)
-    except OSError as e:
+    except (OSError, ValueError) as e:
         logger.warning("Could not alias fork cache %s to %s: %s", shared, endpoint.name, e)
 
 
@@ -312,11 +306,8 @@ def _merge_fork_cache_alias(fork_url: str | None, fork_block_number: int | None,
             except ValueError as e:
                 logger.warning("Replacing unreadable shared fork cache %s: %s", shared, e)
                 merged = {}
-        previous_hosts = merged.get("meta", {}).get("hosts", [])
-        merged["meta"] = dict(fresh.get("meta", merged.get("meta", {})))
-        hosts = list(dict.fromkeys([*previous_hosts, *merged["meta"].get("hosts", [])]))
-        if hosts:
-            merged["meta"]["hosts"] = hosts
+        # The next alias rewrites ``source_id``, so the fresh metadata is enough
+        merged["meta"] = fresh.get("meta", merged.get("meta", {}))
         for key in ("accounts", "block_hashes"):
             merged.setdefault(key, {}).update(fresh.get(key, {}))
         storage = merged.setdefault("storage", {})

@@ -36,9 +36,9 @@ See :py:func:`eth_defi.provider.anvil.launch_anvil` for automatic integration.
 import datetime
 import logging
 import socketserver
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable, TypeAlias
@@ -631,16 +631,14 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
 
         executor = ThreadPoolExecutor(max_workers=len(self.server.rpc_urls), thread_name_prefix=f"{self.server.proxy_name}-hedged")
         try:
-            pending = {executor.submit(attempt, index) for index in range(len(self.server.rpc_urls))}
-            while pending:
-                done, pending = wait(pending, return_when=FIRST_COMPLETED)
-                for future in done:
-                    result = future.result()
-                    if result is not None:
-                        return result
+            futures = [executor.submit(attempt, index) for index in range(len(self.server.rpc_urls))]
+            for future in as_completed(futures):
+                if (result := future.result()) is not None:
+                    return result
+            return None
         finally:
+            # Do not wait for the slower upstreams
             executor.shutdown(wait=False)
-        return None
 
     def _try_upstream(self, url: str, body: bytes, timeout: float) -> requests.Response:
         """Make a single POST request to an upstream provider.

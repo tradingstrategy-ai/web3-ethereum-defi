@@ -155,37 +155,9 @@ refresh a seed and its toolchain together. Anvil `v1.3.2` could not read the
 zstd-compressed `storage.json` written by newer releases: it silently started
 cold and overwrote the seed with an empty file on shutdown.
 
-Anvil `v1.8` keys the fork cache by endpoint instead:
-`<network>/<block>/storage-<keccak256(fork_url)>.json`. Every launch here forks
-through a local failover proxy on a fresh port, so that file would never be
-reused and the committed `storage.json` would never be read. `launch_anvil()`
-therefore copies `storage.json` to the endpoint name before Anvil starts,
-rewriting `meta.source_id` to this launch's fork source (keccak256 over the
-length-prefixed fork URL and header lists, see `fork_source_id()` in Anvil's
-`crates/anvil/src/config.rs`). Anvil discards a cache whose `source_id` does not
-match, so without the rewrite every seed captured through another proxy port was
-silently ignored and each fork started cold. `AnvilLaunch.close()` then
-merges the endpoint file back as a union of accounts,
-storage slots and block hashes (Anvil writes only the entries touched in the
-session) and removes it. Committed seeds stay in the release-agnostic
-`storage.json`; see `_fork_cache_paths()` in `eth_defi/provider/anvil.py`.
-
-Two more Anvil `v1.8` behaviour changes matter for tests:
-
-- `eth_sendTransaction` / `eth_sendRawTransaction` return the hash before the
-  automined block exists. Wait for the receipt before reading state, and
-  expect one extra `eth_getTransactionReceipt` poll per transaction. A forked
-  Anvil forwards that poll to the fork upstream while the block is still being
-  mined, in case the hash predates the fork. Some providers answer such misses
-  slowly (Goldsky Arbitrum took about 2.5 s per lookup), so the local failover
-  proxy sends `eth_getTransactionReceipt` and `eth_getTransactionByHash` to all
-  upstreams at once and returns the first successful reply; see
-  `RPCProxyConfig.hedged_methods`. This took the four reference GMX tests from
-  95–105 s to 14–17 s.
-- `evm_revert` to an older snapshot invalidates newer ones, as documented.
-  Older releases silently restored an invalidated snapshot, which let two
-  autouse reset fixtures share one fork; a module that keeps its own checkpoint
-  must override the directory-level reset (see `tests/cctp/test_cctp_lagoon_fork.py`).
+Anvil `v1.8` keys the fork cache by endpoint and by fork source, so the
+committed `storage.json` is only read through the alias described in
+[Anvil 1.8 behaviour and mitigations](#anvil-18-behaviour-and-mitigations).
 
 ### How persistence actually works (the graceful-shutdown requirement)
 
@@ -253,6 +225,60 @@ exceptional historical block, and how to split it onto the shared canonical
 fork: see **“Generic policy assertions must not inherit lifecycle fork
 exceptions”** in [`anvil_fork_pool.py`](anvil_fork_pool.py). The standard
 ERC-4626 Guard policy test named there is the reference implementation.
+
+## Anvil 1.8 behaviour and mitigations
+
+CI moved from Foundry/Anvil `v1.3.2` to `v1.8.6` on 2026-10-27
+([PR #1662](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1662)).
+Several Anvil `v1.8` changes are invisible in a single test but slow down or
+break a fork suite. The table lists each one with its mitigation; the code
+references are in [`eth_defi/provider/anvil.py`](../provider/anvil.py) and
+[`eth_defi/provider/rpc_proxy.py`](../provider/rpc_proxy.py).
+
+| Behaviour in Anvil `v1.8` | Symptom | Mitigation |
+|---------------------------|---------|------------|
+| The fork cache file is `<network>/<block>/storage-<keccak256(fork_url)>.json` instead of `storage.json`. | Every launch forks through a proxy on a fresh port, so no launch reuses an earlier cache and the committed seeds are never read. | `_seed_fork_cache_alias()` copies `storage.json` to the endpoint name before launch; `_merge_fork_cache_alias()` unions the session file back into `storage.json` on close. |
+| The cache `meta.source_id` must equal keccak256 over the length-prefixed fork URL and header lists (`fork_source_id()` in Anvil's `crates/anvil/src/config.rs`); a mismatching cache is discarded without a log line. | An aliased seed captured through another proxy port is silently ignored and every fork starts cold. In a 20-slot probe all 20 seeded slots were fetched upstream. | The alias rewrites `source_id` for the current fork URL (`_fork_source_id()`). The same probe then made 7 upstream requests instead of 57, none for the seeded slots. |
+| Cache files are zstd-compressed JSON. | Anvil `v1.3.2` cannot read them: it starts cold and overwrites the seed with an empty file. | Committed seeds are written by the CI-pinned release; refresh seeds and toolchain together. |
+| Automined transactions are mined asynchronously; `eth_sendTransaction` returns before the block exists. | Reading state straight after a send sees the old state; each transaction costs one extra receipt poll. | Wait for the receipt (`assert_transaction_success_with_explanation()`) before reading state. |
+| A receipt or transaction lookup for a hash that is not mined yet is forwarded to the fork upstream, in case the hash predates the fork. | Each transaction costs one upstream lookup of an unknown hash. Goldsky Arbitrum answers those in 2.3–2.6 s (drpc and Alchemy in 0.05–0.2 s), so every GMX transaction took about 2.5 s. | The proxy sends `eth_getTransactionReceipt` and `eth_getTransactionByHash` to all upstreams at once and returns the first successful reply (`RPCProxyConfig.hedged_methods`). A transaction then takes about 0.05 s. |
+| Fork start probes the upstream with `eth_getAccountInfo`, `anvil_nodeInfo` and `eth_getBlockAccessList`. | Providers reject them as unknown, which the proxy counted as failures, or answer `eth_getAccountInfo` without historical state, which aborts the fork with `failed to create genesis`. | The proxy answers these methods itself with `-32601` (`RPCProxyConfig.unsupported_methods`); `launch_anvil()` passes `--no-bal` and `--no-fork-node-info` when the binary supports them. |
+| `evm_revert` to an older snapshot invalidates newer ones, as documented. | Two autouse reset fixtures sharing one fork fail on the second revert; older releases silently restored an invalidated snapshot. | A module that keeps its own checkpoint overrides the directory-level reset (see `tests/cctp/test_cctp_lagoon_fork.py`). |
+| Anvil writes a log line per request to stdout. | An unread `PIPE` fills at 64 KiB and Anvil freezes mid-test (reproduced at about 130–150 transactions on both `v1.3.2` and `v1.8.6`). | `launch_anvil()` drains both pipes in daemon threads and keeps the last lines for failure reports. |
+| Several parallel forks share one provider key. | HTTP 429 replies stall Anvil mid-request. | CI sets `ANVIL_COMPUTE_UNITS_PER_SECOND=150`, passed as `--compute-units-per-second`. |
+
+### Measured effect on GMX tests
+
+The GMX tests launch a fresh Arbitrum fork per test, so they expose every
+per-launch and per-transaction cost. Four reference tests
+(`test_get_prices_long_close`, `test_get_prices_long_open`,
+`test_ccxt_long_with_stop_loss` and
+`test_order_verification_succeeds_for_valid_order`), run serially on one
+machine:
+
+| Configuration | Wall time |
+|---------------|-----------|
+| Master before the upgrade, Anvil `v1.3.2` | 48–60 s |
+| Anvil `v1.8.6`, seeds aliased without `source_id` rewrite | 95–105 s |
+| Plus `source_id` rewrite | 65–67 s |
+| Plus hedged receipt lookups | 14–17 s |
+
+Routing a single upstream through the proxy did not cause the slowdown: an A/B
+run with direct and proxied forks measured the same within noise.
+
+### Diagnosing a slow fork test
+
+1. Time each fixture: the mock oracle and wallet funding fixtures send only a
+   handful of transactions, so seconds per fixture point at per-transaction
+   upstream latency rather than test logic.
+2. Count upstream requests per operation with `AnvilLaunch.proxy.get_stats()`
+   (`UpstreamRPCProviderStatistics.method_counts`) before and after one
+   transaction or one read.
+3. Time the same request against each upstream directly. Use only the host
+   names in notes and pull requests, never the RPC URL with its key.
+4. Read Anvil's source for the method before assuming a cause: the receipt
+   fallback is in `Backend::transaction_receipt()` and the cache identity check
+   in `fork_source_id()`.
 
 ## Anvil failure modes
 
@@ -334,7 +360,8 @@ out in local `anvil_loadState` while restoring
 broader set of Anvil-dependent regressions. The repository stayed on `v1.3.2`
 until 2026-10-27, when the Aave tests and their saved state were disabled as
 unsupported (pending a reintegration with Aave v4) and CI moved to `v1.8.6`,
-which reads the committed compressed seeds.
+which reads the committed compressed seeds through the alias in
+[Anvil 1.8 behaviour and mitigations](#anvil-18-behaviour-and-mitigations).
 
 These failures are local saved-state compatibility failures, not archive RPC
 failures. When changing Foundry, regenerate saved states and fixed-block seeds
