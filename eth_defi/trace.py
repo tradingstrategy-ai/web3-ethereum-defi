@@ -26,6 +26,7 @@ from evm_trace import (
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
+from web3.exceptions import TimeExhausted
 from web3.types import TxParams, TxReceipt
 
 from eth_defi.abi import decode_function_args, humanise_decoded_arg_data
@@ -336,14 +337,17 @@ def assert_transaction_success_with_explanation(
     else:
         assert isinstance(tx_hash, HexBytes), f"Expected HexBytes, got {type(tx_hash)}"
 
-    if is_anvil(web3):
-        # A local Anvil mines within seconds or not at all: since v1.8 a
-        # transaction whose fork state read failed upstream is dropped from the
-        # pool without a receipt. Waiting the full mainnet timeout only turns
-        # that into a stalled test session, so cap the wait here and let the
-        # flaky retry or the test's own assertion report it.
-        timeout = min(timeout, ANVIL_RECEIPT_TIMEOUT)
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
+    # A local Anvil mines within seconds or not at all: since v1.8 a
+    # transaction whose fork state read failed upstream is dropped from the
+    # pool without a receipt, and waiting the full mainnet timeout only turns
+    # that into a stalled test session. Wait the Anvil budget first and consult
+    # is_anvil() only when it expires, so the success path makes no extra RPC call.
+    try:
+        receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=min(timeout, ANVIL_RECEIPT_TIMEOUT))
+    except TimeExhausted:
+        if timeout <= ANVIL_RECEIPT_TIMEOUT or is_anvil(web3):
+            raise
+        receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout - ANVIL_RECEIPT_TIMEOUT)
     if receipt["status"] == 0:
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
