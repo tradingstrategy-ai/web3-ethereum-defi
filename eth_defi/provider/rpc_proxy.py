@@ -227,7 +227,8 @@ class RPCProxyConfig:
 
     #: JSON-RPC methods the proxy answers itself with ``-32601 method not found``
     #: instead of forwarding. Anvil >= 1.8 probes a fork upstream with
-    #: ``eth_getAccountInfo`` and ``anvil_nodeInfo``. Public providers either
+    #: ``eth_getAccountInfo``, ``anvil_nodeInfo`` and ``eth_getBlockAccessList``
+    #: (block-level access lists). Public providers either
     #: reject them as unknown methods, which the proxy would otherwise count as
     #: a retryable failure and switch providers over, or implement
     #: ``eth_getAccountInfo`` without historical state and answer
@@ -235,7 +236,7 @@ class RPCProxyConfig:
     #: fork with ``failed to create genesis`` instead of falling back to the
     #: legacy ``eth_getBalance`` / ``eth_getTransactionCount`` / ``eth_getCode``
     #: reads that the committed fork cache seeds also cover.
-    unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo"})
+    unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"})
 
     def __post_init__(self):
         if self.failure_handler is None:

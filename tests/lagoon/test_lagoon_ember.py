@@ -22,6 +22,7 @@ from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, TokenDetails, fetch_er
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
+CI = os.environ.get("CI") == "true"
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EMBER_VAULT = HexAddress(HexStr("0xf3190A3ECC109F88e7947b849b281918c798A0C4"))
 EMBER_OPERATOR = HexAddress(HexStr("0x116046991e3F0B0967723073a87820eF5edB29f2"))
@@ -81,6 +82,11 @@ def usdc(web3: Web3) -> TokenDetails:
 # reverted once without a revert reason while earlier steps had succeeded; the test passes
 # locally in 14 s with the committed mainnet/24496689 seed, so a cold upstream read of the
 # operator state is the likely cause.
+# 2026-10-27: reverted on three distinct CI runs after the Anvil v1.8.6 upgrade, both flaky
+# attempts each time, inside the real Ember operator's USDC transfer with no revert reason,
+# while passing locally in under 15 s from the committed mainnet/24496689 seed. CI's single
+# Ethereum provider is the only known difference; re-enable once that is diagnosed.
+@pytest.mark.skipif(CI, reason="Ember operator settlement reverts without a reason only on GitHub Actions (seen 2026-10-27 on three runs); passes locally")
 @flaky.flaky
 def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault, usdc: TokenDetails) -> None:
     """Deposit, queue Ember redemption and receive operator payout through a Safe.

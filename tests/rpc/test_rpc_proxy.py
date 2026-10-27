@@ -315,7 +315,7 @@ def test_proxy_answers_anvil_probe_methods_locally(two_anvil_upstreams: tuple[An
     proxy = start_rpc_proxy([anvil_a.json_rpc_url, anvil_b.json_rpc_url])
     try:
         # 2. Call eth_getAccountInfo and anvil_nodeInfo through the proxy
-        for method in ("eth_getAccountInfo", "anvil_nodeInfo"):
+        for method in ("eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"):
             result = _rpc_call(proxy.url, method, ["0x0000000000000000000000000000000000000001", "latest"])
 
             # 3. Verify both answer -32601 and the upstream statistics recorded no such request
