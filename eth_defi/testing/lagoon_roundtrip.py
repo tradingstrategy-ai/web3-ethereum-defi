@@ -285,7 +285,7 @@ class RoundtripSimulation:
             assert perp >= amount
             perp -= amount
             equity += amount
-        elif name == "core_exit":
+        elif name == "core_exit" or name.startswith("core_exit_"):
             assert equity >= amount
             equity -= amount
             perp += amount

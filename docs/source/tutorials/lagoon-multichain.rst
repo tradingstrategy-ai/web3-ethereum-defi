@@ -342,7 +342,10 @@ requires inspection rather than automatically submitting another action.
 for defaults. The default aggregate residual budget is 0.01 USDC, only for
 measured non-recoverable cash after positions/receivables are resolved. Such a
 run ends as ``redeemed_with_dust``, with its amount/location disclosed. A zero
-residual budget requires an exact drain.
+residual budget prevents final redemption if any cash remains; it does not
+remove the Core return fee margin. After inspecting measured residual cash, an
+unwind may explicitly override ``MAX_RESIDUAL_USDC`` up to 1 USDC. Remaining
+vault positions and unresolved transfers are never treated as cash dust.
 
 Simulation uses canonical-block Anvil forks and real Lagoon/Safe/guard/CCTP and
 Lighter custody calls. Only Core sequencing, API signatures, prices and proof

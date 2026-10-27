@@ -48,6 +48,9 @@ Install the optional SDK following ``lagoon-lighter-trade-example.py``.
 Optional settings: ``USDC_AMOUNT=25``, ``POSITION_USDC=10``,
 ``CCTP_MAX_FEE_USDC=0.01``, ``MAX_RESIDUAL_USDC=0.01``, ``LOG_LEVEL=info``;
 ``HYPERCORE_VAULT``/``LIGHTER_POOL_INDEX`` override automatic open-target selection.
+An unwind may explicitly increase ``MAX_RESIDUAL_USDC`` up to 1 USDC after
+inspecting measured cash dust; it never writes off remaining vault shares.
+A zero budget stops final redemption when the Core return fee margin remains.
 The default hub subscription floor is 23.02 USDC, plus the two 1-USDC
 satellite reserves. Account activation deposits
 are not entirely fees; recover their leftover collateral on exit.
@@ -72,6 +75,10 @@ such lock, but this script leaves both investments until manual unwind. Lighter
 secure withdrawal/proof settlement may need another invocation. Exit code 2
 means known pending work, 1 failure/uncertainty, 0 successful command. Inspect
 the named outcome: day-one ``invested`` is not final redemption.
+Moving Hypercore equity or limited liquidity may leave a confirmed partial exit.
+Run unwind again to request its remainder under a new transaction identity.
+An unobserved or rejected Core action still requires explicit investigation;
+neither a zero equity guarantee nor automatic replay is available.
 
 ``SIMULATE=true`` defaults to ``ACTION=all`` and runs the full flow immediately::
 
@@ -189,7 +196,7 @@ def main() -> int:
             state = RoundtripState(simulate=settings.simulate, owner=account.address)
         else:
             state = load_state(settings.state_path, simulate=False)
-            for name, variable in (("subscription", "USDC_AMOUNT"), ("position", "POSITION_USDC"), ("max_residual", "MAX_RESIDUAL_USDC")):
+            for name, variable in (("subscription", "USDC_AMOUNT"), ("position", "POSITION_USDC")):
                 stored = Decimal(state.settings[name])
                 assert variable not in os.environ or Decimal(os.environ[variable]) == stored, f"{variable} conflicts with this run's saved settings"
                 setattr(settings, name, stored)
@@ -199,6 +206,8 @@ def main() -> int:
                 assert settings.lighter_pool == state.targets["lighter"], "Conflicting Lighter target"
             settings.max_fee = Decimal(os.environ.get("CCTP_MAX_FEE_USDC", state.settings["max_fee"]))
             assert settings.max_fee.is_finite() and 0 <= settings.max_fee <= 1
+            settings.max_residual = Decimal(os.environ.get("MAX_RESIDUAL_USDC", state.settings["max_residual"]))
+            assert settings.max_residual.is_finite() and 0 <= settings.max_residual <= 1
             account = None if settings.action == "status" or state.outcome in TERMINAL else Account.from_key(os.environ["LAGOON_MULTCHAIN_TEST_PRIVATE_KEY"])
             if account:
                 assert account.address.lower() == state.owner.lower(), "Key does not match saved investor"

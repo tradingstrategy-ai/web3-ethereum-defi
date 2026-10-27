@@ -50,7 +50,7 @@ Lagoon tutorials. No argument parser and no required routine configuration.
 | `USDC_AMOUNT` | 25 USDC subscription on Arbitrum; default-position funding floor is 23.02 USDC |
 | `POSITION_USDC` | 10 USDC target per protocol |
 | `CCTP_MAX_FEE_USDC` | 0.01 USDC ceiling per transfer; abort if current quote exceeds it |
-| `MAX_RESIDUAL_USDC` | 0.01 USDC total across the run, solely for measured, non-recoverable cash dust; set zero to require an exact drain |
+| `MAX_RESIDUAL_USDC` | 0.01 USDC total measured cash dust by default; an explicit unwind override up to 1 USDC is allowed after inspection. Zero prevents redemption with residual cash; it does not eliminate the Core fee margin. Vault positions are never dust. |
 | `HYPERCORE_VAULT`, `LIGHTER_POOL_INDEX` | Optional target overrides; otherwise discover eligible open targets |
 | `LOG_LEVEL` | `info` |
 
@@ -358,9 +358,12 @@ successfully generated API key to recover deposited collateral.
    report it and return a distinct pending outcome, with a retry command. Process
    the independently available leg; do not wait a day or mark the run complete.
 2. Hypercore: read current equity, actual unlock and account-specific withdrawal
-   capacity. Request a full exit only when the current position is redeemable;
-   otherwise save the observation and return that leg as pending. Do not add
-   automatic withdrawal slicing. Confirm the Core result and zero remaining
+   capacity. Size one withdrawal from the lesser of current equity and the
+   account's withdrawable amount. Do not automatically loop over partial exits.
+   Require a corresponding perp credit and equity reduction before marking that
+   action complete; a later manual invocation may withdraw the remainder under
+   a new recorded identity. Unobserved/rejected actions require investigation.
+   Confirm the Core result and zero remaining
    vault equity before moving this leg to cash withdrawal. If the protocol
    produces a partial result, record it and reconcile the remainder on the next
    manual invocation; never treat it as a full exit. Move all available perp
@@ -405,7 +408,9 @@ successfully generated API key to recover deposited collateral.
    per asset in native precision, separately from consumed fees. Active positions
    and pending claims never qualify as dust. After confirmed exits, measured
    non-recoverable cash residuals may be written down only within the configured
-   aggregate 0.01-USDC ceiling; disclose the amount and location before settlement.
+   aggregate 0.01-USDC default ceiling; disclose the amount and location before
+   settlement. After inspecting measured cash, an explicit unwind override can
+   raise this to at most 1 USDC. The budget never suppresses recoverable transfers.
    Larger or unexplained residuals leave the run pending. This avoids stranding
    the recovered capital because the Core bridge's 0.01-USDC fee reserve exceeds
    the actual fee, without claiming that this reserve was entirely spent.

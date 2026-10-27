@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 from web3.exceptions import TransactionNotFound
 
+from eth_defi.cctp.testing import craft_cctp_message
 from eth_defi.erc_4626.vault_protocol.lagoon import roundtrip as rt
 from eth_defi.lighter.execution import LighterAccountIdentity, LighterPoolExecutor, prepare_pool_deposit, prepare_pool_redemption
 from eth_defi.testing.lagoon_roundtrip import RoundtripSimulation, SimulatedLighter
@@ -327,7 +328,130 @@ def test_external_claim_requires_original_safe_credit(lighter_unwind_context: rt
     assert ctx.state.steps["lighter_external_claim"]["withdrawal_id"] == "simulation-0"
     ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 12_000_000
     with pytest.raises(AssertionError, match="balance evidence"):
+        del ctx.state.steps["lighter_external_claim"]
         rt.unwind_lighter(ctx)
+    ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 11_000_000
+    rt.unwind_lighter(ctx)
+    ctx.state = rt.load_state(ctx.settings.state_path, simulate=True)
+    # The original return burn drained the Safe before its relay timed out.
+    ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 0
+    bridge.reset_mock()
+    rt.unwind_lighter(ctx)
+    bridge.assert_called_once_with(ctx, "return_ethereum", "ethereum", "arbitrum")
+
+
+def test_bridge_reconciliation_ignores_other_hub_credit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A delayed return uses its own consumed message, not both returns' wallet delta."""
+    address = "0x1111111111111111111111111111111111111111"
+    message = bytearray(craft_cctp_message(source_domain=0, destination_domain=3, nonce=1, mint_recipient=address, amount=11_000_000, burn_token=address))
+    message[312:344] = (1_100).to_bytes(32, "big")
+    row = {"source": "ethereum", "destination": "arbitrum", "amount": 11_000_000, "max_fee": 10_000, "finality": 1000, "destination_before": 1_000_000, "message": message.hex(), "attestation": "00"}
+    ctx = Mock()
+    ctx.state = rt.RoundtripState(bridges={"return_ethereum": row}, transactions={"return_ethereum_burn": {"hash": "0xabc"}})
+    ctx.safe.return_value.safe_address = address
+    ctx.usdc = {name: Mock() for name in ("arbitrum", "ethereum")}
+    ctx.usdc["arbitrum"].fetch_raw_balance_of.return_value = 23_997_800
+    ctx.web3 = {name: Mock() for name in ctx.usdc}
+    for name in ("prepare_approve_for_burn", "prepare_deposit_for_burn"):
+        monkeypatch.setattr(rt, name, Mock())
+    monkeypatch.setattr(rt, "send_transaction", Mock(return_value="0xabc"))
+    monkeypatch.setattr(rt, "fetch_message_received", Mock(return_value=True))
+    rt.bridge(ctx, "return_ethereum", "ethereum", "arbitrum")
+    assert row["complete"]
+    assert row["received_raw"] == 10_998_900
+    assert row["actual_fee_raw"] == 1_100
+
+
+def test_unwind_cancels_prepared_but_unsigned_outbound(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An approval without a signed burn must not start another transfer during unwind."""
+    ctx = Mock()
+    ctx.settings = rt.RoundtripSettings()
+    ctx.state = rt.RoundtripState(owner="owner", steps={"subscribed": True}, transactions={"subscription_request": {}, "out_ethereum_approve": {}}, bridges={"out_ethereum": {"source": "arbitrum", "destination": "ethereum", "amount": 11_010_000}})
+    ctx.wallets = {c: SimpleNamespace(address="owner") for c in rt.CHAINS}
+    ctx.web3 = {c: Mock() for c in rt.CHAINS}
+    ctx.deployments = {c: Mock() for c in rt.CHAINS}
+    for web3 in ctx.web3.values():
+        web3.eth.get_balance.return_value = 1
+    for name in ("verify_bindings", "restore_big_blocks"):
+        monkeypatch.setattr(rt, name, Mock())
+    for name in ("unwind_hypercore", "unwind_lighter"):
+        monkeypatch.setattr(rt, name, Mock(side_effect=rt.RoundtripPendingError("exit boundary")))
+    bridge = Mock()
+    monkeypatch.setattr(rt, "bridge", bridge)
+    with pytest.raises(rt.RoundtripPendingError, match="exit boundary"):
+        rt.unwind_and_redeem(ctx)
+    assert ctx.state.bridges["out_ethereum"]["cancelled"]
+    bridge.assert_not_called()
+
+
+def test_confirmed_partial_core_exit_allows_distinct_followup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Moving equity leaves a remainder without replaying a confirmed withdrawal."""
+    ctx = Mock()
+    ctx.settings = rt.RoundtripSettings()
+    ctx.simulation = None
+    ctx.state = rt.RoundtripState(targets={"hypercore": "vault"})
+    token = SimpleNamespace(convert_to_raw=lambda amount: int(amount * 10**6), convert_to_decimals=lambda amount: Decimal(amount) / 10**6)
+    ctx.usdc = {"hyperliquid": token}
+    ledger = {"spot": "1", "perp": "0", "equity": "10", "escrow": "0", "locked_until": None}
+    monkeypatch.setattr(rt, "fetch_core_snapshot", lambda _: dict(ledger))
+    monkeypatch.setattr(rt, "reconcile_core_entries", Mock())
+    metadata = Mock()
+    metadata.fetch_info.side_effect = [SimpleNamespace(max_withdrawable=Decimal(9)), SimpleNamespace(max_withdrawable=Decimal("1.1"))]
+    monkeypatch.setattr(rt, "HyperliquidVault", Mock(return_value=metadata))
+    monkeypatch.setattr(rt, "build_hypercore_withdraw_from_vault_call", Mock())
+    monkeypatch.setattr(rt, "build_hypercore_transfer_usd_class_call", Mock())
+    sent = []
+
+    def send(_ctx: object, name: str, _chain: str, _call: object) -> str:
+        """Credit one completed withdrawal while allowing its equity to move."""
+        sent.append(name)
+        if name == "core_exit":
+            ledger.update(equity="1.1", perp="9")
+        else:
+            assert name == "core_exit_1"
+            ledger.update(equity="0", perp="10.1")
+        return "0xabc"
+
+    monkeypatch.setattr(rt, "send_transaction", send)
+    action = rt.core_action
+
+    def exit_only(ctx: rt.RoundtripContext, name: str, call: object, ready: object, amount: Decimal) -> None:
+        """Exercise real confirmation and stop before the unrelated return steps."""
+        if not name.startswith("core_exit"):
+            message = "perp step reached"
+            raise rt.RoundtripPendingError(message)
+        action(ctx, name, call, ready, amount)
+
+    monkeypatch.setattr(rt, "core_action", exit_only)
+    with pytest.raises(rt.RoundtripPendingError, match="confirmed remainder"):
+        rt.unwind_hypercore(ctx)
+    assert ctx.state.steps["core_exit"]["complete"]
+    with pytest.raises(rt.RoundtripPendingError, match="perp step reached"):
+        rt.unwind_hypercore(ctx)
+    assert sent == ["core_exit", "core_exit_1"]
+    assert ctx.state.steps["core_exit_1"]["complete"]
+    assert ctx.state.steps["core_exit_1"]["amount"] == "1.1"
+
+
+@pytest.mark.parametrize("spot,returned", [("0.5", "0.49"), ("0.009", None), ("0.0100005", None)])
+def test_dust_override_does_not_skip_recoverable_core_cash(monkeypatch: pytest.MonkeyPatch, spot: str, returned: str | None) -> None:
+    """A larger reporting budget cannot turn recoverable activation cash into dust."""
+    ctx = Mock()
+    ctx.settings = rt.RoundtripSettings(action="unwind", max_residual=Decimal(1))
+    ctx.state = rt.RoundtripState()
+    ctx.usdc = {"hyperliquid": SimpleNamespace(convert_to_raw=lambda amount: int(amount * 10**6), convert_to_decimals=lambda amount: Decimal(amount) / 10**6, fetch_balance_of=lambda _: Decimal(0))}
+    monkeypatch.setattr(rt, "reconcile_core_entries", Mock())
+    monkeypatch.setattr(rt, "fetch_core_snapshot", lambda _: {"spot": spot, "perp": "0", "equity": "0", "escrow": "0"})
+    monkeypatch.setattr(rt, "build_hypercore_send_asset_to_evm_call", Mock())
+    monkeypatch.setattr(rt, "bridge", Mock())
+    action = Mock()
+    monkeypatch.setattr(rt, "core_action", action)
+    rt.unwind_hypercore(ctx)
+    if returned:
+        assert action.call_args.args[1] == "core_return"
+        assert action.call_args.args[-1] == Decimal(returned)
+    else:
+        action.assert_not_called()
 
 
 def test_simulated_gain_follows_selected_share_quantity() -> None:

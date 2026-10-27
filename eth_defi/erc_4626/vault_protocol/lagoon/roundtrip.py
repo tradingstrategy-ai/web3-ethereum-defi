@@ -172,8 +172,9 @@ class RoundtripSettings:
         assert env.get("NETWORK", "mainnet") == "mainnet", "Only the three mainnets are supported"
         assert settings.action in ({"all"} if simulate else {"deploy", "status", "unwind"}), "Unsupported mode/action"
         assert all(x.is_finite() and x >= 0 for x in (settings.subscription, settings.position, settings.max_fee, settings.max_residual))
-        assert settings.max_fee <= 1 and settings.max_residual <= Decimal("0.01"), "Invalid fee/dust ceiling"
+        assert settings.max_fee <= 1 and settings.max_residual <= 1, "Invalid fee/dust ceiling"
         if settings.action in {"deploy", "all"}:
+            assert settings.max_residual <= Decimal("0.01"), "Inspect actual residual cash before increasing MAX_RESIDUAL_USDC during unwind"
             assert settings.position >= Decimal(5), "Hypercore vault entries require at least 5 USDC"
             assert settings.subscription >= settings.funding_floor, f"Subscription needs at least {settings.funding_floor} USDC"
         return settings
@@ -343,7 +344,8 @@ def send_transaction(ctx: RoundtripContext, name: str, chain: str, call: Contrac
         receipt = web3.eth.get_transaction_receipt(saved["hash"])
     except TransactionNotFound as error:
         raise UncertainExecutionError(f"Reconcile {name} {saved['hash']}; no second broadcast is allowed") from error
-    assert receipt["status"] == 1, f"Failed transaction {name}: {saved['hash']}"
+    if receipt["status"] != 1:
+        raise UncertainExecutionError(f"Transaction {name} reverted: {saved['hash']}; inspect it before explicit recovery, no automatic replacement is sent")
     saved.update(confirmed=True, gas_used=receipt["gasUsed"], gas_cost_raw=str(receipt["gasUsed"] * receipt["effectiveGasPrice"]))
     ctx.save()
     return saved["hash"]
@@ -530,10 +532,15 @@ def bridge(ctx: RoundtripContext, name: str, source: str, destination: str, net:
         except (RuntimeError, Reverted):
             if not fetch_message_received(ctx.web3[destination], message):
                 raise
-    after = dest_token.fetch_raw_balance_of(ctx.safe(destination).safe_address)
-    received = after - row["destination_before"]
-    assert row["amount"] - row["max_fee"] <= received <= row["amount"], "Unexpected bridge receipt"
-    row.update(complete=True, received_raw=received, actual_fee_raw=row["amount"] - received)
+    assert fetch_message_received(ctx.web3[destination], message), "Original CCTP message has not settled"
+    # Both returns credit the hub. Its wallet delta can include the other
+    # bridge during a restart, so use this consumed message's attested fee.
+    # https://developers.circle.com/cctp/technical-guide#message-format
+    fee = int.from_bytes(message[312:344], "big")
+    assert 0 <= fee <= row["max_fee"] and fee < row["amount"], "Unexpected executed CCTP fee"
+    received = row["amount"] - fee
+    assert dest_token.fetch_raw_balance_of(ctx.safe(destination).safe_address) >= received, "Settled bridge credit is not available"
+    row.update(complete=True, received_raw=received, actual_fee_raw=fee)
     ctx.save()
 
 
@@ -901,15 +908,26 @@ def unwind_hypercore(ctx: RoundtripContext) -> None:
     if equity:
         if current["locked_until"] and native_datetime_utc_now() < datetime.datetime.fromisoformat(current["locked_until"]):
             raise RoundtripPendingError(f"Hypercore locked until {current['locked_until']} UTC")
-        if not ctx.simulation:
-            info = HyperliquidVault(ctx.hyper_session, ctx.state.targets["hypercore"]).fetch_info(user=safe.safe_address)
-            if info.max_withdrawable < equity:
-                message = "Hypercore vault lacks liquidity for a full exit"
+        # Use numeric sequence order independently of JSON key ordering.
+        exits = sorted((name for name in ctx.state.steps if name == "core_exit" or name.startswith("core_exit_")), key=lambda name: 0 if name == "core_exit" else int(name.removeprefix("core_exit_")))
+        name = exits[-1] if exits and not ctx.state.steps[exits[-1]].get("complete") else (f"core_exit_{len(exits)}" if exits else "core_exit")
+        if name not in ctx.state.steps:
+            available = equity if ctx.simulation else HyperliquidVault(ctx.hyper_session, ctx.state.targets["hypercore"]).fetch_info(user=safe.safe_address).max_withdrawable
+            amount = token.convert_to_decimals(token.convert_to_raw(min(equity, available)))
+            if amount <= 0:
+                message = "Hypercore vault has no representable withdrawable amount; inspect current liquidity and remaining equity"
                 raise RoundtripPendingError(message)
-        saved = ctx.state.steps.setdefault("core_exit", {"amount": str(token.convert_to_decimals(token.convert_to_raw(equity)))})
-        ctx.save()
+            ctx.state.steps[name] = {"amount": str(amount), "before": current}
+            ctx.save()
+        saved = ctx.state.steps[name]
+        saved.setdefault("before", current)
         amount = Decimal(saved["amount"])
-        core_action(ctx, "core_exit", build_hypercore_withdraw_from_vault_call(safe, ctx.state.targets["hypercore"], token.convert_to_raw(amount)), lambda s: Decimal(s["equity"]) == 0, amount)
+        before = saved["before"]
+        core_action(ctx, name, build_hypercore_withdraw_from_vault_call(safe, ctx.state.targets["hypercore"], token.convert_to_raw(amount)), lambda s: Decimal(s["perp"]) > Decimal(before["perp"]) and Decimal(s["equity"]) < Decimal(before["equity"]), amount)
+        if Decimal(fetch_core_snapshot(ctx)["equity"]) > 0:
+            # Never replay this action. A later invocation may withdraw the
+            # remainder under a new identity, after this credit was observed.
+            raise RoundtripPendingError(f"{name} credited perp USDC but left vault equity; run unwind again for the confirmed remainder")
     elif "core_invest" in ctx.state.transactions and not ctx.state.steps.get("core_invest", {}).get("complete"):
         message = "Core investment submission remains unresolved; do not withdraw its source funds"
         raise UncertainExecutionError(message)
@@ -922,9 +940,9 @@ def unwind_hypercore(ctx: RoundtripContext) -> None:
     current = fetch_core_snapshot(ctx)
     assert Decimal(current["escrow"]) == 0, "Resolve the existing Core escrow before returning funds"
     spot = Decimal(current["spot"])
-    if spot > ctx.settings.max_residual or "core_return" in ctx.state.transactions:
-        amount = compute_spot_to_evm_withdrawal_amount(spot, spot)
-        amount = token.convert_to_decimals(token.convert_to_raw(amount))
+    amount = token.convert_to_decimals(token.convert_to_raw(compute_spot_to_evm_withdrawal_amount(spot, spot)))
+    # The reporting budget must never suppress a recoverable return transfer.
+    if amount > 0 or "core_return" in ctx.state.transactions:
         row = ctx.state.steps.setdefault("core_return", {"amount": str(amount), "evm_before": str(token.fetch_balance_of(safe.safe_address))})
         amount = Decimal(row["amount"])
         if amount <= 0:
@@ -940,6 +958,11 @@ def unwind_lighter(ctx: RoundtripContext) -> None:  # noqa: PLR0914 - Keep the s
     :param ctx: Original Ethereum satellite and persisted API operations.
     """
     if ctx.state.bridges.get("return_ethereum", {}).get("complete"):
+        return
+    if ctx.state.steps.get("lighter_external_claim"):
+        # Credit was verified before the return burn. It is no longer in the
+        # Safe if that burn succeeded but its relay remains pending.
+        bridge(ctx, "return_ethereum", "ethereum", "arbitrum")
         return
     safe, token = ctx.safe("ethereum"), ctx.usdc["ethereum"]
     index = ctx.state.lighter.get("account_index")
@@ -1118,6 +1141,8 @@ def unwind_and_redeem(ctx: RoundtripContext) -> None:
     verify_bindings(ctx)
     restore_big_blocks(ctx)
     assert all(ctx.web3[c].eth.get_balance(ctx.state.owner) > 0 for c in CHAINS), "Refill unwind gas"
+    ctx.state.settings["max_residual"] = str(ctx.settings.max_residual)
+    ctx.save()
     if not ctx.deployments or "subscription_request" not in ctx.state.transactions:
         ctx.state.outcome = "unfunded"
         ctx.save()
@@ -1126,7 +1151,13 @@ def unwind_and_redeem(ctx: RoundtripContext) -> None:
         subscribe(ctx)
     for name, row in ctx.state.bridges.copy().items():
         if not row.get("complete") and name.startswith("out_"):
-            bridge(ctx, name, row["source"], row["destination"])
+            if name + "_burn" not in ctx.state.transactions:
+                # No signed burn exists: capital is still on the hub. Unwind
+                # cancels this transfer instead of initiating a new investment.
+                row.update(complete=True, cancelled=True)
+                ctx.save()
+            else:
+                bridge(ctx, name, row["source"], row["destination"])
     logger.info("Phase 6: close positions and settle protocol withdrawals")
     delayed, uncertain = [], []
     for name, function in [("hyperliquid", unwind_hypercore), ("ethereum", unwind_lighter)]:
@@ -1154,10 +1185,12 @@ def unwind_and_redeem(ctx: RoundtripContext) -> None:
     if ctx.state.lighter.get("account_index") is not None:
         account, equity = fetch_execution_account(ctx.lighter_session, ctx.state.lighter["account_index"])
         assert not account["positions"] and not any(r["shares_amount"] for r in account["shares"])
-        assert equity.available_balance == 0 and fetch_lighter_pending_balance(ctx.web3["ethereum"], owner=ctx.safe("ethereum").safe_address, usdc=ctx.usdc["ethereum"]) == 0
+        if equity.available_balance or fetch_lighter_pending_balance(ctx.web3["ethereum"], owner=ctx.safe("ethereum").safe_address, usdc=ctx.usdc["ethereum"]) or equity.collateral:
+            message = "Lighter still holds collateral or an L1 receivable; inspect the original withdrawal before preparing a separate recovery"
+            raise RoundtripPendingError(message)
     assert all(row.get("complete") for row in ctx.state.bridges.values()), "Unsettled CCTP receivable"
     if residual > ctx.settings.max_residual:
-        raise RoundtripPendingError(f"Residual {residual} USDC exceeds disclosed dust budget")
+        raise RoundtripPendingError(f"Residual {residual} USDC exceeds disclosed dust budget; inspect it before an explicit MAX_RESIDUAL_USDC override (at most 1 USDC)")
     ctx.state.results["residual_usdc"] = str(residual)
     ctx.state.results["bridge_fees_usdc"] = str(sum((ctx.usdc[row["source"]].convert_to_decimals(row.get("actual_fee_raw", 0)) for row in ctx.state.bridges.values()), Decimal(0)))
     ctx.save()
