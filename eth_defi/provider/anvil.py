@@ -596,9 +596,9 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
         switchover_log_level=logging.WARNING,
         # Anvil >= 1.8 forwards receipt polls for its own unmined transactions
-        # upstream; the forks are at fixed past blocks, so any upstream's
-        # first reply is authoritative.
-        hedged_methods=TRANSACTION_LOOKUP_METHODS,
+        # upstream, in case the hash predates the fork. A test's transactions
+        # are only ever mined by the fork itself, so answer null locally.
+        local_null_methods=TRANSACTION_LOOKUP_METHODS,
     )
 
 
@@ -1819,8 +1819,9 @@ def launch_anvil(
             available_rpcs = [u.replace("mev+", "", 1) for u in all_rpcs]
         upstream_rpc_urls = tuple(available_rpcs)
         # Every fork goes through the local proxy, also with a single upstream:
-        # it answers Anvil >= 1.8's probe methods locally (see
-        # RPCProxyConfig.unsupported_methods), bounds each upstream attempt and
+        # it answers Anvil >= 1.8's probe methods and unknown-hash transaction
+        # lookups locally (see RPCProxyConfig.unsupported_methods and
+        # RPCProxyConfig.local_null_methods), bounds each upstream attempt and
         # logs the reason whenever a cold read fails or stalls.
         if proxy_multiple_upstream is not False:
             if isinstance(proxy_multiple_upstream, RPCProxy):

@@ -16,7 +16,9 @@ causes, both now fixed:
   lookups in about 2.5 s, which made every transaction take about 2.5 s.
 
 With the `source_id` rewrite and hedged receipt lookups, the four tests take
-14–17 s. Details, the full behaviour table and a diagnosis checklist are in
+14–17 s. The hedging was later replaced by the proxy answering those lookups
+itself with `null`, since a test's transactions are only ever mined by the
+fork; that also removes the dependency on having a second, faster provider. Details, the full behaviour table and a diagnosis checklist are in
 [Anvil 1.8 behaviour and mitigations](../eth_defi/testing/README.md#anvil-18-behaviour-and-mitigations).
 
 ## Lagoon fork contention (2026-10-22)

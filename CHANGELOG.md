@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: The proxy that `launch_anvil()` starts answers `eth_getTransactionReceipt` and `eth_getTransactionByHash` for unknown hashes itself with `null` (`RPCProxyConfig.local_null_methods`) instead of forwarding them upstream: a test's transactions are only mined by the fork, and a slow provider turned every Anvil 1.8 receipt poll into a multi-second wait (Goldsky Ethereum: 6 s) whenever a chain had a single upstream and hedging could not help (2026-10-27).
 - fix: Point `DeriveApiClient` at the Derive v3 API with the `X-DeriveWallet`, `X-DeriveTimestamp` and `X-DeriveSignature` headers, discover subaccounts through the public v3 endpoint and read v3 collateral balances, as the v2 API at `api.lyra.finance` is shut down (2026-10-27).
 - fix: Whitelist ERC-4626 vaults on HyperEVM two per GuardV0 multicall: a `whitelistERC4626()` call writes about 30 storage slots, so a batch of the generic 40 ran out of a HyperEVM fast block's 2M gas and reverted the satellite guard setup (2026-10-27).
 - fix: Build HyperCore deposit and withdrawal calls for a `LagoonSatelliteVault` on HyperEVM, which has no vault contract or `spec`; its Safe's USDC is the chain's native USDC (2026-10-27).
