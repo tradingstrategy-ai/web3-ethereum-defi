@@ -1,6 +1,7 @@
 # 1.2
 
 - fix: Classify Shift ltPARA, extUSD and ltLLP as DeFi vaults, read their live investor allow-list policy, and provide a metadata-only repair preserving historical prices (2026-10-27).
+- feat: Add ipUSD stablecoin classification, verified Soneium metadata, news source and official token artwork (2026-10-27).
 - feat: `LagoonConfig.lighter_sub_account_labels` creates one Lighter sub-account per stable label during activation and records the label on every `LighterSubAccountSetup` report (2026-10-26).
 - feat: Lower the Lighter-enabled Lagoon bootstrap subscription to the 1 USDC Lighter deposit minimum, so deploying a vault needs only 1 USDC and leaves no idle USDC in the Safe (2026-10-26).
 - feat: Lighter sub-accounts for Safe-owned master accounts: account discovery and one-snapshot equity, sub-account creation and key registration during Lagoon activation, fee-free same-owner transfers, the key-free L1 withdraw path, an Anvil pending-balance fixture, and a single-owner Safe sweep helper, verified live on Ethereum mainnet (2026-10-26).
