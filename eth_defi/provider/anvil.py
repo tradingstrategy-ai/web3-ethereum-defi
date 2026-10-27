@@ -183,11 +183,31 @@ def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain
     return cache_dir / "storage.json", cache_dir / f"storage-{digest}.json"
 
 
+def _fork_source_id(fork_url: str) -> str:
+    """Compute Anvil 1.8's fork source identity for a single fork URL.
+
+    Mirrors ``fork_source_id()`` in Anvil's
+    `config.rs <https://github.com/foundry-rs/foundry/blob/master/crates/anvil/src/config.rs>`__:
+    keccak256 over the length-prefixed list of fork URLs followed by the
+    length-prefixed list of fork headers. We never pass ``--fork-header``.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :return:
+        ``0x``-prefixed hex digest, as stored in the cache ``meta.source_id``.
+    """
+    url = fork_url.encode()
+    encoded = (1).to_bytes(8, "big") + len(url).to_bytes(8, "big") + url + (0).to_bytes(8, "big")
+    return "0x" + Web3.keccak(encoded).hex().removeprefix("0x")
+
+
 def _seed_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> None:
     """Expose the shared ``storage.json`` fork cache under Anvil 1.8's endpoint name.
 
-    See :func:`_fork_cache_paths`. A missing shared cache or an existing
-    endpoint file leaves the directory untouched.
+    See :func:`_fork_cache_paths`. The copy gets this launch's
+    ``meta.source_id`` (see :func:`_fork_source_id`), otherwise Anvil 1.8
+    rejects it as a cache for a different fork source. A missing shared cache
+    or an existing endpoint file leaves the directory untouched.
 
     :param fork_url:
         Exact ``--fork-url`` string given to Anvil.
@@ -203,7 +223,16 @@ def _seed_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, 
     if not shared.exists() or endpoint.exists():
         return
     try:
-        shutil.copy2(shared, endpoint)
+        data = _read_fork_cache(shared)
+    except (OSError, ValueError) as e:
+        logger.warning("Could not read shared fork cache %s: %s", shared, e)
+        return
+    # Anvil 1.8 discards a cache whose ``meta.source_id`` differs from the
+    # current fork source, and the shared file carries the id of whichever
+    # proxy port last wrote it
+    data.setdefault("meta", {})["source_id"] = _fork_source_id(fork_url)
+    try:
+        _write_fork_cache(endpoint, data)
     except OSError as e:
         logger.warning("Could not alias fork cache %s to %s: %s", shared, endpoint.name, e)
 

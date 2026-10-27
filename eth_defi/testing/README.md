@@ -159,8 +159,13 @@ Anvil `v1.8` keys the fork cache by endpoint instead:
 `<network>/<block>/storage-<keccak256(fork_url)>.json`. Every launch here forks
 through a local failover proxy on a fresh port, so that file would never be
 reused and the committed `storage.json` would never be read. `launch_anvil()`
-therefore copies `storage.json` to the endpoint name before Anvil starts, and
-`AnvilLaunch.close()` merges the endpoint file back as a union of accounts,
+therefore copies `storage.json` to the endpoint name before Anvil starts,
+rewriting `meta.source_id` to this launch's fork source (keccak256 over the
+length-prefixed fork URL and header lists, see `fork_source_id()` in Anvil's
+`crates/anvil/src/config.rs`). Anvil discards a cache whose `source_id` does not
+match, so without the rewrite every seed captured through another proxy port was
+silently ignored and each fork started cold. `AnvilLaunch.close()` then
+merges the endpoint file back as a union of accounts,
 storage slots and block hashes (Anvil writes only the entries touched in the
 session) and removes it. Committed seeds stay in the release-agnostic
 `storage.json`; see `_fork_cache_paths()` in `eth_defi/provider/anvil.py`.
