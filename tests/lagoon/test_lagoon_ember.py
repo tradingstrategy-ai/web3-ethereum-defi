@@ -5,6 +5,7 @@ import os
 from collections.abc import Iterator
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -76,6 +77,11 @@ def usdc(web3: Web3) -> TokenDetails:
     return fetch_erc20_details(web3, USDC_NATIVE_TOKEN[1])
 
 
+# 2026-10-27, CI after the Anvil v1.8.6 upgrade: the operator's processWithdrawalRequests(1)
+# reverted once without a revert reason while earlier steps had succeeded; the test passes
+# locally in 14 s with the committed mainnet/24496689 seed, so a cold upstream read of the
+# operator state is the likely cause.
+@flaky.flaky
 def test_lagoon_safe_ember_redemption_cycle(web3: Web3, ember_vault: EmberVault, usdc: TokenDetails) -> None:
     """Deposit, queue Ember redemption and receive operator payout through a Safe.
 
