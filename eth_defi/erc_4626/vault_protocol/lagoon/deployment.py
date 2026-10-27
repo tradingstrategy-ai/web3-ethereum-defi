@@ -23,6 +23,7 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
+from collections.abc import Sequence
 from typing import Any, Callable, Literal
 
 import eth_abi
@@ -54,12 +55,14 @@ from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, wait_for_lighter_account, wait_for_lighter_api_key, wait_for_lighter_collateral
-from eth_defi.lighter.api_key import generate_lighter_api_key as generate_lighter_api_key_pair
+from eth_defi.lighter.api_key import LighterApiKey, generate_lighter_api_key as generate_lighter_api_key_pair
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX, execute_change_pubkey
-from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.sdk import import_lighter_sdk
+from eth_defi.lighter.session import LighterSession, create_lighter_session
+from eth_defi.lighter.sub_account import LIGHTER_MAX_SUB_ACCOUNTS, create_lighter_sub_accounts
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import (
     DEFAULT_TX_CONFIRMATION_TIMEOUT,
@@ -86,9 +89,13 @@ DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 #: Default fixed window for the asset-manager's gross Lagoon settlement budget.
 DEFAULT_LAGOON_SETTLEMENT_WINDOW = 24 * 60 * 60
 
-#: Initial Lagoon subscription for a Lighter-enabled vault. One USDC is then
-#: transferred to Lighter activation, retaining 19 USDC in the Safe reserve.
-LIGHTER_BOOTSTRAP_SUBSCRIPTION = Decimal(20)
+#: Initial Lagoon subscription for a Lighter-enabled vault.
+#:
+#: The minimum: it pays exactly the Lighter activation deposit, which is the
+#: 1 USDC minimum of a direct Ethereum deposit, so the Safe holds no USDC
+#: after deployment. Add operating capital through a normal Lagoon
+#: subscription afterwards.
+LIGHTER_BOOTSTRAP_SUBSCRIPTION = LIGHTER_MIN_MAINNET_USDC
 
 DEFAULT_MANAGEMENT_RATE = 200
 
@@ -425,13 +432,30 @@ class LagoonConfig:
     #:
     #: This Ethereum-only deployment ceremony funds the Safe through Lagoon,
     #: subscribes :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` through Lagoon, transfers
-    #: one USDC to Lighter, then performs ``changePubKey`` before the requested
+    #: it to Lighter, then performs ``changePubKey`` before the requested
     #: Safe owners and threshold are configured. The deployer remains an owner,
     #: matching the existing Lagoon deployment flow.
     generate_lighter_api_key: bool = False
 
     #: User API-key slot to register during Lighter activation.
     lighter_api_key_index: int = MIN_API_KEY_INDEX
+
+    #: Number of Lighter sub-accounts to create during activation.
+    #:
+    #: Each sub-account gets one API key at
+    #: :attr:`lighter_sub_account_api_key_index` for an external trading
+    #: process. Sub-accounts are not funded during deployment.
+    #:
+    #: The generated master and sub-account private keys exist only in the
+    #: returned deployment object until the caller writes them out, so a
+    #: failure after activation loses them.
+    lighter_sub_account_count: int = 0
+
+    #: Stable ids of the sub-accounts to create, in creation order; overrides the count.
+    lighter_sub_account_labels: tuple[str, ...] = ()
+
+    #: API-key slot registered on every created sub-account.
+    lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX
 
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
@@ -575,6 +599,88 @@ class WhitelistEntry:
 
 
 @dataclass(slots=True, frozen=True)
+class LighterSubAccountSetup:
+    """A Lighter sub-account created and keyed during Lagoon deployment.
+
+    The API key is meant for an external trading process, such as a Nautilus
+    strategy. Its private key exists only in the deployment object returned
+    by a successful deployment and is never written to deployment reports;
+    the caller writes it out with :py:meth:`as_handover_dict`.
+    """
+
+    #: Sub-account index owned by the Safe's master account.
+    account_index: int
+
+    #: Registered API-key slot on the sub-account.
+    api_key_index: int
+
+    #: Private key for the external trading process, never in ``repr()``.
+    private_key: str | None = field(repr=False)
+
+    #: Registered 40-byte Lighter public key.
+    public_key: str
+
+    #: Safe ``changePubKey`` transaction hash for this sub-account.
+    change_pubkey_tx_hash: str
+
+    #: Stable id the strategy gave this sub-account, recorded in every report.
+    label: str | None = None
+
+    def as_public_dict(self) -> dict[str, Any]:
+        """Return the public metadata of the sub-account.
+
+        :return:
+            JSON-serialisable fields without the private key.
+        """
+        return {
+            "account_index": self.account_index,
+            "api_key_index": self.api_key_index,
+            "public_key": self.public_key,
+            "change_pubkey_tx_hash": self.change_pubkey_tx_hash,
+            "label": self.label,
+        }
+
+    def as_handover_dict(self, *, safe_address: HexAddress | str, vault_address: HexAddress | str | None) -> dict[str, Any]:
+        """Return the secret-bearing record handed to the external trader.
+
+        Write it only to a mode ``0600`` file.
+
+        :param safe_address:
+            Safe owning the Lighter account tree.
+        :param vault_address:
+            Lagoon vault address.
+        :return:
+            Public metadata plus the sub-account private key.
+        """
+        if not self.private_key:
+            raise ValueError(f"Lighter sub-account {self.account_index} has no private key to hand over")
+        return {
+            **self.as_public_dict(),
+            "safe_address": safe_address,
+            "vault_address": vault_address,
+            "private_key": self.private_key,
+        }
+
+    @classmethod
+    def from_public_dict(cls, data: dict[str, Any]) -> "LighterSubAccountSetup":
+        """Recreate redacted sub-account metadata.
+
+        :param data:
+            Output of :py:meth:`as_public_dict`.
+        :return:
+            Sub-account setup without a private key.
+        """
+        return cls(
+            account_index=int(data["account_index"]),
+            api_key_index=int(data["api_key_index"]),
+            private_key=None,
+            public_key=data["public_key"],
+            change_pubkey_tx_hash=data["change_pubkey_tx_hash"],
+            label=data.get("label"),
+        )
+
+
+@dataclass(slots=True, frozen=True)
 class LighterAccountSetup:
     """Registered Lighter account details created by Lagoon deployment.
 
@@ -606,6 +712,9 @@ class LighterAccountSetup:
 
     #: Collateral observed by the Lighter public API after activation.
     observed_collateral: Decimal
+
+    #: Sub-accounts created and keyed during activation, in creation order.
+    sub_accounts: tuple[LighterSubAccountSetup, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -707,6 +816,8 @@ class LagoonAutomatedDeployment:
                     "Lighter collateral": self.lighter_account_setup.observed_collateral,
                 }
             )
+            if self.lighter_account_setup.sub_accounts:
+                fields["Lighter sub-accounts"] = ", ".join(str(sub.account_index) for sub in self.lighter_account_setup.sub_accounts)
 
         if not self.is_satellite:
             vault = self.vault
@@ -767,6 +878,10 @@ class LagoonAutomatedDeployment:
                 "deposit_tx_hash": self.lighter_account_setup.deposit_tx_hash,
                 "change_pubkey_tx_hash": self.lighter_account_setup.change_pubkey_tx_hash,
                 "observed_collateral": str(self.lighter_account_setup.observed_collateral),
+                # Sub-account keys belong to the external trader. They are
+                # never part of a deployment report, even a secret-bearing one;
+                # see LighterSubAccountSetup.as_handover_dict().
+                "sub_accounts": [sub.as_public_dict() for sub in self.lighter_account_setup.sub_accounts],
             }
             if include_secrets:
                 lighter_data["private_key"] = self.lighter_account_setup.private_key
@@ -886,6 +1001,7 @@ class LagoonAutomatedDeployment:
                 deposit_tx_hash=lighter_data["deposit_tx_hash"],
                 change_pubkey_tx_hash=lighter_data["change_pubkey_tx_hash"],
                 observed_collateral=Decimal(lighter_data["observed_collateral"]),
+                sub_accounts=tuple(LighterSubAccountSetup.from_public_dict(sub) for sub in lighter_data.get("sub_accounts", [])),
             )
 
         return cls(
@@ -2268,6 +2384,8 @@ def _validate_lighter_api_key_deployment_config(
     existing_vault_address: HexAddress | str | None,
     existing_safe_address: HexAddress | str | None,
     max_settlement_amount: Decimal | None,
+    lighter_sub_account_count: int = 0,
+    lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX,
 ) -> None:
     """Validate the narrow Ethereum Lighter activation deployment topology.
 
@@ -2298,11 +2416,26 @@ def _validate_lighter_api_key_deployment_config(
         Optional existing Safe address.
     :param max_settlement_amount:
         Optional Lagoon asset-manager settlement cap.
+    :param lighter_sub_account_count:
+        Number of sub-accounts to create during activation.
+    :param lighter_sub_account_api_key_index:
+        API-key slot registered on each sub-account.
     :return:
         ``None`` after validation.
     """
+    if lighter_sub_account_count and not generate_lighter_api_key:
+        message = "lighter_sub_account_count requires generate_lighter_api_key"
+        raise ValueError(message)
     if not generate_lighter_api_key:
         return
+    if not 0 <= lighter_sub_account_count <= LIGHTER_MAX_SUB_ACCOUNTS:
+        raise ValueError(f"lighter_sub_account_count must be 0..{LIGHTER_MAX_SUB_ACCOUNTS}")
+    if not MIN_API_KEY_INDEX <= lighter_sub_account_api_key_index <= MAX_API_KEY_INDEX:
+        raise ValueError(f"lighter_sub_account_api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX}")
+    if lighter_sub_account_count:
+        # Sub-account creation needs the optional SDK. Fail before any
+        # contract deployment or USDC deposit rather than after activation.
+        import_lighter_sdk()
 
     if not isinstance(deployer, HotWallet):
         message = "generate_lighter_api_key requires a HotWallet deployer"
@@ -2349,6 +2482,9 @@ def _activate_lighter_account(
     vault_abi: str,
     lighter_deployment: LighterDeployment,
     api_key_index: int,
+    sub_account_count: int = 0,
+    sub_account_api_key_index: int = MIN_API_KEY_INDEX,
+    sub_account_labels: Sequence[str] = (),
 ) -> LighterAccountSetup:
     """Fund, activate and register a Lighter API key for a newly deployed Safe.
 
@@ -2375,6 +2511,11 @@ def _activate_lighter_account(
         Canonical Ethereum Lighter contracts.
     :param api_key_index:
         Lighter API-key slot to register.
+    :param sub_account_count:
+        Number of sub-accounts to create with the new master key. Each gets
+        one API key registered by a Safe ``changePubKey`` transaction.
+    :param sub_account_api_key_index:
+        API-key slot registered on each sub-account.
     :return:
         Generated key material and confirmed activation metadata.
     """
@@ -2430,24 +2571,46 @@ def _activate_lighter_account(
             account_index,
             LIGHTER_MIN_MAINNET_USDC,
         )
-        api_key = generate_lighter_api_key_pair(api_key_index)
-        change_pubkey_tx_hash = execute_change_pubkey(
+        api_key, change_pubkey_tx_hash = _register_lighter_api_key(
             web3=web3,
+            deployer=deployer,
             safe=safe,
-            owner_private_key=deployer.private_key.hex(),
+            session=session,
             account_index=account_index,
-            api_key_index=api_key.api_key_index,
-            pubkey=bytes.fromhex(api_key.public_key.removeprefix("0x")),
+            api_key_index=api_key_index,
             zk_lighter=lighter_deployment.zk_lighter,
-            hot_wallet=deployer,
         )
-        wait_for_lighter_api_key(
-            session,
-            account_index,
-            api_key.api_key_index,
-            api_key.public_key,
-            timeout=900,
-        )
+        sub_accounts = []
+        sub_account_count = len(sub_account_labels) or sub_account_count
+        if sub_account_count:
+            sub_account_indices = create_lighter_sub_accounts(
+                session=session,
+                l1_address=safe.address,
+                master_account_index=account_index,
+                api_key_index=api_key.api_key_index,
+                api_private_key=api_key.private_key,
+                count=sub_account_count,
+            )
+            for number, sub_index in enumerate(sub_account_indices):
+                sub_key, sub_tx_hash = _register_lighter_api_key(
+                    web3=web3,
+                    deployer=deployer,
+                    safe=safe,
+                    session=session,
+                    account_index=sub_index,
+                    api_key_index=sub_account_api_key_index,
+                    zk_lighter=lighter_deployment.zk_lighter,
+                )
+                sub_accounts.append(
+                    LighterSubAccountSetup(
+                        account_index=sub_index,
+                        api_key_index=sub_key.api_key_index,
+                        private_key=sub_key.private_key,
+                        public_key=sub_key.public_key,
+                        change_pubkey_tx_hash=Web3.to_hex(sub_tx_hash),
+                        label=sub_account_labels[number] if sub_account_labels else None,
+                    )
+                )
     finally:
         session.close()
 
@@ -2460,7 +2623,65 @@ def _activate_lighter_account(
         deposit_tx_hash=deposit_tx_hash,
         change_pubkey_tx_hash=Web3.to_hex(change_pubkey_tx_hash),
         observed_collateral=observed_collateral,
+        sub_accounts=tuple(sub_accounts),
     )
+
+
+def _register_lighter_api_key(
+    *,
+    web3: Web3,
+    deployer: HotWallet,
+    safe: Safe,
+    session: LighterSession,
+    account_index: int,
+    api_key_index: int,
+    zk_lighter: HexAddress,
+) -> tuple[LighterApiKey, HexBytes]:
+    """Generate an API key and register it on a Safe-owned Lighter account.
+
+    The key is registered by a Safe ``changePubKey`` transaction, executed
+    while the deployer is still the sole Safe owner, and then awaited in the
+    public API. ``account_index`` can be the master account or one of its
+    sub-accounts.
+
+    See https://apidocs.lighter.xyz/docs/api-keys
+
+    :param web3:
+        Ethereum Web3 connection.
+    :param deployer:
+        Sole Safe owner executing ``changePubKey``.
+    :param safe:
+        Safe owning the Lighter account.
+    :param session:
+        Public Lighter HTTP session.
+    :param account_index:
+        Master or sub-account index to key.
+    :param api_key_index:
+        API-key slot to register.
+    :param zk_lighter:
+        ZkLighter L1 contract address.
+    :return:
+        Generated key and the ``changePubKey`` transaction hash.
+    """
+    api_key = generate_lighter_api_key_pair(api_key_index)
+    tx_hash = execute_change_pubkey(
+        web3=web3,
+        safe=safe,
+        owner_private_key=deployer.private_key.hex(),
+        account_index=account_index,
+        api_key_index=api_key.api_key_index,
+        pubkey=bytes.fromhex(api_key.public_key.removeprefix("0x")),
+        zk_lighter=zk_lighter,
+        hot_wallet=deployer,
+    )
+    wait_for_lighter_api_key(
+        session,
+        account_index,
+        api_key.api_key_index,
+        api_key.public_key,
+        timeout=900,
+    )
+    return api_key, tx_hash
 
 
 def deploy_automated_lagoon_vault(
@@ -2482,6 +2703,9 @@ def deploy_automated_lagoon_vault(
     lighter_deployment: "LighterDeployment | None" = None,
     generate_lighter_api_key: bool = False,
     lighter_api_key_index: int = MIN_API_KEY_INDEX,
+    lighter_sub_account_count: int = 0,
+    lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX,
+    lighter_sub_account_labels: Sequence[str] = (),
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
@@ -2564,12 +2788,25 @@ def deploy_automated_lagoon_vault(
         configuration object.
 
     :param generate_lighter_api_key:
-        Activate a canonical Ethereum Lighter account after a fixed 20 USDC
-        Lagoon bootstrap subscription and register a new API key before the
+        Activate a canonical Ethereum Lighter account after a fixed
+        :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` Lagoon bootstrap subscription,
+        the 1 USDC activation minimum, and register a new API key before the
         Safe owners are finalised. Defaults to ``False``.
 
     :param lighter_api_key_index:
         Automated Lighter API-key slot to register when activation is enabled.
+
+    :param lighter_sub_account_count:
+        Number of Lighter sub-accounts to create during activation, each with
+        one API key for an external trading process. Requires
+        ``generate_lighter_api_key``.
+
+    :param lighter_sub_account_api_key_index:
+        API-key slot registered on each created sub-account.
+
+    :param lighter_sub_account_labels:
+        Stable ids of the sub-accounts to create, in creation order. When
+        given, one sub-account is created per id and the count is ignored.
 
     :param max_settlement_amount:
         Optional maximum gross Lagoon settlement for one asset-manager module
@@ -2625,6 +2862,9 @@ def deploy_automated_lagoon_vault(
         lighter_deployment = config.lighter_deployment
         generate_lighter_api_key = config.generate_lighter_api_key
         lighter_api_key_index = config.lighter_api_key_index
+        lighter_sub_account_count = config.lighter_sub_account_count
+        lighter_sub_account_api_key_index = config.lighter_sub_account_api_key_index
+        lighter_sub_account_labels = config.lighter_sub_account_labels
         cctp_deployment = config.cctp_deployment
         any_hypercore_vault = config.any_hypercore_vault
         any_asset = config.any_asset
@@ -2689,7 +2929,11 @@ def deploy_automated_lagoon_vault(
         existing_vault_address=existing_vault_address,
         existing_safe_address=existing_safe_address,
         max_settlement_amount=max_settlement_amount,
+        lighter_sub_account_count=len(lighter_sub_account_labels) or lighter_sub_account_count,
+        lighter_sub_account_api_key_index=lighter_sub_account_api_key_index,
     )
+    if len(set(lighter_sub_account_labels)) != len(lighter_sub_account_labels):
+        raise ValueError(f"lighter_sub_account_labels must be unique: {lighter_sub_account_labels}")
 
     legacy = vault_abi == LEGACY_LAGOON_VAULT_JSON
 
@@ -3090,6 +3334,9 @@ def deploy_automated_lagoon_vault(
                 vault_abi=vault_abi,
                 lighter_deployment=lighter_deployment,
                 api_key_index=lighter_api_key_index,
+                sub_account_count=lighter_sub_account_count,
+                sub_account_labels=lighter_sub_account_labels,
+                sub_account_api_key_index=lighter_sub_account_api_key_index,
             )
 
         # 3. Set Gnosis to a true multisig

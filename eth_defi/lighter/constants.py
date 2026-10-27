@@ -77,6 +77,12 @@ LIGHTER_L1_CONTRACT: HexAddress = "0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7"
 #: USDC on Ethereum mainnet — the Lighter deposit asset.
 LIGHTER_USDC_ETHEREUM: HexAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
+#: Lighter route type of the perpetuals balance.
+#:
+#: Used as ``routeType`` in L1 ``deposit`` and ``withdraw`` calls and as the
+#: source and destination route of L2 transfers.
+LIGHTER_ROUTE_PERP: int = 0
+
 #: Lighter mainnet API base URL.
 LIGHTER_API_URL: str = "https://mainnet.zklighter.elliot.ai"
 

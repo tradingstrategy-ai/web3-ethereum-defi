@@ -1,5 +1,8 @@
 # 1.2
 
+- feat: `LagoonConfig.lighter_sub_account_labels` creates one Lighter sub-account per stable label during activation and records the label on every `LighterSubAccountSetup` report (2026-10-26).
+- feat: Lower the Lighter-enabled Lagoon bootstrap subscription to the 1 USDC Lighter deposit minimum, so deploying a vault needs only 1 USDC and leaves no idle USDC in the Safe (2026-10-26).
+- feat: Lighter sub-accounts for Safe-owned master accounts: account discovery and one-snapshot equity, sub-account creation and key registration during Lagoon activation, fee-free same-owner transfers, the key-free L1 withdraw path, an Anvil pending-balance fixture, and a single-owner Safe sweep helper, verified live on Ethereum mainnet (2026-10-26).
 - feat: Add Apex Quant Capital curator metadata and artwork, attribute the reviewed Infinit vault, and consolidate Infinit migration into one script with a DRY_RUN switch (2026-10-26).
 - feat: Add Centaur curator metadata, descriptions and discretionary directional strategy tags for six Lighter pools, with supplied brand artwork (2026-10-26).
 - feat: Add Infinit APEX MultiStrategy data with Dangerous risk, source-gap preservation, indexed receipt supply and staged local migration and backfill scripts (2026-10-26).

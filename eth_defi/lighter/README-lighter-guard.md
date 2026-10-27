@@ -71,7 +71,7 @@ Asset Manager ──▶ TradingStrategyModuleV0 (GuardV0) ──▶ Gnosis Safe 
 | Item | Value |
 |------|-------|
 | Proxy (`Proxy`) | `0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7` |
-| Implementation (`ZkLighter`) | `0x831ef69bab8af8b1037a4961b8d0674b124e7008` |
+| Implementation (`ZkLighter`) | `0xe16c893252616dd49913969f145e733b96a3e5a7` (`getTarget()` on 2026-10-26; earlier `0x831ef69bab8af8b1037a4961b8d0674b124e7008`) |
 | Chain | Ethereum mainnet (chain id 1) |
 | Deposit asset | USDC (keyed by `uint16` asset index, see `USDC_ASSET_INDEX()`) |
 
@@ -213,12 +213,15 @@ to replay.
 
 ### Lagoon bootstrap reserve
 
-A Lighter-enabled Lagoon deployment subscribes an initial 20 USDC through the
-normal Lagoon lifecycle, then transfers 1 USDC from the Safe to Lighter for
-account activation. This leaves 19 USDC in the Safe as an executor reserve.
+A Lighter-enabled Lagoon deployment subscribes an initial 1 USDC through the
+normal Lagoon lifecycle, then transfers it from the Safe to Lighter for
+account activation. This is the minimum direct Ethereum deposit, so the Safe
+holds no USDC after deployment; add operating capital with a normal Lagoon
+subscription.
+
 The settlement budget applies equally to every automated Lagoon settlement,
 including the initial subscription. With a 5,000-USDC budget, the bootstrap
-subscription and next 20-USDC investor settlement use 40 USDC together.
+subscription and a following 20-USDC investor settlement use 21 USDC together.
 Account activation remains an ordinary direct Safe transfer.
 
 Lighter's
@@ -262,6 +265,86 @@ Builder**, where the owners co-sign. The `eth_defi.lighter.pubkey` helpers
 (`validate_lighter_pubkey`, `encode_change_pubkey`,
 `build_change_pubkey_safe_tx`, and `execute_change_pubkey` for a single-owner
 Safe) back it.
+
+## Sub-accounts
+
+A Safe-owned master account can own sub-accounts, each with its own
+balances, positions and API-key slots. This lets one vault give each external
+trading strategy its own isolated account and key. No guard change is needed.
+The number of sub-accounts depends on the master account's
+[account type](https://docs.lighter.xyz/developers/reference/account-types.md).
+
+| Step | Mechanism | Signer |
+|------|-----------|--------|
+| Create a sub-account | L2 `CreateSubAccount` (`tx_type = 9`) | Master API key |
+| Register its API key | L1 `changePubKey(subAccountIndex, apiKeyIndex, pubKey)` from the Safe | Safe owners |
+| Fund it | L1 `deposit` to the Safe's master, then L2 `Transfer` master to sub-account | Asset manager, then master API key |
+| Drain it to the Safe | L1 `withdraw(subAccountIndex, ...)` through the guard, then `withdrawPendingBalance` | Asset manager only |
+
+The verified `ZkLighter` source forwards `changePubKey` and `withdraw` with
+`masterAccountIndex = validateAndGetAccountIndexFromAddress(msg.sender)` and
+only range-checks the supplied account index. The sequencer accepts the
+request when the index is the caller's master or one of its sub-accounts.
+The proceeds of every account's withdrawal join one pending balance keyed by
+the master, which the existing receiver-checked claim releases to the Safe.
+An L1 deposit always credits the master; a sub-account is funded by an L2
+transfer afterwards.
+
+The L1 `withdraw` path needs no API key, so the vault can drain a
+sub-account whose key is held only by the external trader. It goes through
+the same secure-withdrawal delay as an API-key withdrawal.
+
+Verified on Ethereum mainnet on 2026-10-26 with a full multi-sub-account
+run: sub-account creation, sub-account `changePubKey`, a master to
+sub-account transfer, the key-free L1 `withdraw(subAccountIndex)`, a master
+secure withdrawal and a full Lagoon redemption all succeeded. Observations
+from that run:
+
+- Lighter charged 0 USDC for same-owner transfers (master to sub-account and
+  between sub-accounts). The authenticated `transferFeeInfo` endpoint quotes
+  0 USDC for a same-owner destination and 1 USDC to a different owner; the
+  public unauthenticated endpoint quotes 1 USDC regardless, so always read
+  the fee with the source account's auth token.
+- [Minimums](https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals):
+  1 USDC for a transfer, a secure withdrawal and a direct Ethereum deposit;
+  4 USDC for a fast withdrawal, which a Safe cannot use.
+- The L1 `withdraw` from a sub-account became claimable after about 29
+  minutes.
+
+Helpers:
+
+- `eth_defi.lighter.api.fetch_lighter_accounts()` and
+  `eth_defi.lighter.valuation.fetch_lighter_accounts_equity()` read the
+  account tree and one consistent equity snapshot for the Safe
+- `eth_defi.lighter.sub_account.create_lighter_sub_accounts()` creates
+  sub-accounts with the master key
+- `eth_defi.lighter.transfer` quotes, submits and confirms same-owner
+  transfers
+- `eth_defi.lighter.lagoon.request_usdc_withdrawal_from_lighter_account()`
+  and `wait_for_lighter_pending_balance()` run the key-free withdrawal
+- `deploy_automated_lagoon_vault(..., lighter_sub_account_count=N)` creates
+  and keys N sub-accounts during activation; the sub-account private keys are
+  never written to deployment reports, see
+  `LighterSubAccountSetup.as_handover_dict()`
+- `scripts/lighter/lagoon-lighter-create-subaccounts.py` creates
+  sub-accounts for an existing deployment
+- `eth_defi.safe.sweep.sweep_safe_to_owner()` returns the remaining assets of
+  a single-owner test Safe to its owner after the final redemption
+
+Sub-account creation and transfers sign L2 transactions with the official
+Lighter SDK, which stays an optional dependency imported on use. Its
+`SignerClient` opens an `aiohttp` session when constructed, so create it
+inside a running asyncio event loop
+(`eth_defi.lighter.sdk.create_lighter_signer_client()`).
+
+Known limitation: the deployment returns the generated master and
+sub-account API private keys in its result object only, and the caller
+writes them out after the whole deployment returns. A failure after Lighter
+activation therefore loses the generated keys; recover by registering new
+keys with a Safe-owner `changePubKey`.
+
+On an Anvil fork, `eth_defi.lighter.testing.credit_lighter_pending_balance_on_anvil()`
+forges the proof-backed pending balance so the real claim can be exercised.
 
 ## Operator setup (Python)
 
@@ -333,7 +416,8 @@ Ethereum L1 custody contract):
 - Lighter deposits and withdrawals: <https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals>
 - Lighter docs: <https://docs.lighter.xyz>
 - Robinhood Wallet perpetual futures: <https://robinhood.com/us/en/support/articles/robinhood-wallet-perpetual-futures/>
-- `ZkLighter` on Etherscan: <https://etherscan.io/address/0x831ef69bab8af8b1037a4961b8d0674b124e7008>
+- `ZkLighter` on Etherscan: <https://etherscan.io/address/0xe16c893252616dd49913969f145e733b96a3e5a7>
+- ABI source notes: `eth_defi/abi/lighter/README.md`
 - Guard core: `contracts/guard/src/GuardV0Base.sol`
 - Lighter library: `contracts/guard/src/lib/LighterLib.sol`
 - Reference integrations: `eth_defi/gmx/README-GMX-Lagoon.md`,
