@@ -51,13 +51,16 @@ failures and the successful pinned-release combination are recorded in `PR
 The code was originally lifted from Brownie project.
 """
 
+import collections
 import fcntl
+import functools
 import inspect
 import json
 import logging
 import os
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -112,6 +115,29 @@ ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 #: The flush of a single block is fast; the bounded wait plus SIGKILL fallback
 #: keeps teardown from hanging.
 ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
+
+
+@functools.cache
+def _supported_anvil_flags(cmd: str) -> frozenset[str]:
+    """Return the optional fork-probe flags the installed Anvil accepts.
+
+    Anvil >= 1.8 probes a fork upstream for a block access list
+    (``eth_getBlockAccessList``) and for a nested Anvil (``anvil_nodeInfo``).
+    Public providers reject or retry both, so forks launch with ``--no-bal``
+    and ``--no-fork-node-info`` when available. Older releases reject the
+    unknown flags, hence the capability check.
+
+    :param cmd:
+        Anvil executable.
+    :return:
+        Supported subset of ``{"--no-bal", "--no-fork-node-info"}``.
+    """
+    try:
+        help_text = subprocess.run([cmd.split(" ")[0], "--help"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()
+    return frozenset(flag for flag in ("--no-bal", "--no-fork-node-info") if flag in help_text)
+
 
 #: Gateway statuses the archive preflight retries within its attempt budget.
 #: The local failover proxy returns 502 after every upstream attempt failed.
@@ -669,6 +695,8 @@ CLI_FLAGS = {
     "fork": "--fork-url",
     "fork_block_number": "--fork-block-number",
     "compute_units_per_second": "--compute-units-per-second",
+    "no_bal": "--no-bal",
+    "no_fork_node_info": "--no-fork-node-info",
     "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
@@ -728,7 +756,79 @@ def _launch(cmd: str, inherit_stdio: bool = False, **kwargs) -> tuple[psutil.Pop
             threads.append(thread)
         process.stdout = process.stderr = None
         process._rpc_output_threads = threads
+    elif out is PIPE:
+        # Never leave Anvil writing into pipes nobody reads; see _DrainedPipe.
+        process.stdout = _DrainedPipe(process.stdout)
+        process.stderr = _DrainedPipe(process.stderr)
     return process, cmd_list
+
+
+#: Most recent output lines kept per Anvil stream for shutdown diagnostics.
+ANVIL_OUTPUT_TAIL_LINES = 2000
+
+
+class _DrainedPipe:
+    """Continuously drained child pipe that keeps only a bounded output tail.
+
+    Anvil logs every request and transaction. When nothing reads its stdout
+    and stderr pipes, a long-lived fork fills the 64 KiB pipe buffer, Anvil's
+    logger blocks and the node stops answering JSON-RPC: localhost read
+    timeouts and transactions that never receive a receipt. A daemon thread
+    therefore consumes each pipe for the life of the process.
+
+    The object offers the ``readlines()``, ``closed`` and ``close()`` subset
+    that :py:func:`eth_defi.utils.shutdown_hard` uses, so shutdown logging and
+    the returned output keep working with the most recent lines.
+
+    :param pipe:
+        Binary subprocess pipe owned by the drain thread from now on.
+    """
+
+    def __init__(self, pipe: BinaryIO):
+        self._lines: collections.deque[bytes] = collections.deque(maxlen=ANVIL_OUTPUT_TAIL_LINES)
+        self.closed = False
+        self._thread = threading.Thread(target=self._drain, args=(pipe,), daemon=True, name="anvil-output-drain")
+        self._thread.start()
+
+    def _drain(self, pipe: BinaryIO) -> None:
+        """Read the pipe until end of file, keeping the newest lines.
+
+        :param pipe:
+            Binary subprocess pipe.
+        """
+        try:
+            for line in iter(pipe.readline, b""):
+                self._lines.append(line)
+        finally:
+            pipe.close()
+
+    def readlines(self, timeout: float = 5.0) -> list[bytes]:
+        """Return the retained output tail once the process has closed the pipe.
+
+        :param timeout:
+            Seconds to wait for the drain thread to reach end of file.
+        :return:
+            Most recent output lines, oldest first.
+        """
+        self._thread.join(timeout)
+        return list(self._lines)
+
+    def close(self) -> None:
+        """Mark the tail as consumed; the drain thread closes the real pipe."""
+        self.closed = True
+
+
+def _collect_exited_output(process: psutil.Popen) -> tuple[bytes | None, bytes | None]:
+    """Return stdout and stderr of an exited Anvil for diagnostics.
+
+    :param process:
+        Anvil child process, with drained, inherited or raw pipes.
+    :return:
+        ``(stdout, stderr)``; ``None`` for a stream that was not captured.
+    """
+    if isinstance(process.stdout, _DrainedPipe) or isinstance(process.stderr, _DrainedPipe):
+        return tuple(b"".join(stream.readlines()) if isinstance(stream, _DrainedPipe) else None for stream in (process.stdout, process.stderr))
+    return process.communicate()
 
 
 def _forward_anvil_output(pipe: BinaryIO, destination: TextIO) -> None:
@@ -1801,6 +1901,11 @@ def launch_anvil(
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
 
+    if cleaned_fork_url:
+        supported = _supported_anvil_flags(cmd)
+        args["no_bal"] = "--no-bal" in supported
+        args["no_fork_node_info"] = "--no-fork-node-info" in supported
+
     if cleaned_fork_url and os.environ.get(ANVIL_COMPUTE_UNITS_PER_SECOND_ENV):
         args["compute_units_per_second"] = int(os.environ[ANVIL_COMPUTE_UNITS_PER_SECOND_ENV])
 
@@ -1850,7 +1955,7 @@ def launch_anvil(
             # bind race could exit while another worker's Anvil answered these
             # requests. Never accept readiness from a dead subprocess.
             if process.poll() is not None:
-                stdout, stderr = process.communicate()
+                stdout, stderr = _collect_exited_output(process)
                 # ``communicate()`` returns ``None`` streams when Anvil
                 # inherited the parent's stdio. Normalise these only for
                 # diagnostics so the intended startup error is preserved.
