@@ -29,44 +29,52 @@ on:
       - 'poetry.lock'
       - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
+  # Pull requests run GMX only on demand: when the PR changes GMX code, its
+  # tests or this workflow, or when it carries the `run-gmx-tests` label.
+  # Shared infrastructure changes (provider, testing, token, ABI ...) no longer
+  # trigger the slow GMX order-execution suite on every PR; master pushes keep
+  # the broad path filter above, and manual dispatch stays available.
   pull_request:
     branches: [ master ]
-    paths:
-      - 'eth_defi/gmx/**'
-      - 'tests/gmx/**'
-      # Keep the dedicated suite coupled to its shared fixed-fork machinery.
-      - 'eth_defi/provider/**'
-      - 'eth_defi/testing/**'
-      - 'eth_defi/token.py'
-      - 'eth_defi/abi/**'
-      - 'eth_defi/event_reader/**'
-      - 'eth_defi/hotwallet.py'
-      - 'eth_defi/gas.py'
-      - 'eth_defi/chain.py'
-      - 'eth_defi/erc_4626/vault_protocol/lagoon/**'
-      - 'eth_defi/safe/**'
-      - 'pyproject.toml'
-      - 'poetry.lock'
-      - 'tests/conftest.py'
-      - '.github/workflows/test-gmx.yml'
-  # The push/PR `paths:` filters above already ensure this workflow only runs
-  # when GMX code, tests or their fixed-fork support changes, so the full
-  # (slow, order-execution) suite runs only for relevant changes. No
-  # time-based schedule is needed; manual dispatch is kept for on-demand runs.
+    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
+  # Manual dispatch runs the full suite on demand for any branch.
   workflow_dispatch: {}
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      gmx: ${{ steps.filter.outputs.gmx }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gmx:
+              - 'eth_defi/gmx/**'
+              - 'tests/gmx/**'
+              - '.github/workflows/test-gmx.yml'
+
   test-gmx-serial:
+    needs: changes
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
     # Hard 15-minute cap — do NOT raise it. GMX tests only run when GMX files
-    # change (paths filter above); if the full suite exceeds 15 min, fix the test
+    # change (see the pull_request gate above); if the full suite exceeds 15 min, fix the test
     # runs (the slow order-execution files, warm cache), not the timeout. Growing
     # a CI timeout hides the real slowdown instead of surfacing it.
     timeout-minutes: 15
 
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false || github.event_name == 'push'
+    # `always()` keeps push and dispatch runs going although `changes` is skipped
+    # outside pull requests; a skipped GMX job counts as passed for required checks.
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'push' ||
+       (github.event.pull_request.draft == false &&
+        (needs.changes.outputs.gmx == 'true' || contains(github.event.pull_request.labels.*.name, 'run-gmx-tests'))))
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
