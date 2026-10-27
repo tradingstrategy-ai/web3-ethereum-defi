@@ -31,6 +31,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID,
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -44,7 +45,6 @@ from eth_defi.tokenised_fund.kaio.constants import KAIO_PRODUCTS, KAIO_PRODUCTS_
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS
-from eth_defi.tokenised_fund.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_PRODUCTS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
@@ -2308,7 +2308,7 @@ def create_vault_instance(
 
         return OdaFactVault(web3, spec, **kwargs)
     elif ERC4626Feature.shift_like in features:
-        from eth_defi.tokenised_fund.shift.vault import ShiftVault
+        from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 
         return ShiftVault(web3, spec, **kwargs)
     elif ERC4626Feature.midas_like in features:
