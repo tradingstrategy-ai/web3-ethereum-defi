@@ -20,7 +20,6 @@ from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.research.metrics_freshness import CRYPTO_METRICS_STATE_FILENAME, VAULT_METRICS_STATE_FILENAME
-from eth_defi.utils import setup_console_logging
 from eth_defi.vault.backup import write_json_atomic
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME
 from eth_defi.vault.duckdb_backup import DuckDBBackupError, backup_databases, database_registry
@@ -276,6 +275,9 @@ def main(
     snapshot already used for crypto USD metrics. Standalone use materialises a
     fresh snapshot before upload.
 
+    Logging is configured by the standalone script, not here: the scanner calls
+    this in-process, and reconfiguring would remove its log file handler.
+
     :param exchange_rate_parquet_path:
         Optional verified Parquet snapshot created earlier in this scan cycle.
     :param exchange_rate_parquet_error:
@@ -283,12 +285,6 @@ def main(
         which this error is propagated and stale Parquet is omitted.
     :return: Per-database backup statuses, reported separately from successful price publication.
     """
-    setup_console_logging(
-        log_file=Path("logs/export-data-files.log"),
-        only_log_file=False,
-        clear_log_file=False,
-    )
-
     # Data-file exports deliberately target only the private bucket. Public
     # downloads are provided by the separate sample-file export.
     bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")

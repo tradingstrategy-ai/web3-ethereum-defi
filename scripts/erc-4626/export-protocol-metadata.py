@@ -158,12 +158,6 @@ def refresh_stablecoin_rates_for_metadata_export() -> StablecoinRateRefreshSumma
 
 
 def main():  # noqa: PLR0914
-    setup_console_logging(
-        log_file=Path("logs/export-protocol-metadata.log"),
-        only_log_file=False,
-        clear_log_file=False,
-    )
-
     bucket_name = os.environ.get("R2_VAULT_METADATA_BUCKET_NAME")
     access_key_id = os.environ.get("R2_VAULT_METADATA_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_VAULT_METADATA_SECRET_ACCESS_KEY")
@@ -296,4 +290,11 @@ def main():  # noqa: PLR0914
 
 
 if __name__ == "__main__":
+    # Configure logging only for standalone runs. The scanner loads this
+    # module and calls main() in-process with its own log handlers.
+    setup_console_logging(
+        log_file=Path("logs/export-protocol-metadata.log"),
+        only_log_file=False,
+        clear_log_file=False,
+    )
     main()

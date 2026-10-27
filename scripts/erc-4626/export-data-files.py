@@ -20,7 +20,17 @@ Environment variables:
     - UPLOAD_PREFIX: Prefix for S3 keys, e.g. "test-" (default: "")
 """
 
+from pathlib import Path
+
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.data_file_export import main
 
 if __name__ == "__main__":
+    # Configure logging only for standalone runs. The scanner loads this
+    # module and calls main() in-process with its own log handlers.
+    setup_console_logging(
+        log_file=Path("logs/export-data-files.log"),
+        only_log_file=False,
+        clear_log_file=False,
+    )
     main()
