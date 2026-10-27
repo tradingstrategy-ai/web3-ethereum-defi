@@ -1,6 +1,11 @@
 Aave v2 API
 -----------
 
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+
 This is Python documentation for high-level `Aave lending protocol <https://tradingstrategy.ai/glossary/aave>`_ APIs.
 
 Functionality includes:

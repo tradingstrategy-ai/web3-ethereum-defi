@@ -1,4 +1,10 @@
-"""1delta deployments."""
+"""1delta deployments.
+
+.. warning::
+
+    Unsupported: 1delta integration, built on Aave v3, is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+"""
 
 from dataclasses import dataclass
 

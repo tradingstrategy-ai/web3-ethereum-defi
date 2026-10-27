@@ -2,6 +2,11 @@
 
 - Supply collateral to lending pool
 - Withdraw collateral from lending pool
+
+.. warning::
+
+    Unsupported: 1delta integration, built on Aave v3, is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
 """
 
 from web3.contract.contract import Contract, ContractFunction

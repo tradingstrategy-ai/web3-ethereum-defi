@@ -13,6 +13,10 @@
   - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/user/index.ts#L95
   - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/reserve/index.ts#L310
 
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
 """
 
 from dataclasses import dataclass

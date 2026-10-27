@@ -1,5 +1,6 @@
 # 1.2
 
+- chore: Disable Aave v2/v3 integration tests, the Hardhat-based Aave test deployment, its Anvil saved state and the Aave ABI builds as unsupported until a reintegration with Aave v4, and upgrade the CI Foundry/Anvil toolchain from v1.3.2 to v1.8.6 so the committed fork RPC cache seeds load again (2026-10-27).
 - feat: Add Apex Quant Capital curator metadata and artwork, attribute the reviewed Infinit vault, and consolidate Infinit migration into one script with a DRY_RUN switch (2026-10-26).
 - feat: Add Centaur curator metadata, descriptions and discretionary directional strategy tags for six Lighter pools, with supplied brand artwork (2026-10-26).
 - feat: Add Infinit APEX MultiStrategy data with Dangerous risk, source-gap preservation, indexed receipt supply and staged local migration and backfill scripts (2026-10-26).

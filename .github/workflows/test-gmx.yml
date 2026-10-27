@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # GMX uses committed ABI/bytecode and existing fork factories.
-          # Source compilation and Aave deployment run in the main workflow.
+          # Source compilation runs in the main workflow.
           submodules: false
 
       # Poetry must be installed before setup-python for cache to work
@@ -118,9 +118,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.foundry/bin
-          key: foundry-toolchain-v1.3.2-${{ runner.os }}
+          key: foundry-toolchain-v1.8.6-${{ runner.os }}
           restore-keys: |
-            foundry-toolchain-v1.3.2-
+            foundry-toolchain-v1.8.6-
             foundry-toolchain-
 
       # No fork RPC cache step: the warm fork cache ships in the repo
@@ -132,7 +132,7 @@ jobs:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
           # version: "nightly-de33b6af53005037b463318d2628b5cfcaf39916"
           #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
-          version: "v1.3.2"
+          version: "v1.8.6"
 
       # Verify the correct Web3.py version is installed
       # This helps debug any remaining issues.

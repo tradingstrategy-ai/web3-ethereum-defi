@@ -10,6 +10,10 @@ Helpers to calculate
 
 - `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
 
+.. warning::
+
+    Unsupported: 1delta integration, built on Aave v3, is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
 """
 
 from decimal import Decimal

@@ -150,8 +150,10 @@ Anvil caches archive reads at a fixed block under
 tests share one canonical block, that cache is small and dense — warm runs replay
 from disk and barely touch (and so are not throttled by) the upstream archive.
 The committed seeds are generated with the CI-pinned Foundry/Anvil release
-(`v1.3.2` at the time of writing); the cache format is release-sensitive, so
-refresh a seed and its toolchain together.
+(`v1.8.6` at the time of writing); the cache format is release-sensitive, so
+refresh a seed and its toolchain together. Anvil `v1.3.2` could not read the
+zstd-compressed `storage.json` written by newer releases: it silently started
+cold and overwrote the seed with an empty file on shutdown.
 
 ### How persistence actually works (the graceful-shutdown requirement)
 
@@ -297,8 +299,10 @@ cache are Anvil-release-sensitive artefacts. Pair a checked-in
 them. In the compatibility investigation, Foundry `v1.5.0` and `v1.7.1` timed
 out in local `anvil_loadState` while restoring
 `tests/aave_v3/aave_v3_deployment.anvilstate`; Foundry `v1.8.3` introduced a
-broader set of Anvil-dependent regressions. The CI-compatible release used by
-the repository is `v1.3.2`.
+broader set of Anvil-dependent regressions. The repository stayed on `v1.3.2`
+until 2026-10-27, when the Aave tests and their saved state were disabled as
+unsupported (pending a reintegration with Aave v4) and CI moved to `v1.8.6`,
+which reads the committed compressed seeds.
 
 These failures are local saved-state compatibility failures, not archive RPC
 failures. When changing Foundry, regenerate saved states and fixed-block seeds

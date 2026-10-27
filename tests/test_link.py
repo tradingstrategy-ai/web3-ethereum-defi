@@ -3,7 +3,8 @@
 import pytest
 from web3 import EthereumTesterProvider, Web3
 
-from eth_defi.aave_v3.deployer import get_aave_hardhard_export
+# Aave is unsupported until a reintegration with Aave v4 in the future.
+# from eth_defi.aave_v3.deployer import get_aave_hardhard_export
 from eth_defi.abi import get_contract, get_linked_contract
 from eth_defi.chain import install_chain_middleware
 
