@@ -35,6 +35,10 @@ from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 logger = logging.getLogger(__name__)
 
+#: Longest receipt wait against a local Anvil backend, seconds. See
+#: :func:`assert_transaction_success_with_explanation`.
+ANVIL_RECEIPT_TIMEOUT: float = 60.0
+
 
 class TraceNotEnabled(Exception):
     """Tracing is not enabled on the backend."""
@@ -332,6 +336,13 @@ def assert_transaction_success_with_explanation(
     else:
         assert isinstance(tx_hash, HexBytes), f"Expected HexBytes, got {type(tx_hash)}"
 
+    if is_anvil(web3):
+        # A local Anvil mines within seconds or not at all: since v1.8 a
+        # transaction whose fork state read failed upstream is dropped from the
+        # pool without a receipt. Waiting the full mainnet timeout only turns
+        # that into a stalled test session, so cap the wait here and let the
+        # flaky retry or the test's own assertion report it.
+        timeout = min(timeout, ANVIL_RECEIPT_TIMEOUT)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
     if receipt["status"] == 0:
         # Explain why the transaction failed
