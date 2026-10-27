@@ -73,6 +73,10 @@ def test_dolomite_usdc(
     assert vault.can_check_redeem() is False
 
 
+# 2026-10-27, CI after the Anvil v1.8.6 upgrade: both attempts read the denomination
+# token symbol as None (fetch_erc20_details() maps a failed symbol() eth_call on the
+# fork to None) while the Arbitrum upstream was unavailable to that xdist worker;
+# passes locally and on the earlier CI run.
 @flaky.flaky
 def test_dolomite_usdt(
     web3: Web3,

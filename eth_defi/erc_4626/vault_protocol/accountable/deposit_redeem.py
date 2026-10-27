@@ -26,6 +26,7 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626Depos
 from eth_defi.erc_4626.flow import deposit_4626
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -497,6 +498,8 @@ class AccountableDepositManager(ERC4626DepositManager):
             if not is_anvil(self.web3):
                 raise UnsupportedVaultSimulation("Accountable mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
             tx_hash = mock.functions.fulfillRedeemRequest(ticket.request_id).transact({"from": self.web3.eth.accounts[0]})
+            # Anvil >= 1.8 returns the hash before the automined block exists.
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
             return VaultForcedSettlementResult(
                 ticket=ticket,
                 settlement_required=True,

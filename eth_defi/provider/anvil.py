@@ -51,13 +51,16 @@ failures and the successful pinned-release combination are recorded in `PR
 The code was originally lifted from Brownie project.
 """
 
+import collections
 import fcntl
+import functools
 import inspect
 import json
 import logging
 import os
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -72,6 +75,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Concatenate, Optional
 
 import psutil
 import requests
+import zstandard
 from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import Web3
@@ -111,6 +115,189 @@ ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 #: The flush of a single block is fast; the bounded wait plus SIGKILL fallback
 #: keeps teardown from hanging.
 ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
+
+
+@functools.cache
+def _supported_anvil_flags(cmd: str) -> frozenset[str]:
+    """Return the optional fork-probe flags the installed Anvil accepts.
+
+    Anvil >= 1.8 probes a fork upstream for a block access list
+    (``eth_getBlockAccessList``) and for a nested Anvil (``anvil_nodeInfo``).
+    Public providers reject or retry both, so forks launch with ``--no-bal``
+    and ``--no-fork-node-info`` when available. Older releases reject the
+    unknown flags, hence the capability check.
+
+    :param cmd:
+        Anvil executable.
+    :return:
+        Supported subset of ``{"--no-bal", "--no-fork-node-info"}``.
+    """
+    try:
+        help_text = subprocess.run([cmd.split(" ")[0], "--help"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()
+    return frozenset(flag for flag in ("--no-bal", "--no-fork-node-info") if flag in help_text)
+
+
+#: Gateway statuses the archive preflight retries within its attempt budget.
+#: The local failover proxy returns 502 after every upstream attempt failed.
+_TRANSIENT_GATEWAY_STATUSES = frozenset({502, 503, 504})
+
+#: Environment variable capping how many upstream compute units per second a
+#: forked Anvil spends (``anvil --compute-units-per-second``, default 330).
+#: Several parallel fork workers sharing one provider key exceed the provider's
+#: budget and get HTTP 429 replies, which stall Anvil mid-request; CI sets a
+#: lower cap so cold reads queue locally instead of being rejected upstream.
+ANVIL_COMPUTE_UNITS_PER_SECOND_ENV = "ANVIL_COMPUTE_UNITS_PER_SECOND"
+
+
+def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> tuple[Path, Path] | None:
+    """Return the shared and per-endpoint Foundry fork cache files for a fork.
+
+    Anvil 1.8 keys its fork RPC cache by endpoint:
+    ``~/.foundry/cache/rpc/<network>/<block>/storage-<keccak256(fork_url)>.json``.
+    Every launch here forks through a local failover proxy on a fresh port, so
+    the per-endpoint file would never be reused and the committed seeds in the
+    release-agnostic ``storage.json`` would never be read. The launch code
+    therefore copies ``storage.json`` to the endpoint file before Anvil starts
+    and merges it back after a graceful shutdown.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block. Mutable-tip forks are not cacheable.
+    :param chain_id:
+        Upstream chain id, used to pick Foundry's network directory name.
+    :return:
+        ``(storage.json, storage-<hash>.json)`` paths, or ``None`` when the
+        fork is not cacheable.
+    """
+    if not fork_url or not fork_block_number or chain_id is None:
+        return None
+    from eth_defi.chain import get_foundry_network_name
+    from eth_defi.testing.rpc_cache import get_foundry_rpc_cache_dir
+
+    network = get_foundry_network_name(chain_id) or str(chain_id)
+    cache_dir = get_foundry_rpc_cache_dir() / network / str(fork_block_number)
+    digest = Web3.keccak(text=fork_url).hex().removeprefix("0x")
+    return cache_dir / "storage.json", cache_dir / f"storage-{digest}.json"
+
+
+def _seed_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> None:
+    """Expose the shared ``storage.json`` fork cache under Anvil 1.8's endpoint name.
+
+    See :func:`_fork_cache_paths`. A missing shared cache or an existing
+    endpoint file leaves the directory untouched.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block.
+    :param chain_id:
+        Upstream chain id.
+    """
+    paths = _fork_cache_paths(fork_url, fork_block_number, chain_id)
+    if paths is None:
+        return
+    shared, endpoint = paths
+    if not shared.exists() or endpoint.exists():
+        return
+    try:
+        shutil.copy2(shared, endpoint)
+    except OSError as e:
+        logger.warning("Could not alias fork cache %s to %s: %s", shared, endpoint.name, e)
+
+
+#: zstd frame magic number; Anvil >= 1.8 compresses its fork cache files.
+_ZSTD_MAGIC = bytes.fromhex("28b52ffd")
+
+
+def _read_fork_cache(path: Path) -> dict:
+    """Read a Foundry fork cache file, plain JSON or zstd-compressed.
+
+    :param path:
+        ``storage.json`` or ``storage-<hash>.json``.
+    :return:
+        Decoded cache with ``meta``, ``accounts``, ``storage`` and ``block_hashes``.
+    :raise ValueError:
+        If the file is not a valid cache.
+    """
+    raw = path.read_bytes()
+    if raw[: len(_ZSTD_MAGIC)] == _ZSTD_MAGIC:
+        try:
+            raw = zstandard.ZstdDecompressor().decompressobj().decompress(raw)
+        except zstandard.ZstdError as e:
+            raise ValueError(f"Corrupt zstd fork cache {path}: {e}") from e
+    data = json.loads(raw)
+    if not isinstance(data, dict) or "accounts" not in data:
+        raise ValueError(f"Unexpected fork cache layout in {path}")
+    return data
+
+
+def _write_fork_cache(path: Path, data: dict) -> None:
+    """Atomically write a fork cache as zstd-compressed JSON, the Anvil 1.8 format.
+
+    :param path:
+        Destination cache file.
+    :param data:
+        Cache contents.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(zstandard.ZstdCompressor().compress(json.dumps(data).encode()))
+    os.replace(tmp, path)
+
+
+def _merge_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> None:
+    """Fold Anvil 1.8's endpoint fork cache back into the shared ``storage.json``.
+
+    Anvil loaded the shared cache through the alias, but on shutdown it writes
+    only the entries this session touched. The endpoint file is therefore
+    merged into the shared file as a union of accounts, storage slots and block
+    hashes, then removed so per-port files do not accumulate. See
+    :func:`_fork_cache_paths`.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block.
+    :param chain_id:
+        Upstream chain id.
+    """
+    paths = _fork_cache_paths(fork_url, fork_block_number, chain_id)
+    if paths is None:
+        return
+    shared, endpoint = paths
+    if not endpoint.exists():
+        return
+    try:
+        try:
+            fresh = _read_fork_cache(endpoint)
+        except ValueError as e:
+            logger.warning("Discarding unreadable fork cache %s: %s", endpoint.name, e)
+            endpoint.unlink()
+            return
+        merged: dict = {}
+        if shared.exists():
+            try:
+                merged = _read_fork_cache(shared)
+            except ValueError as e:
+                logger.warning("Replacing unreadable shared fork cache %s: %s", shared, e)
+                merged = {}
+        previous_hosts = merged.get("meta", {}).get("hosts", [])
+        merged["meta"] = dict(fresh.get("meta", merged.get("meta", {})))
+        hosts = list(dict.fromkeys([*previous_hosts, *merged["meta"].get("hosts", [])]))
+        if hosts:
+            merged["meta"]["hosts"] = hosts
+        for key in ("accounts", "block_hashes"):
+            merged.setdefault(key, {}).update(fresh.get(key, {}))
+        storage = merged.setdefault("storage", {})
+        for address, slots in fresh.get("storage", {}).items():
+            storage.setdefault(address, {}).update(slots)
+        _write_fork_cache(shared, merged)
+        endpoint.unlink()
+    except OSError as e:
+        logger.warning("Could not merge fork cache %s into %s: %s", endpoint.name, shared, e)
+
 
 #: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
 #: This is a workaround for test flakiness on CI: when multiple RPC endpoints
@@ -371,8 +558,11 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
     :return:
         Bounded automatic proxy configuration.
     """
-    assert provider_count > 1, f"Anvil proxy needs multiple providers, got {provider_count}"
-    per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / provider_count
+    assert provider_count >= 1, f"Anvil proxy needs at least one provider, got {provider_count}"
+    # A single upstream still gets two bounded attempts so one slow reply does
+    # not fail a fork; several upstreams get one attempt each.
+    retries = max(provider_count, 2)
+    per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / retries
     if per_provider_budget <= 10:
         # Requests applies the same value separately to connect and read when
         # both fit below its five-second connect cap.
@@ -381,7 +571,7 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         attempt_timeout = per_provider_budget - 5
     return RPCProxyConfig(
         timeout=min(ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT, attempt_timeout),
-        retries=provider_count,
+        retries=retries,
         backoff=0.0,
         # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
         switchover_log_level=logging.WARNING,
@@ -504,6 +694,9 @@ CLI_FLAGS = {
     "host": "--host",
     "fork": "--fork-url",
     "fork_block_number": "--fork-block-number",
+    "compute_units_per_second": "--compute-units-per-second",
+    "no_bal": "--no-bal",
+    "no_fork_node_info": "--no-fork-node-info",
     "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
@@ -563,7 +756,79 @@ def _launch(cmd: str, inherit_stdio: bool = False, **kwargs) -> tuple[psutil.Pop
             threads.append(thread)
         process.stdout = process.stderr = None
         process._rpc_output_threads = threads
+    elif out is PIPE:
+        # Never leave Anvil writing into pipes nobody reads; see _DrainedPipe.
+        process.stdout = _DrainedPipe(process.stdout)
+        process.stderr = _DrainedPipe(process.stderr)
     return process, cmd_list
+
+
+#: Most recent output lines kept per Anvil stream for shutdown diagnostics.
+ANVIL_OUTPUT_TAIL_LINES = 2000
+
+
+class _DrainedPipe:
+    """Continuously drained child pipe that keeps only a bounded output tail.
+
+    Anvil logs every request and transaction. When nothing reads its stdout
+    and stderr pipes, a long-lived fork fills the 64 KiB pipe buffer, Anvil's
+    logger blocks and the node stops answering JSON-RPC: localhost read
+    timeouts and transactions that never receive a receipt. A daemon thread
+    therefore consumes each pipe for the life of the process.
+
+    The object offers the ``readlines()``, ``closed`` and ``close()`` subset
+    that :py:func:`eth_defi.utils.shutdown_hard` uses, so shutdown logging and
+    the returned output keep working with the most recent lines.
+
+    :param pipe:
+        Binary subprocess pipe owned by the drain thread from now on.
+    """
+
+    def __init__(self, pipe: BinaryIO):
+        self._lines: collections.deque[bytes] = collections.deque(maxlen=ANVIL_OUTPUT_TAIL_LINES)
+        self.closed = False
+        self._thread = threading.Thread(target=self._drain, args=(pipe,), daemon=True, name="anvil-output-drain")
+        self._thread.start()
+
+    def _drain(self, pipe: BinaryIO) -> None:
+        """Read the pipe until end of file, keeping the newest lines.
+
+        :param pipe:
+            Binary subprocess pipe.
+        """
+        try:
+            for line in iter(pipe.readline, b""):
+                self._lines.append(line)
+        finally:
+            pipe.close()
+
+    def readlines(self, timeout: float = 5.0) -> list[bytes]:
+        """Return the retained output tail once the process has closed the pipe.
+
+        :param timeout:
+            Seconds to wait for the drain thread to reach end of file.
+        :return:
+            Most recent output lines, oldest first.
+        """
+        self._thread.join(timeout)
+        return list(self._lines)
+
+    def close(self) -> None:
+        """Mark the tail as consumed; the drain thread closes the real pipe."""
+        self.closed = True
+
+
+def _collect_exited_output(process: psutil.Popen) -> tuple[bytes | None, bytes | None]:
+    """Return stdout and stderr of an exited Anvil for diagnostics.
+
+    :param process:
+        Anvil child process, with drained, inherited or raw pipes.
+    :return:
+        ``(stdout, stderr)``; ``None`` for a stream that was not captured.
+    """
+    if isinstance(process.stdout, _DrainedPipe) or isinstance(process.stderr, _DrainedPipe):
+        return tuple(b"".join(stream.readlines()) if isinstance(stream, _DrainedPipe) else None for stream in (process.stdout, process.stderr))
+    return process.communicate()
 
 
 def _forward_anvil_output(pipe: BinaryIO, destination: TextIO) -> None:
@@ -785,6 +1050,7 @@ class AnvilLaunch:
                 graceful_timeout=ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT,
             )
             logger.info("Anvil shutdown %s", get_url_domain(self.json_rpc_url))
+            _merge_fork_cache_alias(self.effective_fork_url, self.fork_block_number, self.chain_id)
             return stdout, stderr
         finally:
             # Cleanup must run even when shutdown diagnostics raise. Retaining
@@ -1005,6 +1271,19 @@ def _verify_archive_node_access(
                     timeout=timeout,
                     headers={"Content-Type": "application/json"},
                 )
+                if response.status_code in _TRANSIENT_GATEWAY_STATUSES and attempt + 1 < max_attempts:
+                    # The local failover proxy answers HTTP 502 when every upstream
+                    # attempt timed out. That is a transport failure of this probe,
+                    # not evidence that the provider lacks archive state.
+                    logger.warning(
+                        "Archive access probe for %s at block %d got HTTP %d; retrying transport (%d/%d)",
+                        get_url_domain(rpc_url),
+                        fork_block_number,
+                        response.status_code,
+                        attempt + 2,
+                        max_attempts,
+                    )
+                    continue
                 break
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
                 if attempt + 1 == max_attempts:
@@ -1507,47 +1786,33 @@ def launch_anvil(
     # Track whether we manage the proxy lifecycle (True) or the caller does (False)
     proxy_managed = True
 
-    if fork_url and " " in fork_url:
+    if fork_url:
         # Multi-RPC syntax: filter out mev+ prefixed endpoints
         # (MEV-protected sequencer endpoints that don't support standard RPC calls).
         all_rpcs = [u for u in fork_url.split(" ") if u]
         available_rpcs = [u for u in all_rpcs if not u.startswith("mev+")]
         if not available_rpcs:
-            # All endpoints are mev+, strip the prefix as a fallback
             available_rpcs = [u.replace("mev+", "", 1) for u in all_rpcs]
         upstream_rpc_urls = tuple(available_rpcs)
-
-        if len(available_rpcs) > 1 and proxy_multiple_upstream is not False:
+        # Every fork goes through the local proxy, also with a single upstream:
+        # it answers Anvil >= 1.8's probe methods locally (see
+        # RPCProxyConfig.unsupported_methods), bounds each upstream attempt and
+        # logs the reason whenever a cold read fails or stalls.
+        if proxy_multiple_upstream is not False:
             if isinstance(proxy_multiple_upstream, RPCProxy):
-                # Caller provided a pre-built proxy — use it, but don't
-                # manage its lifecycle (caller is responsible for close()).
                 proxy = proxy_multiple_upstream
                 proxy_managed = False
                 cleaned_fork_url = proxy.url
-                logger.info(
-                    "Using caller-provided RPC proxy at %s",
-                    proxy.url,
-                )
+                logger.info("Using caller-provided RPC proxy at %s", proxy.url)
             else:
-                # Start a failover proxy that sits between Anvil and multiple
-                # upstream RPCs, providing retry/timeout/switchover handling.
                 if isinstance(proxy_multiple_upstream, RPCProxyConfig):
                     config = proxy_multiple_upstream
                 else:
-                    # Automatic Anvil proxying makes one bounded pass across
-                    # the configured providers. Retrying the same provider
-                    # again is left to an explicit caller configuration.
                     config = _create_default_anvil_proxy_config(len(available_rpcs))
                 proxy = start_rpc_proxy(available_rpcs, config=config, suppress_client_disconnect_errors=True)
                 cleaned_fork_url = proxy.url
-                logger.info(
-                    "Started RPC failover proxy at %s for %d upstream providers",
-                    proxy.url,
-                    len(available_rpcs),
-                )
+                logger.info("Started RPC failover proxy at %s for %d upstream providers", proxy.url, len(available_rpcs))
         else:
-            # proxy_multiple_upstream is False, or only one RPC available —
-            # fall back to legacy round-robin across launches.
             if not hasattr(_anvil_rpc_state, "rpc_index"):
                 _anvil_rpc_state.rpc_index = random.randint(0, len(available_rpcs) - 1)
             else:
@@ -1556,9 +1821,7 @@ def launch_anvil(
             cleaned_fork_url = available_rpcs[rpc_index]
             logger.info("Using Anvil at RPC endpoint %d/%d: %s", rpc_index + 1, len(available_rpcs), get_url_domain(cleaned_fork_url))
     else:
-        cleaned_fork_url = fork_url if not fork_url or not fork_url.startswith("mev+") else fork_url.replace("mev+", "", 1)
-        if cleaned_fork_url:
-            upstream_rpc_urls = (cleaned_fork_url,)
+        cleaned_fork_url = None
 
     # From this point onwards the wrapper owns managed proxy cleanup until a
     # fully initialised AnvilLaunch is returned. Caller-provided proxies are
@@ -1599,6 +1862,8 @@ def launch_anvil(
                 # The preflight uses the same proxied request budget as the
                 # smoke test, not the shorter direct-provider timeout.
                 timeout=smoke_test_timeout,
+                # The proxy owns the failover budget (two bounded attempts for a
+                # single upstream, one per upstream otherwise), so probe it once.
                 max_attempts=1 if proxy is not None else 2,
             )
 
@@ -1636,10 +1901,20 @@ def launch_anvil(
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
 
+    if cleaned_fork_url:
+        supported = _supported_anvil_flags(cmd)
+        args["no_bal"] = "--no-bal" in supported
+        args["no_fork_node_info"] = "--no-fork-node-info" in supported
+
+    if cleaned_fork_url and os.environ.get(ANVIL_COMPUTE_UNITS_PER_SECOND_ENV):
+        args["compute_units_per_second"] = int(os.environ[ANVIL_COMPUTE_UNITS_PER_SECOND_ENV])
+
     if block_time not in (0, None):
         args["block_time"] = block_time
 
     current_block = chain_id = None
+
+    _seed_fork_cache_alias(cleaned_fork_url, fork_block_number, expected_chain_id)
 
     while attempts_left > 0:
         current_block = None
@@ -1680,7 +1955,7 @@ def launch_anvil(
             # bind race could exit while another worker's Anvil answered these
             # requests. Never accept readiness from a dead subprocess.
             if process.poll() is not None:
-                stdout, stderr = process.communicate()
+                stdout, stderr = _collect_exited_output(process)
                 # ``communicate()`` returns ``None`` streams when Anvil
                 # inherited the parent's stdio. Normalise these only for
                 # diagnostics so the intended startup error is preserved.

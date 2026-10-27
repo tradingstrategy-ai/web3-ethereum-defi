@@ -71,10 +71,13 @@ BRIDGE_AMOUNT = 1 * 10**6
 #: but public RPCs can have significant lag.
 RPC_STATE_PROPAGATION_TIMEOUT = 30
 
-pytestmark = pytest.mark.skipif(
-    not all([ARBITRUM_CCTP_TEST_PRIVATE_KEY, JSON_RPC_ARBITRUM_SEPOLIA, JSON_RPC_BASE_SEPOLIA]),
-    reason="ARBITRUM_CCTP_TEST_PRIVATE_KEY, JSON_RPC_ARBITRUM_SEPOLIA, and JSON_RPC_BASE_SEPOLIA must all be set",
-)
+pytestmark = [
+    pytest.mark.skip(reason="test account should be topped up first and likely recreated"),
+    pytest.mark.skipif(
+        not all([ARBITRUM_CCTP_TEST_PRIVATE_KEY, JSON_RPC_ARBITRUM_SEPOLIA, JSON_RPC_BASE_SEPOLIA]),
+        reason="ARBITRUM_CCTP_TEST_PRIVATE_KEY, JSON_RPC_ARBITRUM_SEPOLIA, and JSON_RPC_BASE_SEPOLIA must all be set",
+    ),
+]
 
 
 def _wait_for_state(fn, expected, description: str, timeout: float = RPC_STATE_PROPAGATION_TIMEOUT):

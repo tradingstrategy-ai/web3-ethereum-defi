@@ -42,10 +42,14 @@ from eth_defi.trace import (
     assert_transaction_success_with_explanation,
 )
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 # Too flaky on Github
 CI = os.environ.get("CI") == "true"
 
-pytestmark = pytest.mark.skip(reason="These tests need to be rewritten as Polygon is no longer working here")
+# pytestmark = pytest.mark.skip(reason="These tests need to be rewritten as Polygon is no longer working here")
 
 # pytestmark = pytest.mark.skipif(
 #     (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None) or CI,

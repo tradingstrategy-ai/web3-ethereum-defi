@@ -156,6 +156,37 @@ def _resolve_default_retries(call_endpoints: list[str]) -> int:
     return DEFAULT_ANVIL_RETRIES if has_registered_anvil else DEFAULT_RETRIES
 
 
+#: JSON-RPC error codes meaning the endpoint does not serve the requested method.
+_METHOD_NOT_ALLOWED_RPC_CODES = frozenset({-32601})
+
+#: HTTP statuses broadcast-only endpoints use to reject read methods.
+_METHOD_NOT_ALLOWED_HTTP_STATUSES = frozenset({403, 405})
+
+
+def _is_broadcast_only_reply(error: BaseException | dict | None) -> bool:
+    """Tell whether a transact endpoint refused a read method because it only broadcasts.
+
+    Sequencer endpoints such as ``https://mainnet-sequencer.base.org`` accept
+    ``eth_sendRawTransaction`` but answer ``eth_chainId`` and other reads with
+    HTTP 403 and ``{"code": -32601, "message": "rpc method is not allowed"}``.
+    Such a reply is not a sign of a broken or mixed-chain provider.
+
+    :param error:
+        JSON-RPC error object from a response, or the exception raised by the
+        request.
+    :return:
+        ``True`` when the endpoint rejected the method itself.
+    """
+    if error is None:
+        return False
+    if isinstance(error, dict):
+        return error.get("code") in _METHOD_NOT_ALLOWED_RPC_CODES
+    response = getattr(error, "response", None)
+    if response is not None and getattr(response, "status_code", None) in _METHOD_NOT_ALLOWED_HTTP_STATUSES:
+        return True
+    return "-32601" in str(error) or "method is not allowed" in str(error)
+
+
 def create_multi_provider_web3(
     configuration_line: str,
     fallback_sleep=5.0,
@@ -401,6 +432,9 @@ def create_multi_provider_web3(
                 if rpc_request_stats is not None and resp.get("error"):
                     error_code, error_message = normalise_rpc_error(resp["error"])
                     rpc_request_stats.record_error(transact_domain, error_code, error_message)
+                if _is_broadcast_only_reply(resp.get("error")):
+                    logger.info("Transact provider %s only accepts broadcasts; skipping its chain id check", transact_domain)
+                    resp = {}
                 result = resp.get("result")
                 if result:
                     transact_chain_id = int(result, 16)
@@ -413,19 +447,25 @@ def create_multi_provider_web3(
                 if rpc_request_stats is not None:
                     error_code, error_message = normalise_rpc_error(e)
                     rpc_request_stats.record_error(transact_domain, error_code, error_message)
-                transact_name = get_provider_name(transact_provider)
-                # Name the failure mode so CI output shows *why* the first call
-                # failed (out of credits / rate limited / timeout) instead of a
-                # generic eth_chainId error. See eth_defi.provider.rpc_failure.
-                failure_mode = classify_rpc_failure(e)
-                # Log only the redacted domain + failure mode. The raw exception
-                # can embed the full RPC URL (API key in path/query). JSON-RPC API
-                # keys are not security critical (they only meter read access to
-                # public chain data), so this is not a serious leak, but it is
-                # still avoided here; the raised ChainIdMismatch keeps the
-                # pre-existing hint for local debugging.
-                logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
-                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
+                if _is_broadcast_only_reply(e):
+                    # Sequencer endpoints such as https://mainnet-sequencer.base.org
+                    # answer every read method with HTTP 403 and JSON-RPC -32601
+                    # "rpc method is not allowed" while accepting eth_sendRawTransaction.
+                    logger.info("Transact provider %s only accepts broadcasts; skipping its chain id check", transact_domain)
+                else:
+                    transact_name = get_provider_name(transact_provider)
+                    # Name the failure mode so CI output shows *why* the first call
+                    # failed (out of credits / rate limited / timeout) instead of a
+                    # generic eth_chainId error. See eth_defi.provider.rpc_failure.
+                    failure_mode = classify_rpc_failure(e)
+                    # Log only the redacted domain + failure mode. The raw exception
+                    # can embed the full RPC URL (API key in path/query). JSON-RPC API
+                    # keys are not security critical (they only meter read access to
+                    # public chain data), so this is not a serious leak, but it is
+                    # still avoided here; the raised ChainIdMismatch keeps the
+                    # pre-existing hint for local debugging.
+                    logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
+                    raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,

@@ -23,7 +23,7 @@ from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     fetch_accountable_vaults,
 )
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableHistoricalReader, AccountablePermissionLevel, AccountableVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -236,8 +236,9 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
 
     owner = web3.eth.accounts[0]
     usdc: TokenDetails = vault.denomination_token
-    funding_hash = usdc.transfer(owner, DEPOSIT_AMOUNT).transact({"from": MONAD_USDC_WHALE})
-    assert_transaction_success_with_explanation(web3, funding_hash)
+    # Monad forks the chain tip, so a whale's live balance drifts; write the
+    # balance into token storage instead of transferring from the whale.
+    fund_erc20_on_anvil(web3, usdc.address, owner, usdc.convert_to_raw(DEPOSIT_AMOUNT))
     approval_hash = usdc.approve(vault.address, DEPOSIT_AMOUNT).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, approval_hash)
 

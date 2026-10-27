@@ -1,4 +1,10 @@
-"""Aave v3 deployments."""
+"""Aave v3 deployments.
+
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+"""
 
 from dataclasses import dataclass
 from typing import NamedTuple

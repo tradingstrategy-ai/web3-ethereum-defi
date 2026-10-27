@@ -111,14 +111,16 @@ def guard(
 
 @pytest.fixture()
 def funded_vault(
-    web3: Web3,  # noqa: ARG001
+    web3: Web3,
     vault: Contract,
     usdc: Contract,
     ethereum_usdc_whale: HexAddress,
 ) -> Contract:
     """Fund the vault with USDC."""
     amount = 1000 * 10**6  # 1000 USDC
-    usdc.functions.transfer(vault.address, amount).transact({"from": ethereum_usdc_whale})
+    tx_hash = usdc.functions.transfer(vault.address, amount).transact({"from": ethereum_usdc_whale})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.functions.balanceOf(vault.address).call() >= amount
     return vault
 
@@ -238,16 +240,18 @@ def test_cctp_wrong_recipient_rejected(
 
 @flaky.flaky
 def test_cctp_destination_removal(
-    web3: Web3,  # noqa: ARG001
+    web3: Web3,
     guard: Contract,
     owner: str,
 ):
     """Test that CCTP destinations can be removed."""
     assert guard.functions.isAllowedCCTPDestination(CCTP_DOMAIN_ARBITRUM).call() is True
 
-    guard.functions.removeCCTPDestination(
+    tx_hash = guard.functions.removeCCTPDestination(
         CCTP_DOMAIN_ARBITRUM,
         "Remove Arbitrum",
     ).transact({"from": owner})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert guard.functions.isAllowedCCTPDestination(CCTP_DOMAIN_ARBITRUM).call() is False

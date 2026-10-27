@@ -1,4 +1,10 @@
-"""Aave v2 constants."""
+"""Aave v2 constants.
+
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+"""
 
 from typing import NamedTuple
 

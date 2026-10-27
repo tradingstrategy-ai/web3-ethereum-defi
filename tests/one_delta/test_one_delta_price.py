@@ -22,13 +22,17 @@ from eth_defi.provider.anvil import fork_network_anvil, mine
 from eth_defi.token import create_token, reset_default_token_cache
 from eth_defi.uniswap_v3.utils import get_default_tick_range
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 # pytestmark = pytest.mark.skipif(
 #     (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None),
 #     reason="Set JSON_RPC_POLYGON env install anvil command to run these tests",
 # )
 
-pytestmark = pytest.mark.skip(reason="These tests need to be rewritten as Polygon is no longer working here")
+# pytestmark = pytest.mark.skip(reason="These tests need to be rewritten as Polygon is no longer working here")
 
 logger = logging.getLogger(__name__)
 

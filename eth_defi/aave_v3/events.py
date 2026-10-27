@@ -5,6 +5,11 @@ Efficiently read Aave v3 from a blockchain.
 Currently we are tracking these events:
 
 - ReserveDataUpdated
+
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
 """
 
 import csv

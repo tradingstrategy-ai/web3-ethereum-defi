@@ -270,6 +270,7 @@ def test_enzyme_uniswap_v3_arbitrum(
 
 
 @pytest.mark.skip(reason="Test broken, Enzyme no longer supported")
+@pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
 def test_enzyme_aave_arbitrum(
     web3: Web3,
     deployer: HexAddress,
