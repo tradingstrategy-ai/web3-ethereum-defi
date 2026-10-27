@@ -177,8 +177,11 @@ class FlyingTulipVault(ERC4626Vault):
     def short_description(self) -> str:
         """Return the maintained sftUSD scanner summary.
 
+        The summary is plain text; Markdown is not allowed in a short
+        description. Documentation links belong in :py:meth:`get_notes`.
+
         :return:
-            Concise description explaining the external reward model.
+            Concise plain-text description explaining the external reward model.
         """
 
         return FLYING_TULIP_SHORT_DESCRIPTION
