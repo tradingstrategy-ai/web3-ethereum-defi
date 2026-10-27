@@ -35,11 +35,12 @@ from pathlib import Path
 from tabulate import tabulate
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.derive.api import fetch_perpetual_instruments
 from eth_defi.derive.constants import DERIVE_MAINNET_RPC_URL
 from eth_defi.derive.historical import DEFAULT_FUNDING_RATE_DB_PATH, DeriveFundingRateDatabase
 from eth_defi.derive.session import create_derive_session
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import get_url_domain, setup_console_logging
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,10 @@ def main():
 
     # Create HTTP session and verify RPC connection
     session = create_derive_session()
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    w3 = Web3(create_http_provider(rpc_url))
 
     if not w3.is_connected():
-        raise RuntimeError(f"Cannot connect to Derive Chain RPC at {rpc_url}")
+        raise RuntimeError(f"Cannot connect to Derive Chain RPC at {get_url_domain(rpc_url)}")
 
     # Discover or parse instruments
     if instruments_str:
@@ -81,7 +82,7 @@ def main():
     latest = w3.eth.block_number
     print(f"Database: {db_path}")
     print(f"Instruments: {len(instruments)}")
-    print(f"Derive Chain RPC: {rpc_url} (block {latest:,})")
+    print(f"Derive Chain RPC: {get_url_domain(rpc_url)} (block {latest:,})")
     print(f"Workers: {max_workers}")
     print(f"Scan end: {now.strftime('%Y-%m-%d %H:%M')} UTC")
     print()

@@ -23,13 +23,17 @@ from eth_defi.trace import (
     assert_transaction_success_with_explanation,
 )
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 CI = os.environ.get("CI") == "true"
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_BASE is None,
-    reason="Set JSON_RPC_BASE env",
-)
+# pytestmark = pytest.mark.skipif(
+#     JSON_RPC_BASE is None,
+#     reason="Set JSON_RPC_BASE env",
+# )
 
 #: Aave V3 supply function selector: supply(address,uint256,address,uint16)
 SEL_SUPPLY = bytes.fromhex("617ba037")

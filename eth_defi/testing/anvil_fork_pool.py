@@ -618,7 +618,7 @@ class AnvilForkPool:
             # path, the entry is evicted, and the OS reaps the process on exit.
             # Re-raising would turn a recoverable wedge back into a group
             # failure. Not a silent swallow — it is logged at WARNING.
-            logger.warning("Could not cleanly close wedged Anvil fork %s: %s", launch.json_rpc_url, e)
+            logger.warning("Could not cleanly close wedged Anvil fork %s: %s", get_url_domain(launch.json_rpc_url), e)
 
     def get_web3(
         self,

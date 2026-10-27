@@ -157,8 +157,10 @@ def safe(
     assert call_site_events[0]["args"]["target"] == uniswap_v2.router.address
 
     assert guard.functions.isAllowedCallSite(uniswap_v2.router.address, get_function_selector(uniswap_v2.router.functions.swapExactTokensForTokens)).call()
-    guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
-    guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    for token, note in ((usdc, "Allow USDC"), (weth, "Allow WETH")):
+        tx_hash = guard.functions.whitelistToken(token.address, note).transact({"from": owner})
+        assert_transaction_success_with_explanation(web3, tx_hash)
     assert guard.functions.callSiteCount().call() == 6
     return safe
 

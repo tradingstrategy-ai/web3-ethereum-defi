@@ -3,6 +3,8 @@
 
 Antarctic AMLP/AHLP perpetual DEX pools run under the Arbitrum EVM scan.
 Their prices use sparse Hypersync subscription settlement events.
+Infinit APEX MultiStrategy also runs under Arbitrum, using published API prices
+and indexed receipt supply through an address-scoped contextual reader.
 
 - Scan vaults and optionally prices for multiple chains
 - Track success/failure status per chain

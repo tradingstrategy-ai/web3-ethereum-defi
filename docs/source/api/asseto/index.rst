@@ -21,3 +21,7 @@ It also exposes public partner roles through
    eth_defi.tokenised_fund.asseto.offchain_metadata
    eth_defi.tokenised_fund.asseto.registry
    eth_defi.tokenised_fund.asseto.backfill
+   eth_defi.tokenised_fund.asseto.royalty
+   eth_defi.tokenised_fund.asseto.royalty_constants
+   eth_defi.tokenised_fund.asseto.royalty_migration
+   eth_defi.tokenised_fund.asseto.tags

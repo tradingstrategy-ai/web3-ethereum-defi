@@ -23,6 +23,8 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 from web3.utils import get_abi_element_info
 
+from eth_defi.rpc_url import register_rpc_url
+
 logger = logging.getLogger(__name__)
 
 #: Deprecated. Always True. Kept for backwards compatibility with external consumers.
@@ -287,8 +289,15 @@ def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 
 
-def create_http_provider(*args, **kwargs) -> HTTPProvider:
+def create_http_provider(*args: Any, **kwargs: Any) -> HTTPProvider:
     """Create an HTTPProvider instance.
+
+    Register the endpoint before construction so dependency diagnostics cannot
+    expose it. Request arguments and the provider endpoint remain intact.
+
+    :param args: Positional arguments accepted by :class:`web3.HTTPProvider`.
+    :param kwargs: Keyword arguments accepted by :class:`web3.HTTPProvider`.
+    :return: The configured HTTP provider.
 
     Example:
 
@@ -301,4 +310,10 @@ def create_http_provider(*args, **kwargs) -> HTTPProvider:
             return provider
 
     """
-    return HTTPProvider(*args, **kwargs)
+    endpoint = args[0] if args else kwargs.get("endpoint_uri")
+    if endpoint:
+        register_rpc_url(str(endpoint))
+    provider = HTTPProvider(*args, **kwargs)
+    if not endpoint:
+        register_rpc_url(str(provider.endpoint_uri))
+    return provider

@@ -24,6 +24,7 @@ import re
 import sys
 from typing import Any
 
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,8 @@ class SensitiveDataFilter(logging.Filter):
     def _redact_urls(self, text: str) -> str:
         """Replace all URLs with their domain-only form."""
 
+        text = redact_rpc_urls(text)
+
         def _replace(match: re.Match) -> str:
             try:
                 return get_url_domain(match.group(0))
@@ -151,6 +154,7 @@ class SensitiveDataFilter(logging.Filter):
 
 def sanitise_text(text: str, compiled_patterns: list | None = None) -> str:
     """Apply all redaction patterns to a string."""
+    text = redact_rpc_urls(text)
     if compiled_patterns is None:
         compiled_patterns = _get_default_compiled_patterns()
 

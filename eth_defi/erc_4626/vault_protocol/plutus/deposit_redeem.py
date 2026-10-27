@@ -441,6 +441,8 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                     direction="redeem",
                 )
             tx_hash = mock.functions.fulfillRedeem(ticket.request_id).transact({"from": self.web3.eth.accounts[0]})
+            # Anvil >= 1.8 returns the hash before the automined block exists.
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
             return VaultForcedSettlementResult(
                 ticket=ticket,
                 settlement_required=True,

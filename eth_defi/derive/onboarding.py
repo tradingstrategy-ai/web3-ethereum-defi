@@ -51,6 +51,7 @@ from eth_account import Account
 from eth_typing import HexAddress
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.derive.authentication import DeriveApiClient
 from eth_defi.derive.constants import DERIVE_MAINNET_RPC_URL, DERIVE_TESTNET_RPC_URL, LIGHT_ACCOUNT_FACTORY_ABI, LIGHT_ACCOUNT_FACTORY_ADDRESS
 
@@ -102,7 +103,7 @@ def fetch_derive_wallet_address(
         Counterfactual LightAccount address.
     """
     rpc_url = DERIVE_TESTNET_RPC_URL if is_testnet else DERIVE_MAINNET_RPC_URL
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    w3 = Web3(create_http_provider(rpc_url))
 
     factory = w3.eth.contract(
         address=Web3.to_checksum_address(LIGHT_ACCOUNT_FACTORY_ADDRESS),

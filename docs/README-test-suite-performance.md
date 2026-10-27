@@ -700,7 +700,7 @@ workflow and dependency caches.
 
 3. **Cache the Foundry toolchain and commit fixed-block RPC replies. (done)**
    Workflows cache only the immutable `~/.foundry/bin` toolchain with the
-   `foundry-toolchain-v1.3.2-*` key. Fork replies are committed under
+   `foundry-toolchain-v1.8.6-*` key. Fork replies are committed under
    `eth_defi/testing/rpc_cache_seed/` and copied into each worker's Foundry cache
    by the session fixture; a cold runner therefore starts with the same replies
    as a warm runner.

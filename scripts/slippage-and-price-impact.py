@@ -11,12 +11,13 @@
 import os
 from decimal import Decimal
 
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v3.deployment import fetch_deployment
 from eth_defi.uniswap_v3.pool import fetch_pool_details
-from eth_defi.uniswap_v3.price import get_onchain_price, estimate_sell_received_amount
+from eth_defi.uniswap_v3.price import estimate_sell_received_amount, get_onchain_price
 from eth_defi.uniswap_v3.tvl import fetch_uniswap_v3_pool_tvl
 
 # The test amount of WMATIC for which selling
@@ -34,7 +35,7 @@ fee_tier = 0.0005  # BPS
 
 # Give Polygon archive node JSON-RPC access
 json_rpc_url = os.environ["JSON_RPC_POLYGON"]
-web3 = Web3(HTTPProvider(json_rpc_url))
+web3 = Web3(create_http_provider(json_rpc_url))
 
 wmatic = fetch_erc20_details(web3, wmatic_address)
 usdc = fetch_erc20_details(web3, usdc_address)

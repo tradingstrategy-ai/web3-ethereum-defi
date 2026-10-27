@@ -53,6 +53,7 @@ from eth_defi.middleware import (
     DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES,
 )
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain, is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
@@ -224,6 +225,19 @@ class RPCProxyConfig:
     #: strict behaviour so unexpected client disconnects are still visible.
     suppress_client_disconnect_errors: bool = False
 
+    #: JSON-RPC methods the proxy answers itself with ``-32601 method not found``
+    #: instead of forwarding. Anvil >= 1.8 probes a fork upstream with
+    #: ``eth_getAccountInfo``, ``anvil_nodeInfo`` and ``eth_getBlockAccessList``
+    #: (block-level access lists). Public providers either
+    #: reject them as unknown methods, which the proxy would otherwise count as
+    #: a retryable failure and switch providers over, or implement
+    #: ``eth_getAccountInfo`` without historical state and answer
+    #: ``historical state ... is not available``, which makes Anvil abort the
+    #: fork with ``failed to create genesis`` instead of falling back to the
+    #: legacy ``eth_getBalance`` / ``eth_getTransactionCount`` / ``eth_getCode``
+    #: reads that the committed fork cache seeds also cover.
+    unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"})
+
     def __post_init__(self):
         if self.failure_handler is None:
             # Avoid circular default — default_failure_handler is defined
@@ -361,7 +375,7 @@ class UpstreamRPCProviderStatistics:
                 "timestamp": now,
                 "method": method,
                 "http_status": http_status,
-                "error": error_summary,
+                "error": redact_rpc_urls(error_summary),
             }
             self.error_replies.append(entry)
             # Trim oldest entries if over limit
@@ -438,6 +452,13 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
         except (orjson.JSONDecodeError, ValueError):
             pass
 
+        if method in self.server.config.unsupported_methods:
+            # Answer locally so Anvil falls back to legacy methods; see the
+            # RPCProxyConfig.unsupported_methods docstring.
+            response_body = orjson.dumps({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"the method {method} does not exist/is not available"}})
+            self._send_json_response(200, response_body)
+            return
+
         # Try upstream providers with failover
         last_error = None
         last_status = None
@@ -467,7 +488,7 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             except (ConnectionError, Timeout, OSError) as e:
                 # Connection-level failure — always retry
                 duration = time.time() - t0
-                error_msg = f"{e.__class__.__name__}: {e}"
+                error_msg = redact_rpc_urls(f"{e.__class__.__name__}: {e}")
                 stats.record_failure(method, error_msg, http_status=None, max_error_replies=self.server.config.max_error_replies)
                 total_requests = sum(s.request_count for s in self.server.provider_stats.values())
                 logger.log(
@@ -841,7 +862,9 @@ def start_rpc_proxy(
         A running :py:class:`RPCProxy` instance.
         Call :py:meth:`RPCProxy.close` when done.
     """
-    assert len(rpc_urls) >= 1, f"At least one RPC URL is required, got {rpc_urls}"
+    for rpc_url in rpc_urls:
+        register_rpc_url(rpc_url)
+    assert len(rpc_urls) >= 1, "At least one RPC URL is required"
 
     # Build effective configuration
     if config is None:
@@ -922,7 +945,7 @@ def start_rpc_proxy(
     logger.info(
         "RPC proxy %r started at %s with %d upstream providers: %s, config: %s",
         proxy_name,
-        url,
+        get_url_domain(url),
         len(rpc_urls),
         ", ".join(provider_keys),
         config.describe(),

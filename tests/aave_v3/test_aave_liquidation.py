@@ -13,13 +13,17 @@ from eth_defi.aave_v3.liquidation import AaveLiquidationReader
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
-pytestmark = pytest.mark.skipif(
-    (JSON_RPC_ETHEREUM is None) or (HYPERSYNC_API_KEY is None),
-    reason="Set JSON_RPC_ETHEREUM and HYPERSYNC_API_KEY environment variable to Ethereum mainnet node to run this test",
-)
+# pytestmark = pytest.mark.skipif(
+#     (JSON_RPC_ETHEREUM is None) or (HYPERSYNC_API_KEY is None),
+#     reason="Set JSON_RPC_ETHEREUM and HYPERSYNC_API_KEY environment variable to Ethereum mainnet node to run this test",
+# )
 
 
 @flaky.flaky(max_runs=3)

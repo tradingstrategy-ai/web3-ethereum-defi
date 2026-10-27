@@ -48,10 +48,10 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
-from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware, create_http_provider
 from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import fetch_transaction_revert_reason
@@ -78,7 +78,7 @@ BASE_TOKEN_ADDRESS = "0x2170ed0880ac9a755fd29b2688956bd959f933f8"  # Binance cus
 json_rpc_url = os.environ.get("JSON_RPC_BINANCE")
 assert json_rpc_url, "You need to give JSON_RPC_BINANCE node URL. Check https://docs.bnbchain.org/docs/rpc for options"
 
-web3 = Web3(HTTPProvider(json_rpc_url))
+web3 = Web3(create_http_provider(json_rpc_url))
 
 # Proof-of-authority middleware is needed to connect non-Ethereum mainnet chains
 # (BNB Smart Chain, Polygon, etc...)

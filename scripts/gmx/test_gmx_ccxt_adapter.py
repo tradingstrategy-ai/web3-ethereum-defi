@@ -20,8 +20,10 @@ import os
 
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ def create_gmx_exchange() -> GMX:
     if not rpc_url:
         raise ValueError("JSON_RPC_ARBITRUM environment variable required")
 
-    web3 = Web3(Web3.HTTPProvider(rpc_url))
+    web3 = Web3(create_http_provider(rpc_url))
 
     # Optional wallet address for balance/position queries
     wallet_address = os.environ.get("GMX_WALLET_ADDRESS")
@@ -127,7 +129,7 @@ def validate_exchange_api(exchange: GMX):
         print(f"    Long: ${oi['info']['longOpenInterest']:,.0f}")
         print(f"    Short: ${oi['info']['shortOpenInterest']:,.0f}")
     except Exception as e:
-        print(f"... Could not fetch OI: {e}")
+        print(redact_rpc_urls(f"... Could not fetch OI: {e}"))
 
     # Test 6: Fetch funding rate
     print(f"\nStep 6: Testing fetch_funding_rate() for {chosen_symbol}...")
@@ -137,7 +139,7 @@ def validate_exchange_api(exchange: GMX):
         print(f"... Funding rate: {hourly_rate:.6f}% per hour")
         print(f"    Direction: {'Longs pay shorts' if fr['fundingRate'] > 0 else 'Shorts pay longs'}")
     except Exception as e:
-        print(f"... Could not fetch funding rate: {e}")
+        print(redact_rpc_urls(f"... Could not fetch funding rate: {e}"))
 
     # Test 7: Fetch balance (if wallet configured)
     print("\nStep 7: Testing fetch_balance()...")
@@ -153,7 +155,7 @@ def validate_exchange_api(exchange: GMX):
             else:
                 print("... No balances found (may need to deposit)")
         except Exception as e:
-            print(f"... Could not fetch balance: {e}")
+            print(redact_rpc_urls(f"... Could not fetch balance: {e}"))
     else:
         print("... Skipped (no wallet address configured)")
 
@@ -170,7 +172,7 @@ def validate_exchange_api(exchange: GMX):
             else:
                 print("... No open positions")
         except Exception as e:
-            print(f"... Could not fetch positions: {e}")
+            print(redact_rpc_urls(f"... Could not fetch positions: {e}"))
     else:
         print("... Skipped (no wallet address configured)")
 
@@ -187,7 +189,7 @@ def validate_exchange_api(exchange: GMX):
         default_lev = exchange.fetch_leverage()
         print(f"... Default leverage: {default_lev[0]['leverage']}x")
     except Exception as e:
-        print(f"... Leverage test failed: {e}")
+        print(redact_rpc_urls(f"... Leverage test failed: {e}"))
 
     # Test 10: Feature flags
     print("\nStep 10: Verifying GMX limitations are documented...")
@@ -226,7 +228,7 @@ def main():
         print("\nAll tests PASSED")
         return 0
     except Exception as e:
-        print(f"\nTests FAILED: {e}")
+        print(redact_rpc_urls(f"\nTests FAILED: {e}"))
         logger.error("Test suite failed", exc_info=e)
         return 1
 

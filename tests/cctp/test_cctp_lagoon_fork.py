@@ -174,6 +174,18 @@ def cctp_lagoon_state(
 
 
 @pytest.fixture(autouse=True)
+def restore_ethereum_fork_state() -> None:
+    """Disable the directory-level Ethereum checkpoint reset for this module.
+
+    This module forks Base and keeps its own post-deployment checkpoint in
+    :func:`restore_cctp_lagoon_state`. The ``conftest.py`` reset would revert
+    the shared Anvil to its pre-deployment snapshot first, which invalidates
+    the newer checkpoint: Anvil >= 1.8 then correctly refuses to revert to it,
+    whereas older releases silently restored the invalidated snapshot.
+    """
+
+
+@pytest.fixture(autouse=True)
 def restore_cctp_lagoon_state(
     web3: Web3,
     cctp_lagoon_state: AnvilSnapshotState,

@@ -54,6 +54,10 @@ Protocol-level notes should be scanned into `_notes` with `vault.get_notes()`.
 Lifetime metrics can then use the scanned note without reconstructing protocol
 objects during reporting.
 
+`_short_description` is plain text: Markdown is not allowed, because the
+website renders it verbatim in listings and tables. Put documentation links in
+`_notes` or `_description` instead.
+
 Do not store `_notes` when the adapter note only duplicates `_description` or
 `_short_description`. Some adapters use `get_notes()` as a generic text hook and
 fall back to the same protocol description that is already exported separately.

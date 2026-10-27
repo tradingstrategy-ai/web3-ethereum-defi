@@ -33,6 +33,7 @@ from pathlib import Path
 
 import duckdb
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
@@ -85,6 +86,8 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
+from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoryCoverageError, fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
+from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
 from eth_defi.feed.database import resolve_feed_database_path
@@ -99,6 +102,7 @@ from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hiba
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
+from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
@@ -596,6 +600,9 @@ class ChainResult:
 
     #: Error message if failed
     error: str | None = None
+
+    #: Visible partial-source warning that does not trigger whole-chain backoff.
+    warning: str | None = None
 
     #: Full traceback string if failed
     traceback_str: str | None = None
@@ -1142,6 +1149,8 @@ def scan_prices_for_chain(
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
                 elif ERC4626Feature.antarctic_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_antarctic_historical_context_path()
+                elif ERC4626Feature.infinit_like in detection.features:
+                    vault.historical_context_path = historical_context_path or get_infinit_historical_context_path()
                 elif ERC4626Feature.rysk_premium_like in detection.features:
                     vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
                 if active:
@@ -1403,7 +1412,68 @@ def scan_prices_for_chain(
                 # An empty cycle must neither restart at deployment nor rewrite it.
                 return True, {**metrics, "items_scanned": len(vaults), "rows_written": antarctic_repair_rows, "end_block": current_end_block, "antarctic_observations_inserted": antarctic_prefill.observations_inserted}
 
-        metrics["items_scanned"] = len(vaults)
+        # The application can publish observations behind the EVM reader cursor.
+        # Replay this small retained history by address, independently of the
+        # mixed-chain continuation point, including on recovery after failure.
+        infinit_rows_written = 0
+        infinit_scanned = 0
+        infinit_overdue = {}
+        metrics["infinit_deferred"] = []
+        for vault in tuple(vaults):
+            if not isinstance(vault, InfinitVault):
+                continue
+            vaults.remove(vault)
+            try:
+                if hypersync_config.hypersync_client is None:
+                    message = "Infinit indexed supply requires Hypersync"
+                    raise ValueError(message)
+                source_end = min(current_end_block, get_almost_latest_block_number(web3))
+                fetch_infinit_timestamp_tail(hypersync_config.hypersync_client, vault.product, source_end)
+                fetch_and_store_infinit_history(web3=web3, hypersync_client=hypersync_config.hypersync_client, product=vault.product, end_block=source_end, context_path=vault.historical_context_path)
+                source_start = max(vault.product.deployment_block, start_block or 0)
+                validate_infinit_price_coverage(uncleaned_price_path, vault.historical_context_path, vault.product, source_start, source_end)
+                infinit_result = scan_historical_prices_to_parquet(
+                    batch_size=get_multicall_batch_size_from_env(),
+                    output_fname=uncleaned_price_path,
+                    web3=web3,
+                    web3factory=web3factory,
+                    vaults=[vault],
+                    greylist=greylist,
+                    token_cache=token_cache,
+                    start_block=source_start,
+                    end_block=source_end,
+                    max_workers=max_workers,
+                    frequency=frequency,
+                    hypersync_client=hypersync_config.hypersync_client,
+                    vault_addresses={vault.address.lower()},
+                    enforce_live_freshness=live_freshness,
+                )
+            except InfinitHistoryCoverageError as error:
+                logger.exception("Infinit history requires context restoration for %s: %s", vault.address, error)
+                metrics["infinit_deferred"].append(vault.address.lower())
+                continue
+            except (OSError, ValueError, RuntimeError, Web3Exception, HypersyncFlaky, duckdb.Error) as error:
+                logger.warning("Infinit history deferred for %s: %s", vault.address, error)
+                metrics["infinit_deferred"].append(vault.address.lower())
+                continue
+            infinit_rows_written += infinit_result["rows_written"]
+            infinit_overdue.update(infinit_result.get("overdue_vaults", {}))
+            if infinit_result.get("audit_error"):
+                metrics["infinit_deferred"].append(vault.address.lower())
+            infinit_scanned += 1
+            try:
+                validation = vault.fetch_valuation_validation()
+                logger.info("Infinit current valuation check for %s: %s", vault.address, validation)
+            except (OSError, ValueError, KeyError, ArithmeticError, Web3Exception) as error:
+                logger.warning("Infinit current account validation deferred for %s: %s", vault.address, error)
+        if metrics["infinit_deferred"]:
+            metrics["warning"] = f"Infinit history deferred for {', '.join(metrics['infinit_deferred'])}; inspect source/context diagnostics"
+        elif infinit_overdue:
+            metrics["warning"] = "Infinit source prices are overdue; replayed rows retain their original dates"
+        if not vaults:
+            return True, {**metrics, "items_scanned": infinit_scanned, "rows_written": infinit_rows_written + antarctic_repair_rows, "end_block": current_end_block, "overdue_vaults": infinit_overdue}
+
+        metrics["items_scanned"] = len(vaults) + infinit_scanned
 
         # Dedicated, activity-filtered or context-withheld vault states must
         # not move this batch's continuation point. Merge the updated subset
@@ -1456,10 +1526,10 @@ def scan_prices_for_chain(
             **metrics,
             "error": result.get("audit_error"),
             "error_category": "internal" if result.get("audit_error") else None,
-            "rows_written": result["rows_written"] + antarctic_repair_rows,
+            "rows_written": result["rows_written"] + antarctic_repair_rows + infinit_rows_written,
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
-            "overdue_vaults": result["overdue_vaults"],
+            "overdue_vaults": result["overdue_vaults"] | infinit_overdue,
             "unknown_conversion_vaults": result["unknown_conversion_vaults"],
             "denomination_unavailable_vaults": result.get("denomination_unavailable_vaults", []),
             "start_block": result["start_block"],
@@ -1642,6 +1712,7 @@ def scan_chain(
         record_rpc_usage("price_scan", price_stats, price_metrics)
         result.price_scan_ok = price_success
         result.chain_id = price_metrics.get("chain_id") or result.chain_id
+        result.warning = price_metrics.get("warning")
 
         if price_success:
             result.price_rows = price_metrics.get("rows_written")
@@ -2596,12 +2667,14 @@ def _load_last_timestamps(
 ) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
-    Reads only the ``chain`` and ``timestamp`` columns for efficiency.
+    Reads only the ``chain`` and ``timestamp`` columns for efficiency, plus
+    ``address`` for the shared Lighter chain.
 
     :param uncleaned_price_path:
         Path to the uncleaned parquet.  ``None`` uses the default.
     :return:
         Mapping of chain name to formatted date string (YYYY-MM-DD HH:MM).
+        Lighter deployments are additionally keyed by their dashboard names.
     """
     path = uncleaned_price_path or DEFAULT_UNCLEANED_PRICE_DATABASE
     if not path.exists():
@@ -2623,10 +2696,25 @@ def _load_last_timestamps(
                 name = str(chain_id)
             # Use lowercase keys so dashboard lookup is case-insensitive
             result[name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
-        return result
+
     except (OSError, ValueError, pa.ArrowException) as e:
         logger.warning("Could not read last timestamps from parquet: %s", e)
         return {}
+
+    # Lighter deployments share one synthetic chain but have one dashboard
+    # row each, so split that chain's rows by synthetic address prefix.
+    # A failure here must not blank the other chains' timestamps.
+    try:
+        lighter_chain_ids = sorted({deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS})
+        lighter_table = pq.read_table(path, columns=["address", "timestamp"], filters=[("chain", "in", lighter_chain_ids)])
+        for deployment in LIGHTER_DEPLOYMENTS:
+            mask = pc.match_substring_regex(lighter_table["address"], deployment.pool_address_pattern)
+            timestamp = pc.max(pc.filter(lighter_table["timestamp"], mask)).as_py()
+            if timestamp is not None:
+                result[deployment.name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
+    except (OSError, ValueError, pa.ArrowException) as e:
+        logger.warning("Could not read Lighter last timestamps from parquet: %s", e)
+    return result
 
 
 def _append_result_error(result: ChainResult, error: str, traceback_str: str | None = None) -> None:
@@ -2666,9 +2754,10 @@ def print_dashboard(
     :param display_order: Optional list of chain names specifying display order
     :param uncleaned_price_path: Path to the uncleaned parquet for timestamps
     """
-    # Chain timestamps need only two Arrow columns. Protocol freshness is
-    # resolved once per tick and stored on ``ChainResult`` to avoid repeatedly
-    # materialising the much larger address column on every dashboard redraw.
+    # Chain timestamps need only two Arrow columns, plus addresses for the
+    # shared Lighter chain. Protocol freshness is resolved once per tick and
+    # stored on ``ChainResult`` to avoid materialising every address on each
+    # dashboard redraw.
     last_timestamps = _load_last_timestamps(uncleaned_price_path)
 
     # Clear screen (simple approach)
@@ -2710,6 +2799,8 @@ def print_dashboard(
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
             line += f"  {error_msg}"
+        elif result.warning:
+            line += f"  WARNING: {result.warning}"
         lines.append(line)
 
     # Summary

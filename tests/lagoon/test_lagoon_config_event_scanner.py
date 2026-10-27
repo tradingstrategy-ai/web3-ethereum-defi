@@ -9,15 +9,15 @@
 import logging
 import os
 
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.whitelist import CCTPDeployment
-from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
+from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import (
     ChainGuardConfig,
     DecodedGuardEvent,
@@ -43,10 +43,10 @@ from eth_defi.gmx.whitelist import GMX_ARBITRUM_ADDRESSES, GMX_POPULAR_MARKETS, 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +206,9 @@ def multichain_deployment(
 
 
 @pytest.mark.timeout(600)
+# 2026-10-27: the Base fork account reads intermittently failed with the upstream
+# error "MPP HTTP request to https://lb.drpc.org/ failed"; the test passed on rerun.
+@flaky.flaky
 @pytest.mark.skipif(CI, reason="Long-running test. Run locally.")
 def test_resolve_trading_strategy_module(
     multichain_deployment,

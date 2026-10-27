@@ -50,6 +50,10 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    # Verified contracts have no strategy-fee accounting. Operator settlement
+    # and published API prices do not establish fee internalisation; see
+    # eth_defi/abi/infinit/README.md.
+    "Infinit": None,
     # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
     # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
     # investor-return fields are comparable with USDC-denominated vaults.
@@ -438,6 +442,9 @@ def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> V
     :return:
         None if unknown
     """
-    del address
+    # IP Vault's conditional exit fees and fund costs remain under verification.
+    # Do not inherit the existing Asseto AoABT fee assessment for this product.
+    if vault_protocol_name == "Asseto" and address.lower() == "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9":
+        return None
 
     return VAULT_PROTOCOL_FEE_MATRIX.get(vault_protocol_name)

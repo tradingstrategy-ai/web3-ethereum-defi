@@ -1,4 +1,10 @@
-"""Aave v3 rate calculation."""
+"""Aave v3 rate calculation.
+
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+"""
 
 import logging
 from datetime import datetime

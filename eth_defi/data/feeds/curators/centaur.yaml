@@ -1,0 +1,25 @@
+feeder-id: centaur
+name: Centaur
+role: curator
+website: https://www.centaur.io/
+short_description: Centaur extracts structured trading signals from public trader posts and operates signal-based public pools on Lighter.
+long_description: |
+  [Centaur](https://www.centaur.io/) extracts structured trading signals from public trader posts for exchanges, trading agents and automated strategies.
+
+  [Centaur Strategies](https://docs.centaur.io/strategies/lighter-pools/overview) are Centaur-operated public pools on Lighter, each anchored to one public trader. Its extraction pipeline identifies signals, which Centaur interprets, maps to perpetual markets, sizes and risk-manages; a Centaur operator makes every final trade decision under its published [methodology](https://docs.centaur.io/strategies/lighter-pools/methodology). Centaur publishes the reasoning behind its trades rather than replicating the trader's actual portfolio.
+
+  Under its [fee policy](https://docs.centaur.io/strategies/lighter-pools/fees), Centaur does not retain operator fees as revenue: five pools fund random, discretionary rebates for depositors with realised losses, while Black Bull funds purchases and permanent burns of $ANSEM. Rebates are not insurance and do not guarantee recovery of losses or any return. No depositor has a right to a rebate; Centaur can alter, suspend or stop the programme at any time. The tracked traders are unaffiliated with Centaur, do not operate the pools and have not endorsed them, as explained in its [disclosures](https://docs.centaur.io/strategies/lighter-pools/disclosures).
+
+# Listing copy supplied in the requester's Centaur onboarding request on 2026-10-26,
+# lightly edited and corroborated against the official sources below.
+
+# Official evidence for Centaur's responsibility for the six public pools.
+other-links:
+  - title: Centaur documentation - six Centaur-operated Lighter public pools and tracked traders
+    url: https://docs.centaur.io/strategies/lighter-pools/overview
+  - title: Centaur methodology - operator decisions, signal interpretation and risk management
+    url: https://docs.centaur.io/strategies/lighter-pools/methodology
+  - title: Centaur fee usage - discretionary loss rebates and Black Bull ANSEM burns
+    url: https://docs.centaur.io/strategies/lighter-pools/fees
+  - title: Centaur disclosures - tracked traders are unaffiliated and have not endorsed the pools
+    url: https://docs.centaur.io/strategies/lighter-pools/disclosures

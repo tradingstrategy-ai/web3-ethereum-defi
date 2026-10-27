@@ -31,6 +31,7 @@ from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order_tracking import ORDER_LIST_KEY
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ def main():
             else:
                 print("  ⚠️  Could not query DataStore")
         except Exception as e:
-            print(f"  ⚠️  Error connecting to RPC: {e}")
+            print(redact_rpc_urls(f"  ⚠️  Error connecting to RPC: {e}"))
     else:
         print(f"STEP 1: Skipped DataStore check ({rpc_env_var} not set)")
 
@@ -178,7 +179,7 @@ def main():
             poll_interval=0.5,
         )
     except Exception as e:
-        print(f"  ⚠️  Error querying Subsquid: {e}")
+        print(redact_rpc_urls(f"  ⚠️  Error querying Subsquid: {e}"))
         action = None
 
     if not action:
@@ -273,7 +274,7 @@ def main():
                         continue
 
             except Exception as e:
-                print(f"  ⚠️  Error scanning logs: {e}")
+                print(redact_rpc_urls(f"  ⚠️  Error scanning logs: {e}"))
 
         if not action:
             # Provide diagnosis

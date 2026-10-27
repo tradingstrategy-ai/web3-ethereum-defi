@@ -27,15 +27,18 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.constants import FRANKENCOIN_S
 from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinSharesVault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_PRODUCTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.asseto.royalty_constants import ROYALTY_CHAIN_ID, ROYALTY_VAULT_ADDRESS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.fdit.constants import FDIT_PRODUCTS, FDIT_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
@@ -43,7 +46,6 @@ from eth_defi.tokenised_fund.kaio.constants import KAIO_PRODUCTS, KAIO_PRODUCTS_
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS
-from eth_defi.tokenised_fund.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_PRODUCTS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
@@ -392,6 +394,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address == ROYALTY_VAULT_ADDRESS:
+        return {ERC4626Feature.asseto_royalty_like} if chain_id == ROYALTY_CHAIN_ID else None
+    if normalised_address in INFINIT_PRODUCTS:
+        return {ERC4626Feature.infinit_like} if chain_id == INFINIT_CHAIN_ID else None
     if normalised_address in ANTARCTIC_BY_ADDRESS:
         return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
     if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
@@ -1937,6 +1943,14 @@ def probe_vaults(
 
     assert type(chain_id) == int
 
+    # IP Vault has one explicitly registered deployment and needs no ABI probes,
+    # including when discovery uses this batched path instead of autodetection.
+    if chain_id == ROYALTY_CHAIN_ID and any(address.lower() == ROYALTY_VAULT_ADDRESS for address in addresses):
+        yield VaultFeatureProbe(address=ROYALTY_VAULT_ADDRESS, features={ERC4626Feature.asseto_royalty_like})
+        addresses = [address for address in addresses if address.lower() != ROYALTY_VAULT_ADDRESS]
+        if not addresses:
+            return
+
     probe_calls = list(create_probe_calls(addresses, chain_id=chain_id))
 
     # Decode features only once all subcalls have been collected for an address;
@@ -2305,7 +2319,7 @@ def create_vault_instance(
 
         return OdaFactVault(web3, spec, **kwargs)
     elif ERC4626Feature.shift_like in features:
-        from eth_defi.tokenised_fund.shift.vault import ShiftVault
+        from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 
         return ShiftVault(web3, spec, **kwargs)
     elif ERC4626Feature.midas_like in features:
@@ -2324,6 +2338,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.openeden.vault import OpenEdenVault
 
         return OpenEdenVault(web3, spec, **kwargs)
+    elif ERC4626Feature.asseto_royalty_like in features:
+        from eth_defi.tokenised_fund.asseto.royalty import AssetoRoyaltyVault  # noqa: PLC0415 - match the lazy protocol factory imports
+
+        return AssetoRoyaltyVault(web3, spec, **kwargs)
     elif ERC4626Feature.asseto_like in features:
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
@@ -2332,6 +2350,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
 
         return AntarcticVault(web3, spec, **kwargs)
+    elif ERC4626Feature.infinit_like in features:
+        from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault  # noqa: PLC0415 - load optional protocol dependencies only after classification
+
+        return InfinitVault(web3, spec, **kwargs)
     elif ERC4626Feature.rysk_premium_like in features:
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
@@ -2854,6 +2876,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **{address: {ERC4626Feature.infinit_like} for address in INFINIT_PRODUCTS},
     **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
@@ -2883,6 +2906,8 @@ HARDCODED_PROTOCOLS = {
     "0x54251e24e7e5dfc66c02ea02f41bcb2419380bad": {ERC4626Feature.barker_like},
     **SHIFT_HARDCODED_PROTOCOLS,
     **PALLAS_HARDCODED_PROTOCOLS,
+    # Asseto IP Vault: chain-scoped by _get_hardcoded_protocol_features().
+    ROYALTY_VAULT_ADDRESS: {ERC4626Feature.asseto_royalty_like},
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

@@ -53,6 +53,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ def main() -> None:
         chain_name = get_chain_name(chain_id).lower()
         console.print(f"Connected — chain: {chain_name}, chain_id: {chain_id}, block: {block_number}")
     except Exception as e:
-        console.print(f"[red]Failed to connect to RPC: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect to RPC: {e}[/red]"))
         sys.exit(1)
 
     # --- Initialise asset manager hot wallet ---
@@ -170,7 +171,7 @@ def main() -> None:
     try:
         vault_info = vault.fetch_info()
     except Exception as e:
-        console.print(f"[red]vault.fetch_info() failed: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]vault.fetch_info() failed: {e}[/red]"))
         sys.exit(1)
 
     modules = vault_info.get("modules", [])

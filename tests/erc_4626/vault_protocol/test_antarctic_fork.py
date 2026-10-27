@@ -3,6 +3,7 @@
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import Web3
 
@@ -31,6 +32,10 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
     return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, ARBITRUM_MIDNIGHT_BLOCK)
 
 
+# 2026-10-27, CI after the Anvil v1.8.6 upgrade: the share token symbol read back as
+# None (fetch_erc20_details() maps a failed symbol() eth_call on the fork to None) while
+# the Arbitrum upstream was briefly unavailable to that xdist worker; passes locally.
+@flaky.flaky
 @pytest.mark.parametrize("deployment", ANTARCTIC_DEPLOYMENTS, ids=lambda d: d.product)
 def test_antarctic_fixed_fork_metadata(web3: Web3, deployment: AntarcticDeployment) -> None:
     """Autodetect both LP identities and verify their deployed manager settings.

@@ -5,6 +5,7 @@ Research, metrics and charts
 
 - `OHLCV candle charts <https://tradingstrategy.ai/glossary/ohlcv>`__
 - DeFi vault metrics
+- K-ratio of regularly sampled wealth and share prices
 - Vault benchmarks, correlations and listings
 - Vault data clean up ("wrangling")
 - Setting up Jupyter notebook rendering modes
@@ -21,6 +22,7 @@ benchmark renders samples without reading or writing publication state.
    :recursive:
 
    eth_defi.research.candle
+   eth_defi.research.k_ratio
    eth_defi.research.sparkline
    eth_defi.research.sparkline_export
    eth_defi.research.metrics_freshness

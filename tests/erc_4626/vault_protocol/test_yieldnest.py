@@ -29,6 +29,7 @@ from eth_defi.token import USDC_WHALE
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.flag import YIELDNEST_YNRWAX, VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -108,7 +109,10 @@ def test_yieldnest_ynrwax_metadata(web3: Web3, monkeypatch: pytest.MonkeyPatch, 
 
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
-    # The manual illiquidity flag from PR #1649 applies independently of fork time.
+    # The maintained 2026-10-23 liquidation notice applies independently of the
+    # historical fork block and the maturity clock scenarios below.
+    assert VaultFlag.illiquid in vault.get_flags()
+    assert YIELDNEST_YNRWAX in vault.get_notes()
     assert vault.get_risk() is VaultTechnicalRisk.blacklisted
 
     monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.yieldnest.vault.native_datetime_utc_now", lambda: now)

@@ -163,6 +163,7 @@ from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_T
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 from eth_defi.types import ISODateString
+from eth_defi.vault.handwritten_metadata import CENTAUR_VAULT_METADATA
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +397,7 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    "apex-quants",
     "waterline-rusd",
     "presto",
     "architect",
@@ -433,6 +435,18 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: APEX MultiStrategy, Infinit on Arbitrum (42161), reviewed 2026-10-26.
+    #: The vault's manager links identify the Apex Quant Capital website.
+    #: Address attribution also covers cached rows without the manager label;
+    #: investing in the legacy native vault does not establish its curator.
+    #: https://app.infinit.tech/vaults/apex-multistrategy
+    #: https://www.apexquants.xyz/
+    (42161, "0xe64655e24b66073c73300aa924cd6df5c716638f"): "apex-quants",
+    #: Six Centaur-operated Ethereum Lighter pools, reviewed 2026-10-26.
+    #: Keep attribution if the API display names change; numeric account IDs
+    #: alone do not identify a pool across Lighter deployments.
+    #: https://docs.centaur.io/strategies/lighter-pools/overview
+    **dict.fromkeys(CENTAUR_VAULT_METADATA, "centaur"),
     #: Presto USDC Prime (1), reviewed 2026-10-21.
     #: https://app.morpho.org/ethereum/vault/0x133614490896bc02c774bc3399e4db1b6d05a2ca
     (1, "0x133614490896bc02c774bc3399e4db1b6d05a2ca"): "presto",

@@ -43,12 +43,22 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-17.
     #: Decision material: Maintainer classification marks pmalt's former
     #: Hyperliquid strategy as algorithmic trading and pair trading.
+    #: Updated: 2026-10-27. The latest 2,000 aggregated public fills cover
+    #: 2026-07-15 to 2026-10-15. Reconstructing complete, gap-free, non-flipping
+    #: position round trips gives 104 profitable closes out of 110 after trading
+    #: fees, before funding, with a median holding time of about one hour. Typical
+    #: wins are small relative to the largest losing position, supporting
+    #: high-frequency, high-win-rate trading. Incomplete positions are excluded
+    #: from that sample statistic; it is not an account-wide win rate.
     #: Sources:
     #: - eth_defi/data/feeds/curators/pmalt.yaml
     #: - https://app.hyperliquid.xyz/vaults/0x4dec0a851849056e259128464ef28ce78afa27f6
     #: - https://app.lighter.xyz/public-pools/281474976552918
+    #: - https://api.hyperliquid.xyz/info
+    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     "0x4dec0a851849056e259128464ef28ce78afa27f6": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.pair_trading,
     },
     #: Vault: Hyperliquidity Provider (HLP).
@@ -67,13 +77,40 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-17.
     #: Decision material: The published vault description explicitly says it
     #: employs a quantitative, mean-reversion strategy and is fully automated.
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x1e37a337ed460039d1b15bd3bc489de789768d5e
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
+    #: Vault: Growi HF-2.
+    #: Added: 2026-10-26.
+    #: Decision material: Maintainer assigned high-frequency, high-win-rate
+    #: trading to this live Growi variant; identity verified in current metadata.
+    #: Sources:
+    #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+    #: - https://app.hyperliquid.xyz/vaults/0x9b5b1931fa5838a891973f9877c7648c93ee80cc
+    "0x9b5b1931fa5838a891973f9877c7648c93ee80cc": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: Vault: Cold Process.
+    #: Added: 2026-10-26.
+    #: Decision material: Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
+    #: Sources:
+    #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+    #: - https://app.hyperliquid.xyz/vaults/0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11
+    "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: Vault: BitRocket.
+    #: Added: 2026-10-26.
+    #: Decision material: Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
+    #: Sources:
+    #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+    #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
+    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gen Wealth Algo.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -182,7 +219,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0xd2f03635901956b950737bbf02463dfad9f2e9e1
     #: - https://api.hyperliquid.xyz/info
-    "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
+    "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gucky_2coin_1dot75x.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
@@ -191,7 +230,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x3a6747c8e913085e243a2c22d188dafa8c6a612a
     #: - https://api.hyperliquid.xyz/info
-    "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
+    "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Gucky_4coin_2dot5x.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
@@ -200,7 +241,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9
     #: - https://api.hyperliquid.xyz/info
-    "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
+    "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate},
     #: Vault: Hype $1 Club.
     #: Added: 2026-08-18.
     #: Decision material: The current vault description explicitly calls the
@@ -255,6 +298,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: and squeeze forecasting through a dynamic grid. Stratwise's vault
     #: disclosure describes the strategy as directional and long-biased, using
     #: mean reversion to accumulate on pullbacks and take profit on reversion.
+    #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
+    #: trading; identity verified in the current vault metadata database.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
     #: - https://x.com/StratwiseAI/status/2090441910762553405
@@ -264,6 +309,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
     #: Vault: Wilkins Capital.

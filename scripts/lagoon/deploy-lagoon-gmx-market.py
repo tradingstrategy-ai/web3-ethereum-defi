@@ -106,7 +106,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import get_url_domain, setup_console_logging
 
 logger = logging.getLogger(__name__)
 
@@ -446,7 +446,7 @@ def setup_simulation_environment(
         default_http_timeout=(3.0, 180.0),
     )
 
-    print(f"  Anvil fork running at: {anvil_launch.json_rpc_url}")
+    print(f"  Anvil fork running at: {get_url_domain(anvil_launch.json_rpc_url)}")
     print(f"  Forked at block: {web3.eth.block_number:,}")
 
     hot_wallet = HotWallet.create_for_testing(web3, test_account_n=0, eth_amount=0)

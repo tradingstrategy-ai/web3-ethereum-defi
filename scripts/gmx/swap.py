@@ -25,7 +25,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import get_url_domain, setup_console_logging
 
 #: Arbitrum address holding large USDC balance, used to seed accounts in simulation
 LARGE_USDC_HOLDER = "0xF977814e90dA44bFA03b6295A0616a897441aceC"
@@ -86,7 +86,7 @@ def main():
             GMX_CONTROLLER,
         ]
         if JSON_RPC_TENDERLY:
-            logger.info("Using Tenderly virtual testnet for simulation: %s", JSON_RPC_TENDERLY)
+            logger.info("Using Tenderly virtual testnet for simulation: %s", get_url_domain(JSON_RPC_TENDERLY))
             web3 = create_multi_provider_web3(
                 JSON_RPC_TENDERLY,
                 default_http_timeout=(10.0, 60.0),  # Increase default timeouts if your Anvil is slow

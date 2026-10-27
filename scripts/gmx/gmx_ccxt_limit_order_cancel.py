@@ -57,6 +57,7 @@ from rich.logging import RichHandler
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.hotwallet import HotWallet
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.trace import assert_transaction_success_with_explanation
 from scripts.gmx.script_utils import fetch_eth_spot_price
 
@@ -167,7 +168,7 @@ def main():
             console.print(f"  Oracle spot price:    ${spot_price:,.2f}")
             console.print(f"  Trigger (+10 %):      ${trigger_price_usd:,.2f}")
         except Exception as exc:
-            console.print(f"[red]Could not fetch oracle price: {exc}[/red]")
+            console.print(redact_rpc_urls(f"[red]Could not fetch oracle price: {exc}[/red]"))
             sys.exit(1)
 
     # ------------------------------------------------------------------

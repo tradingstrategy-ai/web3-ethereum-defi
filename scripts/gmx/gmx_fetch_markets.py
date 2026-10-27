@@ -53,17 +53,21 @@ See Also
 - :mod:`eth_defi.gmx.config` - GMX configuration
 """
 
+import argparse
 import os
 import sys
-import argparse
+
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from web3 import Web3, HTTPProvider
+from rich.table import Table
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.markets import Markets
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.utils import get_url_domain
 
 console = Console()
 
@@ -99,12 +103,12 @@ def main():
         console.print(f"Set {env_var} environment variable")
         sys.exit(1)
 
-    console.print(Panel.fit(f"[bold cyan]GMX Markets Fetcher[/bold cyan]\nNetwork: {network_name}\nRPC: {rpc_url[:50]}...", border_style="cyan"))
+    console.print(Panel.fit(f"[bold cyan]GMX Markets Fetcher[/bold cyan]\nNetwork: {network_name}\nRPC: {get_url_domain(rpc_url)}...", border_style="cyan"))
 
     try:
         # Initialize Web3
         console.print("\n[blue]Connecting to blockchain...[/blue]")
-        web3 = Web3(HTTPProvider(rpc_url, request_kwargs={"timeout": 60}))
+        web3 = Web3(create_http_provider(rpc_url, request_kwargs={"timeout": 60}))
         install_chain_middleware(web3)
 
         if not web3.is_connected():
@@ -180,7 +184,7 @@ def main():
         console.print(f"  Swap markets: {swap_count}")
 
     except Exception as e:
-        console.print(f"\n[red]Error: {e}[/red]")
+        console.print(redact_rpc_urls(f"\n[red]Error: {e}[/red]"))
         import traceback
 
         console.print("\n[dim]Full traceback:[/dim]")

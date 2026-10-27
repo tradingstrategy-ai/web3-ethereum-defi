@@ -19,13 +19,13 @@ import os
 from pathlib import Path
 
 from eth_account import Account
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.utils import setup_console_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def main():
     private_key = os.environ.get("DEPLOYER_PRIVATE_KEY")
     assert private_key, "DEPLOYER_PRIVATE_KEY environment variable required"
 
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     install_chain_middleware(web3)
 
     deployer_account = Account.from_key(private_key)

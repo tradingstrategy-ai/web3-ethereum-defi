@@ -156,3 +156,16 @@ source .local-test.env
 timeout 180 poetry run pytest tests/mellow/test_mellow_classification.py tests/erc_4626/test_4626_historical_data.py::test_4626_historical_vault_data_stateful tests/erc_4626/vault_protocol/test_yieldnest.py::test_yieldnest_ynrwax_metadata -q --tb=short
 timeout 180 poetry run pytest tests/erc_4626/vault_protocol/test_mellow.py::test_mellow_lido_earn_usd -q --tb=short
 ```
+
+## Merge readiness on 2026-10-27
+
+Resolved conflicts against current `master`, preserving both changelog histories
+and the upstream YieldNest illiquidity assertions. The newly added Infinit scan
+also receives the configured batch limit so scanner rollback remains complete.
+The focused suites below passed **154 tests in 8.36 seconds** after the merge;
+this is a local result, not a claim that the earlier provider-blocked CI passed.
+
+```shell
+source .local-test.env
+timeout 180 poetry run pytest tests/event_reader/test_multicall_batcher.py tests/erc_4626/test_vault_reader_state.py tests/vault/test_rpc_batch.py tests/erc_4626/test_rpc_metadata_recovery.py tests/event_reader/test_hyperevm_multicall_greylist.py tests/event_reader/test_multicall_timestamp_rpc_usage.py tests/vault/test_price_freshness.py tests/vault/test_historical_format.py tests/mellow/test_mellow_classification.py -q --tb=short
+```

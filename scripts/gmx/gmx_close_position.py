@@ -73,20 +73,21 @@ See Also
 import logging
 import os
 import sys
+import traceback
 
+from rich.console import Console
 from rich.logging import RichHandler
+from rich.table import Table
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_tokens_address_dict
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import get_tokens_address_dict, get_contract_addresses
-from rich.console import Console
-from rich.table import Table
-
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 console = Console()
@@ -115,7 +116,7 @@ def main():
         block_number = web3.eth.block_number
         console.print(f"Connected to network, current block: {block_number}")
     except Exception as e:
-        console.print(f"Failed to connect to RPC: {e}")
+        console.print(redact_rpc_urls(f"Failed to connect to RPC: {e}"))
         sys.exit(1)
 
     # Get chain from web3 object
@@ -127,7 +128,7 @@ def main():
         token_addresses = get_tokens_address_dict(chain)
         console.print(f"Available tokens for {chain}: {list(token_addresses.keys())}")
     except Exception as e:
-        console.print(f"Could not retrieve token addresses for {chain}: {e}")
+        console.print(redact_rpc_urls(f"Could not retrieve token addresses for {chain}: {e}"))
         sys.exit(1)
 
     # Create wallet from private key
@@ -249,10 +250,9 @@ def main():
         console.print(f"  Collateral to withdraw: ${initial_collateral_delta:.2f} USD")
 
     except Exception as e:
-        console.print(f"[red]Error fetching positions: {str(e)}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"[red]Error fetching positions: {str(e)}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     try:
@@ -294,7 +294,7 @@ def main():
             console.print(f"Block number: {receipt['blockNumber']}")
 
         except Exception as e:
-            console.print(f"Close position transaction failed: {str(e)}")
+            console.print(redact_rpc_urls(f"Close position transaction failed: {str(e)}"))
             console.print("This is expected if you don't have an existing position to close")
             console.print("\nTo successfully close a position, ensure:")
             console.print("   - You have an existing position on the specified market")
@@ -305,10 +305,9 @@ def main():
         console.print("\n[green]GMX Position Closing completed successfully![/green]")
 
     except Exception as e:
-        console.print(f"Error during execution: {str(e)}")
-        import traceback
+        console.print(redact_rpc_urls(f"Error during execution: {str(e)}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
 

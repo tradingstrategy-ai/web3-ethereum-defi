@@ -24,6 +24,10 @@ from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.uniswap_v3.utils import encode_path, get_default_tick_range
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 
 @pytest.fixture()
 def ausdc(web3, aave_deployment) -> Contract:

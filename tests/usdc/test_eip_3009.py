@@ -31,10 +31,13 @@ def user(web3, deployer, usdc) -> LocalAccount:
     stash = web3.eth.get_balance(deployer)
     tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    usdc.contract.functions.transfer(
+    tx_hash = usdc.contract.functions.transfer(
         account.address,
         500 * 10**6,
     ).transact({"from": deployer})
+    # Anvil >= 1.8 returns the hash before the automined block exists, so the
+    # balance is only visible after the receipt.
+    assert_transaction_success_with_explanation(web3, tx_hash)
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
     return account
 

@@ -12,6 +12,8 @@ from rich.logging import RichHandler
 from rich.text import Text
 from rich.theme import Theme
 
+from eth_defi.rpc_url import RPCURLFilter, install_rpc_logging
+
 # Rich only honours fixed redirected-console width when both dimensions are set.
 RICH_LOG_WIDTH = 1000
 RICH_LOG_HEIGHT = 25
@@ -195,7 +197,7 @@ def create_rich_log_handler(
         height=RICH_LOG_HEIGHT,
         theme=RICH_LOG_THEME,
     )
-    return EthDefiRichHandler(
+    handler = EthDefiRichHandler(
         level=level,
         console=console,
         show_time=not simplified_logging,
@@ -209,6 +211,8 @@ def create_rich_log_handler(
         colour_threads=coloured_threads,
         log_time_format="[%Y-%m-%d %H:%M:%S]",
     )
+    handler.addFilter(RPCURLFilter())
+    return handler
 
 
 def create_plain_log_handler(
@@ -232,6 +236,7 @@ def create_plain_log_handler(
     """
 
     stream_handler = logging.StreamHandler(stream)
+    stream_handler.addFilter(RPCURLFilter())
     stream_handler.setLevel(level)
     stream_handler.setFormatter(logging.Formatter(fmt, date_fmt))
     return stream_handler
@@ -290,6 +295,8 @@ def setup_console_logging(
         Root logger.
     """
 
+    install_rpc_logging(from_environment=True)
+
     if stream is None:
         stream = sys.stderr
 
@@ -344,6 +351,7 @@ def setup_console_logging(
 
         # File handler always uses plain formatter (no ANSI codes)
         file_handler = logging.FileHandler(log_file, mode=mode, encoding="utf-8")
+        file_handler.addFilter(RPCURLFilter())
         file_handler.setLevel(min_level)
         file_handler.setFormatter(logging.Formatter(fmt, date_fmt))
 

@@ -52,6 +52,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aera/index
    asseto/index
    antarctic/index
+   infinit/index
    rysk/index
    barker/index
    bulla/index

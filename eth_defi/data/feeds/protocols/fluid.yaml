@@ -4,8 +4,9 @@ role: protocol
 website: https://fluid.io/
 twitter: 0xfluid
 linkedin: instadapp
-rss: https://blog.instadapp.io/rss/
+# 2026-10-26 maintain-curators: blog.instadapp.io/rss/ has returned Cloudflare
+# 522 (origin down) since 2026-08-28; the blog moved to fluid.io/blog, which is a
+# JavaScript app with no RSS/Atom feed.  Repointed to the official Fluid
+# governance Discourse feed (newest item 2026-08-02) and cleared rss-failure-*.
+rss: https://gov.fluid.io/latest.rss
 linkedin-rss-hub-disabled-at: 2026-04-04
-rss-failure-at: 2026-08-28
-rss-failure-status-code: 522
-rss-failure-exception-message: "522 Server Error: <none> for url: https://blog.instadapp.io/rss/"

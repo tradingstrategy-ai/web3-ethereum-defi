@@ -3,7 +3,12 @@
 set -e
 set -u
 
-echo "Call direct: ${JSON_RPC_ETHEREUM}"
+poetry run python - <<'PY'
+import os
+from eth_defi.utils import get_url_domain
+
+print("Call direct:", ", ".join(get_url_domain(url) for url in os.environ["JSON_RPC_ETHEREUM"].split()))
+PY
 
 curl -X POST -H "Content-Type: application/json" \
   --data '{

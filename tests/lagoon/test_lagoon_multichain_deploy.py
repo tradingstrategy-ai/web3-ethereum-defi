@@ -5,6 +5,7 @@
 - Tests CCTP bridging: Arbitrum → Base (burn on Arbitrum, receive on Base)
 """
 
+import dataclasses
 import logging
 import os
 from decimal import Decimal
@@ -12,19 +13,19 @@ from decimal import Decimal
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress
+from web3 import Web3
 
 from eth_defi.cctp.constants import CCTP_DOMAIN_ARBITRUM, CCTP_DOMAIN_BASE
 from eth_defi.cctp.receive import prepare_receive_message
 from eth_defi.cctp.testing import craft_cctp_message, forge_attestation, replace_attester_on_fork
 from eth_defi.cctp.transfer import prepare_approve_for_burn, prepare_deposit_for_burn
+from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
-from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK, ETHEREUM_MIDNIGHT_BLOCK, HYPERLIQUID_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK, ETHEREUM_MIDNIGHT_BLOCK, HYPERLIQUID_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +107,6 @@ def anvil_hyperliquid(request) -> AnvilLaunch:
 
 @pytest.fixture()
 def web3_ethereum(anvil_ethereum) -> "Web3":
-    from web3 import Web3
-
     web3 = create_multi_provider_web3(
         anvil_ethereum.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -118,8 +117,6 @@ def web3_ethereum(anvil_ethereum) -> "Web3":
 
 @pytest.fixture()
 def web3_arbitrum(anvil_arbitrum) -> "Web3":
-    from web3 import Web3
-
     web3 = create_multi_provider_web3(
         anvil_arbitrum.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -130,8 +127,6 @@ def web3_arbitrum(anvil_arbitrum) -> "Web3":
 
 @pytest.fixture()
 def web3_base(anvil_base) -> "Web3":
-    from web3 import Web3
-
     web3 = create_multi_provider_web3(
         anvil_base.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -142,8 +137,6 @@ def web3_base(anvil_base) -> "Web3":
 
 @pytest.fixture()
 def web3_hyperliquid(anvil_hyperliquid) -> "Web3":
-    from web3 import Web3
-
     web3 = create_multi_provider_web3(
         anvil_hyperliquid.json_rpc_url,
         default_http_timeout=(3, 500.0),
@@ -221,11 +214,22 @@ def test_multichain_lagoon_deploy_and_cctp_bridge(
         "hyperliquid": web3_hyperliquid,
     }
 
+    # Every chain gets its own config sharing the same Safe salt nonce. CCTP is
+    # whitelisted on the chains Circle supports; HyperEVM is a satellite without it.
+    cctp_chain_ids = {"ethereum": 1, "arbitrum": 42161, "base": 8453}
+    chain_configs = {
+        name: dataclasses.replace(
+            config,
+            cctp_deployment=CCTPDeployment.create_for_chain(chain_id, allowed_destinations=[other for other in cctp_chain_ids.values() if other != chain_id]),
+        )
+        for name, chain_id in cctp_chain_ids.items()
+    }
+    chain_configs["hyperliquid"] = dataclasses.replace(config, cctp_deployment=None)
+
     result = deploy_multichain_lagoon_vault(
         chain_web3=chain_web3,
         deployer=deployer,
-        config=config,
-        cctp_enabled=True,
+        chain_configs=chain_configs,
     )
 
     # Verify all Safe addresses are the same

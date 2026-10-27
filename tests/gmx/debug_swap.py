@@ -13,28 +13,30 @@ Required environment variables:
 - TD_ARB: Tenderly fork URL (for --td mode)
 """
 
+import argparse
+import logging
 import os
 import sys
-import argparse
 import time
+import traceback
 
 from eth_utils import to_checksum_address
+from rich.console import Console
+from rich.logging import RichHandler
+from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_addresses
-from rich.console import Console
-from web3 import Web3
-
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.gmx.testing import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt
-import logging
-from rich.logging import RichHandler
+from eth_defi.utils import get_url_domain
 
 # Configure logging to show detailed output from fork_helpers
 FORMAT = "%(message)s"
@@ -203,7 +205,7 @@ def main():
                 launch.json_rpc_url,
                 default_http_timeout=(3.0, 180.0),
             )
-            console.print(f"  Anvil fork started on {launch.json_rpc_url}")
+            console.print(f"  Anvil fork started on {get_url_domain(launch.json_rpc_url)}")
 
         # Setup network and oracle
         chain = setup_fork_network(web3)
@@ -367,7 +369,7 @@ def main():
                             topic2 = topics[2].hex() if isinstance(topics[2], bytes) else topics[2]
                             console.print(f"  [dim]Log {i} OrderCreated key: {topic2}[/dim]")
             except Exception as e:
-                console.print(f"\n[yellow]Could not extract order key: {e}[/yellow]")
+                console.print(redact_rpc_urls(f"\n[yellow]Could not extract order key: {e}[/yellow]"))
 
             if order_key:
                 console.print("\n[bold]Executing swap order as keeper...[/bold]")
@@ -405,10 +407,9 @@ def main():
                     console.print(f"  Unique event types: {len(seen_topics)}")
 
                 except Exception as e:
-                    console.print(f"[red]Keeper execution failed: {e}[/red]")
-                    import traceback
+                    console.print(redact_rpc_urls(f"[red]Keeper execution failed: {e}[/red]"))
 
-                    traceback.print_exc()
+                    sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
 
             # ========================================================================
             # STEP 8: Verify Swap Results
@@ -489,13 +490,12 @@ def main():
             try:
                 assert_transaction_success_with_explanation(web3, tx_hash)
             except Exception as e:
-                console.print(f"  Error: {str(e)}")
+                console.print(redact_rpc_urls(f"  Error: {str(e)}"))
 
     except Exception as e:
-        console.print(f"\n[red]Error: {str(e)}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"\n[red]Error: {str(e)}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     finally:

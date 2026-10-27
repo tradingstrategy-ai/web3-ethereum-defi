@@ -9,18 +9,19 @@
 import os
 import time
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.reader import read_events, LogResult
+from eth_defi.event_reader.reader import LogResult, read_events
 from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMonitor
 
 
 def main():
     json_rpc_url = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

@@ -33,33 +33,36 @@ Key Differences from debug.py:
 - Uses executeOrderGMXOrderExecutor() as keeper for order execution
 """
 
+import argparse
+import json
+import logging
 import os
 import sys
-import argparse
 import time
-import json
+import traceback
+from pathlib import Path
 
 from eth_abi import encode
 from eth_utils import to_checksum_address
+from rich.console import Console
+from rich.logging import RichHandler
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import get_chain_name
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.testing import extract_order_key_from_receipt, mine_block, set_next_block_timestamp
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_addresses
-from rich.console import Console
-from web3 import Web3
-
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.gmx.testing import extract_order_key_from_receipt, set_next_block_timestamp, mine_block
-import logging
-from rich.logging import RichHandler
-from pathlib import Path
+from eth_defi.utils import get_url_domain
 
 # Configure logging - suppress verbose library logs
 FORMAT = "%(message)s"
@@ -257,7 +260,7 @@ def get_actual_oracle_prices_at_block(web3: Web3, block_number: int) -> dict:
         prices["WETH"] = {"min": min_price, "max": max_price, "timestamp": timestamp, "age_seconds": age_seconds, "price_usd": price_usd}
         console.print(f"  [cyan]WETH actual oracle: ${price_usd:.2f} | timestamp: {timestamp} | age: {age_seconds}s[/cyan]")
     except Exception as e:
-        console.print(f"  [yellow]Could not query WETH from actual oracle: {e}[/yellow]")
+        console.print(redact_rpc_urls(f"  [yellow]Could not query WETH from actual oracle: {e}[/yellow]"))
 
     # Query USDC price
     try:
@@ -269,7 +272,7 @@ def get_actual_oracle_prices_at_block(web3: Web3, block_number: int) -> dict:
         prices["USDC"] = {"min": min_price, "max": max_price, "timestamp": timestamp, "age_seconds": age_seconds, "price_usd": price_usd}
         console.print(f"  [cyan]USDC actual oracle: ${price_usd:.6f} | timestamp: {timestamp} | age: {age_seconds}s[/cyan]")
     except Exception as e:
-        console.print(f"  [yellow]Could not query USDC from actual oracle: {e}[/yellow]")
+        console.print(redact_rpc_urls(f"  [yellow]Could not query USDC from actual oracle: {e}[/yellow]"))
 
     return prices
 
@@ -353,7 +356,7 @@ def setup_mock_oracle_with_contract(
             price_usd = min_price / (10**30)
             console.print(f"  [cyan]Mock oracle WETH: ${price_usd:.2f} | timestamp: {timestamp}[/cyan]")
         except Exception as e:
-            console.print(f"  [yellow]Could not query WETH from mock: {e}[/yellow]")
+            console.print(redact_rpc_urls(f"  [yellow]Could not query WETH from mock: {e}[/yellow]"))
 
         # Query USDC price from mock
         try:
@@ -362,7 +365,7 @@ def setup_mock_oracle_with_contract(
             price_usd = min_price / (10**30)
             console.print(f"  [cyan]Mock oracle USDC: ${price_usd:.6f} | timestamp: {timestamp}[/cyan]")
         except Exception as e:
-            console.print(f"  [yellow]Could not query USDC from mock: {e}[/yellow]")
+            console.print(redact_rpc_urls(f"  [yellow]Could not query USDC from mock: {e}[/yellow]"))
     else:
         raise Exception("setupMockOracleProvider failed")
 
@@ -478,7 +481,7 @@ def execute_order_with_contract(web3: Web3, wallet: HotWallet, executor_contract
             try:
                 assert_transaction_success_with_explanation(web3, tx_hash)
             except Exception as e:
-                console.print(f"  Revert reason: {str(e)}")
+                console.print(redact_rpc_urls(f"  Revert reason: {str(e)}"))
             raise Exception("Order execution failed")
 
     finally:
@@ -585,13 +588,13 @@ def main():
                 ],
                 fork_block_number=fork_block,
             )
-            web3 = Web3(Web3.HTTPProvider(launch.json_rpc_url))
+            web3 = Web3(create_http_provider(launch.json_rpc_url))
 
             block_number = web3.eth.block_number
             chain_id = web3.eth.chain_id
             chain = get_chain_name(chain_id).lower()
 
-            console.print(f"  Anvil fork started on {launch.json_rpc_url}")
+            console.print(f"  Anvil fork started on {get_url_domain(launch.json_rpc_url)}")
             console.print(f"  Block: {block_number}")
             console.print(f"  Chain ID: {chain_id}")
             console.print(f"  Chain: {chain}")
@@ -852,7 +855,7 @@ def main():
                 order_key = extract_order_key_from_receipt(receipt)
                 console.print(f"\n[green]Order Key: {order_key.hex()}[/green]")
             except Exception as e:
-                console.print(f"\n[yellow]Warning: Could not extract order key: {e}[/yellow]")
+                console.print(redact_rpc_urls(f"\n[yellow]Warning: Could not extract order key: {e}[/yellow]"))
 
             # ========================================================================
             # STEP 7: Execute Order via GmxOrderExecutor Contract
@@ -861,8 +864,7 @@ def main():
                 try:
                     exec_receipt = execute_order_with_contract(web3, wallet, executor_contract, order_key)
                 except Exception as e:
-                    console.print(f"[red]Contract execution failed: {e}[/red]")
-                    import traceback
+                    console.print(redact_rpc_urls(f"[red]Contract execution failed: {e}[/red]"))
 
                     console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
@@ -906,13 +908,12 @@ def main():
             try:
                 assert_transaction_success_with_explanation(web3, tx_hash)
             except Exception as e:
-                console.print(f"  Error: {str(e)}")
+                console.print(redact_rpc_urls(f"  Error: {str(e)}"))
 
     except Exception as e:
-        console.print(f"\n[red]Error: {str(e)}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"\n[red]Error: {str(e)}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
     finally:

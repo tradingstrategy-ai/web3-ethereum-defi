@@ -9,17 +9,18 @@
 import logging
 import os
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.aave_v2.constants import get_aave_v2_network_by_chain_id
 from eth_defi.aave_v2.events import aave_v2_fetch_events_to_csv
+from eth_defi.compat import create_http_provider
 from eth_defi.event_reader.json_state import JSONFileScanState
 from eth_defi.event_reader.reorganisation_monitor import create_reorganisation_monitor
 
 logging.getLogger().setLevel(logging.INFO)
 
 json_rpc_url = os.environ["JSON_RPC_URL"]
-web3 = Web3(HTTPProvider(json_rpc_url))
+web3 = Web3(create_http_provider(json_rpc_url))
 
 aave_network = get_aave_v2_network_by_chain_id(web3.eth.chain_id)
 

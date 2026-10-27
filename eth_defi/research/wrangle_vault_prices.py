@@ -35,6 +35,7 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
@@ -831,6 +832,7 @@ def calculate_vault_returns(
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
+    mask_infinit_source_gaps(prices_df)
     share_prices = sanitise_share_price_observations(prices_df["share_price"])
     invalid_share_price_mask = share_prices.isna()
     invalid_share_price_count = invalid_share_price_mask.sum()
@@ -855,6 +857,7 @@ def calculate_vault_returns(
     prices_df["returns_1h"] = prices_df["share_price"].div(previous_share_price).sub(1.0)
     repeated_zero_price = (prices_df["share_price"] == 0) & (previous_share_price == 0)
     prices_df.loc[repeated_zero_price, "returns_1h"] = 0.0
+    mask_infinit_gap_returns(prices_df, group_column)
     return prices_df
 
 
@@ -2356,6 +2359,7 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
     stage_started_at = time.perf_counter()
     prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
     logger(f"Vault cleaning stage perpetual metric finalisation: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
+    mask_infinit_gap_returns(prices_df)
     prices_df.drop(columns=[INTERNAL_VAULT_GROUP_COLUMN], inplace=True, errors="ignore")
     return prices_df
 
@@ -2993,6 +2997,8 @@ def forward_fill_vault(
     """
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
     resampled = vault_df.resample("h").last().ffill()
+    mask_infinit_source_gaps(resampled)
+    mask_infinit_gap_returns(resampled)
     if "chain" in resampled.columns and "address" in resampled.columns:
         registered_perp_vaults = build_registered_perp_vault_index(resampled)
         resampled = finalise_perp_metric_columns(resampled, registered_perp_vaults)

@@ -7,7 +7,7 @@ import pytest
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
@@ -24,6 +24,13 @@ def test_flying_tulip_usdc_equivalent_fee_schedule_is_chain_specific() -> None:
         56: 0.001,
         146: 0.0007,
     }
+
+
+def test_flying_tulip_short_description_is_plain_text() -> None:
+    """Keep Markdown out of the listing summary, which the website renders verbatim."""
+
+    assert FLYING_TULIP_SHORT_DESCRIPTION == "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
+    assert not any(token in FLYING_TULIP_SHORT_DESCRIPTION for token in ("](", "[", "**", "`", "\n"))
 
 
 def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() -> None:
@@ -46,7 +53,7 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         assert "[Ethereum FT/ftUSD Curve pool]" in vault.get_notes()
         assert "divided by the average amount staked during the period" in vault.get_notes()
         assert "Withdrawals may be subject to a variable exit delay or cooldown" in vault.get_notes()
-        assert "[Flying Tulip strategy documentation]" in vault.short_description
+        assert vault.short_description == FLYING_TULIP_SHORT_DESCRIPTION
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
 

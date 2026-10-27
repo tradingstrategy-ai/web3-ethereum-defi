@@ -8,11 +8,12 @@ import logging
 import os
 
 from hexbytes import HexBytes
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
-from eth_defi.event_reader.conversion import decode_data, convert_uint256_bytes_to_address, convert_int256_bytes_to_int
+from eth_defi.compat import create_http_provider
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address, decode_data
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
@@ -27,7 +28,7 @@ def main():
     json_rpc_url = os.environ.get("JSON_RPC_POLYGON_FULL_NODE")
     assert json_rpc_url, f"You need to give JSON_RPC_POLYGON_FULL_NODE environment variable pointing ot your full node"
 
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

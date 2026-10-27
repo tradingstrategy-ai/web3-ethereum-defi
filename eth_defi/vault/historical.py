@@ -880,7 +880,7 @@ class VaultHistoricalReadMulticaller:
                     error_count += 1
                 due = freshness_due(reader, current_result)
                 unchanged = is_unchanged(reader, current_result, last_result)
-                if unchanged and not due:
+                if unchanged and not (self.write_all_samples or reader.write_all_samples) and not due:
                     skipped_results += 1
                     continue
                 last_result = current_result

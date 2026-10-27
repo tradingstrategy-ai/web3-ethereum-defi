@@ -3,19 +3,29 @@ slug: asseto
 short_description: |
   Tokenised investment products with published NAV/share prices and a permissioned fund lifecycle.
 long_description: |
-  Asseto issues tokenised investment products whose ERC-20 supply represents ownership in a managed
-  strategy. The integration covers Asseto's EVM product registry on supported chains, including active
-  products on Ethereum, BNB Chain and Avalanche.
+  [Asseto](https://asseto.finance/) provides tokenised investment products representing interests in
+  managed funds. Its products include funds on Ethereum, BNB Chain, Avalanche and other networks.
 
-  Asseto products are not ERC-4626 vaults. Subscriptions and redemptions use separate request-and-claim
-  contracts, with eligibility and settlement controls. For public vault analytics, the integration reads
-  token supply and Asseto-published NAV/share data to calculate historical TVL and share-price data.
+  Fund subscriptions and redemptions follow product-specific eligibility checks and settlement
+  schedules. Share values depend on the underlying investments and their published valuations.
+
+  [IP Vault](https://ipusd.xyz/), [announced on Soneium with Asseto](https://x.com/soneium/status/2114999606400692706),
+  accepts ipUSD for exposure to a tokenised royalty fund. Asseto tokenises the underlying Partners
+  Group Diversified Royalties Opportunities Evergreen fund. The [fund documentation](https://ipusd.gitbook.io/ipusd-docs/general/the-underlying-fund-and-strategy)
+  identifies Partners Group as fund manager and states that it does not endorse ipUSD or IP Vault.
+  IP Vault is still under verification, including its governance settings, valuations and withdrawal
+  arrangements. Holding ipUSD alone does not earn the vault's royalty returns.
 fee_description: |
   For AoABT, the underlying fund documents a 1.0% annual management fee and a 20% performance fee above
   a 6% return threshold. These costs are reflected in NAV/share. The Asseto request manager also exposes
-  current entry (mint) and exit (redemption) fees in basis points, which this integration reads on-chain. The
+  current entry and exit fees onchain. The
   underlying fund's redemption fee is lock-up dependent (1% during the first year, then 0%), so it cannot
   be fully represented by a single generic withdrawal-fee value.
+
+  IP Vault has separate [documented fees](https://ipusd.gitbook.io/ipusd-docs/vault-and-protocol/fees-limits-and-risks):
+  5% for instant withdrawals and no protocol fee for subscriptions or standard withdrawals. Standard
+  withdrawals depend on fund settlement and may take three to six months when liquidity is limited.
+  These terms remain under verification; AoABT's fee schedule does not apply to IP Vault.
 links:
   homepage: https://asseto.finance/
   app: https://asseto.finance/product
@@ -27,6 +37,7 @@ links:
   trading_strategy:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/asseto/index.html
 example_smart_contracts:
+  - https://soneium.blockscout.com/address/0x2Ba3FC5BDbBE7BE2630fB71e759739625246bCd9
   - https://hsk.blockscout.com/address/0x80C080acd48ED66a35Ae8A24BC1198672215A9bD
   - https://hsk.blockscout.com/address/0x6dB7eA55c94fb0F4b22D6b384C18CdAa3B33d746
   - https://hsk.blockscout.com/address/0xD72529F8b54fcB59010F2141FC328aDa5Aa72abb

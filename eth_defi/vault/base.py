@@ -1405,6 +1405,9 @@ class VaultBase(ABC):
         """One-liner vault summary.
 
         - Shorter version of :py:meth:`description` suitable for listings and tables
+        - Plain text only: Markdown (links, emphasis, lists) is not allowed, because
+          listings and tables render the short description verbatim.
+          Put links and formatted copy in :py:meth:`description` or :py:meth:`get_notes`
         - Returns None if not available
         - Override in subclasses that support offchain metadata
         """
