@@ -220,10 +220,12 @@ def test_dual_fork_cctp_transfer(  # noqa: PLR0917
     recipient_balance_before = usdc_arbitrum.functions.balanceOf(recipient_address).call()
 
     # Spoof USDC transfer from whale to recipient on Arbitrum
-    usdc_arbitrum.functions.transfer(
+    tx_hash = usdc_arbitrum.functions.transfer(
         recipient_address,
         amount,
     ).transact({"from": ARBITRUM_USDC_WHALE})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    assert_transaction_success_with_explanation(web3_arbitrum, tx_hash)
 
     # Verify recipient received USDC on Arbitrum
     recipient_balance_after = usdc_arbitrum.functions.balanceOf(recipient_address).call()

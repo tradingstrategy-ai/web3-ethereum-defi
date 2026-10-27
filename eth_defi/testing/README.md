@@ -155,6 +155,26 @@ refresh a seed and its toolchain together. Anvil `v1.3.2` could not read the
 zstd-compressed `storage.json` written by newer releases: it silently started
 cold and overwrote the seed with an empty file on shutdown.
 
+Anvil `v1.8` keys the fork cache by endpoint instead:
+`<network>/<block>/storage-<keccak256(fork_url)>.json`. Every launch here forks
+through a local failover proxy on a fresh port, so that file would never be
+reused and the committed `storage.json` would never be read. `launch_anvil()`
+therefore copies `storage.json` to the endpoint name before Anvil starts, and
+`AnvilLaunch.close()` merges the endpoint file back as a union of accounts,
+storage slots and block hashes (Anvil writes only the entries touched in the
+session) and removes it. Committed seeds stay in the release-agnostic
+`storage.json`; see `_fork_cache_paths()` in `eth_defi/provider/anvil.py`.
+
+Two more Anvil `v1.8` behaviour changes matter for tests:
+
+- `eth_sendTransaction` / `eth_sendRawTransaction` return the hash before the
+  automined block exists. Wait for the receipt before reading state, and
+  expect one extra `eth_getTransactionReceipt` poll per transaction.
+- `evm_revert` to an older snapshot invalidates newer ones, as documented.
+  Older releases silently restored an invalidated snapshot, which let two
+  autouse reset fixtures share one fork; a module that keeps its own checkpoint
+  must override the directory-level reset (see `tests/cctp/test_cctp_lagoon_fork.py`).
+
 ### How persistence actually works (the graceful-shutdown requirement)
 
 **Anvil only writes that cache on a graceful shutdown** (its Rust `Drop` flushes

@@ -716,6 +716,29 @@ def _fetch_timed_out_transaction(provider: BaseProvider, tx_hash: HexBytes) -> d
     return response.get("result")
 
 
+#: JSON-RPC error fragments meaning the node already holds this exact transaction.
+#: Geth: ``already known``; BNB chain: ``ALREADY_EXISTS: already known``;
+#: reth and Anvil >= 1.8: ``transaction already imported``.
+_DUPLICATE_BROADCAST_FRAGMENTS = ("already known", "ALREADY_EXISTS", "already imported")
+
+
+def _is_duplicate_broadcast_error(error: BaseException) -> bool:
+    """Tell whether a broadcast error means the node already has the transaction.
+
+    Rebroadcasting through several providers, or retrying while an earlier
+    broadcast is still pending in the pool, makes nodes answer with one of
+    :data:`_DUPLICATE_BROADCAST_FRAGMENTS`. The transaction is in flight, so
+    the broadcast counts as successful.
+
+    :param error:
+        Exception raised by ``eth_sendRawTransaction``.
+    :return:
+        ``True`` for a duplicate-transaction reply.
+    """
+    message = str(error)
+    return any(fragment in message for fragment in _DUPLICATE_BROADCAST_FRAGMENTS)
+
+
 def _broadcast_multiple_nodes(
     providers: Collection[BaseProvider],
     signed_tx: SignedTxType,
@@ -783,11 +806,12 @@ def _broadcast_multiple_nodes(
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
                 # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
-            elif "ALREADY_EXISTS" in resp_data["message"]:
-                # Some RPCs throw this custom error.
-                # BNB chain.
-                # {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+            elif _is_duplicate_broadcast_error(e):
+                # The node already holds this transaction, so the broadcast succeeded.
+                # BNB chain: {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+                # Reth-based nodes and Anvil >= 1.8: {'code': -32003, 'message': 'transaction already imported'}
                 logger.info("Already exists. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+                success.add(p)
 
             elif "transaction underpriced" in resp_data["message"]:
                 # Some RPCs throw this custom error.
@@ -816,7 +840,11 @@ def _broadcast_multiple_nodes(
                 raise ValueError(f"Does not know how to handle error: {e}\nTx: {tx_hash}, nonce {nonce}, address {address}, see logs for further details") from e
 
         except Exception as e:
-            exceptions[p] = e
+            if _is_duplicate_broadcast_error(e):
+                logger.info("Node already holds tx %s, counting broadcast through %s as successful: %s", tx_hash, name, e)
+                success.add(p)
+            else:
+                exceptions[p] = e
 
     if exceptions:
         if len(exceptions) == len(providers):
@@ -827,9 +855,9 @@ def _broadcast_multiple_nodes(
                 nonce,
             )
             for provider, exception in exceptions.items():
-                name = get_provider_name(p)
-                logger.error("%s failed with: %s", name, e)
-                logger.exception(e)
+                name = get_provider_name(provider)
+                logger.error("%s failed with: %s", name, exception)
+                logger.exception(exception)
 
             # Raise the last exception
             raise exception
@@ -854,8 +882,8 @@ def _broadcast_multiple_nodes(
             # It's enough that at least one provider success,
             # so no exception here
 
-    # All providers succeeded
-    logger.info("All providers succeeded to broadcast the tx: %s", tx_hash)
+    if not exceptions:
+        logger.info("All providers succeeded to broadcast the tx: %s", tx_hash)
 
 
 def wait_and_broadcast_multiple_nodes(
@@ -1607,8 +1635,9 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                             logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
                             logger.info("Backup broadcast failed: %s", e)
-                            if "already known" in str(e):
+                            if "already known" in str(e) or "already imported" in str(e):
                                 # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
+                                # Reth-based nodes and Anvil >= 1.8: {'code': -32003, 'message': 'transaction already imported'}
                                 # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
                                 logger.info("Already known race condition: %s", str(e))
                             else:

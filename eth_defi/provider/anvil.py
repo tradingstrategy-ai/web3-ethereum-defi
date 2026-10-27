@@ -72,6 +72,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Concatenate, Optional
 
 import psutil
 import requests
+import zstandard
 from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import Web3
@@ -111,6 +112,155 @@ ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 #: The flush of a single block is fast; the bounded wait plus SIGKILL fallback
 #: keeps teardown from hanging.
 ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
+
+
+def _fork_cache_paths(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> tuple[Path, Path] | None:
+    """Return the shared and per-endpoint Foundry fork cache files for a fork.
+
+    Anvil 1.8 keys its fork RPC cache by endpoint:
+    ``~/.foundry/cache/rpc/<network>/<block>/storage-<keccak256(fork_url)>.json``.
+    Every launch here forks through a local failover proxy on a fresh port, so
+    the per-endpoint file would never be reused and the committed seeds in the
+    release-agnostic ``storage.json`` would never be read. The launch code
+    therefore copies ``storage.json`` to the endpoint file before Anvil starts
+    and merges it back after a graceful shutdown.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block. Mutable-tip forks are not cacheable.
+    :param chain_id:
+        Upstream chain id, used to pick Foundry's network directory name.
+    :return:
+        ``(storage.json, storage-<hash>.json)`` paths, or ``None`` when the
+        fork is not cacheable.
+    """
+    if not fork_url or not fork_block_number or chain_id is None:
+        return None
+    from eth_defi.chain import get_foundry_network_name
+    from eth_defi.testing.rpc_cache import get_foundry_rpc_cache_dir
+
+    network = get_foundry_network_name(chain_id) or str(chain_id)
+    cache_dir = get_foundry_rpc_cache_dir() / network / str(fork_block_number)
+    digest = Web3.keccak(text=fork_url).hex().removeprefix("0x")
+    return cache_dir / "storage.json", cache_dir / f"storage-{digest}.json"
+
+
+def _seed_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> None:
+    """Expose the shared ``storage.json`` fork cache under Anvil 1.8's endpoint name.
+
+    See :func:`_fork_cache_paths`. A missing shared cache or an existing
+    endpoint file leaves the directory untouched.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block.
+    :param chain_id:
+        Upstream chain id.
+    """
+    paths = _fork_cache_paths(fork_url, fork_block_number, chain_id)
+    if paths is None:
+        return
+    shared, endpoint = paths
+    if not shared.exists() or endpoint.exists():
+        return
+    try:
+        shutil.copy2(shared, endpoint)
+    except OSError as e:
+        logger.warning("Could not alias fork cache %s to %s: %s", shared, endpoint.name, e)
+
+
+#: zstd frame magic number; Anvil >= 1.8 compresses its fork cache files.
+_ZSTD_MAGIC = bytes.fromhex("28b52ffd")
+
+
+def _read_fork_cache(path: Path) -> dict:
+    """Read a Foundry fork cache file, plain JSON or zstd-compressed.
+
+    :param path:
+        ``storage.json`` or ``storage-<hash>.json``.
+    :return:
+        Decoded cache with ``meta``, ``accounts``, ``storage`` and ``block_hashes``.
+    :raise ValueError:
+        If the file is not a valid cache.
+    """
+    raw = path.read_bytes()
+    if raw[: len(_ZSTD_MAGIC)] == _ZSTD_MAGIC:
+        try:
+            raw = zstandard.ZstdDecompressor().decompressobj().decompress(raw)
+        except zstandard.ZstdError as e:
+            raise ValueError(f"Corrupt zstd fork cache {path}: {e}") from e
+    data = json.loads(raw)
+    if not isinstance(data, dict) or "accounts" not in data:
+        raise ValueError(f"Unexpected fork cache layout in {path}")
+    return data
+
+
+def _write_fork_cache(path: Path, data: dict) -> None:
+    """Atomically write a fork cache as zstd-compressed JSON, the Anvil 1.8 format.
+
+    :param path:
+        Destination cache file.
+    :param data:
+        Cache contents.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(zstandard.ZstdCompressor().compress(json.dumps(data).encode()))
+    os.replace(tmp, path)
+
+
+def _merge_fork_cache_alias(fork_url: str | None, fork_block_number: int | None, chain_id: int | None) -> None:
+    """Fold Anvil 1.8's endpoint fork cache back into the shared ``storage.json``.
+
+    Anvil loaded the shared cache through the alias, but on shutdown it writes
+    only the entries this session touched. The endpoint file is therefore
+    merged into the shared file as a union of accounts, storage slots and block
+    hashes, then removed so per-port files do not accumulate. See
+    :func:`_fork_cache_paths`.
+
+    :param fork_url:
+        Exact ``--fork-url`` string given to Anvil.
+    :param fork_block_number:
+        Fixed fork block.
+    :param chain_id:
+        Upstream chain id.
+    """
+    paths = _fork_cache_paths(fork_url, fork_block_number, chain_id)
+    if paths is None:
+        return
+    shared, endpoint = paths
+    if not endpoint.exists():
+        return
+    try:
+        try:
+            fresh = _read_fork_cache(endpoint)
+        except ValueError as e:
+            logger.warning("Discarding unreadable fork cache %s: %s", endpoint.name, e)
+            endpoint.unlink()
+            return
+        merged: dict = {}
+        if shared.exists():
+            try:
+                merged = _read_fork_cache(shared)
+            except ValueError as e:
+                logger.warning("Replacing unreadable shared fork cache %s: %s", shared, e)
+                merged = {}
+        previous_hosts = merged.get("meta", {}).get("hosts", [])
+        merged["meta"] = dict(fresh.get("meta", merged.get("meta", {})))
+        hosts = list(dict.fromkeys([*previous_hosts, *merged["meta"].get("hosts", [])]))
+        if hosts:
+            merged["meta"]["hosts"] = hosts
+        for key in ("accounts", "block_hashes"):
+            merged.setdefault(key, {}).update(fresh.get(key, {}))
+        storage = merged.setdefault("storage", {})
+        for address, slots in fresh.get("storage", {}).items():
+            storage.setdefault(address, {}).update(slots)
+        _write_fork_cache(shared, merged)
+        endpoint.unlink()
+    except OSError as e:
+        logger.warning("Could not merge fork cache %s into %s: %s", endpoint.name, shared, e)
+
 
 #: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
 #: This is a workaround for test flakiness on CI: when multiple RPC endpoints
@@ -785,6 +935,7 @@ class AnvilLaunch:
                 graceful_timeout=ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT,
             )
             logger.info("Anvil shutdown %s", get_url_domain(self.json_rpc_url))
+            _merge_fork_cache_alias(self.effective_fork_url, self.fork_block_number, self.chain_id)
             return stdout, stderr
         finally:
             # Cleanup must run even when shutdown diagnostics raise. Retaining
@@ -1640,6 +1791,8 @@ def launch_anvil(
         args["block_time"] = block_time
 
     current_block = chain_id = None
+
+    _seed_fork_cache_alias(cleaned_fork_url, fork_block_number, expected_chain_id)
 
     while attempts_left > 0:
         current_block = None
