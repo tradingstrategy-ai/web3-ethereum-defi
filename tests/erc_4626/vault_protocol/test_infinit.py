@@ -47,6 +47,7 @@ def test_infinit_contract_metadata(web3: Web3) -> None:
     assert isinstance(vault, InfinitVault)
     assert vault.get_protocol_name() == "Infinit"
     assert vault.name == "APEX MultiStrategy"
+    assert vault.manager_name == "Apex Quant Capital"
     assert vault.address.lower() == APEX_PRODUCT.address
     assert vault.fetch_info()["custody_safe"] == APEX_PRODUCT.custody_safe
     assert vault.fetch_scan_record_extra_data()["_infinit_matures_at"] == datetime.datetime(2026, 10, 28, 10)

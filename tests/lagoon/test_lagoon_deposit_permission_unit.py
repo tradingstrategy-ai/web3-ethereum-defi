@@ -12,7 +12,7 @@ from web3.exceptions import BadFunctionCallOutput
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.lagoon import vault as lagoon_vault_module
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ADDRESS_NOT_ALLOWED_SELECTOR, REQUEST_DEPOSIT_SELECTOR, LagoonDepositManager
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT, LAGOON_MODERN_ROLES_STORAGE_SLOT, LAGOON_MODERN_VERSIONS, LAGOON_VAULT_ABI_BY_VERSION, LagoonAccessMode, LagoonVault, LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT, LAGOON_MODERN_ROLES_STORAGE_SLOT, LAGOON_MODERN_VERSIONS, LAGOON_V0_5_2_WHITELIST_ACTIVATED_STORAGE_SLOT, LAGOON_VAULT_ABI_BY_VERSION, LagoonAccessMode, LagoonVault, LagoonVersion
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
@@ -273,6 +273,49 @@ def test_lagoon_modern_uses_access_mode_storage(
     assert functions.membership_queries == []
     assert functions.access_queries == []
     assert storage_calls == [(VAULT_ADDRESS, LAGOON_MODERN_ACCESS_MODE_STORAGE_SLOT, "latest")]
+
+
+@pytest.mark.parametrize("activated", [True, False])
+def test_lagoon_v052_uses_whitelist_storage_flag(activated: bool) -> None:  # noqa: FBT001
+    """v0.5.2 reads its whitelist flag because isWhitelisted(0x0) is always true."""
+    assert LAGOON_VAULT_ABI_BY_VERSION[LagoonVersion.v_0_5_2] == "lagoon/v0.5.0/Vault.json"
+    assert LagoonVersion.v_0_5_2 not in LAGOON_MODERN_VERSIONS
+
+    vault, functions = create_lagoon_policy_vault(
+        LagoonVersion.v_0_5_2,
+        BadFunctionCallOutput(),
+        {ZERO_ADDRESS_STR: True},
+    )
+    storage_calls: list[tuple[HexAddress, int, int]] = []
+
+    class FakeEth:
+        @staticmethod
+        def get_storage_at(address: HexAddress, slot: int, block_identifier: int) -> bytes:
+            storage_calls.append((address, slot, block_identifier))
+            return int(activated).to_bytes(32, byteorder="big")
+
+    vault.web3 = SimpleNamespace(eth=FakeEth())
+    vault.default_block_identifier = FIXED_TEST_BLOCK
+
+    assert vault.is_whitelisted_deposit() is activated
+    assert functions.membership_queries == []
+    assert storage_calls == [(VAULT_ADDRESS, LAGOON_V0_5_2_WHITELIST_ACTIVATED_STORAGE_SLOT, FIXED_TEST_BLOCK)]
+
+
+def test_lagoon_v052_rejects_non_boolean_whitelist_flag() -> None:
+    """A corrupt or incompatible v0.5.2 storage word is not read as a policy."""
+    vault, _ = create_lagoon_policy_vault(LagoonVersion.v_0_5_2, BadFunctionCallOutput(), {})
+
+    class FakeEth:
+        @staticmethod
+        def get_storage_at(address: HexAddress, slot: int, block_identifier: str) -> bytes:
+            del address, slot, block_identifier
+            return (2).to_bytes(32, byteorder="big")
+
+    vault.web3 = SimpleNamespace(eth=FakeEth())
+
+    with pytest.raises(ValueError, match="non-boolean whitelist flag 0x2"):
+        vault.is_whitelisted_deposit()
 
 
 @pytest.mark.parametrize("version", [LagoonVersion.v_0_6_0, LagoonVersion.v_1_0_0])

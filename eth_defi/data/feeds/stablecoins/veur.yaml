@@ -5,8 +5,10 @@ role: stablecoin
 website: https://vnx.li/
 twitter: vnx_platform
 linkedin: vnx-io
-rss: https://vnx.li/feed/
+# 2026-10-26 maintain-curators: vnx.li was rebuilt as a static site; /feed/
+# returns 404 (persistently since 2026-08-28) and blog.html exposes no RSS/Atom
+# link (/rss.xml, /feed.xml, /atom.xml, /blog.xml all 404).  The Medium feed
+# medium.com/feed/@vnx is stale (newest item 2024-11-07).  No live feed found —
+# RSS source removed and rss-failure-* cleared.
+# rss: https://vnx.li/feed/
 linkedin-rss-hub-disabled-at: 2026-06-09
-rss-failure-at: 2026-08-28
-rss-failure-status-code: 404
-rss-failure-exception-message: "404 Client Error: Not Found for url: https://vnx.li/feed/"
