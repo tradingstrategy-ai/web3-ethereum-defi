@@ -65,6 +65,17 @@ slots, up from 17 accounts. The thin seed left most Arbitrum reads to the
 upstream providers, which rate-limited the parallel CI workers and surfaced as
 token `symbol()` reads returning `None`.
 
+On 2026-10-27 the seeds for the fork groups that failed on CI after the Anvil
+`v1.8.6` upgrade were refreshed or created by running each group locally with
+`v1.8.6` and committing the merged cache: `arbitrum/375216652` (Gains and
+Ostium lifecycle tests, new), `arbitrum/392313989` (D2, Plutus, Silo, Summer,
+Umami and the closed-deposit guard validation), `base/30659990` (shared Lagoon
+lifecycle fixture), `base/35094246` (722 Capital Lagoon settlement through
+GuardV0, new) and `base/51649628` (Lagoon v1 characterisation). Thin seeds left
+most reads to the upstream providers, which rate-limited the parallel CI workers
+and surfaced as read timeouts, `failed to get storage` errors and gas estimates
+falling back to Arbitrum's 2^50 block gas limit.
+
 `mainnet/24496689/` is the fixed Ethereum block used by
 `tests/lagoon/test_lagoon_ember.py` to exercise its historical Ember redemption
 implementation with exact shares, ticket sequence and payout assertions. On
