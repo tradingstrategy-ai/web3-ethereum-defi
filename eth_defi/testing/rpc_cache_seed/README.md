@@ -76,6 +76,16 @@ most reads to the upstream providers, which rate-limited the parallel CI workers
 and surfaced as read timeouts, `failed to get storage` errors and gas estimates
 falling back to Arbitrum's 2^50 block gas limit.
 
+A second refresh on 2026-10-27 ran every remaining fixed-block module locally
+with Anvil `v1.8.6` and committed the merged caches: new seeds for
+`arbitrum/470000000`, `base/29192700`, `base/46854858`, `bsc/58240350`,
+`mainnet/24991798`, `mainnet/25000000`, `mainnet/25251545`, `mainnet/25450559`,
+`mainnet/25452271`, `mainnet/25495779` and `mainnet/25550000`, and denser
+copies of `hyperliquid/41271954`, `mainnet/24496689`, `mainnet/26279104`,
+`avalanche/84244698` and several others. Seeds that still hold only Anvil's ten
+development accounts belong to modules that skip or fork a different chain in
+this environment; capture them with the same procedure when they fail on CI.
+
 `mainnet/24496689/` is the fixed Ethereum block used by
 `tests/lagoon/test_lagoon_ember.py` to exercise its historical Ember redemption
 implementation with exact shares, ticket sequence and payout assertions. On
