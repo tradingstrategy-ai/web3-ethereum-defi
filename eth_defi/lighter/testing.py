@@ -28,6 +28,18 @@ logger = logging.getLogger(__name__)
 #: registration on a fork.
 LIGHTER_ADDRESS_TO_ACCOUNT_INDEX_SLOT = 19
 
+#: Storage slot of ``ZkLighter.pendingAssetBalances``.
+#:
+#: ``mapping(uint16 assetIndex => mapping(uint48 masterAccountIndex => PendingBalance))``
+#: declared in ``ExtendableStorage`` behind a ``uint256[420]`` gap. Probed
+#: against the mainnet implementation at ``ETHEREUM_MIDNIGHT_BLOCK`` by
+#: writing a candidate slot and reading ``getPendingBalance()`` back. Used by
+#: :py:func:`credit_lighter_pending_balance_on_anvil`.
+LIGHTER_PENDING_ASSET_BALANCES_SLOT = 498
+
+#: ``PendingBalance.balanceToWithdraw`` occupies the low 128 bits of its slot.
+_PENDING_BALANCE_MASK = (1 << 128) - 1
+
 
 def deploy_lighter_simple_vault(
     web3: Web3,
@@ -109,3 +121,53 @@ def register_lighter_account_on_anvil(
     )
     zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
     assert zk.functions.addressToAccountIndex(owner).call() == account_index, "Failed to forge Lighter account registration"
+
+
+def credit_lighter_pending_balance_on_anvil(
+    web3: Web3,
+    owner: HexAddress | str,
+    amount_raw: int,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> int:
+    """Anvil override: add a claimable Lighter USDC balance for ``owner``.
+
+    A secure withdrawal becomes claimable onchain only when Lighter verifies
+    a zk-proof for its batch, which a static fork cannot produce. This writes
+    ``pendingAssetBalances[USDC][masterAccountIndex(owner)]`` directly with
+    ``anvil_setStorageAt`` so the real ``withdrawPendingBalance(owner, ...)``
+    claim, including the guard and Safe module path, can execute end-to-end.
+
+    The owner must already be registered, for example with
+    :py:func:`register_lighter_account_on_anvil`. The packed
+    ``gasReserveValue`` field is preserved; ``withdrawPendingBalance`` does
+    not check it.
+
+    :param web3:
+        Web3 connection (Anvil fork).
+    :param owner:
+        Registered L1 owner, normally the vault Safe.
+    :param amount_raw:
+        USDC raw amount to add. USDC has a Lighter tick size of one raw unit.
+    :param zk_lighter:
+        The ``ZkLighter`` L1 contract address.
+    :return:
+        New pending balance in raw USDC.
+    """
+    zk_lighter = Web3.to_checksum_address(zk_lighter)
+    owner = Web3.to_checksum_address(owner)
+    zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
+    master_index = zk.functions.addressToAccountIndex(owner).call()
+    assert master_index, f"Lighter owner {owner} is not registered on the fork"
+    asset_index = zk.functions.USDC_ASSET_INDEX().call()
+    inner = Web3.solidity_keccak(["uint256", "uint256"], [asset_index, LIGHTER_PENDING_ASSET_BALANCES_SLOT])
+    slot = Web3.solidity_keccak(["uint256", "bytes32"], [master_index, inner])
+    current_word = int.from_bytes(web3.eth.get_storage_at(zk_lighter, slot), "big")
+    new_balance = (current_word & _PENDING_BALANCE_MASK) + amount_raw
+    assert new_balance <= _PENDING_BALANCE_MASK, "Lighter pending balance overflow"
+    new_word = (current_word & ~_PENDING_BALANCE_MASK) | new_balance
+    web3.provider.make_request(
+        "anvil_setStorageAt",
+        [zk_lighter, "0x" + slot.hex(), "0x" + new_word.to_bytes(32, "big").hex()],
+    )
+    assert zk.functions.getPendingBalance(owner, asset_index).call() == new_balance, "Failed to forge Lighter pending balance"
+    return new_balance

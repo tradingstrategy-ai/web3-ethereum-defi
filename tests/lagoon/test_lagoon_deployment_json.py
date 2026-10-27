@@ -145,7 +145,7 @@ def test_lagoon_deployment_report_is_private_and_exclusive(tmp_path: Path) -> No
 def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatch: pytest.MonkeyPatch) -> None:
     """The deployment ceremony deposits, observes and registers one API key."""
     events: list[object] = []
-    balances = iter((Decimal(0), Decimal(0), Decimal(20)))
+    balances = iter((Decimal(0), Decimal(0), lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION))
     token = SimpleNamespace(
         address=UNDERLYING,
         symbol="USDC",
@@ -210,7 +210,7 @@ def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatc
     )
 
     assert events == [
-        ("fund", Decimal(20)),
+        ("fund", lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION),
         ("sleep", lagoon_deployment.LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS),
         ("deposit", Decimal(1), MODULE),
         ("account", SAFE),
@@ -224,6 +224,85 @@ def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatc
     assert setup.activation_amount == Decimal(1)
     assert setup.deposit_tx_hash == "0xdeposit"
     assert setup.change_pubkey_tx_hash == "0xdead"
+
+
+def test_activate_lighter_account_keys_sub_accounts_outside_reports(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deployment creates and keys sub-accounts but never reports their private keys.
+
+    Each sub-account key belongs to an external trader, so it must reach only
+    the hand-over record, never a deployment report, even a secret-bearing one.
+
+    1. Run the activation ceremony with two sub-accounts, mocking only Lighter and the Safe transaction.
+    2. Check the master and both sub-account keys were registered on the right accounts.
+    3. Serialise the deployment with secrets and check only the master key is present.
+    4. Check the hand-over record and the redacted roundtrip.
+    """
+    sub_indices = [2**47 + 2, 2**47 + 1]
+    events: list[object] = []
+    balances = iter((Decimal(0), lagoon_deployment.LIGHTER_BOOTSTRAP_SUBSCRIPTION))
+    token = SimpleNamespace(address=UNDERLYING, symbol="USDC", fetch_balance_of=lambda _address: next(balances), convert_to_raw=lambda amount: int(amount * 10**6))
+    session = SimpleNamespace(close=lambda: events.append("close"))
+    keys = {index: LighterApiKey(api_key_index=API_KEY_INDEX, private_key=f"0x{index:080x}", public_key="0x" + f"{index % 251:02x}" * 40) for index in (0, 1, 2)}
+    generated = iter(keys.values())
+
+    # 1. Run the activation ceremony with two sub-accounts, mocking only Lighter and the Safe transaction.
+    monkeypatch.setattr(lagoon_deployment, "LagoonVault", lambda *_args, **_kwargs: "lagoon-vault")
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: token)
+    monkeypatch.setattr(lagoon_deployment, "fund_lagoon_vault", lambda **_kwargs: None)
+    monkeypatch.setattr(lagoon_deployment, "deposit_usdc_from_lagoon_safe_into_lighter", lambda **_kwargs: "0xdeposit")
+    monkeypatch.setattr(lagoon_deployment, "create_lighter_session", lambda: session)
+    monkeypatch.setattr(lagoon_deployment, "wait_for_lighter_account", lambda _session, _address: ACCOUNT_INDEX)
+    monkeypatch.setattr(lagoon_deployment, "wait_for_lighter_collateral", lambda _session, _index, _amount: Decimal(1))
+    monkeypatch.setattr(lagoon_deployment, "generate_lighter_api_key_pair", lambda _index: next(generated))
+    monkeypatch.setattr(lagoon_deployment, "create_lighter_sub_accounts", lambda **kwargs: events.append(("create", kwargs["master_account_index"], kwargs["count"], kwargs["api_private_key"])) or sub_indices)
+    monkeypatch.setattr(lagoon_deployment, "execute_change_pubkey", lambda **kwargs: events.append(("register", kwargs["account_index"])) or HexBytes(f"0x{kwargs['account_index']:064x}"))
+    monkeypatch.setattr(lagoon_deployment, "wait_for_lighter_api_key", lambda _session, account_index, _key_index, _public_key, **_kwargs: events.append(("verify", account_index)))
+    setup = lagoon_deployment._activate_lighter_account(
+        web3=SimpleNamespace(eth=FakeEth()),
+        deployer=SimpleNamespace(address=ASSET_MANAGER, private_key=HexBytes("0x" + "11" * 32)),
+        safe=SimpleNamespace(address=SAFE),
+        vault_address=VAULT,
+        module_address=MODULE,
+        vault_abi="lagoon/v0.5.0/Vault.json",
+        lighter_deployment=LighterDeployment(zk_lighter=MODULE, usdc=UNDERLYING),
+        api_key_index=API_KEY_INDEX,
+        sub_account_count=2,
+        sub_account_api_key_index=API_KEY_INDEX,
+    )
+
+    # 2. Check the master and both sub-account keys were registered on the right accounts.
+    assert events == [
+        ("register", ACCOUNT_INDEX),
+        ("verify", ACCOUNT_INDEX),
+        ("create", ACCOUNT_INDEX, 2, keys[0].private_key),
+        ("register", sub_indices[0]),
+        ("verify", sub_indices[0]),
+        ("register", sub_indices[1]),
+        ("verify", sub_indices[1]),
+        "close",
+    ]
+    assert [sub.account_index for sub in setup.sub_accounts] == sub_indices
+    assert [sub.private_key for sub in setup.sub_accounts] == [keys[1].private_key, keys[2].private_key]
+
+    # 3. Serialise the deployment with secrets and check only the master key is present.
+    deploy_info = create_deploy_info()
+    deploy_info = LagoonAutomatedDeployment(**{**{name: getattr(deploy_info, name) for name in LagoonAutomatedDeployment.__dataclass_fields__}, "lighter_account_setup": setup})
+    secret_json = json.dumps(deploy_info.as_json_friendly_dict(include_secrets=True))
+    assert keys[0].private_key in secret_json
+    assert keys[1].private_key not in secret_json
+    assert keys[2].private_key not in secret_json
+    assert keys[1].private_key not in repr(setup)
+
+    # 4. Check the hand-over record and the redacted roundtrip.
+    handover = setup.sub_accounts[0].as_handover_dict(safe_address=SAFE, vault_address=VAULT)
+    assert (handover["account_index"], handover["private_key"], handover["safe_address"]) == (sub_indices[0], keys[1].private_key, SAFE)
+    monkeypatch.setattr(lagoon_deployment, "get_deployed_contract", lambda _web3, _abi, address: FakeContract(address))
+    monkeypatch.setattr(lagoon_deployment, "LagoonVault", FakeHydratedVault)
+    hydrated = LagoonAutomatedDeployment.from_json_friendly_dict(FakeWeb3(), json.loads(secret_json))
+    assert [(sub.account_index, sub.private_key, sub.public_key) for sub in hydrated.lighter_account_setup.sub_accounts] == [
+        (sub_indices[0], None, keys[1].public_key),
+        (sub_indices[1], None, keys[2].public_key),
+    ]
 
 
 def test_lagoon_deployer_exposes_opt_in_lighter_activation_flags() -> None:
@@ -274,7 +353,7 @@ def create_valid_lighter_config() -> tuple[dict[str, object], HotWallet]:
         ({"existing_safe_address": SAFE}, ValueError, "new full Lagoon vault"),
         ({"primary_asset_manager": ASSET_MANAGER}, ValueError, "primary asset manager"),
         ({"lighter_api_key_index": 255}, ValueError, "lighter_api_key_index"),
-        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 20"),
+        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 1 for Lighter bootstrap"),
     ],
 )
 def test_validate_lighter_api_key_deployment_rejects_invalid_config(
@@ -293,11 +372,11 @@ def test_validate_lighter_api_key_deployment_rejects_invalid_config(
 
 
 def test_validate_lighter_api_key_deployment_checks_deployer_balance(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Activation validation requires the fixed 20-USDC Lagoon subscription."""
+    """Activation validation requires the deployer to hold the bootstrap subscription."""
     kwargs, _deployer = create_valid_lighter_config()
-    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("19.99")))
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("0.99")))
 
-    with pytest.raises(ValueError, match="at least 20 USDC"):
+    with pytest.raises(ValueError, match="at least 1 USDC"):
         lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
 
 
