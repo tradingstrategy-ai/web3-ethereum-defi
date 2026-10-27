@@ -1,8 +1,6 @@
 """Test Symbiotic vault metadata fetched from its official public API."""
 
-import base64
 import datetime
-import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,7 +16,7 @@ TEST_NOW = datetime.datetime(2026, 7, 24, tzinfo=datetime.UTC).replace(tzinfo=No
 
 
 class _FakeResponse:
-    """Minimal successful GitHub contents API response."""
+    """Minimal successful raw GitHub file response."""
 
     def __init__(self, payload: object | None = None, status_code: int = 200) -> None:
         """Create an API response carrying JSON payload data.
@@ -42,9 +40,8 @@ class _FakeResponse:
 
 
 def _contents_response(data: dict) -> _FakeResponse:
-    """Create a GitHub contents response for an ``info.json`` dictionary."""
-    encoded = base64.b64encode(json.dumps(data).encode("utf-8")).decode("ascii")
-    return _FakeResponse({"encoding": "base64", "content": encoded})
+    """Create a raw GitHub file response for an ``info.json`` dictionary."""
+    return _FakeResponse(data)
 
 
 def test_fetch_symbiotic_vault_metadata_joins_curator_and_uses_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -165,3 +162,12 @@ def test_fetch_symbiotic_offchain_vaults_joins_curator_names_and_filters_v2(monk
             "vault_type": "v2",
         }
     ]
+
+
+def test_fetch_symbiotic_vault_metadata_live(tmp_path: Path) -> None:
+    """The official metadata repository serves a registered vault and its curator."""
+    metadata = fetch_symbiotic_vault_metadata(SYMBIOTIC_VAULT_ADDRESS, cache_path=tmp_path)
+
+    assert metadata is not None
+    assert metadata["name"] == "Keyrock Flagship USDC"
+    assert metadata["curator_name"] == "Keyrock"

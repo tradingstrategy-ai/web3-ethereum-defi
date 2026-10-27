@@ -3,14 +3,14 @@
 Symbiotic curators submit vault and curator descriptions to the reviewed
 ``metadata-mainnet`` repository. The Symbiotic application uses the merged
 repository data to display vault metadata. This module retrieves an individual
-vault through GitHub's public contents API and stores the normalised result in
-a two-day local cache.
+vault's raw ``info.json`` from the repository and stores the normalised result
+in a two-day local cache. Raw files are used rather than GitHub's contents API,
+which allows only 60 unauthenticated requests an hour and rate-limited every
+scan cycle.
 
 See `Submit Metadata <https://docs.symbiotic.fi/integrate/curators/submit-metadata>`__.
 """
 
-import base64
-import binascii
 import datetime
 import json
 import logging
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 #: Cache directory for official Symbiotic metadata.
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "symbiotic"
 
-#: Official GitHub contents API for the metadata repository used by Symbiotic's app.
-DEFAULT_API_BASE_URL = "https://api.github.com/repos/symbioticfi/metadata-mainnet/contents"
+#: Raw files of the official metadata repository used by Symbiotic's app.
+DEFAULT_API_BASE_URL = "https://raw.githubusercontent.com/symbioticfi/metadata-mainnet/main"
 
 #: Symbiotic application's public mainnet data API.
 DEFAULT_APP_API_BASE_URL = "https://app.symbiotic.fi/api/v3"
@@ -113,26 +113,28 @@ class SymbioticOffchainVault(TypedDict):
 
 
 def _fetch_metadata_file(path: str, api_base_url: str) -> dict | None:
-    """Fetch and decode one JSON file from Symbiotic's public metadata API.
+    """Fetch one JSON file from Symbiotic's public metadata repository.
 
     :param path:
         Repository-relative metadata path, such as
         ``vaults/0x.../info.json``.
     :param api_base_url:
-        GitHub contents API base URL, overridable for testing.
+        Raw repository base URL, overridable for testing.
     :return:
         Decoded JSON dictionary, or ``None`` when the file is not registered.
+    :raise ValueError:
+        If the file is not a JSON object.
     """
     url = f"{api_base_url}/{path}"
-    response = requests.get(url, headers={"Accept": "application/vnd.github+json"}, timeout=30)
+    response = requests.get(url, timeout=30)
     if response.status_code == HTTP_NOT_FOUND_STATUS:
         return None
     response.raise_for_status()
     payload = response.json()
-    if payload.get("encoding") != "base64":
-        message = f"Unsupported Symbiotic metadata encoding for {path}: {payload.get('encoding')!r}"
+    if not isinstance(payload, dict):
+        message = f"Unexpected Symbiotic metadata in {path}: {type(payload).__name__}"
         raise ValueError(message)
-    return json.loads(base64.b64decode(payload["content"]).decode("utf-8"))
+    return payload
 
 
 def _normalise_links(raw_links: object) -> list[SymbioticMetadataLink]:
@@ -249,7 +251,7 @@ def fetch_symbiotic_vault_metadata(
                 if isinstance(curator_id, str):
                     raw_curator = _fetch_metadata_file(f"curators/{curator_id}/info.json", api_base_url)
             metadata = _parse_vault_metadata(raw_vault, raw_curator) if raw_vault else None
-        except (requests.RequestException, JSONDecodeError, UnicodeDecodeError, binascii.Error, KeyError, ValueError) as error:
+        except (requests.RequestException, JSONDecodeError, KeyError, ValueError) as error:
             logger.warning("Could not fetch Symbiotic metadata for %s: %s", checksum_address, error)
             if cache_file.exists() and cache_file.stat().st_size > 0:
                 try:

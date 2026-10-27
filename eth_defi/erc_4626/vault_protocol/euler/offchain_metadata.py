@@ -210,14 +210,15 @@ def fetch_euler_vaults_file_for_chain(
     file = cache_path / f"euler_products_chain_{chain_id}.json"
     file = file.resolve()
 
-    file_size = file.stat().st_size if file.exists() else 0
-
     if not now_:
         now_ = native_datetime_utc_now()
 
     # When running multiprocess vault scan, we have competition over this file write and
     # if we do not wait the race condition may try to read zero-bytes file
     with wait_other_writers(file):
+        # Read the size inside the lock, so workers that waited for another
+        # writer do not fetch the same file again
+        file_size = file.stat().st_size if file.exists() else 0
         if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
             logger.info("Re-fetching Euler products file for chain %d from %s", chain_id, github_base_url)
             with file.open("wt") as f:
@@ -238,7 +239,9 @@ def fetch_euler_vaults_file_for_chain(
                     logger.info("Wrote %s", file.resolve())
 
                 except (HTTPError, JSONDecodeError) as e:
-                    logger.warning(
+                    # Euler publishes no products file for some chains
+                    logger.log(
+                        logging.INFO if response.status_code == 404 else logging.WARNING,
                         "Euler products file missing for chain %d, url %s, error %s",
                         chain_id,
                         url,

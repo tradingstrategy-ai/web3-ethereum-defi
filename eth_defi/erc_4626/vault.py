@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import threading
 from decimal import Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Iterable, Literal, TypeAlias
@@ -38,6 +39,13 @@ from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
+
+#: ``(chain_id, vault address)`` pairs already warned about a missing
+#: denomination token in this process. A vault whose ``asset()`` reverts
+#: stays that way, so the long-running scanner warns once and logs repeats
+#: at ``DEBUG``.
+_denomination_unavailable_warned: set[tuple[int, str]] = set()
+_denomination_unavailable_lock = threading.Lock()
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
@@ -374,7 +382,11 @@ class VaultReaderState(BatchCallState):
             return Decimal(1)
         denomination = self.vault.denomination_token
         if denomination is None:
-            logger.warning("Denomination unavailable for vault %s; USD TVL is unverified", self.vault_address)
+            key = (self.chain_id, self.vault_address.lower())
+            with _denomination_unavailable_lock:
+                first = key not in _denomination_unavailable_warned
+                _denomination_unavailable_warned.add(key)
+            logger.log(logging.WARNING if first else logging.DEBUG, "Denomination unavailable for vault %s on chain %d; USD TVL is unverified", self.vault_address, self.chain_id)
             return DENOMINATION_UNAVAILABLE_EXCHANGE_RATE
         # An ERC-20 may permanently omit symbol(), and the token cache records
         # that as an empty symbol. Preserve the existing unknown-token cadence

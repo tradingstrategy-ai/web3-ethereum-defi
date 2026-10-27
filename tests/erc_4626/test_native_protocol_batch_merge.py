@@ -1,6 +1,7 @@
 """Tests for batched native-protocol Parquet price merging."""
 
 import datetime
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -142,8 +143,11 @@ def test_hypercore_permission_failure_preserves_prices(tmp_path: Path, monkeypat
     assert closed == [True]
 
 
-def test_native_price_freshness_uses_source_timestamp_and_tvl_hysteresis() -> None:
-    """A recent file write cannot make an old meaningful source row fresh."""
+def test_native_price_freshness_uses_source_timestamp_and_tvl_hysteresis(caplog: pytest.LogCaptureFixture) -> None:
+    """A recent file write cannot make an old meaningful source row fresh.
+
+    Overdue vaults are reported in one summary warning, not one line each.
+    """
     frame = pd.concat(
         [
             _prices(GRVT_CHAIN_ID, "stale", "2026-01-01"),
@@ -159,16 +163,20 @@ def test_native_price_freshness_uses_source_timestamp_and_tvl_hysteresis() -> No
     frame.loc[frame["address"] == "missing-price", "share_price"] = float("nan")
     frame["written_at"] = pd.Timestamp("2026-01-31")
 
-    overdue = post_processing.audit_native_price_freshness(
-        pa.Table.from_pandas(frame, preserve_index=False),
-        datetime.datetime(2026, 1, 31),
-    )
+    with caplog.at_level(logging.WARNING, logger=post_processing.logger.name):
+        overdue = post_processing.audit_native_price_freshness(
+            pa.Table.from_pandas(frame, preserve_index=False),
+            datetime.datetime(2026, 1, 31),
+        )
 
     assert overdue == {
         f"{GRVT_CHAIN_ID}-stale": "stale_source_timestamp",
         f"{GRVT_CHAIN_ID}-falling": "stale_source_timestamp",
         f"{GRVT_CHAIN_ID}-missing-price": "no_valid_source_observation",
     }
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert warnings[0].getMessage().startswith("3 native vaults have no real source price observation")
 
 
 def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source(
