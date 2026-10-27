@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Point `DeriveApiClient` at the Derive v3 API with the `X-DeriveWallet`, `X-DeriveTimestamp` and `X-DeriveSignature` headers, discover subaccounts through the public v3 endpoint and read v3 collateral balances, as the v2 API at `api.lyra.finance` is shut down (2026-10-27).
 - fix: Whitelist ERC-4626 vaults on HyperEVM two per GuardV0 multicall: a `whitelistERC4626()` call writes about 30 storage slots, so a batch of the generic 40 ran out of a HyperEVM fast block's 2M gas and reverted the satellite guard setup (2026-10-27).
 - fix: Build HyperCore deposit and withdrawal calls for a `LagoonSatelliteVault` on HyperEVM, which has no vault contract or `spec`; its Safe's USDC is the chain's native USDC (2026-10-27).
 - feat: Add Lighter Core pool execution helpers and accounted Ethereum satellite activation for multichain Lagoon deployments, with protected key backups and manual lifecycle scripts (2026-10-27).

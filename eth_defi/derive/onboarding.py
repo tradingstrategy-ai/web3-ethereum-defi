@@ -4,6 +4,15 @@ This module provides onboarding helpers for the Derive.xyz exchange.
 
 .. important::
 
+    **Derive v3** has no separate "Derive Wallet". The wallet that owns the
+    account is the owner EOA or multisig on Ethereum, and v2 Derive Wallets
+    were moved to their owners during the v3 migration. Use the owner address
+    as ``derive_wallet_address``. An account is created by its first deposit,
+    and a multisig owner registers session keys with an onchain action. See
+    `smart contracts and multisigs <https://docs.derive.xyz/authentication/contract-owned-accounts>`__.
+
+    The LightAccount steps below describe the legacy v2 flow.
+
     **Account creation and initial session key** require the Derive web interface at
     https://testnet.derive.xyz/ (testnet) or https://derive.xyz/ (mainnet).
     The web UI deploys an ERC-4337 LightAccount smart contract wallet via a
@@ -88,6 +97,11 @@ def fetch_derive_wallet_address(
     salt: int = 0,
 ) -> HexAddress:
     """Derive the counterfactual LightAccount wallet address for an owner EOA.
+
+    .. warning::
+
+        Legacy Derive v2 only. Derive v3 accounts are owned by the owner EOA
+        or multisig directly, so use the owner address as the wallet.
 
     Calls ``LightAccountFactory.getAddress(owner, salt)`` on Derive Chain to
     get the deterministic CREATE2 address.  The contract does not need to be

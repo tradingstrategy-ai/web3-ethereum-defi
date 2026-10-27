@@ -80,20 +80,24 @@ def fetch_subaccount_ids(
 ) -> list[int]:
     """Fetch subaccount IDs for a Derive wallet.
 
+    Uses the Derive v3 ``public/get_subaccounts`` endpoint, which needs no
+    authentication. A wallet that has never deposited into Derive v3 has no
+    account and returns an empty list.
+
     :param client:
-        Authenticated Derive API client with session key.
+        Derive API client with ``derive_wallet_address`` set.
     :return:
         List of subaccount IDs (may be empty if no subaccounts exist).
     :raises ValueError:
-        If authentication fails.
+        If the API returns an error.
     """
-    if not client.session_key_private:
-        raise ValueError("Session key required for authenticated requests.")
+    if not client.derive_wallet_address:
+        raise ValueError("derive_wallet_address required")
 
     result = client._make_jsonrpc_request(
-        method="private/get_subaccounts",
+        method="public/get_subaccounts",
         params={"wallet": client.derive_wallet_address},
-        authenticated=True,
+        authenticated=False,
     )
     ids = result.get("subaccount_ids", [])
     logger.info("Found %d subaccount(s) for wallet %s", len(ids), client.derive_wallet_address)
@@ -143,15 +147,17 @@ def fetch_account_collaterals(
         authenticated=True,
     )
 
-    # Parse collaterals from response
+    # Parse collaterals from response. The v3 collateral carries a single
+    # ``amount``, without separate available and locked balances.
     collaterals = []
     for col_data in response.get("collaterals", []):
+        amount = Decimal(str(col_data.get("amount", "0")))
         collaterals.append(
             CollateralBalance(
-                token=col_data.get("currency", col_data.get("token", "UNKNOWN")),
-                available=Decimal(str(col_data.get("available", "0"))),
-                total=Decimal(str(col_data.get("total", "0"))),
-                locked=Decimal(str(col_data.get("locked", "0"))),
+                token=col_data.get("asset_name", col_data.get("currency", "UNKNOWN")),
+                available=amount,
+                total=amount,
+                locked=Decimal("0"),
                 token_address=col_data.get("token_address"),
             )
         )
