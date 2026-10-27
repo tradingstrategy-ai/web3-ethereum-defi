@@ -38,6 +38,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
@@ -48,7 +49,6 @@ from eth_defi.tokenised_fund.kaio.constants import KAIO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_TBILL_HARDCODED_LEADS
-from eth_defi.tokenised_fund.shift.constants import SHIFT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_HARDCODED_LEADS
