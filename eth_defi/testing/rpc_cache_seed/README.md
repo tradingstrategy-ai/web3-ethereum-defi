@@ -58,6 +58,13 @@ block cache, after the module passed and Anvil closed gracefully. It contains
 17 accounts and 23 storage slots, and a rerun seeded only from the committed
 file made no additional reads.
 
+`arbitrum/487039644/` (the canonical Arbitrum midnight block) was refreshed on
+2026-10-27 with Anvil `v1.8.6` by running every `fork:arbitrum:midnight` test
+module locally and committing the merged cache: 168 accounts and 1,578 storage
+slots, up from 17 accounts. The thin seed left most Arbitrum reads to the
+upstream providers, which rate-limited the parallel CI workers and surfaced as
+token `symbol()` reads returning `None`.
+
 `mainnet/24496689/` is the fixed Ethereum block used by
 `tests/lagoon/test_lagoon_ember.py` to exercise its historical Ember redemption
 implementation with exact shares, ticket sequence and payout assertions. On
