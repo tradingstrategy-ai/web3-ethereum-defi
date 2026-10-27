@@ -71,6 +71,7 @@ Tutorials
 
 - :doc:`Lighter: benchmark pools </tutorials/lighter-vault-benchmark>` - Benchmark Lighter pool performance, equity curves, and rolling returns
 - ``scripts/lagoon/lagoon-lighter-example.py`` - Deploy and activate a Lagoon vault with a Lighter API key
+- ``scripts/lagoon/deploy-lagoon-lighter-multichain.py`` - Deploy a hub and Ethereum satellite, bridge USDC and activate Lighter
 - ``scripts/lagoon/lagoon-lighter-trade-example.py`` - Deploy, open and close a small ETH perpetual, and read NAV
 - ``scripts/lighter/lagoon-lighter-create-subaccounts.py`` - Create sub-accounts for an existing Safe-owned master account
 
@@ -106,3 +107,9 @@ Gnosis Safe governed by ``GuardV0`` / ``TradingStrategyModuleV0``, see
 :py:mod:`eth_defi.lighter.deployment` and the
 `README-lighter-guard.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/lighter/README-lighter-guard.md>`__
 architecture and security notes.
+
+.. toctree::
+   :maxdepth: 1
+
+   activation
+   execution

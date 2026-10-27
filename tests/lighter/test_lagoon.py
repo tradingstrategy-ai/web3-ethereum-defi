@@ -9,7 +9,6 @@ from web3 import Web3
 from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
 from eth_defi.lighter.lagoon import claim_usdc_to_lagoon_safe_from_lighter
 
-
 SAFE = Web3.to_checksum_address("0x0000000000000000000000000000000000000011")
 MODULE = Web3.to_checksum_address("0x0000000000000000000000000000000000000022")
 
@@ -78,4 +77,5 @@ def test_claim_usdc_encodes_exact_safe_asset_and_amount(
         hot_wallet,
         guarded_call,
         "Claim Lighter USDC withdrawal to Safe",
+        tx_observer=None,
     )

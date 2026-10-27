@@ -23,6 +23,11 @@ the GMX (`eth_defi/gmx/README-GMX-Lagoon.md`) and Hypercore
 > deposit. On-book trading (`createOrder`) is signed with the Lighter API key,
 > and trading-key rotation (`changePubKey`) is a Safe-owner setup action outside
 > the asset-manager guard.
+>
+> Pool ``mint_shares`` / ``burn_shares`` and API secure-withdrawal requests also
+> bypass the Ethereum guard. A compromised strategy API key can cause losses
+> through trading and pool investment. The guard restricts the L1 custody route;
+> it does not enforce pool selection or protect the Lighter account's value.
 
 ## Why a Safe can use Lighter
 
@@ -100,8 +105,8 @@ transaction, not by the asset-manager hot wallet.
 
 ## Fund-flow security model
 
-A compromised asset-manager hot wallet must not be able to drain the Safe via
-Lighter. Following the `GmxLib` pattern, receiver checks go through the guard's
+The L1 custody whitelist restricts where an asset manager can send Safe funds.
+Following the `GmxLib` pattern, receiver checks go through the guard's
 `isAllowedReceiver` (set by `allowReceiver(safe)`); `LighterLib` adds an
 `allowedAssetIndices` (USDC) check from its own storage. The fund-egress vectors
 and their checks:
@@ -197,6 +202,18 @@ for order signing and nonce management. The SDK is intentionally not an
 ``eth-defi`` dependency. Follow the pinned, reproducible installation commands
 in the tutorial module docstring. Its Git revision, dependency workaround and
 compatibility warning are kept there as the single source of truth.
+
+For the multichain deployment check, use
+[`scripts/lagoon/deploy-lagoon-lighter-multichain.py`](../../scripts/lagoon/deploy-lagoon-lighter-multichain.py).
+It checks the deployer's 20-USDC hub balance before deployment, deploys all
+contracts, then subscribes on the hub, bridges to the Ethereum satellite and
+activates its Lighter account. The default hub is HyperEVM; a Base or Arbitrum
+hub exercises CCTP Fast Transfer. The fee ceiling defaults to 0.01 USDC; start
+with `PREFLIGHT_ONLY=true` for read-only checks. The module docstring lists
+the remaining environment variables and exact commands. The protected JSONL
+report contains the generated API private key and partial progress for manual
+recovery. This rehearsal keeps the deployer as sole Safe owner; it does not
+exercise pool mint/burn/withdrawal or production ownership handover.
 
 The guard still only authorises the L1 custody calls described above;
 valuation and trading are off-chain reads and signatures.
@@ -422,3 +439,7 @@ Ethereum L1 custody contract):
 - Lighter library: `contracts/guard/src/lib/LighterLib.sol`
 - Reference integrations: `eth_defi/gmx/README-GMX-Lagoon.md`,
   `docs/README-Hypercore-guard.md`
+
+## Pool execution and multichain deployment
+
+See the [Lighter Core execution guide](../../docs/README-lighter-core-execution.md) for the coordinated satellite deployment, synchronous mint/burn helpers, secure-withdrawal lifecycle, protected recovery evidence and trade-executor hand-off. The funded lifecycle script is `scripts/lagoon/lagoon-lighter-pool-roundtrip.py`. Account equity and pool values remain separate until their inclusion relationship is demonstrated by real transactions.

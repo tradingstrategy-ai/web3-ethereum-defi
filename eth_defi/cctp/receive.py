@@ -23,9 +23,28 @@ import logging
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
+from eth_defi.cctp.constants import CCTP_MESSAGE_VERSION
 from eth_defi.cctp.transfer import get_message_transmitter_v2
 
 logger = logging.getLogger(__name__)
+
+#: Byte length of the fixed CCTP V2 message header.
+MESSAGE_HEADER_LENGTH = 148
+
+
+def fetch_message_received(web3: Web3, message: bytes) -> bool:
+    """Check whether the destination has consumed this exact CCTP message.
+
+    The V2 header stores its 32-byte nonce after three uint32 fields. Checking
+    the transmitter avoids confusing an unrelated token receipt with a relay.
+    See https://developers.circle.com/cctp/technical-guide#message-format.
+
+    :param web3: Destination chain connection.
+    :param message: Original complete Circle-attested V2 message.
+    :return: Whether the message nonce has already been used on this chain.
+    """
+    assert len(message) >= MESSAGE_HEADER_LENGTH and int.from_bytes(message[:4], "big") == CCTP_MESSAGE_VERSION
+    return bool(get_message_transmitter_v2(web3).functions.usedNonces(message[12:44]).call())
 
 
 def prepare_receive_message(

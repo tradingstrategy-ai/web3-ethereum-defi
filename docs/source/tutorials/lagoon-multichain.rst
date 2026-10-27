@@ -209,6 +209,36 @@ For testnet funding:
 - `LearnWeb3 faucet <https://learnweb3.io/faucets/arbitrum_sepolia/>`__ for Arbitrum Sepolia ETH
 - `Circle faucet <https://faucet.circle.com/>`__ for testnet USDC
 
+Manual Lighter satellite deployment
+-----------------------------------
+
+``scripts/lagoon/deploy-lagoon-lighter-multichain.py`` extends this deployment
+pattern with an Ethereum satellite Safe for Lighter Core. It defaults to a
+HyperEVM hub with Hypercore HLP and Felix USDC ERC-4626 permissions. All
+contracts are deployed before the hub subscription, CCTP bridge and Lighter
+activation. The deployer remains the sole owner of each test Safe.
+
+Load ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY`` and the selected chain RPC variables
+from your private environment. The deployer needs at least 20 native USDC on
+the hub and gas tokens on all selected chains. The bridge fee ceiling defaults to 0.01 USDC within that subscription. Run:
+
+.. code-block:: shell
+
+    PREFLIGHT_ONLY=true poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
+    poetry run python scripts/lagoon/deploy-lagoon-lighter-multichain.py
+
+The second command sends real mainnet transactions. Set
+``CHAINS=base,hyperliquid,ethereum`` to test CCTP Fast Transfer from Base;
+HyperEVM uses its already-fast standard finality. The script checks live fees
+and allowance before burning and waits for actual destination USDC.
+
+The mode-0600 JSONL report contains the generated Lighter API private key,
+saved before registration, and progress for manual recovery. Re-running starts
+a fresh deployment; reconcile any incomplete operation first. This checks
+deployment and activation only. Pool investment, withdrawal and multichain NAV
+conservation require a separate lifecycle test. See the script's module
+docstring for all environment variables and recovery limitations.
+
 API documentation
 -----------------
 
