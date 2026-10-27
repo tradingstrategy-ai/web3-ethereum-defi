@@ -53,11 +53,14 @@ def derive_wallet_address(owner_account):
 
 
 @pytest.fixture(scope="module")
-def authenticated_client(owner_account, derive_wallet_address, session_key_private):
-    """Derive API client authenticated with the session key from web UI."""
+def authenticated_client(owner_account, session_key_private):
+    """Derive API client authenticated with the session key.
+
+    In Derive v3 the owner EOA is the wallet that owns the account.
+    """
     return DeriveApiClient(
         owner_account=owner_account,
-        derive_wallet_address=derive_wallet_address,
+        derive_wallet_address=owner_account.address,
         is_testnet=True,
         session_key_private=session_key_private,
     )
@@ -72,7 +75,7 @@ def test_derive_wallet_address_resolution(owner_account, derive_wallet_address):
     logger.info("Owner %s -> LightAccount %s", owner_account.address, derive_wallet_address)
 
 
-@pytest.mark.skip(reason="derive v3 migration needed")
+@pytest.mark.skip(reason="Derive v3 needs a test account created by a deposit and a session key registered with private/set_session_key")
 def test_session_key_authentication(authenticated_client):
     """Verify the session key from the web UI can authenticate API requests."""
     result = authenticated_client._make_jsonrpc_request(
@@ -85,7 +88,7 @@ def test_session_key_authentication(authenticated_client):
     logger.info("get_subaccounts result: %s", result)
 
 
-@pytest.mark.skip(reason="derive v3 migration needed")
+@pytest.mark.skip(reason="Derive v3 needs a test account created by a deposit and a session key registered with private/set_session_key")
 def test_session_key_verification(authenticated_client):
     """Verify the session key can read account collateral data."""
     assert verify_session_key(authenticated_client)

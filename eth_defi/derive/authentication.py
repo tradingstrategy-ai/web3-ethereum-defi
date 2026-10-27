@@ -3,15 +3,18 @@
 This module provides the DeriveApiClient for authenticating with Derive.xyz API
 using session keys and EIP-191 personal-sign authentication.
 
-Authentication uses the ``encode_defunct(text=timestamp)`` pattern: the client
-signs a millisecond timestamp string with either a session key or the owner
-wallet key, and sends the signature in ``X-LYRASIGNATURE`` / ``X-LYRAWALLET``
-/ ``X-LYRATIMESTAMP`` headers.
+The client talks to the Derive v3 API. Authentication uses the
+``encode_defunct(text=timestamp)`` pattern: the client signs a millisecond
+timestamp string with either a session key or the owner wallet key, and sends
+the signature in ``X-DeriveSignature`` / ``X-DeriveWallet`` /
+``X-DeriveTimestamp`` headers.
 
 .. note::
 
-    Header names use uppercase (``X-LYRAWALLET`` etc.) to match the canonical
-    format used by the official ``derive_action_signing`` package.
+    Derive v3 renamed the v2 ``X-LyraWallet``, ``X-LyraTimestamp`` and
+    ``X-LyraSignature`` headers and dropped the separate "Derive Wallet"
+    smart contract wallet. The wallet is now the owner EOA or multisig itself.
+    See `breaking changes <https://docs.derive.xyz/migrating/breaking-changes>`__.
 """
 
 import logging
@@ -25,8 +28,8 @@ from eth_typing import HexAddress
 from requests import Session
 
 from eth_defi.derive.constants import (
-    DERIVE_MAINNET_API_URL,
-    DERIVE_TESTNET_API_URL,
+    DERIVE_V3_MAINNET_API_URL,
+    DERIVE_V3_TESTNET_API_URL,
 )
 from eth_defi.derive.session import create_derive_session
 
@@ -41,11 +44,11 @@ class DeriveApiClient:
     - Authenticated JSON-RPC 2.0 requests via HTTP
     - Signing requests with EIP-191 personal-sign (encode_defunct)
 
-    Authentication headers follow the Derive convention::
+    Authentication headers follow the Derive v3 convention::
 
-        X-LYRAWALLET:    <smart contract wallet address>
-        X-LYRATIMESTAMP: <UTC timestamp in milliseconds>
-        X-LYRASIGNATURE: <EIP-191 signature of the timestamp string>
+        X-DeriveWallet:    <owner EOA or multisig address>
+        X-DeriveTimestamp: <UTC timestamp in milliseconds>
+        X-DeriveSignature: <EIP-191 signature of the timestamp string>
 
     Example::
 
@@ -81,9 +84,8 @@ class DeriveApiClient:
         :param owner_account:
             Owner wallet (EOA) for signing session key registrations.
         :param derive_wallet_address:
-            Derive wallet address (LightAccount smart contract wallet on Derive Chain).
-            For manual onboarding this equals the counterfactual LightAccount
-            address derived from the owner EOA.
+            Wallet that owns the Derive account. In Derive v3 this is the owner
+            EOA or multisig on Ethereum, not a separate smart contract wallet.
         :param subaccount_id:
             Subaccount ID to use for requests (defaults to 1).
         :param is_testnet:
@@ -98,9 +100,9 @@ class DeriveApiClient:
         self.session_key_private = session_key_private
 
         if is_testnet:
-            self.base_url = DERIVE_TESTNET_API_URL
+            self.base_url = DERIVE_V3_TESTNET_API_URL
         else:
-            self.base_url = DERIVE_MAINNET_API_URL
+            self.base_url = DERIVE_V3_MAINNET_API_URL
 
         self.session = create_derive_session()
 
@@ -129,7 +131,7 @@ class DeriveApiClient:
         :param private_key:
             Private key to sign with. If None, uses :meth:`_get_signing_key`.
         :return:
-            Dict with ``X-LYRAWALLET``, ``X-LYRATIMESTAMP``, ``X-LYRASIGNATURE``.
+            Dict with ``X-DeriveWallet``, ``X-DeriveTimestamp``, ``X-DeriveSignature``.
         :raises ValueError:
             If derive_wallet_address is not set.
         """
@@ -150,10 +152,11 @@ class DeriveApiClient:
             self.derive_wallet_address,
         )
 
+        # HexBytes.hex() has no 0x prefix since hexbytes 1.0, and the v3 API expects one
         return {
-            "X-LYRAWALLET": self.derive_wallet_address,
-            "X-LYRATIMESTAMP": timestamp,
-            "X-LYRASIGNATURE": signed.signature.hex(),
+            "X-DeriveWallet": self.derive_wallet_address,
+            "X-DeriveTimestamp": timestamp,
+            "X-DeriveSignature": "0x" + signed.signature.hex().removeprefix("0x"),
         }
 
     def _make_jsonrpc_request(
@@ -168,7 +171,7 @@ class DeriveApiClient:
         Derive uses method-specific URL paths with the params dict as POST body.
         For example, ``private/get_collaterals`` becomes::
 
-            POST https://api-demo.lyra.finance/private/get_collaterals
+            POST https://api.derive.xyz/v3/private/get_collaterals
 
         :param method:
             JSON-RPC method name (e.g., ``private/get_collaterals``).
