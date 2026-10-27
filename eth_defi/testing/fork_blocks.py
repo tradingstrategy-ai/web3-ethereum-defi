@@ -64,6 +64,10 @@ BASE_MIDNIGHT_BLOCK = 49_030_926
 #: Robinhood Chain (chain id 4663), last block at or before 2026-08-14 00:00 UTC.
 ROBINHOOD_MIDNIGHT_BLOCK = 35_804_561
 
+#: Soneium (chain id 1868), last block before 2026-10-27 00:00 UTC.
+#: IP Vault was deployed after the older shared July fork date.
+SONEIUM_MIDNIGHT_BLOCK = 29_962_224
+
 #: BNB Smart Chain (chain id 56).
 BINANCE_MIDNIGHT_BLOCK = 111_758_906
 
@@ -93,6 +97,7 @@ MIDNIGHT_BLOCKS: dict[int, int] = {
     146: SONIC_MIDNIGHT_BLOCK,
     999: HYPERLIQUID_MIDNIGHT_BLOCK,
     4663: ROBINHOOD_MIDNIGHT_BLOCK,
+    1868: SONEIUM_MIDNIGHT_BLOCK,
     8453: BASE_MIDNIGHT_BLOCK,
     9745: PLASMA_MIDNIGHT_BLOCK,
     42161: ARBITRUM_MIDNIGHT_BLOCK,

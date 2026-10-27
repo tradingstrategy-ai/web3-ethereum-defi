@@ -364,6 +364,9 @@ REVIEWED_DISABLED_GMX_VAULTS: frozenset[HexAddress] = frozenset(
 #:
 #: Lowercase address-specific assessments, including explicit unassessed entries.
 VAULT_SPECIFIC_RISK = {
+    # Asseto IP Vault remains under verification; do not inherit AoABT's assessment.
+    # docs/protocol-research/ip-vault-0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9.md
+    "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9": None,
     # FCS equity has not been assigned the savings product's technical risk rating.
     "0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b": None,
     # Kitsune

@@ -13,6 +13,41 @@ combines on-chain token supply with Asseto's published NAV/share history.
 Products remain present in vault metadata even when they currently have zero
 supply or Asseto has not published a price history.
 
+IP Vault on Soneium
+------------------
+
+`IP Vault <https://ipusd.xyz/>`__ is represented by
+:class:`eth_defi.tokenised_fund.asseto.royalty.AssetoRoyaltyVault` under the
+Asseto protocol label. It is still under verification. The sole supported
+deployment is Soneium proxy ``0x2Ba3FC5BDbBE7BE2630fB71e759739625246bCd9``;
+classification uses this chain and address only, without protocol probes.
+
+This variant reads ``totalAssets()``, ``totalSupply()`` and
+``convertToAssets()`` onchain. It is separate from the Asseto API registry
+reader and is scanned through the ordinary EVM price pipeline. Its historical
+reader omits unsupported ``maxDeposit`` calls and rejects stale or unavailable
+``oraclesFresh()`` results. Reported assets can still include in-flight fund
+settlements and must not be treated as immediately redeemable liquidity.
+
+The adapter carries ``review_needed``, an explicit unknown risk assessment and
+no certified deposit manager. Standard ERC-4626 transaction methods revert;
+the PreDeposit and RedeemQueue lifecycle requires a separate integration.
+The `published contract disclosures
+<https://ipusd.gitbook.io/ipusd-docs/technical-reference/contracts-roles-and-disclosures>`__
+differ from the observed governance configuration: at block 29979401 the delay
+was 180 seconds, the admin could change it, and execution required an admin or
+operator. The product must not inherit AoABT's technical-risk assessment.
+
+Normal discovery injects the verified deployment at block 29828010 without
+inventing flow-event counts. For an existing metadata database, stop the
+persistent scanner and review a dry run before applying::
+
+    source .local-test.env && DRY_RUN=true poetry run python scripts/erc-4626/migrate-asseto-royalty-vault.py
+
+Set ``DRY_RUN=false`` to apply. The script backs up the metadata pickle and
+changes only the IP Vault record. Reader state and price Parquet files remain
+untouched; it does not start a historical price scan.
+
 Historical prices
 -----------------
 

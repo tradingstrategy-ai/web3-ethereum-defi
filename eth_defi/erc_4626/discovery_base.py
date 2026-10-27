@@ -42,6 +42,7 @@ from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HARDCODED_LEA
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.asseto.royalty_constants import ROYALTY_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
@@ -72,6 +73,7 @@ HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 
 #: Protocol deployments that cannot be discovered from supported vault events.
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("Asseto IP Vault", ROYALTY_HARDCODED_LEADS),
     ("Infinit", INFINIT_HARDCODED_LEADS),
     ("Antarctic", ANTARCTIC_HARDCODED_LEADS),
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),

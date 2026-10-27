@@ -442,6 +442,9 @@ def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> V
     :return:
         None if unknown
     """
-    del address
+    # IP Vault's conditional exit fees and fund costs remain under verification.
+    # Do not inherit the existing Asseto AoABT fee assessment for this product.
+    if vault_protocol_name == "Asseto" and address.lower() == "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9":
+        return None
 
     return VAULT_PROTOCOL_FEE_MATRIX.get(vault_protocol_name)
