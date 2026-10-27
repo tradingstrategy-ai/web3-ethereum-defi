@@ -1,0 +1,71 @@
+symbol: IPUSD
+name: ipUSD
+short_description: |
+  ipUSD is a digital dollar on Soneium, introduced alongside IP Vault with Asseto.
+  It is designed to track the US dollar and is backed by other dollar stablecoins.
+  Users can invest ipUSD in IP Vault to access royalty investments; holding ipUSD
+  alone does not earn those returns.
+long_description: |
+  [ipUSD](https://ipusd.xyz/) is a digital dollar used to enter and exit IP Vault,
+  a product offering access to royalty investments. Soneium
+  [announced ipUSD and IP Vault](https://x.com/soneium/status/2114999606400692706)
+  with [Asseto](https://asseto.finance/) on 27 October 2026, with opening scheduled
+  for 28 October. The tokens run on
+  [Soneium](https://soneium.org/en/blog/introducing-soneium-by-sony-block-solutions-labs-for-the-future-of-web3/),
+  an Ethereum network developed by Sony Block Solutions Labs, a joint venture
+  between Sony Group and Startale.
+
+  According to the [project documentation](https://ipusd.gitbook.io/ipusd-docs/ipusd),
+  each ipUSD is backed by one dollar's worth of Startale USD (USDSC) and USDC
+  reserves. Users can [exchange these stablecoins for ipUSD and back](https://ipusd.gitbook.io/ipusd-docs/user-guide/getting-and-using-ipusd)
+  at a 1:1 ratio. The supported USDC token is USDC.e, a version transferred to
+  Soneium from another blockchain. Conversion depends on the available reserves.
+
+  Asseto provides the tokenised fund investment used by IP Vault: an onchain
+  representation of an interest in Partners Group Diversified Royalties
+  Opportunities Evergreen. The [fund description](https://ipusd.gitbook.io/ipusd-docs/general/the-underlying-fund-and-strategy)
+  identifies Partners Group as its manager and states that it is not affiliated
+  with, and does not endorse, ipUSD or IP Vault. Users must invest in IP Vault and
+  receive vault shares to participate in its royalty returns. Simply holding
+  ipUSD does not earn those returns.
+
+  The [risk disclosures](https://ipusd.gitbook.io/ipusd-docs/vault-and-protocol/fees-limits-and-risks)
+  explain that reserve tokens could lose their dollar value, be frozen by their
+  issuers, or become unavailable because of problems moving assets between
+  blockchains. These risks can affect ipUSD's value and the ability to convert it
+  back. A conversion fee may also be introduced in exceptional market conditions.
+category: stablecoin
+links:
+  homepage: https://ipusd.xyz/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/soneium
+slug: ipusd
+contract_addresses:
+  - chain: soneium
+    address: '0x9dB3DDb02159E57b5078317a2391Bc3c94eF5cd0'
+source_currency: usd
+source_currency_source: manual
+source_currency_usd_rate: 1.0
+source_currency_usd_rate_date: ''
+source_currency_usd_rate_fetched_at: ''
+source_currency_usd_rate_source: ''
+coingecko_id: ''
+coingecko_link: ''
+coingecko_id_source: ''
+coingecko_id_verified_at: ''
+coingecko_id_verification_failed_at: ''
+coingecko_id_verification_failed_reason: ''
+usd_rate: ''
+usd_rate_fetched_at: ''
+usd_rate_updated_at: ''
+peg_rate: ''
+peg_rate_currency: ''
+depegged_at: ''
+rate_fetch_failed_at: ''
+rate_fetch_failed_reason: ''
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

@@ -2,6 +2,7 @@
 
 - chore: Disable Aave v2/v3 integration tests, the Hardhat-based Aave test deployment, its Anvil saved state and the Aave ABI builds as unsupported until a reintegration with Aave v4, and upgrade the CI Foundry/Anvil toolchain from v1.3.2 to v1.8.6 so the committed fork RPC cache seeds load again (2026-10-27).
 - fix: Alias committed Anvil fork cache seeds to Anvil 1.8's per-endpoint `storage-<keccak256(fork_url)>.json` name and merge them back on shutdown, count `transaction already imported` replies as successful broadcasts, and wait for receipts in tests that read state right after sending, because Anvil 1.8 automines asynchronously (2026-10-27).
+- feat: Add ipUSD stablecoin classification, verified Soneium metadata, news source and official token artwork (2026-10-27).
 - feat: `LagoonConfig.lighter_sub_account_labels` creates one Lighter sub-account per stable label during activation and records the label on every `LighterSubAccountSetup` report (2026-10-26).
 - feat: Lower the Lighter-enabled Lagoon bootstrap subscription to the 1 USDC Lighter deposit minimum, so deploying a vault needs only 1 USDC and leaves no idle USDC in the Safe (2026-10-26).
 - feat: Lighter sub-accounts for Safe-owned master accounts: account discovery and one-snapshot equity, sub-account creation and key registration during Lagoon activation, fee-free same-owner transfers, the key-free L1 withdraw path, an Anvil pending-balance fixture, and a single-owner Safe sweep helper, verified live on Ethereum mainnet (2026-10-26).
