@@ -26,3 +26,8 @@ fork testing approach, testnet configuration, and security considerations, see t
    eth_defi.cctp.receive
    eth_defi.cctp.whitelist
    eth_defi.cctp.testing
+
+.. toctree::
+   :maxdepth: 1
+
+   fees

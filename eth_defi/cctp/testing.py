@@ -33,22 +33,19 @@ See `Circle's CCTP specification <https://github.com/circlefin/evm-cctp-contract
 for the message format.
 """
 
-import struct
 import logging
+import struct
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.constants import FINALITY_THRESHOLD_STANDARD, TESTNET_TOKEN_MESSENGER_V2, TOKEN_MESSENGER_V2
+from eth_defi.cctp.constants import CCTP_MESSAGE_VERSION, FINALITY_THRESHOLD_STANDARD, TESTNET_TOKEN_MESSENGER_V2, TOKEN_MESSENGER_V2
 from eth_defi.cctp.transfer import encode_mint_recipient, get_message_transmitter_v2
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
-
-#: CCTP message version for V2 protocol
-CCTP_MESSAGE_VERSION = 1
 
 #: Burn message body version
 BURN_MESSAGE_VERSION = 1

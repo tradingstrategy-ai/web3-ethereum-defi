@@ -415,3 +415,20 @@ def test_validate_lighter_api_key_deployment_flag_is_no_op(monkeypatch: pytest.M
     monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: pytest.fail("unexpected token read"))
 
     lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
+
+
+def test_multichain_report_redacts_and_loads_optional_activation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Nested API keys stay redacted and old reports load without new fields."""
+    result = lagoon_deployment.LagoonMultichainDeployment(SAFE, {"ethereum": create_deploy_info()}, 123, lighter_funding={"subscription_usdc": "20"}, activation_report_path=tmp_path / "progress.jsonl")
+    data = result.as_json_friendly_dict()
+    assert "0xprivate-key" not in json.dumps(data)
+    assert result.as_json_friendly_dict(include_secrets=True)["deployments"]["ethereum"]["lighter_account_setup"]["private_key"] == "0xprivate-key"
+    monkeypatch.setattr(lagoon_deployment, "get_deployed_contract", lambda _web3, _abi, address: FakeContract(address))
+    monkeypatch.setattr(lagoon_deployment, "LagoonVault", FakeHydratedVault)
+    hydrated = lagoon_deployment.LagoonMultichainDeployment.from_json_friendly_dict({"ethereum": FakeWeb3()}, data)
+    assert hydrated.lighter_funding == {"subscription_usdc": "20"}
+    assert hydrated.deployments["ethereum"].lighter_account_setup.private_key is None
+    data.pop("lighter_funding")
+    data.pop("activation_report_path")
+    legacy = lagoon_deployment.LagoonMultichainDeployment.from_json_friendly_dict({"ethereum": FakeWeb3()}, data)
+    assert legacy.lighter_funding is None and legacy.activation_report_path is None

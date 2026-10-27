@@ -16,15 +16,17 @@ import copy
 import json
 import logging
 import os
+import threading
 import time
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
-from collections.abc import Sequence
-from typing import Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import eth_abi
 from eth_account.signers.local import LocalAccount
@@ -54,8 +56,10 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
+from eth_defi.lighter.activation import create_activation_report, record_activation
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, wait_for_lighter_account, wait_for_lighter_api_key, wait_for_lighter_collateral
-from eth_defi.lighter.api_key import LighterApiKey, generate_lighter_api_key as generate_lighter_api_key_pair
+from eth_defi.lighter.api_key import LighterApiKey
+from eth_defi.lighter.api_key import generate_lighter_api_key as generate_lighter_api_key_pair
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
@@ -81,6 +85,9 @@ from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultSpec
 from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.lagoon.lighter import LagoonLighterActivation
 
 logger = logging.getLogger(__name__)
 
@@ -1064,6 +1071,42 @@ class LagoonMultichainDeployment:
 
     #: The salt nonce used for deterministic Safe deployment
     safe_salt_nonce: int
+
+    #: Redacted bootstrap funding, absent on legacy deployments.
+    lighter_funding: dict[str, Any] | None = None
+
+    #: Protected progress/key backup location, never the key itself.
+    activation_report_path: Path | None = None
+
+    def as_json_friendly_dict(self, *, include_secrets: bool = False) -> dict[str, Any]:
+        """Serialise addresses and funding, omitting API keys by default.
+
+        :param include_secrets: Explicit opt-in for protected report export.
+        :return: JSON-compatible complete multichain report.
+        """
+        return {
+            "safe_address": self.safe_address,
+            "safe_salt_nonce": self.safe_salt_nonce,
+            "deployments": {name: value.as_json_friendly_dict(include_secrets=include_secrets) for name, value in self.deployments.items()},
+            "lighter_funding": self.lighter_funding,
+            "activation_report_path": str(self.activation_report_path) if self.activation_report_path else None,
+        }
+
+    @classmethod
+    def from_json_friendly_dict(cls, chain_web3: dict[str, Web3], data: dict[str, Any]) -> "LagoonMultichainDeployment":
+        """Hydrate both old reports and reports with satellite funding metadata.
+
+        :param chain_web3: Connections matching the report's chain names.
+        :param data: JSON-compatible deployment report.
+        :return: Deployment metadata; hydration never resumes transactions.
+        """
+        return cls(
+            safe_address=data["safe_address"],
+            deployments={name: LagoonAutomatedDeployment.from_json_friendly_dict(chain_web3[name], value) for name, value in data["deployments"].items()},
+            safe_salt_nonce=data["safe_salt_nonce"],
+            lighter_funding=data.get("lighter_funding"),
+            activation_report_path=Path(data["activation_report_path"]) if data.get("activation_report_path") else None,
+        )
 
 
 def _normalise_asset_managers(
@@ -2727,6 +2770,7 @@ def deploy_automated_lagoon_vault(
     safe_proxy_factory_address: HexAddress | str | None = None,
     max_settlement_amount: Decimal | None = None,
     settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW,
+    _defer_safe_owners: bool = False,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -2819,6 +2863,10 @@ def deploy_automated_lagoon_vault(
         Positive fixed duration in seconds for the capped asset-manager's
         cumulative gross settlement budget. Defaults to 24 hours. Ignored when
         the maximum amount safety feature is disabled.
+
+    :param _defer_safe_owners:
+        Internal multichain hook: retain temporary sole deployer ownership until
+        the coordinator completes funding and verifies the Lighter API key.
 
     :param any_hypercore_vault:
         Enable the narrow, HyperEVM-only dynamic native-vault policy instead
@@ -3339,17 +3387,17 @@ def deploy_automated_lagoon_vault(
                 sub_account_api_key_index=lighter_sub_account_api_key_index,
             )
 
-        # 3. Set Gnosis to a true multisig
-        # DOES NOT REMOVE DEPLOYER
-        add_new_safe_owners(
-            web3,
-            safe,
-            deployer_local_account,
-            owners=safe_owners,
-            threshold=safe_threshold,
-            hot_wallet=_hot_wallet,
-        )
-    elif satellite_chain:
+        # 3. Set owners after activation; multichain coordinates this after all workers.
+        if not _defer_safe_owners:
+            add_new_safe_owners(
+                web3,
+                safe,
+                deployer_local_account,
+                owners=safe_owners,
+                threshold=safe_threshold,
+                hot_wallet=_hot_wallet,
+            )
+    elif satellite_chain and not _defer_safe_owners:
         # Satellite chains still need Safe owners set up
         add_new_safe_owners(
             web3,
@@ -3463,12 +3511,13 @@ LAGOON_BEACON_PROXY_FACTORIES = {
 }
 
 
-def deploy_multichain_lagoon_vault(
+def deploy_multichain_lagoon_vault(  # noqa: PLR0914 - keep phase ordering visible in the coordinator
     *,
     chain_web3: dict[str, Web3],
     deployer: LocalAccount,
     chain_configs: dict[str, LagoonConfig],
     max_workers: int | None = None,
+    lighter_activation: "LagoonLighterActivation | None" = None,
 ) -> LagoonMultichainDeployment:
     """Deploy Lagoon vaults across multiple chains with a shared deterministic Safe.
 
@@ -3512,12 +3561,17 @@ def deploy_multichain_lagoon_vault(
         Maximum number of parallel deployment threads.
         Defaults to the number of chains.
 
+    :param lighter_activation:
+        Optional coordinated hub subscription, CCTP funding and Ethereum
+        satellite activation. All contract workers finish before funding and
+        owner finalisation follows verified key registration. The protected
+        progress file supports explicit manual recovery after interruption.
+
     :return:
         :class:`LagoonMultichainDeployment` with per-chain results.
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from copy import deepcopy
-
+    # The coordinator depends on this module's deployment dataclasses.
+    from eth_defi.erc_4626.vault_protocol.lagoon.lighter import fund_and_activate_lighter, preflight_lighter_multichain
     from eth_defi.token import USDC_NATIVE_TOKEN
 
     assert len(chain_web3) >= 1, "Must deploy to at least one chain"
@@ -3536,6 +3590,20 @@ def deploy_multichain_lagoon_vault(
         existing_safe_address = next(iter(unique_existing_safes))
         assert existing_safe_address is not None, "safe_salt_nonce may only be omitted when reusing an existing Safe"
         assert all(c.guard_only for c in chain_configs.values()), "safe_salt_nonce may only be omitted for guard-only multichain redeploys"
+
+    progress_lock = threading.Lock()
+    wallets: dict[str, HotWallet] = {}
+
+    def progress(stage: str, **details: Any) -> None:
+        """Persist serialised cross-chain progress to the protected report."""
+        assert lighter_activation is not None
+        with progress_lock:
+            record_activation(lighter_activation.report_path, stage, **details)
+
+    if lighter_activation is not None:
+        preflight_lighter_multichain(chain_web3, chain_configs, deployer, lighter_activation)
+        create_activation_report(lighter_activation.report_path)
+        progress("preflight_complete", deployer=deployer.address, safe_salt_nonce=safe_salt_nonce)
 
     if max_workers is None:
         max_workers = len(chain_web3)
@@ -3562,13 +3630,16 @@ def deploy_multichain_lagoon_vault(
         # Create a per-chain HotWallet for nonce management
         wallet = HotWallet(deployer)
         wallet.sync_nonce(web3)
+        wallets[chain_name] = wallet
+        if lighter_activation is not None:
+            progress("chain_setup_started", chain=chain_name, chain_id=chain_id, initial_nonce=wallet.current_nonce)
 
         # Shallow-copy the config so thread-local mutations don't leak.
         # Web3-bound objects (uniswap_v3, aave_v3, etc.) contain thread locks
         # and cannot be deep-copied. Only ``parameters`` needs a deep copy
         # because we mutate ``underlying`` below.
         per_chain_config = copy.copy(chain_configs[chain_name])
-        per_chain_config.parameters = deepcopy(chain_configs[chain_name].parameters)
+        per_chain_config.parameters = copy.deepcopy(chain_configs[chain_name].parameters)
 
         # Auto-resolve underlying token (USDC) per chain if not already set
         if per_chain_config.parameters.underlying is None or per_chain_config.parameters.underlying == "":
@@ -3584,7 +3655,10 @@ def deploy_multichain_lagoon_vault(
             web3=web3,
             deployer=wallet,
             config=per_chain_config,
+            _defer_safe_owners=lighter_activation is not None,
         )
+        if lighter_activation is not None:
+            progress("chain_setup_complete", chain=chain_name, deployment=deployment.as_json_friendly_dict())
 
         if deployment.is_satellite:
             logger.info("Satellite Safe deployed on %s: safe=%s (no vault)", chain_name, deployment.safe_address)
@@ -3606,8 +3680,25 @@ def deploy_multichain_lagoon_vault(
     unique_safe_addresses = set(safe_addresses.values())
     assert len(unique_safe_addresses) == 1, f"Safe addresses differ across chains — deterministic deployment failed: {safe_addresses}"
 
+    funding = None
+    if lighter_activation is not None:
+        progress("all_contracts_complete")
+        deployments, funding = fund_and_activate_lighter(chain_web3, deployments, wallets, lighter_activation, progress)
+        for chain_name, deployment in deployments.items():
+            config = chain_configs[chain_name]
+            safe = deployment.safe
+            progress("owner_finalisation_started", chain=chain_name, nonce=wallets[chain_name].current_nonce, safe_nonce=safe.retrieve_nonce())
+            add_new_safe_owners(chain_web3[chain_name], safe, deployer, owners=config.safe_owners, threshold=config.safe_threshold, hot_wallet=wallets[chain_name])
+            expected = {a.lower() for a in config.safe_owners} | {deployer.address.lower()}
+            assert {a.lower() for a in safe.retrieve_owners()} == expected, f"Unexpected Safe owners on {chain_name}"
+            assert safe.retrieve_threshold() == config.safe_threshold, f"Unexpected Safe threshold on {chain_name}"
+            progress("owner_finalisation_complete", chain=chain_name, owners=sorted(expected), threshold=config.safe_threshold)
+        progress("complete")
+
     return LagoonMultichainDeployment(
         safe_address=next(iter(unique_safe_addresses)),
         deployments=deployments,
         safe_salt_nonce=safe_salt_nonce,
+        lighter_funding=funding,
+        activation_report_path=lighter_activation.report_path if lighter_activation else None,
     )

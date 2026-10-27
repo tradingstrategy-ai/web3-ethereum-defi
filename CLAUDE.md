@@ -9,6 +9,9 @@ touches the relevant area:
   Grok CLI usage patterns, cross-agent review commands, streaming output,
   timeouts, and common failure modes. See **Agents** below for when this
   file is mandatory.
+- `docs/README-lighter-core-execution.md` — read before changing Lighter pool
+  execution or multichain activation scripts; covers script defaults, custody
+  boundaries, recovery and the remaining funded verification requirements.
 
 ## Agents
 
@@ -372,8 +375,11 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ## Command line scripts
 
+- Scripts must use sane defaults and run without additional environment inputs wherever possible. Require an environment variable only when its value cannot be safely defaulted or inferred, such as private keys, API credentials or the user's RPC connections. Do not invent credentials or RPC URLs.
+- Routine settings such as amounts, fee allowances, chain selections, timeouts, output paths and logging levels must have sensible defaults appropriate to the script's purpose. Keep environment overrides optional; do not make users supply routine settings merely to acknowledge a default.
+- Document the default behaviour and clearly distinguish genuinely required inputs from optional overrides. Example commands should use the defaults after the private environment has been loaded, rather than require a list of routine environment assignments. Validate defaults and overrides before sending transactions or doing other irreversible work.
 - Use scripts/erc-4626/scab-vaults.py as an example how to set up logger and read any needed environment variables as input.
-- Always use environment variables. Do not attempt to create command line parsers unless explicitly asked.
+- When configuration is needed, use environment variables. Do not attempt to create command line parsers unless explicitly asked.
 - For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
 
 ## Parallerisation and optimising long running data reading pipelines

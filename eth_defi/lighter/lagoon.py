@@ -23,6 +23,7 @@ https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 import logging
 import time
 from decimal import Decimal
+from typing import Callable
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -30,7 +31,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import AutomatedSafe
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, LIGHTER_STATE_POLL_SECONDS
@@ -49,6 +50,8 @@ def broadcast_tx(
     bound_func: ContractFunction,
     description: str,
     gas_limit: int = 1_000_000,
+    *,
+    tx_observer: Callable[[str, int, str], None] | None = None,
 ) -> str:
     """Sign, broadcast and wait for one transaction.
 
@@ -62,12 +65,16 @@ def broadcast_tx(
         Human-readable transaction description for logs.
     :param gas_limit:
         Transaction gas limit.
+    :param tx_observer:
+        Optional durable recorder called with hash, nonce and description before broadcast.
     :return:
         Confirmed transaction hash in hexadecimal form.
     """
     gas_price_suggestion = estimate_gas_price(web3)
     tx_params = apply_gas({"gas": gas_limit}, gas_price_suggestion)
     tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func, tx_params=tx_params)
+    if tx_observer is not None:
+        tx_observer(Web3.to_hex(tx.hash), tx.nonce, description)
     logger.info("Broadcasting: %s", description)
     logger.info("Transaction hash: %s", tx.hash.hex())
     broadcast_and_wait_transactions_to_complete(web3, [tx])
@@ -82,28 +89,32 @@ def deposit_usdc_from_lagoon_safe_into_lighter(
     web3: Web3,
     hot_wallet: HotWallet,
     *,
-    vault: LagoonVault,
+    vault: AutomatedSafe,
     usdc: TokenDetails,
     deposit_usdc: Decimal,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    tx_observer: Callable[[str, int, str], None] | None = None,
 ) -> str:
     """Approve and deposit Safe-owned USDC into Lighter through the guard.
 
-    The caller must fund the Safe through Lagoon settlement before this call;
-    direct USDC donations are not an accounted Lagoon subscription.
+    The caller must fund the Safe through Lagoon settlement, or bridge already
+    accounted capital from the hub to a satellite Safe before this call.
+    Direct USDC donations are not an accounted Lagoon subscription.
 
     :param web3:
         Web3 connection.
     :param hot_wallet:
         Whitelisted Lagoon asset-manager wallet.
     :param vault:
-        Lagoon vault whose Safe owns the Lighter account.
+        Lagoon vault or satellite whose Safe owns the Lighter account.
     :param usdc:
         Configured native Ethereum USDC token details.
     :param deposit_usdc:
         Human-readable USDC amount to deposit.
     :param zk_lighter:
         Whitelisted ZkLighter L1 contract address.
+    :param tx_observer:
+        Optional hash/nonce recorder invoked before each broadcast.
     :return:
         Confirmed Lighter deposit transaction hash.
     """
@@ -124,6 +135,7 @@ def deposit_usdc_from_lagoon_safe_into_lighter(
         hot_wallet,
         module.functions.performCall(usdc.address, approve_data, 0),
         "Approve USDC to Lighter from Safe",
+        tx_observer=tx_observer,
     )
 
     deposit_data = zk.functions.deposit(safe, asset_index, LIGHTER_ROUTE_PERP, amount_raw)._encode_transaction_data()
@@ -132,6 +144,7 @@ def deposit_usdc_from_lagoon_safe_into_lighter(
         hot_wallet,
         module.functions.performCall(zk_lighter, deposit_data, 0),
         "Deposit USDC from Safe to Lighter",
+        tx_observer=tx_observer,
     )
     logger.info("Safe USDC balance after Lighter deposit: %s", usdc.fetch_balance_of(safe))
     return tx_hash
@@ -141,17 +154,18 @@ def claim_usdc_to_lagoon_safe_from_lighter(
     web3: Web3,
     hot_wallet: HotWallet,
     *,
-    vault: LagoonVault,
+    vault: AutomatedSafe,
     usdc: TokenDetails,
     claimable_usdc: Decimal,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    tx_observer: Callable[[str, int, str], None] | None = None,
 ) -> str:
     """Claim an already-claimable secure Lighter USDC withdrawal to the Safe.
 
     This helper deliberately does not request a withdrawal. The request is an
     L2 API-key operation or :py:func:`request_usdc_withdrawal_from_lighter_account`;
     this is the Safe-gated L1 egress step and can only name
-    :attr:`LagoonVault.safe_address` as its receiver. Lighter's dynamic
+    :attr:`AutomatedSafe.safe_address` as its receiver. Lighter's dynamic
     secure-withdrawal delay is informational only: claim only after the
     withdrawal is claimable, see :py:func:`wait_for_lighter_pending_balance`.
     A fast withdrawal is
@@ -163,7 +177,7 @@ def claim_usdc_to_lagoon_safe_from_lighter(
     :param hot_wallet:
         Asset-manager wallet authorised to call the Lagoon module.
     :param vault:
-        Lagoon vault whose Safe receives the claimed USDC.
+        Lagoon vault or satellite whose Safe receives the claimed USDC.
     :param usdc:
         Native Ethereum USDC token details.
     :param claimable_usdc:
@@ -172,6 +186,8 @@ def claim_usdc_to_lagoon_safe_from_lighter(
         a different final raw amount after its own precision/fee handling.
     :param zk_lighter:
         Whitelisted ZkLighter L1 contract address.
+    :param tx_observer:
+        Optional durable hash/nonce recorder called before broadcasting the claim.
     :return:
         Confirmed claim transaction hash.
     """
@@ -204,6 +220,7 @@ def claim_usdc_to_lagoon_safe_from_lighter(
         hot_wallet,
         module.functions.performCall(zk_lighter, claim_data, 0),
         "Claim Lighter USDC withdrawal to Safe",
+        tx_observer=tx_observer,
     )
 
 
@@ -245,7 +262,7 @@ def request_usdc_withdrawal_from_lighter_account(
     web3: Web3,
     hot_wallet: HotWallet,
     *,
-    vault: LagoonVault,
+    vault: AutomatedSafe,
     usdc: TokenDetails,
     account_index: int,
     amount: Decimal,
@@ -269,7 +286,7 @@ def request_usdc_withdrawal_from_lighter_account(
     :param hot_wallet:
         Whitelisted Lagoon asset-manager wallet.
     :param vault:
-        Lagoon vault whose Safe owns the Lighter accounts.
+        Lagoon vault or satellite whose Safe owns the Lighter accounts.
     :param usdc:
         Native Ethereum USDC token details.
     :param account_index:
