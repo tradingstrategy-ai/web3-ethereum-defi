@@ -225,6 +225,18 @@ class RPCProxyConfig:
     #: strict behaviour so unexpected client disconnects are still visible.
     suppress_client_disconnect_errors: bool = False
 
+    #: JSON-RPC methods the proxy answers itself with ``-32601 method not found``
+    #: instead of forwarding. Anvil >= 1.8 probes a fork upstream with
+    #: ``eth_getAccountInfo`` and ``anvil_nodeInfo``. Public providers either
+    #: reject them as unknown methods, which the proxy would otherwise count as
+    #: a retryable failure and switch providers over, or implement
+    #: ``eth_getAccountInfo`` without historical state and answer
+    #: ``historical state ... is not available``, which makes Anvil abort the
+    #: fork with ``failed to create genesis`` instead of falling back to the
+    #: legacy ``eth_getBalance`` / ``eth_getTransactionCount`` / ``eth_getCode``
+    #: reads that the committed fork cache seeds also cover.
+    unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo"})
+
     def __post_init__(self):
         if self.failure_handler is None:
             # Avoid circular default — default_failure_handler is defined
@@ -438,6 +450,13 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
                 request_id = parsed.get("id")
         except (orjson.JSONDecodeError, ValueError):
             pass
+
+        if method in self.server.config.unsupported_methods:
+            # Answer locally so Anvil falls back to legacy methods; see the
+            # RPCProxyConfig.unsupported_methods docstring.
+            response_body = orjson.dumps({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"the method {method} does not exist/is not available"}})
+            self._send_json_response(200, response_body)
+            return
 
         # Try upstream providers with failover
         last_error = None
