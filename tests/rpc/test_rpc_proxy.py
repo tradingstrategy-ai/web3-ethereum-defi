@@ -300,3 +300,30 @@ def test_default_failure_handler():
 
     # Non-retryable error
     assert default_failure_handler(200, {"jsonrpc": "2.0", "error": {"code": -32600, "message": "invalid request"}, "id": 1}) is False
+
+
+def test_proxy_answers_anvil_probe_methods_locally(two_anvil_upstreams: tuple[AnvilLaunch, AnvilLaunch]):
+    """Anvil 1.8 fork probes get a local -32601 and never reach an upstream.
+
+    1. Start a proxy with two upstream Anvil instances
+    2. Call eth_getAccountInfo and anvil_nodeInfo through the proxy
+    3. Verify both answer -32601 and the upstream statistics recorded no such request
+    """
+    anvil_a, anvil_b = two_anvil_upstreams
+
+    # 1. Start a proxy with two upstream Anvil instances
+    proxy = start_rpc_proxy([anvil_a.json_rpc_url, anvil_b.json_rpc_url])
+    try:
+        # 2. Call eth_getAccountInfo and anvil_nodeInfo through the proxy
+        for method in ("eth_getAccountInfo", "anvil_nodeInfo"):
+            result = _rpc_call(proxy.url, method, ["0x0000000000000000000000000000000000000001", "latest"])
+
+            # 3. Verify both answer -32601 and the upstream statistics recorded no such request
+            assert result["error"]["code"] == -32601
+            assert method in result["error"]["message"]
+            assert all(stats.method_counts.get(method, 0) == 0 for stats in proxy.get_stats().values())
+
+        # Ordinary methods still reach the upstreams
+        assert _rpc_call(proxy.url, "eth_blockNumber")["result"].startswith("0x")
+    finally:
+        proxy.close()
