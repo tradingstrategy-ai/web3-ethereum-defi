@@ -2156,7 +2156,7 @@ def read_multicall_historical(
 
         timestamp_end_block = timestamps.get_last_block()
         if timestamp_end_block < end_block:
-            logger.warning("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
+            logger.info("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
             # ``end_block`` is exclusive in the task range below.
             end_block = timestamp_end_block + 1
 
@@ -2352,7 +2352,7 @@ def read_multicall_historical_stateful(
     total_accepted_calls = total_blocks = 0
     timestamp_end_block = timestamps.get_last_block()
     if timestamp_end_block < end_block:
-        logger.warning("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
+        logger.info("Clipping end block by timestamps cache end block %d < %d", timestamp_end_block, end_block)
         # +1 because end_block is used in range(start, end_block, step) which is exclusive
         end_block = timestamp_end_block + 1
 

@@ -17,7 +17,7 @@ import datetime
 import logging
 import os
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
 from pathlib import Path
@@ -1501,8 +1501,17 @@ def scan_historical_prices_to_parquet(
                     len(overdue_vaults),
                     len(reader.unknown_conversion_vaults),
                 )
+                if overdue_vaults:
+                    logger.warning(
+                        "%d vaults on chain %d have no source price row within 14 days of scan horizon %s; per reason: %s; examples: %s",
+                        len(overdue_vaults),
+                        chain_id,
+                        horizon,
+                        dict(Counter(overdue_vaults.values())),
+                        ", ".join(list(overdue_vaults)[:5]),
+                    )
                 for address, reason in overdue_vaults.items():
-                    logger.warning("Vault %s on chain %d has no source price row within 14 days of scan horizon %s: %s", address, chain_id, horizon, reason)
+                    logger.debug("Vault %s on chain %d has no source price row within 14 days of scan horizon %s: %s", address, chain_id, horizon, reason)
 
         except (AttributeError, ValueError, TypeError, ArithmeticError) as error:
             audit_error = f"{type(error).__name__}: {error}"

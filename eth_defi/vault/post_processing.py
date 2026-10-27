@@ -8,6 +8,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 :py:mod:`post-process-prices` scripts.
 """
 
+import collections
 import datetime
 import importlib.util
 import logging
@@ -454,8 +455,17 @@ def audit_native_price_freshness(
     overdue = qualified & (latest_timestamp.isna() | ((horizon - latest_timestamp) > MAX_VAULT_PRICE_ROW_AGE))
     result = {f"{chain}-{address}": "no_valid_source_observation" if pd.isna(latest_timestamp.loc[(chain, address)]) else "stale_source_timestamp" for chain, address in overdue[overdue].index}
     logger.info("Native price freshness: qualified=%d, overdue=%d", int(qualified.sum()), len(result))
-    for vault_id in result:
-        logger.warning("Native vault %s has no real source price observation within 14 days of %s", vault_id, horizon)
+    if result:
+        per_chain = collections.Counter(vault_id.split("-", 1)[0] for vault_id in result)
+        logger.warning(
+            "%d native vaults have no real source price observation within 14 days of %s; per chain id: %s; examples: %s",
+            len(result),
+            horizon,
+            dict(per_chain),
+            ", ".join(list(result)[:5]),
+        )
+    for vault_id, reason in result.items():
+        logger.debug("Native vault %s has no real source price observation within 14 days of %s: %s", vault_id, horizon, reason)
     return result
 
 

@@ -406,7 +406,9 @@ def fetch_yearn_vaults_file_for_chain(
             if cached_index is not None:
                 logger.warning("Could not refresh Yearn yDaemon metadata for chain %d: %s; using the previous cache", chain_id, error)
                 return cached_index
-            logger.warning("Yearn yDaemon metadata is unavailable for chain %d: %s", chain_id, error)
+            # yDaemon publishes no document for chains without Yearn vaults
+            not_published = isinstance(error, HTTPError) and getattr(error.response, "status_code", None) == 404
+            logger.log(logging.INFO if not_published else logging.WARNING, "Yearn yDaemon metadata is unavailable for chain %d: %s", chain_id, error)
             return None
 
         try:

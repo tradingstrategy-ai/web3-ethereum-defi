@@ -2826,13 +2826,15 @@ def print_dashboard(
     print(dashboard)
     logger.info(dashboard)
 
-    # Print full error messages below the dashboard
+    # Print full error messages below the dashboard. The table is printed
+    # after every chain, so reasons for disabled or skipped chains stay at
+    # INFO; a skip is warned about once where it is decided.
     error_results = [r for r in ordered_results if r.error]
     for r in error_results:
         if r.status == "failed":
             logger.error("%s: %s", r.name, r.error)
         else:
-            logger.warning("%s: %s", r.name, r.error)
+            logger.info("%s: %s", r.name, r.error)
 
 
 def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Path | None = None):
