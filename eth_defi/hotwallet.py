@@ -202,7 +202,10 @@ class HotWallet:
             (e.g. a node one block behind), which would reset the
             counter backwards and cause "nonce too low" errors.
         """
-        new_nonce = web3.eth.get_transaction_count(self.account.address)
+        # Count pending transactions too: a transaction we broadcast moments ago
+        # may not be mined yet (Anvil >= 1.8 automines asynchronously), and the
+        # confirmed count alone would hand out a nonce the pool already holds.
+        new_nonce = web3.eth.get_transaction_count(self.account.address, "pending")
         if self.current_nonce:
             # Handle Alchemy sending us back old nonce
             provider_name = get_provider_name(web3.provider)

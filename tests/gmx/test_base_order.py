@@ -586,7 +586,9 @@ def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, tes
 
     # Set a low allowance (less than what we'll try to use)
     low_allowance = 100  # Very small allowance
-    usdc.contract.functions.approve(base_order.contract_addresses.syntheticsrouter, low_allowance).transact({"from": test_address})
+    tx_hash = usdc.contract.functions.approve(base_order.contract_addresses.syntheticsrouter, low_allowance).transact({"from": test_address})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    base_order.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     params = OrderParams(
         market_key=market_key,
