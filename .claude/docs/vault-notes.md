@@ -17,7 +17,8 @@ source links that are not otherwise visible from raw onchain metrics.
   the vault.
 - `PROTOCOL_FLAGS_AND_NOTES` contains protocol-wide manual notes and flags.
 - `get_notes(address, chain_id=None, protocol_name=None)` applies those tables
-  and chain-level fallbacks.
+  and chain-level fallbacks. Pass `include_defaults=False` to check current
+  address notes and manual protocol warnings without generic defaults.
 
 Manual bad-flag notes should take precedence over generic descriptive notes. A
 vault that has been explicitly marked as `subvault`, `illiquid`, `unofficial`,
@@ -83,12 +84,13 @@ fall back to the same protocol description that is already exported separately.
 `eth_defi/research/vault_metrics.py` calculates the exported `notes` field for
 top-vault JSON rows.
 
-The preferred source is `VaultRow["_notes"]`, because it comes from the
-protocol adapter at scan time. For old cached vault databases that pre-date
-`_notes`, metrics may still call `eth_defi.vault.flag.get_notes()` as a fallback
-using only address and chain ID. This fallback should remain generic and should
-not contain protocol-specific special cases when a protocol vault class can
-provide the note.
+Current explicit manual notes and warnings take precedence over
+`VaultRow["_notes"]`, so a warning added after scanning appears on the next
+metadata export. Metrics first call `get_notes(..., include_defaults=False)`,
+then use the cached adapter note, then apply generic protocol/chain defaults.
+This preserves richer strategy text when only a chain default is available.
+The lookup remains generic: do not add protocol-specific branches when an
+adapter can provide the strategy note.
 
 ## Recommended pattern
 
@@ -98,8 +100,8 @@ provide the note.
 3. Call `super().get_notes()` first so manual address flags and notes keep
    precedence.
 4. Store the result in scan metadata as `_notes`.
-5. Let lifetime metrics consume `_notes`, with only the central manual note
-   fallback for legacy rows.
+5. Let lifetime metrics consume `_notes` after checking current manual
+   overrides, with generic defaults as the final fallback.
 
 Avoid adding protocol-specific note branches directly to reporting code like
 `vault_metrics.py`.

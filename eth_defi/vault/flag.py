@@ -349,7 +349,7 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
     return flags or _empty_set
 
 
-def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_name: str | None = None) -> str | None:
+def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_name: str | None = None, *, include_defaults: bool = True) -> str | None:
     """Get vault-specific notes.
 
     Notes can come from the descriptive vault or protocol notes matrices,
@@ -361,6 +361,13 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
     :param chain_id:
         Chain ID of the vault. Used to apply chain-wide default notes
         (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
+    :param protocol_name:
+        Optional protocol label for manual protocol warnings and default notes.
+    :param include_defaults:
+        Include generic protocol and chain notes. Set to ``False`` when checking
+        for a current manual override before using a cached adapter strategy note.
+    :return:
+        The maintained note, or ``None`` when no applicable note is present.
     """
     address = address.lower()
     if chain_id is not None:
@@ -381,9 +388,13 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         if protocol_entry:
             return protocol_entry[1]
 
-        note = PROTOCOL_NOTES.get(protocol_name)
-        if note:
-            return note
+        if include_defaults:
+            note = PROTOCOL_NOTES.get(protocol_name)
+            if note:
+                return note
+
+    if not include_defaults:
+        return None
 
     # Default note for all Hypercore vaults
     from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
