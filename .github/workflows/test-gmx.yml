@@ -13,27 +13,15 @@ on:
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
-      # GMX fixed-block forks depend on these shared helpers and their
-      # committed Arbitrum Foundry RPC-cache seed.
-      - 'eth_defi/provider/**'
-      - 'eth_defi/testing/**'
-      - 'eth_defi/token.py'
-      - 'eth_defi/abi/**'
-      - 'eth_defi/event_reader/**'
-      - 'eth_defi/hotwallet.py'
-      - 'eth_defi/gas.py'
-      - 'eth_defi/chain.py'
-      - 'eth_defi/erc_4626/vault_protocol/lagoon/**'
-      - 'eth_defi/safe/**'
-      - 'pyproject.toml'
-      - 'poetry.lock'
-      - 'tests/conftest.py'
-      - '.github/workflows/test-gmx.yml'
-  # Pull requests run GMX only on demand: when the PR changes GMX code, its
-  # tests or this workflow, or when it carries the `run-gmx-tests` label.
-  # Shared infrastructure changes (provider, testing, token, ABI ...) no longer
-  # trigger the slow GMX order-execution suite on every PR; master pushes keep
-  # the broad path filter above, and manual dispatch stays available.
+      - 'eth_defi/abi/gmx/**'
+      - 'contracts/guard/src/lib/GmxLib.sol'
+      - 'contracts/guard/src/lib/IGmxV2.sol'
+      - '!**/*.md'
+      - '!**/*.rst'
+      - '!eth_defi/gmx/media/**'
+  # Automatic runs require GMX code, tests, fixtures, ABIs or guard contracts.
+  # Documentation, media and unrelated shared infrastructure do not trigger
+  # this suite. The `run-gmx-tests` label and manual dispatch opt in explicitly.
   pull_request:
     branches: [ master ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -51,11 +39,14 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # Every rule must match: default OR matching ignores exclusions.
+          predicate-quantifier: every
           filters: |
             gmx:
-              - 'eth_defi/gmx/**'
-              - 'tests/gmx/**'
-              - '.github/workflows/test-gmx.yml'
+              - '{eth_defi/gmx/**,tests/gmx/**,eth_defi/abi/gmx/**,contracts/guard/src/lib/GmxLib.sol,contracts/guard/src/lib/IGmxV2.sol}'
+              - '!**/*.md'
+              - '!**/*.rst'
+              - '!eth_defi/gmx/media/**'
 
   test-gmx-serial:
     needs: changes
@@ -63,7 +54,7 @@ jobs:
     runs-on:
       group: Beefy runners
     # Hard 15-minute cap — do NOT raise it. GMX tests only run when GMX files
-    # change (see the pull_request gate above); if the full suite exceeds 15 min, fix the test
+    # change (see the path gates above); if the full suite exceeds 15 min, fix the test
     # runs (the slow order-execution files, warm cache), not the timeout. Growing
     # a CI timeout hides the real slowdown instead of surfacing it.
     timeout-minutes: 15
@@ -174,7 +165,7 @@ jobs:
           # fixed-block forks, avoiding shared-state contamination while still
           # using the committed Foundry RPC cache.
           #
-          # The full suite runs only for GMX or fixed-fork support changes. If
+          # The full suite runs only for GMX changes or an explicit opt-in. If
           # it exceeds the job cap, profile the fork tests instead of extending
           # it.
           #
