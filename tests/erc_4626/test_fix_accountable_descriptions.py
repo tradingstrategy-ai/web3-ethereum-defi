@@ -3,7 +3,10 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA, get_handwritten_vault_metadata
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -80,7 +83,7 @@ def test_refresh_accountable_descriptions_uses_stored_strategy_for_delisted_vaul
         None. Assertions validate the stored-strategy fallback.
     """
     module = _load_fix_accountable_descriptions_module()
-    spec = VaultSpec(chain_id=143, vault_address="0x4c0d041889281531ff060290d71091401caa786d")
+    spec = VaultSpec(chain_id=143, vault_address="0x0000000000000000000000000000000000000002")
     vault_db = VaultDatabase(
         rows={
             spec: {
@@ -106,7 +109,7 @@ def test_refresh_accountable_descriptions_skips_delisted_vault_without_strategy(
         None. Assertions validate that stale historical rows do not block the backfill.
     """
     module = _load_fix_accountable_descriptions_module()
-    spec = VaultSpec(chain_id=143, vault_address="0x4c0d041889281531ff060290d71091401caa786d")
+    spec = VaultSpec(chain_id=143, vault_address="0x0000000000000000000000000000000000000002")
     vault_db = VaultDatabase(
         rows={
             spec: {
@@ -148,3 +151,44 @@ def test_refresh_accountable_descriptions_preserves_handwritten_metadata() -> No
 
     assert vault_db.rows[spec]["_description"] == "Morini Capital's strategy arbitrages spreads between USD/TRY rates on Turkish crypto exchanges and fiat rails. Its TRY positions are continuously hedged."
     assert vault_db.rows[spec]["_short_description"] == "Delta-neutral USD/TRY foreign-exchange arbitrage strategy."
+
+
+@pytest.mark.parametrize(("chain_id", "address"), tuple(TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA))
+def test_refresh_accountable_descriptions_backfills_reviewed_deployment(chain_id: int, address: str) -> None:
+    """Populate missing reviewed descriptions without upstream metadata.
+
+    Repeated backfills must be idempotent and preserve all unrelated row
+    fields while using the maintained strategy for the exact deployment.
+
+    :param chain_id:
+        Reviewed EVM chain identifier.
+    :param address:
+        Reviewed share-token address.
+    :return:
+        None. Assertions validate fallback persistence and idempotence.
+    """
+    module = _load_fix_accountable_descriptions_module()
+    spec = VaultSpec(chain_id=chain_id, vault_address=address)
+    original_row = {
+        "Protocol": "Accountable",
+        "Address": spec.vault_address,
+        "_description": None,
+        "_short_description": None,
+        "_notes": "Existing note.",
+        "Link": "https://yield.accountable.capital/",
+    }
+    vault_db = VaultDatabase(rows={spec: original_row.copy()})
+    metadata = get_handwritten_vault_metadata(spec.chain_id, spec.vault_address)
+    assert metadata is not None
+
+    updates = module.refresh_accountable_descriptions(vault_db, {})
+
+    assert len(updates) == 1
+    assert updates[0].changed is True
+    assert vault_db.rows[spec] == original_row | {
+        "_description": metadata.description,
+        "_short_description": metadata.short_description,
+    }
+    repeated_updates = module.refresh_accountable_descriptions(vault_db, {})
+    assert len(repeated_updates) == 1
+    assert repeated_updates[0].changed is False

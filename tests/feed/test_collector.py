@@ -349,12 +349,13 @@ def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> N
     failure: it exists to detect when the community-run default bridge stops
     serving LinkedIn, as the previous bridges did on 2026-10-10.
 
-    1. Load a VanEck feeder YAML with only a LinkedIn source.
+    1. Load a Microsoft feeder YAML with only a LinkedIn source.
     2. Collect posts through ``DEFAULT_LINKEDIN_URL_TEMPLATES``.
-    3. Assert posts link back to VanEck's LinkedIn posts.
+    3. Assert posts link back to LinkedIn, including a Microsoft post.
     """
-    # 1. Load a VanEck feeder YAML with only a LinkedIn source.
-    (tmp_path / "vaneck.yaml").write_text("feeder-id: vaneck\nname: VanEck\nrole: stablecoin\nlinkedin: vaneck\n")
+    # VanEck returned HTTP 502 on 2026-10-28 while Microsoft's feed succeeded.
+    # 1. Load a Microsoft feeder YAML with only a LinkedIn source.
+    (tmp_path / "microsoft.yaml").write_text("feeder-id: microsoft\nname: Microsoft\nrole: protocol\nlinkedin: microsoft\n")
     sources, _, _ = load_post_sources(tmp_path)
     linkedin_source = next(s for s in sources if s.source_type == "linkedin")
 
@@ -367,9 +368,10 @@ def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> N
         linkedin_url_templates=DEFAULT_LINKEDIN_URL_TEMPLATES,
     )
 
-    # 3. Assert posts link back to VanEck's LinkedIn posts.
+    # 3. LinkedIn uses both named post links and activity links for shared posts.
     assert 0 < len(posts) <= 5
-    assert all(post.post_url.startswith("https://www.linkedin.com/posts/vaneck_") for post in posts)
+    assert all(post.post_url.startswith(("https://www.linkedin.com/posts/", "https://www.linkedin.com/feed/update/urn:li:activity:")) for post in posts)
+    assert any(post.post_url.startswith("https://www.linkedin.com/posts/microsoft_") for post in posts)
     assert all(post.published_at is not None for post in posts)
 
 

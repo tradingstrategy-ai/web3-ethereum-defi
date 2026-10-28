@@ -5,6 +5,7 @@ from eth_typing import HexAddress
 
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.flag import BAD_FLAGS, HYPERCORE_VAULT_NOTE, PROTOCOL_NOTES, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
+from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, REVIEWED_DISABLED_GMX_VAULTS, VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
 
 
@@ -26,6 +27,52 @@ def test_explicit_note_lookup_excludes_generic_defaults(monkeypatch: pytest.Monk
     expected = "Generic protocol default" if protocol_name else HYPERCORE_VAULT_NOTE
     assert get_notes(address, chain_id=chain_id, protocol_name=protocol_name) == expected
     assert get_notes(address, chain_id=chain_id, protocol_name=protocol_name, include_defaults=False) is None
+
+
+def test_travessia_note_is_chain_scoped_and_does_not_flag_vault() -> None:
+    """Export Travessia's source-linked strategy note only on Avalanche.
+
+    Descriptive copy must not flag the vault or leak onto another chain
+    hosting the same contract address.
+
+    :return:
+        None. Assertions validate note routing and unchanged classifications.
+    """
+    address = "0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2"
+    note = get_notes(address, chain_id=43114, protocol_name="Accountable")
+
+    assert note is not None
+    assert "lends USDT to Tauri Agrícola" in note
+    assert "https://www.travessiacredit.com/vaults/43114/tauri/0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2" in note
+    assert "https://docs.travessiacredit.com/pages/tauri-case-study.html" in note
+    assert "[homepage](https://www.travessiacredit.com/)" in note
+    assert "Rabobank, Avalanche, RedStone, Accountable and Royco" in note
+    assert get_notes(address, chain_id=1, protocol_name="Accountable") is None
+    assert get_vault_special_flags(address, "Accountable") == set()
+    assert not is_flagged_vault(address, "Accountable")
+
+
+@pytest.mark.parametrize(("chain_id", "address"), tuple(ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES))
+def test_accountable_researched_notes_do_not_add_flags(chain_id: int, address: str) -> None:
+    """Keep researched strategy notes chain-scoped and descriptive.
+
+    Manual copy must cite its sources without making an otherwise healthy
+    vault flagged or changing matching addresses on another chain.
+
+    :param chain_id:
+        Reviewed EVM chain identifier.
+    :param address:
+        Reviewed share-token address.
+    :return:
+        None. Assertions validate source citations and unchanged flags.
+    """
+    note = get_notes(address, chain_id=chain_id, protocol_name="Accountable")
+
+    assert note is not None
+    assert "](https://" in note
+    assert get_notes(address, chain_id=8453, protocol_name="Accountable") is None
+    assert not get_vault_special_flags(address, "Accountable")
+    assert not is_flagged_vault(address, "Accountable")
 
 
 def test_not_in_morpho_api_is_bad_flag():

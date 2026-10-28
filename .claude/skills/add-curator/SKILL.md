@@ -65,8 +65,11 @@ example `China Asset Management`, not `China Asset Management (Hong Kong)`.
 
 ## Website descriptions
 
+Read and follow the shared [description writing style](../../docs/description-writing-style.md)
+before writing or editing public descriptions.
+
 The YAML `short_description` and `long_description` fields are public website
-copy for DeFi professionals, not repository notes.
+copy for a general audience, not repository notes.
 
 - Use clear, neutral language to explain the curator's organisation, investment
   remit and the protocols, strategies or stablecoins it oversees when those are
