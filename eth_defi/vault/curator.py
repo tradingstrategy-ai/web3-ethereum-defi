@@ -102,8 +102,9 @@ short patterns are registered in :py:data:`CURATOR_NAME_PATTERNS`.
 
 Protocol-curated vaults are identified before name matching:
 
-- **Ostium** and **Gains Network** — all vaults on these protocols are
-  protocol-curated (no external curator)
+- **Ostium** — vaults are protocol-curated (no external curator)
+- **Gains Network** — exact verified deployments are protocol-curated;
+  compatible forks can have independent operators, including Nova Markets
 - **Frax** — only vaults whose identified protocol is Frax are attributed to
   the Frax Finance curator; holding FRAX or frxUSD is not curator evidence
 - **Hyperliquid** — system vaults (HLP parent, HLP children, Liquidator)
@@ -147,6 +148,7 @@ from typing import TypedDict
 
 from eth_typing import HexAddress
 
+from eth_defi.erc_4626.vault_protocol.gains.metadata import lookup_gains_vault_metadata
 from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
 from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
@@ -194,7 +196,6 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "frax-finance",
     "frankencoin",
     "flying-tulip",
-    "gains-network",
     "ostium",
     "ondo",
     "pallas",
@@ -219,6 +220,8 @@ PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
 #: GRVT GLP).
 #: Use :py:func:`is_protocol_curator` to check membership.
 ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
+    "gains-network",
+    "nova-markets",
     "hyperliquid",
     "lighter",
     "grvt",
@@ -367,6 +370,7 @@ SPONSOR_CURATOR_SLUGS: set[str] = {
 #: not that Frax operates the vault.
 PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
     "frax-finance",
+    "gains-network",
 }
 
 #: Protocol-specific curator metadata fields in curator YAML files.
@@ -382,12 +386,18 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "symbiotic": "symbiotic-curator",
 }
 
-#: Exact vault address to curator overrides from Dune dashboards.
+#: Exact vault address to curator overrides from reviewed primary sources.
 #:
 #: Used when the public vault display name does not carry the curator brand, or
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Nova's independently administered Arbitrum Conviction Pool.
+    #: https://docs.nova.markets/#/contracts (reviewed 2026-10-28).
+    (42161, "0x9ca80193712f372e2ff33a00127292884f6f8598"): "nova-markets",
+    #: Nova NLP uses Lagoon infrastructure on HyperEVM, managed by Nova Markets.
+    #: https://docs.nova.markets/#/nlp-vault (reviewed 2026-10-28).
+    (999, "0xeeed7bb939d65938fe8f40dd898cd5942e32f09e"): "nova-markets",
     # These Lighter pools share an L1 operator address. The automated breakout
     # pool directly identifies the operator's @dima_quant account, while the
     # adjacent pool names identify Dima and Systematic Strategies respectively.
@@ -1016,6 +1026,13 @@ def identify_curator(  # noqa: PLR0917
     #    external to the vault name.
     if address_slug := _identify_curator_by_address(chain_id, vault_address):
         return address_slug
+
+    # Gains-compatible bytecode also identifies independent forks and staging
+    # deployments. Check exact reviewed identities before stale declarations
+    # or name matching can incorrectly assign them to Gains Network.
+    if protocol_slug == "gains-network":
+        metadata = lookup_gains_vault_metadata(chain_id, vault_address)
+        return metadata.curator if metadata is not None else None
 
     # 2. A reviewed adapter may declare its manager directly. Address-specific
     #    corrections above remain authoritative over stale cached metadata.

@@ -1,7 +1,8 @@
 # Gains Network curator - feeds provided by protocols/gains-network.yaml
 #
 # Alias rationale:
-# - Gains vaults are protocol-managed rather than third-party curated.
+# - Only exact, verified gTrade deployments are attributed to Gains Network.
+#   Gains-compatible forks may have independent operators, including Nova.
 # - The exported protocol slug is gains-network; legacy gtrade inputs
 #   are normalised in eth_defi.vault.curator.identify_curator().
 # - Gains Network already has canonical protocol feed metadata.
@@ -10,8 +11,21 @@ feeder-id: gains-network
 name: Gains Network
 role: curator
 canonical-feeder-id: gains-network
-short_description: Gains Network develops gTrade, a decentralised leveraged trading platform for crypto and traditional market synthetics.
+short_description: Gains Network develops gTrade and operates its gToken liquidity vaults for decentralised leveraged trading in crypto, forex, equities and commodities.
 long_description: |
-  Gains Network develops gTrade, a liquidity-efficient decentralised leveraged trading platform.
-  The platform supports markets including crypto, forex, stocks, indices and commodities, with trades settled on-chain against gToken liquidity vaults instead of per-pair order books.
-  Its documentation describes synthetic leverage, Chainlink oracle pricing and fee flows to governance, liquidity providers, staking, referrals and oracle execution.
+  [Gains Network](https://gains.trade/) develops gTrade, a decentralised synthetic leveraged-trading platform covering crypto, forex, stocks, indices and commodities. It is the protocol operator behind the official [gToken liquidity vaults](https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults), whose depositors supply counterparty capital, receive trading fees and bear trader profit-and-loss risk; this differs from an independent investment manager allocating assets between lending markets.
+
+  The project began as Gains.Farm on Ethereum in January 2021 and subsequently expanded to Polygon, with GFARM2 rebranded to GNS in October 2021. Its [token history](https://medium.com/gains-network/the-significance-of-utility-tokens-in-defi-gtrade-9a68a19a39f8) and [original distribution announcement](https://gainsnetwork-io.medium.com/dyor-gains-farm-v2-ecosystem-f8ecec18fd46) describe community farming and no presale or ICO; these describe the initial launch rather than every subsequent funding arrangement.
+
+  Documented ecosystem support includes a Polygon grant described in Gains Network's [January 2022 announcement of $250,000 in MATIC trading incentives](https://medium.com/gains-network/polygon-grants-gains-network-250k-in-matic-for-2-trading-contests-33b4524e90a1). This was adoption funding, not an equity investment or a guarantee of vault deposits.
+
+  GNS holders approved the [Make Gains Great Again governance vote](https://snapshot.org/#/s:gains-network.eth/proposal/0x07b92d4e0342a773b1b1815fedb69e85052157febc43af79e45b9db13838b6e3), which closed on 7 June 2026. The [approved restructuring terms](https://gov.gains.trade/t/make-gains-great-again/226) authorised a new operating team with Tom and Sam as project leads, performance-linked compensation and a growth treasury; proposed personal-capital spending and future GNS purchases are commitments in that plan, not evidence of a completed venture financing round.
+# 2026-10-28: Reviewed official product documentation, original launch and grant
+# announcements, and Snapshot's closed vote (6,144,005.922949055 for; 0 against).
+other-links:
+  - title: Official deployment directory - exact gTrade vault identities
+    url: https://docs.gains.trade/what-is-gains-network/contract-addresses
+  - title: Introducing gToken vaults - original December 2022 strategy announcement
+    url: https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
+  - title: Approved June 2026 operating-team restructuring and funding commitments
+    url: https://gov.gains.trade/t/make-gains-great-again/226

@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add exact-address Nova Markets Conviction Pool classification, independent protocol metadata, source-reproduced feeless accounting, audit and centralisation research, and epoch lifecycle support; attribute the Lagoon-based Nova NLP vault to Nova Markets and mark both Nova vaults Dangerous; improve gTrade vault strategy notes, app links and curator history (2026-10-28).
+
 - feat: Retain genuine EVM vault price observations for meaningful-TVL vaults on a seven-day live interval and report overdue source rows across EVM and native feeds (2026-09-28).
 - fix: Retry Derive v3 transient application error 9002 with bounded exponential backoff instead of failing live vault-listing reads immediately (2026-09-28).
 - fix: List Kamui's three permissioned Lagoon vaults through one chain-aware address registry, bypass their inapplicable generic Deposit-event threshold, and refresh their onchain whitelist and unofficial metadata (2026-09-28).

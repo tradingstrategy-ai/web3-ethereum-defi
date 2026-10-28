@@ -272,6 +272,10 @@ class ERC4626Feature(enum.Enum):
     #: https://github.com/GainsNetwork
     gains_like = "gains_like"
 
+    #: Nova Markets Conviction Pool, independently operated on Arbitrum.
+    #: https://docs.nova.markets/#/contracts
+    nova_markets_like = "nova_markets_like"
+
     #: ALmost like Gains, but Ostium LP
     ostium_like = "ostium_like"
 
@@ -1201,6 +1205,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "KiloEx"
     elif ERC4626Feature.domination_finance_like in features:
         return "Domination Finance"
+    elif ERC4626Feature.nova_markets_like in features:
+        return "Nova Markets"
     elif ERC4626Feature.gains_like in features:
         return "Gains Network"
     elif ERC4626Feature.return_finance_like in features:

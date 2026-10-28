@@ -24,6 +24,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
+from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
@@ -51,6 +52,10 @@ from eth_defi.wstgbp.constants import WSTGBP
 from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
 
 logger = logging.getLogger(__name__)
+
+#: Exact Nova deployment published at https://docs.nova.markets/#/contracts.
+#: Intentionally excludes ``gains_like``: shared code is not protocol identity.
+NOVA_MARKETS_HARDCODED_PROTOCOLS = {NOVA_POOL_ADDRESS: {ERC4626Feature.nova_markets_like}}
 
 #: ABI-encoded address return value length in bytes.
 ABI_ENCODED_ADDRESS_LENGTH = 32
@@ -385,6 +390,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address in NOVA_MARKETS_HARDCODED_PROTOCOLS:
+        return NOVA_MARKETS_HARDCODED_PROTOCOLS[normalised_address].copy() if chain_id == NOVA_MARKETS_CHAIN_ID else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
 
@@ -2340,6 +2347,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 
         return KilnVault(web3, spec, **kwargs)
+    elif ERC4626Feature.nova_markets_like in features:
+        from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
+
+        return NovaMarketsVault(web3, spec, **kwargs)
     elif ERC4626Feature.gains_like in features:
         # Gains instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -2775,6 +2786,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    **NOVA_MARKETS_HARDCODED_PROTOCOLS,
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,

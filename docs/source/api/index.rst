@@ -47,6 +47,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    xerberus/index
    feed/index
    erc_4626/index
+   nova_markets/index
    tokenised_fund/index
    enzyme/index
    aera/index

@@ -35,7 +35,15 @@ from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.gains.tags import STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.gains.metadata import (
+    GTRADE_VAULT_APP_URL as GTRADE_VAULT_APP_URL,  # noqa: PLC0414 - retain the existing public constant
+)
+from eth_defi.erc_4626.vault_protocol.gains.metadata import (
+    REVIEWED_GAINS_VAULTS,
+    format_gains_vault_note,
+    lookup_gains_vault_metadata,
+)
+from eth_defi.erc_4626.vault_protocol.gains.tags import get_strategy_tags
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_int256_bytes_to_int, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.utils import from_unix_timestamp
@@ -48,48 +56,15 @@ from eth_defi.vault.base import (
     WithdrawalDelayType,
     WithdrawalPeriod,
 )
-from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
 
-GTRADE_VAULT_APP_URL = "https://gains.trade/vault"
-
-#: Current gTrade vault addresses checked from the Trading Strategy public
-#: vault export on 2026-07-13.
-GTRADE_VAULT_ADDRESSES: set[str] = {
-    "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc",
-    "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81",
-    "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d",
-    "0x91993f2101cc758d0deb7279d41e880f7defe827",
-    "0x992eb7040b66b13abea94e2621d4e61d5ce608bd",
-    "0xad20523a7dc37babc1cc74897e4977232b3d02e5",
-    "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0",
-    "0xd85e038593d7a098614721eae955ec2022b9b91b",
-    "0xfb34af2138280e13b0759fd322fe63fccc7508a6",
-}
-
-#: Native gTrade pages for every currently known gTrade vault.
-#:
-#: ``gUSDC``, ``gDAI``, and ``gUSDM`` have token-specific pages. The other
-#: gTrade vault tokens do not currently expose individual official URLs, so
-#: they deliberately use the verified native gTrade vault application instead
-#: of a fabricated token route.
-GTRADE_VAULT_LINK_MATRIX: dict[str, str] = {
-    # gUSDC
-    "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0": "https://gains.trade/vaults/gUSDC",
-    "0xad20523a7dc37babc1cc74897e4977232b3d02e5": "https://gains.trade/vaults/gUSDC",
-    "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81": "https://gains.trade/vaults/gUSDC",
-    # gDAI
-    "0xd85e038593d7a098614721eae955ec2022b9b91b": "https://gains.trade/vaults/gDAI",
-    "0x91993f2101cc758d0deb7279d41e880f7defe827": "https://gains.trade/vaults/gDAI",
-    # gUSDM
-    "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d": "https://gains.trade/vaults/gUSDM",
-    # hsUSD1, mUSDC, and X-Solaris USD
-    "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc": GTRADE_VAULT_APP_URL,
-    "0x992eb7040b66b13abea94e2621d4e61d5ce608bd": GTRADE_VAULT_APP_URL,
-    "0xfb34af2138280e13b0759fd322fe63fccc7508a6": GTRADE_VAULT_APP_URL,
-}
+#: Compatibility projections of the reviewed inventory. Runtime lookups use
+#: both chain and address through ``lookup_gains_vault_metadata()``.
+GTRADE_VAULT_ADDRESSES: set[str] = {address for _, address in REVIEWED_GAINS_VAULTS}
+GTRADE_VAULT_LINK_MATRIX: dict[str, str] = {address: metadata.app_url or f"https://routescan.io/address/{address}" for (_, address), metadata in REVIEWED_GAINS_VAULTS.items()}
 
 
 class OstiumVersion(enum.Enum):
@@ -259,7 +234,7 @@ class OstiumV15HistoricalReader(ERC4626HistoricalReader):
         )
 
 
-class GainsVault(ERC4626Vault):
+class GainsVault(ERC4626Vault):  # noqa: PLR0904 - shared vault adapter interface
     """Gains-like vault support.
 
     This covers gToken smart contract based vaults:
@@ -369,33 +344,42 @@ class GainsVault(ERC4626Vault):
         return f"gTrade ({super().name})"
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
-        """Return the maintained strategy tags for this Gains-like vault.
+        """Return strategy tags established for this exact deployment.
 
-        Gains Network gTrade entries are maintained per vault address. Other
-        Gains-like adapters, such as Ostium, return ``None`` unless their
-        address has an explicit classification in the mapping.
+        The review distinguishes official gTrade pools, independently operated
+        forks and deployments whose published strategy is missing.
 
         :return:
-            Copy of the tag set, or ``None`` when this vault has not yet been
-            classified.
+            Copy of the tag set, or ``None`` when this deployment is unclassified.
         """
-        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
+        return get_strategy_tags(self.chain_id, self.address)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Get the official gTrade page for a known gTrade vault.
+        """Return a verified deposit app for this chain and address.
 
-        The matrix distinguishes token-specific pages from the native vault
-        application used for tokens without a published individual route.
-        Gains-like protocols such as Ostium retain the base adapter link.
+        Reviewed forks use their own operator's app. Unconfirmed deployments
+        and unrelated Gains-like protocols retain the base adapter destination.
 
         :param referral:
-            Referral code passed to the base adapter for non-gTrade vaults.
+            Referral code passed to the base adapter when no app was verified.
+        :return:
+            Verified app URL, or the existing base adapter destination.
+        """
+        metadata = lookup_gains_vault_metadata(self.chain_id, self.address)
+        if metadata is not None and metadata.app_url:
+            return metadata.app_url
+        return super().get_link(referral)
+
+    def get_notes(self) -> str | None:
+        """Return reviewed strategy, operator and announcement notes.
+
+        Preserve shared manual notes and warnings before adding protocol-owned
+        information. The scanner persists this result in ``_notes``.
 
         :return:
-            Official gTrade vault URL, or the base adapter URL for another
-            Gains-like protocol.
+            Markdown note, or ``None`` when this deployment has no maintained note.
         """
-        return GTRADE_VAULT_LINK_MATRIX.get(self.address.lower(), super().get_link(referral))
+        return super().get_notes() or format_gains_vault_note(self.chain_id, self.address)
 
     @cached_property
     def vault_contract(self) -> Contract:

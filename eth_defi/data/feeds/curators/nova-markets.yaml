@@ -1,22 +1,52 @@
 feeder-id: nova-markets
 name: Nova Markets
 role: curator
+canonical-feeder-id: nova-markets
 lagoon-curator: Nova Markets
 website: https://nova.markets/
-short_description: Nova Markets is a Hyperliquid-powered platform focused on emerging cryptocurrency markets and trading opportunities.
+short_description: Nova Markets operates a perpetuals trading platform, the Arbitrum Conviction Pool and a separate HyperEVM market-making vault.
 long_description: |
-  Nova Markets presents itself as a Hyperliquid-powered platform focused on emerging cryptocurrency markets. Its official application describes a USDC market-making vault that shares revenue from listed Hyperliquid HIP-3 and HIP-4 markets, with idle capital routed to Felix Finance Morpho vaults. Lagoon Finance lists Nova Markets in its curator API, but the current Lagoon vault API response has no vault association for this curator, so this metadata does not assert a specific Lagoon vault.
+  [Nova Markets](https://nova.markets/) operates a perpetuals trading platform that combines access to Hyperliquid with its own Conviction Markets. Its [Conviction Pool](https://docs.nova.markets/#/conviction-pool) accepts USDC on Arbitrum and supplies counterparty liquidity to Nova's own markets, earning trading and borrowing fees while bearing trader profit-and-loss risk.
+
+  Nova's [contract disclosures](https://docs.nova.markets/#/contracts) identify the Conviction Pool at 0x9cA80193712F372e2ff33A00127292884F6F8598 as a fork of Gains Network contracts with administration controlled by a Nova 2-of-3 multisig. Pool upgrades have a 14-day timelock, while trading-contract changes can use a three-day route or a ten-hour emergency route; market settings and some oracle changes can be made without a delay.
+
+  Nova also acts as the protocol curator for its separate [NLP vault](https://docs.nova.markets/#/nlp-vault), which uses Lagoon infrastructure on HyperEVM to make markets on Hyperliquid order books. NLP depositors receive a share of trading fees and bear the full market-making profit or loss; key management uses Fordefi MPC and valuations and settlement depend on the operator. Nova describes withdrawals as taking up to seven days; this is an operator estimate rather than an onchain settlement deadline.
+
+  Nova's [risk disclosures](https://docs.nova.markets/risks.md) identify operated keepers and oracles. Its audit references cover upstream Gains contracts, and [Lagoon publishes infrastructure audits](https://docs.lagoon.finance/resources/audits); no Nova-specific deployment audit report or attributable public development repository was verified in the 28 October 2026 review.
 
 # Evidence and background references.
 #
-# Nova's official website and application describe the Hyperliquid market-making
-# product. Lagoon's curator catalogue registers Nova Markets under the
-# ``nova-markets`` ID; the curator has no current association in Lagoon's vault
-# catalogue, so no specific vault is represented here.
+# 2026-10-28: Nova's current docs confirm the exact Arbitrum Conviction Pool
+# and distinguish it from the Lagoon NLP vault. Both are attributed to the
+# Nova protocol curator. Canonical Markdown source URLs retain their specific
+# destinations through the feed loader, which strips URL fragments.
+# Security review: Arbitrum Safe threshold and timelocks checked onchain;
+# HyperEVM owner and valuation manager checked onchain. No Nova-specific audit
+# report or official public GitHub development history was verified.
 other-links:
   - title: Nova Markets official website - Hyperliquid-powered emerging markets platform
     url: https://nova.markets/
-  - title: Nova Markets official application - market-making vault on Hyperliquid HIP-3 and HIP-4 markets
+  - title: Nova Markets official application - trading and liquidity products
     url: https://app.nova.markets/
-  - title: Lagoon Finance curator API - Nova Markets registered as nova-markets without a current vault API association
+  - title: Nova contract disclosures - exact Arbitrum Conviction Pool address and administrative control
+    url: https://docs.nova.markets/contracts.md
+  - title: Nova Conviction Pool - strategy, fees, trader PnL and epoch withdrawals
+    url: https://docs.nova.markets/conviction-pool.md
+  - title: Nova NLP - HyperEVM Lagoon vault address, market-making strategy and asynchronous withdrawals
+    url: https://docs.nova.markets/nlp-vault.md
+  - title: Lagoon Finance - Nova NLP vault on HyperEVM
+    url: https://app.lagoon.finance/vault/999/0xEeEd7BB939d65938Fe8f40dd898Cd5942E32f09E
+  - title: Nova liquidity-pool app - official deposit destination for both products
+    url: https://app.nova.markets/earn/liquidity-pools
+  - title: Nova risk disclosures - operated keepers, oracles and centralisation
+    url: https://docs.nova.markets/risks.md
+  - title: Nova pricing - custom oracle network and three-of-five response threshold
+    url: https://docs.nova.markets/pricing.md
+  - title: CertiK Nova profile - no Nova audit report or bug bounty listed at review
+    url: https://skynet.certik.com/zh-CN/projects/nova-markets
+  - title: Lagoon audit index - upstream version-specific infrastructure reports
+    url: https://docs.lagoon.finance/resources/audits
+  - title: Lagoon public development repository - upstream infrastructure rather than Nova development history
+    url: https://github.com/hopperlabsxyz/lagoon-v0
+  - title: Lagoon Finance curator API - Nova Markets curator registration
     url: https://app.lagoon.finance/api/curators

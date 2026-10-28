@@ -192,6 +192,7 @@ Supported protocols
    frankencoin/index
    frax/index
    gains/index
+   nova_markets/index
    gearbox/index
    goat/index
    harvest/index

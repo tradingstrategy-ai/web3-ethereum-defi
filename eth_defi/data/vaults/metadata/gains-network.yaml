@@ -1,26 +1,17 @@
 name: Gains Network
 slug: gains-network
 short_description: |
-  Automated market making vaults for perpetual futures trading on-chain.
+  Counterparty liquidity vaults for gTrade's synthetic leveraged markets.
 long_description: |
-  GToken-based vault smart contracts provide automated market making vaults for perpetual futures
-  purely on-chain. The trading engine uses gToken vaults for all trading pairs, making it over
-  100x more capital efficient than traditional order book approaches.
+  [Gains Network](https://gains.trade/) operates gTrade, a decentralised leveraged-trading platform for crypto, forex, stocks, indices and commodities. Its [gToken vaults](https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults) pool collateral to act as the counterparty to trades instead of maintaining separate order books for each market.
 
-  Known implementations are:
+  Depositors receive tokenised shares and a portion of trading fees. Trader losses build the overcollateralisation buffer; trader profits draw on vault liquidity, and depositor value can fall when the buffer is insufficient. Each vault retains exposure to its collateral asset and to oracle, smart-contract and administrative risks.
 
-  - gTrade, formerly known as Gains protocol and its gToken vaults
-  - Ostium vaults, also known as "Ostium LP" vaults where LP stands for liquidity provider
+  [Withdrawals](https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults/staker-faq) require a request followed by a claim in a designated epoch, with the delay depending on collateralisation. The [December 2022 gToken announcement](https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5) explains the original design; current product documentation takes precedence over historical parameters.
 
-  This Python-based API allows you to automate interactions with these vaults in your application:
-
-  - Discover vaults and their features across multiple chains
-  - Historical data reading: share price, profit, TVL, deposits, redemptions
-  - Deposit into a vault from your application
-  - Redeem from the vault
-  - Query your vault positions
-  - Query vault redemption delays
+  Other operators also use Gains-compatible contracts. Contract compatibility alone does not establish that Gains Network operates a deployment; consult each vault's operator information and notes.
 fee_description: |
+  Vault income includes a share of fees paid by traders. The trader fee schedule and the share allocated to liquidity providers can change; a zero management or performance fee does not imply a guaranteed return or protection from trader PnL losses.
 links:
   homepage: https://gains.trade/
   app: https://gains.trade/vaults
@@ -30,9 +21,7 @@ links:
   defillama: https://defillama.com/protocol/gains-network
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/gains-network
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0
-  - https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
-  -

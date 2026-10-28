@@ -155,6 +155,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
+    # Manual review approved 2026-10-28: concentrated governance, operated
+    # oracles, no verified Nova-specific audit or public development history.
+    "Nova Markets": VaultTechnicalRisk.dangerous,
     "KiloEx": None,
     # Pallas uses verified upgradeable trading-vault proxies. No technical risk
     # level has been assigned yet.
@@ -303,6 +306,11 @@ VAULT_PROTOCOL_RISK_MATRIX = {
 #:
 #: Lower case address mapping to problem vaults
 VAULT_SPECIFIC_RISK = {
+    # Manual Nova risk decision, 2026-10-28. Include both addresses so the
+    # reviewed rating also supersedes stale scan metadata. NLP remains Lagoon.
+    # See vault_protocol/nova_markets/README-Nova-Markets.md for the evidence.
+    "0x9ca80193712f372e2ff33a00127292884f6f8598": VaultTechnicalRisk.dangerous,
+    "0xeeed7bb939d65938fe8f40dd898cd5942e32f09e": VaultTechnicalRisk.dangerous,
     # Kitsune
     # https://arbiscan.io/address/0xe5a4f22fcb8893ba0831babf9a15558b5e83446f#code
     "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultTechnicalRisk.blacklisted,
