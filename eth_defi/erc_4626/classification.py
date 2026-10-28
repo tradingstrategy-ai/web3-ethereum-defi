@@ -2348,7 +2348,7 @@ def create_vault_instance(
 
         return KilnVault(web3, spec, **kwargs)
     elif ERC4626Feature.nova_markets_like in features:
-        from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
+        from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault  # noqa: PLC0415 - Factory loads protocol adapters on demand.
 
         return NovaMarketsVault(web3, spec, **kwargs)
     elif ERC4626Feature.gains_like in features:
