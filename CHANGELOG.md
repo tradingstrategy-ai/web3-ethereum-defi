@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Classify KangCFA and nine other GRVT vaults as high-frequency, high-win-rate strategies following a review of current strategy disclosures and equity curves, preserving their existing tags (2026-10-28).
 - feat: Recognise Ethereum ssftUSD under Flying Tulip with redeemable price history, announcement-linked product notes and a targeted metadata refresh preserving historical data (2026-10-28).
 - feat: Add the sentiment trading and social trading strategy categories and classify all six Centaur Lighter pools, which trade signals extracted from public traders' posts (2026-10-28).
 - fix: Anvil connections made by `create_multi_provider_web3()` return from a send only once the transaction is mined (`AnvilSyncSendMiddleware`: EIP-7966 `eth_sendRawTransactionSync` for raw sends, a 5 ms receipt poll for `eth_sendTransaction`, both bounded at 1 s), and the confirmation helpers poll every 0.05 s on Anvil, because Anvil 1.8 mines asynchronously and every wait slept a full second; the MEV blocker provider routes the sync send methods to its transaction endpoint (2026-10-28).

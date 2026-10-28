@@ -45,8 +45,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/395939919
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live listing still explicitly describes
+    #: high-frequency market making and collecting bid/ask spreads across
+    #: many trades, supporting the high-frequency, high-win-rate category.
     "vlt:2zqttakxz5jkdjuyjpbwudibkbw": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.liquidity_provider,
         StrategyTag.market_making,
         StrategyTag.market_making_clob,
@@ -92,10 +96,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/794368819
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy explicitly identifies
+    #: high-frequency capabilities and numerous smaller algorithmic trades.
+    #: The category describes that execution style, not a measured win rate.
     "vlt:2ztqfqdo7iipsg2ki99glseyfmb": {
         StrategyTag.algorithmic_trading,
         StrategyTag.arbitrage,
         StrategyTag.directional_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.trend_following,
     },
     #: Vault: Rogue Trader Discretionary.
@@ -138,9 +146,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/925359668
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live listing retains the Grid Trading category
+    #: and automated laddered accumulation. Classify its disclosed historical
+    #: grid strategy without changing its hidden/inactive listing status.
     "vlt:328ljdq3lxhyoccqi3mtxhhq5u3": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
     #: Vault: Ignight Inverse-Trend.
@@ -154,10 +166,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1756934834
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live listing still explicitly identifies
+    #: automated grid accumulation at predefined price intervals, supporting
+    #: the high-frequency, high-win-rate strategy category.
     "vlt:32aef5qkjhkibvf8inqq9oqsyep": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
     #: Vault: Grvt Liquidity Provider (GLP).
@@ -169,6 +185,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1463215095
     #: - eth_defi/grvt/vault.py
+    #: - https://help.grvt.io/en/articles/12760192-grvt-liquidity-provider-glp
+    #: - https://grvt.io/blog/grvt-liquidity-provider-glp-what-it-is-and-how-it-works/
+    #: Reviewed: 2026-10-28. Official material confirms market making and
+    #: automated settlement, but not automated trading execution. Retain the
+    #: discretionary classification rather than assuming the algorithmic
+    #: parent required by high_frequency_high_win_rate.
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": {
         StrategyTag.delta_neutral,
         StrategyTag.discretionary_trading,
@@ -198,10 +220,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1804793701
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy describes continuous two-sided
+    #: price-discrepancy capture, inventory rebalancing and fully automated
+    #: decisions, supporting the high-frequency, high-win-rate category.
     "vlt:35j0gsfvpviwtto6hamblg9rexg": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
         StrategyTag.directional_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
     },
@@ -215,10 +241,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1207500521
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy still explicitly describes
+    #: automatic buy/sell grids and AI-selected directional bias. Apply the
+    #: category to that strategy while preserving its hidden/inactive status.
     "vlt:35jpjdfrwaeuj0w7he4wi5vboag": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.multistrategy,
     },
     #: Vault: Adaptive Trend Reversal System (INACTIVE).
@@ -244,8 +274,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1825085055
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy identifies an automated
+    #: market-making system using an n-second mean-reversion window, adaptive
+    #: spreads and micro-hedging, supporting the high-frequency category.
     "vlt:371sgbnors7u71g6wpoo1lrst4p": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
     },
@@ -259,8 +293,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/328543061
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy confirms continuous two-sided
+    #: adaptive quotes, opposite-side hanging orders after each execution and
+    #: repeated spread capture, supporting the high-frequency category.
     "vlt:386cnqkc6tb186ix2mtgayhbfrz": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.liquidity_provider,
         StrategyTag.market_making,
         StrategyTag.market_making_clob,
@@ -289,10 +327,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1789596527
     #: - eth_defi/grvt/vault.py
+    #: - https://tradingstrategy.ai/vaults/kangcfa
+    #: - https://market-data.grvt.io/full/v1/vault_summary_history
+    #: Updated: 2026-10-28. Maintainer-requested high-frequency classification
+    #: for this systematically managed cross-exchange arbitrage vault. The
+    #: current identity and strategy were verified against the live listing;
+    #: its 180-day price history through 2026-10-27 has 96.6% positive non-flat
+    #: days. This curve statistic is not a trade-level win rate.
     "vlt:38exn6urqqrjk6hnypihgxo2oro": {
         StrategyTag.algorithmic_trading,
         StrategyTag.arbitrage,
         StrategyTag.delta_neutral,
+        StrategyTag.high_frequency_high_win_rate,
     },
     #: Vault: Ethereum Moving Average Long/Short.
     #: Added: 2026-08-17.
@@ -346,9 +392,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1141168323
     #: - eth_defi/grvt/vault.py
+    #: Updated: 2026-10-28. The live philosophy still explicitly identifies
+    #: high-frequency gamma-flow scalping as one component of its quantitative
+    #: multistrategy approach, supporting the high-frequency category.
     "vlt:3b9tvtvisaumciyw14znklwgnq3": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.multistrategy,
         StrategyTag.trend_following,
     },
