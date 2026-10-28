@@ -184,6 +184,32 @@ def test_crypto_selection_retains_cleaned_price_schema() -> None:
     assert crypto["id"].tolist() == prices["id"].tolist()
 
 
+def test_liquid_euro_price_selection_retains_eurc() -> None:
+    """Liquid Euro's EURC denomination survives public price selection.
+
+    The Midas payment-token migration replaced synthetic USD with EURC. Its
+    historical price rows must remain eligible while unsupported denominations
+    continue to be excluded.
+    """
+    liquid_euro = VaultSpec(10, "0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13")
+    unsupported = VaultSpec(10, "0x0000000000000000000000000000000000000001")
+    rows = {
+        liquid_euro: _vault_row(10, liquid_euro.vault_address, "EURC"),
+        unsupported: _vault_row(10, unsupported.vault_address, "UNSUPPORTED"),
+    }
+    prices = pd.DataFrame(
+        {
+            "id": [liquid_euro.as_string_id(), liquid_euro.as_string_id(), unsupported.as_string_id()],
+            "share_price": [1.01008104, 1.020319, 1.0],
+        }
+    )
+
+    selected = filter_vaults_by_stablecoin(rows, prices, logger=lambda _message: None)
+
+    assert classify_denomination("EURC") is DenominationFamily.stablecoin
+    pd.testing.assert_frame_equal(selected, prices.iloc[:2])
+
+
 def test_crypto_price_build_filters_native_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The cleaned private Parquet excludes rejected native vaults before publication."""
     stable_spec = VaultSpec(1, "0x0000000000000000000000000000000000000030")

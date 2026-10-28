@@ -248,6 +248,7 @@ STABLECOIN_LIKE = set(
         "DOLADUSD",
         "EOSDT",
         "EURA",
+        "EURC",
         "EURCV",
         "EUROC",
         "EUROe",
@@ -748,6 +749,7 @@ def normalise_token_symbol(token_symbol: str | None) -> str | None:
     - Uppercase
     - Remove bridge suffixes
     - Fix USDT variations
+    - Resolve EURC to the legacy EUROC metadata symbol
 
     :param token_symbol:
         Token symbol as it is written on the contract.
@@ -768,6 +770,10 @@ def normalise_token_symbol(token_symbol: str | None) -> str | None:
 
     if token_symbol in {"USDT0", "USD₮0"}:
         token_symbol = "USDT"
+
+    # Circle renamed EUROC to EURC; retain the existing metadata identity.
+    if token_symbol == "EURC":
+        token_symbol = "EUROC"
 
     return token_symbol
 
