@@ -1,0 +1,47 @@
+symbol: trUSD
+token_symbols:
+  - TRUSD
+name: Tori trUSD
+slug: trusd
+category: stablecoin
+ambiguous_symbol: true
+short_description: trUSD is a token issued by Tori Finance that aims to track one US dollar, with reserves used for short-term lending and trades that seek to profit from price differences.
+long_description: |
+  [Tori Finance](https://tori.finance/) issues trUSD as a token designed to track
+  one US dollar. Its [strategy documentation](https://docs.tori.finance/strategy/overview)
+  describes reserves invested in short-term lending and trades that buy and sell
+  related investments at the same time. These trades seek to earn income from
+  price differences while limiting exposure to broader market movements. Holders
+  can [stake trUSD to receive strUSD](https://docs.tori.finance/products/trusd),
+  a separate token designed to earn variable rewards from those strategies.
+
+  Users in eligible jurisdictions can swap USDC or USDT for trUSD, or sell it
+  back, through the app at market prices. Creating new trUSD directly with Tori
+  (minting) or exchanging it back into USDC or USDT (redemption) requires identity
+  and anti-money-laundering checks and an approved wallet. As at 28 October 2026,
+  Tori's
+  [minting and redemption documentation](https://docs.tori.finance/resources/institutional)
+  lists a 0.1% fee on each minting or redemption operation.
+
+  Selling trUSD depends on available buyers, so the price received can differ
+  from one dollar. Tori's
+  [backing and reserve information](https://docs.tori.finance/solution/backing)
+  describes assets held both onchain and with external custodians. Tori's
+  [risk disclosures](https://docs.tori.finance/resources/risks) cover losses on
+  the backing trades, failures at trading venues or custodians, and smart
+  contract faults that can affect access to funds.
+links:
+  homepage: https://tori.finance/
+  coingecko: https://www.coingecko.com/en/coins/tori-trusd
+  defillama: https://defillama.com/token/TRUSD
+  twitter: https://x.com/tori_finance
+contract_addresses:
+  - chain: ethereum
+    address: '0xd0580192E98eA6CEB9c7b6191Ed2E27560911697'
+source_currency: usd
+source_currency_source: manual
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

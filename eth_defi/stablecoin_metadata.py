@@ -309,6 +309,8 @@ STABLECOIN_LIKE = set(
         "TGBP",
         "TCNH",
         "TOR",
+        "trUSD",
+        "TRUSD",
         "TRYB",
         "TUSD",
         "USC",

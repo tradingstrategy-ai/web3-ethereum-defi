@@ -1,6 +1,6 @@
 ---
 name: clean-up-for-pr
-description: Clean up a completed feature, bug fix or maintained content change before PR handoff. Simplify the patch, correct code and prose, update agent and Sphinx documentation, check AGENTS.md conformance, and obtain an independent cross-agent review.
+description: Clean up a completed feature, bug fix or maintained content change before PR handoff. Simplify the patch, correct code and prose, apply the required writing style guide, update agent and Sphinx documentation, check AGENTS.md conformance, and obtain an independent cross-agent review.
 ---
 
 # Clean up for PR
@@ -73,10 +73,15 @@ the entire patch into context.
    include canonical API links and DataFrame column/value expectations where
    relevant. Replace prose that merely translates the implementation into
    English. Avoid padding simple functions or repeating inherited docstrings.
-6. **Remove AI slop.** Cut filler, hype, unsupported assurances, repetitive
-   summaries, invented labels and comments that add no information. Use concrete
-   language, UK English, `onchain`, and sentence-case headings. Keep manually
-   maintained copy factual, sourced and appropriate to its audience.
+6. **Check the writing style guide (required).** Read and follow the shared
+   [description writing style guide](../../docs/description-writing-style.md)
+   for all added or changed manually maintained narrative text, including public
+   descriptions, notes and metadata. Check the audience, plain language, field
+   formatting, sources and dated claims; remove jargon, filler, hype and
+   repetition. Reuse an earlier style review for unchanged text, but check
+   subsequent substantive edits again. Record completion, the earlier review,
+   or N/A when there are no narrative changes, including in the PR checklist
+   when a PR is requested.
 7. **Obtain an independent review** using the opposite agent as described below.
 
 ## Review with the opposite agent
@@ -122,7 +127,7 @@ focused checks and `git diff --check`. Inspect the final status and patch,
 including staged and untracked files. Do not start a Sphinx build or the whole
 test suite as a cleanup check.
 
-Report the cleanup made, checks run, reviewer and model used, review outcome,
-and any remaining limitations. Keep the repository's required PR description
-format when a PR was requested. Do not claim PR readiness when a required
-review or check remains incomplete.
+Report the cleanup made, checks run, writing-style review status, reviewer and
+model used, review outcome, and any remaining limitations. Keep the repository's
+required PR description format when a PR was requested. Do not claim PR readiness
+when a required review or check remains incomplete.

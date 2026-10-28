@@ -828,6 +828,31 @@ def test_packaged_narausd_metadata_and_rate_target() -> None:
     assert metadata["logos"] == {"light": "https://pub.example/stablecoin-metadata/narausd/light.png"}
 
 
+def test_packaged_trusd_classification_and_contract_rate_lookup() -> None:
+    """Recognise Tori in both cleaner and metrics paths without confusing issuers.
+
+    Cleaning uses the onchain symbol, while flow estimation checks the normalised
+    symbol. Rate lookup must require Tori's verified address because Reservoir
+    also describes a token named trUSD.
+    """
+    address = "0xd0580192E98eA6CEB9c7b6191Ed2E27560911697"
+    feeder = StablecoinRateFeeder()
+    metadata = load_all_stablecoin_metadata()
+
+    assert is_stablecoin_like("trUSD") is True
+    assert is_stablecoin_like(normalise_token_symbol("trUSD")) is True
+    assert metadata["TRUSD"] == metadata["trUSD"]
+
+    for symbol in ("trUSD", "TRUSD"):
+        rate = feeder.get_denomination_token_rate_section(1, address, symbol)
+        assert rate.coingecko_id == "tori-trusd"
+        assert rate.source_currency == "usd"
+
+        unrelated = feeder.get_denomination_token_rate_section(1, "0x0000000000000000000000000000000000000001", symbol)
+        assert unrelated.coingecko_id is None
+        assert unrelated.source_currency is None
+
+
 def test_packaged_pathusd_metadata_and_rate_target() -> None:
     """pathUSD metadata preserves its Tempo contract and manual USD denomination.
 
