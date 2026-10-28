@@ -15,7 +15,7 @@ from web3 import HTTPProvider, Web3
 from eth_defi.chain import install_chain_middleware
 from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
-from eth_defi.middleware import static_call_cache_middleware
+from eth_defi.middleware import AnvilSyncSendMiddleware, static_call_cache_middleware
 from eth_defi.provider.anvil import _get_anvil_launch_metadata, is_anvil
 from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
@@ -504,6 +504,11 @@ def create_multi_provider_web3(
         # When running against local testing,
         # we need to disable block tip latency hacks
         set_block_tip_latency(web3, 0)
+
+        # Anvil 1.8 mines asynchronously; send through the EIP-7966 sync
+        # methods so a send returns only once its transaction is mined.
+        # Innermost layer, so the signing middleware's raw sends pass through it.
+        web3.middleware_onion.inject(AnvilSyncSendMiddleware, name="anvil_sync_send", layer=0)
 
     return web3
 

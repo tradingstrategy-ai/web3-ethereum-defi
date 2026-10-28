@@ -30,6 +30,9 @@ from eth_defi.rpc_url import register_rpc_url
 TRANSACT_METHODS = (
     "eth_sendTransaction",
     "eth_sendRawTransaction",
+    # EIP-7966 synchronous sends, used by eth_defi.middleware.AnvilSyncSendMiddleware
+    "eth_sendTransactionSync",
+    "eth_sendRawTransactionSync",
 )
 
 

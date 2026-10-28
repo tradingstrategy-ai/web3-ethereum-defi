@@ -38,6 +38,11 @@ from eth_defi.utils import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
+#: Receipt poll interval on Anvil. Anvil mines in milliseconds, and with
+#: :py:class:`eth_defi.middleware.AnvilSyncSendMiddleware` a send returns only
+#: once mined, so a longer sleep is pure waiting.
+ANVIL_POLL_DELAY = datetime.timedelta(seconds=0.05)
+
 
 class BroadcastFailure(Exception):
     """Could not broadcast a transaction for some reason."""
@@ -191,6 +196,9 @@ def wait_transactions_to_complete(
 
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
+
+    if is_anvil(web3):
+        poll_delay = min(poll_delay, ANVIL_POLL_DELAY)
 
     logger.info("Waiting %d transactions to confirm in %d blocks, timeout is %s", len(txs), confirmation_block_count, max_timeout)
 
@@ -1017,6 +1025,7 @@ def wait_and_broadcast_multiple_nodes(
     if anviled:
         # Keep the visibility deadline short on Anvil so unit tests remain fast.
         inter_node_delay = datetime.timedelta(seconds=0.5)
+        poll_delay = min(poll_delay, ANVIL_POLL_DELAY)
 
     for tx in txs:
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
@@ -1063,6 +1072,7 @@ def wait_and_broadcast_multiple_nodes(
             used_nonces.add(nonce)
 
     started_at = native_datetime_utc_now()
+    last_anvil_mine_at = 0.0
 
     receipts_received = {}
 
@@ -1185,9 +1195,11 @@ def wait_and_broadcast_multiple_nodes(
                     raise e
 
             logger.info("We have still unconfirmed %d txs, sleeping %s", len(unconfirmed_txs), poll_delay.total_seconds())
-            if anviled:
-                # Anvil hack on failing to get receipts
+            if anviled and time.monotonic() - last_anvil_mine_at >= 1.0:
+                # Anvil hack on failing to get receipts. At most once a second,
+                # as the Anvil poll delay is short and each call mines a block.
                 mine(web3)
+                last_anvil_mine_at = time.monotonic()
             time.sleep(poll_delay.total_seconds())
 
             if native_datetime_utc_now() > started_at + max_timeout:

@@ -60,7 +60,8 @@ from eth_defi.utils import get_url_domain, is_localhost_port_listening
 logger = logging.getLogger(__name__)
 
 #: Transaction lookups by hash that a forked Anvil forwards upstream for every
-#: transaction it has not mined yet. See :py:attr:`RPCProxyConfig.hedged_methods`.
+#: transaction it has not mined yet. See :py:attr:`RPCProxyConfig.local_null_methods`
+#: and :py:attr:`RPCProxyConfig.hedged_methods`.
 TRANSACTION_LOOKUP_METHODS: frozenset[str] = frozenset({"eth_getTransactionReceipt", "eth_getTransactionByHash"})
 
 
@@ -243,17 +244,32 @@ class RPCProxyConfig:
     #: reads that the committed fork cache seeds also cover.
     unsupported_methods: frozenset[str] = frozenset({"eth_getAccountInfo", "anvil_nodeInfo", "eth_getBlockAccessList"})
 
-    #: JSON-RPC methods sent to every upstream at once, answering with the
-    #: first successful reply. Empty by default.
+    #: JSON-RPC methods the proxy answers itself with ``"result": null``
+    #: instead of forwarding. Empty by default.
     #:
     #: Anvil >= 1.8 mines automined transactions asynchronously and asks the
     #: fork upstream for any receipt or transaction it has not mined yet, in
     #: case the hash predates the fork. Every receipt poll that races the
     #: local miner therefore becomes an upstream lookup of a hash that does
     #: not exist there. Some providers answer such misses slowly (Goldsky
-    #: Arbitrum took 2.3-2.6 s against 0.05-0.2 s elsewhere on 2026-10-27),
-    #: which added seconds to every transaction in fork tests, so the Anvil
-    #: launch code sets :py:data:`TRANSACTION_LOOKUP_METHODS` here.
+    #: took 6 s on Ethereum and 2.3-2.8 s on Arbitrum against 0.05 s elsewhere
+    #: on 2026-10-27), which added seconds to every transaction in fork tests.
+    #:
+    #: A test's transactions can only be mined by the fork itself, so the
+    #: Anvil launch code sets :py:data:`TRANSACTION_LOOKUP_METHODS` here and
+    #: Anvil treats every unknown hash as unmined without an upstream round
+    #: trip. The cost is that a transaction mined before the fork block cannot
+    #: be read through the fork; a test that needs one passes its own
+    #: :py:class:`RPCProxyConfig` to :py:func:`eth_defi.provider.anvil.launch_anvil`.
+    #: Do not enable this for live-chain traffic.
+    local_null_methods: frozenset[str] = frozenset()
+
+    #: JSON-RPC methods sent to every upstream at once, answering with the
+    #: first successful reply. Empty by default.
+    #:
+    #: An alternative to :py:attr:`local_null_methods` for the same Anvil
+    #: >= 1.8 transaction lookups when pre-fork transactions must stay
+    #: readable: the fastest provider answers a miss in about 0.05 s.
     #:
     #: The first reply wins, so a lagging upstream answering ``null`` for an
     #: existing transaction could hide it; do not enable this for live-chain
@@ -488,6 +504,13 @@ class _ProxyRequestHandler(BaseHTTPRequestHandler):
             # Answer locally so Anvil falls back to legacy methods; see the
             # RPCProxyConfig.unsupported_methods docstring.
             response_body = orjson.dumps({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"the method {method} does not exist/is not available"}})
+            self._send_json_response(200, response_body)
+            return
+
+        if method in self.server.config.local_null_methods:
+            # The hash can only be one of the fork's own, not yet mined,
+            # transactions; see the RPCProxyConfig.local_null_methods docstring.
+            response_body = orjson.dumps({"jsonrpc": "2.0", "id": request_id, "result": None})
             self._send_json_response(200, response_body)
             return
 
