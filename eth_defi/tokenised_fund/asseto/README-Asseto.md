@@ -7,6 +7,12 @@ published independently of an ERC-4626 conversion function.
 
 ## Registry and metadata
 
+For one-off metadata, registry or historical-data repairs, use the
+[numbered migration guide](../../../.claude/docs/migration-scripts.md). The standalone
+`migrate-asseto-royalty-vault.py` format is legacy and must not be used for
+these tasks anymore; reuse the required helper through a new numbered script.
+Normal registry imports and scheduled NAV collection retain their entry points.
+
 IP Vault on Soneium is a separate, hardcoded RoyaltyVault variant under the
 Asseto label. `royalty.py` reads its onchain valuation methods without adding
 protocol detection probes. It remains under verification, has unknown technical

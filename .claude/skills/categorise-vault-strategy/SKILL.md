@@ -117,25 +117,25 @@ address-to-tag mapping next to its vault protocol adapter.
    `perpetual_futures` tag and an address-specific tag added by its mapping.
    Format modified Python files and run the focused test.
 
-6. Schedule the production database migration.
+6. Add a numbered migration for the persisted strategy tags.
 
-   - Do not update `~/.tradingstrategy/vaults/vault-metadata-db.pickle` on a
-     local development machine as part of this workflow. The pickle is a
-     materialised cache; the resolver and focused tests are the source-controlled
-     change.
-   - After opening the pull request, post the production migration instructions
-     below as a pull-request comment. The operator must run them only after the
-     code is merged and deployed.
-   - Stop the persistent scanner before the migration so it cannot overwrite
-     the metadata pickle. Run the dry run, inspect its output, then apply the
-     migration and restart the scanner:
-
-     ```shell
-     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
-     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
-     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-     ```
+   - Read the [migration documentation](../../docs/migration-scripts.md).
+     Standalone repair scripts are **legacy format and must not be used** for
+     this task. The retired `migrate-vault-strategy-tags.py` command is not a
+     production entry point.
+   - Allocate a new `migration/scripts/NNN-name.py` for this tag change, even
+     if initial migration 008 has already run. Successful numbered scripts are
+     immutable and skipped; never reuse 008 as an ongoing refresh command.
+   - Reuse `collect_strategy_tag_updates()` from
+     `eth_defi/vault_protocols/repairs/strategy_tags.py` against
+     `context.metadata()`, stage only `_strategy_tags`, report counts and call
+     `context.commit_metadata()`. Do not acquire locks in the helper.
+   - Keep metadata writes out of authoring; use isolated snapshots for preview
+     and tests when authorised. Do not apply to production while categorising.
+   - When a PR is requested, add a **Run after merge** comment following the
+     migration guide. Stop the daemon and competing writers before both preview
+     and apply, use the production host launcher for the full pending batch,
+     then restart the same inspected image for cleaning, exports and uploads.
 
 ## Chat output
 

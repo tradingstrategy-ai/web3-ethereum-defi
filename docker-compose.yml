@@ -223,6 +223,8 @@ services:
     restart: unless-stopped
     entrypoint: [ "python", "scripts/erc-4626/scan-vaults-all-chains.py" ]
     environment:
+      # Hold the lifecycle guard even if LOOP_INTERVAL_SECONDS is accidentally zero.
+      VAULT_SCANNER_DAEMON: "true"
       LOOP_INTERVAL_SECONDS: ${LOOP_INTERVAL_SECONDS:-3600}
       SCAN_CYCLES: ${SCAN_CYCLES:-Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,Hibachi=4h,ApeX=4h,Derive V3=24h,Core3=24h}
       DEFAULT_CYCLE: ${DEFAULT_CYCLE:-24h}

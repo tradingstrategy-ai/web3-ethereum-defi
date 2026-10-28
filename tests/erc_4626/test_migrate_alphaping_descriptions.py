@@ -29,7 +29,7 @@ def migration() -> ModuleType:
 
     :return: Importable migration module.
     """
-    path = Path(__file__).resolve().parents[2] / "scripts" / "erc-4626" / "migrate-alphaping-descriptions.py"
+    path = Path(__file__).resolve().parents[2] / "eth_defi" / "vault_protocols" / "repairs" / "alphaping.py"
     spec = importlib.util.spec_from_file_location("migrate_alphaping_descriptions", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

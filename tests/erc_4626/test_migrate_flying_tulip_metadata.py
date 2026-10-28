@@ -27,7 +27,7 @@ def migration(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     :return:
         Imported, network-isolated migration module.
     """
-    path = Path(__file__).resolve().parents[2] / "scripts/erc-4626/migrate-flying-tulip-vault-metadata.py"
+    path = Path(__file__).resolve().parents[2] / "eth_defi/vault_protocols/repairs/flying_tulip.py"
     spec = importlib.util.spec_from_file_location("migrate_flying_tulip_metadata", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

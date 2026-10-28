@@ -22,7 +22,7 @@ EXPECTED_REVIEWED_ROWS = 24
 @pytest.fixture
 def migration() -> ModuleType:
     """Load the operational script without invoking its entrypoint."""
-    script = Path(__file__).resolve().parents[2] / "scripts/erc-4626/migrate-gtrade-metadata.py"
+    script = Path(__file__).resolve().parents[2] / "eth_defi/vault_protocols/repairs/gtrade.py"
     spec = importlib.util.spec_from_file_location("migrate_gtrade_metadata", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

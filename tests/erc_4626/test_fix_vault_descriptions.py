@@ -18,7 +18,7 @@ def repair_module() -> ModuleType:
     :return:
         Module exposing the repair function and environment-driven entrypoint.
     """
-    script = Path(__file__).resolve().parents[2] / "scripts" / "erc-4626" / "fix-vault-descriptions.py"
+    script = Path(__file__).resolve().parents[2] / "eth_defi" / "vault_protocols" / "repairs" / "descriptions.py"
     spec = importlib.util.spec_from_file_location("fix_vault_descriptions", script)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

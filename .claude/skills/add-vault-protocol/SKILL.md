@@ -82,8 +82,16 @@ A new vault protocol integration is not complete unless it includes:
   the frontend's dark backgrounds
 - Vault documentation and API documentation entries
 - Focused tests for the new protocol
-- A generated protocol-specific historical lead migration script that preserves
-  unrelated vault database, reader-state and Parquet entries
+- A numbered migration for the required historical lead/data repair, following
+  the [migration documentation](../../docs/migration-scripts.md), preserving
+  unrelated metadata, reader state, prices and timestamp caches
+
+Standalone `migrate-<protocol>-vaults.py` and one-off `backfill-history.py`
+entrypoints are **legacy format and must not be used** for these repairs.
+Add `migration/scripts/NNN-name.py` with `migrate(context)` and use the unified
+runner. Reuse historical-reader helpers where a backfill is actually required;
+helpers must not reacquire the runner's locks. Include the guarded production
+launcher commands and expected results in a **Run after merge** PR comment.
 
 ## Strategy tags
 

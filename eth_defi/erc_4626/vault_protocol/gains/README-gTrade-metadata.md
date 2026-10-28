@@ -93,32 +93,11 @@ publisher pages. No separately dated Nova pool launch post was found.
 
 ## Refresh existing metadata
 
-**Run after merge and deployment:** repository changes do not update the
-production pickle or public JSON automatically. The repair has not run on
-production. Inspect the deployed `docker-compose.yml` first. The profile-only
-`vault-scanner-oneshot` normally inherits a scan entrypoint, so every maintenance
-command below explicitly overrides it. All commands retain the production
-`~/.tradingstrategy` mount.
+Migration `003-gtrade-metadata.py` refreshes the frozen inventory of 24 Gains-family deployments, excluding Nova, which migration 002 repairs first.
 
-Run the Nova migration first as described in its README. Then use the same
-stopped-scanner maintenance window for the remaining 24 reviewed deployments:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-gtrade-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-gtrade-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-gtrade-metadata.py')
-```
-
-Expected: 24 reviewed deployments, with `present + absent = 24`. Absent
-historical rows are reported and never created. Existing rows change only
-`Link`, `_notes`, `_strategy_tags` and `_curator_slug`. A successful final dry
-run reports `changed=0`. An apply run takes the shared writer lock, creates an
-unused `.bak-gtrade-metadata` sibling backup and atomically replaces the pickle.
-Unchanged runs create no backup or replacement. Conflicting protocol or
-detection identities abort before writing.
-
-No network reads or historical scans are performed by this repair. Raw prices,
-cleaned prices, leads, scan boundaries, reader state and timestamp caches remain
-unchanged. Continue with the metadata/JSON export and restart instructions in
-the Nova README, and record the deployed commit, UTC date and outcome when the
-production operator performs the run.
+Use the [numbered migration guide](../../../../.claude/docs/migration-scripts.md) for preview, apply, backups and
+recovery. The former standalone command is retired and its format is legacy.
+Use a new numbered migration for later repairs. Production must stop the
+daemon before previews as well as writes and use the host launcher. Restart
+the same inspected image afterwards for normal cleaning, exports and uploads.
+No historical backfill or reader-state reset is needed.

@@ -26,59 +26,23 @@ Accountable summaries share the same first-sentence logic.
 The public JSON exporter also applies both rules to every published vault,
 including reused sticky records and native vault records that bypass the
 ERC-4626 scanner.
-`scripts/erc-4626/fix-vault-descriptions.py` repairs existing rows across all
+Migration `009-normalise-vault-descriptions.py` repairs existing rows across all
 protocols without fetching new data. It changes only `_description` and
 `_short_description`; full descriptions retain every sentence. It preserves
 notes, all other metadata and scanning state.
 Rerunning an applied repair makes no further changes.
 
-## Local inspection
+## Apply the repair
 
-Use `VAULT_DB_PATH` to inspect a copy of the metadata pickle. Dry-run mode is
-the default and reports the exact before/after text with escaped line breaks:
+Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for local previews and production
+rollout. Set `PIPELINE_DATA_DIR` to an isolated copy directory for local checks.
+The former `fix-vault-descriptions.py` command is retired. Its standalone
+format is legacy; use a new numbered migration for later repairs. The unified command
+runs all pending repairs, with description normalisation last. Stop the daemon
+and competing writers before either preview or apply.
 
-```shell
-VAULT_DB_PATH=/path/to/copy/vault-metadata-db.pickle DRY_RUN=true poetry run python scripts/erc-4626/fix-vault-descriptions.py
-```
-
-## Production rollout
-
-Run these commands on the scanner host after the change has been merged and
-the production checkout at `~/vault-scanner/web3-ethereum-defi` updated to the
-merged revision. Inspect its `docker-compose.yml` before maintenance. Build
-the version-stamped image through the repository wrapper:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && scripts/build-container.sh)
-```
-
-Stop the persistent scanner before inspecting and applying the repair, so it
-cannot overwrite the repaired pickle. The overridden entrypoint runs only the
-repair script, with historical price scanning explicitly disabled. The service
-retains its normal mounted `/root/.tradingstrategy` production state.
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'SCAN_PRICES=false DRY_RUN=true python scripts/erc-4626/fix-vault-descriptions.py')
-```
-
-Review the reported changes, then apply and check that a second dry run reports
-zero changed fields:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'SCAN_PRICES=false DRY_RUN=false python scripts/erc-4626/fix-vault-descriptions.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'SCAN_PRICES=false DRY_RUN=true python scripts/erc-4626/fix-vault-descriptions.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
-
-The next normal scanner post-processing pass must regenerate and upload the
-public top-vaults JSON. Keep `SKIP_POST_PROCESSING` and `SKIP_TOP_VAULTS` disabled
-in the production configuration. Watch the scanner logs for successful export
-and upload before checking the
-[Nest vault page](https://tradingstrategy.ai/vaults/nest-blackopal-liquidstone-ii-vault-6)
-and [Coinshift vault page](https://tradingstrategy.ai/vaults/coinshift-leveraged-uspc).
-The metadata repair alone does not refresh the public export or website caches.
-
-If the repair fails, leave the metadata unchanged, investigate the error and
-restart the scanner when maintenance ends. Do not reset reader state or rescan
-historical prices to repair display text.
+After applying, restart the same inspected scanner image. Its normal cleaning,
+exports and uploads publish the repaired descriptions. A successful journal
+entry is skipped on subsequent runs; future normalisation changes need a new
+numbered migration. Do not reset reader state or rescan historical prices to
+repair display text.

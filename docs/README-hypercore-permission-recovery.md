@@ -14,7 +14,14 @@ a later genuine response that clears closure allows a new bulk denial record. Pr
 
 ## Recovery script
 
-Use `scripts/hyperliquid/recover-permissions.py`. **`DRY_RUN` is the only
+The standalone repair and one-off backfill entrypoints documented here are
+**legacy format and must not be used for new repair or refresh tasks**. Follow
+the [numbered migration guide](../.claude/docs/migration-scripts.md) and port the reviewed operation into
+`migration/scripts/NNN-name.py` before running it. The implementation details
+and old commands below are historical references; read-only examination tools
+remain usable.
+
+The legacy implementation is `scripts/hyperliquid/recover-permissions.py`. **`DRY_RUN` is the only
 migration-specific input.** The script handles both daily and HF databases in
 the normal pipeline directory, `~/.tradingstrategy/vaults`. It automatically
 selects available scanner snapshots dated 2026-09-29 through 2026-10-05,
@@ -139,10 +146,17 @@ namespaces. Changing the export prefix with the same namespace does not reset th
 
 ## Production maintenance order
 
-From the host checkout `/root/vault-scanner/web3-ethereum-defi`, use the merged
-code and rebuild the image with `scripts/build-container.sh`. Stop the database
-owners, optionally make an additional full-directory backup, and open a
-maintenance shell with the production state mounted:
+**Legacy procedure, retained as historical reference only.** Do not run the
+standalone commands below for a new repair. Port the reviewed operation into
+a new numbered migration and use the guarded host launcher described in the
+[migration guide](../.claude/docs/migration-scripts.md). Stop all database
+owners before both preview and apply: `vault-scanner-looped`, `post-scanner`,
+any running `vault-scanner-oneshot` and separate host/cron writers. Restart the
+previously running services using the same inspected image afterwards.
+
+The historical procedure rebuilt the merged code from the host checkout at
+`/root/vault-scanner/web3-ethereum-defi`, stopped the database owners and opened
+a maintenance shell with the production state mounted. Its commands were:
 
 ```shell
 source /root/vault-scanner/vault-rpc.env
@@ -151,7 +165,7 @@ cp -r /root/.tradingstrategy "/root/.tradingstrategy-backup-$(date -u +%Y%m%d-%H
 docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot
 ```
 
-Inside that shell:
+Historical commands inside that shell:
 
 ```shell
 DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
@@ -227,6 +241,12 @@ server copies prevent selecting a mixed generation.
 
 ## Restore leader shares and policy caps
 
+`recover-leader-shares.py` is also **legacy standalone migration format**.
+Do not use its direct preview/apply commands below for a new repair; they are
+historical references. Follow the
+[numbered migration guide](../.claude/docs/migration-scripts.md), reusing the
+required recovery helper through a new numbered script and the host launcher.
+
 [Issue #1633](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1633)
 repairs historical policy inputs removed by the original permission migration.
 The collector records the leader fraction and derived policy cap from each
@@ -236,7 +256,8 @@ this trading-policy block is separate from venue closure. An explicit archived
 zero also survives when its share input is unavailable. Missing values remain
 NULL, and a genuinely newer unknown response clears older projected inputs.
 
-Inside the mounted maintenance container, with both database owners stopped:
+Historical commands inside the mounted maintenance container, with both
+database owners stopped:
 
 ```shell
 DRY_RUN=true poetry run python scripts/hyperliquid/recover-leader-shares.py

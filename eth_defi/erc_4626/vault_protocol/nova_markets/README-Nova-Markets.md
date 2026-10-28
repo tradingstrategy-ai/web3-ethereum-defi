@@ -271,64 +271,24 @@ submitted only to the local fork. The test is automatically runnable wherever
 
 ## Production migration reminder
 
-**Run after merge and deployment.** Neither production maintenance nor public
-publication has been performed by this change. Record the UTC date, deployed
-commit, command result and validation result after the operator runs it.
+**Run after merge and deployment.** Follow the [numbered migration guide](../../../../.claude/docs/migration-scripts.md)
+to stop the daemon, preview and apply the full pending batch through the host
+launcher, then restart the same inspected image for cleaning, exports and uploads.
+Record the UTC date, deployed commit, command result and validation result.
+The former standalone Nova command is retired and its format is legacy.
+Use a new numbered migration for later repairs.
 
-First inspect production `docker-compose.yml` and verify the image contains
-this code. `vault-scanner-looped` is the persistent writer. The profile-only
-`vault-scanner-oneshot` otherwise inherits the scanner image's one-shot scan
-entrypoint; the explicit overrides below run maintenance instead. All commands
-retain the host `~/.tradingstrategy` mount. Keep the production environment and
-existing pipeline data directory.
+Migration 002 repairs exactly the reviewed Arbitrum row. It fails for a missing
+row or conflicting protocol/detection identity. It preserves manual flags,
+manager enrichment, risk overrides, first-seen blocks, event counts, leads,
+per-chain scan boundaries, historical prices, compatible reader state and
+all timestamp caches. Migration 003 refreshes the other 24 Gains deployments.
 
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-nova-markets-vaults.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-nova-markets-vaults.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-nova-markets-vaults.py')
-```
-
-Expected scope: exactly one existing Arbitrum row. Missing rows or conflicting
-protocol/detection identities fail before writing. The final dry run must
-report `changed fields=none`. Apply takes the shared writer lock, creates an
-unused `.bak-nova-markets` sibling backup and atomically replaces the metadata
-pickle. Unchanged reruns create no replacement or backup.
-
-The repair updates the name, protocol, slug, feature columns, detection feature,
-app, descriptions, notes, tags, curator, withdrawal timing and public manager
-capability. It preserves existing manual flags, manager enrichment, risk
-overrides, first-seen blocks, event counts, all leads and per-chain scan
-boundaries. It neither scans nor rewrites historical price Parquet, reader
-state, lead-discovery cache documents or timestamp caches. Existing leads are
-classified with the new exact-address rule on subsequent discovery runs.
-
-During the same stopped-scanner window, optionally apply the reviewed
-[gTrade metadata refresh](../gains/README-gTrade-metadata.md) for its 24 other
-deployments. Then publish metadata and regenerate the public JSON using the
-existing cleaned prices:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'REFRESH_STABLECOIN_RATES=false python scripts/erc-4626/export-protocol-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'python -c "from eth_defi.vault.post_processing import export_top_vaults_json; assert export_top_vaults_json()"')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
-
-The repair itself requires no RPC credentials. Publication requires the usual
-`R2_VAULT_METADATA_*` and `R2_TOP_VAULTS_*` production settings and existing
-cleaned prices. If publication fails, retain the backup and inspect the failure;
-restart the scanner after the maintenance window rather than leaving it stopped.
-
-Validate the exported row by its chain/address, since renaming the vault can
-change its generated website slug. It must show `protocol: Nova Markets`,
+Validate the exported row by chain/address: `protocol: Nova Markets`,
 `protocol_slug: nova-markets`, `features: nova_markets_like`, curator
-`nova-markets`, the Nova app link and the Conviction Pool strategy note. The
-public curator should include the researched profile, and Gains Network's
-vault listing should no longer include this pool. Raw price row counts and
-reader-state files must remain unchanged.
+`nova-markets`, the Nova app link and the Conviction Pool strategy note.
+Price row counts and reader-state files must remain unchanged by migrations.
 
-The same JSON export also applies the Nova NLP curator override directly;
-no metadata repair, RPC refresh or rescan is required for that existing Lagoon
-row. Validate chain 999/address `0xeeed7bb939d65938fe8f40dd898cd5942e32f09e`
-has `protocol_slug: lagoon-finance`, `curator_slug: nova-markets` and
-`protocol_curator: true`.
+The normal export also applies the NLP curator override at chain 999/address
+`0xeeed7bb939d65938fe8f40dd898cd5942e32f09e`: `protocol_slug: lagoon-finance`,
+`curator_slug: nova-markets` and `protocol_curator: true`. It needs no price rescan.

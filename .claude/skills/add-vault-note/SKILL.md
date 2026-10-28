@@ -52,6 +52,19 @@ Add the vault address `VAULT_FLAGS_AND_NOTES`
   should check to decide
 - Add an extensive line comment above the entry, as the *Instructions for adding entries* in the `flag.py` module docstring require: the vault name, protocol and chain, the date, what is wrong and why this flag, and canonical source URLs (the tradingstrategy.ai vault page, the block explorer page, and any announcement or incident report). A bare address or a name-only comment is not enough
 
+## Persisted metadata refresh
+
+New or changed flags require a numbered refresh of existing rows: export reads
+the stored `_flags` and does not recompute them from the manual table. Only
+note-only changes can rely on the current manual notes being resolved during
+export; document when that makes a migration unnecessary. Cached descriptions
+and other persisted fields also need a numbered repair when they must be
+refreshed. Follow the [migration documentation](../../docs/migration-scripts.md)
+and use the reviewed chain/address and fields in a new script.
+Standalone `fix-*.py` and `migrate-*.py` repairs are **legacy format and must
+not be created or run** for this task. Use the unified runner and include its
+production run reminder; do not mutate the local database during authoring.
+
 ## 3. Format code
 
 Run ruff to make sure Python code is formatted.

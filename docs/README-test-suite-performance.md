@@ -502,9 +502,13 @@ Implemented on top of the plan above:
   state.
 - **GMX CI cap.** `test-gmx.yml` runs the full suite (including the slow
   order-execution / vault-deploy files that fork per test + simulate the keeper
-  with sleeps) whenever GMX files change — the workflow's `paths:` filters
-  already gate it to `eth_defi/gmx/**` / `tests/gmx/**`, so no time-based
-  schedule is needed. The job cap is 15 min — if the order-execution suite
+  with sleeps) when GMX code, tests or fixtures change. Both PRs and master
+  pushes are gated to `eth_defi/gmx/**`, `tests/gmx/**`, `eth_defi/abi/gmx/**`
+  and the GMX guard libraries (`GmxLib.sol`, `IGmxV2.sol`), excluding Markdown,
+  reStructuredText and `eth_defi/gmx/media/**`. Unrelated shared helpers,
+  dependencies and workflow-only edits do not start the suite automatically.
+  Use the `run-gmx-tests` PR label or manual dispatch for an explicit run.
+  The job cap is 15 min — if the order-execution suite
   exceeds it, fix those tests, do not raise the cap.
 
 Remaining backlog (audited, not yet done — needs a validating CI/test run):

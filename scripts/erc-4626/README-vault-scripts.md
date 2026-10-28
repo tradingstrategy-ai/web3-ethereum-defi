@@ -1,5 +1,11 @@
 # ERC-4626 vault scripts
 
+For new database repairs, use the [numbered migration system](../../.claude/docs/migration-scripts.md).
+The `vault-migrate` command lists, previews and applies pending scripts in order.
+Both preview and apply require `vault-scanner-looped` to be stopped, including
+its sleep intervals. Production uses `scripts/run-vault-migrations.sh`.
+
+
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 
 All scripts use environment variables for configuration.
@@ -7,117 +13,64 @@ Run with `poetry run python scripts/erc-4626/<script>.py`.
 
 ## Instructions for migration scripts
 
-Vault migration scripts are one-off operational tools used to bring existing
-production data in line with a new or corrected protocol integration. They are
-not recurring scanner entry points and must not become a second implementation
-of the normal vault pipeline.
+Read the [migration documentation](../../.claude/docs/migration-scripts.md)
+before implementing or running a one-off database repair, data/schema
+migration, historical lead repair or refresh of persisted Python accessor data.
+The supported format is `migration/scripts/NNN-name.py`, exporting
+`migrate(context: MigrationContext) -> None`, executed by `vault-migrate`.
 
-A protocol migration is usually a one-off script with two functions:
+**Standalone `migrate-*.py`, `fix-*.py` and one-off backfill scripts are legacy
+format and must not be used for these tasks anymore.** Do not generate another
+`migrate-<protocol>-vaults.py`, copy an old repair or invoke a legacy script to
+bypass the migration runner. Port the required operation into a new numbered
+migration, reusing pure transformation or historical-reader helpers as needed.
 
-1. **Fix current metadata.** Discover or select the reviewed vaults, then add or
-   repair only their rows in `vault-metadata-db.pickle`. Preserve unrelated
-   rows, manual enrichment, price data and reader state. Metadata writes must
-   be atomic or committed in resumable batches.
-2. **Backfill historical data.** Reconstruct the protocol's historical price,
-   TVL or contextual observations and write only the selected vault histories
-   through the common historical-data writers. Preserve unrelated Parquet
-   rows, the production timestamp caches and reader state unless an explicit
-   reader-state migration is the purpose of the script.
+- Allocate the next unused counter. The initial 001–009 batch is a historical
+  batch, not a set of commands to rerun for later accessor changes.
+- Freeze the reviewed targets and fields. `DRY_RUN` is the only
+  migration-specific operator input; credentials, worker limits and storage
+  remain infrastructure configuration.
+- Use the shared context for staged metadata, structured reporting and commits.
+  Preview must preserve databases, caches and the journal. Apply must retain
+  recovery evidence and validate committed data.
+- Preserve unrelated metadata, leads, historical prices, timestamp caches and
+  reader state. Add a historical backfill or reader-state change only when the
+  reviewed migration explicitly requires it.
+- Both preview and apply require the daemon and competing writers to be
+  stopped. Use `scripts/run-vault-migrations.sh` in production and follow the
+  documented lifecycle-guard-before-writer-lock order; helpers must not relock.
 
-For a newly added protocol, prefer a single, plainly named entry point such as
-`migrate-<protocol>-vaults.py` that runs the metadata repair and historical
-backfill in order. Keep the two operations as separate functions inside the
-script so their responsibilities remain clear and they can be tested
-independently. Use multiple scripts only when the stages have materially
-different operational requirements or need to be deployed and run separately;
-document the reason for the exception. A protocol that needs only one function
-must likewise document why the other is unnecessary.
+For local authoring checks, set `PIPELINE_DATA_DIR` to an isolated snapshot
+directory, then use:
 
-### Migration interface
+```shell
+poetry run vault-migrate list
+DRY_RUN=true poetry run vault-migrate run
+DRY_RUN=false poetry run vault-migrate run
+```
 
-Ideally, `DRY_RUN` is the only migration-specific input exposed to the
-operator. Use an environment variable, not a command-line argument parser:
-
-- `DRY_RUN=true` must make no persistent changes. It should use isolated
-  temporary output files or produce a fully non-mutating plan that exercises
-  as much of the real discovery and reading path as practical.
-- `DRY_RUN=false` applies the exact reviewed migration scope. A new one-off
-  migration should default to dry-run mode unless there is a documented reason
-  not to do so.
-- Chains, addresses, factories, start blocks, end-block policy, frequency and
-  target columns should normally be reviewed constants in the script, not
-  operator-selectable migration arguments. This prevents the production
-  command from accidentally widening or narrowing the audited scope.
-- RPC URLs, API credentials, logging level, worker count and test-only storage
-  paths are infrastructure configuration rather than migration scope. Read
-  them from the existing environment conventions, give safe defaults where
-  possible and do not require them to vary in the production run command.
-
-Persistent writes must take the shared `scan-pipeline` writer lock. Migration
-scripts must be safe to rerun after interruption, observable while running and
-fail loudly without discarding existing metadata, Parquet, DuckDB, timestamp
-cache or reader-state data. In production, use the `vault-scanner-oneshot`
-Compose service so the host `~/.tradingstrategy` directory remains mounted;
-inspect `docker-compose.yml` and coordinate with `vault-scanner-looped` before
-the write run.
+For a worktree using the parent Poetry environment, use the module form and
+`PYTHONPATH="$PWD"` described in the migration guide. The production launcher
+retains the inspected Compose mounts and image provenance; restart the same
+image afterwards for normal cleaning, exports and uploads.
 
 ### Pull request run reminder
 
-Every pull request that adds a migration script must include a PR comment that
-both documents the production commands and explicitly reminds an operator that
-the one-off migration still needs to be run after merge and deployment. Adding
-the script to the repository does not execute it.
+Every PR adding a migration must include a **Run after merge** comment with
+its numbered filenames, reviewed scope, expected counts, required services,
+exact production launcher preview/apply commands, affected files, recovery
+precautions and post-run validation criteria. Record the deployed commit,
+image ID, UTC date and result after execution. Merging a PR does not run it.
+Use the authoring and production runbook in the migration guide as the source
+of truth for these instructions.
 
-The comment must include:
+### Reading the legacy catalogue
 
-- the script's purpose and exact fixed scope;
-- required production environment variables and external services;
-- the exact `DRY_RUN=true` command and expected output or row counts;
-- the exact persistent command, including scanner stop/start or lock
-  coordination;
-- files or database tables changed, files deliberately left unchanged and any
-  required backup or persistent-cache precautions;
-- a post-run validation command or concrete success criteria; and
-- a conspicuous **Run after merge** reminder, left unresolved until an
-  operator records the date and result in the PR.
-
-Use this minimal comment structure and replace every placeholder with the
-actual production command and expected result:
-
-```markdown
-## Production migration reminder
-
-**Run after merge:** this one-off migration has not run merely because the PR
-was merged.
-
-### Dry run
-
-<exact production container command with DRY_RUN=true>
-
-Expected: <reviewed vault, row and chain counts>; no persistent files changed.
-
-### Apply and validate
-
-<exact production container command with DRY_RUN=false>
-<exact validation command>
-
-Writes: <precise files or tables>. Preserves: <precise unaffected state>.
-
-Result: pending. After execution record the UTC date, deployed commit, redacted
-provider environment, command result and validation result here.
-```
-
-Good reference implementations are:
-
-- [`migrate-gmx-vaults-metadata.py`](migrate-gmx-vaults-metadata.py) and
-  [`backfill-gmx-vault-prices.py`](backfill-gmx-vault-prices.py), which split
-  GMX catalogue metadata from stateless, address-scoped historical writing;
-- [`migrate-current-metadata.py`](../enzyme/migrate-current-metadata.py), which
-  forces Enzyme's shared engine into metadata-only mode and preserves price and
-  reader state; and
-- [`backfill-history.py`](../enzyme/backfill-history.py), which demonstrates a
-  resumable, checkpointed Enzyme metadata and historical migration when the two
-  functions must share factory discovery.
+The standalone repair and one-off backfill commands retained below are
+**legacy runbook references**, not the workflow for new maintenance tasks.
+Port a required repair into a numbered migration before running it. Recurring
+scanners, collectors, normal historical readers and read-only tools in this
+catalogue keep their existing commands.
 
 ### Hyperliquid corruption recovery
 
@@ -491,13 +444,19 @@ When support for a new protocol's custom events is added (e.g. Ember's `VaultDep
 vaults that emitted events before the code change will not be discovered because the scanner
 has already passed those blocks.
 
-Each new protocol integration generates a dedicated migration script. The script
-must seed its reviewed addresses into the lead database, refresh only those
-metadata rows, and run vault-address-scoped price history only where a
-historical price reader is supported. Follow the full requirements in
-[`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md).
+Each new protocol integration must put any required historical lead repair in
+a new numbered migration. Seed only the reviewed addresses and metadata rows;
+run address-scoped history only where the reviewed migration requires it and
+a historical reader is supported. Standalone protocol repair scripts are legacy
+format and must not be generated or run for this task. Follow
+[`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md) and the
+migration documentation linked above.
 
 #### Rysk Premium migration
+
+This standalone entrypoint is legacy implementation reference. For a new Rysk
+repair, port its required metadata/history functions into a new numbered
+migration and use the migration guide linked above.
 
 Rysk Premium uses one fixed-scope migration script containing metadata repair
 and historical backfill functions. The reviewed scope is eight public pools as
@@ -506,7 +465,7 @@ pools are excluded. The command defaults to `DRY_RUN=true`; `DRY_RUN=false` is
 the only migration-specific operator choice. RPC, Hypersync, logging and
 `MAX_WORKERS` variables remain normal infrastructure configuration.
 
-Exercise both functions without persistent writes:
+Historical preview command for the legacy implementation:
 
 ```shell
 source .local-test.env && \
@@ -520,16 +479,16 @@ historical merge there, alongside temporary context, token and timestamp-cache
 storage. This reports the real address-scoped deletion count without modifying
 production. The temporary workspace uses the mounted pipeline volume and
 preflights enough free space for both the Parquet copy and its atomic rewrite,
-approximately twice the production Parquet size. After inspecting the dry run,
-rerun the same command with `DRY_RUN=false`. It atomically replaces only the
+approximately twice the production Parquet size. The legacy apply path
+atomically replaces only the
 common metadata pickle after all eight rows validate, then writes only the
 eight selected address histories to `vault-prices-1h.parquet` and the Rysk
 table in `vault-historical-context.duckdb`. The persistent run holds one shared
 scanner writer lock and never changes reader state.
 
-The pull request adding or changing this script must contain the production
-container commands and an unresolved **Run after merge** reminder as described
-in [Pull request run reminder](#pull-request-run-reminder).
+A new repair or change to this operation requires a numbered migration. Its PR
+must use the guarded host launcher and include the **Run after merge** reminder
+described in [Pull request run reminder](#pull-request-run-reminder).
 
 #### Enzyme Blue and Onyx migration
 
@@ -1066,22 +1025,14 @@ close so new vaults can publish charts on their first day. Every detected
 Arcus pToken automatically receives
 `directional_leverage` and `perpetual_futures` strategy tags, including products
 without an address-specific display name. Existing metadata can be updated
-with `migrate-vault-strategy-tags.py` after deployment; stop the persistent
+with migration `008-vault-strategy-tags.py` after deployment; stop the persistent
 scanner, inspect a dry run, apply the migration and restart the scanner. A
 normal post-processing run then regenerates metrics and charts from existing
 raw prices without a historical RPC rescan or reader-state changes.
 
-After deploying the updated scanner image, perform this repair with the
-scanner stopped. Inspect the dry-run migration output before applying it;
-the entrypoint override runs maintenance against the existing mounted state.
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'python scripts/erc-4626/post-process-prices.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
+Follow the numbered migration guide for the stopped-scanner preview/apply
+procedure. Restart the same inspected image afterwards; the normal scanner
+cycle performs cleaning, exports and uploads.
 
 #### Lifetime metrics benchmark
 
@@ -1167,9 +1118,10 @@ the scanner, but GMX owns the ``gmx_historical_context`` table. It stores only
 source event observations. Calculated share prices and TVL are written to the
 normal vault Parquet files.
 
-Use the manual scripts in this order. First idempotently migrate current
-products into the common metadata database. This refreshes existing GM and GLV
-rows by chain and share-token address, including index-aware GM names,
+The following legacy sequence is retained as implementation reference. Port a
+required operation into a numbered migration before running it. Its metadata
+stage refreshes existing GM and GLV rows by chain and share-token address,
+including index-aware GM names,
 backing-pair GLV names, full liquidity-provider descriptions and USDC display
 denomination:
 
@@ -1433,47 +1385,19 @@ and `HYPERSYNC_CONCURRENCY` take precedence.
 
 #### Flying Tulip ssftUSD metadata refresh
 
-Ethereum ssftUSD belongs to the existing Flying Tulip protocol but uses actual
-ERC-4626 prices, not the sftUSD external FT reward-equivalence backfill above.
-The targeted metadata migration refreshes classification, descriptions, notes,
-fees and capacity metadata without changing price Parquet files, reader state,
-leads or timestamp/context caches. Its unfiltered default still selects only
-the original three sftUSD deployments; the separate description-only migration
-below keeps its original scope.
+Migration `001-flying-tulip-ssftusd-metadata.py` refreshes the fixed Ethereum
+ssftUSD deployment's classification, descriptions, notes, fees and capacity.
+Use the numbered migration guide linked above and the production host launcher.
+Both preview and apply require the looped scanner to be stopped. The broader
+tool for the original three sftUSD deployments is legacy reference; port any
+later repair into a new numbered migration instead of running that entrypoint.
 
-`CHAIN_ID` and `VAULT_ADDRESS` must be supplied together. An unreviewed or
-missing explicit target aborts before writing. If the target is absent, let
-normal discovery materialise it using the deployed code, then repeat the dry
-run. The script retains the legacy database-path default; set `VAULT_DB_PATH`
-explicitly when using a custom pipeline directory. Apply mode waits up to
-60 seconds for the scanner writer lock, backs up the pickle to a new sibling
-`.bak-flying-tulip-metadata*` file and writes atomically.
-
-After merging and deploying the code and rebuilding the production image with
-`scripts/build-container.sh`, use the existing mounted production state:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=true python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
-```
-
-Inspect the target and previous protocol in the dry-run table before applying:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=false python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'REFRESH_STABLECOIN_RATES=false python scripts/erc-4626/export-protocol-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'OUTPUT_JSON=/root/.tradingstrategy/top_vaults_by_chain.json python scripts/erc-4626/vault-analysis-json.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
-
-Check the exported target for protocol `Flying Tulip`, the new ssftUSD copy,
-and removal of the zero-address cap reason. Earlier historical capacity values
-remain observations of an invalid receiver, not evidence of a global cap.
-For rollback, stop the scanner, restore only the metadata pickle from the
-specific backup path reported by the migration, redeploy the previous image
-if necessary, regenerate the public exports and restart the scanner. Preserve
-price files and reader state throughout. Production commands are operator
-instructions and are not part of development verification.
+The numbered repair preserves price Parquet, reader state, leads and timestamp
+caches. Missing or conflicting target identity fails before writing. After the
+batch succeeds, restart the same inspected scanner image for publication.
+Check the exported target for protocol `Flying Tulip`, ssftUSD descriptions and
+removal of the zero-address cap reason. Earlier capacity values remain historical
+observations of an invalid receiver, rather than evidence of a global cap.
 
 #### Flying Tulip description migration
 
@@ -2018,8 +1942,9 @@ poetry run python scripts/enzyme/report-whitelist.py
 
 ### Enzyme migrate-current-metadata.py
 
-`scripts/enzyme/migrate-current-metadata.py` is the production migration for
-all current Enzyme catalogue data added or corrected by the integration. It
+`scripts/enzyme/migrate-current-metadata.py` is a legacy implementation for
+current Enzyme catalogue repairs. Do not run its standalone commands for a
+new repair; port the required operation into a numbered migration. It
 uses the same one-scan-per-chain discovery and durable metadata batches as the
 historical backfill, but forcibly disables raw-price scanning, cleaned-Parquet
 replacement and unconditional metadata refreshes.
@@ -3116,6 +3041,12 @@ VAULT_ID="1-0x..." poetry run python scripts/erc-4626/examine-vault-state.py
 
 ## Data repair
 
+For these one-off database repair tasks, follow the
+[numbered migration guide](../../.claude/docs/migration-scripts.md). The
+standalone mutation commands retained in this section use legacy format and
+must not be used for new repairs. Port the reviewed operation into a new
+numbered migration; read-only diagnostics retain their existing commands.
+
 Scripts for fixing data issues in the pipeline.
 
 ### purge-stale-chain-ids.py
@@ -3291,56 +3222,10 @@ source .local-test.env && \
 
 ### migrate-vault-strategy-tags.py
 
-Recalculate the persisted ``_strategy_tags`` field for every vault row using
-the current address mappings backing the strategy-tag hooks. EVM rows use the
-persisted protocol feature flags to select the matching mapping without
-constructing a ``VaultBase`` adapter. ApeX, Hyperliquid, GRVT, Hibachi, and
-Lighter rows use their native address-to-tag resolvers (including each
-protocol's default ``perpetual_futures`` classification). Resolution is
-metadata-only:
-the script makes no RPC calls and does not touch prices, Parquet files, or
-reader state.
-
-All maintained EVM ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys,
-such as ``"0x1234..."``. Do not add verbose ``HexAddress(...)`` constructors
-to these table literals. The shared lookup helper lowercases an adapter's
-``HexAddress`` value before consulting the string-keyed mapping; native
-protocol identifiers follow the same lowercase-string convention.
-
-Always inspect the dry run first:
-
-```shell
-# Report rows whose tags would change (default)
-source .local-test.env && \
-  DRY_RUN=true \
-  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
-
-# Stop ``vault-scanner-looped`` before applying the migration. Both processes
-# rewrite the complete metadata pickle, so a concurrent scan can overwrite
-# these changes.
-# Back up and persist the current classifications
-source .local-test.env && \
-  DRY_RUN=false \
-  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
-```
-
-The apply mode creates a non-overwriting
-``*.pickle.bak-strategy-tags`` backup before writing. Rows without persisted
-detection metadata or a maintained resolver are reported as skipped and left
-unchanged. The resolver order follows the scanner's adapter precedence, so a
-later mapping cannot classify a row that the scanner would route to an earlier
-unsupported adapter. Legacy or malformed tag values are repaired whenever the
-row has a maintained resolver. A subsequent scanner pass also preserves an
-existing non-empty tag set when the current adapter reports missing strategy
-information. Run
-``export-data-files.py`` afterwards to publish the updated strategy tags in
-the JSON exports.
-
-| Variable | Description |
-|----------|-------------|
-| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
-| `DRY_RUN` | Optional. Report only when true. Default: true. |
-| `LOG_LEVEL` | Optional. Default: info. |
+This standalone entrypoint is retired. Migration `008-vault-strategy-tags.py`
+refreshes supported strategy tags after the Nova repair, retaining unrelated
+metadata, prices and reader state. Use the numbered migration system linked
+above; new accessor changes need a new numbered migration after 008 succeeds.
 
 ### prepopulate-timestamps.py
 

@@ -18,7 +18,7 @@ EXPECTED_REPAIRED_ROWS = 3
 @pytest.fixture
 def migration() -> ModuleType:
     """Load the environment-driven migration without executing its main."""
-    path = Path(__file__).resolve().parents[2] / "scripts/erc-4626/migrate-arcadia-vault-metadata.py"
+    path = Path(__file__).resolve().parents[2] / "eth_defi/vault_protocols/repairs/arcadia.py"
     spec = importlib.util.spec_from_file_location("migrate_arcadia_metadata", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

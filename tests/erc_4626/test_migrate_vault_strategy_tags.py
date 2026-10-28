@@ -25,7 +25,7 @@ def load_migration_module():
     """Load the strategy-tag migration script as a test module."""
 
     repo_root = Path(__file__).resolve().parents[2]
-    script_path = repo_root / "scripts" / "erc-4626" / "migrate-vault-strategy-tags.py"
+    script_path = repo_root / "eth_defi" / "vault_protocols" / "repairs" / "strategy_tags.py"
     spec = importlib.util.spec_from_file_location("migrate_vault_strategy_tags", script_path)
     assert spec is not None
     assert spec.loader is not None

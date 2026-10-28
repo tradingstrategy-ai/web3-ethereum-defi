@@ -45,7 +45,7 @@ Existing deployments
 ~~~~~~~~~~~~~~~~~~~~
 
 After deploying this code, run
-``scripts/erc-4626/migrate-nova-markets-vaults.py`` to repair the existing cached
+the numbered ``002-nova-markets-vaults.py`` migration through ``vault-migrate`` to repair the existing cached
 row. It defaults to dry run, validates the exact deployment, backs up the
 original metadata pickle and replaces it atomically. It preserves event counts,
 first-seen boundaries, leads, historical prices and reader state. See
@@ -56,3 +56,5 @@ API
 ~~~
 
 See :doc:`../../api/nova_markets/index`.
+
+See the `migration operations guide <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md>`__ for the mandatory production launcher and daemon guard.

@@ -49,8 +49,14 @@ the entire patch into context.
    behaviour and authoritative sources. Distinguish a published claim from a
    verified fact and a historical snapshot from current state. Correct factual
    errors without inventing missing information.
-3. **Update documentation.** Revise relevant `.claude/docs` guidance when the
-   work changes an agent workflow or reveals a reusable operational lesson.
+3. **Update documentation.** For database repairs or persisted accessor
+   refreshes, check the [migration documentation](../../docs/migration-scripts.md)
+   and require a new numbered migration or an explicit no-migration rationale.
+   Standalone repair scripts are legacy format: do not recommend creating or
+   invoking them, or rerunning a successful initial migration for a new change.
+   Check that runbooks and PR reminders use the production host launcher.
+   Revise relevant `.claude/docs` guidance when the work changes an agent
+   workflow or reveals a reusable operational lesson.
    Update Sphinx narrative/API sources, examples and index references when
    their contracts or usage change. Keep public product copy focused on the
    product; put repository internals in technical documentation. Read the
