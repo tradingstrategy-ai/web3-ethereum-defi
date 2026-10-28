@@ -44,6 +44,16 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Rogue Trader Discretionary (GRVT).
     discretionary_trading = "discretionary_trading"
 
+    #: Trades on signals derived from market sentiment, such as public social
+    #: media posts, rather than from price data or fundamentals alone.
+    #: Example vault: Centaur Strategies: Black Bull (Lighter).
+    sentiment_trading = "sentiment_trading"
+
+    #: Follows, or deliberately fades, the publicly shared calls of identified
+    #: traders, for example their posts on X.
+    #: Example vault: Centaur Strategies: Inverse 1000x (Lighter).
+    social_trading = "social_trading"
+
     #: Uses programmed rules to select, execute, or manage positions.
     #: Example vault: Silentist BALANCE (GRVT).
     algorithmic_trading = "algorithmic_trading"
@@ -227,6 +237,14 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.discretionary_trading: {
         "label": "Discretionary trading",
         "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts positions using judgement and market insight.",
+    },
+    StrategyTag.sentiment_trading: {
+        "label": "Sentiment trading",
+        "description": "Trades on market sentiment read from public social media posts and other public commentary.",
+    },
+    StrategyTag.social_trading: {
+        "label": "Social trading",
+        "description": "Follows or fades the trades that identified traders share publicly, such as posts on X.",
     },
     StrategyTag.algorithmic_trading: {
         "label": "Algorithmic trading",
