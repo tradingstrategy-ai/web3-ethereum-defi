@@ -514,8 +514,15 @@ These helpers do not change the common Parquet schema.
 
 ## Manual migration and examination
 
-The manual scripts cover initial metadata, complete historical import and
-read-only verification:
+The standalone repair and one-off backfill entrypoints documented here are
+**legacy format and must not be used for new repair or refresh tasks**. Follow
+the [numbered migration guide](../../.claude/docs/migration-scripts.md) and port the reviewed operation into
+`migration/scripts/NNN-name.py` before running it. The implementation details
+and old commands below are historical references; read-only examination tools
+remain usable.
+
+The following catalogue describes the legacy migration implementations and
+read-only verification tools:
 
 | Script | Purpose |
 |--------|---------|

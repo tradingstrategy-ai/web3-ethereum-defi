@@ -96,7 +96,8 @@ publisher pages. No separately dated Nova pool launch post was found.
 Migration `003-gtrade-metadata.py` refreshes the frozen inventory of 24 Gains-family deployments, excluding Nova, which migration 002 repairs first.
 
 Use the [numbered migration guide](../../../../.claude/docs/migration-scripts.md) for preview, apply, backups and
-recovery. The former standalone command is retired. Production must stop the
+recovery. The former standalone command is retired and its format is legacy.
+Use a new numbered migration for later repairs. Production must stop the
 daemon before previews as well as writes and use the host launcher. Restart
 the same inspected image afterwards for normal cleaning, exports and uploads.
 No historical backfill or reader-state reset is needed.

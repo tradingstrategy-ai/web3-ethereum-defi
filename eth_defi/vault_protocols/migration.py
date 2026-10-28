@@ -351,7 +351,8 @@ class MigrationContext:
 def _equal(left: Any, right: Any) -> bool:
     """Compare ordinary metadata values without treating NaN as a change.
 
-    Pickle comparison handles sentinel values that deliberately compare false.
+    Pickle comparison handles sentinel values that deliberately compare false
+    and older slotted records whose generated equality expects newer fields.
 
     :param left: Previous field value.
     :param right: Proposed field value.
@@ -359,7 +360,7 @@ def _equal(left: Any, right: Any) -> bool:
     """
     try:
         return bool(left == right) or pickle.dumps(left, protocol=4) == pickle.dumps(right, protocol=4)
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError):
         return pickle.dumps(left, protocol=4) == pickle.dumps(right, protocol=4)
 
 

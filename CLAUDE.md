@@ -76,7 +76,11 @@ poetry run python scripts/logos/post-process-logo.py
 
 For database repairs and persisted accessor refreshes, follow
 [numbered migration scripts](.claude/docs/migration-scripts.md). Add a new
-numbered script and a PR run reminder instead of another standalone repair.
+numbered script and a PR run reminder. Standalone `migrate-*.py`, `fix-*.py`
+and one-off backfill entrypoints are **legacy format and must not be used**
+for these tasks. Port a required legacy repair into a new numbered script;
+existing commands in old runbooks are historical references, not templates.
+Do not edit or rerun a successful initial migration for a later accessor change.
 Both preview and apply require the looped scanner to be stopped; use the host
 launcher in production, preserving the lifetime-guard-before-writer-lock order.
 

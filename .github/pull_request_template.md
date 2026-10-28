@@ -22,7 +22,7 @@
 
 ## Checklist
 
-- [ ] Database migration needed / N/A recorded; numbered scripts and a **Run after merge** production reminder follow the [migration guide](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md)
+- [ ] Database migration needed / N/A recorded; numbered scripts (legacy standalone repair format must not be used) and a **Run after merge** production reminder follow the [migration guide](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md)
 
 <!-- If this PR adds or changes manually maintained narrative text, check it
 against the writing style guide unless the same text was checked earlier.

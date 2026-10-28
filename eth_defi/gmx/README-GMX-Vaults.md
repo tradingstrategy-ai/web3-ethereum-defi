@@ -469,8 +469,15 @@ limitation when comparing products with different operation frequency.
 
 ## Manual migration and examination
 
-The manual scripts are intended for initial migration, complete historical
-imports and local verification:
+The standalone repair and one-off backfill entrypoints documented here are
+**legacy format and must not be used for new repair or refresh tasks**. Follow
+the [numbered migration guide](../../.claude/docs/migration-scripts.md) and port the reviewed operation into
+`migration/scripts/NNN-name.py` before running it. The implementation details
+and old commands below are historical references; read-only examination tools
+remain usable.
+
+The following catalogue describes the legacy migration implementations and
+read-only verification tools:
 
 | Script | Purpose |
 |--------|---------|

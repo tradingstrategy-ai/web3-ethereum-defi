@@ -5,7 +5,10 @@ Explicit, numbered repairs for persisted vault data. Preview and apply require
 the looping scanner to be stopped, including between scan cycles.
 
 The `migration guide <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md>`__
-describes authoring, production operation and journal recovery.
+describes authoring, production operation and journal recovery. Standalone
+one-off repair scripts are legacy format and must not be used for database
+repairs or persisted accessor refreshes. Add a new numbered migration and
+execute it through the unified runner.
 
 .. autosummary::
    :toctree: _autosummary_vault_protocols

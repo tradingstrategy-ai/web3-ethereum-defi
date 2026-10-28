@@ -4,6 +4,32 @@ Use this system for one-off database repairs and refreshing values persisted
 from Python accessors. Migrations are explicit maintenance operations; merging
 a PR or starting the scanner does not execute them.
 
+## Legacy standalone scripts
+
+Standalone `migrate-*.py`, `fix-*.py` and one-off backfill scripts are the
+**legacy migration format**. Do not create, copy, extend or run that format for
+database repairs, data/schema migrations, historical lead repairs or persisted
+Python accessor refreshes. Put each reviewed operation in a new numbered
+`migration/scripts/NNN-name.py` script and run it through `vault-migrate`.
+
+Existing standalone tools and their old runbook commands are retained for
+historical reference and reusable implementation code. They are not the
+supported workflow for these tasks. Before reusing an old repair, move its
+transformation into a helper that uses `context.metadata()` or other
+context-controlled storage and expose it through a new numbered script.
+The runner owns the lifecycle and writer locks, journal and metadata commits;
+helpers must not reacquire locks.
+
+Use the next unused counter for every later refresh, including another change
+to strategy tags or descriptions. A successful initial script such as 008 or
+009 is skipped; do not edit it or rerun its old standalone counterpart to
+apply a later change.
+
+Recurring scanners, collectors and normal historical readers keep their
+existing entry points. Read-only diagnostics and test-data extraction can use
+ordinary scripts. A one-off operation that changes persisted production data
+belongs in the numbered system, including when it reuses a historical reader.
+
 ## Commands and storage
 
 ```shell
@@ -49,8 +75,8 @@ never infer liveness from PID files or lock-file existence.
 The production launcher additionally checks **all** looped-service containers
 in the current Compose project, plus the fixed production container name from
 older checkouts/projects. Preflight and execution use the same base Compose
-file. Running, paused, restarting, unknown and
-uninspectable services are refused. Only conclusively absent, created or
+file. Running, paused, restarting, unknown and uninspectable services are
+refused. Only conclusively absent, created or
 exited service containers pass. It pins the one-shot to an inspected image ID.
 It never stops or restarts services, and needs no container Docker socket.
 
@@ -123,6 +149,16 @@ writers and transactions, respecting the repository's DuckDB/Parquet rules.
 Use `context.report()` for JSON-safe metrics and `record_modified_file()` only
 after actual commits. A script must never directly edit the journal. There is
 no general cross-file transaction or storage virtualisation layer.
+
+Numbered historical backfills must call the reviewed reader/writer functions
+with their fixed scope explicitly. The host launcher sets `SCAN_PRICES=false`
+and `UPSHIFT_SCAN_PRICES=false` to suppress automatic maintenance scans. Do not
+call a legacy CLI wrapper that silently skips the required price work under
+those flags; refactor its helper to take the reviewed operation explicitly.
+Before a historical price backfill, verify that its required dense timestamp
+cache is present. Validate the written range and counts, and fail the migration
+if required price work cannot run or was skipped. Never journal such a skip
+as success. Preview must exercise the same work using isolated output storage.
 
 Preview must not write databases, the journal, backups, provider caches or log
 files. Put provider/token caches in `TemporaryDirectory`. Script imports must

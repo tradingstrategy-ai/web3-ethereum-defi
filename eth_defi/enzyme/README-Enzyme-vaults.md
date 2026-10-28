@@ -5,6 +5,17 @@ and Enzyme Onyx. Both issue ERC-20 investor shares, but neither should be
 treated as a generic ERC-4626 vault. The shared scanner preserves their
 architecture-specific discovery, accounting and metadata rules.
 
+## Database repair workflow
+
+Follow the [numbered migration guide](../../.claude/docs/migration-scripts.md) for metadata repairs, fee or
+accessor refreshes and one-off historical data changes. Standalone
+`scripts/enzyme/migrate-*.py` and one-off backfill entrypoints are **legacy
+format and must not be used** for these tasks. Port the required operation into
+a new `migration/scripts/NNN-name.py`; retain its resumable helper logic and
+reviewed scope. Legacy migration commands below document the old implementations,
+not the supported execution workflow. Scheduled readers and collectors keep
+their existing entry points.
+
 ## Enzyme Blue
 
 Blue is Enzyme's VaultProxy/ComptrollerProxy architecture. The VaultProxy is
@@ -106,8 +117,9 @@ endpoint. Every refreshed Onyx row therefore has:
 - no short description; and
 - the long description ``Description is not publicly available``.
 
-Run the current-metadata migration once after upgrading an existing database
-so its Onyx rows receive this explicit marker:
+The legacy current-metadata migration supplied this marker to existing Onyx
+rows. For a new refresh, port the required operation into a numbered migration.
+The old commands are retained here as reference:
 
 ```shell
 DRY_RUN=true poetry run python scripts/enzyme/migrate-current-metadata.py
@@ -117,8 +129,9 @@ MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-current-metadata.py
 This migration uses configured RPC and Hypersync credentials, preserves price
 history, and stores a resumable checkpoint alongside the local vault database.
 
-To refresh every Enzyme vault's complete current investor-facing fee schedule
-after a fee-reader update, run the dedicated current-fee migration. It treats a
+The legacy current-fee implementation refreshed every Enzyme vault's complete
+current investor-facing fee schedule. After a new fee-reader update, reuse its
+helper through a new numbered migration. The legacy implementation treats a
 confirmed disabled fee component as zero, but leaves failed or unavailable
 reads as unknown. It does not change historical fee series or price history:
 
@@ -129,22 +142,19 @@ MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-enzyme-fees.py
 
 Blue's ``Mgmt fee`` includes protocol access. ``Protocol fee`` is exported
 separately, so consumers can calculate the manager-only rate as ``Mgmt fee -
-Protocol fee``. ``migrate-blue-fees.py`` remains available for a targeted
-Blue-only repair, but is not sufficient for an all-Enzyme fee-reader change.
+Protocol fee``. ``migrate-blue-fees.py`` is a legacy Blue-only implementation
+reference; it is not sufficient for an all-Enzyme fee-reader change.
 
 ## Running migrations in the scanner container
 
-Stop the looped scanner before modifying its shared metadata state.
+After implementing the required numbered migration, follow the production
+runbook in the migration guide above. Stop the daemon and competing writers
+before preview as well as apply, use `scripts/run-vault-migrations.sh`, then
+restart the same inspected image for normal cleaning, exports and uploads.
+The former direct `docker compose run` commands for standalone Enzyme repairs
+are legacy and must not be used for these tasks anymore.
 
-```shell
-source ~/vault-scanner/vault-rpc.env
-cd ~/vault-scanner/web3-ethereum-defi
-docker compose stop vault-scanner-looped
-docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner-oneshot \
-  -c 'DRY_RUN=false poetry run python scripts/enzyme/migrate-offchain-metadata.py'
-docker compose start vault-scanner-looped
-```
-
-The container mounts ``~/.tradingstrategy`` as persistent scanner state. Do
-not run the migration in an unmounted container, remove its metadata pickle or
-delete the timestamp caches while doing metadata maintenance.
+Preserve the existing mounted `~/.tradingstrategy` state, metadata cache,
+Parquet, reader state and timestamp caches. The numbered operation must report
+its committed files and progress; neither a helper nor a legacy wrapper may
+reacquire the migration runner's locks.

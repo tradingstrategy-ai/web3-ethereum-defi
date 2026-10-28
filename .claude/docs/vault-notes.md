@@ -62,9 +62,14 @@ adapters use these overrides without replacing onchain names or existing notes.
 The Morini-specific note formatter is not a generic formatter for other managers.
 
 Descriptions are materialised in `_description` and `_short_description` during
-scanning. Deploy adapter changes before a metadata-only repair, then run the
-normal analysis/export to publish the copy. Otherwise an older scanner can
-overwrite the repair on its next scan. The [AlphaPing research and repair
+scanning. For persisted copy or note repairs, read the
+[numbered migration guide](migration-scripts.md) and add a new numbered script.
+Standalone metadata repair scripts are legacy format and must not be created
+or run for these tasks anymore. Deploy the accessor changes, stop the daemon
+before preview and apply, use the host launcher, then restart the same inspected
+image for normal cleaning, exports and uploads. If the accessor change is not
+deployed first, an older scanner can overwrite the repair on its next scan.
+The [AlphaPing research and repair
 guide](../../docs/protocol-research/alphaping.md) documents a fixed-scope example
 that preserves names, flags, notes, prices and reader state.
 

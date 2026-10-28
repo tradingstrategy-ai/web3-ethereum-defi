@@ -127,6 +127,13 @@ classifier.
 
 ## Manual backfill and examination
 
+The standalone repair and one-off backfill entrypoints documented here are
+**legacy format and must not be used for new repair or refresh tasks**. Follow
+the [numbered migration guide](../../../../.claude/docs/migration-scripts.md) and port the reviewed operation into
+`migration/scripts/NNN-name.py` before running it. The implementation details
+and old commands below are historical references; read-only examination tools
+remain usable.
+
 [`migrate-rysk-vaults.py`](../../../../scripts/erc-4626/migrate-rysk-vaults.py)
 contains both functions of the one-off migration for the eight public pools
 reviewed on 2026-08-25. It first repairs the common metadata pickle using fixed

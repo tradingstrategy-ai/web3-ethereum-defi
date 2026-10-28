@@ -36,7 +36,8 @@ Rerunning an applied repair makes no further changes.
 
 Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for local previews and production
 rollout. Set `PIPELINE_DATA_DIR` to an isolated copy directory for local checks.
-The former `fix-vault-descriptions.py` command is retired. The unified command
+The former `fix-vault-descriptions.py` command is retired. Its standalone
+format is legacy; use a new numbered migration for later repairs. The unified command
 runs all pending repairs, with description normalisation last. Stop the daemon
 and competing writers before either preview or apply.
 

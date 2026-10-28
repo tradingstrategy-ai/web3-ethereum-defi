@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 from filelock import Timeout
 
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.utils import wait_other_writers
 from eth_defi.vault import scan_all_chains
 from eth_defi.vault.base import VaultSpec
@@ -347,3 +349,26 @@ def test_metadata_reports_non_row_database_changes(storage: Path, scripts: Path)
     report = runner.load_state(storage / "migration.json")[script.name]["other_data"]
     assert report["changed_database_fields"] == ["last_scanned_block"]
     assert report["changed_rows"] == 0
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_metadata_preserves_old_discovery_records(storage: Path, scripts: Path, dry_run: bool) -> None:
+    """Older persisted leads with missing slots do not break the audit comparison."""
+    path = storage / "vault-metadata-db.pickle"
+    database = VaultDatabase.read(path)
+    lead = PotentialVaultMatch(chain=SPEC.chain_id, address=SPEC.vault_address, first_seen_at_block=1, first_seen_at=native_datetime_utc_now())
+    del lead.configuration_count
+    database.leads[SPEC] = lead
+    database.write(path)
+    original = path.read_bytes()
+    script = write_script(scripts, "001-metadata.py", '    next(iter(context.metadata().rows.values()))["Name"] = "after"\n    context.commit_metadata()')
+    assert run(storage, scripts, dry_run=dry_run) == [script.name]
+    restored = VaultDatabase.read(path)
+    assert not hasattr(restored.leads[SPEC], "configuration_count")
+    assert restored.leads[SPEC].first_seen_at_block == 1
+    if dry_run:
+        assert path.read_bytes() == original
+        assert not (storage / "migration.json").exists()
+    else:
+        assert restored.rows[SPEC]["Name"] == "after"
+        assert runner.load_state(storage / "migration.json")[script.name]["other_data"]["changed_database_fields"] == []

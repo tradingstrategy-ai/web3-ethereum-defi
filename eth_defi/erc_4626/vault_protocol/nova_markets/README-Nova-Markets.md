@@ -275,7 +275,8 @@ submitted only to the local fork. The test is automatically runnable wherever
 to stop the daemon, preview and apply the full pending batch through the host
 launcher, then restart the same inspected image for cleaning, exports and uploads.
 Record the UTC date, deployed commit, command result and validation result.
-The former standalone Nova command is retired.
+The former standalone Nova command is retired and its format is legacy.
+Use a new numbered migration for later repairs.
 
 Migration 002 repairs exactly the reviewed Arbitrum row. It fails for a missing
 row or conflicting protocol/detection identity. It preserves manual flags,

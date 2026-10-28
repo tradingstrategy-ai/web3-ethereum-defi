@@ -43,6 +43,17 @@ before reading these mappings.
 If the candidate was produced by `find-new-curators`, open its result
 file first and keep the evidence trail in mind.
 
+## Persisted metadata refresh
+
+If curator or strategy changes require refreshing existing cached metadata,
+read the [migration documentation](../../docs/migration-scripts.md) and add a
+new numbered migration. Standalone curator/tag repair scripts are **legacy
+format and must not be created or run** for these tasks. Reuse maintained
+resolvers through the supplied context, with a reviewed scope and reporting.
+When export-time resolution already picks up the change, document that no
+migration is needed. Include the production launcher reminder when a PR with
+a migration is requested; keep authoring separate from production execution.
+
 ## Naming policy
 
 Use one clean, organisation-level public name for a curator. Prefer the main
