@@ -488,6 +488,8 @@ BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is i
 
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
+WRAPPED_HLP_ILLIQUID = "Wrapped HLP is illiquid"
+
 #: King RSS USDC Vault lends against a token with no market, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
 KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."
 
@@ -1030,6 +1032,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
     # VI-USDC-QA_G (Euler on Sonic)
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
+    # Wrapped HLP (Hyperlend on HyperEVM)
+    "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5": (VaultFlag.illiquid, WRAPPED_HLP_ILLIQUID),
     # King RSS USDC Vault (Morpho V1 on Base)
     #
     # Added 2026-09-26 by the vault report investability check
