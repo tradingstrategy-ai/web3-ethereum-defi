@@ -128,6 +128,7 @@ from eth_defi.tokenised_fund.scan import (
     select_tokenised_fund_price_scanners,
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.scanner_lock import ScannerDaemonRunning, acquire_scanner_lifecycle_guard
 from eth_defi.vault.base import VaultBase, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.exception import UnsupportedVaultVersion
@@ -3580,7 +3581,29 @@ def run_scan_tick(
     return results
 
 
-def main():
+def main() -> None:
+    """Hold daemon exclusion across initialisation, scans and sleeping ticks.
+
+    A Compose service marker also guards a looped service accidentally set to
+    a zero interval. One-shot scans retain their existing pipeline writer lock.
+
+    :return: ``None`` when scanning finishes; exits non-zero if maintenance owns the guard.
+    """
+    daemon = os.environ.get("VAULT_SCANNER_DAEMON", "false").lower() == "true" or int(os.environ.get("LOOP_INTERVAL_SECONDS", "0")) > 0
+    if not daemon:
+        _main()
+        return
+    directory = get_pipeline_data_dir().expanduser().resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    try:
+        with acquire_scanner_lifecycle_guard(directory):
+            _main()
+    except ScannerDaemonRunning as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from None
+
+
+def _main() -> None:
     """Main execution function.
 
     Supports two modes:

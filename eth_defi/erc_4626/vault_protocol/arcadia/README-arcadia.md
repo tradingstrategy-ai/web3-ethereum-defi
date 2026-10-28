@@ -21,23 +21,13 @@ descriptions do not certify deposit/redemption support or change fee handling.
 
 ## Repairing existing metadata
 
-Run from the repository using its Poetry environment. When reusing the parent
-checkout's virtual environment in a worktree, prefix commands with
-`PYTHONPATH=.` so imports use the worktree's code:
+Migration `006-arcadia-vault-metadata.py` fills missing or label-only descriptions on existing Arcadia rows, retaining meaningful narratives. An empty Arcadia inventory is an explicit no-op.
 
-```shell
-DRY_RUN=true poetry run python scripts/erc-4626/migrate-arcadia-vault-metadata.py
-DRY_RUN=false poetry run python scripts/erc-4626/migrate-arcadia-vault-metadata.py
-```
-
-Dry run is the default. Set `VAULT_DB_PATH` for a particular metadata pickle,
-or use the normal `PIPELINE_DATA_DIR`. The repair changes only missing or
-label-only `_description` and `_short_description` fields on Arcadia rows.
-It preserves existing narratives, creates a non-overwriting backup before an
-actual write, and takes the scanner writer lock. Prices, reader state, leads,
-and timestamp caches are untouched. Re-export metadata through the normal
-pipeline after applying a repair. For production maintenance, inspect the
-Compose configuration and preserve all mounted state as described in `AGENTS.md`.
+Use the [numbered migration guide](../../../../.claude/docs/migration-scripts.md) for preview, apply, backups and
+recovery. The former standalone command is retired. Production must stop the
+daemon before previews as well as writes and use the host launcher. Restart
+the same inspected image afterwards for normal cleaning, exports and uploads.
+No historical backfill or reader-state reset is needed.
 
 ## Live API check
 

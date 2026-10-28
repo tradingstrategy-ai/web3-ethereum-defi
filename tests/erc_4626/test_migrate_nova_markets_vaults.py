@@ -19,7 +19,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 @pytest.fixture
 def migration() -> ModuleType:
     """Import the standalone repair without running its environment entrypoint."""
-    path = Path(__file__).resolve().parents[2] / "scripts/erc-4626/migrate-nova-markets-vaults.py"
+    path = Path(__file__).resolve().parents[2] / "eth_defi/vault_protocols/repairs/nova.py"
     spec = importlib.util.spec_from_file_location("migrate_nova_markets_vaults", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -74,6 +74,12 @@ poetry run python scripts/logos/post-process-logo.py
 
 ## Production
 
+For database repairs and persisted accessor refreshes, follow
+[numbered migration scripts](.claude/docs/migration-scripts.md). Add a new
+numbered script and a PR run reminder instead of another standalone repair.
+Both preview and apply require the looped scanner to be stopped; use the host
+launcher in production, preserving the lifetime-guard-before-writer-lock order.
+
 Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
 environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
 configuration is `docker-compose.yml`; inspect it before running production

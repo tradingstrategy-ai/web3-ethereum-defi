@@ -1,14 +1,28 @@
+## Why
+
+<!-- Concrete problem and why this change is needed. -->
+
+## Lessons learnt
+
+<!-- Reusable operational or implementation knowledge. -->
+
 ## Summary
 
 <!-- What changed and why? 1-3 bullet points. -->
 
 -
 
-## Related issues
+## Related issues and PRs
 
 <!-- Link any related GitHub issues: Closes #123 -->
 
+## Unrelated CI and test fixes
+
+<!-- Describe unrelated fixes, or None. -->
+
 ## Checklist
+
+- [ ] Database migration needed / N/A recorded; numbered scripts and a **Run after merge** production reminder follow the [migration guide](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md)
 
 <!-- If this PR adds or changes manually maintained narrative text, check it
 against the writing style guide unless the same text was checked earlier.

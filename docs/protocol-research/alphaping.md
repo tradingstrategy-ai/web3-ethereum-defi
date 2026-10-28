@@ -132,24 +132,10 @@ The maintained text is in `eth_defi/vault/handwritten_metadata.py`.
 
 ## Metadata-only repair
 
-The repair reads an existing metadata pickle and changes only `_description`
-and `_short_description` for matching reviewed deployments. Missing rows are
-reported and skipped. A protocol mismatch aborts before any changes. The
-persistent invocation holds the scanner writer lock and writes atomically;
-rerunning it without changed copy leaves the file untouched.
+Migration `004-alphaping-descriptions.py` refreshes the frozen 36-deployment inventory. Missing historical rows are reported; an entirely missing inventory fails. Notes and unrelated metadata are preserved.
 
-```shell
-DRY_RUN=true poetry run python scripts/erc-4626/migrate-alphaping-descriptions.py
-DRY_RUN=false poetry run python scripts/erc-4626/migrate-alphaping-descriptions.py
-```
-
-Use `VAULT_DB_PATH` to select a copy for review. Otherwise the script follows
-`PIPELINE_DATA_DIR`, defaulting to `~/.tradingstrategy/vaults`. Deploy the adapter
-changes before running the repair so subsequent scans
-retain the reviewed copy. Normal metadata analysis/export must run afterwards
-to publish the changed descriptions.
-
-Production execution is a separate operator action. Inspect `docker-compose.yml`
-and use the mounted production state and maintenance entrypoint documented in
-`AGENTS.md`. The repair itself performs no price scanning or network requests.
-It preserves vault names, notes, flags, listing status, reader state and prices.
+Use the [numbered migration guide](../../.claude/docs/migration-scripts.md) for preview, apply, backups and
+recovery. The former standalone command is retired. Production must stop the
+daemon before previews as well as writes and use the host launcher. Restart
+the same inspected image afterwards for normal cleaning, exports and uploads.
+No historical backfill or reader-state reset is needed.

@@ -1,5 +1,11 @@
 # ERC-4626 vault scripts
 
+For new database repairs, use the [numbered migration system](../../.claude/docs/migration-scripts.md).
+The `vault-migrate` command lists, previews and applies pending scripts in order.
+Both preview and apply require `vault-scanner-looped` to be stopped, including
+its sleep intervals. Production uses `scripts/run-vault-migrations.sh`.
+
+
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 
 All scripts use environment variables for configuration.
@@ -1066,22 +1072,14 @@ close so new vaults can publish charts on their first day. Every detected
 Arcus pToken automatically receives
 `directional_leverage` and `perpetual_futures` strategy tags, including products
 without an address-specific display name. Existing metadata can be updated
-with `migrate-vault-strategy-tags.py` after deployment; stop the persistent
+with migration `008-vault-strategy-tags.py` after deployment; stop the persistent
 scanner, inspect a dry run, apply the migration and restart the scanner. A
 normal post-processing run then regenerates metrics and charts from existing
 raw prices without a historical RPC rescan or reader-state changes.
 
-After deploying the updated scanner image, perform this repair with the
-scanner stopped. Inspect the dry-run migration output before applying it;
-the entrypoint override runs maintenance against the existing mounted state.
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'python scripts/erc-4626/post-process-prices.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
+Follow the numbered migration guide for the stopped-scanner preview/apply
+procedure. Restart the same inspected image afterwards; the normal scanner
+cycle performs cleaning, exports and uploads.
 
 #### Lifetime metrics benchmark
 
@@ -1433,47 +1431,18 @@ and `HYPERSYNC_CONCURRENCY` take precedence.
 
 #### Flying Tulip ssftUSD metadata refresh
 
-Ethereum ssftUSD belongs to the existing Flying Tulip protocol but uses actual
-ERC-4626 prices, not the sftUSD external FT reward-equivalence backfill above.
-The targeted metadata migration refreshes classification, descriptions, notes,
-fees and capacity metadata without changing price Parquet files, reader state,
-leads or timestamp/context caches. Its unfiltered default still selects only
-the original three sftUSD deployments; the separate description-only migration
-below keeps its original scope.
+Migration `001-flying-tulip-ssftusd-metadata.py` refreshes the fixed Ethereum
+ssftUSD deployment's classification, descriptions, notes, fees and capacity.
+Use the numbered migration guide linked above and the production host launcher.
+Both preview and apply require the looped scanner to be stopped. The broader
+legacy metadata tool remains available for the original three sftUSD deployments.
 
-`CHAIN_ID` and `VAULT_ADDRESS` must be supplied together. An unreviewed or
-missing explicit target aborts before writing. If the target is absent, let
-normal discovery materialise it using the deployed code, then repeat the dry
-run. The script retains the legacy database-path default; set `VAULT_DB_PATH`
-explicitly when using a custom pipeline directory. Apply mode waits up to
-60 seconds for the scanner writer lock, backs up the pickle to a new sibling
-`.bak-flying-tulip-metadata*` file and writes atomically.
-
-After merging and deploying the code and rebuilding the production image with
-`scripts/build-container.sh`, use the existing mounted production state:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=true python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
-```
-
-Inspect the target and previous protocol in the dry-run table before applying:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=false python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'REFRESH_STABLECOIN_RATES=false python scripts/erc-4626/export-protocol-metadata.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'OUTPUT_JSON=/root/.tradingstrategy/top_vaults_by_chain.json python scripts/erc-4626/vault-analysis-json.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
-```
-
-Check the exported target for protocol `Flying Tulip`, the new ssftUSD copy,
-and removal of the zero-address cap reason. Earlier historical capacity values
-remain observations of an invalid receiver, not evidence of a global cap.
-For rollback, stop the scanner, restore only the metadata pickle from the
-specific backup path reported by the migration, redeploy the previous image
-if necessary, regenerate the public exports and restart the scanner. Preserve
-price files and reader state throughout. Production commands are operator
-instructions and are not part of development verification.
+The numbered repair preserves price Parquet, reader state, leads and timestamp
+caches. Missing or conflicting target identity fails before writing. After the
+batch succeeds, restart the same inspected scanner image for publication.
+Check the exported target for protocol `Flying Tulip`, ssftUSD descriptions and
+removal of the zero-address cap reason. Earlier capacity values remain historical
+observations of an invalid receiver, rather than evidence of a global cap.
 
 #### Flying Tulip description migration
 
@@ -3291,56 +3260,10 @@ source .local-test.env && \
 
 ### migrate-vault-strategy-tags.py
 
-Recalculate the persisted ``_strategy_tags`` field for every vault row using
-the current address mappings backing the strategy-tag hooks. EVM rows use the
-persisted protocol feature flags to select the matching mapping without
-constructing a ``VaultBase`` adapter. ApeX, Hyperliquid, GRVT, Hibachi, and
-Lighter rows use their native address-to-tag resolvers (including each
-protocol's default ``perpetual_futures`` classification). Resolution is
-metadata-only:
-the script makes no RPC calls and does not touch prices, Parquet files, or
-reader state.
-
-All maintained EVM ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys,
-such as ``"0x1234..."``. Do not add verbose ``HexAddress(...)`` constructors
-to these table literals. The shared lookup helper lowercases an adapter's
-``HexAddress`` value before consulting the string-keyed mapping; native
-protocol identifiers follow the same lowercase-string convention.
-
-Always inspect the dry run first:
-
-```shell
-# Report rows whose tags would change (default)
-source .local-test.env && \
-  DRY_RUN=true \
-  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
-
-# Stop ``vault-scanner-looped`` before applying the migration. Both processes
-# rewrite the complete metadata pickle, so a concurrent scan can overwrite
-# these changes.
-# Back up and persist the current classifications
-source .local-test.env && \
-  DRY_RUN=false \
-  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
-```
-
-The apply mode creates a non-overwriting
-``*.pickle.bak-strategy-tags`` backup before writing. Rows without persisted
-detection metadata or a maintained resolver are reported as skipped and left
-unchanged. The resolver order follows the scanner's adapter precedence, so a
-later mapping cannot classify a row that the scanner would route to an earlier
-unsupported adapter. Legacy or malformed tag values are repaired whenever the
-row has a maintained resolver. A subsequent scanner pass also preserves an
-existing non-empty tag set when the current adapter reports missing strategy
-information. Run
-``export-data-files.py`` afterwards to publish the updated strategy tags in
-the JSON exports.
-
-| Variable | Description |
-|----------|-------------|
-| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
-| `DRY_RUN` | Optional. Report only when true. Default: true. |
-| `LOG_LEVEL` | Optional. Default: info. |
+This standalone entrypoint is retired. Migration `008-vault-strategy-tags.py`
+refreshes supported strategy tags after the Nova repair, retaining unrelated
+metadata, prices and reader state. Use the numbered migration system linked
+above; new accessor changes need a new numbered migration after 008 succeeds.
 
 ### prepopulate-timestamps.py
 

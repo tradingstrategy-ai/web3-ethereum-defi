@@ -103,14 +103,9 @@ source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi &
 
 source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true PROTOCOL_ID=lagoon-finance VAULT_ID=1-0xdcd0f5ab30856f28385f641580bbd85f88349124,1-0xcb58582b0d52ce5feecb06ba9ce66598b0d57886,8453-0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4,8453-0xf56bfe07b8d6e6d74258cdb6969a633629b06b08,1-0x71652d4898de9a7dd35e472a5fe4577ec69d82f2,1-0x66dcb62da5430d800a1c807822c25be17138fda8 python scripts/erc-4626/update-vault-curators.py')
 
-Recalculate the maintained strategy tags. Inspect the dry run before applying;
-the apply command creates a non-overwriting sibling metadata-pickle backup.
-This existing migration reviews the complete persisted database, so its output
-may also include changes from other deployed tag mappings.
-
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
-source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+The strategy-tag command below was superseded on 28 October 2026 by numbered
+migration 008. Follow .claude/docs/migration-scripts.md for the guarded full-batch
+preview/apply procedure and restart the same inspected image afterwards.
 
 The next normal scanner export publishes the revised curator metadata and
 attribution. No production writes, remote pushes or PR creation were performed

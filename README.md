@@ -428,6 +428,12 @@ poetry add -D "web3-ethereum-defi[data]"
 
 - [Read development instructions](https://web3-ethereum-defi.tradingstrategy.ai/development.html).
 
+# Vault database maintenance
+
+Use the [numbered migration system](.claude/docs/migration-scripts.md) to
+discover, preview and apply database repairs. The looped scanner must be
+stopped for previews and writes; restarting it performs normal publication.
+
 # Version history
 
 - [Read changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).

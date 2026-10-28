@@ -42,6 +42,7 @@ ENV PATH="/usr/src/web3-ethereum-defi/.venv/bin:/root/.local/bin:$PATH"
 # Copy over only the necesary minimal source code
 # (Exclude Solidity deps, etc.)
 COPY eth_defi eth_defi
+COPY migration migration
 COPY scripts scripts
 COPY pyproject.toml pyproject.toml
 COPY poetry.lock poetry.lock

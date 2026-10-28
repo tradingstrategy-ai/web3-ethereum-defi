@@ -29,6 +29,7 @@ keywords = [
 ]
 packages = [
   {include = "eth_defi"},
+  {include = "migration"},
 ]
 exclude = [
   "eth_defi/abi/**/*[Tt]est*.json",
@@ -352,6 +353,8 @@ skip-magic-trailing-comma = false # Respect trailing commas to force multi-line
 #convention = "sphinx"
 
 [tool.poetry.scripts]
+# Audited, numbered database repairs; scanner daemon must be stopped.
+vault-migrate = 'eth_defi.vault_protocols.migration:main'
 # Aave is unsupported until a reintegration with Aave v4 in the future.
 # install-aave-for-testing = 'eth_defi.aave_v3.deployer:install_aave_for_testing'
 # Incremental historical exchange rate scanner (eth_defi.currency_api)

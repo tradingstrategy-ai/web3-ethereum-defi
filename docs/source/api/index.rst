@@ -44,6 +44,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    one_delta/index
    safe/index
    vault/index
+   vault_protocols/index
    core3/index
    xerberus/index
    feed/index
