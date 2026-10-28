@@ -160,8 +160,10 @@ Model metadata for `sol` not found. Defaulting to fallback metadata; this can de
  "message":"The 'sol' model is not supported when using Codex with a ChatGPT account."}}
 ```
 
-The **full model id `gpt-5.6-sol`** worked (confirmed by the smoke test below).
-So when a user asks for a short name like "sol", try the `gpt-5.6-<name>` form:
+The **full model id `gpt-5.6-sol`** worked (confirmed by the smoke test below)
+on that installation. This historical observation does not establish the ID
+or availability of a newer requested model. Use the explicitly requested full
+model ID and smoke-test it; do not replace its version with `5.6`.
 
 ```shell
 # Failed — bare short name rejected on this build/auth.
@@ -753,6 +755,24 @@ nohup kimi -m kimi-code/k3-max --add-dir /path/to/frontend -p "$(cat prompt.txt)
 ```
 
 ## Cross-agent review patterns
+
+For a completed feature, bug fix or maintained content change, run
+[clean-up-for-pr](../skills/clean-up-for-pr/SKILL.md). The skill owns the
+cleanup checklist and requested reviewer models: Codex uses Claude CLI with
+Opus 5.5; Claude uses Codex CLI with GPT 6.1 sol. Resolve and smoke-test the
+exact requested model; generic `opus` examples and older model observations in
+this document do not override that selection. The invocation, tool access,
+streaming, timeout and result-validation guidance here still applies.
+
+On 2026-10-28, a local smoke test with `--model claude-opus-5-5` returned
+`OK` and reported that exact model in its initial event. This verifies Opus
+5.5 for the account used in that run; other accounts still need the smoke test.
+`gpt-6.1-sol` is the requested full Codex ID for this workflow and must be
+smoke-tested in the invoking Claude session before a substantial review.
+
+Include staged changes and untracked source files as well as unstaged diffs.
+Tell the reviewer not to invoke cleanup skills or start another reviewer, so
+the implementing agent remains responsible for a single completed review.
 
 Use the other agent as a reviewer when:
 

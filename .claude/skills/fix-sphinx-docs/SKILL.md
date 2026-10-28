@@ -1,16 +1,25 @@
 ---
-name: fix-sphix-docs
-description: Fix errors and warnings in Sphinx docs build
+name: fix-sphinx-docs
+description: Fix Sphinx source errors and warnings using supplied build output or CI logs, without building the documentation locally.
 ---
 
-# Fix errors and warnings in Sphinx docs build
+# Fix Sphinx source errors and warnings
 
-This skill iterates over Sphinx docs build and attempt to fix easily addressable errors and warnings.
+Use existing error output and source inspection to fix documentation issues.
+`AGENTS.md` excludes local Sphinx builds from development verification.
 
-# Steps
+## Steps
 
-1. Run Sphinx build: `(source ./.venv/bin/activate && cd ./docs/ && make html)`, but with a twist:  figure out how to abort after 60 second do not try to wait for the full build takes too long.
-2. Check the output warnings and errors you could attempt to fix. DON'T TOUCH AUTO GENERATED RST FILES. These are in `_autosummary` folders like `_autosummary_d2`. These folders will be recreated by user with a special command you do not know.
-3. Report made changes
-4. Ask a permission to open a PR
+1. Read the supplied build output or the relevant CI job log. Locate the
+   affected source page, referenced API module and index entries. If no log is
+   available, inspect the reported source problem directly.
+2. Correct the maintained RST, docstrings, links or index references. Do not
+   edit generated `_autosummary*` files; trace their errors to the maintained
+   source or autosummary declaration.
+3. Check the edited sources and their references. Run focused Python checks
+   when API code changed. Do not run Sphinx, `make html` or documentation build
+   wrappers locally.
+4. Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+   task's review handoff. Report the fixes and any build result that still needs
+   CI confirmation. Open or update a PR only when the user requested it.
 

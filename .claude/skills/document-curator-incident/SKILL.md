@@ -150,6 +150,9 @@ Then run:
 git diff --check
 ```
 
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
+
 Report the curator, whether the incident was added or merged, the selected date,
 `incident_kind`, severity, and the number of links, vault addresses, and protocols
 now attached to the record.

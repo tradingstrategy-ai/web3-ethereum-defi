@@ -1,14 +1,16 @@
 Developer guide
 ===============
 
-Here are instructions for new developers how to get started with the development of `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.
-This concerns you only if you indent to contribute to the package code itself - if you use the package as a dependency then this might not be relevant for oyu.
+This guide explains how to contribute to the
+`web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
+package. Applications using the package as a dependency can follow the API
+documentation and tutorials instead.
 
 Prerequisites
 -------------
 
-* You can program in Python
-* You now how Git and Github work
+* You can program in Python 3.14
+* You know how Git and GitHub work
 * Linux or Mac recommended (We might not be able to support Windows users)
 
 Checkout
@@ -20,7 +22,7 @@ Check out the project locally:
 
     git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
 
-We assume you use SSH keys with Github, but HTTPS checkout works as well.
+We assume you use SSH keys with GitHub, but HTTPS checkout works as well.
 
 Make sure you checkout the submodules, as we include Uniswap, Sushiswap and others as Git submodules:
 
@@ -49,12 +51,12 @@ Install the project with Poetry in development mode:
 .. code-block:: shell
 
     cd web3-ethereum-defi
-    poetry shell  # Enter to Poetry/virtualenv enabled shell
-    poetry install -E docs -E data
+    poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
 
-Note that `-E docs` is important, otherwise Sphinx package won't be installed and you cannot build docs.
-
-`Check instructions here if you need to change Python version from your default to Python 3.8+ <https://stackoverflow.com/questions/70064449/how-to-rebuild-poetry-environment-from-scratch-and-force-reinstall-everything/70064450#70064450>`_.
+Use Python 3.14 for the Poetry environment and run project commands through
+``poetry run``. Include the listed extras so integrations and focused tests
+have their required dependencies. Documentation sources are checked during
+development; Sphinx builds run separately in CI.
 
 Ganache
 -------
@@ -90,27 +92,30 @@ Make sure your Ganache is version 7+:
 Smoke test
 ----------
 
-Check that the tests of unmodified master branch pass:
+Run the focused test files relevant to your change. The repository-root
+``.local-test.env`` must already exist and source the test secrets from outside
+the repository. Never edit that file. In a worktree, copy it from the main
+checkout if it is missing.
 
 .. code-block:: shell
 
-     pytest
+    source .local-test.env && timeout 180s poetry run pytest tests/vault/test_fee.py
 
-For fast parallel test execution run with ``pytest-xdist`` across all of your CPUs:
+For worktrees sharing the parent checkout's Poetry environment, set
+``PYTHONPATH`` so tests import the changed source:
 
-.. code-block::
+.. code-block:: shell
 
-    pytest -n auto --dist loadscope
+    source .local-test.env && PYTHONPATH="$PWD" timeout 180s poetry run pytest tests/vault/test_fee.py
 
-You should get all green.
-
-Some tests will be skipped, because they require full EVM nodes. JSON-RPC needs to be configured through environment variables.
+Avoid running the whole suite during development. Some integration tests need
+JSON-RPC environment variables and skip when those variables are absent.
 
 You can also run tests with logging enabled to get more information:
 
 .. code-block:: shell
 
-    pytest --tb=native --log-cli-level=info -x
+    source .local-test.env && timeout 180s poetry run pytest tests/vault/test_fee.py --tb=native --log-cli-level=info -x
 
 This will
 
@@ -127,19 +132,35 @@ The code uses Ruff formatting with unlimited line length.
 
 - All pull requests will be validated for valid ``ruff`` formatting.
 
-To format any of your code:
+Format the Python files changed for the task:
 
 .. code-block:: shell
 
-    # ruff comes in dev dependencies
-    # This will automatically format all Python files in the repository
-    # according to the project rules.
-    poetry run ruff format .
+    poetry run ruff format path/to/changed.py path/to/new.py
 
 Pull requests
 -------------
 
-For new feature requests, make sure your pull request satisfies the checklist below and enjoy merge party.
+Prepare the completed change for review using the workflow below.
+
+Preparing a change for review
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After completing a feature, bug fix or maintained content change, use the
+repository's `clean-up-for-pr skill <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/skills/clean-up-for-pr/SKILL.md>`__.
+It covers code simplification, factual comments and public descriptions,
+documentation updates, repository conventions and an independent review.
+
+Update relevant agent guidance under ``.claude/docs`` and Sphinx source pages
+and index references when their behaviour or usage changes. Check those sources
+without building Sphinx locally, and leave generated ``_autosummary*`` files
+to the documentation pipeline.
+
+The skill specifies the opposite agent and requested model. Follow the
+`agent CLI guide <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/agent-tricks-and-troubleshooting.md>`__
+for tool access, streaming output and completed-review checks. Run focused
+tests and format changed Python files before handing off the patch; commits,
+pushes and publication follow the user's existing authorisation.
 
 Dependency audits
 -----------------

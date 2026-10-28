@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add source-linked descriptions for 36 AlphaPing Morpho and IPOR vaults, a metadata-only repair command, and a reviewed PR cleanup skill (2026-10-28).
 - feat: Classify KangCFA and nine other GRVT vaults as high-frequency, high-win-rate strategies following a review of current strategy disclosures and equity curves, preserving their existing tags (2026-10-28).
 - feat: Recognise Ethereum ssftUSD under Flying Tulip with redeemable price history, announcement-linked product notes and a targeted metadata refresh preserving historical data (2026-10-28).
 - feat: Add the sentiment trading and social trading strategy categories and classify all six Centaur Lighter pools, which trade signals extracted from public traders' posts (2026-10-28).

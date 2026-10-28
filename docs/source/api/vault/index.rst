@@ -40,6 +40,7 @@ at the same numeric block while no-argument callers retain latest-state reads.
    eth_defi.vault.lower_case_dict
    eth_defi.vault.mass_buyer
    eth_defi.vault.flag
+   eth_defi.vault.handwritten_metadata
    eth_defi.vault.protocol_metadata
    eth_defi.vault.curator
    eth_defi.vault.curator_export
