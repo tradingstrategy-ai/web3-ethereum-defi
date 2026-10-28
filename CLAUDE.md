@@ -243,6 +243,12 @@ No test plan or verification section. Use Markdown formatting, headings.
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
 - Before opening or updating a pull request, format the code
+- If a pull request adds or changes manually maintained narrative text, check
+  the affected text against the [description writing style guide](.claude/docs/description-writing-style.md)
+  before opening or updating it, unless that version of the text was already
+  checked earlier. Reuse the earlier review for unchanged text and check any
+  subsequent substantive edits. Record completion or the earlier review in the
+  PR checklist; mark it not applicable when there are no narrative changes.
 - When merging pull request, squash and merge commits and use the PR description as the commit message
 - When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
 - If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
