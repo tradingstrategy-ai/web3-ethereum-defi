@@ -1,0 +1,45 @@
+symbol: trUSD
+token_symbols:
+  - TRUSD
+name: Tori trUSD
+slug: trusd
+category: stablecoin
+ambiguous_symbol: true
+short_description: trUSD is Tori Finance's dollar-tracking token, backed by trading positions that aim to offset gains and losses from market price movements.
+long_description: |
+  [Tori Finance](https://tori.finance/) issues trUSD as a token designed to track
+  the US dollar. Its [product documentation](https://docs.tori.finance/products/trusd)
+  describes backing from paired trading positions that aim to limit exposure to
+  market price movements. Holders can stake trUSD to receive the separate strUSD
+  token, which is designed to earn rewards from the trading strategies.
+
+  Users in eligible jurisdictions can swap USDC or USDT for trUSD through the
+  app at market rates. Direct protocol minting and redemption require approval,
+  identity and anti-money-laundering checks, and an approved wallet. As at
+  28 October 2026, the
+  [minting and redemption documentation](https://docs.tori.finance/resources/institutional)
+  describes transactions based on net asset value (NAV) and a 0.1% fee on each
+  minting or redemption operation.
+
+  Selling trUSD depends on available buyers and liquidity, so the price received
+  can differ from one dollar. Tori's
+  [backing and reserve information](https://docs.tori.finance/solution/backing)
+  describes assets held both onchain and with external custodians. Losses on the
+  trading positions or failures at those counterparties can affect the backing;
+  Tori's [risk disclosures](https://docs.tori.finance/resources/risks) also cover
+  smart contract failures and restrictions on access or withdrawals.
+links:
+  homepage: https://tori.finance/
+  coingecko: https://www.coingecko.com/en/coins/tori-trusd
+  defillama: https://defillama.com/token/TRUSD
+  twitter: https://x.com/tori_finance
+contract_addresses:
+  - chain: ethereum
+    address: '0xd0580192E98eA6CEB9c7b6191Ed2E27560911697'
+source_currency: usd
+source_currency_source: manual
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
