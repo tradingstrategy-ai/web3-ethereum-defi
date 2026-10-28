@@ -12,10 +12,12 @@ source links that are not otherwise visible from raw onchain metrics.
 
 - `VAULT_NOTES` contains address-specific descriptive notes that do not make a
   vault flagged.
+- `CHAIN_SCOPED_VAULT_NOTES` identifies an exact chain/address deployment.
 - `VAULT_FLAGS_AND_NOTES` contains address-specific notes paired with an optional
   `VaultFlag`. If the flag is in `BAD_FLAGS`, downstream risk logic can blacklist
   the vault.
 - `PROTOCOL_FLAGS_AND_NOTES` contains protocol-wide manual notes and flags.
+- `PROTOCOL_NOTES` contains generic descriptive protocol defaults.
 - `get_notes(address, chain_id=None, protocol_name=None)` applies those tables
   and chain-level fallbacks. Pass `include_defaults=False` to check current
   address notes and manual protocol warnings without generic defaults.

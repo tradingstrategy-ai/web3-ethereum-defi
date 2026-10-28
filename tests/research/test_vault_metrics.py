@@ -54,7 +54,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
+from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -1929,7 +1929,7 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     assert exported["protocol_curator"] is True
 
 
-@pytest.mark.parametrize("manual_note_source", [None, "flag", "address", "chain", "protocol"])
+@pytest.mark.parametrize("manual_note_source", [None, "flag", "address", "chain", "protocol", "default"])
 def test_calculate_lifetime_metrics_exports_nova_pool_fee_mode(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
@@ -1977,6 +1977,8 @@ def test_calculate_lifetime_metrics_exports_nova_pool_fee_mode(
         monkeypatch.setitem(CHAIN_SCOPED_VAULT_NOTES, (spec.chain_id, spec.vault_address), warning)
     elif manual_note_source == "protocol":
         monkeypatch.setitem(PROTOCOL_FLAGS_AND_NOTES, "Nova Markets", (VaultFlag.long_duration, warning))
+    elif manual_note_source == "default":
+        monkeypatch.setitem(PROTOCOL_NOTES, "Nova Markets", "Generic protocol default")
 
     metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
     exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
@@ -1986,7 +1988,7 @@ def test_calculate_lifetime_metrics_exports_nova_pool_fee_mode(
     assert exported["risk_numeric"] == VaultTechnicalRisk.dangerous.value
     assert exported["net_fees"] == {"fee_mode": "feeless", "management": 0.0, "performance": 0.0, "deposit": 0.0, "withdraw": 0.0, "protocol": 0.0}
     assert exported["lifetime_return_net"] is not None
-    assert exported["notes"] == (warning if manual_note_source else "Cached Conviction Pool strategy")
+    assert exported["notes"] == (warning if manual_note_source in {"flag", "address", "chain", "protocol"} else "Cached Conviction Pool strategy")
 
 
 @pytest.mark.parametrize("cached_risk", [VaultTechnicalRisk.low, VaultTechnicalRisk.blacklisted])
