@@ -80,12 +80,13 @@ refused. Only conclusively absent, created or
 exited service containers pass. It pins the one-shot to an inspected image ID.
 It never stops or restarts services, and needs no container Docker socket.
 
-Older images lack the lifetime guard. The host launcher is therefore mandatory
-in production, especially during the first upgrade. Stop the old daemon before
-deploying and running the new system. Also quiesce one-shot and cron metadata
-writers: the lifetime guard only covers cooperating processes, while the writer
-lock protects apply against existing scanner writers. Previews require quiet
-data because they do not take the pipeline writer lock.
+Older images lack the lifetime guard. Stop the old daemon explicitly during
+the first upgrade. Direct Compose commands are the standard production interface;
+the host launcher remains available when Docker preflight and automatic image
+pinning are needed. Also quiesce one-shot and cron metadata writers: the lifetime
+guard only covers cooperating processes, while the writer lock protects apply
+against existing scanner writers. Previews require quiet data because they do
+not take the pipeline writer lock.
 
 ## Authoring a migration
 
@@ -211,28 +212,62 @@ retention deletion is performed. Preserve historical prices and reader state.
 
 ## Production runbook
 
-Inspect `docker-compose.yml` and verify the normal persistent mounts. Update
-the checkout and build with `scripts/build-container.sh`, which stamps its git
-revision. Do not rebuild or retag the image during maintenance.
+The standard production apply command, run from
+`~/vault-scanner/web3-ethereum-defi`, is:
 
 ```shell
-source ~/vault-scanner/vault-rpc.env
-cd ~/vault-scanner/web3-ethereum-defi
-scripts/build-container.sh
-docker compose stop vault-scanner-looped
-scripts/run-vault-migrations.sh list
-DRY_RUN=true scripts/run-vault-migrations.sh run
-# Review the reported target scopes, missing entries and proposed fields.
-DRY_RUN=false scripts/run-vault-migrations.sh run
-docker compose up -d --force-recreate vault-scanner-looped
-docker inspect --format '{{.Image}}' vault-scanner-looped
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
 ```
 
-The launcher inspects the image ID, pins the one-shot to it, passes that ID as
-`DOCKER_IMAGE_HASH`, disables historical price scanning for maintenance and
-preserves the service's mounts. Docker apply requires the image ID and a valid
-git build stamp. Outside Docker, unknown provenance is null with a diagnostic;
-source runs record the checkout commit and dirty status.
+Before maintenance, inspect `docker-compose.yml` and verify its persistent
+mounts. Update the production checkout to merged master and build with
+`scripts/build-container.sh`, which stamps the git revision. Export the actual
+image ID once after each build, in the same shell used for the commands below:
+
+```shell
+export DOCKER_IMAGE_HASH="$(docker image inspect vault-scanner:local --format '{{.Id}}')"
+```
+
+Compose forwards this infrastructure variable to the one-shot container;
+Docker apply requires both this image ID and a valid git build stamp. Do not
+rebuild or retag `vault-scanner:local` during maintenance. A host checkout
+update alone does not update the code or console entrypoint inside the image.
+Re-export after any rebuild: the engine validates the image ID's format but
+cannot independently compare it with the running container's image.
+
+List migrations:
+
+```shell
+source ../vault-rpc.env && docker compose run --rm --no-deps --entrypoint vault-migrate vault-scanner-oneshot list
+```
+
+Stop the persistent writers, and finish or stop other one-shot/cron metadata
+writers before preview or apply:
+
+```shell
+source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
+```
+
+Preview all pending migrations, then review the reported targets and changes
+before using the apply command above:
+
+```shell
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
+```
+
+Both preview and apply take the lifecycle guard before reading migration state
+or importing scripts. An updated looped scanner holds that guard even while
+sleeping. During the first upgrade, stop the old unguarded daemon explicitly;
+the engine cannot detect an older daemon that does not hold the shared lock.
+These commands override the normal scanner entrypoint and run only the pending
+numbered migrations, using the service's existing persistent mounts.
+
+After a successful apply, recreate the persistent services with the same image:
+
+```shell
+source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
+docker inspect --format '{{.Image}}' vault-scanner-looped
+```
 
 Confirm the restarted daemon image matches the image recorded in migration.json.
 Keep normal cleaning, post-processing, protocol export, top-vault JSON export
@@ -240,6 +275,12 @@ and uploads enabled. **Publication is performed by restarted
 `vault-scanner-looped`, not by the migration runner.** Validate the repaired
 fields after its successful cycle. Migration success alone is not publication.
 On failure, inspect the journal and backups before retrying or restoring data.
+
+The optional `scripts/run-vault-migrations.sh list|run` host launcher performs
+Docker status preflight, automatically pins and passes the image ID, and disables
+incidental maintenance price scanning. It uses the same one-shot service and
+mounts. Outside Docker, unknown provenance is null with a diagnostic; source
+runs record the checkout commit and dirty status.
 
 ## Initial batch: 28 October 2026
 

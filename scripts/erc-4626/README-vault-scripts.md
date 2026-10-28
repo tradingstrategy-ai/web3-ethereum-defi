@@ -3,7 +3,15 @@
 For new database repairs, use the [numbered migration system](../../.claude/docs/migration-scripts.md).
 The `vault-migrate` command lists, previews and applies pending scripts in order.
 Both preview and apply require `vault-scanner-looped` to be stopped, including
-its sleep intervals. Production uses `scripts/run-vault-migrations.sh`.
+its sleep intervals. Production uses the one-shot Compose service:
+
+```shell
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+```
+
+Run from the production checkout after the image provenance setup in the
+migration guide. See [Docker migrations](#run-numbered-database-migrations)
+below for the deployment requirements.
 
 
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
@@ -37,7 +45,7 @@ migration, reusing pure transformation or historical-reader helpers as needed.
   reader state. Add a historical backfill or reader-state change only when the
   reviewed migration explicitly requires it.
 - Both preview and apply require the daemon and competing writers to be
-  stopped. Use `scripts/run-vault-migrations.sh` in production and follow the
+  stopped. Use the production Compose command above and follow the
   documented lifecycle-guard-before-writer-lock order; helpers must not relock.
 
 For local authoring checks, set `PIPELINE_DATA_DIR` to an isolated snapshot
@@ -50,15 +58,15 @@ DRY_RUN=false poetry run vault-migrate run
 ```
 
 For a worktree using the parent Poetry environment, use the module form and
-`PYTHONPATH="$PWD"` described in the migration guide. The production launcher
-retains the inspected Compose mounts and image provenance; restart the same
-image afterwards for normal cleaning, exports and uploads.
+`PYTHONPATH="$PWD"` described in the migration guide. The production Compose
+service retains the persistent mounts and forwards the exported image ID;
+restart the same image afterwards for normal cleaning, exports and uploads.
 
 ### Pull request run reminder
 
 Every PR adding a migration must include a **Run after merge** comment with
 its numbered filenames, reviewed scope, expected counts, required services,
-exact production launcher preview/apply commands, affected files, recovery
+exact production Compose preview/apply commands, affected files, recovery
 precautions and post-run validation criteria. Record the deployed commit,
 image ID, UTC date and result after execution. Merging a PR does not run it.
 Use the authoring and production runbook in the migration guide as the source
@@ -2787,6 +2795,27 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 | `LOG_LEVEL` | Optional. Default: warning. |
 
 ## Docker usage
+
+### Run numbered database migrations
+
+Use the [production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
+for image build/provenance setup, stopping writers, preview and recovery. From
+`~/vault-scanner/web3-ethereum-defi`, the production apply command is:
+
+```shell
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+```
+
+Set `DRY_RUN=true` in that command to preview. The installed `vault-migrate`
+entrypoint runs the numbered migration system instead of the normal scanner.
+Stop `vault-scanner-looped`, `post-scanner` and competing metadata writers first.
+The updated daemon's lifetime lock blocks migrations even during sleep. Keep
+the image unchanged through preview, apply and service recreation. Compose
+forwards the host-exported `DOCKER_IMAGE_HASH` required by apply; the runbook
+shows how to obtain it after each build. The optional host launcher remains
+available for Docker status preflight and automatic image pinning.
+
+### Scanner image and exports
 
 Pro vault datasets—price Parquet, local metadata pickle, data DuckDB files,
 export-state JSON and the crypto bundle—are uploaded only to their configured

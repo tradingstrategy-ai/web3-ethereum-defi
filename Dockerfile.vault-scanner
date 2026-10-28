@@ -20,6 +20,13 @@
 #
 #   docker compose run --entrypoint /bin/bash vault-scanner
 #
+# Production database migrations use the installed console entrypoint:
+#
+#   source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+#
+# Stop the looped scanner and export image provenance first. See
+# .claude/docs/migration-scripts.md#production-runbook and the Docker usage
+# section of scripts/erc-4626/README-vault-scripts.md.
 #
 
 FROM python:3.14.4

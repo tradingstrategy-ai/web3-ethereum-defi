@@ -81,8 +81,10 @@ and one-off backfill entrypoints are **legacy format and must not be used**
 for these tasks. Port a required legacy repair into a new numbered script;
 existing commands in old runbooks are historical references, not templates.
 Do not edit or rerun a successful initial migration for a later accessor change.
-Both preview and apply require the looped scanner to be stopped; use the host
-launcher in production, preserving the lifetime-guard-before-writer-lock order.
+Both preview and apply require the looped scanner to be stopped; use the direct
+Compose command in the production runbook, preserving the
+lifetime-guard-before-writer-lock order. The host launcher is optional for
+Docker preflight and automatic image provenance.
 
 Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
 environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
