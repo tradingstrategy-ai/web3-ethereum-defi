@@ -490,6 +490,9 @@ VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
 WRAPPED_HLP_ILLIQUID = "Wrapped HLP is illiquid"
 
+#: User-reported illiquidity of Gearbox's EDGE UltraYield USDC vault on Monad.
+EDGE_ULTRAYIELD_USDC_ILLIQUID = "EDGE UltraYield USDC is illiquid"
+
 #: King RSS USDC Vault lends against a token with no market, see its entry in :py:data:`VAULT_FLAGS_AND_NOTES`
 KING_RSS_UNSELLABLE_COLLATERAL = "Lends against RSS elephanToken, which has no market and a custom oracle; the reported yield cannot be realised."
 
@@ -1034,6 +1037,18 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
     # Wrapped HLP (Hyperlend on HyperEVM)
     "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5": (VaultFlag.illiquid, WRAPPED_HLP_ILLIQUID),
+    # EDGE UltraYield USDC (Gearbox on Monad, curator UltraYield)
+    #
+    # Added 2026-10-28 following a user report that this vault is illiquid.
+    # Apply VaultFlag.illiquid to warn readers and exclude it from investable
+    # listings. This is the user's explicit classification; no independent
+    # measurement of current redeemable liquidity was made for this entry.
+    #
+    # Sources identifying the reported vault:
+    # - https://tradingstrategy.ai/vaults/edge-ultrayield-usdc-5
+    # - https://monadscan.com/address/0x6b343f7b797f1488aa48c49d540690f2b2c89751
+    # - https://app.gearbox.finance/
+    "0x6b343f7b797f1488aa48c49d540690f2b2c89751": (VaultFlag.illiquid, EDGE_ULTRAYIELD_USDC_ILLIQUID),
     # King RSS USDC Vault (Morpho V1 on Base)
     #
     # Added 2026-09-26 by the vault report investability check
