@@ -19,6 +19,7 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_NOTES
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipStableVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.vault.base import normalise_vault_description, normalise_vault_short_description
 
 #: Existing vault observation on 2026-10-20, after ssftUSD was deployed.
 SSFTUSD_REVIEW_BLOCK = 26_234_307
@@ -77,8 +78,8 @@ def test_flying_tulip_stable_real_prices_and_scan_record(stable_web3: Web3) -> N
     detection = ERC4262VaultDetection(1, address, SSFTUSD_REVIEW_BLOCK, native_datetime_utc_now(), vault.features, native_datetime_utc_now(), 36, 0)
     row = create_vault_scan_record(stable_web3, detection, SSFTUSD_REVIEW_BLOCK, None)
     assert row["Protocol"] == "Flying Tulip"
-    assert row["_description"] == vault.description
-    assert row["_short_description"] == vault.short_description
+    assert row["_description"] == normalise_vault_description(vault.description)
+    assert row["_short_description"] == normalise_vault_short_description(vault.short_description)
     assert row["_notes"] == FLYING_TULIP_SSFTUSD_NOTES
     assert row["_deposit_closed_reason"] is None
     assert "_external_reward_token" not in row
