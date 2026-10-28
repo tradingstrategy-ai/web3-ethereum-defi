@@ -603,6 +603,9 @@ If there are problems with the checklist, ask for human assistance.
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
+
 ## Step 18: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.

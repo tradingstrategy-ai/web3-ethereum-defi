@@ -5,7 +5,7 @@ description: Add a note to specific vault
 
 # Add vault note
 
-This skill adda s human readable note to a specific vault in the database.
+This skill adds a human-readable note to a specific vault in the database.
 
 Read and follow the shared [description writing style](../../docs/description-writing-style.md)
 before writing or editing public vault notes or handwritten descriptions.
@@ -57,6 +57,9 @@ Add the vault address `VAULT_FLAGS_AND_NOTES`
 Run ruff to make sure Python code is formatted.
 
 ## 4. Open PR
+
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
 
 - Open a pull request.
 - This is not a feature pull request - no need to add changelog entry

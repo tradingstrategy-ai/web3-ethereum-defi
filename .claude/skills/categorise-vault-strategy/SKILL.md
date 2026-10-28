@@ -139,6 +139,11 @@ address-to-tag mapping next to its vault protocol adapter.
 
 ## Chat output
 
+Before the review handoff, run
+[clean-up-for-pr](../clean-up-for-pr/SKILL.md) on the completed change. When
+categorisation is part of a larger onboarding task, let that task run cleanup
+once after its remaining implementation is complete.
+
 When reporting a completed categorisation, output one entry per vault with:
 
 - Vault name
