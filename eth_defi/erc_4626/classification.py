@@ -2849,6 +2849,11 @@ def create_vault_instance(
 
         return ForgeYieldsVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.arcadia_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.arcadia.vault import ArcadiaVault
+
+        return ArcadiaVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.crystalclear_like in features:
         from eth_defi.erc_4626.vault_protocol.crystalclear.vault import CrystalClearVault
 
