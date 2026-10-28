@@ -19,6 +19,9 @@ subscription and redemption flows instead of ERC-4626 vault contracts.
 
 ## Website descriptions
 
+Read and follow the shared [description writing style](../../docs/description-writing-style.md)
+before writing or editing public descriptions.
+
 Individual vault `VaultBase.description` and `VaultBase.short_description`
 values must be single-line text. Never include newline or carriage-return
 characters, paragraph breaks, or literal `\n` / `\r` escape sequences. Apply
@@ -31,7 +34,7 @@ Preserve the wording and links within that sentence. This rule applies to
 individual vault fields; protocol-level Markdown fields below may still use
 paragraphs.
 
-Protocol metadata YAML is public website copy for DeFi professionals. The
+Protocol metadata YAML is public website copy for a general audience. The
 `short_description`, `long_description` and `fee_description` fields must
 explain the product, not this repository's integration.
 

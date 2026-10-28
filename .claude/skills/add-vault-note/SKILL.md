@@ -7,6 +7,9 @@ description: Add a note to specific vault
 
 This skill adds a human-readable note to a specific vault in the database.
 
+Read and follow the shared [description writing style](../../docs/description-writing-style.md)
+before writing or editing public vault notes or handwritten descriptions.
+
 ## Required inputs
 
 Before starting, gather the following information from the user:
