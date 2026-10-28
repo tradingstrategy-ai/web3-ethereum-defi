@@ -22,6 +22,11 @@ source links that are not otherwise visible from raw onchain metrics.
   and chain-level fallbacks. Pass `include_defaults=False` to check current
   address notes and manual protocol warnings without generic defaults.
 
+Public exports resolve current manual address and protocol notes before cached
+`_notes`. This also applies to existing non-Gains vaults: metadata-only repairs
+preserve stored notes, while exports use the current manual review text. Generic
+protocol and chain defaults remain fallbacks after cached strategy notes.
+
 Manual bad-flag notes should take precedence over generic descriptive notes. A
 vault that has been explicitly marked as `subvault`, `illiquid`, `unofficial`,
 or similar should not have that warning hidden by a protocol-level description.

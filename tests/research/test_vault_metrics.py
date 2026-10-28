@@ -54,7 +54,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
+from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, SUMMER_FI_ILLIQUID, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -2092,17 +2092,29 @@ def test_calculate_lifetime_metrics_does_not_infer_yearn_curator_for_excluded_va
     assert metrics.iloc[0]["curator_name"] is None
 
 
-def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
+@pytest.mark.parametrize("cached_notes", [None, "Cached strategy predating the manual warning"])
+def test_calculate_lifetime_metrics_applies_current_protocol_warning(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
+    cached_notes: str | None,
 ) -> None:
-    """Non-D2 protocol-wide notes are not newly applied in lifetime metric exports."""
+    """Apply current manual protocol warnings ahead of cached strategy notes.
+
+    Protocol warnings use the same export precedence as address warnings.
+    Cover both older cached text and a row with no scanned note.
+
+    :param vault_db: Sample scanner metadata database.
+    :param price_df: Sample price series for the exported row.
+    :param cached_notes: Strategy text from a previous scan, if any.
+    :return: ``None`` after checking the current protocol warning.
+    """
     vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
     spec = VaultSpec.parse_string(vault_id)
     vault_row = dict(vault_db.rows[spec])
     vault_row["Protocol"] = "Summer.fi"
     vault_row["_risk"] = VaultTechnicalRisk.negligible
     vault_row["_flags"] = set()
+    vault_row["_notes"] = cached_notes
     vault_prices = price_df.loc[price_df["id"] == vault_id]
 
     metrics = calculate_lifetime_metrics(
@@ -2110,8 +2122,8 @@ def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
         {spec: vault_row},
     )
 
-    note = metrics.iloc[0]["notes"] or ""
-    assert "Summer.fi vault is illiquid" not in note
+    assert metrics.iloc[0]["notes"] == SUMMER_FI_ILLIQUID
+    assert vault_row["_notes"] == cached_notes
 
 
 def test_calculate_period_metrics(
