@@ -2,7 +2,8 @@
 
 Research date: 2026-10-28. The published export contained 33 Accountable vaults,
 12 without full or short descriptions, and one with a description from another
-chain. The Avalanche Travessia fallback was already implemented locally.
+chain. This change adds the Avalanche Travessia fallback alongside the other
+reviewed deployments.
 
 ## Reviewed deployments
 
@@ -12,7 +13,7 @@ chain. The Avalanche Travessia fallback was already implemented locally.
 | Travessia Tauri USDC | Ethereum | `0xf84a37545e313e8177d80039158ed478c7dc9079` | Add strategy description and official link |
 | Travessia Tauri USDT | Ethereum | `0xe4ee0fe4b09021fcdf76b165aa1e8eaf7d447c35` | Override incorrect Pelican pGAIN description and link |
 | Travessia Tauri AUSD | Monad | `0x8d24b48cb736addb5b7069565f192a052f42ba61` | Add strategy description and official link |
-| Travessia Tauri USDT | Avalanche | `0x9c3da70cd7fedeaef528d060ea99ace133e08fd2` | Retain existing fallback |
+| Travessia Tauri USDT | Avalanche | `0x9c3da70cd7fedeaef528d060ea99ace133e08fd2` | Add strategy description, official link and note |
 | Noon Symphony Yield Vault | Arbitrum | `0x9fe29a3fec55414f70454e2dbe6522f48ced3e85` | Add business context and protocol-level yield model |
 | sUSN Delta Neutral Yield Vault | Ethereum | `0xa73424f1ac94b3ef0d0c9af4f2967c87d4af25d9` | Add limited Noon product context |
 | Noon Sophon Yield Vault | Ethereum | `0x0963c0f17d77e336ff75ed36c27d3a1522847615` | Add historical context; distinguish Ethereum deployment from Sophon |
@@ -37,6 +38,8 @@ maps all five reviewed chain/address pairs to Tauri and identifies their deposit
 assets. The Ethereum USDC and USDT detail pages were fetched successfully and
 displayed the matching vault addresses. Their paths follow
 `/vaults/{chain_id}/tauri/{share_address}`.
+The Ethereum AUSD and Monad AUSD links use the same route and addresses from
+that deployment catalogue; their detail pages were not independently fetched.
 
 ### Noon
 
@@ -112,7 +115,10 @@ The current Accountable API identifies Pelican pGAIN on chain 1672 at the same
 share-token address as Travessia USDT on Ethereum. The address-only API cache
 therefore supplied Pelican's strategy and link to the Ethereum row. The reviewed
 Ethereum fallback takes precedence and repairs its description and homepage.
-The general API cache's chain-scoping design remains a separate issue.
+The API's manager name is still read through the address-only lookup and can
+therefore still identify Pelican as the Ethereum vault's manager. This change
+does not repair manager or curator attribution. The general API cache's
+chain-scoping design remains a separate issue.
 
 ## Publishing
 

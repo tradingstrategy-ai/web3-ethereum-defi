@@ -79,12 +79,16 @@ contained the earlier Accountable copy and style-guide changes.
    The [current FAQ](https://docs.liquity.org/v2-faq/general) describes limited
    governance over incentive allocation. Distinguish code release, launch and
    redeployment, and recheck redemption and collateral claims before rewriting.
-4. **ynRWAx maturity and safety wording.**
+4. **ynRWAx maturity and safety wording (superseded).**
    `YIELDNEST_YNRWAX` in [vault notes](../../eth_defi/vault/flag.py) describes
    the investment as “Made safe”, earning 11% APY, with 0% fees. Its stated
    maturity, 15 October 2026, is already past. Verify the present status and
    date any historical yield/fee terms. The date alone establishes neither
    repayment nor closure.
+   This is a historical snapshot finding: [PR #1649](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1649)
+   has already replaced this text on `master` with a liquidation warning.
+   The CSV retains the original text and counts, with this supersession recorded
+   in its finding; it is no longer an outstanding rewrite of the current note.
 5. **IPOR fee contradiction.**
    [The fee description](../../eth_defi/data/vaults/metadata/ipor-fusion.yaml)
    first says investors pay no deposit fee, then describes an optional deposit

@@ -162,7 +162,7 @@ TRAVESSIA_TAURI_VAULT_METADATA.update(
 )
 
 #: Protocol-level background, not a claim about a particular vault's holdings.
-NOON_YIELD_ENGINE_DESCRIPTION: Final[str] = "Across its products, Noon earns income from short-term US government debt, other loans and debt investments, lending through crypto platforms, and trading designed to reduce exposure to market price movements. Its sUSN token gives holders access to this mix of investments. Individual vaults can follow different strategies and withdrawal rules. These public documents describe Noon's wider business; they do not establish this vault's current investments."
+NOON_YIELD_ENGINE_DESCRIPTION: Final[str] = "Across its products, Noon earns income from short-term US government debt, other loans and debt investments, lending through crypto platforms, and trading designed to reduce exposure to market price movements. Its sUSN token gives holders access to this mix of investments. Individual vaults can follow different strategies and withdrawal rules. Noon's public documents describe its wider business; they do not establish this vault's current investments."
 
 #: Official public sources for Noon's yield model and vault-specific scope.
 NOON_YIELD_ENGINE_SOURCES: Final[str] = "Noon explains its [sources of investment income](https://docs.noon.capital/1.-noon-the-basics/how-it-works) and the distinction between [individual vault strategies and sUSN](https://docs.noon.capital/1.-noon-the-basics/vaults)."
