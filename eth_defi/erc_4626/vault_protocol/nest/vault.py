@@ -25,7 +25,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.nest.offchain_metadata import NEST_ARC_CHAIN_ID, NEST_CURATOR_SLUG, NestVaultMetadata, fetch_nest_vault_metadata, select_nest_manager_name
 from eth_defi.erc_4626.vault_protocol.nest.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalReader
+from eth_defi.vault.base import VaultHistoricalReader, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
@@ -80,23 +80,25 @@ class NestVault(ERC4626Vault):
 
     @property
     def description(self) -> str | None:
-        """Return Nest's full first-party product description.
+        """Return Nest's full first-party product description as single-line text.
 
-        Use the CMS strategy explanation without inferring realised returns.
+        Normalise at access time so existing CMS cache entries are also safe.
 
-        :return: Description, or ``None`` when unpublished.
+        :return:
+            Description without line breaks or literal newline escapes, or ``None``.
         """
-        return self.nest_metadata.get("description") if self.nest_metadata else None
+        return normalise_vault_description(self.nest_metadata.get("description")) if self.nest_metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return Nest's concise first-party product summary.
+        """Return the first sentence of Nest's product summary as single-line text.
 
-        Preserve the CMS summary independently of the full strategy text.
+        Normalise at access time so existing CMS cache entries are also safe.
 
-        :return: Summary, or ``None`` when unpublished.
+        :return:
+            Summary without line breaks or literal newline escapes, or ``None``.
         """
-        return self.nest_metadata.get("short_description") if self.nest_metadata else None
+        return normalise_vault_short_description(self.nest_metadata.get("short_description")) if self.nest_metadata else None
 
     @property
     def manager_name(self) -> str | None:

@@ -137,3 +137,7 @@ def test_scan_note_normalisation_drops_duplicate_descriptions() -> None:
     assert _normalise_scan_note(description, description, None) is None
     assert _normalise_scan_note(description, None, description) is None
     assert _normalise_scan_note(distinct_note, description, None) == distinct_note
+    assert _normalise_scan_note("Protocol supplied\n\nvault description", description, None) is None
+    assert _normalise_scan_note(r"Protocol supplied\nvault description", None, description) is None
+    distinct_multiline_note = "Risk warning.\n\n[Source](https://example.com)."
+    assert _normalise_scan_note(distinct_multiline_note, description, None) == distinct_multiline_note

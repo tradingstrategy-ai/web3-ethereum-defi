@@ -190,6 +190,44 @@ def test_fetch_nest_vaults(tmp_path: Path) -> None:
             assert route["vault_address"].lower() in STRATEGY_TAGS
     assert (tmp_path / "nest_vaults.json").exists()
 
+    vault = NestVault(web3=None, spec=VaultSpec(43114, NEST_N_OPAL_AVALANCHE_VAULT))
+    vault.__dict__["nest_metadata"] = nopal
+    for text in (vault.description, vault.short_description):
+        assert text
+        assert all(character not in text for character in ("\n", "\r", "\\n", "\\r"))
+
+
+def test_nest_cached_descriptions_are_single_line() -> None:
+    """Clean existing CMS cache values without fetching or rewriting the cache.
+
+    Nest's nOPAL CMS summary has contained a literal newline escape, while the
+    full product description uses actual paragraph breaks.
+    """
+    vault = NestVault(web3=None, spec=VaultSpec(43114, NEST_N_OPAL_AVALANCHE_VAULT))
+    cached_metadata = {
+        "description": "First paragraph.\n\nSecond paragraph.",
+        "short_description": r"Investment grade short-duration payment receivables.\nDesigned for consistent, risk-adjusted income.",
+    }
+    vault.__dict__["nest_metadata"] = cached_metadata
+
+    assert vault.description == "First paragraph. Second paragraph."
+    assert vault.short_description == "Investment grade short-duration payment receivables."
+    assert "\n\n" in cached_metadata["description"]
+    assert "\\n" in cached_metadata["short_description"]
+
+
+@pytest.mark.parametrize("metadata", [None, {}, {"description": None, "short_description": ""}])
+def test_nest_missing_descriptions(metadata: dict | None) -> None:
+    """Preserve missing and empty descriptions in cached Nest metadata.
+
+    :param metadata:
+        Incomplete cached product record.
+    """
+    vault = NestVault(web3=None, spec=VaultSpec(43114, NEST_N_OPAL_AVALANCHE_VAULT))
+    vault.__dict__["nest_metadata"] = metadata
+    assert vault.description is None
+    assert vault.short_description == ("" if metadata else None)
+
 
 def test_nest_metadata_parser_joins_contracts_and_cms() -> None:
     """Join the documented first-party API response shapes without network access."""

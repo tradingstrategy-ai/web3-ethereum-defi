@@ -19,6 +19,7 @@ import enum
 import logging
 import os
 import pathlib
+import re
 import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -62,6 +63,44 @@ MAX_VAULT_PRICE_ROW_AGE = datetime.timedelta(days=14)
 
 #: Retain an unchanged real observation once the preceding row is seven days old.
 VAULT_PRICE_REFRESH_INTERVAL = datetime.timedelta(days=7)
+
+
+def normalise_vault_description(text: str | None) -> str | None:
+    r"""Return a vault description as single-line text.
+
+    Offchain metadata may contain actual line breaks or literal ``\n`` and
+    ``\r`` escapes. Replace these with spaces and collapse whitespace without
+    decoding other escapes or changing punctuation and links.
+
+    :param text:
+        Full or short vault description, or ``None`` when unavailable.
+    :return:
+        Single-line description, preserving ``None`` and empty strings.
+    """
+    if text is None:
+        return None
+    return " ".join(text.replace("\\r", " ").replace("\\n", " ").split())
+
+
+def normalise_vault_short_description(text: str | None) -> str | None:
+    """Return only the first sentence of a single-line vault summary.
+
+    Protocol APIs sometimes supply several sentences in their summary field,
+    or copy the full description into it. Flatten source line breaks before
+    finding the first sentence ending in a full stop, question mark or
+    exclamation mark followed by whitespace. Decimal points and dots within
+    URLs do not end sentences. Text without a sentence boundary is retained.
+
+    :param text:
+        Protocol summary or full description being copied into a summary.
+    :return:
+        First sentence with its punctuation, preserving ``None`` and empty strings.
+    """
+    text = normalise_vault_description(text)
+    if not text:
+        return text
+    boundary = re.search(r"(?<=[.!?])\s+", text)
+    return text[: boundary.start()] if boundary else text
 
 
 def is_meaningful_usd_tvl(current: Decimal | None, highest: Decimal | None) -> bool:
@@ -1392,7 +1431,11 @@ class VaultBase(ABC):
 
     @property
     def description(self) -> str | None:
-        """Human-readable vault strategy description.
+        r"""Human-readable single-line vault strategy description.
+
+        Descriptions must not contain newline or carriage-return characters,
+        paragraph breaks, or literal ``\n`` / ``\r`` escape sequences. Adapters
+        must use :py:func:`normalise_vault_description` on offchain text.
 
         - Fetched from protocol-specific offchain sources (e.g. Euler GitHub labels, Lagoon web app API)
         - Returns None if the protocol does not provide descriptions or the vault is not in the metadata source
@@ -1402,7 +1445,13 @@ class VaultBase(ABC):
 
     @property
     def short_description(self) -> str | None:
-        """One-liner vault summary.
+        r"""Single-line, single-sentence vault summary.
+
+        Summaries must not contain newline or carriage-return characters,
+        paragraph breaks, or literal ``\n`` / ``\r`` escape sequences. Adapters
+        must use :py:func:`normalise_vault_short_description` on offchain text.
+        When automatically copying a description or a provider-supplied summary,
+        retain only its first sentence, including the ending punctuation.
 
         - Shorter version of :py:meth:`description` suitable for listings and tables
         - Plain text only: Markdown (links, emphasis, lists) is not allowed, because

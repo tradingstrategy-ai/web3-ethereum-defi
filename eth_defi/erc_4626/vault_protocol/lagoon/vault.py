@@ -44,7 +44,7 @@ from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import FeeData
@@ -613,16 +613,29 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
 
     @property
     def description(self) -> str | None:
-        """Full vault strategy description from Lagoon's offchain metadata."""
+        """Return Lagoon's full strategy description as single-line text.
+
+        Clean cached metadata on access as well as newly fetched API text.
+
+        :return:
+            Full description without line breaks, or ``None`` when unavailable.
+        """
         if self.lagoon_metadata:
-            return self.lagoon_metadata.get("description")
+            return normalise_vault_description(self.lagoon_metadata.get("description"))
         return None
 
     @property
     def short_description(self) -> str | None:
-        """Short one-liner vault summary from Lagoon's offchain metadata."""
+        """Return only the first sentence of Lagoon's summary on one line.
+
+        Lagoon's summary field may contain several sentences copied from the
+        provider. Clean cached metadata as well as newly fetched API text.
+
+        :return:
+            First summary sentence, or ``None`` when unavailable.
+        """
         if self.lagoon_metadata:
-            return self.lagoon_metadata.get("short_description")
+            return normalise_vault_short_description(self.lagoon_metadata.get("short_description"))
         return None
 
     @property

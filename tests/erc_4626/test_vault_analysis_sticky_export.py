@@ -338,6 +338,44 @@ def test_strategy_category_failure_does_not_block_vault_export(
     assert "Strategy category export failed" in caplog.text
 
 
+@pytest.mark.parametrize("use_fallback", [False, True])
+def test_sticky_export_shortens_fresh_and_stored_summaries(*, use_fallback: bool) -> None:
+    """Publish one sentence even when a summary comes from older stored state.
+
+    Replayed records and native vault records use the same final export gate
+    as freshly calculated ERC-4626 metrics.
+
+    :param use_fallback:
+        Reuse the stored record instead of supplying a current metrics row.
+    """
+    row = make_metrics_row()
+    row.update(
+        description="Full strategy.\n\nKeep every sentence.",
+        short_description=r"Earn 4.5% in money markets.\nMore details.",
+        notes="Preserved\nnotes.",
+    )
+    now = datetime.datetime(2026, 10, 28, 12, 0, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
+    result = top_vaults_json.apply_sticky_export_state(
+        make_lifetime_df(row),
+        top_vaults_json.make_empty_sticky_export_state(now),
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=3,
+    )
+    if use_fallback:
+        result = top_vaults_json.apply_sticky_export_state(
+            make_lifetime_df(),
+            result.state,
+            now=now + datetime.timedelta(days=1),
+            threshold_tvl=5_000.0,
+            stale_warning_age_days=3,
+        )
+
+    assert result.vaults[0]["description"] == "Full strategy. Keep every sentence."
+    assert result.vaults[0]["short_description"] == "Earn 4.5% in money markets."
+    assert result.vaults[0]["notes"] == "Preserved\nnotes."
+
+
 def test_sticky_export_first_qualification_creates_state():
     """A first qualifying vault is exported and persisted.
 
