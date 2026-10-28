@@ -112,6 +112,7 @@ def test_grvt_grid_vaults_are_grid_trading() -> None:
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.multistrategy,
         StrategyTag.perpetual_futures,
     }
@@ -119,9 +120,68 @@ def test_grvt_grid_vaults_are_grid_trading() -> None:
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.perpetual_futures,
     }
+
+
+@pytest.mark.parametrize(
+    ("vault_id", "previous_specific_tags"),
+    [
+        pytest.param("vlt:38exn6urqqrjk6hnypihgxo2oro", {StrategyTag.arbitrage, StrategyTag.delta_neutral}, id="kangcfa"),
+        pytest.param("vlt:2zqttakxz5jkdjuyjpbwudibkbw", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob}, id="ampersan"),
+        pytest.param("vlt:2ztqfqdo7iipsg2ki99glseyfmb", {StrategyTag.arbitrage, StrategyTag.directional_trading, StrategyTag.trend_following}, id="alldefi"),
+        pytest.param("vlt:328ljdq3lxhyoccqi3mtxhhq5u3", {StrategyTag.directional_trading, StrategyTag.mean_reversion}, id="ignight-inactive"),
+        pytest.param("vlt:32aef5qkjhkibvf8inqq9oqsyep", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight"),
+        pytest.param("vlt:35j0gsfvpviwtto6hamblg9rexg", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.market_making, StrategyTag.mean_reversion}, id="fisher8"),
+        pytest.param("vlt:35jpjdfrwaeuj0w7he4wi5vboag", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.multistrategy}, id="ai-grid"),
+        pytest.param("vlt:371sgbnors7u71g6wpoo1lrst4p", {StrategyTag.market_making, StrategyTag.mean_reversion}, id="warwolf"),
+        pytest.param("vlt:386cnqkc6tb186ix2mtgayhbfrz", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.mean_reversion}, id="pharos"),
+        pytest.param("vlt:3b9tvtvisaumciyw14znklwgnq3", {StrategyTag.directional_trading, StrategyTag.multistrategy, StrategyTag.trend_following}, id="btc-maxi-lab"),
+    ],
+)
+def test_reviewed_grvt_high_frequency_strategy_tags(vault_id: str, previous_specific_tags: set[StrategyTag]) -> None:
+    """Add the reviewed category while retaining every earlier strategy tag.
+
+    Hidden and inactive products retain their disclosed strategy classifications.
+    Every selected vault has the required algorithmic parent and native default.
+
+    :param vault_id: GRVT string vault identifier.
+    :param previous_specific_tags: Existing strategy tags beyond algorithmic trading.
+    :return: ``None`` after checking the complete public classification.
+    """
+    expected = previous_specific_tags | {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.perpetual_futures,
+    }
+    assert grvt_tags.get_strategy_tags(vault_id) == expected
+    assert grvt_tags.get_strategy_tags(vault_id.upper()) == expected
+
+
+@pytest.mark.parametrize(
+    "vault_id",
+    [
+        pytest.param("vlt:34dtzyg6lhkgm49je5aabi9tebw", id="glp-execution-unconfirmed"),
+        pytest.param("vlt:3eesf9iphosimfc4szp2ixoqgiw", id="balanced-rwa-credit"),
+        pytest.param("vlt:3eexdzmz72tqcinpbu4f4i0dm2z", id="opportunistic-rwa-credit"),
+        pytest.param("vlt:2zrj92gtwomgi8yddq8hntbf2lz", id="human-verified-ai-signals"),
+        pytest.param("vlt:38t5xhyuxmzunwkud80clxhitok", id="daily-eth-trend-following"),
+        pytest.param("vlt:3i8nkgzoo173zwckkhmvo4fdrft", id="medium-term-trend-pullback"),
+        pytest.param("vlt:3l5macfjcmky91ckru4tejdzxpl", id="global-macro-no-description"),
+    ],
+)
+def test_grvt_high_frequency_review_does_not_infer_unsubstantiated_strategies(vault_id: str) -> None:
+    """Keep smooth income curves and unsupported strategies outside the category.
+
+    Automated settlement does not establish automated trading, and neither RWA
+    credit income nor directional trend signals imply high-frequency execution.
+
+    :param vault_id: GRVT identifier without sufficient category evidence.
+    :return: ``None`` after checking the category remains absent.
+    """
+    assert StrategyTag.high_frequency_high_win_rate not in grvt_tags.get_strategy_tags(vault_id)
 
 
 def test_pmalt_native_vaults_are_algorithmic_pair_trading() -> None:
