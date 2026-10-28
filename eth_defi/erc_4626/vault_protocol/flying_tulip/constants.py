@@ -1,7 +1,7 @@
-"""Reviewed Flying Tulip sftUSD deployment metadata.
+"""Reviewed Flying Tulip staking deployment metadata.
 
-The official registry is a maintenance cross-check, not a runtime dependency:
-https://api.flyingtulip.com/ftusd/contracts/all
+The official address book is a maintenance reference, not a runtime dependency:
+https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json
 """
 
 import datetime
@@ -53,11 +53,34 @@ FLYING_TULIP_SFTUSD_BY_CHAIN: dict[int, HexAddress] = {
     146: to_checksum_address("0xD1E5A86f1005F6356Bd022C587dE0f430CD2aeb1"),
 }
 
+#: Reviewed auto-compounding deployments from the official address book.
+#: https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json
+FLYING_TULIP_SSFTUSD_BY_CHAIN: dict[int, HexAddress] = {
+    1: to_checksum_address("0x232128844e5af56fd4b3f8bf97e08ab477282ab5"),
+}
+
+#: Concise public summary of the auto-compounding staking product.
+FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION = "Flying Tulip's auto-compounding ftUSD staking vault. Yield is distributed in ftUSD and reflected in the value of ssftUSD shares."
+
+#: Public product description, distinct from the external FT reward position.
+FLYING_TULIP_SSFTUSD_DESCRIPTION = """[Flying Tulip](https://flyingtulip.com/ftusd/) operates ssftUSD, an auto-compounding staking position for ftUSD. Its backing generates yield through lending and delta-neutral strategies. Distributed ftUSD rewards increase the amount of ftUSD represented by each ssftUSD share.
+
+Flying Tulip [introduced ssftUSD in September 2026](https://blog.flyingtulip.com/flying-tulip-september-update/). Unlike sftUSD, which pays separately claimable FT rewards, ssftUSD retains its staking yield as ftUSD. The [product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) describes a slightly lower reward allocation for ssftUSD than sftUSD; returns are variable and depend on realised strategy returns and protocol policy."""
+
+#: Descriptive notes for the reviewed Ethereum ssftUSD deployment.
+FLYING_TULIP_SSFTUSD_NOTES = """Flying Tulip [announced ssftUSD on 22 September 2026](https://x.com/flyingtulip_/status/2102404682685501823), with further detail in its [September update](https://blog.flyingtulip.com/flying-tulip-september-update/). Staking yield compounds as ftUSD within the position; there is no separate FT claim for this yield.
+
+In the [reviewed vault implementation](https://etherscan.io/address/0xD940d531b983557884B31fD915A1Df97bebe6e09#code), funded rewards vest into the share price over eight hours. This reward schedule is not a withdrawal lockup. Withdrawals settle immediately only when underlying liquidity and circuit-breaker capacity permit; otherwise the withdrawal reverts rather than creating a queued claim for the ssftUSD holder.
+
+The fee fields model the separate USDC -> ftUSD -> ssftUSD entry and reverse exit route. The previously reviewed Ethereum USDC configuration charged 0.07% in each direction; this is a conversion cost, not a direct ssftUSD staking fee or a guarantee of current pricing. Check the application quote before transacting. Optional relayed transactions can charge an authorised relayer fee. Network fees and other execution costs are excluded.
+
+Returns are variable. Holders remain exposed to ftUSD backing and peg risks, the underlying strategies and available redemption liquidity. See the [ftUSD product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) for yield allocation and risk context. Older recorded zero-address deposit-capacity observations do not establish whether deposits were available to eligible users."""
+
 #: FT reward-token addresses for the reviewed sftUSD proxy registry.
 #:
 #: Flying Tulip currently uses the same CREATE2 FT address on every reviewed
 #: chain. This address map, together with :data:`FLYING_TULIP_SFTUSD_BY_CHAIN`,
-#: is the sole authority for routing Flying Tulip vault equivalents: do not add
+#: is the authority for externally rewarded sftUSD equivalents: do not add
 #: ABI-selector probing to discover or classify further deployments.
 FLYING_TULIP_FT_BY_CHAIN: dict[int, HexAddress] = {
     1: FLYING_TULIP_FT_ETHEREUM,

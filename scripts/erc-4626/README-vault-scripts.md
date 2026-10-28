@@ -1431,6 +1431,50 @@ return a retryable rate-limit response. Use
 the available provider quota supports higher values. Generic `HYPERSYNC_RPM`
 and `HYPERSYNC_CONCURRENCY` take precedence.
 
+#### Flying Tulip ssftUSD metadata refresh
+
+Ethereum ssftUSD belongs to the existing Flying Tulip protocol but uses actual
+ERC-4626 prices, not the sftUSD external FT reward-equivalence backfill above.
+The targeted metadata migration refreshes classification, descriptions, notes,
+fees and capacity metadata without changing price Parquet files, reader state,
+leads or timestamp/context caches. Its unfiltered default still selects only
+the original three sftUSD deployments; the separate description-only migration
+below keeps its original scope.
+
+`CHAIN_ID` and `VAULT_ADDRESS` must be supplied together. An unreviewed or
+missing explicit target aborts before writing. If the target is absent, let
+normal discovery materialise it using the deployed code, then repeat the dry
+run. The script retains the legacy database-path default; set `VAULT_DB_PATH`
+explicitly when using a custom pipeline directory. Apply mode waits up to
+60 seconds for the scanner writer lock, backs up the pickle to a new sibling
+`.bak-flying-tulip-metadata*` file and writes atomically.
+
+After merging and deploying the code and rebuilding the production image with
+`scripts/build-container.sh`, use the existing mounted production state:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=true python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
+```
+
+Inspect the target and previous protocol in the dry-run table before applying:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=false python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'REFRESH_STABLECOIN_RATES=false python scripts/erc-4626/export-protocol-metadata.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'OUTPUT_JSON=/root/.tradingstrategy/top_vaults_by_chain.json python scripts/erc-4626/vault-analysis-json.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+```
+
+Check the exported target for protocol `Flying Tulip`, the new ssftUSD copy,
+and removal of the zero-address cap reason. Earlier historical capacity values
+remain observations of an invalid receiver, not evidence of a global cap.
+For rollback, stop the scanner, restore only the metadata pickle from the
+specific backup path reported by the migration, redeploy the previous image
+if necessary, regenerate the public exports and restart the scanner. Preserve
+price files and reader state throughout. Production commands are operator
+instructions and are not part of development verification.
+
 #### Flying Tulip description migration
 
 `migrate-flying-tulip-descriptions.py` is a later, copy-only repair separate

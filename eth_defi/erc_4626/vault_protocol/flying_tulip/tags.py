@@ -3,6 +3,21 @@
 from eth_defi.vault.strategy_tag import StrategyTag
 
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Stable Staked Flying Tulip USD (Ethereum).
+    #: Added: 2026-10-28.
+    #: Decision material: ssftUSD compounds its allocation of the ftUSD
+    #: backing's lending and delta-neutral staking carry. The two documented
+    #: yield sources warrant multistrategy; FT PUT economics do not establish
+    #: an options strategy for this ftUSD-compounding position.
+    #: Sources:
+    #: - https://docs.flyingtulip.com/product-suite/ft-usd/
+    #: - https://blog.flyingtulip.com/flying-tulip-september-update/
+    "0x232128844e5af56fd4b3f8bf97e08ab477282ab5": {
+        StrategyTag.lending,
+        StrategyTag.delta_neutral,
+        StrategyTag.carry_trade,
+        StrategyTag.multistrategy,
+    },
     #: Vault: Staked Flying Tulip USD (Ethereum).
     #: Added: 2026-09-17.
     #: Decision material: The ftUSD documentation identifies stablecoin lending

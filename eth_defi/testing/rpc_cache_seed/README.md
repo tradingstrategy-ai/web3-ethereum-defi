@@ -31,6 +31,7 @@ name** (not chain id), then block, then the cache file:
 rpc_cache_seed/
   mainnet/24496689/storage.json  # Ember redemption lifecycle
   mainnet/25598869/storage.json
+  mainnet/26234307/storage.json  # Flying Tulip ssftUSD post-deployment characterisation
   mainnet/26279104/storage.json  # Lagoon v0.5.2 production characterisation
   arbitrum/487039644/storage.json
   base/30659990/storage.json  # Lagoon Base lifecycle characterisation
@@ -119,6 +120,13 @@ holder account, and the metadata and balance slots used by
 through the bounded failover proxy when multiple providers are configured.
 Anvil uses the seed for captured BUSD state and its configured provider for any
 cache misses.
+
+`mainnet/26234307/` is the fixed Ethereum ssftUSD characterisation block for
+`tests/erc_4626/vault_protocol/test_flying_tulip_stable_fork.py`. The canonical
+July block predates this vault. Captured with the CI-pinned Anvil v1.8.6,
+the seed includes vault, implementation, ftUSD and underlying wrapper code
+and the storage reads used for pricing and metadata export. The test is
+read-only and uses the shared pool with a block-specific xdist group.
 
 ## Capturing a seed file
 

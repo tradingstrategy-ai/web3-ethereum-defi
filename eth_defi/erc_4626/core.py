@@ -199,6 +199,9 @@ class ERC4626Feature(enum.Enum):
     #: a :attr:`share_price_equivalence` historical series.
     flying_tulip_like = "flying_tulip_like"
 
+    #: Flying Tulip ssftUSD with ftUSD rewards compounded into its share price.
+    flying_tulip_stable_like = "flying_tulip_stable_like"
+
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
@@ -1173,7 +1176,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "GMX"
     elif ERC4626Feature.yield_basis_lt in features:
         return "YieldBasis"
-    elif ERC4626Feature.flying_tulip_like in features:
+    elif features & {ERC4626Feature.flying_tulip_like, ERC4626Feature.flying_tulip_stable_like}:
         return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features or ERC4626Feature.asseto_royalty_like in features:
         return "Asseto"

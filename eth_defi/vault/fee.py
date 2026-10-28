@@ -54,7 +54,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # and published API prices do not establish fee internalisation; see
     # eth_defi/abi/infinit/README.md.
     "Infinit": None,
-    # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
+    # Direct sftUSD/ssftUSD staking is fee-free, but both adapters model the
     # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
     # investor-return fields are comparable with USDC-denominated vaults.
     "Flying Tulip": VaultFeeMode.externalised,
