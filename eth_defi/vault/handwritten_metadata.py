@@ -231,7 +231,7 @@ ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[42161, HexAddress("0x9fe29a3fec55414f70454e2
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[1, HexAddress("0x0963c0f17d77e336ff75ed36c27d3a1522847615")] += " Noon lists its separate Sophon-network tokens as discontinued in its [token directory](https://docs.noon.capital/6.-resources/contract-addresses-and-oracles). This [vault is on Ethereum](https://etherscan.io/address/0x0963c0f17d77e336ff75ed36c27d3a1522847615#code); that notice does not establish whether this vault is still operating."
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0x4c0d041889281531ff060290d71091401caa786d")] = f"{ASIA_CREDIT_STRATEGY_DESCRIPTION}\n\nAccountable's [Monad launch announcement](https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP) names the partners and investments. [SharpByte Capital](https://www.sharpbyte.xyz/) describes its investment management business."
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")] = f"{NEUTRAL_AUTOPILOT_DESCRIPTION}\n\nSee Neutral Trade's [Autopilot strategy](https://www.neutral.trade/strategies/neutral-autopilot), [network availability](https://www.neutral.trade/strategies?tier=marketplace) and [company background and backers](https://www.neutral.trade/faq)."
-# Preserve the existing source-linked Avalanche note.
+# Use the dedicated source-linked Avalanche note instead of the generic Tauri note.
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[43114, HexAddress("0x9c3da70cd7fedeaef528d060ea99ace133e08fd2")] = TRAVESSIA_TAURI_VAULT_NOTE
 
 
