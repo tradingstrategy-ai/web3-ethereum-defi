@@ -36,6 +36,9 @@ Edit the `version` field in `pyproject.toml` to the new version number.
 
 ### 3. Create a git commit
 
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
+
 Create a commit with the message `Preparing a release`. Push to the master.
 
 ### 4. Build the package

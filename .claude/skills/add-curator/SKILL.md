@@ -304,6 +304,9 @@ PY
 
 ## Step 7: Report
 
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
+
 Summarise:
 
 - Feed files created or aliased

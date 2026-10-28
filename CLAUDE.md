@@ -36,6 +36,12 @@ Skill discovery rules:
 - If the skill references extra files, open only the files needed for the current task.
 - Prefer scripts, templates and checklists referenced by the skill over re-creating the workflow manually.
 
+After completing a feature, bug fix or maintained content change, use
+[clean-up-for-pr](.claude/skills/clean-up-for-pr/SKILL.md) before the review
+handoff. It covers code simplification, factual copy, documentation, repository
+conformance and an independent review with the opposite agent. Run it once for
+the completed change; delegated reviewers must not start another cleanup review.
+
 ## English
 
 - Use UK/British English instead of US English
@@ -193,10 +199,11 @@ In the environment file, the RPC URLs are provided in the project-specific space
 
 ## Formatting code
 
-Run ruff to format code using Poetry:
+Run Ruff through Poetry on the Python files changed for the task. Pass the
+reviewed paths explicitly, including new files, so unrelated work is preserved:
 
 ```shell
-poetry run ruff format
+poetry run ruff format path/to/changed.py path/to/new.py
 ```
 
 ## Logging retries

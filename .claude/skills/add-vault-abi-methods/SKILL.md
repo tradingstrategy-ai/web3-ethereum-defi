@@ -74,6 +74,9 @@ source .local-test.env && poetry run pytest -n auto -k vault_protocol
 
 # Step 8) Report results to back
 
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
+
 - Findings on how the smart contract functions operate and how the results are translated
 - Created files
 - Created accessor methods
