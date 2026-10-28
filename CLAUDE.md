@@ -84,7 +84,8 @@ Do not edit or rerun a successful initial migration for a later accessor change.
 Both preview and apply require the looped scanner to be stopped; use the direct
 Compose command in the production runbook, preserving the
 lifetime-guard-before-writer-lock order. The host launcher is optional for
-Docker preflight and automatic image provenance.
+Docker preflight and automatic image pinning. Migration provenance comes from
+the git commit stamped inside the image; no host Docker hash is required.
 
 Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
 environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose

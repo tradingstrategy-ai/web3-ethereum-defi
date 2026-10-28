@@ -175,7 +175,7 @@ The top-level dictionary is keyed by full filename. An entry has this shape:
   "001-flying-tulip-ssftusd-metadata.py": {
     "first_run_at": "2026-10-28T20:00:00",
     "last_run_at": "2026-10-28T20:00:00",
-    "docker_image_hash": "sha256:<64 hexadecimal characters>",
+    "docker_image_hash": null,
     "git_commit_hash": "<40 hexadecimal characters>",
     "success": true,
     "modified_files": ["/root/.tradingstrategy/vaults/vault-metadata-db.pickle"],
@@ -194,6 +194,11 @@ Timestamps are naive UTC attempt-start times. First-run time survives retries;
 latest-attempt fields are replaced. Recovery paths accumulate without storing
 a full attempt history. Changed-entry examples are limited to 100; complete
 counts and full log details remain available.
+
+In Docker, `git_commit_hash` is read from `GIT_VERSION_HASH.txt` inside the
+image, written by `scripts/build-container.sh`. No host image hash or exported
+provenance variable is needed. The legacy `docker_image_hash` field remains
+null for new attempts; existing journal entries with image hashes stay valid.
 
 The runner saves `running`/`success=false` before executing a script, reports
 progress and commits, then marks success only after validation. Failure stops
@@ -221,19 +226,11 @@ source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --
 
 Before maintenance, inspect `docker-compose.yml` and verify its persistent
 mounts. Update the production checkout to merged master and build with
-`scripts/build-container.sh`, which stamps the git revision. Export the actual
-image ID once after each build, in the same shell used for the commands below:
-
-```shell
-export DOCKER_IMAGE_HASH="$(docker image inspect vault-scanner:local --format '{{.Id}}')"
-```
-
-Compose forwards this infrastructure variable to the one-shot container;
-Docker apply requires both this image ID and a valid git build stamp. Do not
-rebuild or retag `vault-scanner:local` during maintenance. A host checkout
-update alone does not update the code or console entrypoint inside the image.
-Re-export after any rebuild: the engine validates the image ID's format but
-cannot independently compare it with the running container's image.
+`scripts/build-container.sh`, which stamps the git revision. The engine reads
+this commit from inside the image; no Docker image hash or additional environment
+export is required. An unstamped image cannot apply migrations. Do not rebuild
+or retag `vault-scanner:local` during maintenance. A host checkout update alone
+does not update the code or console entrypoint inside the image.
 
 List migrations:
 
@@ -266,10 +263,10 @@ After a successful apply, recreate the persistent services with the same image:
 
 ```shell
 source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
-docker inspect --format '{{.Image}}' vault-scanner-looped
+docker compose exec vault-scanner-looped cat /usr/src/web3-ethereum-defi/GIT_VERSION_HASH.txt
 ```
 
-Confirm the restarted daemon image matches the image recorded in migration.json.
+Confirm the printed commit matches `git_commit_hash` in migration.json.
 Keep normal cleaning, post-processing, protocol export, top-vault JSON export
 and uploads enabled. **Publication is performed by restarted
 `vault-scanner-looped`, not by the migration runner.** Validate the repaired
@@ -277,10 +274,11 @@ fields after its successful cycle. Migration success alone is not publication.
 On failure, inspect the journal and backups before retrying or restoring data.
 
 The optional `scripts/run-vault-migrations.sh list|run` host launcher performs
-Docker status preflight, automatically pins and passes the image ID, and disables
+Docker status preflight, automatically pins the image ID, and disables
 incidental maintenance price scanning. It uses the same one-shot service and
-mounts. Outside Docker, unknown provenance is null with a diagnostic; source
-runs record the checkout commit and dirty status.
+mounts; journal provenance still comes from the image's git stamp. Outside
+Docker, source runs record the checkout commit and dirty status, or null with
+a diagnostic when the source commit is unavailable.
 
 ## Initial batch: 28 October 2026
 

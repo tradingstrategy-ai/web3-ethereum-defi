@@ -216,17 +216,16 @@ def validate_inventory(specs: tuple[MigrationSpec, ...], state: dict[str, dict[s
 def read_provenance(data_root: Path | None = None) -> dict[str, Any]:
     """Read build provenance without invoking Docker inside the container.
 
-    Production image IDs are attested by the host launcher. Checkout git
-    commands are rooted at this package, not the operator's current directory.
+    Containers use the git commit stamped into the image at build time.
+    Checkout git commands are rooted at this package, not the operator's
+    current directory. The legacy image-hash journal field remains null.
 
     :param data_root: Optional version-file root for tests.
-    :return: Image ID, git commit, dirty status and Docker detection.
+    :return: Git commit, dirty status, Docker detection and a null legacy image ID.
     """
     root = data_root or Path(eth_defi.__file__).resolve().parent.parent
     version = VersionInfo.read_docker_version(root)
-    result = {"docker_image_hash": os.environ.get("DOCKER_IMAGE_HASH") or None, "git_commit_hash": version.commit_hash, "git_dirty": None, "in_docker": Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()}
-    if not result["in_docker"]:
-        result["docker_image_hash"] = None
+    result = {"docker_image_hash": None, "git_commit_hash": version.commit_hash, "git_dirty": None, "in_docker": Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()}
     if not result["in_docker"] and (root / ".git").exists():
         result["git_commit_hash"] = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
         result["git_dirty"] = bool(subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).strip())
@@ -410,10 +409,10 @@ def run_pending_migrations(*, dry_run: bool = True, data_dir: Path | None = None
             validate_inventory(specs, state)
             version = provenance if provenance is not None else read_provenance()
             if not dry_run and version.get("in_docker"):
-                if not re.fullmatch(r"sha256:[0-9a-f]{64}", version.get("docker_image_hash") or "") or not re.fullmatch(r"[0-9a-f]{40}", version.get("git_commit_hash") or ""):
-                    raise ValueError("Docker apply requires host-attested DOCKER_IMAGE_HASH and a stamped git commit")
-            if not version.get("docker_image_hash") or not version.get("git_commit_hash"):
-                logger.warning("Some deployment provenance is unavailable outside a stamped Docker image")
+                if not re.fullmatch(r"[0-9a-f]{40}", version.get("git_commit_hash") or ""):
+                    raise ValueError("Docker apply requires a git commit stamped inside the image; rebuild with scripts/build-container.sh")
+            if not version.get("git_commit_hash"):
+                logger.warning("Git commit provenance is unavailable outside a stamped image or source checkout")
             context = MigrationContext(directory, dry_run)
             completed = []
             for spec in specs:

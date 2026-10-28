@@ -5,7 +5,7 @@ services:
   #   docker compose run --rm vault-scanner-oneshot
   # Production migrations (stop vault-scanner-looped first):
   #   source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-  # Build/image provenance setup and preview: .claude/docs/migration-scripts.md#production-runbook
+  # Build the stamped image first; preview and runbook: .claude/docs/migration-scripts.md#production-runbook
   # See Dockerfile.vault-scanner for details.
   vault-scanner-oneshot:
     image: vault-scanner:local
@@ -36,10 +36,6 @@ services:
     profiles: [ "oneshot" ]
     restart: "no"
     environment:
-
-      # Export the host-inspected image ID after each build for migration auditing.
-      # See .claude/docs/migration-scripts.md#production-runbook.
-      DOCKER_IMAGE_HASH: ${DOCKER_IMAGE_HASH:-}
 
       CHAIN_ORDER: ${CHAIN_ORDER:-}
       HYPERSYNC_API_KEY: ${HYPERSYNC_API_KEY:-}

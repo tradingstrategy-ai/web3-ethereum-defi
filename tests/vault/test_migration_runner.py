@@ -246,12 +246,44 @@ def test_uncommitted_staging_cannot_be_marked_success(storage: Path, scripts: Pa
     assert (storage / "vault-metadata-db.pickle").read_bytes() == original
 
 
-def test_docker_provenance_required_before_attempt(storage: Path, scripts: Path) -> None:
-    """An unstamped container cannot apply or create a misleading audit entry."""
+@pytest.mark.parametrize("commit", [None, "", "unspecified", "a" * 39, "g" * 40])
+def test_docker_provenance_required_before_attempt(storage: Path, scripts: Path, commit: str | None) -> None:
+    """A missing or invalid image commit cannot create an apply attempt."""
     write_script(scripts, "001-noop.py", "    pass")
-    with pytest.raises(ValueError, match="Docker apply requires"):
-        runner.run_pending_migrations(data_dir=storage, scripts_dir=scripts, dry_run=False, provenance={"in_docker": True})
+    with pytest.raises(ValueError, match="git commit stamped inside the image"):
+        runner.run_pending_migrations(data_dir=storage, scripts_dir=scripts, dry_run=False, provenance={"in_docker": True, "git_commit_hash": commit})
     assert not (storage / "migration.json").exists()
+
+
+@pytest.mark.parametrize("legacy_image_hash", [None, "obsolete-host-value"])
+def test_stamped_docker_apply_without_image_hash(storage: Path, scripts: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, legacy_image_hash: str | None) -> None:
+    """The image's commit stamp is sufficient, independently of host image hashes."""
+    build_root = tmp_path / "image"
+    build_root.mkdir()
+    commit = "b" * 40
+    (build_root / "GIT_VERSION_HASH.txt").write_text(commit)
+    if legacy_image_hash is None:
+        monkeypatch.delenv("DOCKER_IMAGE_HASH", raising=False)
+    else:
+        monkeypatch.setenv("DOCKER_IMAGE_HASH", legacy_image_hash)
+    original_exists = Path.exists
+
+    def docker_exists(path: Path) -> bool:
+        """Expose a container marker while retaining actual version-file reads."""
+        return path == Path("/.dockerenv") or original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", docker_exists)
+    version = runner.read_provenance(data_root=build_root)
+    assert version["in_docker"] is True
+    assert version["docker_image_hash"] is None
+    assert version["git_commit_hash"] == commit
+    script = write_script(scripts, "001-stamped.py", '    next(iter(context.metadata().rows.values()))["Name"] = "after"\n    context.commit_metadata()')
+    assert runner.run_pending_migrations(data_dir=storage, scripts_dir=scripts, dry_run=False, provenance=version) == [script.name]
+    entry = runner.load_state(storage / "migration.json")[script.name]
+    assert entry["success"] is True
+    assert entry["git_commit_hash"] == commit
+    assert entry["docker_image_hash"] is None
+    assert VaultDatabase.read(storage / "vault-metadata-db.pickle").rows[SPEC]["Name"] == "after"
 
 
 def test_cli_list_works_while_guarded_and_invalid_boolean_fails(storage: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

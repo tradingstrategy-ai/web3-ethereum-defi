@@ -9,8 +9,8 @@ its sleep intervals. Production uses the one-shot Compose service:
 source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
 ```
 
-Run from the production checkout after the image provenance setup in the
-migration guide. See [Docker migrations](#run-numbered-database-migrations)
+Run from the production checkout using a stamped image built as described in
+the migration guide. See [Docker migrations](#run-numbered-database-migrations)
 below for the deployment requirements.
 
 
@@ -59,8 +59,8 @@ DRY_RUN=false poetry run vault-migrate run
 
 For a worktree using the parent Poetry environment, use the module form and
 `PYTHONPATH="$PWD"` described in the migration guide. The production Compose
-service retains the persistent mounts and forwards the exported image ID;
-restart the same image afterwards for normal cleaning, exports and uploads.
+service retains the persistent mounts; the engine reads the image's git stamp.
+Restart the same image afterwards for normal cleaning, exports and uploads.
 
 ### Pull request run reminder
 
@@ -68,7 +68,7 @@ Every PR adding a migration must include a **Run after merge** comment with
 its numbered filenames, reviewed scope, expected counts, required services,
 exact production Compose preview/apply commands, affected files, recovery
 precautions and post-run validation criteria. Record the deployed commit,
-image ID, UTC date and result after execution. Merging a PR does not run it.
+UTC date and result after execution. Merging a PR does not run it.
 Use the authoring and production runbook in the migration guide as the source
 of truth for these instructions.
 
@@ -2799,7 +2799,7 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 ### Run numbered database migrations
 
 Use the [production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
-for image build/provenance setup, stopping writers, preview and recovery. From
+for building the stamped image, stopping writers, preview and recovery. From
 `~/vault-scanner/web3-ethereum-defi`, the production apply command is:
 
 ```shell
@@ -2811,9 +2811,9 @@ entrypoint runs the numbered migration system instead of the normal scanner.
 Stop `vault-scanner-looped`, `post-scanner` and competing metadata writers first.
 The updated daemon's lifetime lock blocks migrations even during sleep. Keep
 the image unchanged through preview, apply and service recreation. Compose
-forwards the host-exported `DOCKER_IMAGE_HASH` required by apply; the runbook
-shows how to obtain it after each build. The optional host launcher remains
-available for Docker status preflight and automatic image pinning.
+uses the image's embedded git commit for migration provenance; no Docker image
+hash or exported provenance variable is needed. The optional host launcher
+remains available for Docker status preflight and automatic image pinning.
 
 ### Scanner image and exports
 

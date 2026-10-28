@@ -55,7 +55,8 @@ the entire patch into context.
    Standalone repair scripts are legacy format: do not recommend creating or
    invoking them, or rerunning a successful initial migration for a new change.
    Check that runbooks and PR reminders use the production Compose command
-   and image provenance setup in the migration guide. The host launcher is
+   and stamped image build in the migration guide. Provenance comes from the
+   image's git commit; no host Docker hash is required. The host launcher is
    optional for Docker preflight and automatic image pinning.
    Revise relevant `.claude/docs` guidance when the work changes an agent
    workflow or reveals a reusable operational lesson.

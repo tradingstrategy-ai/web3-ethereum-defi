@@ -24,7 +24,7 @@
 #
 #   source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
 #
-# Stop the looped scanner and export image provenance first. See
+# Stop the looped scanner first. The image's git stamp supplies provenance. See
 # .claude/docs/migration-scripts.md#production-runbook and the Docker usage
 # section of scripts/erc-4626/README-vault-scripts.md.
 #

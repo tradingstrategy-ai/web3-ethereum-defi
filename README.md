@@ -437,8 +437,8 @@ these tasks anymore; port the reviewed operation into a new numbered script.
 The looped scanner must be stopped for previews and writes; restarting it
 performs normal publication.
 
-Production uses the one-shot Compose service, following the image provenance
-setup in the migration guide:
+Production uses the one-shot Compose service and reads the git commit stamped
+inside the image. No Docker image hash is needed:
 
 ```shell
 source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run

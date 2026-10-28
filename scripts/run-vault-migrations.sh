@@ -34,7 +34,7 @@ override=$(mktemp)
 trap 'rm -f "$override"' EXIT
 printf 'services:\n  vault-scanner-oneshot:\n    image: "%s"\n' "$image_id" > "$override"
 docker compose -f docker-compose.yml -f "$override" run --rm --no-deps \
-    -e "DRY_RUN=${DRY_RUN:-true}" -e "DOCKER_IMAGE_HASH=$image_id" \
+    -e "DRY_RUN=${DRY_RUN:-true}" \
     -e "LOG_LEVEL=${LOG_LEVEL:-info}" \
     -e SCAN_PRICES=false -e UPSHIFT_SCAN_PRICES=false \
     --entrypoint vault-migrate vault-scanner-oneshot "$1"
