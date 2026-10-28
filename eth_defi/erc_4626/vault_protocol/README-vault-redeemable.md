@@ -6,7 +6,7 @@ Earn, Morpho and IPOR, and what alternatives exist.
 
 ## What utilisation measures today
 
-Our pipeline computes utilisation as:
+For Euler Earn, Morpho and IPOR, the adapters compute utilisation as:
 
 ```
 utilisation = (totalAssets - idle) / totalAssets
@@ -16,10 +16,11 @@ where `idle = asset().balanceOf(vault_address)` — the denomination
 tokens sitting unallocated inside the vault contract itself.
 
 This is a measure of **capital deployment efficiency**: how much of the
-vault's AUM the curator has put to work.  For single-market lending
-vaults (Euler EVK, Gearbox, Silo) this also happens to equal the ratio
-of assets that are locked in active loans, so
-`available_liquidity = idle` is a fair proxy for "instantly redeemable".
+vault's AUM the curator has put to work. Single-market adapters use their own
+borrowing and liquidity accounting: Euler EVK exposes cash and borrows, Gearbox
+and Silo expose liquidity methods, and Llama Lend uses controller debt together
+with vault assets. Llama's vault token balance is not a liquidity source because
+its controller holds the unborrowed tokens.
 
 See `README-utilisation.md` for the full utilisation API.
 
@@ -100,7 +101,7 @@ fuses that *support* instant withdrawal, but the fuse interface
 much each fuse can return**.
 
 The idle balance is therefore an undercount: the fuses can potentially
-unwind their positions instantly, but the vault provides no on-chain read
+unwind their positions instantly, but the vault provides no onchain read
 path to find out how much without simulating the withdrawal.
 
 ### Summary of the gap
@@ -110,12 +111,15 @@ path to find out how much without simulating the withdrawal.
 | Euler EVK | `cash()` = full available liquidity | Same — single lending pool |
 | Gearbox | `availableLiquidity()` = full available | Same — single lending pool |
 | Silo | `getLiquidity()` = full available | Same — single lending pool |
+| Llama Lend V1/V2 | Vault token balance does not capture controller liquidity | `max(totalAssets - controller.total_debt, 0)`, net of V2 protocol fees |
 | **Euler Earn** | Only unallocated idle | idle + `cash()` across underlying EVK strategy vaults |
 | **Morpho V1** | Only unallocated idle | idle + per-market available liquidity across withdraw queue |
 | **Morpho V2** | Only unallocated idle | idle + per-adapter available liquidity |
 | **IPOR** | Only unallocated idle | idle + whatever instant withdrawal fuses can return |
 
-For single-market vaults (Euler EVK, Gearbox, Silo), idle *is* the redeemable amount.
+For these single-market adapters, the protocol-specific liquidity read measures
+market liquidity; account limits and protocol restrictions may still limit a
+particular withdrawal.
 For multi-market vaults (Euler Earn, Morpho, IPOR), idle is a **lower bound**.
 
 ## Ways to get the actual redeemable amount
@@ -166,7 +170,7 @@ underlying EVK vault would give us the true redeemable amount.
 
 ### Morpho V1: query underlying Morpho Blue markets
 
-The most reliable on-chain approach for MetaMorpho V1.  Morpho Blue
+The most reliable onchain approach for MetaMorpho V1.  Morpho Blue
 exposes a public `market(Id)` mapping returning the full market state:
 
 ```solidity

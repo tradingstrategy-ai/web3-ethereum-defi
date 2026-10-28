@@ -790,13 +790,14 @@ class VaultHistoricalRead:
     #: Currently only supported for D2 Finance vaults.
     trading: bool | None = None
 
-    #: Available liquidity for immediate withdrawal.
+    #: Available denomination-token liquidity reported by the adapter.
     #:
     #: Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.)
-    #: In denomination token units.
+    #: In denomination token units. Multi-market adapters may report only idle
+    #: vault assets, excluding redeemable liquidity in underlying markets.
     available_liquidity: Decimal | None = None
 
-    #: Utilisation percentage of the lending vault.
+    #: Borrower utilisation or, for multi-market adapters, capital deployment.
     #:
     #: Only applicable to lending protocol vaults.
     #: Value between 0.0 and 1.0 (0% to 100%).
@@ -1996,15 +1997,17 @@ class VaultBase(ABC):
         return None
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Get the amount of denomination token available for immediate withdrawal.
+        """Read the adapter's available denomination-token liquidity.
 
-        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
-        Non-lending protocols should leave this method unimplemented.
+        Single-market adapters report market liquidity. Multi-market adapters
+        such as Morpho and IPOR currently report idle vault assets, which can
+        understate redeemable liquidity in their underlying markets. A user's
+        withdrawal can also be limited by share ownership or protocol restrictions.
+        Non-lending adapters should leave this method unimplemented.
 
-        Note: `maxRedeem(address(0))` does NOT work as a proxy for available liquidity
-        because it requires a specific address that has already deposited shares.
-        For address(0), balanceOf is always 0, so maxRedeem returns 0 regardless of
-        actual liquidity.
+        ``maxRedeem(address(0))`` cannot measure market-wide liquidity because
+        ERC-4626 caps redemptions by the owner's share balance. The zero address
+        normally holds no shares, so a zero result says nothing about liquidity.
 
         :param block_identifier:
             Block to query. Defaults to "latest".
@@ -2018,10 +2021,12 @@ class VaultBase(ABC):
         raise NotImplementedError(f"{self.__class__.__name__} does not implement fetch_available_liquidity(). This method is only available for lending protocol vaults.")
 
     def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
-        """Get the percentage of assets currently lent out.
+        """Read the adapter's lending or capital-deployment utilisation.
 
-        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
-        Non-lending protocols should leave this method unimplemented.
+        Single-market adapters measure borrower utilisation. Multi-market
+        adapters such as Morpho and IPOR currently measure allocation outside
+        the vault, rather than aggregate utilisation by underlying borrowers.
+        Non-lending adapters should leave this method unimplemented.
 
         :param block_identifier:
             Block to query. Defaults to "latest".
