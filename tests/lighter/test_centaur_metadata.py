@@ -66,7 +66,13 @@ def test_centaur_pool_metadata(account_index: int, name: str, slug: str, trader:
     if name == "Inverse 1000x":
         assert "opposite side" in row["_description"]
         assert "Market-wide index calls are excluded" in row["_description"]
-    expected_tags = {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.perpetual_futures}
+    expected_tags = {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.perpetual_futures,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    }
     assert row["_strategy_tags"] == expected_tags
     assert get_strategy_tags(spec.vault_address.upper()) == expected_tags
     assert get_handwritten_vault_metadata(LIGHTER_CHAIN_ID, spec.vault_address.upper()) is not None

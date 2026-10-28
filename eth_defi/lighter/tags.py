@@ -2126,61 +2126,109 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: Long/short equities and macro.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/post-fiat
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488848
-    "lighter-pool-281474976488848": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976488848": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
     #: Vault: Centaur Strategies: Inverse 1000x.
     #: Added: 2026-10-26.
     #: Decision material: Takes the opposite side of public crypto and equity calls.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/inverse-1000x
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488851
-    "lighter-pool-281474976488851": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976488851": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
     #: Vault: Centaur Strategies: Serenity.
     #: Added: 2026-10-26.
     #: Decision material: Long exposure to semiconductors, memory and Korean technology.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/serenity
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488853
-    "lighter-pool-281474976488853": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976488853": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
     #: Vault: Centaur Strategies: Lazy Villager.
     #: Added: 2026-10-26.
     #: Decision material: Concentrated, high-conviction crypto positions.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/lazy-villager
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488856
-    "lighter-pool-281474976488856": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976488856": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
     #: Vault: Centaur Strategies: Kole World.
     #: Added: 2026-10-26.
     #: Decision material: Directional crypto swing positions across majors and memecoins.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/kole-world
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976489166
-    "lighter-pool-281474976489166": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976489166": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
     #: Vault: Centaur Strategies: Black Bull.
     #: Added: 2026-10-26.
     #: Decision material: Core and rotational crypto and crypto-adjacent equity longs.
     #: Centaur's methodology says an operator makes every final trade decision.
     #: Signals are expressed through Lighter perpetual markets.
+    #: Sentiment and social trading tags added 2026-10-28: Centaur extracts
+    #: trade signals from the tracked trader's public posts.
     #: Sources:
     #: - https://docs.centaur.io/strategies/lighter-pools/vaults/black-bull
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
+    #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976489165
-    "lighter-pool-281474976489165": {StrategyTag.directional_trading, StrategyTag.discretionary_trading},
+    "lighter-pool-281474976489165": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+    },
 }
 
 #: Lighter's documented auto-rebalanced 2x long/short products maintain a
