@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add Tori trUSD stablecoin classification, verified Ethereum metadata, news feed and official artwork so Tori Ecosystem Vault remains in cleaned price history (2026-10-28, [#1692](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1692)).
+- feat: Add Tori trUSD stablecoin classification, verified Ethereum metadata, news feed and official artwork so Tori Ecosystem Vault remains in cleaned price history, and require writing style checks during PR cleanup (2026-10-28, [#1692](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1692)).
 - feat: Add numbered vault database migrations with persistent run records, staged previews and a daemon lifetime guard; consolidate the 28 October metadata repairs (2026-10-28).
 - fix: Apply current manual vault warnings before cached strategy notes during metadata export (2026-10-28).
 - feat: Add exact-address Nova Markets Conviction Pool classification, independent protocol metadata, source-reproduced feeless accounting, audit and centralisation research, and epoch lifecycle support; attribute the Lagoon-based Nova NLP vault to Nova Markets and mark both Nova vaults Dangerous; improve gTrade vault strategy notes, app links and curator history (2026-10-28).
