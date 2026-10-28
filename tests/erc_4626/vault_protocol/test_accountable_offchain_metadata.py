@@ -32,3 +32,15 @@ def test_accountable_strategy_metadata_uses_first_sentence_as_short_description(
     assert metadata["description"] == strategy
     assert metadata["short_description"] == "This is the vault strategy."
     assert metadata["short_description"] != "Example Manager is an institutional asset manager."
+
+
+def test_accountable_copied_summary_handles_literal_newlines() -> None:
+    """Use only the first sentence even when the API escapes its line breaks.
+
+    Source metadata is preserved in the full description and shortened only
+    when it is copied into the listing summary.
+    """
+    strategy = r"Earn 4.5% in money markets.\nFurther strategy details."
+    metadata = _parse_vault_metadata({}, {"loan": {"vault_strategy": strategy}})
+    assert metadata["description"] == strategy
+    assert metadata["short_description"] == "Earn 4.5% in money markets."

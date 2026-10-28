@@ -24,7 +24,7 @@ from eth_defi.provider.broken_provider import get_safe_cached_latest_block_numbe
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultBase, WithdrawalPeriod
+from eth_defi.vault.base import VaultBase, WithdrawalPeriod, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
@@ -335,6 +335,8 @@ def _normalise_scan_note(notes: str | None, description: str | None, short_descr
     "extra text" hook and fall back to the same off-chain description already
     exported as ``_description``. Keep distinct notes, warnings and source
     links, but avoid populating ``_notes`` with duplicate description text.
+    Compare single-line versions so source paragraph breaks do not prevent
+    deduplication. Distinct notes retain their original formatting.
 
     :param notes:
         Raw note from the vault adapter.
@@ -349,7 +351,7 @@ def _normalise_scan_note(notes: str | None, description: str | None, short_descr
     if not notes:
         return None
 
-    if notes in {description, short_description}:
+    if normalise_vault_description(notes) in {normalise_vault_description(description), normalise_vault_description(short_description)}:
         return None
 
     return notes
@@ -483,8 +485,8 @@ def create_vault_scan_record(
         protocol_name = get_vault_protocol_name(detection.features)
         activity_status = _fetch_activity_status(vault, total_assets)
         lending_stats = _fetch_lending_stats(vault, detection, total_assets, block_identifier)
-        description = vault.description
-        short_description = vault.short_description
+        description = normalise_vault_description(vault.description)
+        short_description = normalise_vault_short_description(vault.short_description)
         notes = _normalise_scan_note(vault.get_notes(), description, short_description)
         capability_resolver = getattr(vault, "get_deposit_manager_capability", None)
         deposit_manager_capability = capability_resolver() if capability_resolver is not None else None

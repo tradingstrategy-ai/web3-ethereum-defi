@@ -226,6 +226,33 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_minimum_redemption"] == Decimal(0)
 
 
+def test_create_vault_scan_record_normalises_descriptions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persist single-line descriptions even when an adapter returns raw text.
+
+    The scanner boundary also drops a duplicate multiline note after flattening
+    the description, preventing the original text from leaking into notes.
+
+    :param monkeypatch:
+        Fixture replacing the adapter factory with a metadata-only vault.
+    """
+    vault = _FakeVault()
+    vault.description = "First paragraph.\n\nSecond paragraph."
+    vault.short_description = r"Short\nsummary. More details belong in the full description."
+    monkeypatch.setattr(vault, "get_notes", lambda: vault.description)
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=_create_detection({ERC4626Feature.usdai_like}),
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_description"] == "First paragraph. Second paragraph."
+    assert record["_short_description"] == "Short summary."
+    assert record["_notes"] is None
+
+
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:
     """Persist permission policy beside an explicitly refusing manager."""
     detection = _create_detection({ERC4626Feature.usdai_like})

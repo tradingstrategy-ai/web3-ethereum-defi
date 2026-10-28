@@ -75,7 +75,7 @@ from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.utils import setup_console_logging
 
 # Import core TradingStrategy / eth_defi modules
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.curator_export import build_curators_for_export
 from eth_defi.vault.denomination import DenominationFamily
 from eth_defi.vault.export_post_processing import run_vault_export_post_processors
@@ -849,7 +849,9 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
 
     Higher priority wins. The priority rule is a safety net for malformed
     duplicate inputs, because normal current/sticky paths are intended to
-    be mutually exclusive.
+    be mutually exclusive. Normalise descriptions before publication, including
+    reused sticky records and native vaults that bypass the ERC-4626 scanner.
+    Short descriptions retain only their first sentence.
 
     :param vaults_by_key:
         Accumulator keyed by canonical vault key.
@@ -862,6 +864,10 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
     """
     existing = vaults_by_key.get(key)
     if existing is None or priority > existing[0]:
+        if "description" in record:
+            record["description"] = normalise_vault_description(record["description"])
+        if "short_description" in record:
+            record["short_description"] = normalise_vault_short_description(record["short_description"])
         vaults_by_key[key] = (priority, record)
 
 

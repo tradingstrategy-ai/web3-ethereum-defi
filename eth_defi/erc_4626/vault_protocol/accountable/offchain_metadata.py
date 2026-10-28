@@ -17,7 +17,6 @@
 import datetime
 import json
 import logging
-import re
 from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
@@ -29,6 +28,7 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
+from eth_defi.vault.base import normalise_vault_short_description
 
 #: Where we cache fetched Accountable metadata files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "accountable"
@@ -163,11 +163,7 @@ def extract_first_sentence(text: str | None) -> str | None:
     if not text:
         return None
 
-    stripped = text.strip()
-    boundary = re.search(r"(?<=[.!?])\s+", stripped)
-    if boundary:
-        return stripped[: boundary.start()]
-    return stripped
+    return normalise_vault_short_description(text)
 
 
 def _parse_vault_metadata(listing_item: dict, detail: dict | None) -> AccountableVaultMetadata:
