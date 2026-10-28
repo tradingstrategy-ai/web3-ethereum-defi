@@ -113,6 +113,128 @@ CENTAUR_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] =
 }
 
 
+#: Official Travessia page for the reviewed Avalanche USDT vault.
+TRAVESSIA_TAURI_VAULT_URL: Final[str] = "https://www.travessiacredit.com/vaults/43114/tauri/0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2"
+
+#: Handwritten strategy metadata for Travessia's Avalanche deployment.
+#:
+#: Accountable's public listing omits Travessia. The manager's vault page and
+#: https://docs.travessiacredit.com/pages/tauri-case-study.html describe the
+#: underlying business; https://www.travessiacredit.com/ names its relationships.
+TRAVESSIA_TAURI_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (43114, HexAddress("0x9c3da70cd7fedeaef528d060ea99ace133e08fd2")): HandwrittenVaultMetadata(
+        name="Travessia Tauri Vault",
+        short_description="USDT loans funding Tauri Agrícola's grain purchases and transport in Brazil.",
+        description=("Travessia's Tauri Vault lends USDT to Tauri Agrícola, a Brazilian grain trader. The loans pay for grain purchases and transport while Tauri waits for buyers to pay their invoices. Tauri supplies soy, grain and rice to animal-feed producers, poultry farmers and industrial buyers. Returns come from Tauri's profits on these trades. Travessia says a typical trade takes 5 to 15 days, allowing the money to fund successive purchases. Under the published terms, Tauri must repay the loans, absorb initial losses and manage the risk of exchange-rate changes. Delayed payments or problems with Tauri's business could cause investor losses or delay withdrawals. Travessia names Rabobank, Avalanche, RedStone, Accountable and Royco among the organisations it works with."),
+        link=TRAVESSIA_TAURI_VAULT_URL,
+    ),
+}
+
+#: Source-linked descriptive note, without investment-backing or guarantee claims.
+TRAVESSIA_TAURI_VAULT_NOTE: Final[str] = f"""The [Travessia Tauri Vault]({TRAVESSIA_TAURI_VAULT_URL}) lends USDT to Tauri Agrícola to pay for grain purchases and transport until buyers pay their invoices. Returns come from Tauri's profits on these trades. Travessia says a typical trade takes 5 to 15 days, allowing the money to fund successive purchases. Under the published terms, Tauri must repay the loans, absorb initial losses and manage the risk of exchange-rate changes. Delayed payments or problems with Tauri's business could cause investor losses or delay withdrawals.
+
+Travessia's [Tauri case study](https://docs.travessiacredit.com/pages/tauri-case-study.html) describes a Brazilian grain trader supplying soy, grain and rice to animal-feed producers, poultry farmers and industrial buyers.
+
+On its [homepage](https://www.travessiacredit.com/), Travessia names Rabobank, Avalanche, RedStone, Accountable and Royco among the organisations it works with.
+"""
+
+
+#: Shared business description for Tauri's other reviewed deposit assets.
+TRAVESSIA_TAURI_STRATEGY_DESCRIPTION: Final[str] = "Travessia's Tauri Vault lends depositors' money to Tauri Agrícola, a Brazilian grain trader. The loans pay for grain purchases and transport while Tauri waits for buyers to pay their invoices. Tauri supplies soy, grain and rice to animal-feed producers, poultry farmers and industrial buyers. Returns come from Tauri's profits on these trades. Travessia says a typical trade takes 5 to 15 days, allowing the money to fund successive purchases. Under the published terms, Tauri must repay the loans, absorb initial losses and manage the risk of exchange-rate changes. Delayed payments or problems with Tauri's business could cause investor losses or delay withdrawals. Travessia names Rabobank, Avalanche, RedStone, Accountable and Royco among the organisations it works with."
+
+#: The official application's deployment catalogue confirms each chain, address
+#: and deposit asset: https://www.travessiacredit.com/vaults.
+TRAVESSIA_TAURI_VAULT_METADATA.update(
+    {
+        (chain_id, HexAddress(address.lower())): HandwrittenVaultMetadata(
+            name=name,
+            short_description=f"{denomination} deposits funding loans for Tauri Agrícola's grain purchases and transport in Brazil.",
+            description=TRAVESSIA_TAURI_STRATEGY_DESCRIPTION,
+            link=f"https://www.travessiacredit.com/vaults/{chain_id}/tauri/{address}",
+        )
+        for chain_id, address, denomination, name in (
+            (1, "0x4C18E2bb9942b12b28e780acF2D9EC2DDA126df9", "AUSD", "Travessia Tauri Vault"),
+            (1, "0xf84A37545e313E8177d80039158ed478C7Dc9079", "USDC", "Travessia Tauri Vault - USDC"),
+            (1, "0xe4EE0fe4B09021FCdF76B165AA1e8eAF7d447c35", "USDT", "Travessia Tauri Vault - USDT"),
+            (143, "0x8D24B48Cb736addb5B7069565F192A052F42Ba61", "AUSD", "Travessia Tauri Vault"),
+        )
+    }
+)
+
+#: Protocol-level background, not a claim about a particular vault's holdings.
+NOON_YIELD_ENGINE_DESCRIPTION: Final[str] = "Across its products, Noon earns income from short-term US government debt, other loans and debt investments, lending through crypto platforms, and trading designed to reduce exposure to market price movements. Its sUSN token gives holders access to this mix of investments. Individual vaults can follow different strategies and withdrawal rules. These public documents describe Noon's wider business; they do not establish this vault's current investments."
+
+#: Official public sources for Noon's yield model and vault-specific scope.
+NOON_YIELD_ENGINE_SOURCES: Final[str] = "Noon explains its [sources of investment income](https://docs.noon.capital/1.-noon-the-basics/how-it-works) and the distinction between [individual vault strategies and sUSN](https://docs.noon.capital/1.-noon-the-basics/vaults)."
+
+#: Accountable's launch announcement identifies SharpByte and Mu Digital as the
+#: Asia-credit vault partners, and names staked AZND, muBOND and liquidity positions.
+ASIA_CREDIT_STRATEGY_DESCRIPTION: Final[str] = "The Asia Credit Yield Vault accepts USDC to invest in Asian debt markets and provide funds for trading on crypto platforms. Accountable launched it with SharpByte Capital and Mu Digital. The launch announcement names staked AZND and muBOND among its investments, alongside funds supplied to trading pools. The aim is to earn income from debt investments and trading activity. Borrower defaults, software failures or difficulty selling investments could cause losses or delay withdrawals."
+
+#: Neutral Trade's public strategy page describes Autopilot as a rebalanced
+#: portfolio; its strategy directory lists availability on Monad as well as Ethereum.
+NEUTRAL_AUTOPILOT_DESCRIPTION: Final[str] = "Neutral Trade Autopilot spreads USDC deposits across trading strategies run by several managers. It adjusts the mix as conditions change. The strategies balance trades to limit their dependence on whether markets rise or fall. They seek to earn income from payments between traders and differences between buying and selling prices. Trading losses, exchange failures or withdrawal delays can still affect depositors. Neutral Trade identifies Solana Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as company backers."
+
+#: Other reviewed Accountable deployments with manually researched descriptions.
+#:
+#: Sources and the limits of deployment-specific evidence are recorded in
+#: ``docs/protocol-research/accountable-description-fill-2026-10-28.md``.
+ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (42161, HexAddress("0x9fe29a3fec55414f70454e2dbe6522f48ced3e85")): HandwrittenVaultMetadata(
+        name="Noon Symphony Yield Vault",
+        short_description="USDC vault linked to Symphony's savings and rewards app, with investments provided by Noon.",
+        description=("The Noon Symphony Yield Vault accepts USDC and is associated with Symphony's savings app. Symphony offers investment returns alongside travel and lifestyle rewards, and names Noon as a provider of the investments that generate those returns. " + NOON_YIELD_ENGINE_DESCRIPTION),
+        link="https://www.symphony.io/blog/symphony-is-live-get-rewarded-for-saving-not-spending",
+    ),
+    (1, HexAddress("0xa73424f1ac94b3ef0d0c9af4f2967c87d4af25d9")): HandwrittenVaultMetadata(
+        name="sUSN Delta Neutral Yield Vault",
+        short_description="USDC vault associated with Noon's sUSN investment products.",
+        description=("The sUSN Delta Neutral Yield Vault accepts USDC and is associated with Noon's sUSN investment products. Its name refers to trading that aims to reduce the effect of market price movements on returns. " + NOON_YIELD_ENGINE_DESCRIPTION),
+        link="https://docs.noon.capital/1.-noon-the-basics/vaults",
+    ),
+    (1, HexAddress("0x0963c0f17d77e336ff75ed36c27d3a1522847615")): HandwrittenVaultMetadata(
+        name="Noon Sophon Yield Vault",
+        short_description="USDC vault from Noon's earlier Sophon offering.",
+        description=("The Noon Sophon Yield Vault accepts USDC and takes its name from Noon's earlier Sophon offering. " + NOON_YIELD_ENGINE_DESCRIPTION),
+        link="https://docs.noon.capital/6.-resources/contract-addresses-and-oracles",
+    ),
+    (143, HexAddress("0x4c0d041889281531ff060290d71091401caa786d")): HandwrittenVaultMetadata(
+        name="Asia Credit Yield Vault",
+        short_description="USDC investments in Asian debt markets and trading pools, launched with SharpByte Capital and Mu Digital.",
+        description=ASIA_CREDIT_STRATEGY_DESCRIPTION,
+        link="https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP",
+    ),
+    (143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")): HandwrittenVaultMetadata(
+        name="Neutral Trade Autopilot",
+        short_description="USDC trading strategies managed by Neutral Trade to limit exposure to market price swings.",
+        description=NEUTRAL_AUTOPILOT_DESCRIPTION,
+        link="https://www.neutral.trade/strategies/neutral-autopilot",
+    ),
+}
+
+#: Source citations for reviewed Accountable vaults. These descriptive notes
+#: do not introduce exclusionary vault flags.
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES: Final[dict[tuple[int, HexAddress], str]] = {key: (f"{metadata.description}\n\nSee the [official Tauri vault page]({metadata.link}), [operator case study](https://docs.travessiacredit.com/pages/tauri-case-study.html) and [Travessia's reported relationships](https://www.travessiacredit.com/).") for key, metadata in TRAVESSIA_TAURI_VAULT_METADATA.items()}
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES.update(
+    {
+        key: f"{metadata.description}\n\n{NOON_YIELD_ENGINE_SOURCES}"
+        for key, metadata in ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.items()
+        if key
+        in {
+            (42161, "0x9fe29a3fec55414f70454e2dbe6522f48ced3e85"),
+            (1, "0xa73424f1ac94b3ef0d0c9af4f2967c87d4af25d9"),
+            (1, "0x0963c0f17d77e336ff75ed36c27d3a1522847615"),
+        }
+    }
+)
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[42161, HexAddress("0x9fe29a3fec55414f70454e2dbe6522f48ced3e85")] += " Symphony identifies Noon in its [launch announcement](https://www.symphony.io/blog/symphony-is-live-get-rewarded-for-saving-not-spending)."
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[1, HexAddress("0x0963c0f17d77e336ff75ed36c27d3a1522847615")] += " Noon lists its separate Sophon-network tokens as discontinued in its [token directory](https://docs.noon.capital/6.-resources/contract-addresses-and-oracles). This [vault is on Ethereum](https://etherscan.io/address/0x0963c0f17d77e336ff75ed36c27d3a1522847615#code); that notice does not establish whether this vault is still operating."
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0x4c0d041889281531ff060290d71091401caa786d")] = f"{ASIA_CREDIT_STRATEGY_DESCRIPTION}\n\nAccountable's [Monad launch announcement](https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP) names the partners and investments. [SharpByte Capital](https://www.sharpbyte.xyz/) describes its investment management business."
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")] = f"{NEUTRAL_AUTOPILOT_DESCRIPTION}\n\nSee Neutral Trade's [Autopilot strategy](https://www.neutral.trade/strategies/neutral-autopilot), [network availability](https://www.neutral.trade/strategies?tier=marketplace) and [company background and backers](https://www.neutral.trade/faq)."
+# Preserve the existing source-linked Avalanche note.
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[43114, HexAddress("0x9c3da70cd7fedeaef528d060ea99ace133e08fd2")] = TRAVESSIA_TAURI_VAULT_NOTE
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -129,7 +251,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key)
+    return CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

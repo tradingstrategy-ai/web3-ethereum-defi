@@ -46,7 +46,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
-from eth_defi.vault.handwritten_metadata import MORINI_CAPITAL_VAULT_METADATA, format_handwritten_vault_note
+from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES, MORINI_CAPITAL_VAULT_METADATA, format_handwritten_vault_note
 
 
 class VaultFlag(str, enum.Enum):
@@ -315,13 +315,13 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
 #: Vault-specific notes which must only apply on the specified EVM chain.
 #:
 #: An address can be deployed on more than one chain. Keep manager-maintained
-#: Morini metadata is chain-scoped so a matching address elsewhere cannot
+#: metadata chain-scoped so a matching address elsewhere cannot
 #: inherit an unrelated strategy note.
 # fmt: off
 CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     (chain_id, address): format_handwritten_vault_note(metadata)
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
-} | AXIS_NOTES_BY_CHAIN | {(chain_id, address.lower()): FLYING_TULIP_SSFTUSD_NOTES for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()}
+} | AXIS_NOTES_BY_CHAIN | {(chain_id, address.lower()): FLYING_TULIP_SSFTUSD_NOTES for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()} | ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
 # fmt: on
 
 

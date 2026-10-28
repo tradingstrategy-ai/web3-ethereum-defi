@@ -7,6 +7,11 @@ description: Expose vault smart contract ABI methods in the vault class
 
 This is a skill description to add smart contract 
 
+If the task also changes public vault descriptions or notes, read and follow
+the shared [description writing style](../../docs/description-writing-style.md).
+The guide applies to public copy; keep method and ABI details in technical
+documentation.
+
 ## Inputs
 
 1. Vault protocol name

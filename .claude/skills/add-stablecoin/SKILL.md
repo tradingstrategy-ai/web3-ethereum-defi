@@ -121,8 +121,11 @@ note its chain and address as evidence.
 
 ## Website descriptions
 
+Read and follow the shared [description writing style](../../docs/description-writing-style.md)
+before writing or editing public descriptions.
+
 The metadata YAML `short_description` and `long_description` fields are public
-website copy for DeFi professionals, not a record of repository implementation
+website copy for a general audience, not a record of repository implementation
 work.
 
 - Explain the token's price reference, issuer, redemption route and reserve or

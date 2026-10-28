@@ -43,6 +43,13 @@ Skill discovery rules:
 - Always spell `onchain` without a hyphen; correct `on-chain` to `onchain`
 - For headings, only capitalise the first letter of heading, do not use title case
 
+## Writing style for manually maintained narrative text
+
+Read and follow the [description writing style guide](.claude/docs/description-writing-style.md)
+when writing or editing manually maintained public descriptions and notes,
+including vault, protocol, curator, stablecoin and fee descriptions in YAML,
+Python or Markdown files.
+
 ## Installing dependencies
 
 Install dependencies with all required extras:
