@@ -89,7 +89,8 @@ def normalise_vault_short_description(text: str | None) -> str | None:
     or copy the full description into it. Flatten source line breaks before
     finding the first sentence ending in a full stop, question mark or
     exclamation mark followed by whitespace. Decimal points and dots within
-    URLs do not end sentences. Text without a sentence boundary is retained.
+    URLs and dotted abbreviations such as ``U.S.`` and ``J.P.`` do not end
+    sentences. Text without a sentence boundary is retained.
 
     :param text:
         Protocol summary or full description being copied into a summary.
@@ -99,7 +100,7 @@ def normalise_vault_short_description(text: str | None) -> str | None:
     text = normalise_vault_description(text)
     if not text:
         return text
-    boundary = re.search(r"(?<=[.!?])\s+", text)
+    boundary = re.search(r"(?<!\b[A-Za-z]\.[A-Za-z]\.)(?<=[.!?])\s+", text)
     return text[: boundary.start()] if boundary else text
 
 

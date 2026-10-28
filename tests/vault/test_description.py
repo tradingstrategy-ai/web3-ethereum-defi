@@ -47,6 +47,10 @@ def test_normalise_vault_description(text: str | None, expected: str | None) -> 
         ("First sentence.\n\nSecond sentence.", "First sentence."),
         (r"First sentence.\r\nSecond sentence.", "First sentence."),
         ("Earn 4.5% via example.com markets. More details.", "Earn 4.5% via example.com markets."),
+        ("Tokenised U.S. Treasury-bill investment product with USD NAV.", "Tokenised U.S. Treasury-bill investment product with USD NAV."),
+        ("U.S. Treasury bills, bonds and overnight repurchase-agreement strategy", "U.S. Treasury bills, bonds and overnight repurchase-agreement strategy"),
+        ("J.P. Morgan manages U.S. Treasuries. More details.", "J.P. Morgan manages U.S. Treasuries."),
+        ("Lend assets, e.g. USDC. More details.", "Lend assets, e.g. USDC."),
         ("See [the vault](https://example.com/vault). More details.", "See [the vault](https://example.com/vault)."),
     ],
 )
