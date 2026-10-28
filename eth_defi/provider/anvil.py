@@ -555,7 +555,7 @@ def _get_anvil_launch_metadata(json_rpc_url: str) -> AnvilForkMetadata | None:
         return _anvil_launch_metadata.get(json_rpc_url)
 
 
-def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
+def _create_default_anvil_proxy_config(provider_count: int, pre_fork_transaction_lookups: bool = False) -> RPCProxyConfig:
     """Create the bounded policy for automatic Anvil upstream failover.
 
     Automatic proxying tries every configured provider once without sleeping
@@ -574,6 +574,11 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
 
     :param provider_count:
         Number of usable upstream JSON-RPC providers.
+
+    :param pre_fork_transaction_lookups:
+        Forward transaction lookups by hash upstream, hedged across providers,
+        instead of answering them locally with ``null``. See the
+        ``pre_fork_transaction_lookups`` argument of :py:func:`launch_anvil`.
 
     :return:
         Bounded automatic proxy configuration.
@@ -597,8 +602,10 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         switchover_log_level=logging.WARNING,
         # Anvil >= 1.8 forwards receipt polls for its own unmined transactions
         # upstream, in case the hash predates the fork. A test's transactions
-        # are only ever mined by the fork itself, so answer null locally.
-        local_null_methods=TRANSACTION_LOOKUP_METHODS,
+        # are only ever mined by the fork itself, so answer null locally,
+        # unless the test reads transactions mined before the fork block.
+        local_null_methods=frozenset() if pre_fork_transaction_lookups else TRANSACTION_LOOKUP_METHODS,
+        hedged_methods=TRANSACTION_LOOKUP_METHODS if pre_fork_transaction_lookups else frozenset(),
     )
 
 
@@ -1474,6 +1481,7 @@ def launch_anvil(
     warm_up_block: bool = False,
     archive: bool = True,
     proxy_multiple_upstream: "RPCProxy | RPCProxyConfig | bool" = True,
+    pre_fork_transaction_lookups: bool = False,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -1726,6 +1734,19 @@ def launch_anvil(
         If the RPC cannot access the requested block, raises :py:class:`ArchiveNodeRequired`
         with response details from the tested endpoint.
 
+    :param pre_fork_transaction_lookups:
+        Set when the test reads transactions mined before the fork block,
+        for example production transaction hashes from a replayed state file.
+
+        By default the fork proxy answers ``eth_getTransactionReceipt`` and
+        ``eth_getTransactionByHash`` itself with ``null``: Anvil >= 1.8 asks
+        the upstream about every transaction it has not mined yet, a slow
+        provider made that cost seconds per transaction, and a test's own
+        transactions are only ever mined by the fork. With this flag the
+        proxy instead sends those lookups to every upstream at once and
+        keeps the first reply, so pre-fork transactions resolve. Ignored
+        when ``proxy_multiple_upstream`` is an explicit config or proxy.
+
     :param proxy_multiple_upstream:
         Controls how multiple upstream RPC providers in ``fork_url`` are handled.
 
@@ -1833,7 +1854,7 @@ def launch_anvil(
                 if isinstance(proxy_multiple_upstream, RPCProxyConfig):
                     config = proxy_multiple_upstream
                 else:
-                    config = _create_default_anvil_proxy_config(len(available_rpcs))
+                    config = _create_default_anvil_proxy_config(len(available_rpcs), pre_fork_transaction_lookups=pre_fork_transaction_lookups)
                 proxy = start_rpc_proxy(available_rpcs, config=config, suppress_client_disconnect_errors=True)
                 cleaned_fork_url = proxy.url
                 logger.info("Started RPC failover proxy at %s for %d upstream providers", proxy.url, len(available_rpcs))
