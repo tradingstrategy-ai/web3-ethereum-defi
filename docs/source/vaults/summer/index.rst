@@ -24,7 +24,7 @@ are treated as illiquid and blacklisted in the vault risk metadata.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/summer-fi>`__
 - `Homepage <https://summer.fi/>`__
 - `Documentation <https://docs.summer.fi/>`__
 - `GitHub <https://github.com/oasisdex>`__

@@ -34,7 +34,7 @@ links:
   defillama: https://defillama.com/protocol/tvl/shift-protocol
   audits: https://shiftprotocol.gitbook.io/shift/resources/audits
   fees: https://shiftprotocol.gitbook.io/shift/resources/faq
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/shift
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/shift
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/shift/index.html
 example_smart_contracts:
   - https://basescan.org/address/0xaf69bf9ea9e0166498c0502af5b5945980ed1e0e

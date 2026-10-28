@@ -33,7 +33,7 @@ links:
   defillama: https://defillama.com/protocol/stables-labs-usdx
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/usdx-money
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/usdx-money
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdx_money/index.html
 example_smart_contracts:
   - https://bscscan.com/address/0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92

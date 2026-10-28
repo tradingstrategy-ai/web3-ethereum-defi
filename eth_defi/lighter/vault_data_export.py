@@ -51,6 +51,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -88,7 +89,7 @@ def create_lighter_pool_row(
     description: str | None,
     tvl: float,
     created_at: datetime.datetime | None,
-    operator_fee: float = 0.0,
+    operator_fee: Percent | None = 0.0,
     total_shares: int | None = None,
     operator_shares: int | None = None,
     ownership_updated_at: datetime.datetime | None = None,
@@ -102,9 +103,13 @@ def create_lighter_pool_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the Lighter synthetic chain ID.
 
-    Lighter pool operator fees are already reflected in the share price
-    (internalised skimming model), so the pipeline treats the share price
-    as net of fees.
+    Lighter operator fees are externalised: participants pay a percentage of
+    positive profits upon withdrawal, separately from the pool share price.
+    Net returns must therefore deduct this fee from positive share-price
+    returns. See `Lighter's public-pool documentation
+    <https://docs.lighter.xyz/trading/public-pools>`__ and the independent
+    `Cipher Intelligence public-pool example
+    <https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/>`__.
 
     The `Lighter public-pool metadata endpoint
     <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__ supplies the
@@ -124,7 +129,8 @@ def create_lighter_pool_row(
     :param created_at:
         Pool creation timestamp.
     :param operator_fee:
-        Operator fee percentage (e.g. 10.0 = 10%).
+        Operator fee percentage (e.g. 10.0 = 10%), or ``None`` when unknown.
+        Unknown fees suppress investor net-return calculations.
     :param total_shares:
         Current total pool shares from the Lighter API.
     :param operator_shares:
@@ -143,6 +149,7 @@ def create_lighter_pool_row(
     """
     address = deployment.format_pool_address(account_index)
     chain_id = deployment.chain_id
+    handwritten_metadata = get_handwritten_vault_metadata(chain_id, address)
 
     # LLP is the canonical protocol pool on every Lighter deployment. The API
     # returns the same name for Ethereum and Robinhood, but vault slugs derive
@@ -151,7 +158,7 @@ def create_lighter_pool_row(
     display_name = f"{deployment.name} Liquidity Provider (LLP)" if is_llp else name
 
     # Convert operator_fee from percentage to decimal fraction
-    perf_fee = operator_fee / 100.0 if operator_fee else 0.0
+    perf_fee = operator_fee / 100.0 if operator_fee is not None else None
     operator_share_fraction: Percent | None = operator_shares / total_shares if total_shares and operator_shares is not None else None
 
     flags = {VaultFlag.perp_dex_trading_vault}
@@ -209,8 +216,8 @@ def create_lighter_pool_row(
         "_flags": flags,
         "_strategy_tags": get_strategy_tags(address),
         "_lockup": deployment.lockup,
-        "_description": description,
-        "_short_description": description.split(".")[0].strip() + "." if description else None,
+        "_description": handwritten_metadata.description if handwritten_metadata else description,
+        "_short_description": handwritten_metadata.short_description if handwritten_metadata else (description.split(".")[0].strip() + "." if description else None),
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": deposit_closed_reason,
@@ -316,6 +323,11 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
     The output has ``timestamp`` as a column (not index), matching
     the raw uncleaned Parquet format.
 
+    ``performance_fee`` is the current metadata's operator fee as a fraction
+    (e.g. ``0.3`` for 30%), joined by deployment and account index. Unknown
+    fees remain null. This is not a reconstruction of historical fee changes,
+    and the source share prices remain gross of the withdrawal-time fee.
+
     :param db:
         The Lighter daily metrics database.
     :return:
@@ -327,6 +339,13 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
         return pd.DataFrame()
 
     prices_df = _derive_daily_flow_columns(prices_df, current_date=native_datetime_utc_now().date())
+    metadata_df = db.get_all_pool_metadata()
+    prices_df = prices_df.merge(
+        metadata_df[["deployment", "account_index", "operator_fee"]],
+        on=["deployment", "account_index"],
+        how="left",
+        validate="many_to_one",
+    )
 
     unknown_deployments = set(prices_df["deployment"].unique()) - set(LIGHTER_DEPLOYMENTS_BY_SLUG)
     if unknown_deployments:
@@ -350,7 +369,7 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values if "tvl" in prices_df.columns else 0.0,
             "total_supply": prices_df["total_shares"].values if "total_shares" in prices_df.columns else np.nan,
-            "performance_fee": 0.0,
+            "performance_fee": (prices_df["operator_fee"] / 100.0).values,
             "management_fee": 0.0,
             "errors": "",
             # Lighter's public PnL endpoint exposes cumulative monetary
@@ -434,7 +453,7 @@ def merge_into_vault_database(
         tvl = row.get("total_asset_value")
         tvl = 0.0 if pd.isna(tvl) else float(tvl)
         operator_fee = row.get("operator_fee")
-        operator_fee = 0.0 if pd.isna(operator_fee) else float(operator_fee)
+        operator_fee = None if pd.isna(operator_fee) else float(operator_fee)
         status = row.get("status")
         status = None if pd.isna(status) else int(status)
         total_shares = row.get("total_shares")

@@ -26,7 +26,7 @@ links:
   defillama: ''
   audits: ''
   fees: https://api.vaults.arcus.xyz/v1/vaults
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcus
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/arcus
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/arcus/index.html
 example_smart_contracts:
   - https://robinhoodchain.blockscout.com/address/0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e

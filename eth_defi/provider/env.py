@@ -8,7 +8,7 @@ To support multiple blockchains, we use a naming convention for chains:
 - `JSON_RPC_ARBITRUM_SEPOLIA` for Arbitrum Sepolia
 - `JSON_RPC_BASE_SEPOLIA` for Base Sepolia
 
-All environment variables support multiple RPC providers per chain using a space-separated round robin mechanism.
+All environment variables support multiple RPC providers per chain using the project-specific space-separated fallback format.
 See :ref:`multi rpc` for more details.
 
 Example:
@@ -24,6 +24,7 @@ For the chain names and more information see :py:mod:`eth_defi.chain`.
 import os
 
 from eth_defi.chain import CHAIN_NAMES
+from eth_defi.rpc_url import register_rpc_url
 
 
 def get_json_rpc_env(chain: int) -> str:
@@ -46,4 +47,5 @@ def read_json_rpc_url(chain: int) -> str:
     json_rpc_url = os.environ.get(env_var)
     if not json_rpc_url:
         raise ValueError(f"Environment variable {env_var} is not set for chain {chain}")
+    register_rpc_url(json_rpc_url)
     return json_rpc_url

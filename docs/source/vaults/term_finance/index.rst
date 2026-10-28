@@ -22,7 +22,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/term-finance>`__
 - `Homepage <https://www.term.finance/>`__
 - `App <https://app.term.finance/>`__
 - `Documentation <https://developers.term.finance>`__

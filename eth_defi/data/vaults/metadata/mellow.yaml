@@ -40,7 +40,7 @@ links:
   defillama: https://defillama.com/protocol/mellow-protocol
   audits: https://docs.mellow.finance/security
   fees: https://docs.mellow.finance/core-vaults/architecture
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/mellow
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/mellow
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/mellow/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x014e6DA8F283C4aF65B2AA0f201438680A004452

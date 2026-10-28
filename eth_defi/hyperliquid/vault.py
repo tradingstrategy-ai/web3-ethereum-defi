@@ -40,11 +40,10 @@ from enum import Enum
 from functools import cached_property
 from typing import Any, Iterator
 
-import pandas as pd
 from eth_typing import HexAddress
+
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.session import (
-    HYPERLIQUID_API_URL,
-    HYPERLIQUID_TESTNET_API_URL,
     HyperliquidSession,
     create_hyperliquid_session,
 )
@@ -218,8 +217,9 @@ def classify_hyperliquid_vault_deposit(
     <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy>`__
     restricts leader withdrawals. Whether it also limits follower deposits is
     unresolved, so the 5.5% boundary remains a conservative trading policy.
-    Exporters must pass ``None`` for a forward-filled leader share: this
-    function does not track the age of an observation.
+    Recorded historical shares remain usable when a separate observation
+    clock is absent. This function classifies values; it does not refresh
+    their timestamps or infer permission from a missing cap.
 
     :param is_closed:
         Nullable ``vaultDetails.isClosed`` source flag.
@@ -229,7 +229,7 @@ def classify_hyperliquid_vault_deposit(
         Vault relationship type; HLP parent ignores ``allowDeposits``.
     :param leader_fraction:
         Leader equity as a fraction of vault capital, e.g. ``0.06`` for 6%.
-        Use ``None`` if the row contains no actual observation.
+        Use ``None`` when no recorded value is available.
     :return:
         API permission, any closure reason, and any trading-policy amount limit.
     """
@@ -373,6 +373,8 @@ class HyperliquidVault:
         self.session = session
         self.vault_address = vault_address
         self.timeout = timeout
+        self.permission_received_at = None
+        self.permission_payload = None
 
     def __repr__(self) -> str:
         return f"<HyperliquidVault {self.vault_address}>"
@@ -403,7 +405,11 @@ class HyperliquidVault:
 
         response = self.session.post_info(payload, timeout=self.timeout)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if request_type == "vaultDetails" and isinstance(data, dict):
+            self.permission_received_at = native_datetime_utc_now()
+            self.permission_payload = {key: data[key] for key in ("isClosed", "allowDeposits", "relationship", "leaderFraction", "leaderCommission", "maxDistributable", "maxWithdrawable") if key in data}
+        return data
 
     def _parse_vault_details(self, data: dict) -> VaultInfo:
         """Parse a raw ``vaultDetails`` JSON response into a :class:`VaultInfo`."""

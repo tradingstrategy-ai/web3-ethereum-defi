@@ -8,6 +8,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     DEFAULT_LAGOON_SETTLEMENT_WINDOW,
+    LIGHTER_BOOTSTRAP_SUBSCRIPTION,
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
@@ -53,15 +54,15 @@ def _evm_snapshot(anvil_ethereum_fork: AnvilLaunch):
 
 
 def test_lighter_bootstrap_uses_the_configured_settlement_budget(web3: Web3) -> None:
-    """Leave 19 USDC in Safe and allow the next 20-USDC operator settlement."""
+    """Activate with the minimum bootstrap and allow the next 20-USDC operator settlement."""
     deployer = HotWallet.create_for_testing(web3, eth_amount=10)
     deployer.sync_nonce(web3)
     usdc = fetch_erc20_details(web3, LIGHTER_USDC_ETHEREUM)
     one_usdc_raw = usdc.convert_to_raw(Decimal(1))
-    bootstrap_subscription_raw = usdc.convert_to_raw(Decimal(20))
-    bootstrap_reserve_raw = usdc.convert_to_raw(Decimal(19))
-    expected_usage_raw = usdc.convert_to_raw(Decimal(40))
-    expected_safe_balance_raw = usdc.convert_to_raw(Decimal(39))
+    bootstrap_subscription_raw = usdc.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION)
+    bootstrap_reserve_raw = usdc.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION - Decimal(1))
+    expected_usage_raw = usdc.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION + Decimal(20))
+    expected_safe_balance_raw = usdc.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION - Decimal(1) + Decimal(20))
     fund_erc20_on_anvil(web3, usdc.address, deployer.address, usdc.convert_to_raw(100))
     lighter = LighterDeployment.create_ethereum()
     deployment = deploy_automated_lagoon_vault(
@@ -86,7 +87,7 @@ def test_lighter_bootstrap_uses_the_configured_settlement_budget(web3: Web3) -> 
         asset_manager=deployer.address,
         test_account_with_balance=deployer.address,
         trading_strategy_module_address=module.address,
-        amount=Decimal(20),
+        amount=LIGHTER_BOOTSTRAP_SUBSCRIPTION,
         hot_wallet=deployer,
     )
     lighter_balance_before = usdc.fetch_raw_balance_of(LIGHTER_L1_CONTRACT)
@@ -103,7 +104,7 @@ def test_lighter_bootstrap_uses_the_configured_settlement_budget(web3: Web3) -> 
         test_account_with_balance=deployer.address,
         trading_strategy_module_address=module.address,
         amount=Decimal(20),
-        nav=Decimal(19),
+        nav=LIGHTER_BOOTSTRAP_SUBSCRIPTION - Decimal(1),
         hot_wallet=deployer,
     )
     assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call()[1] == expected_usage_raw

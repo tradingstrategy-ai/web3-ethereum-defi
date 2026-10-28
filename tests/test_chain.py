@@ -15,6 +15,8 @@ TEMPO_CHAIN_ID = 4217
 TEMPO_BLOCK_TIME = 0.5
 ARC_CHAIN_ID = 5042
 ARC_BLOCK_TIME = 0.5
+WORLDCHAIN_CHAIN_ID = 480
+PLUME_CHAIN_ID = 98866
 
 
 def test_robinhood_chain_metadata():
@@ -51,6 +53,16 @@ def test_arc_chain_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     assert read_json_rpc_url(ARC_CHAIN_ID) == "https://arc.example"
     assert get_evm_block_time(ARC_CHAIN_ID) == ARC_BLOCK_TIME
     assert get_chain_homepage(ARC_CHAIN_ID) == ("Arc", "https://arc.io")
+
+
+@pytest.mark.parametrize(("chain_id", "name", "env_name", "block_time"), [(WORLDCHAIN_CHAIN_ID, "Worldchain", "JSON_RPC_WORLDCHAIN", 2), (PLUME_CHAIN_ID, "Plume", "JSON_RPC_PLUME", 0.4)])
+def test_nest_chain_rpc_names(chain_id: int, name: str, env_name: str, block_time: float) -> None:
+    """Resolve Nest RPC names and historical sampling intervals."""
+
+    assert get_chain_name(chain_id) == name
+    assert get_chain_id_by_name(name) == chain_id
+    assert get_json_rpc_env(chain_id) == env_name
+    assert get_evm_block_time(chain_id) == block_time
 
 
 def test_has_not_graphql_support():

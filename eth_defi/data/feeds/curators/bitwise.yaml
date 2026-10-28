@@ -1,0 +1,12 @@
+feeder-id: bitwise
+name: Bitwise
+role: curator
+website: https://bitwiseinvestments.com/
+short_description: Bitwise manages digital-asset investment products, including a tokenised crypto carry fund.
+long_description: |
+  [Bitwise](https://bitwiseinvestments.com/) is a digital-asset investment manager. Its [Bitwise Crypto Carry Fund](https://bitwiseinvestments.com/crypto-funds/uscc) pursues crypto basis and cash-and-carry returns, and the fund page identifies Bitwise Investment Manager as investment manager. [Nest's nBASIS vault](https://app.nest.credit/vaults/nest-basis-vault) provides exposure to that fund, so this record attributes the underlying fund's investment management to Bitwise.
+other-links:
+  - title: Bitwise Crypto Carry Fund - investment manager and strategy
+    url: https://bitwiseinvestments.com/crypto-funds/uscc
+  - title: Nest nBASIS vault - exposure to the Bitwise Crypto Carry Fund
+    url: https://app.nest.credit/vaults/nest-basis-vault

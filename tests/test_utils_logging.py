@@ -1,7 +1,6 @@
 import io
 import logging
 import re
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ from eth_defi.utils import setup_console_logging
 
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 MAX_SHORT_RICH_LINE_LENGTH = 200
-pytestmark = pytest.mark.usefixtures("restore_root_logger")
 
 
 class DummyStream(io.StringIO):
@@ -26,29 +24,6 @@ class DummyStream(io.StringIO):
         """Return the configured TTY state."""
 
         return self.is_tty
-
-
-@pytest.fixture()
-def restore_root_logger() -> Iterator[None]:
-    """Restore root logging after each test.
-
-    ``setup_console_logging()`` intentionally rewrites root logger handlers.
-    Tests need to put the previous pytest logging configuration back so other
-    tests in the same process are not affected.
-    """
-
-    root = logging.getLogger()
-    old_handlers = list(root.handlers)
-    old_level = root.level
-
-    yield
-
-    for handler in root.handlers:
-        if handler not in old_handlers:
-            handler.close()
-    root.handlers.clear()
-    root.handlers.extend(old_handlers)
-    root.setLevel(old_level)
 
 
 def test_should_do_colour_logging_respects_no_color(monkeypatch: pytest.MonkeyPatch) -> None:

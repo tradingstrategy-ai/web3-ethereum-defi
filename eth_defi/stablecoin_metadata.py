@@ -248,6 +248,7 @@ STABLECOIN_LIKE = set(
         "DOLADUSD",
         "EOSDT",
         "EURA",
+        "EURC",
         "EURCV",
         "EUROC",
         "EUROe",
@@ -274,6 +275,7 @@ STABLECOIN_LIKE = set(
         "GYEN",
         "HAI",
         "HUSD",
+        "IPUSD",
         "IRON",
         "JCHF",
         "JPYC",
@@ -290,6 +292,7 @@ STABLECOIN_LIKE = set(
         "OUSD",
         "PAR",
         "PAXG",
+        "pUSD",  # Plume USD: https://www.plume.org/pusd
         "PYUSD",
         "RAI",
         "RLUSD",
@@ -639,6 +642,8 @@ def load_all_stablecoin_metadata(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[
     """Load all stablecoin metadata from YAML files.
 
     Returns a dict mapping symbol to list of StablecoinInfo entries.
+    Separate files sharing a ticker contribute separate entries, so an issuer
+    does not hide another issuer's metadata.
     Cached in-process after first call for the default package data directory.
 
     Files with a ``token_symbols`` list register the same metadata
@@ -689,12 +694,12 @@ def load_all_stablecoin_metadata(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[
             ]
 
         # Register under primary symbol
-        result[symbol] = info_list
+        result.setdefault(symbol, []).extend(info_list)
 
         # Also register under all token_symbols variants
         for variant in data.get("token_symbols", []):
             if variant != symbol:
-                result[variant] = info_list
+                result.setdefault(variant, []).extend(info_list)
 
     if use_cache:
         _cached_metadata = result
@@ -744,6 +749,7 @@ def normalise_token_symbol(token_symbol: str | None) -> str | None:
     - Uppercase
     - Remove bridge suffixes
     - Fix USDT variations
+    - Resolve EURC to the legacy EUROC metadata symbol
 
     :param token_symbol:
         Token symbol as it is written on the contract.
@@ -764,6 +770,10 @@ def normalise_token_symbol(token_symbol: str | None) -> str | None:
 
     if token_symbol in {"USDT0", "USD₮0"}:
         token_symbol = "USDT"
+
+    # Circle renamed EUROC to EURC; retain the existing metadata identity.
+    if token_symbol == "EURC":
+        token_symbol = "EUROC"
 
     return token_symbol
 

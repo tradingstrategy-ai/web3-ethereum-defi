@@ -1,8 +1,9 @@
 """T3tris vault offchain metadata.
 
 - T3tris stores vault page descriptions in their backend, not on-chain
-- The detail endpoint ``/api/v1/vaults/{chainId}/{vaultAddress}``
-  returns the same page view model shown in the T3tris app
+- The detail endpoint ``/api/vaults/{chainId}/{vaultAddress}`` on the
+  `T3tris app <https://earn.t3tris.finance/vaults>`__ returns the same page
+  view model shown in the app; it answers 404 for vaults the app does not list
 - We fetch and cache this data locally to avoid repeated API calls
 - Two-level caching: disk (2-day TTL) + in-process dictionary
 """
@@ -25,8 +26,10 @@ from eth_defi.utils import wait_other_writers
 #: Where we cache fetched T3tris metadata files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "t3tris"
 
-#: T3tris API base URL, reverse-engineered from their Next.js frontend
-DEFAULT_API_BASE_URL = "https://api.t3tris.finance/api/v1"
+#: T3tris API base URL, reverse-engineered from their Next.js frontend.
+#: ``https://api.t3tris.finance/api/v1`` answered 404 for every path from
+#: October 2026; the app now serves the same routes itself.
+DEFAULT_API_BASE_URL = "https://earn.t3tris.finance/api"
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ class T3trisVaultMetadata(TypedDict):
     """Metadata about a T3tris vault from offchain source.
 
     Fetched from the T3tris REST API endpoint:
-    ``GET /api/v1/vaults/{chainId}/{vaultAddress}``.
+    ``GET /api/vaults/{chainId}/{vaultAddress}``.
     """
 
     #: Vault name shown in the app.
@@ -87,8 +90,11 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
     """Parse vault metadata from the T3tris page endpoint.
 
     :param raw:
-        Raw JSON dict from ``/api/v1/vaults/{chainId}/{vaultAddress}``
-        or a single vault row from ``/api/v1/vaults``.
+        Raw JSON dict from ``/api/vaults/{chainId}/{vaultAddress}``
+        or a single vault row from ``/api/vaults``.
+    :return:
+        Parsed metadata. Fields the current API no longer returns
+        (``category``, ``attributes``, ``rating``) parse as empty.
     """
     vault = raw.get("vault") or raw
     name = _normalise_optional_string(vault.get("displayName")) or _normalise_optional_string(vault.get("name")) or _normalise_optional_string(vault.get("onchainName")) or ""
@@ -96,6 +102,10 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
     attributes = vault.get("attributes")
     if not isinstance(attributes, list):
         attributes = []
+    deposits_disabled = vault.get("depositsDisabled") if isinstance(vault.get("depositsDisabled"), bool) else None
+    flags = vault.get("flags")
+    if deposits_disabled is None and isinstance(flags, dict) and isinstance(flags.get("depositEnabled"), bool):
+        deposits_disabled = not flags["depositEnabled"]
 
     return T3trisVaultMetadata(
         name=name,
@@ -104,7 +114,7 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
         curator_name=_normalise_optional_string(vault.get("curatorName")),
         curator_url=_normalise_optional_string(vault.get("curatorUrl")),
         verified=vault.get("verified") if isinstance(vault.get("verified"), bool) else None,
-        deposits_disabled=vault.get("depositsDisabled") if isinstance(vault.get("depositsDisabled"), bool) else None,
+        deposits_disabled=deposits_disabled,
         category=_normalise_optional_string(vault.get("category")),
         attributes=[str(item) for item in attributes],
         rating=_normalise_optional_string(vault.get("rating")),
@@ -143,7 +153,7 @@ def _fetch_vaults_list_entry(
         logger.warning("Failed to fetch T3tris vault list for %s on chain %d: %s", address, chain_id, e)
         return None
 
-    vaults = payload.get("vaults") if isinstance(payload, dict) else None
+    vaults = (payload.get("items") or payload.get("vaults")) if isinstance(payload, dict) else None
     if not isinstance(vaults, list):
         logger.warning("Unexpected T3tris vault list response shape: %s", type(payload))
         return None
@@ -174,7 +184,8 @@ def _fetch_vault_detail(
         T3tris API base URL.
 
     :return:
-        Raw JSON response dict, or ``None`` if the request fails.
+        Raw JSON response dict, or ``None`` if T3tris does not list the vault
+        or both endpoints fail.
     """
     url = f"{api_base_url}/vaults/{chain_id}/{address}"
     logger.debug("Fetching T3tris vault detail from %s", url)
@@ -182,6 +193,13 @@ def _fetch_vault_detail(
         resp = requests.get(url, timeout=30, headers={"Accept": "application/json"})
         resp.raise_for_status()
         return resp.json()
+    except requests.HTTPError as e:
+        if getattr(e.response, "status_code", None) == 404:
+            # Vaults deployed on the protocol but not listed in the app
+            logger.info("T3tris app does not list vault %s on chain %d", address, chain_id)
+            return None
+        logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
+        return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
     except (requests.RequestException, JSONDecodeError) as e:
         logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
         return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)

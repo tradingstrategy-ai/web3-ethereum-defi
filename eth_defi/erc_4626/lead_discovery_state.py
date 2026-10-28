@@ -18,6 +18,7 @@ from typing import Any
 
 from atomicwrites import atomic_write
 
+from eth_defi.erc_4626.classification import create_vault_classifier_signature
 from eth_defi.erc_4626.discovery_base import get_vault_discovery_events
 
 LEAD_DISCOVERY_STATE_SCHEMA_VERSION = 1
@@ -26,7 +27,8 @@ DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT = datetime.timedelta(days=7)
 # Bump this whenever a change alters values persisted by create_vault_scan_record()
 # or its protocol adapters.  The discovery cursor alone cannot detect those
 # changes, but existing rows must be regenerated before they are exported.
-VAULT_METADATA_REFRESH_VERSION = 5
+# Version 7 refreshes stored Llama liquidity/utilisation using controller debt.
+VAULT_METADATA_REFRESH_VERSION = 7
 
 
 def _remove_docstring(node: ast.AST) -> None:
@@ -79,11 +81,14 @@ def hash_function_source(function: Callable[..., Any]) -> str:
 
 
 def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -> tuple[str, dict[str, Any]]:
-    """Create the cache signature from detection code, metadata version, and enabled chains.
+    """Create the cache signature from discovery, classification and metadata inputs.
 
     Scheduler and price-scan settings do not invalidate a lead cache. Metadata
     changes use an explicit version because adapter behaviour is not a direct
     dependency of the event-discovery function hash.
+    Include the classifier signature so a newly supported protocol or chain
+    reaches the inner classification cache immediately instead of waiting for
+    the outer discovery cache to expire.
 
     :param enabled_chains:
         Iterable of ``(chain name, RPC environment variable)`` pairs for
@@ -94,6 +99,7 @@ def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -
 
     configuration = {
         "lead_detection_function_hash": hash_function_source(get_vault_discovery_events),
+        "vault_classifier_signature": create_vault_classifier_signature(),
         "vault_metadata_refresh_version": VAULT_METADATA_REFRESH_VERSION,
         "enabled_chains": [{"name": name, "rpc_environment_variable": env_var} for name, env_var in sorted(enabled_chains)],
     }
@@ -193,8 +199,13 @@ def validate_lead_discovery_state(
     timeout: datetime.timedelta,
     *,
     has_metadata_cursor: bool,
+    signature_configuration: dict[str, Any] | None = None,
 ) -> str | None:
     """Return a cache-miss reason or ``None`` for a valid state.
+
+    A legacy all-chain signature can migrate to a chain-specific subset while
+    preserving its original expiry, provided the classifier and metadata versions
+    still match. Configuration changes otherwise invalidate the cache.
 
     :param state:
         Deserialised cache state.
@@ -209,6 +220,8 @@ def validate_lead_discovery_state(
     :param has_metadata_cursor:
         Whether the metadata database recorded a completed cursor for this
         chain, including chains whose discovery found zero leads.
+    :param signature_configuration:
+        Current signature inputs for compatibility with a legacy broad signature.
     :return:
         ``None`` for a hit, otherwise a human-readable miss reason.
     """
@@ -216,7 +229,11 @@ def validate_lead_discovery_state(
     if state.chain_id != chain_id:
         return f"state chain id {state.chain_id} does not match {chain_id}"
     if state.signature != signature:
-        return "lead discovery signature changed"
+        old = state.signature_configuration
+        current = signature_configuration
+        compatible_legacy = current is not None and len(old.get("enabled_chains", [])) > 1 and all(old.get(key) == current.get(key) for key in ("lead_detection_function_hash", "vault_classifier_signature", "vault_metadata_refresh_version")) and all(chain in old["enabled_chains"] for chain in current.get("enabled_chains", []))
+        if not compatible_legacy:
+            return "lead discovery signature changed"
     if not has_metadata_cursor:
         return "vault metadata database has no discovery cursor"
     age = now - state.completed_at

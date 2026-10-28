@@ -31,7 +31,7 @@ links:
   defillama: https://defillama.com/protocol/upshift
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/upshift
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/upshift
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/upshift/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e

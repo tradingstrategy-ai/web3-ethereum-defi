@@ -42,7 +42,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/spark
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/spark
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/spark/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe

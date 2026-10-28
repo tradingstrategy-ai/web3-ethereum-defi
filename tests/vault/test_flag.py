@@ -1,9 +1,10 @@
 """Test vault manual flags."""
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
-from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, REVIEWED_DISABLED_GMX_VAULTS, VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
 
 
 def test_not_in_morpho_api_is_bad_flag():
@@ -60,6 +61,52 @@ def test_spxa_is_a_tokenised_fund() -> None:
 
     assert flags == {VaultFlag.tokenised_fund}
     assert not is_flagged_vault("0x99e9092bae6d4394e54034ecb1e45441678323b9")
+
+
+@pytest.mark.parametrize(
+    ("protocol", "address", "blacklisted"),
+    [
+        ("GMX", "0xe2fedb9e6139a182b98e7c2688ccfa3e9a53c665", True),
+        ("GMX", "0x39ac3c494950a4363d739201ba5a0861265c9ae5", True),
+        ("GMX", "0x9c2433dfd71096c435be9465220bb2b189375ea7", False),
+        ("Antarctic", "0x152f5e6142db867f905a68617dbb6408d7993a4b", False),
+        ("ERC-4626", "0x392b1e6905bb8449d26af701cdea6ff47bf6e5a8", False),
+        ("ERC-4626", "0x18c100415988bef4354effad1188d1c22041b046", False),
+    ],
+)
+def test_reviewed_disabled_market_exclusion_matches_report_risk(protocol: str, address: HexAddress, blacklisted: bool) -> None:
+    """Apply reviewed disablement consistently to scanning and reporting.
+
+    The Arbitrum inventory also contains enabled quiet markets, sparse
+    settlement pools and unresolved contract reads. Those must retain their
+    coverage diagnostics rather than inheriting an exclusion from stale prices.
+
+    :param protocol: Protocol label recorded by the Arbitrum catalogue.
+    :param address: Reviewed example from the 47-vault freshness inventory.
+    :param blacklisted: Whether protocol disablement was independently verified.
+    :return: None; scanner and public-risk decisions must agree.
+    """
+    assert (address in BROKEN_VAULT_CONTRACTS) is blacklisted
+    assert (get_vault_risk(protocol, address) is VaultTechnicalRisk.blacklisted) is blacklisted
+
+
+# Each xdist worker collects independently with a different string hash seed.
+# Sort the maintained set so CI workers agree on the generated test order.
+@pytest.mark.parametrize("address", sorted(REVIEWED_DISABLED_GMX_VAULTS))
+def test_every_reviewed_disabled_gmx_market_is_normalised_and_excluded(address: HexAddress) -> None:
+    """Keep each reviewed market effective at both blacklist call sites.
+
+    Address lookup is case-insensitive throughout the scanner. Normalising the
+    maintained set must also cover later checksummed additions, while keeping
+    all fourteen reviewed contracts excluded from both scanning and reporting.
+
+    :param address: One independently reviewed Arbitrum GMX market token.
+    :return: None; normalisation and the two consuming policies are checked.
+    """
+    assert len(REVIEWED_DISABLED_GMX_VAULTS) == 14
+    assert address == address.lower()
+    assert address in BROKEN_VAULT_CONTRACTS
+    assert get_vault_risk("GMX", address.upper()) is VaultTechnicalRisk.blacklisted
 
 
 @pytest.mark.parametrize("protocol", ("Lagoon Finance", "IPOR Fusion", "Yearn"))

@@ -35,6 +35,7 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
@@ -53,6 +54,12 @@ from eth_defi.version_info import stamp_parquet_schema_metadata
 
 #: NAV at or below this value counts as a complete Hypercore wipe-out.
 HYPERCORE_ZERO_NAV_EPSILON = 0.000001
+
+#: Sidecar metadata identifying the initial-observation and valid-price policy.
+DAILY_VAULT_PRICE_VERSION_METADATA_KEY = b"daily_vault_price_version"
+
+#: Older sidecars without this version must be rebuilt from hourly prices.
+DAILY_VAULT_PRICE_VERSION = b"2"
 
 #: Fixed UTC interval used to select publishable Hypercore economic checkpoints.
 HYPERCORE_ECONOMIC_CHECKPOINT_INTERVAL = pd.Timedelta(hours=4)
@@ -233,7 +240,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Empty string if not set.
     #:
     #: Example EVM labels: ``"large_tvl"``, ``"small_tvl"``,
-    #: ``"tiny_tvl"``, ``"peaked"``, ``"faded"`` and ``"contextual"``.
+    #: ``"tiny_tvl"``, ``"peaked"``, ``"faded"``, ``"unverified_tvl"``
+    #: and ``"contextual"``. Unknown TVL polls hourly without certifying USD value.
     #: Peaked and faded vaults poll weekly; other vaults at $10,000+
     #: estimated USD TVL poll hourly. This is separate from row retention.
     #:
@@ -824,6 +832,7 @@ def calculate_vault_returns(
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
+    mask_infinit_source_gaps(prices_df)
     share_prices = sanitise_share_price_observations(prices_df["share_price"])
     invalid_share_price_mask = share_prices.isna()
     invalid_share_price_count = invalid_share_price_mask.sum()
@@ -848,6 +857,7 @@ def calculate_vault_returns(
     prices_df["returns_1h"] = prices_df["share_price"].div(previous_share_price).sub(1.0)
     repeated_zero_price = (prices_df["share_price"] == 0) & (previous_share_price == 0)
     prices_df.loc[repeated_zero_price, "returns_1h"] = 0.0
+    mask_infinit_gap_returns(prices_df, group_column)
     return prices_df
 
 
@@ -1184,6 +1194,10 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
     - Uses exact equality for comparison
     - Skips initial rows with zero or NaN total_supply to find first valid value
 
+    Arcus pTokens are already trading when the first funded observation is
+    recorded. Their NAV can move before another deposit changes share supply,
+    so retain their history from the first positive supply observation.
+
     :param prices_df:
         Price data with 'id' and 'total_supply' columns.
         Assumes data is sorted chronologically within each vault. Timestamp
@@ -1223,6 +1237,7 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
     assert not np.any(same_group & (timestamp_values[1:] < timestamp_values[:-1])), "Vault rows must be chronological before inactive lead-time removal"
     group_ends = np.r_[group_starts[1:], original_row_count]
     total_supply = prices_df["total_supply"]
+    protocols = prices_df["protocol"].to_numpy() if "protocol" in prices_df.columns else None
     valid_supply = total_supply.gt(0).fillna(False).to_numpy(dtype=bool, na_value=False)
     supply_values = total_supply.to_numpy(dtype=object, na_value=np.nan)
     missing_supply = pd.isna(supply_values)
@@ -1251,6 +1266,8 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
         changed[: first_valid - group_start] = False
         changed_positions = np.flatnonzero(changed)
         keep_start = int(changed_positions[0] + group_start) if changed_positions.size else first_valid
+        if protocols is not None and protocols[group_start] == "Arcus":
+            keep_start = first_valid
 
         if keep_start > group_start:
             keep_mask[group_start:keep_start] = False
@@ -1848,6 +1865,10 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
         if column in working.columns
     ]
     source_flows = working[flow_columns].copy()
+    # Explicit HyperCore unknown snapshots must survive the general state fill.
+    permission_columns = [column for column in ("deposits_open", "deposit_closed_reason", "max_deposit", "leader_fraction", "permission_provenance", "permission_observed_at", "permission_observation_id", "capacity_observed_at") if column in working]
+    hypercore = working["chain"].eq(HYPERCORE_CHAIN_ID) if "chain" in working else pd.Series(False, index=working.index)
+    permission_values = working.loc[hypercore, permission_columns].copy()
     group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in working.columns else "id"
     state_columns = [column for column in working.columns if column not in {"id", group_column, *flow_columns}]
 
@@ -1859,6 +1880,7 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
     working[state_columns] = working.groupby(group_column, sort=False, observed=True)[state_columns].ffill()
     if flow_columns:
         working[flow_columns] = source_flows
+    working.loc[hypercore, permission_columns] = permission_values
     logger(f"Share-price outlier state forward-fill: {len(working):,} rows in {time.perf_counter() - fill_started_at:.2f}s")
 
     ids = working[group_column].to_numpy()
@@ -1947,6 +1969,10 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
         )
 
     repairable = abnormal & ~np.isnan(next_candidate) & ~np.isnan(prev_candidate) & (prev_candidate != 0) & (next_candidate != 0) & (candidate_pair_change < max_diff)
+    if "protocol" in working.columns:
+        # Leveraged pTokens can make large, real market moves. The generic
+        # neighbour heuristic must not replace their observed contract NAV.
+        repairable &= ~working["protocol"].eq("Arcus").fillna(False).to_numpy(dtype=bool)
     repaired_values = share_values.copy()
     repaired_values[repairable] = (next_candidate[repairable] + prev_candidate[repairable]) / 2
     share_prices_fixed = int(repairable.sum())
@@ -1978,6 +2004,9 @@ def fix_outlier_share_prices(
     corroborate one another. The original value remains available for audit in
     ``raw_share_price``. See the ``check-share-price`` script for individual
     investigations.
+
+    Arcus pTokens retain their observed NAV because leveraged market moves can
+    satisfy the generic anomaly heuristic without being scanner errors.
 
     Case Fluegel DAO:
 
@@ -2330,35 +2359,48 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
     stage_started_at = time.perf_counter()
     prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
     logger(f"Vault cleaning stage perpetual metric finalisation: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
+    mask_infinit_gap_returns(prices_df)
     prices_df.drop(columns=[INTERNAL_VAULT_GROUP_COLUMN], inplace=True, errors="ignore")
     return prices_df
 
 
 def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
-    """Select one real end-of-day observation per vault.
+    """Select valid daily closing observations and each vault's first price.
 
-    The exported parquet deliberately preserves only real observations. The
-    crypto bundle regularises them to calendar days when it calculates
-    metrics: stablecoin vaults with
+    The first valid observation is retained alongside the first day's final
+    valid observation so lifetime returns and young-vault charts include that
+    day's movement. Later days retain one valid closing observation. Missing
+    timestamps, negative prices and non-finite prices are excluded from this
+    derivative; the original hourly observations remain intact. Same-timestamp
+    prices use the final block instead of creating an ambiguous duplicate.
+    The exported parquet preserves real timestamps; the crypto bundle
+    regularises these to calendar
+    days when it calculates metrics: stablecoin vaults with
     :func:`eth_defi.research.vault_metrics.calculate_sparse_daily_returns_for_all_vaults`,
     and ETH/BTC vaults one vault at a time in
     :mod:`eth_defi.vault.crypto_vaults`.
 
     :param prices_df:
-        Cleaned selected-family price rows with timestamp/index, ``id`` and
-        ``share_price`` columns.
+        Cleaned selected-family price rows with naive UTC timestamp/index,
+        string ``id`` and numeric or nullable ``share_price`` columns.
     :return:
         Chronologically sorted, observation-preserving daily price rows using
         the existing cleaned-price schema.
     """
     frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"])
+    share_prices = pd.to_numeric(frame["share_price"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    frame = frame.loc[np.isfinite(share_prices) & (share_prices >= 0) & frame["timestamp"].notna()]
     frame["_utc_date"] = frame["timestamp"].dt.floor("D")
     sort_columns = ["id", "timestamp"]
     if "block_number" in frame.columns:
         sort_columns.append("block_number")
-    frame = frame.sort_values(sort_columns, kind="stable")
+    frame = frame.sort_values(sort_columns, kind="stable").reset_index(drop=True)
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
+    first = frame.groupby("id", sort=False).head(1)
+    first_close_times = daily.groupby("id", sort=False)["timestamp"].first()
+    first = first.loc[first["timestamp"] < first["id"].map(first_close_times)]
+    daily = pd.concat((first, daily))
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
     if "returns_1h" in daily.columns:
         # ``returns_1h`` is a legacy name. Crypto Parquet is sparse daily, so
@@ -2384,7 +2426,8 @@ def write_daily_crypto_prices_sidecar(
     cleaned frame is already resident removes that second wide read.  The
     derivative is written to a temporary sibling and verified before replace,
     so an interrupted scan cannot replace a valid previous sidecar with a
-    partial file.
+    partial file. A metadata version prevents readers from reusing a sidecar
+    produced under the previous daily observation policy.
 
     :param prices_df:
         Settlement-annotated cleaned hourly rows with a timestamp index.
@@ -2414,7 +2457,8 @@ def write_daily_crypto_prices_sidecar(
     try:
         os.close(temporary_fd)
         table = pa.Table.from_pandas(daily_prices)
-        table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        metadata = stamp_parquet_schema_metadata(table.schema).metadata or {}
+        table = table.replace_schema_metadata(metadata | {DAILY_VAULT_PRICE_VERSION_METADATA_KEY: DAILY_VAULT_PRICE_VERSION})
         pq.write_table(table, temporary_path, compression="zstd")
         verify_parquet_file(
             temporary_path,
@@ -2953,6 +2997,8 @@ def forward_fill_vault(
     """
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
     resampled = vault_df.resample("h").last().ffill()
+    mask_infinit_source_gaps(resampled)
+    mask_infinit_gap_returns(resampled)
     if "chain" in resampled.columns and "address" in resampled.columns:
         registered_perp_vaults = build_registered_perp_vault_index(resampled)
         resampled = finalise_perp_metric_columns(resampled, registered_perp_vaults)

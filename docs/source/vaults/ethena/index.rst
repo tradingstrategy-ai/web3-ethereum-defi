@@ -25,7 +25,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ethena>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/ethena>`__
 - `Homepage <https://ethena.fi/>`__
 - `Documentation <https://docs.ethena.fi/>`__
 - `GitHub <https://github.com/ethena-labs>`__

@@ -33,7 +33,7 @@ for pool-style lending.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/teller>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/teller>`__
 - `Homepage <https://www.teller.org/>`__
 - `Documentation <https://docs.teller.org/teller-v2>`__
 - `GitHub <https://github.com/teller-protocol/teller-protocol-v2>`__

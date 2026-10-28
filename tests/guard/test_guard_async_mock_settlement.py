@@ -285,6 +285,8 @@ def test_gains_mock_force_settle_and_guarded_claim(web3: Web3) -> None:
     assert asset.functions.balanceOf(simple_vault.address).call() == RAW_AMOUNT
 
 
+# 2026-10-03: Ostium is unsupported after the hack.
+@pytest.mark.skip(reason="Ostium unsupported after the hack")
 def test_ostium_v15_mock_force_settle_and_guarded_claim(web3: Web3) -> None:
     """Settle Ostium V1.5 locally, parse its terminal event and claim through GuardV0.
 

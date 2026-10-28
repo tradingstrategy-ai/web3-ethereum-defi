@@ -2,7 +2,7 @@
 
 Vault notes are short Markdown messages shown in vault exports and diagnostics.
 They explain special vault behaviour, risk context, missing data, or authoritative
-source links that are not otherwise visible from raw on-chain metrics.
+source links that are not otherwise visible from raw onchain metrics.
 
 ## Current sources
 
@@ -32,7 +32,7 @@ constants.
 Examples:
 
 - IPOR, Lagoon, Ember and Royco call `super().get_notes()` first, then fall back
-  to the protocol off-chain description or missing-frontend note.
+  to the protocol offchain description or missing-frontend note.
 - Morpho V1/V2 call `super().get_notes()` first, then generate notes from Morpho
   API warnings.
 - D2 Finance keeps D2 strategy-page and D2-authored article links in
@@ -44,6 +44,22 @@ Use this approach for notes that are a property of the protocol integration
 itself. It keeps protocol knowledge in the protocol module instead of scattering
 it in export/reporting code.
 
+### Reviewed strategy descriptions
+
+Maintain strategy descriptions separately from risk notes. The chain/address
+mapping in [handwritten metadata](../../eth_defi/vault/handwritten_metadata.py)
+provides researched `description` and `short_description` values when protocol
+metadata is missing or needs a clearer explanation. Morpho V1/V2 and IPOR
+adapters use these overrides without replacing onchain names or existing notes.
+The Morini-specific note formatter is not a generic formatter for other managers.
+
+Descriptions are materialised in `_description` and `_short_description` during
+scanning. Deploy adapter changes before a metadata-only repair, then run the
+normal analysis/export to publish the copy. Otherwise an older scanner can
+overwrite the repair on its next scan. The [AlphaPing research and repair
+guide](../../docs/protocol-research/alphaping.md) documents a fixed-scope example
+that preserves names, flags, notes, prices and reader state.
+
 ### Scan-row storage
 
 ERC-4626 scan rows are built in `eth_defi/erc_4626/scan.py`. These rows store
@@ -53,6 +69,10 @@ machine-readable metadata in private keys such as `_flags`, `_risk`,
 Protocol-level notes should be scanned into `_notes` with `vault.get_notes()`.
 Lifetime metrics can then use the scanned note without reconstructing protocol
 objects during reporting.
+
+`_short_description` is plain text: Markdown is not allowed, because the
+website renders it verbatim in listings and tables. Put documentation links in
+`_notes` or `_description` instead.
 
 Do not store `_notes` when the adapter note only duplicates `_description` or
 `_short_description`. Some adapters use `get_notes()` as a generic text hook and

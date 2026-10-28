@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Scan ERC-4626 vaults across all supported chains.
 
+Antarctic AMLP/AHLP perpetual DEX pools run under the Arbitrum EVM scan.
+Their prices use sparse Hypersync subscription settlement events.
+Infinit APEX MultiStrategy also runs under Arbitrum, using published API prices
+and indexed receipt supply through an address-scoped contextual reader.
+
 - Scan vaults and optionally prices for multiple chains
 - Track success/failure status per chain
 - Retry failed chains automatically
@@ -126,6 +131,8 @@ Environment variables:
     - XERBERUS_FETCH_REPORTS: "false" to skip dendrogram report URL backfill (default: "true")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
+    - MULTICALL_BATCH_SIZE: Regular encoded subcalls per request (default: "100");
+      set "40" to roll back payload size, including classification and token warmup.
     - FREQUENCY: "1h" or "1d" (default: "1h")
     - LOG_LEVEL: Logging level (default: "warning")
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
@@ -159,7 +166,10 @@ Environment variables:
     - HYPERSYNC_RPM: Hypersync API requests-per-minute limit (default: 80, below the 100 RPM quota observed for basic API keys). Lower after persistent 429 errors.
 
 Example CHAIN_ORDER for all chains:
-    CHAIN_ORDER="Megaeth, Sonic, Monad, Hyperliquid, Base, Arbitrum, Tempo, Arc, Robinhood, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
+    CHAIN_ORDER="Megaeth, Sonic, Monad, Hyperliquid, Base, Arbitrum, Tempo, Arc, Worldchain, Plume, Robinhood, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Plasma, Binance, Mantle, Katana, Ink, Soneium, Optimism"
+
+Hemi, Blast and Mode are no longer supported by this scanner. Their RPC
+environment variables and CHAIN_ORDER entries cannot enable scanning.
 """
 
 import datetime

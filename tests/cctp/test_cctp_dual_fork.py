@@ -158,11 +158,16 @@ def vault(
         web3_ethereum.eth.accounts[3],
         "Allow recipient",
     ).transact({"from": owner})
-    guard.functions.allowSender(asset_manager, "Allow asset manager").transact({"from": owner})
+    tx_hash = guard.functions.allowSender(asset_manager, "Allow asset manager").transact({"from": owner})
+    # Anvil >= 1.8 returns the hash before the automined block exists; the test
+    # reads the guard and vault state immediately, so wait for the last owner
+    # transaction and for the funding transfer.
+    assert_transaction_success_with_explanation(web3_ethereum, tx_hash)
 
     # Fund vault with USDC
     amount = 500 * 10**6  # 500 USDC
-    usdc_ethereum.functions.transfer(vault.address, amount).transact({"from": ETHEREUM_USDC_WHALE})
+    tx_hash = usdc_ethereum.functions.transfer(vault.address, amount).transact({"from": ETHEREUM_USDC_WHALE})
+    assert_transaction_success_with_explanation(web3_ethereum, tx_hash)
 
     return vault
 
@@ -220,10 +225,12 @@ def test_dual_fork_cctp_transfer(  # noqa: PLR0917
     recipient_balance_before = usdc_arbitrum.functions.balanceOf(recipient_address).call()
 
     # Spoof USDC transfer from whale to recipient on Arbitrum
-    usdc_arbitrum.functions.transfer(
+    tx_hash = usdc_arbitrum.functions.transfer(
         recipient_address,
         amount,
     ).transact({"from": ARBITRUM_USDC_WHALE})
+    # Anvil >= 1.8 returns the hash before the automined block exists.
+    assert_transaction_success_with_explanation(web3_arbitrum, tx_hash)
 
     # Verify recipient received USDC on Arbitrum
     recipient_balance_after = usdc_arbitrum.functions.balanceOf(recipient_address).call()

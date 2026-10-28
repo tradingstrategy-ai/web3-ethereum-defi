@@ -11,7 +11,7 @@ import logging
 import os
 import warnings
 from collections import OrderedDict, defaultdict
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
@@ -22,7 +22,7 @@ from web3.contract.contract import ContractFunction, ContractFunctions
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
@@ -39,7 +39,7 @@ with warnings.catch_warnings():
             pass
 
 
-from eth_typing import HexAddress
+from eth_typing import BlockIdentifier, HexAddress
 from requests.exceptions import ReadTimeout
 from web3 import Web3
 from web3.contract import Contract
@@ -200,16 +200,29 @@ HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
 # Re-export stablecoin classification from dedicated module for backward compatibility.
 # The actual data now lives in YAML files under eth_defi/data/stablecoins/.
 from eth_defi.stablecoin_metadata import (  # noqa: E402
-    ALL_STABLECOIN_LIKE,
-    STABLECOIN_LIKE,
-    WRAPPED_STABLECOIN_LIKE,
-    YIELD_BEARING_STABLES,
-    StablecoinInfo,
-    is_stablecoin_like,
-    load_all_stablecoin_metadata,
-    normalise_token_symbol,
+    ALL_STABLECOIN_LIKE as ALL_STABLECOIN_LIKE,
 )
-
+from eth_defi.stablecoin_metadata import (
+    STABLECOIN_LIKE as STABLECOIN_LIKE,
+)
+from eth_defi.stablecoin_metadata import (
+    WRAPPED_STABLECOIN_LIKE as WRAPPED_STABLECOIN_LIKE,
+)
+from eth_defi.stablecoin_metadata import (
+    YIELD_BEARING_STABLES as YIELD_BEARING_STABLES,
+)
+from eth_defi.stablecoin_metadata import (
+    StablecoinInfo as StablecoinInfo,
+)
+from eth_defi.stablecoin_metadata import (
+    is_stablecoin_like as is_stablecoin_like,
+)
+from eth_defi.stablecoin_metadata import (
+    load_all_stablecoin_metadata as load_all_stablecoin_metadata,
+)
+from eth_defi.stablecoin_metadata import (
+    normalise_token_symbol as normalise_token_symbol,
+)
 
 #: Some test accounts with funded USDC for Anvil mainnet forking
 #:
@@ -614,6 +627,13 @@ def fetch_erc20_details(
 
     if cache is not None:
         cached = cache.get(key)
+        if cached is not None and not cached.get("symbol"):
+            # A missing symbol can be a temporary RPC/contract-read failure.
+            # Bound negative reuse so token metadata can recover without wiping
+            # the shared cache; existing positive entries keep their old policy.
+            checked_at = cached.get("checked_at")
+            if checked_at is None or native_datetime_utc_now() - datetime.datetime.fromisoformat(checked_at) >= datetime.timedelta(days=1):
+                cached = None
         if cached is not None:
             return TokenDetails(
                 erc_20,
@@ -724,6 +744,7 @@ def fetch_erc20_details(
             "symbol": symbol,
             "supply": supply,
             "decimals": decimals,
+            "checked_at": native_datetime_utc_now().isoformat(),
         }
     return token_details
 
@@ -806,7 +827,12 @@ def get_weth_contract(web3: Web3, name: str = "1delta/IWETH9.json") -> Contract:
 
 
 class TokenCacheWarmupResult(TypedDict):
+    """Metadata warmup counts; physical attempts come from RPCRequestStats."""
+
+    #: Token records written, including negative metadata observations.
     tokens_read: int
+
+    #: Legacy field name: encoded subcalls, not Multicall batches or RPC attempts.
     multicalls_done: int
 
 
@@ -949,16 +975,38 @@ class TokenDiskCache(PersistentKeyValueStore):
         yield total_supply
 
     def generate_calls(self, chain_id: int, addresses: list[HexAddress]) -> Iterable[EncodedCall]:
+        """Encode metadata reads only for missing or expired negative entries.
+
+        Bulk warmup follows the same daily negative retry policy as individual
+        fetch_erc20_details calls. Timeless legacy negatives refresh once; valid
+        positive metadata remains reusable across scanner phases and vaults.
+
+        :param chain_id: Chain namespace of the shared token cache.
+        :param addresses: Token contracts selected by the warmup caller.
+        :return: Lazy encoded subcalls for entries that need a network read.
+        """
         for address in addresses:
             cache_key = TokenDetails.generate_cache_key(chain_id, address)
-            if cache_key not in self:
+            entry = self.get(cache_key)
+            negative_expired = entry is not None and not entry.get("symbol") and (not entry.get("checked_at") or native_datetime_utc_now() - datetime.datetime.fromisoformat(entry["checked_at"]) >= datetime.timedelta(days=1))
+            if entry is None or negative_expired:
                 yield from self.encode_multicalls(address)
             else:
                 logger.debug("Was already cached: %s", address)
 
     def create_cache_entry(self, call_results: dict[str, EncodedCallResult]) -> dict:
-        """Map multicall results to token details data for one address"""
+        """Decode one token's Multicall results into a reusable cache record.
+
+        Preserve unavailable fields instead of inventing valid token metadata.
+        checked_at bounds retry of negative symbols; it does not make cached
+        supply a current observation. Numeric caps below defend serialisation
+        against malformed contracts, not validation of economic token values.
+
+        :param call_results: symbol/name/decimals/totalSupply results for one token.
+        :return: Address, decoded metadata and naive UTC observation timestamp.
+        """
         entry = {}
+        entry["checked_at"] = native_datetime_utc_now().isoformat()
 
         symbol_result = call_results["symbol"]
         entry["address"] = symbol_result.call.address
@@ -1004,11 +1052,27 @@ class TokenDiskCache(PersistentKeyValueStore):
         web3factory: Web3Factory,
         addresses: list[HexAddress],
         display_progress: str | bool = False,
-        max_workers=8,
-        block_identifier="latest",
+        max_workers: int = 8,
+        block_identifier: BlockIdentifier = "latest",
         checkpoint: int = 32,
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     ) -> TokenCacheWarmupResult:
-        """Warm up cache and load token details for multiple"""
+        """Populate the shared token cache with bounded concurrent Multicalls.
+
+        Lead metadata and historical reader preparation use this to amortise
+        repeated ERC-20 reads across vaults. The cache stores metadata rather
+        than historical observations, so warming it requests no block timestamps.
+
+        :param chain_id: Chain namespace for cache entries.
+        :param web3factory: Worker connection factory with optional RPC counters.
+        :param addresses: Token addresses whose metadata may need warming.
+        :param display_progress: Whether to display warmup progress.
+        :param max_workers: Maximum threaded request concurrency.
+        :param block_identifier: Source block for uncached metadata reads.
+        :param batch_size: Regular encoded-subcall limit, including cold-cache reads.
+        :param checkpoint: Number of entries between cache syncs.
+        :return: Token and encoded-subcall counts as a TokenCacheWarmupResult.
+        """
 
         assert type(chain_id) == int, "chain_id must be an integer"
         assert type(addresses) == list, "addresses must be a list of HexAddress"
@@ -1018,10 +1082,12 @@ class TokenDiskCache(PersistentKeyValueStore):
         else:
             progress_bar_desc = f"Loading token metadata for {len(addresses)} addresses using {max_workers} workers"
 
-        logger.info(f"Loading token metadata for {len(addresses)} addresses using {max_workers} workers")
+        logger.info("Loading token metadata for %d addresses using %d workers", len(addresses), max_workers)
 
         encoded_calls = list(self.generate_calls(chain_id, addresses))
-        multicalls_done = len(encoded_calls)
+        # Preserve the public result key for existing callers, but count/name
+        # this correctly: four token reads can share one physical Multicall RPC.
+        subcalls_encoded = len(encoded_calls)
 
         # Temporary work buffer were we count that all calls to the address have been made,
         # because results are dropping in one by one
@@ -1034,6 +1100,10 @@ class TokenDiskCache(PersistentKeyValueStore):
             block_identifier=block_identifier,
             progress_bar_desc=progress_bar_desc,
             max_workers=max_workers,
+            chunk_size=batch_size,
+            batch_size=batch_size,
+            timestamped_results=False,
+            backend="threading",
         ):
             results_per_address[call_result.call.address][call_result.call.func_name] = call_result
 
@@ -1053,15 +1123,15 @@ class TokenDiskCache(PersistentKeyValueStore):
                 self.commit()
 
         logger.info(
-            "Read %d tokens for chain %d with %d multicalls ",
+            "Read %d tokens for chain %d with %d encoded subcalls",
             tokens_read,
             chain_id,
-            multicalls_done,
+            subcalls_encoded,
         )
 
         self.commit()
 
         return TokenCacheWarmupResult(
             tokens_read=tokens_read,
-            multicalls_done=multicalls_done,
+            multicalls_done=subcalls_encoded,
         )

@@ -227,6 +227,8 @@ Supported protocols
    renalta/index
    resolv/index
    royco/index
+   antarctic/index
+   infinit/index
    rysk/index
    sbold/index
    secured_finance/index

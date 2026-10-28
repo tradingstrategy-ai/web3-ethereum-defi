@@ -50,19 +50,20 @@ Full traceback of the issue::
 import os
 from decimal import Decimal
 
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.compat import create_http_provider
+from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
-from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 
 node = os.environ["JSON_RPC_BINANCE"]
 private_key = os.environ["PRIVATE_KEY"]
 
-web3 = Web3(HTTPProvider(node))
+web3 = Web3(create_http_provider(node))
 
 print(f"{node} current block is {web3.eth.block_number:,}")
 

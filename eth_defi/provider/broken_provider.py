@@ -206,19 +206,27 @@ def get_safe_cached_latest_block_number(
     blocks=1000,
     cache_duration: int = 3600,
 ) -> BlockIdentifier:
-    """Get almost "latest" block to work around broken JSON-RPC providers.
+    """Reuse a delayed numeric head within the configured cache lifetime.
 
-    - Not for high frequency usage, as it caches the block for `delay` seconds
-    - No RPC call are made to
-    - Disabled in Anvil configs
+    Vault metadata and reader preparation use this helper to avoid repeating
+    eth_blockNumber while staying behind a provider's not-yet-queryable head.
+    Cache hits avoid that head request; a miss fetches it, and node-kind
+    detection may also make a request. Anvil forks bypass the shared head cache
+    so a mainnet observation cannot move a test beyond its fixed fork block.
 
-    Work around the error on Monad/Arbitrum/dRPC/shitty RPCs:
+    Work around an observed upstream block-availability error:
 
     .. code-block:: none
 
         {'message': 'upstream does not have the requested block yet', 'code': -32603}
 
-    Their internal routing is likely broken and when calling `eth_call` with `latest` the request fails for no reason.
+    Some upstreams reject current-head contract calls while accepting a nearby
+    numeric block. HyperEVM uses a connection-local cache capped at five seconds
+    and a delay capped at ten blocks because HyperCore execution has a short
+    current-state window. Other chains retain the configured cache and delay.
+
+    :param web3:
+        Connection used for node detection and head requests.
 
     :param chain_id:
         Chain id to use as part of the cache key
@@ -246,7 +254,17 @@ def get_safe_cached_latest_block_number(
 
     now = time.time()
 
-    cached = _latest_delayed_block_number_cache.get(chain_id)
+    # HyperCore-dependent reads have a short execution window. The generic
+    # one-hour/1,000-block delay is unsuitable for chain 999 metadata.
+    if chain_id == 999:
+        blocks = min(blocks, 10)
+        cache_duration = min(cache_duration, 5)
+
+    if chain_id == 999:
+        observation = getattr(web3, "_eth_defi_safe_head_cache", None)
+        cached = observation[2:] if observation is not None and observation[:2] == (web3.provider, blocks) else None
+    else:
+        cached = _latest_delayed_block_number_cache.get(chain_id)
     if cached is not None:
         cached_block, cached_time = cached
         if now - cached_time < cache_duration:
@@ -255,18 +273,22 @@ def get_safe_cached_latest_block_number(
     latest_block = web3.eth.block_number
     safe_block = max(1, latest_block - blocks)
 
-    _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
+    if chain_id == 999:
+        web3._eth_defi_safe_head_cache = (web3.provider, blocks, safe_block, now)
+    else:
+        _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
 
     return safe_block
 
 
-def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
+def verify_rpc_provider_capabilities(rpc_url: str, chain_name: str) -> tuple[str, int]:
     """Verify configured RPC providers and filter out broken ones.
 
     Parses the space-separated multi-RPC configuration line and tests each
     endpoint individually. On archive-capable chains, checks that each provider
-    can serve state at both block 1 and the latest block. Monad has no
-    archive-complete historical state, so it checks only current-state
+    can serve a balance lookup at both block 1 and the latest block. This is a
+    preflight check, not proof that every historical contract call is supported.
+    Monad has no archive-complete historical state, so it checks only current-state
     availability and leaves the retained historical-state boundary to the vault
     price scanner. Broken providers are logged at ERROR level and filtered out;
     the scan continues with working providers only.
@@ -376,9 +398,10 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
         )
     else:
         logger.info(
-            "%s: All %d RPC providers passed archive node verification",
+            "%s: All %d RPC providers passed %s verification",
             chain_name,
             len(working),
+            verification_label,
         )
 
     # Reconstruct the RPC URL with only working call endpoints + preserved mev+ endpoints
@@ -386,3 +409,8 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
     filtered_rpc_url = " ".join(filtered_parts)
 
     return filtered_rpc_url, first_latest_block
+
+
+#: Compatibility alias. Capability checks are chain-specific and do not imply
+#: archive-complete Monad state or arbitrary historical contract-read support.
+verify_archive_node = verify_rpc_provider_capabilities

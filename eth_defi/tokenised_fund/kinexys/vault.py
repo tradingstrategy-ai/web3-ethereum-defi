@@ -188,6 +188,10 @@ class OdaFactVault(TokenisedFundVault):
     USD estimate until an official NAV feed is available.
     """
 
+    #: ODA-FACT estimates already use USD accounting units. No surrogate
+    #: ERC-20 is needed for generic scanner admission or freshness conversion.
+    synthetic_usd_denomination = True
+
     def __init__(
         self,
         web3: Web3,

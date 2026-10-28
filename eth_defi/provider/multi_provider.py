@@ -15,14 +15,15 @@ from web3 import HTTPProvider, Web3
 from eth_defi.chain import install_chain_middleware
 from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
-from eth_defi.middleware import static_call_cache_middleware
+from eth_defi.middleware import AnvilSyncSendMiddleware, static_call_cache_middleware
 from eth_defi.provider.anvil import _get_anvil_launch_metadata, is_anvil
 from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
-from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
+from eth_defi.provider.rpcdb import RPCOperationRecorder, RPCRequestStats, normalise_rpc_error
+from eth_defi.rpc_url import redact_rpc_urls, register_rpc_url
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -109,11 +110,13 @@ class MultiProviderWeb3(Web3):
         """
         return self.get_fallback_provider().get_total_api_call_counts()
 
-    def set_rpc_request_stats(self, stats: RPCRequestStats | None) -> None:
+    def set_rpc_request_stats(self, stats: RPCRequestStats | RPCOperationRecorder | None) -> None:
         """Attach request accounting to the fallback call provider.
 
         :param stats:
-            Phase or subprocess-task accumulator, or ``None`` to detach it.
+            Phase/task accumulator or fixed-label recorder, or ``None`` to detach
+            it. The connection belongs to one worker; shared counters remain
+            protected by the accumulator's lock.
         """
 
         self.get_fallback_provider().set_rpc_request_stats(stats)
@@ -151,6 +154,37 @@ def _resolve_default_retries(call_endpoints: list[str]) -> int:
     """
     has_registered_anvil = len(call_endpoints) == 1 and _get_anvil_launch_metadata(call_endpoints[0]) is not None
     return DEFAULT_ANVIL_RETRIES if has_registered_anvil else DEFAULT_RETRIES
+
+
+#: JSON-RPC error codes meaning the endpoint does not serve the requested method.
+_METHOD_NOT_ALLOWED_RPC_CODES = frozenset({-32601})
+
+#: HTTP statuses broadcast-only endpoints use to reject read methods.
+_METHOD_NOT_ALLOWED_HTTP_STATUSES = frozenset({403, 405})
+
+
+def _is_broadcast_only_reply(error: BaseException | dict | None) -> bool:
+    """Tell whether a transact endpoint refused a read method because it only broadcasts.
+
+    Sequencer endpoints such as ``https://mainnet-sequencer.base.org`` accept
+    ``eth_sendRawTransaction`` but answer ``eth_chainId`` and other reads with
+    HTTP 403 and ``{"code": -32601, "message": "rpc method is not allowed"}``.
+    Such a reply is not a sign of a broken or mixed-chain provider.
+
+    :param error:
+        JSON-RPC error object from a response, or the exception raised by the
+        request.
+    :return:
+        ``True`` when the endpoint rejected the method itself.
+    """
+    if error is None:
+        return False
+    if isinstance(error, dict):
+        return error.get("code") in _METHOD_NOT_ALLOWED_RPC_CODES
+    response = getattr(error, "response", None)
+    if response is not None and getattr(response, "status_code", None) in _METHOD_NOT_ALLOWED_HTTP_STATUSES:
+        return True
+    return "-32601" in str(error) or "method is not allowed" in str(error)
 
 
 def create_multi_provider_web3(
@@ -287,6 +321,9 @@ def create_multi_provider_web3(
     assert configuration_line is not None, f"create_multi_provider_web3(): JSON-RPC URL configuration line is missing, hint {hint}"
     assert type(configuration_line) == str, f"create_multi_provider_web3(): JSON-RPC URL configuration line is not a string, got {type(configuration_line)}"
 
+    register_rpc_url(configuration_line)
+    safe_configuration = ", ".join(get_url_domain(endpoint) for endpoint in configuration_line.split())
+
     items = configuration_line.split()
 
     urls: List[Url] = []
@@ -296,27 +333,27 @@ def create_multi_provider_web3(
         try:
             url = parse_url(parsable)
         except Exception as e:
-            raise MultiProviderConfigurationError(f"Could not parse JSON-RPC configuration URL: {parsable}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Could not parse JSON-RPC configuration URL: {get_url_domain(parsable)}. Hint is {hint}.")) from None
 
         if not url.scheme:
-            raise MultiProviderConfigurationError(f"Bad URL: {parsable}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Bad URL: {get_url_domain(parsable)}. Hint is {hint}."))
 
         if url in urls:
-            raise MultiProviderConfigurationError(f"Entry appears twice: {url}. Hint is {hint}.")
+            raise MultiProviderConfigurationError(redact_rpc_urls(f"Entry appears twice: {get_url_domain(url.url)}. Hint is {hint}."))
 
         urls.append(url)
 
     if len(urls) == 0:
-        raise MultiProviderConfigurationError(f"No configured endpoints: The config line is '{configuration_line}'. Hint is {hint}.")
+        raise MultiProviderConfigurationError(redact_rpc_urls(f"No configured endpoints: The config line is '{safe_configuration}'. Hint is {hint}."))
 
     transact_endpoints = [url.url.replace("mev+", "") for url in urls if url.scheme.startswith("mev+")]
     call_endpoints = [url.url for url in urls if not url.scheme.startswith("mev+")]
 
     if len(transact_endpoints) > 1:
-        raise MultiProviderConfigurationError(f"Only one execution endpoint can be specified, got {transact_endpoints}. Hint is {hint}.")
+        raise MultiProviderConfigurationError(redact_rpc_urls(f"Only one execution endpoint can be specified, got {[get_url_domain(endpoint) for endpoint in transact_endpoints]}. Hint is {hint}."))
 
     if len(call_endpoints) == 0:
-        raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
+        raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {safe_configuration}")
 
     if retries is None:
         retries = _resolve_default_retries(call_endpoints)
@@ -380,7 +417,7 @@ def create_multi_provider_web3(
     transact_provider = None
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]
-        transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs, session=session)
+        transact_provider = create_http_provider(transact_endpoint, request_kwargs=request_kwargs, session=session)
         _apply_anvil_launch_metadata(transact_provider)
 
         _fix_provider(transact_provider)
@@ -395,6 +432,9 @@ def create_multi_provider_web3(
                 if rpc_request_stats is not None and resp.get("error"):
                     error_code, error_message = normalise_rpc_error(resp["error"])
                     rpc_request_stats.record_error(transact_domain, error_code, error_message)
+                if _is_broadcast_only_reply(resp.get("error")):
+                    logger.info("Transact provider %s only accepts broadcasts; skipping its chain id check", transact_domain)
+                    resp = {}
                 result = resp.get("result")
                 if result:
                     transact_chain_id = int(result, 16)
@@ -407,19 +447,25 @@ def create_multi_provider_web3(
                 if rpc_request_stats is not None:
                     error_code, error_message = normalise_rpc_error(e)
                     rpc_request_stats.record_error(transact_domain, error_code, error_message)
-                transact_name = get_provider_name(transact_provider)
-                # Name the failure mode so CI output shows *why* the first call
-                # failed (out of credits / rate limited / timeout) instead of a
-                # generic eth_chainId error. See eth_defi.provider.rpc_failure.
-                failure_mode = classify_rpc_failure(e)
-                # Log only the redacted domain + failure mode. The raw exception
-                # can embed the full RPC URL (API key in path/query). JSON-RPC API
-                # keys are not security critical (they only meter read access to
-                # public chain data), so this is not a serious leak, but it is
-                # still avoided here; the raised ChainIdMismatch keeps the
-                # pre-existing hint for local debugging.
-                logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
-                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
+                if _is_broadcast_only_reply(e):
+                    # Sequencer endpoints such as https://mainnet-sequencer.base.org
+                    # answer every read method with HTTP 403 and JSON-RPC -32601
+                    # "rpc method is not allowed" while accepting eth_sendRawTransaction.
+                    logger.info("Transact provider %s only accepts broadcasts; skipping its chain id check", transact_domain)
+                else:
+                    transact_name = get_provider_name(transact_provider)
+                    # Name the failure mode so CI output shows *why* the first call
+                    # failed (out of credits / rate limited / timeout) instead of a
+                    # generic eth_chainId error. See eth_defi.provider.rpc_failure.
+                    failure_mode = classify_rpc_failure(e)
+                    # Log only the redacted domain + failure mode. The raw exception
+                    # can embed the full RPC URL (API key in path/query). JSON-RPC API
+                    # keys are not security critical (they only meter read access to
+                    # public chain data), so this is not a serious leak, but it is
+                    # still avoided here; the raised ChainIdMismatch keeps the
+                    # pre-existing hint for local debugging.
+                    logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
+                    raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,
@@ -459,6 +505,11 @@ def create_multi_provider_web3(
         # we need to disable block tip latency hacks
         set_block_tip_latency(web3, 0)
 
+        # Anvil 1.8 mines asynchronously; send through the EIP-7966 sync
+        # methods so a send returns only once its transaction is mined.
+        # Innermost layer, so the signing middleware's raw sends pass through it.
+        web3.middleware_onion.inject(AnvilSyncSendMiddleware, name="anvil_sync_send", layer=0)
+
     return web3
 
 
@@ -472,9 +523,17 @@ class MultiProviderWeb3Factory:
     """Needed to pass RPC URL as :py:data:`Web3Factory`
 
     - Allows creating web3 connections from a config line in multiprocessing worker pools
+
+    ``multicall_batch_size`` optionally carries the scanner phase limit to
+    dispatch callers such as classification, without changing provider routing.
+    Explicit dispatch arguments still take precedence.
     """
 
-    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None):
+    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None, multicall_batch_size: int | None = None) -> None:
+        if multicall_batch_size is not None and multicall_batch_size <= 0:
+            raise ValueError("multicall_batch_size must be positive")
+        #: Optional phase-wide regular limit for callers using shared dispatch defaults.
+        self.multicall_batch_size = multicall_batch_size
         self.rpc_url = rpc_url
         call_endpoints = [endpoint for endpoint in rpc_url.split() if not endpoint.startswith("mev+")]
         self.retries = retries if retries is not None else _resolve_default_retries(call_endpoints)

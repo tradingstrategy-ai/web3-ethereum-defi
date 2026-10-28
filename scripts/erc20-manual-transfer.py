@@ -12,11 +12,11 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.chain import install_chain_middleware
-from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware, create_http_provider
 from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.token import fetch_erc20_details
 
@@ -26,7 +26,7 @@ ERC_20_TOKEN_ADDRESS = "0x549b63daf6A23267b813F704aEDdDc61302E6729"
 
 # Connect to JSON-RPC node
 json_rpc_url = os.environ["JSON_RPC_URL"]
-web3 = Web3(HTTPProvider(json_rpc_url))
+web3 = Web3(create_http_provider(json_rpc_url))
 print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
 
 # Read and setup a local private key

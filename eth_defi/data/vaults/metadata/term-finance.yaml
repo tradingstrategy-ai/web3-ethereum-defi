@@ -28,7 +28,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/term-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/term_finance/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228

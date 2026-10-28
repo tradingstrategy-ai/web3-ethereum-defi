@@ -1,9 +1,14 @@
 Derive API
 ----------
 
-Derive.xyz exchange integration. The existing account and trading modules below
-use the v2 API. The :doc:`v3 vault collector <v3-vaults>` uses the separate
-public v3 API and requires no session key.
+Derive.xyz exchange integration. Funding history, instrument discovery and the
+:doc:`v3 vault collector <v3-vaults>` use the public v3 API without session keys.
+The existing account and trading modules below remain v2 integrations;
+onchain open-interest snapshots read legacy Derive Chain history.
+
+The `v3 migration guide <https://docs.derive.xyz/migrating/breaking-changes>`__
+describes the new Ethereum-settled mainnet. Previously stored v2 funding rows
+are preserved because v3 does not currently expose the full older history.
 
 .. toctree::
    :maxdepth: 1
@@ -13,7 +18,9 @@ public v3 API and requires no session key.
 Preface
 ~~~~~~~
 
-Derive.xyz (formerly Lyra) is a self-custodial, high-performance trading platform for perpetuals and options, built on Derive Chain (OP Stack L2).
+Derive.xyz (formerly Lyra) is a self-custodial trading platform for perpetuals
+and options. V3 settles on Ethereum; the wallet and onboarding instructions
+below describe the legacy Derive Chain (OP Stack L2) deployment.
 
 **Supported products:**
 
@@ -254,9 +261,8 @@ Links
 - `Derive.xyz Platform <https://www.derive.xyz/>`__
 - `Testnet Interface <https://testnet.derive.xyz/>`__
 - `API Documentation <https://docs.derive.xyz/>`__
-- `API Reference <https://docs.derive.xyz/reference/>`__
-- `Funding rate history endpoint <https://docs.derive.xyz/reference/post_public-get-funding-rate-history>`__
-- `All instruments endpoint <https://docs.derive.xyz/reference/post_public-get-all-instruments>`__
+- `Funding rate history endpoint <https://docs.derive.xyz/api-reference/market-data/publicget_funding_rate_history>`__
+- `All instruments endpoint <https://docs.derive.xyz/api-reference/market-data/publicget_all_instruments>`__
 - `Manual Onboarding Guide <https://docs.derive.xyz/reference/onboard-manually>`__
 - `Python Signing SDK <https://github.com/derivexyz/v2-action-signing-python>`__
 - `Derive Chain Explorer <https://explorer.derive.xyz/>`__

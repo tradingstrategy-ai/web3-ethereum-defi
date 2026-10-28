@@ -21,6 +21,7 @@ docs/source/**/_autosummary*
 uni-v2-last-block-state.txt
 
 *.csv
+!docs/curator-research-2026-10-21.csv
 
 # Ignore Aave v3 authentication file
 docs/source/tutorials/aave.json

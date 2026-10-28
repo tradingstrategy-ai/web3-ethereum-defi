@@ -1,8 +1,9 @@
 """DuckDB persistence for Derive funding rate and open interest history.
 
-Stores hourly funding rate snapshots and hourly open interest snapshots
-for perpetual instruments. Incremental sync fetches the full available
-history (back to instrument inception) and is crash-resumeable.
+Stores v3 hourly funding rates alongside previously collected v2 funding
+history and legacy Derive Chain open-interest snapshots. Incremental sync
+fetches the history available from the selected API and is crash-resumeable.
+Derive Chain snapshots do not represent current Ethereum-settled v3 state.
 
 The sync is crash-resumeable: partial batches are safely re-inserted
 on restart via ``INSERT OR IGNORE`` on natural primary keys.
@@ -55,10 +56,9 @@ import pandas
 from requests import Session
 from tqdm_loggable.auto import tqdm
 from tqdm_loggable.tqdm_logging import tqdm_logging
-
 from web3 import Web3
 
-from eth_defi.compat import native_datetime_utc_now
+from eth_defi.compat import create_http_provider, native_datetime_utc_now
 from eth_defi.derive.api import (
     DERIVE_BLOCK_TIME_SECONDS,
     PERP_GET_INDEX_PRICE_SELECTOR,
@@ -71,7 +71,7 @@ from eth_defi.derive.api import (
     fetch_instrument_details,
     fetch_perp_snapshots_multicall,
 )
-from eth_defi.derive.constants import DERIVE_CHAIN_ID, DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
+from eth_defi.derive.constants import DERIVE_CHAIN_ID, DERIVE_MAINNET_RPC_URL, DERIVE_V3_MAINNET_API_URL
 from eth_defi.event_reader.multicall_batcher import (
     CombinedEncodedCallResult,
     EncodedCall,
@@ -265,7 +265,7 @@ class DeriveFundingRateDatabase:
         self,
         session: Session,
         instrument_name: str,
-        base_url: str = DERIVE_MAINNET_API_URL,
+        base_url: str = DERIVE_V3_MAINNET_API_URL,
         timeout: float = 30.0,
     ) -> datetime.datetime | None:
         """Find the earliest available funding rate data for an instrument.
@@ -357,7 +357,7 @@ class DeriveFundingRateDatabase:
         instrument_name: str,
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
-        base_url: str = DERIVE_MAINNET_API_URL,
+        base_url: str = DERIVE_V3_MAINNET_API_URL,
         timeout: float = 30.0,
         progress: tqdm | None = None,
     ) -> int:
@@ -459,7 +459,7 @@ class DeriveFundingRateDatabase:
         instrument_names: list[str],
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
-        base_url: str = DERIVE_MAINNET_API_URL,
+        base_url: str = DERIVE_V3_MAINNET_API_URL,
         timeout: float = 30.0,
     ) -> dict[str, int]:
         """Sync funding rate history for multiple instruments.
@@ -680,7 +680,7 @@ class DeriveFundingRateDatabase:
         w3: Web3 | None = None,
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
-        base_url: str = DERIVE_MAINNET_API_URL,
+        base_url: str = DERIVE_V3_MAINNET_API_URL,
         timeout: float = 30.0,
         progress: tqdm | None = None,
     ) -> int:
@@ -720,7 +720,7 @@ class DeriveFundingRateDatabase:
             Number of new open interest entries inserted.
         """
         if w3 is None:
-            w3 = Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL))
+            w3 = Web3(create_http_provider(DERIVE_MAINNET_RPC_URL))
 
         now = native_datetime_utc_now()
         if end_time is None:
@@ -809,7 +809,7 @@ class DeriveFundingRateDatabase:
         rpc_url: str = DERIVE_MAINNET_RPC_URL,
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
-        base_url: str = DERIVE_MAINNET_API_URL,
+        base_url: str = DERIVE_V3_MAINNET_API_URL,
         timeout: float = 30.0,
         max_workers: int = 8,
     ) -> dict[str, int]:
@@ -845,7 +845,7 @@ class DeriveFundingRateDatabase:
         :return:
             Dict mapping instrument name to number of new entries inserted.
         """
-        w3 = Web3(Web3.HTTPProvider(rpc_url))
+        w3 = Web3(create_http_provider(rpc_url))
 
         now = native_datetime_utc_now()
         if end_time is None:

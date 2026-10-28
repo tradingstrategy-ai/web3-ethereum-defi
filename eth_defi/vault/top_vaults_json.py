@@ -34,6 +34,7 @@ import math
 import os
 import resource
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,6 +44,7 @@ import psutil
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
+from eth_defi.chain import CHAIN_NAMES
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
@@ -69,11 +71,11 @@ from eth_defi.research.vault_metrics import (
     export_lifetime_row,
     slugify_protocol,
 )
-from eth_defi.token import is_stablecoin_like
+from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.utils import setup_console_logging
 
 # Import core TradingStrategy / eth_defi modules
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.curator_export import build_curators_for_export
 from eth_defi.vault.denomination import DenominationFamily
 from eth_defi.vault.export_post_processing import run_vault_export_post_processors
@@ -197,7 +199,7 @@ class StickyExportStats:
 class StickyExportResult:
     """Result of applying sticky vault export state."""
 
-    #: Final exported vault rows.
+    #: Admitted current/sticky records, before public Nest route selection.
     vaults: list[dict]
 
     #: Mutated state ready to be written after output JSON succeeds.
@@ -489,7 +491,7 @@ def save_sticky_export_state(state: dict, path: Path, *, validated: bool = False
         The exporter already checked this state before writing its public JSON.
         Standalone callers leave this false to retain strict validation.
     """
-    _write_strict_json(path, state, validated=validated)
+    write_strict_json(path, state, validated=validated)
 
 
 def build_export_metadata(version_info: VersionInfo | None = None) -> dict:
@@ -847,7 +849,9 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
 
     Higher priority wins. The priority rule is a safety net for malformed
     duplicate inputs, because normal current/sticky paths are intended to
-    be mutually exclusive.
+    be mutually exclusive. Normalise descriptions before publication, including
+    reused sticky records and native vaults that bypass the ERC-4626 scanner.
+    Short descriptions retain only their first sentence.
 
     :param vaults_by_key:
         Accumulator keyed by canonical vault key.
@@ -860,7 +864,79 @@ def add_exported_vault(vaults_by_key: dict[str, tuple[int, dict]], key: str, pri
     """
     existing = vaults_by_key.get(key)
     if existing is None or priority > existing[0]:
+        if "description" in record:
+            record["description"] = normalise_vault_description(record["description"])
+        if "short_description" in record:
+            record["short_description"] = normalise_vault_short_description(record["short_description"])
         vaults_by_key[key] = (priority, record)
+
+
+def select_preferred_nest_routes(vaults: list[dict]) -> Iterator[dict]:
+    """Publish one eligible chain and deposit route per Nest share token.
+
+    Nest's `ERC-7575 entrypoints <https://docs.nest.credit/developers/smart-contracts>`_
+    share a token across deposit assets and chains. Prefer Plume, then Ethereum,
+    then other chains alphabetically by their canonical display name. Within
+    the chosen chain, prefer USDC, then USDT, then pUSD, normalising bridged
+    symbols and using the entrypoint address to break ties deterministically.
+    Other assets rank last. Select only among admitted export records, including
+    sticky records whose dates and stale flags remain intact. Preserve the
+    selected chain's own TVL and returns rather than aggregating other chains.
+    Keep the product's first position without changing scanner state. Records
+    without a share token or chain identity remain separate.
+
+    Apply this after sticky replay and before public aggregates, so cached
+    alternative chain and deposit routes cannot restore repeated listings.
+
+    :param vaults:
+        Current and sticky JSON records with ``protocol_slug``, ``chain_id``,
+        ``share_token_address``, ``denomination`` and ``address`` fields.
+    :return:
+        Selected records, including every non-Nest record unchanged.
+    """
+    preference = {"USDC": 0, "USDT": 1, "PUSD": 2}
+    chain_preference = {98866: 0, 1: 1}
+
+    def route_rank(record: dict) -> tuple[int, str, int, int, str]:
+        """Rank a route by chain, deposit asset and entrypoint address.
+
+        Canonical chain names make alphabetical fallback stable even when a
+        cached row omits its display name or uses a different casing.
+
+        :param record: Nest export record with a known chain identity.
+        :return: Deterministic comparison key, with preferred chains first.
+        """
+        chain_id = int(record["chain_id"])
+        chain_name = CHAIN_NAMES.get(chain_id, record.get("chain") or str(chain_id))
+        return (
+            chain_preference.get(chain_id, 2),
+            chain_name.casefold(),
+            chain_id,
+            preference.get(normalise_token_symbol(record.get("denomination")), 3),
+            record["address"].lower(),
+        )
+
+    selected: list[dict] = []
+    pool_positions: dict[str, int] = {}
+    for record in vaults:
+        share_token = record.get("share_token_address")
+        chain_id = record.get("chain_id")
+        if record.get("protocol_slug") != "nest" or not share_token or chain_id is None:
+            selected.append(record)
+            continue
+
+        pool = share_token.lower()
+        position = pool_positions.get(pool)
+        if position is None:
+            pool_positions[pool] = len(selected)
+            selected.append(record)
+            continue
+
+        previous = selected[position]
+        if route_rank(record) < route_rank(previous):
+            selected[position] = record
+
+    yield from selected
 
 
 def apply_sticky_export_state(
@@ -890,7 +966,9 @@ def apply_sticky_export_state(
     :param stale_warning_age_days:
         Warning age in days.
     :return:
-        Final vault rows, mutated state, and counters.
+        Admitted vault records before public route selection, mutated state,
+        and counters. State timestamps describe candidate-record preparation;
+        a retained Nest entrypoint need not appear in the public vault list.
     """
     validate_sticky_export_state(state)
     now_text = format_state_timestamp(now)
@@ -1027,7 +1105,7 @@ def validate_strict_json_serialisable(obj: dict) -> None:
         raise ValueError("Non-serializable values found; aborting JSON export.")
 
 
-def _write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
+def write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
     """Atomically write validated JSON, preferring the existing ``orjson`` dependency.
 
     Standard JSON handles a few values that ``orjson`` does not, notably
@@ -1230,6 +1308,7 @@ def main(
     core3_db_path: Path | None = None,
     xerberus_db_path: Path | None = None,
     feed_db_path: Path | None = None,
+    force_vault_ids: set[str] | None = None,
 ) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
 
@@ -1279,6 +1358,12 @@ def main(
         falling back to ``DB_PATH`` (used by the feed collector),
         then :py:data:`~eth_defi.feed.database.DEFAULT_VAULT_POST_DATABASE`.
         The database is only opened if the resolved file exists on disk.
+
+    :param force_vault_ids:
+        Vault identities whose metadata was repaired, formatted as
+        ``chain_id-address``. Recalculate their existing price observations
+        even when the metrics freshness cache would otherwise replay an old
+        classification. Normal TVL qualification still applies.
     """
     defaults = _resolve_default_paths(data_dir)
     data_dir = defaults["data_dir"]
@@ -1347,11 +1432,11 @@ def main(
         export_threshold_by_id,
         now,
     )
-    forced_vault_ids = _find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) & seen_vault_ids
+    forced_vault_ids = (_find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) | (force_vault_ids or set())) & seen_vault_ids
     due_vault_ids.update(forced_vault_ids)
     skipped_vault_ids.difference_update(forced_vault_ids)
     if forced_vault_ids:
-        logger.info("Vault export post-processing forced %d stale attribution rows through metrics", len(forced_vault_ids))
+        logger.info("Vault metadata repairs forced %d rows through metrics", len(forced_vault_ids))
     logger.info("Metrics freshness: %d vaults due, %d low-TVL vaults still fresh", len(due_vault_ids), len(skipped_vault_ids))
 
     # Read the full frame only for the due vaults: steady-state runs
@@ -1367,6 +1452,10 @@ def main(
         returns_df = prices_df
     else:
         returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+
+    # Daily closing prices are appropriate for state-delta flows, but using
+    # them as the return endpoints loses the first observation day's PnL.
+    price_observations = prices_df[["id", "share_price", "total_assets", "block_number"]]
 
     # Free the due-filtered price frame before the memory-peak metrics
     # phase; nothing below needs it.
@@ -1421,13 +1510,14 @@ def main(
         core3_protocols=core3_protocols,
         xerberus_pools=xerberus_pools,
         xerberus_protocols=xerberus_protocols,
+        price_observations=price_observations,
     )
 
     logger.info("Calculated lifetime metrics for %d vaults with %d columns", len(lifetime_data_df), len(lifetime_data_df.columns))
     computed_vault_ids = set(lifetime_data_df["id"].astype(str)) if len(lifetime_data_df) else set()
 
     # Free the daily-returns frame before sticky processing and export.
-    del returns_df
+    del returns_df, price_observations
     free_memory()
     phase_diagnostics.log("metrics")
 
@@ -1438,7 +1528,10 @@ def main(
         threshold_tvl=THRESHOLD_TVL,
         stale_warning_age_days=stale_warning_age_days,
     )
-    vaults = sticky_result.vaults
+    vaults = list(select_preferred_nest_routes(sticky_result.vaults))
+    omitted_routes = len(sticky_result.vaults) - len(vaults)
+    if omitted_routes:
+        logger.info("Nest route selection omitted %d alternative chain and deposit routes from the public export", omitted_routes)
 
     # Free the metrics frame before curator building, validation and the
     # JSON write; the sticky result holds new dicts, not references into it.
@@ -1524,7 +1617,7 @@ def main(
     validate_strict_json_serialisable(sticky_result.state)
 
     # 7️⃣ Write to JSON file (strict mode)
-    _write_strict_json(output_path, output_data, validated=True)
+    write_strict_json(output_path, output_data, validated=True)
 
     save_sticky_export_state(sticky_result.state, sticky_state_path, validated=True)
     logger.info("Sticky export state: loaded %d vault entries from %s", sticky_result.stats.loaded_state_entries, sticky_state_path)

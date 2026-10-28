@@ -2,7 +2,12 @@
 
 import datetime
 
+import pytest
+
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumV15DepositManager
+
+# 2026-10-03: Ostium is unsupported after the hack.
+pytestmark = pytest.mark.skip(reason="Ostium unsupported after the hack")
 
 
 class _Call:

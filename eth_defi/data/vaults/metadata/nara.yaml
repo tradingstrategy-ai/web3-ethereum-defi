@@ -31,7 +31,7 @@ links:
   defillama: ''
   audits: https://docs.nara.io/resources/code-audits
   fees: ''
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/nara
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/nara
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/nara/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x1aa23CDFC941f6b54251C72012A9Bfa4bF5394D6

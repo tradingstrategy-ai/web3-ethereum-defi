@@ -22,7 +22,7 @@ links:
   defillama: https://defillama.com/protocol/harvest-finance
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/harvest-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/harvest/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x573a918F255E751054f7751975D0577Cb82F947b

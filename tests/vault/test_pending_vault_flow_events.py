@@ -106,6 +106,8 @@ def test_lagoon_fetch_vault_flow_events_from_hypersync() -> None:
 
 
 @pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="JSON_RPC_ARBITRUM needed")
+# 2026-10-03: Ostium is unsupported after the hack.
+@pytest.mark.skip(reason="Ostium unsupported after the hack")
 def test_ostium_fetch_vault_flow_events_from_hypersync() -> None:
     """Fetch Ostium V1.5 deposit and redemption request events.
 

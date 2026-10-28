@@ -6,7 +6,9 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.arcus.offchain_data import ArcusVaultOffchainData, get_arcus_vault_offchain_data
+from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.types import Percent
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 class ArcusVault(ERC4626Vault):
@@ -20,6 +22,17 @@ class ArcusVault(ERC4626Vault):
 
     See the `Arcus website <https://arcus.xyz/>`__ for product information.
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return automatic strategy classifications for all Arcus pTokens.
+
+        The shared contract family represents leveraged perpetual accounts,
+        including products outside the reviewed display-metadata overlay.
+
+        :return:
+            Directional leverage and perpetual futures strategy tags.
+        """
+        return get_arcus_strategy_tags(self.vault_address)
 
     @cached_property
     def arcus_offchain_data(self) -> ArcusVaultOffchainData | None:

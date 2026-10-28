@@ -1,29 +1,29 @@
 name: Llama Lend
 slug: llama-lend
 short_description: |
-  Curve Finance's lending protocol with soft-liquidation protection.
+  Curve Finance's isolated lending markets with LLAMMA soft liquidations.
 long_description: |
-  Llama Lend is Curve Finance's lending protocol powered by the liquidation protection mechanism
-  provided by LLAMMA (Lending Liquidating Automated Market Maker Algorithm).
+  Llama Lend is Curve Finance's isolated lending protocol. Lenders supply a market's borrowed
+  token and receive ERC-4626 shares whose value accrues borrower interest. Borrowers pledge
+  a separate collateral token to secure their loans.
 
-  LLAMMA is the market-making contract that rebalances the collateral of a loan. It is an algorithm
-  implemented into a smart contract which is responsible for liquidating and de-liquidating collateral
-  based on market conditions through arbitrage traders. Each individual market has its own AMM
-  containing the collateral and borrowable asset.
-
-  Based on the collateral provided, LLAMMA fixes specific price bands to liquidate portions of the
-  collateral rather than liquidating fully at a specific liquidation price, enabling soft liquidations.
+  LLAMMA (Lending Liquidating Automated Market Maker Algorithm) rebalances borrower collateral
+  through soft liquidations. This mechanism does not guarantee against losses. Lender withdrawals
+  require sufficient market liquidity, which is held and accounted for by the controller.
 fee_description: |
+  V2 deducts protocol fees from borrower interest before it accrues to lenders. These deductions
+  are reflected in vault assets and share value, rather than a separate management or performance
+  charge reported by this integration.
 links:
   homepage: https://curve.fi/
-  app: https://lend.curve.fi/
+  app: https://www.curve.finance/llamalend/ethereum/markets
   twitter: https://x.com/llamalend
   github: https://github.com/curvefi
-  documentation: https://docs.curve.finance/crvUSD/amm/
+  documentation: https://docs.curve.finance/developer/llamalend-v2/vault/
   defillama: https://defillama.com/protocol/curve-llamalend
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/llama-lend
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/llama-lend
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/llama-lend/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d

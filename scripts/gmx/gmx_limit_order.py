@@ -79,7 +79,9 @@ See Also
 import logging
 import os
 import sys
+import traceback
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 from eth_defi.chain import get_chain_name
@@ -89,9 +91,9 @@ from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from rich.console import Console
 
 console = Console()
 
@@ -131,7 +133,7 @@ def main():
         console.print(f"  Block: {block_number}")
         console.print(f"  Chain: {chain} (ID: {chain_id})")
     except Exception as e:
-        console.print(f"[red]Failed to connect to RPC: {e}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect to RPC: {e}[/red]"))
         sys.exit(1)
 
     # Create wallet
@@ -253,10 +255,9 @@ def main():
                 console.print(f"  [green]Sufficient allowance already exists[/green]")
 
         except Exception as e:
-            console.print(f"[red]Token approval error: {e}[/red]")
-            import traceback
+            console.print(redact_rpc_urls(f"[red]Token approval error: {e}[/red]"))
 
-            traceback.print_exc()
+            sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
 
         # Sign and send limit order transaction
         try:
@@ -295,19 +296,17 @@ def main():
             console.print(f"\n[dim]Check order status on GMX interface using TX hash[/dim]")
 
         except Exception as e:
-            console.print(f"[red]Transaction failed: {e}[/red]")
-            import traceback
+            console.print(redact_rpc_urls(f"[red]Transaction failed: {e}[/red]"))
 
-            traceback.print_exc()
+            sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
             raise
 
         console.print("\n[green]GMX Limit Order Test completed successfully![/green]")
 
     except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        import traceback
+        console.print(redact_rpc_urls(f"[red]Error: {e}[/red]"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         sys.exit(1)
 
 

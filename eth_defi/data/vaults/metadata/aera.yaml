@@ -34,7 +34,7 @@ links:
   defillama:
   audits:
   fees: https://docs.aera.finance/aera-protocol-in-one-page
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/aera
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/aera
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/aera/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x8041ba598f0e656ebe80c67289efb42c09e86ae3

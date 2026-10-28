@@ -47,6 +47,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.evm_escrow import activate_account_sponsored, is_account_activated
 from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNET_API_URL, create_hyperliquid_session
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 
@@ -208,7 +209,7 @@ def main():
         )
         print(f"\nSUCCESS: Account {target_address} activated on HyperCore ({network})!")
     except TimeoutError as e:
-        print(f"\nFAILED: {e}")
+        print(redact_rpc_urls(f"\nFAILED: {e}"))
         print("\nThe sponsored depositFor did not activate the account.")
         print("This confirms the testnet bug affects the recipient regardless of caller.")
 

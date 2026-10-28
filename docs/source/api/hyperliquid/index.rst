@@ -37,3 +37,6 @@ Tutorials
    eth_defi.hyperliquid.core_writer
    eth_defi.hyperliquid.evm_escrow
    eth_defi.hyperliquid.block
+   eth_defi.hyperliquid.permission
+   eth_defi.hyperliquid.permission_recovery
+   eth_defi.hyperliquid.leader_share_recovery

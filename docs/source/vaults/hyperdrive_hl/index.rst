@@ -29,7 +29,7 @@ Security:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/hyperdrive>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/hyperdrive>`__
 - `Homepage <https://hyperdrive.fi/>`__
 - `Earn App <https://app.hyperdrive.fi/earn>`__
 - `Documentation <https://hyperdrive-2.gitbook.io/hyperdrive/>`__

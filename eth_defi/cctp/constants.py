@@ -23,6 +23,9 @@ All CCTP V2 contracts share the same address across all EVM chains (deployed via
 
 from eth_typing import HexAddress
 
+#: Wire-format version in CCTP V2 message headers.
+CCTP_MESSAGE_VERSION = 1
+
 #: CCTP V2 TokenMessengerV2 - entry point for cross-chain USDC transfers.
 #: Same address on all EVM chains via CREATE2.
 TOKEN_MESSENGER_V2: HexAddress = HexAddress("0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d")

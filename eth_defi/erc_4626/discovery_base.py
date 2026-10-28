@@ -20,7 +20,7 @@ import enum
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Type, TypeAlias
+from typing import TYPE_CHECKING, Callable, Type, TypeAlias
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -32,13 +32,17 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
+from eth_defi.tokenised_fund.asseto.royalty_constants import ROYALTY_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_HARDCODED_LEADS
@@ -46,7 +50,6 @@ from eth_defi.tokenised_fund.kaio.constants import KAIO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_HARDCODED_LEADS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_TBILL_HARDCODED_LEADS
-from eth_defi.tokenised_fund.shift.constants import SHIFT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_HARDCODED_LEADS
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_HARDCODED_LEADS
@@ -60,12 +63,19 @@ from eth_defi.wstgbp.constants import WSTGBP_HARDCODED_LEADS
 
 logger = logging.getLogger(__name__)
 
+#: ``(chain_id, vault_address, first_block, first_timestamp)`` for a known
+#: deployment not discoverable through supported events; timestamp is naive UTC.
 HardcodedVaultLead: TypeAlias = tuple[int, HexAddress, int, datetime.datetime]
+#: ``(protocol_name, leads)`` groups deployment tuples for discovery diagnostics.
 HardcodedVaultLeadSource: TypeAlias = tuple[str, tuple[HardcodedVaultLead, ...]]
+#: Ordered collection of protocol-name/deployment-tuples pairs.
 HardcodedVaultLeadSources: TypeAlias = tuple[HardcodedVaultLeadSource, ...]
 
 #: Protocol deployments that cannot be discovered from supported vault events.
 DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
+    ("Asseto IP Vault", ROYALTY_HARDCODED_LEADS),
+    ("Infinit", INFINIT_HARDCODED_LEADS),
+    ("Antarctic", ANTARCTIC_HARDCODED_LEADS),
     ("ODA-FACT", ODA_FACT_HARDCODED_LEADS),
     ("Midas", MIDAS_HARDCODED_LEADS),
     ("Fidelity FDIT", FDIT_HARDCODED_LEADS),
@@ -637,6 +647,9 @@ class LeadScanReport:
     #: Unique candidate addresses submitted to on-chain feature probing
     items_scanned: int = 0
 
+    #: Catalogue candidates reused from finite-lived classification state.
+    classification_cache_hits: int = 0
+
 
 def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[list[HexAddress], dict[str, PotentialVaultMatch], int]:
     """Prepare lead data for the shared feature-probe pass.
@@ -646,7 +659,9 @@ def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[
         or Enzyme vault address.
 
     :return:
-        Probe addresses, lower-case lead lookup and factory lead count.
+        ``(probe_addresses, leads_by_lowercase_address, factory_lead_count)``.
+        The address list contains unique candidates eligible for feature probes;
+        the lookup retains leads needed to build detections after probing.
     """
 
     addresses = []
@@ -835,6 +850,17 @@ class VaultDiscoveryBase(abc.ABC):
     ):
         self.max_workers = max_workers
         self.existing_leads = {}
+        #: Current-state callers may refresh short-window HyperEVM probe blocks.
+        self.current_state = False
+        #: Lead-scan core validates provenance/expiry before seeding this map.
+        #: Detection still uses fresh cumulative activity when features are reused.
+        #: Key: lower-case vault address; value: ``(features, checked_at)``, where
+        #: features is the detected feature set and checked_at is naive UTC time
+        #: of the cached classification, not the current event-scan timestamp.
+        self.cached_features: dict[str, tuple[set[ERC4626Feature], datetime.datetime]] = {}
+        #: Optional persistence boundary after complete indexed event coverage,
+        #: before fallible classification or adapter metadata reads.
+        self.on_leads_discovered: Callable[[LeadScanReport], None] | None = None
 
     def seed_existing_leads(self, leads: dict[HexAddress, PotentialVaultMatch]):
         """Seed existing leads to continue the scan where we were left last time."""
@@ -855,11 +881,17 @@ class VaultDiscoveryBase(abc.ABC):
         end_block: int,
         display_progress=True,
         hardcoded_lead_sources: HardcodedVaultLeadSources | None = None,
+        greylist: frozenset[HexAddress] = frozenset(),
     ) -> LeadScanReport:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
         - Then perform multicall probing for each vault smart contract to detect protocol
+
+        :param greylist:
+            Caller-selected targets for this chain, empty by default. Indexed
+            lead discovery passes this to strict ABI feature probes so request
+            isolation follows application policy without importing a chain list.
 
         :param hardcoded_lead_sources:
             Protocol-labelled deployments that cannot be discovered from
@@ -902,9 +934,9 @@ class VaultDiscoveryBase(abc.ABC):
                     first_seen_at=first_seen_at,
                     deposit_count=0,
                     withdrawal_count=0,
-                    # Reviewed migration-pool deployments have a verified
-                    # T3tris configuration event but no vault-local flow log.
-                    configuration_count=1 if protocol_name == "T3tris" else 0,
+                    # Reviewed T3tris and Infinit deployments have a verified
+                    # configuration event but no generic vault-local flow log.
+                    configuration_count=1 if protocol_name in {"T3tris", "Infinit"} else 0,
                 )
                 report.new_leads += 1
                 logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
@@ -925,7 +957,31 @@ class VaultDiscoveryBase(abc.ABC):
                 logger.info("Added hardcoded Asseto vault lead %s", address)
 
         addresses, leads_by_address, factory_lead_count = _prepare_probe_leads(leads)
+        if self.on_leads_discovered is not None:
+            # The core callback persists the event cursor together with every
+            # unresolved lead. Doing this before classification means a broken
+            # protocol probe cannot force event replay on the next scheduler tick.
+            self.on_leads_discovered(report)
+        pending_addresses = []
+        # Reused features are identity observations, not frozen detection rows.
+        # Rebuild detections from the latest cumulative lead activity so deposit
+        # thresholds and price admission remain current while ABI probes expire
+        # independently. Mellow factory hints require their dedicated probe path
+        # to apply factory-specific validation/overrides, so bypass this reuse.
+        for address in addresses:
+            if address.lower() in BROKEN_VAULT_CONTRACTS:
+                continue
+            cached = self.cached_features.get(address.lower())
+            if cached is None or getattr(leads_by_address[address.lower()], "mellow_factory_candidate", None) is not None:
+                pending_addresses.append(address)
+                continue
+            features, checked_at = cached
+            lead = leads_by_address[address.lower()]
+            report.detections[address] = ERC4262VaultDetection(chain=chain, address=address, features=set(features), first_seen_at_block=lead.first_seen_at_block, first_seen_at=lead.first_seen_at, updated_at=checked_at, deposit_count=lead.deposit_count, redeem_count=lead.withdrawal_count, configuration_count=getattr(lead, "configuration_count", 0))
+            report.classification_cache_hits += 1
+        addresses = pending_addresses
         report.items_scanned = len(addresses)
+        logger.info("Classification on chain %d: due=%d cached=%d catalogue=%d", chain, len(addresses), report.classification_cache_hits, len(leads))
         logger.info("Found %d vault leads, of which %d are factory leads", len(leads), factory_lead_count)
         good_vaults = broken_vaults = 0
 
@@ -965,6 +1021,8 @@ class VaultDiscoveryBase(abc.ABC):
             block_identifier=end_block,
             max_workers=self.max_workers,
             progress_bar_desc=progress_bar_desc,
+            current_state=self.current_state,
+            greylist=greylist,
         ):
             if feature_probe.address.lower() in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")

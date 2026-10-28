@@ -61,7 +61,9 @@ def test_mev_blocker_send_transaction(mev_blocker_provider: MEVBlockerProvider):
     tx_hash = web3.eth.send_transaction({"to": ZERO_ADDRESS, "from": account, "value": 1})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    assert mev_blocker_provider.provider_counter["call"] == 9
+    # Anvil >= 1.8 returns the hash before the automined block exists, so the
+    # receipt wait makes one extra read call.
+    assert mev_blocker_provider.provider_counter["call"] in (9, 10)
     assert mev_blocker_provider.provider_counter["transact"] == 1
 
 
@@ -92,7 +94,8 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    assert mev_blocker_provider.provider_counter["call"] in (11, 12, 13)
+    # One extra receipt poll per transaction on Anvil >= 1.8, see above.
+    assert mev_blocker_provider.provider_counter["call"] in (11, 12, 13, 14)
     assert mev_blocker_provider.provider_counter["transact"] == 2
 
 
@@ -232,7 +235,9 @@ def test_fresh_singleton_receipt_recovers_broadcast_loop(anvil: AnvilLaunch, mon
     # 3. Verify the matching receipt used a new session and fallback instrumentation.
     receipt = receipts[signed_tx.hash]
     assert receipt["transactionHash"] == signed_tx.hash
-    assert receipt_reads == 2
+    # Anvil >= 1.8 returns the hash before the automined block exists, so the
+    # genuine receipt can also read back as null a few times after the mock.
+    assert receipt_reads >= 2
     assert receipt_sessions[0] is original_session
     assert receipt_sessions[1] is None
     assert fallback_provider.get_active_provider() is original_provider

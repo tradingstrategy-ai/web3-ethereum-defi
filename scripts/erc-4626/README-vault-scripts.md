@@ -119,6 +119,56 @@ Good reference implementations are:
   resumable, checkpointed Enzyme metadata and historical migration when the two
   functions must share factory discovery.
 
+### Hyperliquid corruption recovery
+
+The one-off `scripts/hyperliquid/recover-permissions.py` repair for
+[issue #1628](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1628)
+handles both daily and HF scanner databases. It uses the normal pipeline
+directory and automatically selects the retained 2026-09-29 through 2026-10-05
+scanner backups plus the 2026-10-05 raw price archive. `DRY_RUN` is its only
+migration-specific input:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-permissions.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-permissions.py
+```
+
+Dry run creates no persistent files. Apply holds the shared writer lock, takes
+its own verified backup of each database, restores missing price keys and
+repairs permission evidence and cached metadata. Unrecoverable permissions stay
+Unknown. Stop database owners before applying and use the mounted oneshot
+container. No RPC or R2 credentials are required. The
+[recovery runbook](../../docs/README-hypercore-permission-recovery.md) gives the
+production shell and validation commands.
+
+The follow-up `scripts/hyperliquid/recover-leader-shares.py` repair for
+[issue #1633](https://github.com/tradingstrategy-ai/web3-ethereum-defi/issues/1633)
+restores missing recorded leader shares and explicit deposit caps. It uses the
+same archive dates, plus evidence retained inside each repaired database:
+
+```shell
+DRY_RUN=true poetry run python scripts/hyperliquid/recover-leader-shares.py
+DRY_RUN=false poetry run python scripts/hyperliquid/recover-leader-shares.py
+```
+
+Stop database owners before applying. Dry run writes no files; apply takes its
+own verified backup under `migration-backups/hypercore-leader-shares-1633/` and
+writes `recovery-report.json`. Existing prices, permission flags and write times
+are preserved. Missing inputs stay NULL; explicit zero caps stay zero. A
+separate capacity clock is not required to read recorded historical values.
+Restart the normal scanner afterwards to republish prices and the sidecar.
+
+Normal post-processing merges daily and HF permissions into
+`hypercore-vault-permissions.parquet` and inserts missing shared vault catalogue
+entries before cleaning. Existing metadata and manual reviews are retained.
+Private price files and their readiness receipt are uploaded before sparkline
+rendering and protocol metadata export. No extra operator switches are needed.
+
+Chains without Hypersync timestamp support, including Katana, fill only missing
+exact sampled blocks through the configured RPC providers. Existing sparse
+cache endpoints or neighbouring timestamps do not prove the requested sampling
+grid is complete; subsequent scans reuse the exact entries already stored.
+
 ### Monad historical state
 
 [Monad full nodes retain all historical transaction data but only a
@@ -239,17 +289,25 @@ does not use token addresses as an inclusion criterion.
 The bundle is written below the pipeline data directory as
 ``crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`` and its separate JSON
 metadata and sticky state. R2 publication additionally writes the current
-manifest. Its Parquet retains the final observed row for each vault/UTC date
-rather than inventing missing dates. It keeps the established
+manifest. Its Parquet retains the final valid price row for each vault/UTC date
+and each vault's initial valid observation before the first daily close. A first
+day can therefore contain two rows. Timestamps remain the actual observation
+times, and missing dates are not inserted. It keeps the established
 ``CleanedVaultPriceRow`` columns without adding denomination metadata or a
 crypto-specific return column. The legacy ``returns_1h`` column is recomputed
 between consecutive exported observations: it is a sparse return, not an
 hourly or guaranteed one-day return, and existing TVL-filtered rows remain
-zeroed. Lifetime metrics use the normal forward-filled daily share-price
-series. The [private metadata builder](../../eth_defi/vault/crypto_vaults.py)
-prepares stablecoin metrics directly from these sparse daily rows in memory,
-filling calendar gaps without repeating the daily aggregation. It drops
+zeroed. Absolute returns and CAGR use real observation endpoints. Daily risk
+and flow calculations use the forward-filled daily closing series. The
+[private metadata builder](../../eth_defi/vault/crypto_vaults.py) keeps these
+inputs separate: the initial row defines the return basis, while daily states
+take the first day's close and fill calendar gaps. It drops
 cleaned-price columns unused by returns and lifetime metrics before this step.
+Negative or non-finite prices and missing timestamps are excluded from the
+derived daily bundle; raw and hourly source history is preserved. Equal
+timestamps use the final block. The daily sidecar carries an observation-policy
+version: an older or unversioned sidecar falls back to the hourly source even
+if its modification time is newer.
 INFO logs report source read, freshness filtering, daily preparation and metric
 calculation times separately, with row counts and a preparation-end RSS sample.
 ETH and BTC amounts stay in their denomination units. Native admission
@@ -384,11 +442,11 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
 | `LOG_LEVEL` | Optional. Default: WARNING. |
-| `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
-| `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
+| `SCAN_BACKEND` | Optional shared Hypersync configuration. Use `auto` (default) or `hypersync`; discovery requires a Hypersync client and rejects RPC fallback. |
+| `FORCE_LEAD_DISCOVERY` | Optional. Default: false. Refresh classification and metadata immediately; event discovery always uses Hypersync. |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
-| `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
+| `HYPERSYNC_API_KEY` | Required. API key for indexed event discovery. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Throttling is always on, but the default can exceed your API key's quota: the local Monad check on 2026-10-01 reported a 30-request quota. Set this below the quota reported by the service, leaving room for other scanners sharing the key; that check used 20 RPM. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -820,7 +878,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out such as Arc applies only to the generic chain price scan. |
+| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. Arc, Worldchain and Plume use this global switch. |
 | `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
 | `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
@@ -915,7 +973,7 @@ scripts live under `scripts/xerberus/`. See
 [`README-xerberus.md`](../../eth_defi/xerberus/README-xerberus.md) for dual-auth
 details (`XERBERUS_API_KEY` + `XERBERUS_API_EMAIL`).
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Set below your API key's actual quota, leaving room for other scanners sharing the key. A local Monad check on 2026-10-01 reported a 30-request quota and used 20 RPM. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by the generic EVM lead and price scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -979,6 +1037,51 @@ therefore depend on observation cadence. For an otherwise eligible flat period,
 the common export uses zero for volatility and null for Sharpe, because Sharpe
 is mathematically undefined without volatility. Sharpe is also null for
 periods shorter than 14 days or with fewer than 10 daily prices.
+
+Absolute returns use the first and last valid real observations, including
+the first day's movement before its daily close. They are available with two
+observations with a non-zero starting price. Unavailable lifetime and fixed-period
+fields remain null rather than implying zero performance, including when a
+window starts at a zero price. A young vault's fixed-period
+absolute return covers its available observations, which can be shorter than
+the requested lookback; the period's sample timestamps identify that span.
+Annualised returns are null until a fixed lookback has its full requested
+history; lifetime CAGR requires 30 days. The elapsed-time calculation
+includes fractional days. Each period includes `annualisation_error_reason`
+when absolute returns exist but annualisation is withheld. A calculation
+version change invalidates cached metrics, causing one full recomputation.
+
+The annualisation floor prevents short extrapolations from entering CAGR
+rankings; it is not a claim of statistical sufficiency. Sharpe and volatility
+retain their separate data-quality rules and calendar-day approximation. A
+partial first-day interval, including a flat one, contributes one observed
+return to that approximation. Published sample counts refer to valid stored
+observations rather than forward-filled calendar days. Native and USD views
+use the same real observation cutoff whenever exchange rates cover it.
+
+Arcus pTokens retain their first funded observation even before share supply
+changes, and the generic spike filter preserves their observed leveraged NAV
+moves. Daily bundles also keep the initial observation before the first day's
+close so new vaults can publish charts on their first day. Every detected
+Arcus pToken automatically receives
+`directional_leverage` and `perpetual_futures` strategy tags, including products
+without an address-specific display name. Existing metadata can be updated
+with `migrate-vault-strategy-tags.py` after deployment; stop the persistent
+scanner, inspect a dry run, apply the migration and restart the scanner. A
+normal post-processing run then regenerates metrics and charts from existing
+raw prices without a historical RPC rescan or reader-state changes.
+
+After deploying the updated scanner image, perform this repair with the
+scanner stopped. Inspect the dry-run migration output before applying it;
+the entrypoint override runs maintenance against the existing mounted state.
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'python scripts/erc-4626/post-process-prices.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+```
 
 #### Lifetime metrics benchmark
 
@@ -1328,6 +1431,50 @@ return a retryable rate-limit response. Use
 the available provider quota supports higher values. Generic `HYPERSYNC_RPM`
 and `HYPERSYNC_CONCURRENCY` take precedence.
 
+#### Flying Tulip ssftUSD metadata refresh
+
+Ethereum ssftUSD belongs to the existing Flying Tulip protocol but uses actual
+ERC-4626 prices, not the sftUSD external FT reward-equivalence backfill above.
+The targeted metadata migration refreshes classification, descriptions, notes,
+fees and capacity metadata without changing price Parquet files, reader state,
+leads or timestamp/context caches. Its unfiltered default still selects only
+the original three sftUSD deployments; the separate description-only migration
+below keeps its original scope.
+
+`CHAIN_ID` and `VAULT_ADDRESS` must be supplied together. An unreviewed or
+missing explicit target aborts before writing. If the target is absent, let
+normal discovery materialise it using the deployed code, then repeat the dry
+run. The script retains the legacy database-path default; set `VAULT_DB_PATH`
+explicitly when using a custom pipeline directory. Apply mode waits up to
+60 seconds for the scanner writer lock, backs up the pickle to a new sibling
+`.bak-flying-tulip-metadata*` file and writes atomically.
+
+After merging and deploying the code and rebuilding the production image with
+`scripts/build-container.sh`, use the existing mounted production state:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=true python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
+```
+
+Inspect the target and previous protocol in the dry-run table before applying:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'CHAIN_ID=1 VAULT_ADDRESS=0x232128844e5af56fd4b3f8bf97e08ab477282ab5 DRY_RUN=false python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'REFRESH_STABLECOIN_RATES=false python scripts/erc-4626/export-protocol-metadata.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'OUTPUT_JSON=/root/.tradingstrategy/top_vaults_by_chain.json python scripts/erc-4626/vault-analysis-json.py')
+source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+```
+
+Check the exported target for protocol `Flying Tulip`, the new ssftUSD copy,
+and removal of the zero-address cap reason. Earlier historical capacity values
+remain observations of an invalid receiver, not evidence of a global cap.
+For rollback, stop the scanner, restore only the metadata pickle from the
+specific backup path reported by the migration, redeploy the previous image
+if necessary, regenerate the public exports and restart the scanner. Preserve
+price files and reader state throughout. Production commands are operator
+instructions and are not part of development verification.
+
 #### Flying Tulip description migration
 
 `migrate-flying-tulip-descriptions.py` is a later, copy-only repair separate
@@ -1359,15 +1506,34 @@ Each EVM chain stores its successful lead and metadata refresh status in
 (lead detection code plus enabled EVM chains) and timestamp are valid, the
 scanner skips lead discovery and reuses `vault-metadata-db.pickle`; price scans
 continue normally. It still verifies the chain ID before selecting the cached
-metadata. A missing, malformed, expired or changed state triggers a
-an incremental event read from the saved cursor, followed by a refresh of every
-persisted vault classification and metadata row. The cache can therefore delay
+metadata. A missing, malformed, expired or changed state triggers an
+incremental event read from the saved cursor, followed by classification and
+metadata refreshes where their separate cache deadlines or code versions
+require them. Missing catalogue rows are rebuilt even if a metadata sidecar
+still marks them fresh. The cache can therefore delay
 a new lead by up to the configured timeout, but it never resets price Parquet
 or reader-state data.
 
 The initial discovery for a chain requires HyperSync. The scanner refuses a
 genesis-to-head JSON-RPC event read rather than putting uncontrolled load on an
 RPC provider.
+
+Routine price selection applies `BROKEN_VAULT_CONTRACTS` before constructing
+adapters or qualifying freshness coverage. These intentionally excluded
+contracts retain their catalogue entries, old prices and saved reader state,
+and the admission log and accounting metrics report the number skipped.
+An address-scoped historical repair that explicitly selects a blacklisted
+contract, or whose activity/adapter filtering leaves a requested address
+without a supplied vault, fails before replacing any rows. This also applies
+when the historical writer is called directly through `scan-prices.py`.
+
+The local Monad check on 2026-10-01 also found three aPriori/ShMonad vaults
+whose asset address is the native-token sentinel `0xEeee…`. The generic
+ERC-20 metadata path leaves their denomination unavailable; their USD TVL
+cannot be verified. This produces a `degraded` accounting outcome even when
+all required vaults have recent prices and the stablecoin JSON export succeeds.
+Native-asset metadata support remains a separate follow-up; do not interpret
+these unverified values as USD TVL.
 
 #### JSON-RPC usage accounting
 
@@ -1436,17 +1602,18 @@ GROUP BY chain, phase
 ORDER BY chain, phase;
 ```
 
-Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
-`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
-lead discovery and metadata refresh, while its per-chain configuration
-suppresses generic share-price history even when production sets
-`SCAN_PRICES=true`. Dedicated tokenised-fund feeds and settlement-event
-scanning retain their existing independent chain selection. No dedicated Arc
-tokenised-fund product is currently registered. Populate and validate
-`~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
-Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
-`scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused
-Tempo-only dry run:
+Arc, Worldchain, Plume, Tempo and Robinhood Chain are included in the default
+all-chain schedule when their respective `JSON_RPC_*` variables are configured.
+Discovery runs by default, and their generic hourly price scans run when
+`SCAN_PRICES=true`. Both Compose scanner services pass the RPC variables
+through. An explicit `CHAIN_ORDER` or `DISABLE_CHAINS` setting can still
+exclude a chain. The Nest migration backfills Nest entrypoints and fills the
+timestamp cache over their required historical range. Earlier vaults from
+other protocols may need additional cached blocks; restore or prepopulate
+those ranges on the production host before enabling recurring price updates.
+Dedicated tokenised-fund
+feeds and settlement-event scanning retain their independent selection. For a
+focused Tempo-only dry run:
 
 ```shell
 source .local-test.env && \
@@ -1456,7 +1623,7 @@ SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-Adding Arc changes the lead-discovery configuration signature. The first
+Adding chains changes the lead-discovery configuration signature. The first
 production cycle after deployment will therefore refresh discovery and
 metadata for every configured EVM chain once; schedule the rollout with that
 one-off provider load in mind.
@@ -1543,6 +1710,198 @@ JSON_RPC_URL=$JSON_RPC_ETHEREUM \
 START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
+
+### Nest migrate-vaults.py
+
+`scripts/nest/migrate-vaults.py` is the one-off Nest migration entry point. It
+verifies every active first-party route onchain, repairs the metadata pickle,
+then fills the dense per-chain timestamp cache through Envio HyperSync and
+backfills hourly raw and cleaned prices through the common address-scoped
+writers. The backfill replaces only selected Nest entrypoint histories. It
+uses the freshly fetched catalogue when rebuilding adapter rows, and preserves
+cached descriptions during a temporary CMS outage in normal scanner reads.
+It retains every hourly observation because daily NAV changes can be smaller
+than the shared scanner's 10-basis-point sparse retention threshold. Existing
+sparse histories may therefore give slightly different monthly CAGR until
+they are rescanned with this migration.
+Routine Nest readers also retain every successful sample, so the recurring
+scanner does not restore the sparse retention threshold on these routes.
+They bypass the generic deposit-count activity shortcut because a catalogue
+import has no observed event counts. Their original history start is retained.
+Stateful polling remains adaptive: a routine rescan of small or inactive routes
+can replace hourly migrated observations with daily or weekly samples.
+The migration does not clear or advance the recurring scanner's reader states
+or discovery cursors. On Monad, the historical reader starts at the provider's oldest
+readable state and retains older existing prices. Raw prices cover every
+selected route; the public cleaned Parquet receives only denominations that
+the shared stablecoin policy recognises, including Plume's `pUSD`, whose
+[issuer documents 1:1 USDC backing and redemption](https://www.plume.org/pusd).
+Routes denominated in `PRIME` or `XUPL` remain in raw history until their
+denomination policy is reviewed separately.
+
+The default scope is every active route on every supported Nest chain. As of
+2026-10-06, the public catalogue had 81 active EVM routes on 10 chains.
+The migration excludes Solana mints published for nine active products.
+Nest's product-level TVL may include positions beyond these entrypoints. A dry run
+verifies all selected contracts and prints each chain's earliest published start
+block and timestamp-cache status without writing pipeline data:
+
+```shell
+source .local-test.env && PYTHONPATH=. DRY_RUN=true poetry run python scripts/nest/migrate-vaults.py
+```
+
+Apply the metadata and historical migration after coordinating with the
+looped scanner. The command holds the shared `scan-pipeline` writer lock from
+the metadata read through the final export. Its HyperSync cache
+fill may take time on chains without a retained dense timestamp cache:
+
+```shell
+source .local-test.env && PYTHONPATH=. DRY_RUN=false poetry run python scripts/nest/migrate-vaults.py
+```
+
+The applied run requires `JSON_RPC_*` URLs for all active Nest chains and
+`HYPERSYNC_API_KEY`. `MAX_WORKERS` controls threaded RPC reads (default 8), and
+`PIPELINE_LOCK_TIMEOUT` controls how long to wait for the scanner lock (default
+60 seconds). Set `HYPERSYNC_RPM` below the Envio token's request quota, leaving
+room for other processes using the same token. The cache reads timestamp-only
+pages and acquires a rate-limit slot for every HTTP request, then saves each
+500,000-block chunk. An exhausted quota stops the run; wait for the provider
+window to reset and rerun with a lower request rate or higher provider quota.
+Completed cache chunks are reused. Use `NETWORKS` for a focused repair. Set
+`NEST_SCAN_PRICES=false` only when historical prices must deliberately be left
+unchanged. An isolated run must set `VAULT_DB_PATH`,
+`UNCLEANED_PRICE_DATABASE`, `CLEANED_PRICE_DATABASE` and
+`TIMESTAMP_CACHE_DIR` together to avoid mixing private metadata with shared
+price or timestamp data. The raw and cleaned Parquet copies must exist before
+an applied history run. The migration backs up metadata and can be rerun after
+an interrupted chain because every price write is address-scoped and atomic.
+The script does not save a migration completion cursor: rerunning the default
+command rescans completed chains as well. Use `NETWORKS` with the remaining
+chain names to resume a partially completed run. A cleaned-history validation
+failure stops the migration while preserving the existing cleaned file; the
+raw history already committed for that chain remains available for diagnosis.
+The migration preserves scheduled reader state, so a chain without saved
+progress can be rescanned by its first routine cycle. Prepopulate or restore
+the production timestamp cache before enabling the recurring price scanner.
+
+The final stage rebuilds the public JSON using the normal exporter, including
+the Plume, Ethereum, alphabetical chain preference, then USDC, USDT, pUSD
+within the chosen chain, and reviewed curator records. Selected
+Nest identities bypass the metrics freshness cache so repaired classifications
+replace stale retained records. Historical returns are calculated from the
+existing cleaned Parquet; the normal TVL qualification still applies. Export
+and metrics state are refreshed, with backups of their original files, while
+reader state and price files are preserved by a metadata-only run. Set
+`NEST_EXPORT=false` to defer the export stage. If the cleaned Parquet is absent,
+the script logs a warning and leaves export generation to a later run.
+
+#### Repair cached Arc classifications
+
+Arc rows discovered before Nest's Arc probe was enabled can still be saved as
+`<unknown ERC-7540>`. The discovery cache now includes the classifier signature,
+so future classifier changes invalidate it immediately. For an immediate repair,
+the migration verifies all three active Arc routes onchain, refreshes metadata,
+and regenerates listings from collected history. It requires `JSON_RPC_ARC`;
+this metadata and export repair does not require HyperSync.
+
+In Bash inside the scanner Docker container, preview then apply:
+
+```bash
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=true python scripts/nest/migrate-vaults.py
+NETWORKS=arc NEST_SCAN_PRICES=false DRY_RUN=false python scripts/nest/migrate-vaults.py
+```
+
+Use the deployed checkout containing this fix and the normal mounted scanner
+data. To test a private copy locally, set `VAULT_DB_PATH` to its metadata pickle;
+the cleaned Parquet and rebuilt JSON default to that pickle's directory. Export
+state overrides must also stay in this directory. Use `source .local-test.env`
+and `PYTHONPATH=. poetry run python` for local commands. Vaults without enough
+price history or TVL remain absent from the public export. This repairs Arc's
+classification; it does not establish parity with Nest's product-level TVL.
+If a preferred chain already represents the product, the repaired Arc route
+keeps its metadata and history without receiving a separate public listing.
+The rebuild covers the entire stablecoin export. Optional Core3, Xerberus and
+feed databases are read from this pipeline directory, never from a different
+checkout's default state. Copy those databases too when testing a complete
+export with risk scores and feed metadata; absent databases omit their optional
+enrichment. Export rebuilding can be rerun after metadata has already been
+repaired, including after an interrupted export stage.
+
+After the scan, run `scripts/nest/list-vaults.py` against the resulting metadata
+and export files to check route names, curator records, TVL, one-month CAGR and
+all-time CAGR. The public export lists each Nest share token once across chains,
+preferring Plume, then Ethereum, then other chains alphabetically by their
+canonical display name. Within that chain it prefers USDC, then USDT, then pUSD.
+The catalogue audit still shows alternative chain and deposit routes:
+`Export: NO` is expected when another route represents their product.
+TVL and returns belong to the selected chain; balances on omitted chains are
+excluded from public totals. All entrypoints retain their scanner
+metadata and price histories. The report prefers net returns when available
+and labels gross fallbacks. `History since` defines the available window behind
+all-time CAGR.
+The Nest adapter does not decode management or performance fees, so gross
+CAGR does not establish returns after all fees. Report name checks compare
+the export against local metadata rather than independently verifying the CMS
+name of every legacy route.
+Nest's displayed yield may instead use simple annualisation or composition
+yield; compare against its NAV yield over the same dates before interpreting a
+difference as an incorrect price. Timestamp caches with legacy primary keys are
+migrated transactionally before ingestion, preserving their existing rows.
+
+### Nest migrate-export-routes.py
+
+`scripts/nest/migrate-export-routes.py` repairs duplicate Nest listings in an
+existing public JSON export. It uses the recurring exporter's selection rule:
+one entrypoint per share token across chains, preferring Plume, then Ethereum,
+then other chains alphabetically. Within the preferred chain it selects USDC,
+then USDT, then pUSD. The selected record's TVL, returns, dates and stale flags
+are preserved; TVL is not summed across chains. Public Nest TVL therefore falls
+when other chain balances are omitted, and should not be interpreted as total
+product assets across every deployment. The preview logs both listing counts
+and selected-chain TVL before and after the repair.
+Existing category TVL and Xerberus coverage totals are recalculated for the
+selected records, and unused curator/protocol metadata is removed from the
+export. An export without categories keeps that optional field absent.
+
+The scanner metadata pickle contains legitimate contracts on different chains
+and for different assets, so it keeps every entrypoint. Prices, reader state,
+metrics state and sticky qualification records are preserved. This repair replaces only the
+public export, under the shared pipeline writer lock, after saving a unique
+sibling backup. Price timestamps and the original exporter build stamp remain
+unchanged. A repeated run on a repaired export does not rewrite it.
+
+First test a copy with an isolated `PIPELINE_DATA_DIR`, then preview and apply:
+
+```shell
+export PIPELINE_DATA_DIR=/tmp/nest-route-migration-copy
+poetry run python scripts/nest/migrate-export-routes.py
+DRY_RUN=false poetry run python scripts/nest/migrate-export-routes.py
+```
+
+The directory must already contain `top_vaults_by_chain.json`. Set
+`VAULT_EXPORT_PATH` to repair a differently named JSON file; the lock still
+comes from `PIPELINE_DATA_DIR`. No RPC or HyperSync token is required.
+
+On the production host, enter the configured Compose service so the existing
+scanner state is mounted:
+
+```bash
+source ~/vault-scanner/vault-rpc.env
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot)
+```
+
+Then, in Bash inside the updated scanner Docker container:
+
+```bash
+export PIPELINE_DATA_DIR=/root/.tradingstrategy/vaults
+python scripts/nest/migrate-export-routes.py
+DRY_RUN=false python scripts/nest/migrate-export-routes.py
+```
+
+Deploy the updated exporter before using the repair, since an older scanner can
+restore duplicate listings. The next normal export/upload publishes selected
+routes and regenerates public samples. This offline repair is optional when
+the updated scanner will generate a fresh export immediately.
 
 ### Enzyme backfill-history.py
 
@@ -1893,6 +2252,39 @@ source ~/vault-scanner/vault-rpc.env && \\
 
 After inspecting the dry-run output, omit -e DRY_RUN=true to apply it.
 
+### backfill-frankencoin-shares.py
+
+Seed or refresh the reviewed Ethereum FCS deployment at
+`0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b`. This uses the equity adapter,
+independently of the svZCHF savings TVL repair below. Metadata includes the
+Frankencoin protocol and curator, four maintained strategy tags, reference
+valuation semantics and actual redemption restrictions.
+
+```shell
+source .local-test.env && DRY_RUN=true FRANKENCOIN_SHARES_SCAN_PRICES=false \
+  poetry run python scripts/erc-4626/backfill-frankencoin-shares.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Retain reviewable staged outputs; default `true`. Set `false` to apply. |
+| `FRANKENCOIN_SHARES_SCAN_PRICES` | Include hourly historical prices; default `false`. |
+| `JSON_RPC_ETHEREUM` | Required configured Ethereum RPC providers; archive state is needed for prices. |
+| `HYPERSYNC_API_KEY` | Required configured Hypersync authentication for discovery and timestamp reads. |
+| `VAULT_DB_PATH`, `PARQUET_PATH` | Override shared pipeline metadata and price files. |
+| `TIMESTAMP_CACHE` | Dense cache directory; defaults to `~/.tradingstrategy/block-timestamp`. |
+| `START_BLOCK`, `END_BLOCK` | Optional inclusive/exclusive price bounds; default deployment block 25,852,506 and safe head. |
+| `MAX_WORKERS` | Maximum historical-read workers; default `4`. |
+| `LOG_LEVEL` | Console logging level; default `info`. |
+
+Prices require dense Ethereum timestamps through the end boundary. Existing
+rows outside the target address and range, discovery counts, chain cursors and
+scheduled reader state are retained. Applied runs hold the scanner lock and
+back up metadata. Apply mode rejects a missing metadata database path.
+Stop the persistent scanner first and inspect dry-run outputs
+before applying; see the [protocol documentation](../../docs/source/vaults/frankencoin/index.rst)
+for the production Compose commands.
+
 ### fix-frankencoin-tvl.py
 
 Manual repair script for Frankencoin savings vault TVL in the uncleaned price
@@ -2147,6 +2539,66 @@ to publish the corrected metadata.
 | ``PIPELINE_LOCK_TIMEOUT`` | Optional writer-lock timeout in seconds. Defaults to 60. |
 | ``LOG_LEVEL`` | Optional console log level. Defaults to ``info``. |
 
+### backfill-kamui-vault-prices.py
+
+Backfill only Kamui Stable, Balanced and Boosted on Ethereum. Their zero
+vault-local ``Deposit`` counts kept them out of ordinary price scanning until
+the address-specific exemption landed in [#1606](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1606)
+on 2026-09-28. The script scans hourly
+from their reviewed first-detection blocks (25,888,764 for Stable, 25,897,234
+for Balanced and 25,897,239 for Boosted) up to, but excluding, block
+26,076,164, the first existing Kamui price observation. The fixed range and
+three-address scope make reruns idempotent. It stages and validates a copy of
+the common raw Parquet before replacing it under the ``scan-pipeline`` lock.
+Later Kamui observations, all other vaults, metadata and the scheduled reader
+state are preserved. The mounted dense Ethereum timestamp cache is required.
+
+Run the full no-publish validation first:
+
+```shell
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/backfill-kamui-vault-prices.py
+```
+
+Expect exactly three vaults and zero existing rows inside the replacement
+range unless this backfill was already applied. The preserved later-row count
+can increase as ordinary scanning continues. The default is ``DRY_RUN=true``;
+it performs the complete historical RPC scan and staged-Parquet validation,
+then discards the result without publishing it. It copies both the raw price
+file and dense timestamp cache to scratch storage, so allow roughly 1 GB of
+free space and several minutes of runtime. It does not update the shared
+timestamp cache, scheduled reader state or raw price file.
+For production, use the mounted ``vault-scanner-oneshot`` service after the new
+image is deployed. Stop the looped scanner, run the script and restart it:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
+  --entrypoint /bin/bash -e DRY_RUN=true vault-scanner-oneshot \
+  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
+  --entrypoint /bin/bash -e DRY_RUN=false vault-scanner-oneshot \
+  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
+
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && docker compose start vault-scanner-looped)
+```
+
+``DRY_RUN=false`` needs ``JSON_RPC_ETHEREUM`` with archive state and the usual
+Hypersync configuration. ``MAX_WORKERS`` defaults to four; ``TIMESTAMP_CACHE``
+can point to an equivalent prepopulated dense cache. The script prints
+per-vault historical price counts and the finite observation span. It aborts
+if any vault has less than 14 days of finite raw price history or a later
+observation is changed. The next normal
+post-processing cycle regenerates cleaned prices, metrics and sparklines from
+the repaired raw file; cleaned-price filters can still affect sparkline
+eligibility independently of this raw-history check.
+
 ### migrate-arcus-vault-metadata.py
 
 Reclassify the two reviewed Arcus BTC and HOOD pTokens on Robinhood Chain after
@@ -2202,8 +2654,8 @@ checks its age; use `post-process-prices.py` when the current scan must be
 cleaned and validated before publication.
 
 A vault is eligible when its denomination is a supported stablecoin, ETH or
-BTC family and its first and latest finite share-price observations span at
-least 14 days. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
+BTC family and it has two valid share-price observations at distinct timestamps,
+including on its first trading day. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
 BTC) are successfully published at most once every 72 hours; high-TVL vaults
 are considered on every invocation. The persistent
 `sparkline-export-state.json` file records cadence, input hashes and bounded
@@ -2213,11 +2665,20 @@ conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
 
 Every published chart has a 90-day horizontal axis ending on the vault's own
-latest observation day. A vault with 14–89 days of history is drawn on the
+latest observation timestamp. A vault with less than 90 days of history is drawn on the
 right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
 is still rendered from its own history. The exporter publishes one 100 × 25
-SVG and one 300 × 300 PNG for each vault. Both are gzip-compressed, and
+SVG, one legacy 300 × 300 PNG and one native 300 × 75 table PNG for each vault.
+The existing `sparkline-90d-{vault_id}.svg` and `.png` object names remain;
+the new `sparkline-table-90d-{vault_id}.png` rasterises the canonical SVG with
+uniform 3× scaling, including its 3 px stroke, for 72 × 18 blog/email cells.
+All three assets are required before completion state advances. A missing
+variant or partial upload fails that vault and retains its previous completion
+until a complete retry succeeds. Renderer version 5 invalidates previous
+successful input hashes, including low-TVL cadence skips, so unchanged-input
+vaults receive the table PNG on their next export (retry backoff still applies).
+All assets are gzip-compressed, and
 unchanged source images are skipped using the local input digest before any
 rendering or R2 request.
 
@@ -2260,7 +2721,7 @@ It groups source rows once into contiguous vault slices and saves state after
 each batch. Earlier process-only rendering gave little full-run benefit because
 preparation and eligibility checks remained in the parent.
 The completion log's `insufficient_history` count now reports supported vaults
-without 14 days of finite share-price history; they are not counted as eligible.
+without two valid observations at distinct timestamps; they are not counted as eligible.
 
 On the same 15,340-vault input, forced full exports without uploads measured:
 
@@ -2372,6 +2833,12 @@ Public download URLs:
 
 Collect tracked RSS, Twitter/X, and LinkedIn posts into the vault post DuckDB.
 Prints a summary table plus per-source loaded and failed dashboards.
+
+The normal vault data export includes the feed database in private R2 backups,
+with at most one backup attempt every 48 hours. The backup path uses
+`FEED_DB_PATH`, then the collector's `DB_PATH`, then the default below. The
+existing backup owner check refuses a snapshot while the collector holds the
+database open; the collector closes it between collection cycles.
 
 ```shell
 poetry run python scripts/erc-4626/scan-vault-posts.py
@@ -3106,9 +3573,35 @@ fallback record also carry `stale_export=true` and
 `risk_possibly_stale=true`. Current rows that are old but still present remain
 exported with `stale_current_row=true` and `risk_possibly_stale=true`.
 
-Rows with the exact `Blacklisted` risk label are structurally suppressed and
-are not sticky-replayed. Sticky fallback records that no longer contain a safe
-vault identity are also structurally suppressed instead of being exported.
+Rows with the exact `Blacklisted` risk label remain available in the JSON,
+including safe sticky fallback records, so consumers can retain their identity
+and exclusion status. Rankings and strategy-category aggregates exclude them.
+Sticky fallback records that no longer contain a safe vault identity are
+structurally suppressed instead of being exported.
+
+Nest deposit entrypoints sharing a token on the same chain report the same
+pool TVL. Across chains, that token identifies deployments of one product,
+whose chain balances can differ. After sticky replay, the public export selects
+one eligible entrypoint per share token across all chains: Plume first,
+Ethereum second, then other chains alphabetically by canonical display name.
+Within the preferred chain, it selects USDC, then USDT, then pUSD.
+Equal asset ranks use the lowest entrypoint address as a deterministic tie
+breaker; bridged USDC/USDT symbols are normalised and other assets rank last.
+Chain and asset preference also apply to stale cached records: a retained
+Plume route can represent the product even when another chain has newer
+observations. The chosen row keeps its own TVL, returns, observation timestamps
+and stale flags; other chain balances are not included in public totals.
+This selection runs before category and curator export construction. Every
+route keeps its scanner metadata, price history, metrics state and sticky
+record. The next export applies the selection
+to existing current and cached records, preserving their collected history.
+For an immediate offline repair of the saved JSON, use
+`scripts/nest/migrate-export-routes.py` as described above. Records without a
+share-token or chain identity remain separate.
+Recorded per-route rankings retain the original metrics-calculation cohort;
+route selection does not renumber those historical rankings. Sticky state
+timestamps describe candidate-record preparation and retention, so a saved
+entrypoint record does not prove it appeared in the public vault list.
 
 A corrupt sticky state file aborts the top-vaults export instead of resetting
 qualification history. The post-processing wrapper reports this as `False`, the
@@ -3211,7 +3704,7 @@ poetry run python scripts/erc-4626/vault-price-stats.py
 
 ### render-sparkline.py
 
-Render one vault with the same 14-day eligibility and fixed 90-day axis as the
+Render one vault with the same two-observation eligibility and fixed 90-day axis as the
 production exporter, then open the PNG in a browser. Set `VAULT_ID` to override
 the example vault. If `R2_SPARKLINE_BUCKET_NAME` is configured, the script also
 uploads the PNG under a `test-<vault-id>.png` object name.
@@ -3430,3 +3923,357 @@ address, name, denomination token and failure reason. Successful rows appear
 first with `Ok` as their failure reason. A second table provides outcome counts
 and percentages. For a mined failed call, the separate **Revert reason** column
 contains the reason replayed on the temporary Anvil fork.
+
+## Reducing and measuring scanner RPC usage
+
+The [RPC reduction plan](../../docs/claude-plans/2026-09-30-vault-scanner-rpc-reduction.md)
+records the incident counts, six changes and acceptance criteria. RPC reductions
+are always enabled: successful node detection is cached, unused timestamps are
+omitted, classification and metadata observations have bounded lifetimes,
+admission is scheduled before adapter construction, ordinary inputs are batched,
+and Morpho v1/IPOR lending reads are combined.
+
+Crash/backoff handling, publication receipts, pending metadata queues,
+unavailable-reader diagnostics and prior-qualified coverage remain active.
+Token reads use threads and daily negative retries. HyperEVM batches refresh
+current heads, and Monad state-window measurements remain bounded.
+`fetch_batched_tvl_probes()` and `fetch_metadata_snapshots()` in
+[`eth_defi/vault/rpc_batch.py`](../../eth_defi/vault/rpc_batch.py) take a
+keyword-only `batch_size` argument, defaulting to 100 **encoded subcalls** per
+chunk. `prepare_metadata_batch()` also includes paused/fee inputs, shared token
+warmup and eligible idle balances. Scanner entrypoints read `MULTICALL_BATCH_SIZE`
+(default 100); set it to 40 for a complete payload rollback, including discovery
+classification and token warmup. Python callers can pass a smaller explicit
+limit. Mantle/Gnosis retain a maximum of 16, regular HyperEVM retains 40, and
+greylisted reads remain isolated. Existing bounded retries can split further.
+The scanner has no switch to restore the expensive unoptimised paths.
+
+HyperEVM retains specialised current-state paths, while explicit historical
+metadata blocks stay pinned. Monad observations cap retries without deleting
+rows before its state boundary. Discovery requires a configured Hypersync
+client and has no RPC event fallback. Katana has no endpoint in the
+repository server list, so its configured all-chain discovery is disabled;
+price scans of already known vaults continue. New vault discovery on Katana
+requires adding a supported indexer.
+
+Hemi, Blast and Mode are no longer supported by the all-chain scanner. They
+are omitted from its chain configuration, disabling discovery, prices,
+settlements and RPC provider verification. Existing RPC environment variables
+cannot enable them; legacy `CHAIN_ORDER` entries are reported as unknown and
+skipped. Previously collected historical data remains in persistent state.
+
+Configured RPC providers for supported chains are retained
+until completion, fallback and invoice measurements support consolidation.
+
+Historical readers with no verified USD TVL yet use an hourly cadence labelled
+`unverified_tvl`, independently of admission-probe deadlines. Missing
+denomination metadata can advance genuine source progress while leaving TVL
+unknown; this cadence lets the reader continue without treating unknown TVL
+as zero. Saved qualified TVL remains intact during a metadata outage. A later
+scan with repaired metadata returns to ordinary TVL-based scheduling.
+
+YieldBasis and Kinexys use explicitly declared synthetic USD denominations:
+their valuation adapters already return USD, so admission and freshness use
+a unit exchange rate without requiring an ERC-20 token. An absent token for
+these adapters is valid metadata. Other adapters with an unavailable or
+unconfigured denomination remain unverified; do not guess a token from a
+vault's name or substitute zero TVL.
+
+ForgeYields offchain fetching is disabled because the API is no longer working.
+The scanner reads the existing metadata copy at
+`~/.tradingstrategy/cache/forgeyields/forgeyields_strategies.json` regardless of
+its age, without issuing HTTP requests, refreshing its modification time or
+writing replacement data. Keep this file when moving or restoring scanner state.
+Cached TVL and APY are last-known metadata, not fresh API observations. Without
+an existing copy, these values remain unavailable rather than becoming zero.
+
+Offchain historical backfills abort explicitly because the metadata snapshot
+contains no raw `historyReports`; previously collected price history is preserved.
+The API-backed live tests and refresh cooldown are removed while fetching is
+disabled. Re-enabling the source requires a reviewed code change.
+
+On 3 October 2026 the public website still rendered, but its numbers came from
+hardcoded fallbacks. The app displayed “Failed to fetch strategies” and used the
+same HTTP-500 `/strategies` endpoint as our scanner. A working landing page is
+not evidence that the source feed has recovered.
+
+Tokens that permanently omit their symbol keep the existing unknown-token
+scheduling estimate and inactivity cadence; that estimate cannot qualify USD TVL.
+If an adapter permanently has no denomination object, the hourly fallback
+continues until the adapter supplies an appropriate conversion. Check such
+adapters separately; missing metadata is not evidence of low TVL or inactivity.
+
+The reviewed disabled GMX markets in
+`eth_defi.vault.risk.REVIEWED_DISABLED_GMX_VAULTS` are marked `Blacklisted` for
+reporting and excluded from price-reader selection and indexed valuation-event
+prefill. All 14 Arbitrum entries were confirmed disabled through GMX DataStore at block
+510,963,697 on 2026-10-02; each source entry records its product name and last
+positive cached deposit-context valuation timestamp. Catalogue synchronisation
+continues to retain their metadata and current enablement flags. Existing prices, context
+events and reader state remain available. If a product is re-enabled, verify
+its source observations and remove its reviewed entry to restore reporting and
+scanning. A quiet enabled market or a failed generic conversion alone does not
+justify adding it to this list.
+
+The full GMX backfill script applies the same exclusions before fetching source
+events or choosing addresses for Parquet replacement. An entirely excluded
+chain returns without changing prices or context, allowing the next chain to run.
+
+Admission probes use a daily interval for new/unverified vaults, eight hours
+when a verified probe reports at least USD 750, and seven days for mature tiny vaults. Previously
+qualified vaults continue historical scanning. Positive classification has a
+28-day lifetime with address-based jitter; negative classification expires
+weekly. Metadata refreshes weekly, with transient candidates due daily for at most three attempts, then weekly.
+Unsupported versions and persistent negatives leave the pending queue and
+receive weekly checks; changed classification and forced discovery refresh
+bypass that deadline. The
+`rpc-*.json` sidecars live beside the metadata pickle. They can be ignored by
+an older release; preserve them during normal operation. Damaged sidecars fail
+loudly. Classifier-signature changes and forced invalidations are logged; protocol
+additions can refresh the whole catalogue and must be recorded as measurement
+events. Retry deadlines become due at the next scheduler tick.
+`FORCE_LEAD_DISCOVERY=true` bypasses discovery, classification and metadata
+deadlines for an intentional repair in either scanner entrypoint. Python callers
+can use the documented `scan_leads()` arguments `force_metadata_refresh` and
+`force_classification_refresh` for narrower repairs; classification refresh
+also refreshes metadata. `FORCE_VAULT_TOKEN_MAPPING_REFRESH=true` bypasses
+the separate current token-relationship cache;
+`FORCE_RPC_RETRY=true` bypasses a persisted chain deadline for an intentional
+repair. These overrides must be explicitly supplied with Compose `-e`.
+
+### Back up and reset counters
+
+The script calls `snapshot_and_reset_rpc_counters()`: a snapshot is always
+verified before an optional reset. Its earlier `backup_rpc_counters` import
+remains a compatibility alias. Protected-state hashes verify that prices,
+reader progress and timestamp caches stayed unchanged; they do not back up
+those files. Keep the separate pipeline backup procedure for that purpose.
+
+`reset-rpc-counters.py` defaults to a read-only inventory. It does not run a
+scan or make provider calls. Before maintenance, finish the current scanner
+cycle and stop the accounting writer. Inspect `docker compose logs` and ensure
+no manual scanner is running. The script takes the scanner's `scan-pipeline`
+lock and DuckDB's exclusive file lock; it aborts on conflicts. Use the mounted
+one-shot service and override its image entrypoint, which otherwise starts a
+scan.
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info vault-scanner-oneshot \
+  scripts/erc-4626/reset-rpc-counters.py
+```
+
+For an intentional reset, choose one stable ID for the maintenance operation:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e RESET_RPC_COUNTERS=true \
+  -e RPC_COUNTER_RESET_ID=rpc-reduction-2026-09-30 \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Replace the example date with the actual deployment date. By default, the
+source is `/root/.tradingstrategy/rpc-tracking.duckdb`. An override uses
+`RPC_TRACKING_DATABASE_PATH`; `PIPELINE_DATA_DIR` selects the shared pipeline
+lock directory. Pass overrides with `-e` to the one-shot service and use the
+same paths as the running scanner. `RPC_COUNTER_BACKUP_DIR` defaults to
+`backups/rpc-counters` beside the database. Keep it on the persistent mount.
+
+The script checkpoints the database and creates an exclusive, date-stamped
+file such as
+`rpc-tracking-before-rpc-reduction-2026-09-30T143000Z.duckdb`. It verifies its
+byte checksum, all table schemas/content digests, grouped totals, dates and
+cycle high-water mark before deleting counters in one transaction. Private
+`.json` and `.completed.json` receipts accompany the backup. Backups use mode
+0600 and are never overwritten or automatically rotated. Copy the backup and
+receipts to the normal off-host backup destination before relying on them.
+
+Critical pipeline pickles, Parquet, scheduling sidecars and dense timestamp
+cache files are hashed before maintenance and rechecked before reset commit.
+This can take time on large caches; progress is logged and no RPCs are made.
+The manifest reads the maintenance image's existing version stamp automatically.
+Unstamped source checkouts report null version fields. This identifies the image
+running maintenance; record the actual scanner image and deployment boundary
+from scanner logs separately when selecting comparison windows.
+
+Only `vault_rpc_api_calls`, `vault_rpc_api_errors` and the new
+`vault_rpc_operation_calls` are cleared. A zero-call reset marker preserves
+the old cycle high-water mark, so numbering continues. Reader state, metadata,
+price Parquet, timestamp caches and scheduler state are untouched. A reset
+receipt is committed inside DuckDB in the same transaction as deletion.
+
+After interruption, rerun **the same `RPC_COUNTER_RESET_ID`**. If it already
+committed, the script verifies the original backup and returns the receipt
+without clearing newer calls. A partial backup remains for diagnosis; a retry
+at a later second creates a new filename. A filename collision aborts. Do not
+restore a counters backup over a live database or invent a new reset ID merely
+to recover an interrupted operation.
+
+### Compare after two and three weeks
+
+Preserve the dated pre-deployment backup before resetting counters. After
+starting the updated scanner, take follow-up snapshots at 14 and 21 days using
+the same idle-writer procedure, with `BACKUP_RPC_COUNTERS=true` and no reset.
+Optimisations apply immediately; there is no flag-off measurement period.
+
+Select complete UTC windows with comparable chains, cadence and completed work.
+Use a healthy pre-deployment window from the saved old counters when one is
+available. If old counters contain only incidents or incomplete coverage, report
+that comparison as incident-inclusive and use the first healthy post-deployment
+week as a monitoring baseline for later weeks. That monitoring baseline does not
+measure the effect of enabling optimisations.
+
+Exclude the first deployment week if it contains mapping refreshes or queue/cache
+migration. In that case day 14 is interim and day 21 can supply fourteen
+steady-state days; delay a savings verdict if incidents leave fewer than two
+healthy metadata periods. Use this command for follow-up snapshots:
+
+```shell
+docker compose stop vault-scanner-looped
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info -e BACKUP_RPC_COUNTERS=true \
+  vault-scanner-oneshot scripts/erc-4626/reset-rpc-counters.py
+docker compose up -d vault-scanner-looped
+```
+
+Use the actual filenames printed by the script. Compare explicit complete UTC
+windows; each end date is exclusive. The stored date is the cycle-start date,
+not the execution timestamp of each request. Long scans can cross midnight;
+ensure the included cycles finished before taking a comparison snapshot.
+For example, a seven-day pre-deployment window and a 14-day post-deployment
+window after a seven-day migration period. These filenames and dates are
+illustrative; the September window includes known incidents and must be labelled
+incident-inclusive rather than treated as a healthy baseline:
+
+```shell
+docker compose run --rm --no-deps --entrypoint python \
+  -e LOG_LEVEL=info \
+  -e RPC_COUNTER_BEFORE=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-before-rpc-reduction-2026-10-01T000100Z.duckdb \
+  -e RPC_COUNTER_AFTER=/root/.tradingstrategy/backups/rpc-counters/rpc-tracking-snapshot-2026-10-22T000100Z.duckdb \
+  -e RPC_COUNTER_BEFORE_START=2026-09-24 -e RPC_COUNTER_BEFORE_END=2026-10-01 \
+  -e RPC_COUNTER_AFTER_START=2026-10-08 -e RPC_COUNTER_AFTER_END=2026-10-22 \
+  vault-scanner-oneshot scripts/erc-4626/compare-rpc-counters.py
+```
+
+The comparison is read-only and reports physical requests/day by chain, phase,
+method and provider, deduplicated items/cycles, available completion outcomes,
+and separate operation counts. Outcome rows count cycles containing each
+status; a failed then successful retry can appear under both statuses. These
+are not attempt counts or mutually exclusive categories. The script reports
+items and cycle denominators separately, without inferring successful work
+from legacy counters. Operation detail describes the same requests
+as legacy totals: never add it to them. Old counters cannot establish success
+or invoice costs. Compare billing units using provider invoices separately.
+Inspect freshness warnings, unavailable readers, pending metadata and logs
+alongside rates. Exclude partial deployment days and document cadence, enabled
+chains, queue drainage, incidents and cache warmup. The old incident-heavy
+backup measures incident-inclusive savings; it is not a healthy baseline.
+
+### Real-provider batching check
+
+Run the guarded parity script after loading the usual test secrets. It uses
+three reviewed Ethereum products (sDAI, Morpho v1 and IPOR), pins all comparisons
+to one current numeric block, compares metadata values and eligible TVL probes,
+and writes token caches only into a temporary directory:
+
+```shell
+source .local-test.env
+PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" RPC_PARITY_CHECK=true \
+  poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+```
+
+A successful run logs `PASS` and the source block for all selected targets
+(six across Ethereum, Arbitrum and Base by default).
+The transport-level unit tests separately assert that 40 ordinary TVLs require
+one physical `eth_call`, with equal values and no timestamp requests.
+
+A pending publication journal must be recovered by a normal scanner run before
+a manual backfill can rewrite the shared price file. Successful reader-state
+persistence consumes the journal; damaged critical receipts fail loudly.
+
+### HyperEVM greylist batching and diagnostic check
+
+Reviewed HyperCore-reading targets are isolated by the shared Multicall reader.
+Normal targets retain standard batching; greylisted targets use separate
+one-subcall requests, never mixed with normal calls or another greylisted target.
+The documented `greylist_batch_size` function argument defaults to one and can
+be passed to chunked and historical reader functions. No environment toggle is
+needed. Maintain entries and their evidence comments in
+`HYPEREVM_MULTICALL_GREYLIST` in
+[`eth_defi/hyperliquid/constants.py`](../../eth_defi/hyperliquid/constants.py);
+this does not remove existing blacklist entries. `main()` selects this list for
+Hyperliquid and passes it through the scanner as the generic `greylist` argument,
+including feature probes and price-history preservation. Library readers default
+to an empty list; Python callers must supply `greylist` explicitly to enable
+isolation. The standalone `scan-prices.py`, `scan-vaults.py` and
+`check-vault-history.py` entrypoints also select the HyperEVM list after chain
+verification. The diagnostic below supplies that list itself.
+
+See the [HyperCore gas investigation](../../docs/README-hyperevm-hypercore-read-gas.md)
+for the initial addresses, bounded retry policy, unavailable observations,
+address/block-scoped preservation and operation-counter suffixes. Operation
+labels come from explicit recorders attached to worker-owned providers; they
+share the existing counters without thread-local accounting state or additional
+lane-counter merging. Successful regular reads are not replayed after an
+isolated failure. Saved source rows are
+kept when an isolated observation is unavailable rather than rewritten as zero.
+This cannot recover historical HyperCore state that a provider does not serve.
+Deferral is enabled only for the historical price path that preserves saved
+rows. Metadata and feature probes still raise transport failures rather than
+caching them as contract reverts.
+Generic historical callers also retain strict errors by default. Only consumers
+that preserve existing source data should pass `allow_greylist_unavailable=True`.
+
+To exercise real providers without modifying production metadata, prices or
+reader state:
+
+```shell
+source .local-test.env && poetry run python scripts/erc-4626/check-hyperevm-greylist.py
+```
+
+The command uses supplied `JSON_RPC_HYPERLIQUID`, checks at most three providers
+at head and two older blocks, and compares mixed versus isolated HYPED requests
+with a USDt0 control. It does not automatically validate every greylist entry.
+Provider hosts and availability are printed with raw integer observations;
+successful subcalls, served reverts and exhausted gas failures are distinguished.
+The pure-EVM USDt0 control must succeed; failed Core reads are recorded explicitly.
+Compare availability rather than expecting identical live-Core values across
+separate requests. Do not repeatedly rerun the check during an upstream outage.
+
+### Manual RPC reduction checks
+
+Run the guarded checks with the current checkout importable; when using a parent
+Poetry environment in a worktree, set ``PYTHONPATH="$PWD"``. All scan output,
+reader state and caches are temporary. Supply credentials through the existing
+local secrets loader, never as command arguments.
+
+```shell
+source .local-test.env
+PYTHONPATH="$PWD" RPC_PARITY_CHECK=true timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+PYTHONPATH="$PWD" RPC_SCAN_CHECK=true MULTICALL_BATCH_SIZE=100 MAX_WORKERS=2 timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+PYTHONPATH="$PWD" RPC_BATCH_CHECK=true RPC_CHECK_CHAIN_ID=42161 timeout 180 poetry run python scripts/erc-4626/check-rpc-batch-parity.py
+```
+
+Metadata parity covers reviewed Ethereum, Arbitrum and Base targets; set
+`RPC_CHECK_CHAIN_ID` to check one chain. The Arbitrum scan uses nine hourly-grid
+samples within 129,600 blocks and verifies prices and saved progress through the
+real Parquet writer. Repeat with `MULTICALL_BATCH_SIZE=40` and the printed
+`START_BLOCK`/`END_BLOCK` to compare identical source observations. The small
+scan does not claim a full 100-call payload saving. The separate batch-size
+check reads known distinct targets from the local catalogue (`VAULT_DATABASE`
+can select a read-only copy) and compares raw metadata inputs and all attempts.
+Hypersync rate limits can dominate elapsed time; retain the response and allow
+the configured backoff rather than treating retries as a faster scanner.
+
+For a recent HyperEVM check, use `RPC_SCAN_CHECK=true RPC_CHECK_CHAIN_ID=999`
+with the same command. It uses `JSON_RPC_HYPERLIQUID`, nine samples across at most
+90 recent blocks, the existing regular 40-call cap and the isolated greylist.
+Unavailable isolated observations are reported separately. Native-asset
+placeholders with unavailable decimals fail metadata validation; successful
+HyperCore calls alone do not establish historical NAV semantics. As recorded in
+the 2026-10-23 validation results, the two regular controls passed while HYPED's
+native-HYPE denomination metadata failed.

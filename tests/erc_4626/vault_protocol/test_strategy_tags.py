@@ -207,3 +207,53 @@ def test_morini_capital_adapters_return_fx_strategy_tag(
     vault = SimpleNamespace(chain_id=chain_id, address=HexAddress(address))
 
     assert resolver(vault) == {StrategyTag.fx}
+
+
+@pytest.mark.parametrize(
+    "address",
+    (
+        "0x899e270df335287f687fdac8a9089059b042044f",
+        "0x899e270Df335287f687FdAC8a9089059B042044f",
+    ),
+)
+def test_accountable_glasgow_cosmic_strategy_tags(address: str) -> None:
+    """Classify Ryllo's receivables-backed lending without RPC calls.
+
+    Address casing must not affect lookup, and modifying a returned set
+    must not change the maintained classification for later readers.
+
+    :param address:
+        Lowercase or checksummed Glasgow Cosmic share-vault address.
+    :return:
+        ``None``. Assertions validate the exact classification and isolation.
+    """
+    vault = SimpleNamespace(chain_id=143, address=HexAddress(address))
+    expected = {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending}
+
+    tags = AccountableVault.get_strategy_tags(vault)
+    assert tags == expected
+    tags.clear()
+    assert AccountableVault.get_strategy_tags(vault) == expected
+
+
+@pytest.mark.parametrize(
+    ("chain_id", "address"),
+    (
+        (1, "0x899e270df335287f687fdac8a9089059b042044f"),
+        (143, "0x0000000000000000000000000000000000000000"),
+    ),
+)
+def test_accountable_unmapped_strategy_tags(chain_id: int, address: str) -> None:
+    """Keep unrelated deployments and unreviewed vaults unclassified.
+
+    The Glasgow Cosmic classification applies only to its Monad deployment.
+
+    :param chain_id:
+        Chain identifier for the candidate deployment.
+    :param address:
+        Candidate vault address.
+    :return:
+        ``None``. Assertions validate missing-information behaviour.
+    """
+    vault = SimpleNamespace(chain_id=chain_id, address=HexAddress(address))
+    assert AccountableVault.get_strategy_tags(vault) is None

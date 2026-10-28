@@ -36,7 +36,7 @@ links:
   defillama:
   audits: https://github.com/AlturaTrade/docs/blob/V2/VaultAudit.pdf
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/altura
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/altura
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/altura/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29

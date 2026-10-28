@@ -11,10 +11,12 @@ import duckdb
 import pandas as pd
 import pytest
 from eth_utils import to_checksum_address
+from web3 import Web3
 from web3.exceptions import ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec
@@ -23,6 +25,7 @@ from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.rpc_batch import fetch_current_vault_tvl_usd
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.yield_basis import historical_context, vault_catalog, vault_sync
 from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS, YIELD_BASIS_STABLECOIN
@@ -33,6 +36,29 @@ from eth_defi.yield_basis.vault import YieldBasisVault
 from eth_defi.yield_basis.vault_catalog import YieldBasisMarket, YieldBasisScanPreparation
 
 YIELD_BASIS_TEST_BLOCK: int = 123
+
+
+@pytest.mark.parametrize("market_id", sorted(YIELD_BASIS_ACTIVE_MARKETS))
+def test_yield_basis_admission_uses_existing_usd_valuation(market_id: int, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Recognise the reviewed oracle's USD accounting without a token lookup.
+
+    Production admission and contextual freshness create generic reader states
+    for YieldBasis. An absent ERC-20 is intentional and must neither suppress
+    admission nor emit the missing-denomination warning seen in deployment logs.
+    """
+    vault = YieldBasisVault(Web3(), VaultSpec(1, YIELD_BASIS_ACTIVE_MARKETS[market_id].lt_address))
+    monkeypatch.setattr(vault, "fetch_nav", lambda: Decimal("25000"))
+
+    def fail_token_lookup() -> None:
+        """Fail if generic USD conversion attempts an unnecessary token read."""
+        pytest.fail("Synthetic USD valuations must not look up an ERC-20 denomination")
+
+    monkeypatch.setattr(vault, "fetch_denomination_token", fail_token_lookup)
+    state = VaultReaderState(vault)
+    assert state.exchange_rate == Decimal(1)
+    assert state.token_symbol == "USD"
+    assert fetch_current_vault_tvl_usd(vault) == (Decimal("25000"), False)
+    assert "Denomination unavailable" not in caplog.text
 
 
 class _Call:

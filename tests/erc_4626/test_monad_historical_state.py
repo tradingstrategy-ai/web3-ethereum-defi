@@ -88,3 +88,14 @@ def test_fetch_monad_historical_state_start_block_rejects_unavailable_end(monkey
             start_block=GENESIS_BLOCK,
             end_block=LATEST_BLOCK,
         )
+
+
+def test_monad_capability_probe_does_not_report_lost_price_history(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """A bounded retention measurement is distinct from a required price gap."""
+    multicall, calls = _create_multicall_probe(available_from_block=600)
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=143))
+    monkeypatch.setattr(historical, "get_multicall_contract", lambda _web3: multicall)
+    assert historical.fetch_monad_historical_state_start_block(web3, 100, 1000, report_irrecoverable_gap=False) == 600
+    assert web3._vault_historical_state_window["retention_seconds"] == 400 * historical.EVM_BLOCK_TIMES[143]
+    assert len(calls) <= MAX_BINARY_SEARCH_PROBES
+    assert "irrecoverable state gap" not in caplog.text

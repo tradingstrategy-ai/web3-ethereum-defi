@@ -30,12 +30,14 @@ Key differences from the daily pipeline:
 import datetime
 import logging
 import threading
-from dataclasses import dataclass
+from contextlib import closing
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 import pandas as pd
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
+from requests.exceptions import RequestException
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
@@ -54,12 +56,11 @@ from eth_defi.hyperliquid.deposit import (
 from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
-    HyperliquidVault,
-    VaultInfo,
     VaultSummary,
     fetch_all_vaults,
 )
 from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
+from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +87,8 @@ class HyperliquidHighFreqPriceRow:
     apr: float | None = None
     is_closed: bool | None = None
     allow_deposits: bool | None = None
-    leader_fraction: float | None = None
-    leader_commission: float | None = None
+    leader_fraction: Percent | None = None
+    leader_commission: Percent | None = None
     #: Flow fields use bucket-relative names (not "daily_" prefix).
     deposit_count: int | None = None
     withdrawal_count: int | None = None
@@ -95,7 +96,7 @@ class HyperliquidHighFreqPriceRow:
     withdrawal_usd: float | None = None
     epoch_reset: bool | None = None
     data_source: str = "api"
-    #: When this row was actually written/fetched (naive UTC).
+    #: First write clock (naive UTC); later price updates do not refresh it.
     written_at: datetime.datetime | None = None
 
     def __post_init__(self) -> None:
@@ -139,16 +140,17 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
     Inherits shared metadata and lifecycle methods from
     :py:class:`~eth_defi.hyperliquid.vault_metrics_db.HyperliquidMetricsDatabaseBase`.
-    Uses ``TIMESTAMP`` primary key instead of ``DATE``.
+    Uses raw ``TIMESTAMP`` keys instead of daily ``DATE`` keys. Bulk tables
+    are unconstrained; staging and hash joins handle duplicate ingestion.
     """
 
     price_table = "vault_high_freq_prices"
     time_column = "timestamp"
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path) -> None:
         super().__init__(db_path)
 
-    def _init_price_schema(self):
+    def _init_price_schema(self) -> None:
         """Create the HF price table."""
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_high_freq_prices (
@@ -172,8 +174,7 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
                 withdrawal_usd DOUBLE,
                 epoch_reset BOOLEAN,
                 data_source VARCHAR,
-                written_at TIMESTAMP,
-                PRIMARY KEY (vault_address, timestamp)
+                written_at TIMESTAMP
             )
         """)
 
@@ -183,12 +184,12 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
         self,
         rows: list[HyperliquidHighFreqPriceRow],
         cutoff_timestamp: datetime.datetime | None = None,
-    ):
+    ) -> None:
         """Bulk upsert high-frequency price rows.
 
-        Uses COALESCE for sparse/stateful columns (matching
-        ``daily_metrics.py:804`` pattern) so that overlap re-upserts
-        and tombstone rows do not wipe existing values.
+        Sparse economic metrics retain earlier values when a new value is
+        absent. Matching price keys preserve their permission compatibility
+        fields and original write clock; source permissions are independent.
 
         :param rows:
             Price rows to upsert.
@@ -203,69 +204,33 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
         db_rows = [r.as_db_tuple() for r in rows]
 
-        # Thread safety: use a per-call cursor so concurrent worker
-        # threads do not clobber each other's result sets on the
-        # shared connection.  See ``HyperliquidMetricsDatabaseBase``.
-        self.con.cursor().executemany(
-            """
-            INSERT INTO vault_high_freq_prices (
-                vault_address, timestamp, share_price, tvl, cumulative_pnl,
-                cumulative_volume, daily_pnl, daily_return, follower_count, apr,
-                is_closed, allow_deposits, leader_fraction, leader_commission,
-                deposit_count, withdrawal_count,
-                deposit_usd, withdrawal_usd, epoch_reset,
-                data_source, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (vault_address, timestamp)
-            DO UPDATE SET
-                share_price = EXCLUDED.share_price,
-                tvl = EXCLUDED.tvl,
-                cumulative_pnl = EXCLUDED.cumulative_pnl,
-                cumulative_volume = COALESCE(EXCLUDED.cumulative_volume, vault_high_freq_prices.cumulative_volume),
-                daily_pnl = EXCLUDED.daily_pnl,
-                daily_return = EXCLUDED.daily_return,
-                follower_count = COALESCE(EXCLUDED.follower_count, vault_high_freq_prices.follower_count),
-                apr = COALESCE(EXCLUDED.apr, vault_high_freq_prices.apr),
-                is_closed = COALESCE(EXCLUDED.is_closed, vault_high_freq_prices.is_closed),
-                allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_high_freq_prices.allow_deposits),
-                leader_fraction = COALESCE(EXCLUDED.leader_fraction, vault_high_freq_prices.leader_fraction),
-                leader_commission = COALESCE(EXCLUDED.leader_commission, vault_high_freq_prices.leader_commission),
-                deposit_count = COALESCE(EXCLUDED.deposit_count, vault_high_freq_prices.deposit_count),
-                withdrawal_count = COALESCE(EXCLUDED.withdrawal_count, vault_high_freq_prices.withdrawal_count),
-                deposit_usd = COALESCE(EXCLUDED.deposit_usd, vault_high_freq_prices.deposit_usd),
-                withdrawal_usd = COALESCE(EXCLUDED.withdrawal_usd, vault_high_freq_prices.withdrawal_usd),
-                epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_high_freq_prices.epoch_reset),
-                data_source = COALESCE(EXCLUDED.data_source, vault_high_freq_prices.data_source),
-                written_at = EXCLUDED.written_at
-            """,
-            db_rows,
-        )
+        self.upsert_price_batch(db_rows, [field.name for field in fields(HyperliquidHighFreqPriceRow)])
 
     def get_all_high_freq_prices(self) -> pd.DataFrame:
-        """Get all high-frequency price data across all vaults."""
-        return (
-            self.con.cursor()
-            .execute("""
-            SELECT * FROM vault_high_freq_prices
-            ORDER BY vault_address, timestamp
-        """)
-            .df()
-        )
+        """Read all raw prices ordered by vault and source timestamp.
+
+        Permission compatibility fields are not independently timed state;
+        the exporter projects the separate permission history.
+
+        :return: Price-table DataFrame with naive UTC timestamps.
+        """
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute("""
+                SELECT * FROM vault_high_freq_prices
+                ORDER BY vault_address, timestamp
+            """).df()
 
     def get_vault_high_freq_prices(self, vault_address: HexAddress) -> pd.DataFrame:
         """Get high-frequency price data for a specific vault."""
-        return (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute(
                 """
-            SELECT * FROM vault_high_freq_prices
-            WHERE vault_address = ?
-            ORDER BY timestamp
-            """,
+                SELECT * FROM vault_high_freq_prices
+                WHERE vault_address = ?
+                ORDER BY timestamp
+                """,
                 [vault_address.lower()],
-            )
-            .df()
-        )
+            ).df()
 
     def get_vault_last_timestamp(self, vault_address: HexAddress) -> datetime.datetime | None:
         """Get the latest stored timestamp for a vault.
@@ -273,17 +238,14 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             The most recent timestamp, or ``None`` if no data exists.
         """
-        row = (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            row = cursor.execute(
                 "SELECT MAX(timestamp) FROM vault_high_freq_prices WHERE vault_address = ?",
                 [vault_address.lower()],
-            )
-            .fetchone()
-        )
-        return row[0] if row and row[0] is not None else None
+            ).fetchone()
+            return row[0] if row and row[0] is not None else None
 
-    def _write_tombstone_rows(self, vault_addresses: list[str]) -> int:
+    def _write_tombstone_rows(self, vault_addresses: list[HexAddress]) -> int:
         """Write tombstone HF price rows for the given vaults."""
         if not vault_addresses:
             return 0
@@ -368,20 +330,8 @@ def fetch_and_store_vault_high_freq(
     """
     vault_address = summary.vault_address.lower()
 
-    try:
-        vault = HyperliquidVault(
-            session=session,
-            vault_address=vault_address,
-            timeout=timeout,
-        )
-        info: VaultInfo = vault.fetch_metadata()
-    except Exception as e:
-        logger.warning(
-            "Failed to fetch vault details for %s (%s): %s",
-            summary.name,
-            vault_address,
-            e,
-        )
+    info = db.fetch_vault_metadata(session, summary, timeout)
+    if info is None:
         return False
 
     # Get portfolio history
@@ -412,7 +362,7 @@ def fetch_and_store_vault_high_freq(
     flow_start_date: datetime.date | None = None
 
     if flow_backfill_days > 0:
-        today = datetime.date.today()
+        today = native_datetime_utc_now().date()
         yesterday = today - datetime.timedelta(days=1)
         flow_start_date = today - datetime.timedelta(days=flow_backfill_days)
         flow_start_dt = datetime.datetime(
@@ -447,7 +397,7 @@ def fetch_and_store_vault_high_freq(
                 vault_address,
                 len(daily_flows),
             )
-        except Exception as e:
+        except (RequestException, ValueError, KeyError, TypeError, IndexError) as e:
             logger.warning(
                 "Failed to fetch deposit events for %s (%s): %s",
                 summary.name,
@@ -573,7 +523,7 @@ def fetch_and_store_vault_high_freq(
         # rows.  Downstream netflow code sums these columns across rows,
         # so duplicates would overstate deposit/withdrawal counts and USD.
         date_val = raw_ts.date()
-        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        yesterday = native_datetime_utc_now().date() - datetime.timedelta(days=1)
         is_last_row_for_date = last_row_per_date.get(date_val) == i
         if is_last_row_for_date and flow_start_date is not None and flow_start_date <= date_val <= yesterday:
             flow = daily_flows.get(date_val, (0, 0, 0.0, 0.0))
@@ -661,7 +611,7 @@ def run_high_freq_scan(
     max_workers: int = 16,
     cutoff_timestamp: datetime.datetime | None = None,
     timeout: float = 30.0,
-    vault_addresses: list[str] | None = None,
+    vault_addresses: list[HexAddress] | None = None,
     flow_backfill_days: int = 7,
     full_scan: bool = False,
 ) -> HyperliquidHighFreqMetricsDatabase:
@@ -676,7 +626,8 @@ def run_high_freq_scan(
     :param db_path:
         Path to the HF DuckDB database file.
     :param scan_interval:
-        Bucket size for timestamp normalisation.
+        Polling cadence passed to workers for scheduling context. Stored portfolio
+        timestamps retain their raw API precision and are not bucketed.
     :param min_tvl:
         Minimum TVL in USD to include a vault.
     :param max_vaults:
@@ -710,8 +661,9 @@ def run_high_freq_scan(
     for attempt in range(3):
         try:
             vault_summaries = list(fetch_all_vaults(session, timeout=timeout))
+            bulk_received_at = native_datetime_utc_now()
             break
-        except Exception as e:
+        except (RequestException, ValueError, KeyError, TypeError, IndexError) as e:
             logger.warning(
                 "Error fetching vault summaries (attempt %d/3): %s",
                 attempt + 1,
@@ -721,6 +673,8 @@ def run_high_freq_scan(
 
     if vault_summaries is None:
         raise RuntimeError("Failed to fetch vault summaries after 3 attempts")
+
+    db.record_bulk_closures(vault_summaries, bulk_received_at)
 
     logger.debug("Fetched %d total vaults from stats-data API", len(vault_summaries))
 

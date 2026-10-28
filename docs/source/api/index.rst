@@ -22,6 +22,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aave_v2/index
    aave_v3/index
    arcus/index
+   arcadia/index
    axis/index
    flying_tulip/index
    upshift/index
@@ -52,6 +53,8 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    asseto/index
+   antarctic/index
+   infinit/index
    rysk/index
    barker/index
    bulla/index
@@ -97,6 +100,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    price_oracle/index
    currency_api/index
    research/index
+   vault_report/index
 
 
 Indices and tables

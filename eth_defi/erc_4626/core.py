@@ -85,12 +85,22 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Asseto IP Vault on Soneium; separate onchain reader, still under verification.
+    asseto_royalty_like = "asseto_royalty_like"
+
     #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
     #:
     #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
     #: Routing marker for non-ERC-4626 Rysk Premium LP shares discovered and
     #: priced from protocol-specific onchain events.
     rysk_premium_like = "rysk_premium_like"
+
+    #: Antarctic perpetual exchange LP settlement prices.
+    #: https://www.antarctic.exchange/lp/amlp
+    antarctic_like = "antarctic_like"
+
+    #: Infinit managed trading vaults: https://www.infinit.tech/.
+    infinit_like = "infinit_like"
 
     #: Franklin Templeton Benji tokenised fund share.
     #:
@@ -188,6 +198,9 @@ class ERC4626Feature(enum.Enum):
     #: share.  Its FT reward distributions are represented separately through
     #: a :attr:`share_price_equivalence` historical series.
     flying_tulip_like = "flying_tulip_like"
+
+    #: Flying Tulip ssftUSD with ftUSD rewards compounded into its share price.
+    flying_tulip_stable_like = "flying_tulip_stable_like"
 
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
@@ -511,6 +524,11 @@ class ERC4626Feature(enum.Enum):
     #:
     #: https://frankencoin.com/token/
     frankencoin_like = "frankencoin_like"
+
+    #: Frankencoin Shares (FCS), the protocol-equity ERC-4626 wrapper.
+    #:
+    #: https://docs.frankencoin.com/pool-shares/fcs
+    frankencoin_fcs_like = "frankencoin_fcs_like"
 
     #: Yearn Morpho Compounder strategy
     #:
@@ -1034,6 +1052,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     threshold. T3tris migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
+    Nest routes can be imported from the first-party catalogue without observed
+    deposit counts. They must keep their published historical lower bound;
+    zero observed events must not move them into a recent-only bootstrap.
 
     :param detection:
         Shared vault detection envelope.
@@ -1053,6 +1074,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.gmx_glv,
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
+            ERC4626Feature.antarctic_like,
+            ERC4626Feature.asseto_royalty_like,
+            ERC4626Feature.infinit_like,
+            ERC4626Feature.nest_like,
         )
     )
     kamui_exempt = ERC4626Feature.lagoon_like in detection.features and is_kamui_lagoon_vault(detection.chain, detection.address)
@@ -1155,10 +1180,14 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "GMX"
     elif ERC4626Feature.yield_basis_lt in features:
         return "YieldBasis"
-    elif ERC4626Feature.flying_tulip_like in features:
+    elif features & {ERC4626Feature.flying_tulip_like, ERC4626Feature.flying_tulip_stable_like}:
         return "Flying Tulip"
-    elif ERC4626Feature.asseto_like in features:
+    elif ERC4626Feature.asseto_like in features or ERC4626Feature.asseto_royalty_like in features:
         return "Asseto"
+    elif ERC4626Feature.antarctic_like in features:
+        return "Antarctic"
+    elif ERC4626Feature.infinit_like in features:
+        return "Infinit"
     elif ERC4626Feature.rysk_premium_like in features:
         return "Rysk"
     elif ERC4626Feature.franklin_like in features:
@@ -1307,7 +1336,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.spark_like in features:
         return "Spark"
 
-    elif ERC4626Feature.frankencoin_like in features:
+    elif ERC4626Feature.frankencoin_like in features or ERC4626Feature.frankencoin_fcs_like in features:
         return "Frankencoin"
 
     elif ERC4626Feature.yearn_morpho_compounder_like in features:

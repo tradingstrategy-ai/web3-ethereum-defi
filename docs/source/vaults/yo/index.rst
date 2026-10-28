@@ -23,7 +23,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yo>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/yo>`__
 - `Homepage <https://www.yo.xyz/>`__
 - `Documentation <https://docs.yo.xyz/>`__
 - `GitHub <https://github.com/yoprotocol/core>`__

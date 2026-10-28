@@ -24,7 +24,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/dolomite>`__
 - `Homepage <https://dolomite.io/>`__
 - `Application <https://app.dolomite.io/>`__
 - `Documentation <https://docs.dolomite.io/>`__

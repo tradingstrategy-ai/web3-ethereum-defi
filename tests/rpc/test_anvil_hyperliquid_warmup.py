@@ -18,6 +18,7 @@ import pytest
 from web3 import HTTPProvider, Web3
 
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ def anvil_hyperliquid_warm() -> AnvilLaunch:
     """Launch a HyperEVM fork with eager full-block warm-up enabled."""
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
+        fork_block_number=HYPERLIQUID_MIDNIGHT_BLOCK,
         gas_limit=30_000_000,
         warm_up_block=True,
     )
@@ -65,7 +67,7 @@ def test_anvil_hyperliquid_warm_up_block_smoke(anvil_hyperliquid_warm: AnvilLaun
     current_block = web3.eth.block_number
 
     assert chain_id == 999
-    assert current_block > 0
+    assert current_block == HYPERLIQUID_MIDNIGHT_BLOCK
 
     started_at = time.perf_counter()
     block = web3.eth.get_block(current_block, full_transactions=True)

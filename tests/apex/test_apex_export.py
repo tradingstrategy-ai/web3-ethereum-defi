@@ -11,7 +11,7 @@ import pytest
 from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultSummary
-from eth_defi.apex.vault_data_export import build_raw_prices_dataframe, create_apex_vault_row, merge_into_vault_database
+from eth_defi.apex.vault_data_export import build_raw_prices_dataframe, create_apex_vault_row, get_apex_vault_link, merge_into_vault_database
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.base import VaultSpec
@@ -19,6 +19,27 @@ from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
 EXPECTED_TVL = 125.0
+
+
+@pytest.mark.parametrize(
+    ("vault_id", "expected_url"),
+    [
+        ("2099816991878676480", "https://omni.apex.exchange/vaultInfo/2099816991878676480"),
+        (" 10000 ", "https://omni.apex.exchange/vaultInfo/10000/1"),
+        ("10001", "https://omni.apex.exchange/vaultInfo/10001/1"),
+    ],
+)
+def test_apex_vault_link_selects_the_correct_view(vault_id: str, expected_url: str) -> None:
+    """User vaults use their own view; both official vaults retain ``/1``.
+
+    The user-vault identity is the live AI multistrategy regression case.
+
+    :param vault_id:
+        User-created or official ApeX identity.
+    :param expected_url:
+        Direct page URL used by the native application.
+    """
+    assert get_apex_vault_link(vault_id) == expected_url
 
 
 def _vault(vault_id: str = "2044287989957394432") -> ApexVaultSummary:
@@ -72,7 +93,7 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
     assert is_good_multichain_address(vault.synthetic_address)
     assert spec == VaultSpec(chain_id=APEX_CHAIN_ID, vault_address=vault.synthetic_address)
     assert row["Protocol"] == "ApeX"
-    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/2044287989957394432/1"
+    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/2044287989957394432"
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
     assert row["_lockup"] == datetime.timedelta(days=1)

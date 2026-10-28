@@ -18,7 +18,7 @@ as the maximum normal wait.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/d2-finance>`__
 - `Homepage <https://d2.finance/>`__
 - `Twitter <https://x.com/D2_Finance>`__
 - `DefiLlama <https://defillama.com/protocol/d2-finance>`__

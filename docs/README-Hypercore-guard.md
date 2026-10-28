@@ -243,7 +243,36 @@ CoreWriter actions are **not atomic**. When `sendRawAction()` succeeds on HyperE
 
 This means the deposit flow can partially fail. For example, USDC could be bridged to Core (phase 1) but the vault deposit (phase 2) could fail on Core, leaving funds in the Safe's spot or perp account rather than in the vault.
 
-**Mitigation**: validate preconditions before submitting actions. Never assume a CoreWriter action has succeeded. Verify via precompile reads in subsequent blocks.
+**Mitigation**: validate preconditions before submitting actions and inspect
+later HyperCore state. A successful EVM receipt proves submission, not final
+HyperCore execution. The executor separately proves bridge arrival and the
+spot-to-perp balance changes before submitting a vault deposit.
+
+### Final deposit equity observation
+
+`wait_for_vault_deposit_confirmation()` observes `userVaultEquities` until an
+equity threshold is reached. Its historical name does not make the result a
+transaction receipt: losses on a large existing holding can conceal a small
+successful top-up, while market gains can mimic one. The 5% allowance is
+measured against the submitted deposit, not the entire holding.
+
+The helper retains its strict return-or-raise contract. Live trade-executor
+settlement treats only this final observation as advisory: after a successful
+vault-transfer EVM receipt, wait at most 60 seconds, then accept the submitted
+principal and persist an `UNVERIFIED HyperCore deposit` warning if the threshold
+was not reached or the API read failed. The accepted fill is never total equity
+or its change. This policy accepts the possibility of a silent HyperCore
+rejection; it does not add ledger matching or resubmit the transfer. Earlier
+phase failures still stop execution.
+
+Equity fetch helpers accept an optional absolute `time.monotonic()` deadline.
+That path requires `curl` on `PATH` (already present in the executor image).
+The [total transfer timeout](https://curl.se/docs/manpage.html#-m), backed by a
+subprocess timeout, bounds DNS, connection and slow-body waits. It uses the
+shorter of the request timeout and remaining deadline, with one attempt and
+no proxy rotation, retry, `Retry-After` sleep or blocking rate-limit admission.
+Poll sleeps use the same overall budget. API errors may end the observation
+early. Ordinary readers keep their existing retry and rate-limit policies.
 
 ### Order of events / balance gap
 

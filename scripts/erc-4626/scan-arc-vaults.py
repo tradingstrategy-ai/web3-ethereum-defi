@@ -25,7 +25,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from tabulate import tabulate
 
-from eth_defi.provider.broken_provider import verify_archive_node
+from eth_defi.provider.broken_provider import verify_rpc_provider_capabilities
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.scan_all_chains import scan_vaults_for_chain
 
@@ -129,7 +129,7 @@ def main() -> None:
 
     rpc_url, rpc_source = resolve_arc_rpc_url()
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
-    verified_rpc_url, latest_block = verify_archive_node(rpc_url, "Arc")
+    verified_rpc_url, latest_block = verify_rpc_provider_capabilities(rpc_url, "Arc")
     logger.info(
         "Starting Arc vault discovery from %s at block %s with %d workers; local state is %s",
         rpc_source,

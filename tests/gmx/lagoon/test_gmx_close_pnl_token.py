@@ -11,7 +11,7 @@ diverge on every profitable long close.
 
 Before the fix, ``decreasePositionSwapType`` was hardcoded to ``NoSwap`` and
 ``shouldUnwrapNativeToken`` to ``True`` (`eth_defi/gmx/order/base_order.py`
-lines 707/709, `eth_defi/gmx/order/sltp_order.py` lines 475/477). GMX then
+and `eth_defi/gmx/order/sltp_order.py`). GMX then
 paid the WETH profit unmodified and unwrapped it into **native ETH**, an
 asset the Lagoon NAV calculation cannot see
 (:func:`eth_defi.gmx.valuation.fetch_gmx_total_equity`). Every profitable
@@ -28,7 +28,9 @@ Phase 1/2) for the full root-cause analysis.
 
 import logging
 import os
+from collections.abc import Iterator
 from decimal import Decimal
+from typing import Any
 
 import flaky
 import pytest
@@ -37,28 +39,29 @@ from eth_defi.gmx.constants import OrderType
 from eth_defi.gmx.contracts import get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.pending_orders import fetch_pending_orders
+from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 from eth_defi.gmx.testing.constants import resolve_token_address
 from eth_defi.gmx.testing.oracle import set_mock_token_price
 from eth_defi.gmx.valuation import fetch_gmx_total_equity
-from eth_defi.provider.anvil import AnvilLaunch
-from eth_defi.token import fetch_erc20_details
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
-from tests.gmx.lagoon.test_gmx_lagoon_integration import (
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.testing.gmx_lagoon import (
     USDC_ARBITRUM,
+    USDC_WHALE,
     WETH_ARBITRUM,
+    WETH_WHALE,
     LagoonGMXForkEnv,
-    _create_lagoon_gmx_fork_env,
+    gmx_fork_token_metadata,
+    isolated_lagoon_gmx_fork_env,
 )
+from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
 
 # Skip entire module if JSON_RPC_ARBITRUM not set
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("JSON_RPC_ARBITRUM"),
-    reason="JSON_RPC_ARBITRUM environment variable not set",
-)
+pytestmark = pytest.mark.skipif(not os.environ.get("JSON_RPC_ARBITRUM"), reason="JSON_RPC_ARBITRUM environment variable not set")
 
-#: Position size used by both tests below. Large enough that the forced PnL
+#: Position size used by the payout regressions below. Large enough that the forced PnL
 #: swamps execution-fee refund dust (a few dollars at most, paid in native
 #: ETH regardless of the fix — GMX always refunds unused keeper gas that
 #: way), but small enough that the swap leg introduced by the fix (WETH ->
@@ -80,20 +83,55 @@ _PRICE_MOVE_FRACTION = 0.20
 _GAS_REFUND_CEILING_USD = 20.0
 
 
-@pytest.fixture()
-def lagoon_gmx_fork_env(anvil_chain_fork: AnvilLaunch) -> LagoonGMXForkEnv:
-    """Initialise Lagoon GMX state on an isolated fixed-block fork.
+@pytest.fixture(scope="module")
+def _pnl_baselines() -> dict[str, dict[tuple[int, float], LagoonGMXForkEnv]]:
+    """Retain one deployment per live PnL fork generation and mutation group.
 
-    Reuses :func:`tests.gmx.lagoon.test_gmx_lagoon_integration._create_lagoon_gmx_fork_env`
-    rather than duplicating its ~150 lines of Safe/vault/GMX deployment setup.
-    See that module for the full deployment sequence (mock oracle first,
-    then Lagoon vault + Safe, then Safe funding, then ``LagoonGMXTradingWallet``
-    and ``GMXConfig``).
+    Three groups reduce repeated deployment while keeping payout checks parallel.
 
-    :param anvil_chain_fork: Fixed-block Arbitrum Anvil fork fixture from ``tests/gmx/conftest.py``.
-    :return: Fully wired :class:`LagoonGMXForkEnv`.
+    :return:
+        Module-local deployment cache, rebuilt after a fork restart.
     """
-    return _create_lagoon_gmx_fork_env(anvil_chain_fork)
+    return {}
+
+
+@pytest.fixture()
+def lagoon_gmx_fork_env(
+    chain_name: str,
+    request: pytest.FixtureRequest,
+    anvil_fork_pool: AnvilForkPool,
+    _pnl_baselines: dict[str, dict[tuple[int, float], LagoonGMXForkEnv]],
+) -> Iterator[LagoonGMXForkEnv]:
+    """Share deployment while restoring oracle, tokens and positions per case.
+
+    ETH and BTC tests mutate their own oracle/token state within the snapshot.
+    The PnL pool partition cannot share a process with the trading pilot.
+
+    :param chain_name:
+        Explicit dependency for the Arbitrum parametrisation.
+    :param request:
+        Test node carrying the collection-time mutation-group marker.
+    :param anvil_fork_pool:
+        Session pool, checking the current process on every request.
+    :param _pnl_baselines:
+        Module-local deployed baseline cache.
+    :return:
+        Isolated real-chain environment with fresh Python adapters.
+    """
+    assert chain_name == "arbitrum"
+    group_marker = request.node.get_closest_marker("xdist_group")
+    assert group_marker is not None, "Mutable PnL tests must declare their deployment group"
+    group = group_marker.args[0]
+    launch = anvil_fork_pool.get_launch(
+        os.environ["JSON_RPC_ARBITRUM"],
+        ARBITRUM_MIDNIGHT_BLOCK,
+        isolation_group=group,
+        unlocked_addresses=[USDC_WHALE, WETH_WHALE],
+        test_request_timeout=100,
+        launch_wait_seconds=60,
+    )
+    with gmx_fork_token_metadata(), isolated_lagoon_gmx_fork_env(launch, _pnl_baselines.setdefault(group, {})) as env:
+        yield env
 
 
 def _open_long_and_get_position(env: LagoonGMXForkEnv) -> dict:
@@ -102,7 +140,7 @@ def _open_long_and_get_position(env: LagoonGMXForkEnv) -> dict:
     Mirrors the open flow in ``test_gmx_lagoon_integration.py``: build the
     order via :class:`~eth_defi.gmx.trading.GMXTrading`, sign it through
     :class:`~eth_defi.gmx.lagoon.wallet.LagoonGMXTradingWallet` (wraps it in
-    ``performCall`` so it passes the on-chain Guard), submit, then execute as
+    ``performCall`` so it passes the onchain Guard), submit, then execute as
     keeper.
 
     :param env: Fully wired Lagoon GMX fork environment.
@@ -142,10 +180,10 @@ def _open_long_and_get_position(env: LagoonGMXForkEnv) -> dict:
     return position
 
 
-def _close_position(env: LagoonGMXForkEnv, position: dict, is_long: bool, **kwargs) -> None:
+def _close_position(env: LagoonGMXForkEnv, position: dict, is_long: bool, **kwargs: Any) -> None:
     """Close ``position`` fully through the Safe using the current oracle price.
 
-    Uses the exact raw on-chain size (``position_size_usd_raw``) and the
+    Uses the exact raw onchain size (``position_size_usd_raw``) and the
     position's own collateral for the withdrawal amount, matching the
     proven full-close pattern in ``test_trading.py::test_open_and_close_position``.
 
@@ -157,6 +195,8 @@ def _close_position(env: LagoonGMXForkEnv, position: dict, is_long: bool, **kwar
         ``decrease_position_swap_type`` / ``should_unwrap_native_token`` to
         exercise a non-default PnL-payout configuration. Overrides the
         defaults set below when the same key is passed.
+    :return:
+        None; the real close transaction and keeper execution are verified.
     """
     env.lagoon_wallet.sync_nonce(env.web3)
 
@@ -186,7 +226,8 @@ def _close_position(env: LagoonGMXForkEnv, position: dict, is_long: bool, **kwar
     assert exec_receipt["status"] == 1, "Close order execution should succeed"
 
 
-def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-standard")
+def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A profitable long ETH/USDC close must return USDC, not leak profit as native ETH.
 
     Regression test for Defect A in
@@ -204,6 +245,11 @@ def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_e
     False``), GMX swaps the WETH profit into USDC before payout, so the
     Safe's USDC balance increases by roughly collateral + profit and its
     native ETH balance only moves by an ordinary execution-fee refund.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -250,7 +296,8 @@ def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_e
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} profit"
 
 
-def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-standard")
+def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A profitable short's PnL token already equals its collateral token (USDC).
 
     Highest regression risk identified in
@@ -267,6 +314,11 @@ def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_en
     price), closes it fully, and asserts the close succeeds and pays out in
     USDC only — no unexpected native ETH movement beyond an ordinary
     execution-fee refund.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -343,7 +395,8 @@ def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_en
 
 # Flaky since 2026-08-23: CI keeper execution succeeded but the Reader returned no position; the fixed-block test passes locally.
 @flaky.flaky(max_runs=3, min_passes=1)
-def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-standard")
+def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A triggered take-profit order must pay PnL in USDC, not native ETH.
 
     Every other test in this file drives a close through
@@ -366,10 +419,15 @@ def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: Lagoo
 
     This test opens a long with a bundled take-profit, executes the open,
     finds the resulting pending take-profit (``LIMIT_DECREASE``) order via
-    the on-chain Reader, moves the mock oracle price past its trigger, and
+    the onchain Reader, moves the mock oracle price past its trigger, and
     executes *that specific order* via the keeper harness — the same call
     GMX's real keeper infrastructure makes when a take-profit fires in
     production.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -413,7 +471,7 @@ def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: Lagoo
     assert position["is_long"] is True
     collateral_usd = position["initial_collateral_amount_usd"]
 
-    # === Step 3: locate the pending take-profit order on-chain ===
+    # === Step 3: locate the pending take-profit order onchain ===
     pending_tp_orders = list(
         fetch_pending_orders(
             web3,
@@ -493,7 +551,8 @@ def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: Lagoo
 
 # Flaky since 2026-08-23: CI keeper execution succeeded but the Reader returned no position; the fixed-block test passes locally.
 @flaky.flaky(max_runs=3, min_passes=1)
-def test_close_profitable_long_with_no_swap_pays_pnl_in_weth(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-swap")
+def test_close_profitable_long_with_no_swap_pays_pnl_in_weth(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """``no_swap`` (0) leaves the WETH PnL leg unconverted and unwrapped.
 
     Proves the payout direction is genuinely configurable, not just a new
@@ -508,6 +567,11 @@ def test_close_profitable_long_with_no_swap_pays_pnl_in_weth(lagoon_gmx_fork_env
     setting it ``True`` would unwrap this same WETH PnL into native ETH
     instead, which is a different (and already-fixed) configuration, not
     what ``no_swap`` alone proves.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -554,7 +618,8 @@ def test_close_profitable_long_with_no_swap_pays_pnl_in_weth(lagoon_gmx_fork_env
     assert eth_delta_usd < _GAS_REFUND_CEILING_USD, f"Native ETH increased by ~${eth_delta_usd:.2f} — should_unwrap_native_token=False must not unwrap the WETH PnL leg to native ETH"
 
 
-def test_close_profitable_long_swap_collateral_to_pnl_pays_weth(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-swap")
+def test_close_profitable_long_swap_collateral_to_pnl_pays_weth(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """``swap_collateral_token_to_pnl_token`` (2) pays the whole close out in WETH.
 
     The most aggressive configurability proof: with this swap type, the
@@ -564,6 +629,11 @@ def test_close_profitable_long_swap_collateral_to_pnl_pays_weth(lagoon_gmx_fork_
     deliberately configured to accumulate the market token instead of the
     stablecoin, rather than that only being possible as an accident (the
     original bug).
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -608,7 +678,8 @@ def test_close_profitable_long_swap_collateral_to_pnl_pays_weth(lagoon_gmx_fork_
     assert usdc_delta < collateral_usd * 0.5, f"USDC only decreased to a delta of {usdc_delta:.2f}, expected most of the ~${collateral_usd:.2f} collateral to be swapped away, not returned as USDC"
 
 
-def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-valuation")
+def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A profitable WBTC (BTC/USD) long close pays PnL in USDC, not WBTC.
 
     The PnL-token rule is not WETH-specific: GMX pays a long's profit in the
@@ -625,6 +696,11 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
     ``eth_defi.gmx.contracts.get_tokens_metadata_dict()``. Both need a mock
     oracle price and must be passed to the keeper execution helper, or
     ``executeOrder`` reverts with a missing-price custom error.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -637,7 +713,7 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
     btc_index_token_address = next(addr for addr, meta in btc_index_token_metadata.items() if meta.get("symbol") == "BTC")
     price_tokens = [btc_index_token_address, wbtc_address]
 
-    # Seed both BTC-related mock oracle prices at the real on-chain BTC price
+    # Seed both BTC-related mock oracle prices at the real onchain BTC price
     # before opening, matching setup_mock_oracle()'s own "fetch current price
     # first" pattern for ETH/USDC -- open_position() itself needs a valid BTC
     # price to build the order, before this test ever moves it for profit.
@@ -728,10 +804,11 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} profit"
 
 
-def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+@pytest.mark.xdist_group("fork:arbitrum:gmx-pnl-valuation")
+def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """NAV correctly counts mixed reserves and an open position, then captures a profitable close.
 
-    Funds the Safe with USDC (stable) and a WETH dust balance (non-stable --
+    Funds the Safe with USDC (stable) and WETH reserves (non-stable --
     exactly what a pre-fix leaked profit would have left behind, and exactly
     what the pre-fix blanket assert would have crashed on), opens a real
     leveraged long through the Safe, and checks NAV twice:
@@ -756,6 +833,11 @@ def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv
     - **Defect B (position value).** Position value used to be computed by hand
       as ``collateral + naive PnL``, ignoring borrowing fees, funding fees,
       position fees and price impact.
+
+    :param lagoon_gmx_fork_env:
+        Snapshot-isolated deployment with fresh wallet and reader adapters.
+    :return:
+        None; assertions verify the payout or NAV regression.
     """
     env = lagoon_gmx_fork_env
     web3 = env.web3
@@ -768,7 +850,7 @@ def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv
     # === Check 1: NAV while the position is open, with mixed reserves ===
     safe_usdc_balance = usdc.fetch_balance_of(safe_address)
     safe_weth_balance = weth.fetch_balance_of(safe_address)
-    assert safe_weth_balance > 0, "Lagoon fork env should fund the Safe with WETH dust -- see _create_lagoon_gmx_fork_env"
+    assert safe_weth_balance > 0, "Lagoon fork env should fund the Safe with WETH reserves -- see create_lagoon_gmx_fork_env"
 
     equity_while_open = fetch_gmx_total_equity(
         web3=web3,

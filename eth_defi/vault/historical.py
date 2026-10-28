@@ -17,17 +17,20 @@ import datetime
 import logging
 import os
 import tempfile
-
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -37,9 +40,9 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.vault import UNKNOWN_EXCHANGE_RATE, VaultReaderState
+from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626HistoricalReader, VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
@@ -49,6 +52,7 @@ from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VAULT_PRICE_REFRESH_INTERVAL, VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, is_meaningful_usd_tvl, verify_parquet_file
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+from eth_defi.vault.rpc_scan_state import save_reader_publication_journal
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
@@ -59,6 +63,11 @@ MONAD_CHAIN_ID = 143
 
 #: Canonical explanation of Monad's provider-dependent historical state window.
 MONAD_HISTORICAL_DATA_DOCUMENTATION_URL = "https://docs.monad.xyz/developer-essentials/historical-data"
+
+#: ERC-4626 valuation selectors: totalAssets(), convertToAssets(uint256), totalSupply().
+#: A served revert of any required field prevents a complete greylisted vault valuation;
+#: optional capacity probes such as maxDeposit() do not invalidate valuation.
+GREYLIST_REQUIRED_NAV_SELECTORS = frozenset({bytes.fromhex("01e1d114"), bytes.fromhex("07a2d13a"), bytes.fromhex("18160ddd")})
 
 
 #: List of contracts we cannot scan.
@@ -111,6 +120,15 @@ class ParquetScanResult(TypedDict):
     #: these are sampled but excluded from USD-qualified overdue counts.
     unknown_conversion_vaults: list[str]
 
+    #: Token resolution failed; retain prior coverage without certifying USD.
+    denomination_unavailable_vaults: list[str]
+
+    #: A failed audit does not invalidate durable rows or returned progress.
+    audit_error: str | None
+
+    #: Actual provider boundary observation, present only after state eviction.
+    historical_state_window: dict | None
+
     reader_states: dict[VaultSpec, dict] | None
 
 
@@ -135,6 +153,7 @@ def fetch_monad_historical_state_start_block(
     web3: Web3,
     start_block: int,
     end_block: int,
+    report_irrecoverable_gap: bool = True,
 ) -> int:
     """Find the earliest block whose Monad state the connected provider can read.
 
@@ -156,6 +175,10 @@ def fetch_monad_historical_state_start_block(
         because an unavailable end block indicates a provider failure rather
         than ordinary historical-state eviction.
 
+    :param report_irrecoverable_gap:
+        Whether this range represents required price history. Disable for a
+        bounded capability measurement that does not imply lost observations.
+
     :return:
         The earliest readable block within ``start_block`` and ``end_block``.
 
@@ -168,29 +191,41 @@ def fetch_monad_historical_state_start_block(
 
     multicall = get_multicall_contract(web3)
 
-    def _is_state_available(block_number: int) -> bool:
-        """Probe whether the Multicall deployment executes at a historical block."""
+    def fetch_state_availability(block_number: int) -> bool:
+        """Probe the execution path used by historical vault batches.
+
+        Block headers and events survive Monad state eviction, so checking
+        their existence cannot establish whether a historical eth_call works.
+        Multicall's returned block also guards against an upstream silently
+        serving current state for a requested historical block.
+
+        :param block_number: Requested historical execution block.
+        :return: Whether Multicall executes at that exact block.
+        """
         try:
             received_block_number = multicall.functions.getBlockNumber().call(block_identifier=block_number)
         except (BadFunctionCallOutput, ContractLogicError, ProbablyNodeHasNoBlock):
             return False
         return received_block_number == block_number
 
-    if _is_state_available(start_block):
+    if fetch_state_availability(start_block):
         return start_block
 
-    if not _is_state_available(end_block):
+    if not fetch_state_availability(end_block):
         raise RuntimeError(f"Monad provider cannot read state at requested end block {end_block:,}. Check the RPC provider and {MONAD_HISTORICAL_DATA_DOCUMENTATION_URL}.")
 
     unavailable_block = start_block
     available_block = end_block
     while available_block - unavailable_block > 1:
         candidate_block = (unavailable_block + available_block) // 2
-        if _is_state_available(candidate_block):
+        if fetch_state_availability(candidate_block):
             available_block = candidate_block
         else:
             unavailable_block = candidate_block
 
+    web3._vault_historical_state_window = {"checked_at": native_datetime_utc_now().isoformat(), "readable_start_block": available_block, "head_block": end_block, "retention_seconds": (end_block - available_block) * EVM_BLOCK_TIMES[143], "irrecoverable_gap_start": start_block, "irrecoverable_gap_end": available_block}
+    if report_irrecoverable_gap:
+        logger.warning("Monad irrecoverable state gap: [%d, %d); previously committed rows are preserved", start_block, available_block)
     logger.warning(
         "Monad historical state before block %d is unavailable from the configured RPC provider; clipping price scan start from %d. See %s",
         available_block,
@@ -222,11 +257,25 @@ class VaultHistoricalReadMulticaller:
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
         rpc_request_stats: RPCRequestStats | None = None,
+        allow_greylist_unavailable: bool = False,
+        greylist: frozenset[HexAddress] = frozenset(),
+        batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
     ) -> None:
         """Configure the multicall reader and its live-row retention state.
 
         The reader keeps source timestamps in memory for one scan. The Parquet
         writer seeds them from committed rows before the scan begins.
+
+        :param batch_size: Regular physical Multicall limit, including token warmup.
+        :param greylist:
+            Caller-selected vault/target addresses for this chain. The same policy
+            controls request isolation and whole-observation deferral, preventing
+            a mismatch between unavailable reads and retained saved rows.
+            Defaults to empty; chain-specific policy belongs to the entrypoint.
+
+        :param allow_greylist_unavailable:
+            Explicitly enable gas-failure deferral for an exporter preserving
+            unavailable source rows. Public readers remain strict by default.
 
         :param web3factory:
             Factory for worker JSON-RPC connections.
@@ -259,11 +308,14 @@ class VaultHistoricalReadMulticaller:
                 assert isinstance(a, TokenDetails)
 
         self.supported_quote_tokens = supported_quote_tokens
+        self.batch_size = batch_size
         self.web3factory = web3factory
         self.max_workers = max_workers
         self.hypersync_client = hypersync_client
         self.timestamp_cache_file = timestamp_cache_file
         self.rpc_request_stats = rpc_request_stats
+        self.allow_greylist_unavailable = allow_greylist_unavailable
+        self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
 
         if token_cache is None:
             token_cache = TokenDiskCache()
@@ -278,6 +330,7 @@ class VaultHistoricalReadMulticaller:
         self.latest_usd_tvl: dict[str, Decimal] = {}
         self.prior_max_assets: dict[str, Decimal] = {}
         self.unknown_conversion_vaults: set[str] = set()
+        self.denomination_unavailable_vaults: set[str] = set()
 
         self.readers: dict[HexAddress, VaultHistoricalReader] = {}
 
@@ -352,7 +405,7 @@ class VaultHistoricalReadMulticaller:
 
         return address
 
-    def _prepare_share_token(self, reader: "eth_defi.erc_4626.vault.ERC4626HistoricalReader") -> HexAddress:
+    def _prepare_share_token(self, reader: ERC4626HistoricalReader) -> HexAddress:
         """Run in subprocess"""
 
         state = reader.reader_state
@@ -478,6 +531,8 @@ class VaultHistoricalReadMulticaller:
             chain_id=chain_id,
             web3factory=self.web3factory,
             addresses=addresses,
+            max_workers=self.max_workers,
+            batch_size=self.batch_size,
         )
 
         # Because of JSON-RPC eth_call asset() call in fetch_denomination_token()
@@ -582,7 +637,7 @@ class VaultHistoricalReadMulticaller:
         # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
 
-        logger.info(f"Preparing readers for %d vaults, stateful is %s", len(vaults), stateful)
+        logger.info("Preparing readers for %d vaults, stateful is %s", len(vaults), stateful)
 
         readers = self.prepare_readers(
             vaults,
@@ -659,8 +714,8 @@ class VaultHistoricalReadMulticaller:
             self.latest_observed_at[address] = max(self.latest_observed_at.get(address, current.timestamp), current.timestamp)
             state = reader.reader_state
             rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(reader.vault).exchange_rate
-            if rate == UNKNOWN_EXCHANGE_RATE:
-                self.unknown_conversion_vaults.add(address)
+            if rate in (UNKNOWN_EXCHANGE_RATE, DENOMINATION_UNAVAILABLE_EXCHANGE_RATE):
+                (self.denomination_unavailable_vaults if rate == DENOMINATION_UNAVAILABLE_EXCHANGE_RATE else self.unknown_conversion_vaults).add(address)
                 retain_for_freshness = True
             else:
                 current_usd = current.total_assets * rate
@@ -691,7 +746,7 @@ class VaultHistoricalReadMulticaller:
             """
 
             if reader.uses_share_price_equivalence:
-                return current.is_share_price_almost_equal(previous)
+                return current.is_share_price_almost_equal(previous, reader.share_price_change_threshold)
             return current.is_almost_equal(previous)
 
         skipped_results = 0
@@ -712,6 +767,9 @@ class VaultHistoricalReadMulticaller:
                 hypersync_client=self.hypersync_client,
                 timestamp_cache_file=self.timestamp_cache_file,
                 rpc_request_stats=self.rpc_request_stats,
+                allow_greylist_unavailable=self.allow_greylist_unavailable,
+                greylist=self.greylist,
+                batch_size=self.batch_size,
             )
             if static_readers
             else ()
@@ -743,12 +801,44 @@ class VaultHistoricalReadMulticaller:
                 reader = readers[vault_address]
                 state = reader.reader_state
 
+                # One unavailable subcall invalidates the whole observation.
+                # Do this before protocol decoding/on_called: a provider gas
+                # error is neither a Solidity revert nor a fresh zero valuation.
+                # Reviewed Core readers can also return served precompile reverts
+                # when their historical view is absent. Preserve their old rows.
+                # Preservation is keyed by vault address, not an incidental
+                # helper target. Use the same identity here and in the writer.
+                greylisted = vault_address.lower() in self.greylist
+                unavailable = next((r.unavailable_error for r in results if r.unavailable_error), None)
+                assert unavailable is None or greylisted, f"Unavailable greylisted helper cannot defer unlisted vault {vault_address}; aborting to preserve its saved rows"
+                required_failed = greylisted and any(not r.success and r.call.data[:4] in GREYLIST_REQUIRED_NAV_SELECTORS for r in results)
+                if unavailable or required_failed:
+                    error_count += 1
+                    if state:
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = unavailable or "greylisted vault observation unavailable"
+                    logger.warning("Deferred greylisted vault observation: vault=%s block=%d reason=%s", vault_address, block_number, unavailable or "served subcall revert")
+                    continue
+
+                saved_state = state.save() if greylisted and state else None
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
                     block_number,
                     timestamp,
                     results,
                 )
+
+                if greylisted and (current_result.share_price is None or current_result.total_assets is None):
+                    # Decoding can reveal a partial observation even when the
+                    # transport succeeded. Reject it before claiming freshness
+                    # and roll back on_called progress made by a protocol reader.
+                    error_count += 1
+                    if state and saved_state is not None:
+                        state.load(saved_state)
+                        state.rpc_error_count += 1
+                        state.last_rpc_error = "Incomplete greylisted vault valuation"
+                    logger.warning("Deferred incomplete greylisted vault valuation: vault=%s block=%d", vault_address, block_number)
+                    continue
 
                 # Stateless scans invoke every selected block. Keep their
                 # exported frequency marker compatible with the historical
@@ -763,7 +853,7 @@ class VaultHistoricalReadMulticaller:
 
                 due = freshness_due(reader, current_result)
                 unchanged = is_unchanged(reader, current_result, last_result)
-                if unchanged and not self.write_all_samples and not due:
+                if unchanged and not (self.write_all_samples or reader.write_all_samples) and not due:
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
@@ -790,7 +880,7 @@ class VaultHistoricalReadMulticaller:
                     error_count += 1
                 due = freshness_due(reader, current_result)
                 unchanged = is_unchanged(reader, current_result, last_result)
-                if unchanged and not due:
+                if unchanged and not (self.write_all_samples or reader.write_all_samples) and not due:
                     skipped_results += 1
                     continue
                 last_result = current_result
@@ -804,15 +894,22 @@ class VaultHistoricalReadMulticaller:
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
 
-    def save_reader_state(self) -> dict[VaultSpec, dict]:
-        """Save the state of all readers.
+    def export_reader_states(self) -> dict[VaultSpec, dict]:
+        """Serialise reader progress without writing any pipeline file.
+
+        The Parquet writer uses this snapshot for its publication journal and
+        returned scan result. The all-chain scheduler owns the later atomic
+        reader-pickle write; separating those responsibilities lets it recover
+        progress after prices publish but before the legacy pickle is updated.
 
         :return:
-            Dictionary keyed by the vault spce
+            Legacy-shaped state dictionaries keyed by :py:class:`VaultSpec`.
         """
 
-        # TODO: Fix class inheritance, etc.
         return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values() if r.reader_state}
+
+    #: Compatibility alias; exporting state does not itself persist a file.
+    save_reader_state = export_reader_states
 
 
 def _proper_fsync(fd: int) -> None:
@@ -824,6 +921,27 @@ def _proper_fsync(fd: int) -> None:
         fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
     else:
         os.fsync(fd)
+
+
+def preserve_unreplaced_greylist_rows(
+    history: pa.Table,
+    replacements: set[tuple[str, int]],
+) -> pa.Table:
+    """Retain saved greylisted vault observations without duplicating successful updates.
+
+    The atomic exporter calls this after collecting verified replacement keys.
+    Keeping an old row does not advance its source timestamp or claim freshness.
+    The caller passes only this chain's greylisted rows in the replaced range,
+    so memory use is bounded by the reviewed targets rather than the full file.
+
+    :param history: Saved price table with lower-case string ``address`` and
+        integer ``block_number`` columns; other columns and metadata are retained.
+    :param replacements: ``(lower_case_address, source_block_number)`` keys of
+        complete successful new observations for the current chain.
+    :return: Original rows whose source keys were not successfully replaced.
+    """
+    retained = [(address, block) not in replacements for address, block in zip(history["address"].to_pylist(), history["block_number"].to_pylist())]
+    return history.filter(pa.array(retained, type=pa.bool_()))
 
 
 def scan_historical_prices_to_parquet(
@@ -848,6 +966,9 @@ def scan_historical_prices_to_parquet(
     timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     vault_addresses: set[str] | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
+    reader_state_journal_path: Path | None = None,
+    greylist: frozenset[HexAddress] = frozenset(),
+    batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
 ) -> ParquetScanResult:
     """Scan vault prices and atomically update the shared raw Parquet file.
 
@@ -856,6 +977,17 @@ def scan_historical_prices_to_parquet(
     latest source timestamp against a 14-day limit. Historical backfills use
     sparse value-change sampling. Monad scans start at the provider's readable
     historical-state boundary and preserve earlier committed rows.
+
+    :param batch_size: Regular physical Multicall limit, including token warmup.
+    :param greylist:
+        Caller-selected vault/target addresses for this chain, empty by default.
+        Shared with the Multicall workers and preservation filter so unavailable
+        observations retain their exact saved source rows. Addresses are matched
+        case-insensitively; no chain policy is selected by the exporter.
+
+    :param reader_state_journal_path:
+        Optional durable progress receipt for recovery after price publication
+        but before the caller saves its legacy reader-state pickle.
 
     :param output_fname:
         Path to a destination Parquet file.
@@ -927,8 +1059,12 @@ def scan_historical_prices_to_parquet(
     :param vault_addresses:
         If set, only delete and rewrite parquet rows for these vault addresses.
 
-        Addresses must be lowercase. When ``None``, all rows for the chain
-        are deleted and rewritten (default behaviour).
+        Addresses are normalised to lowercase. An empty selection or one
+        containing blacklisted contracts or addresses without a supplied vault
+        raises :py:exc:`ValueError` before writing: excluded or missing readers
+        cannot supply replacement observations. When ``None``, chain rows at
+        or after the chosen start block and before the end block are replaced
+        (default behaviour).
 
     :param write_all_samples:
         Write every sampled block even when a vault's values are unchanged.
@@ -950,10 +1086,6 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
-    import pyarrow as pa
-    import pyarrow.compute as pc
-    import pyarrow.parquet as pq
-
     stateful = reader_states is not None
 
     assert isinstance(output_fname, Path)
@@ -968,6 +1100,18 @@ def scan_historical_prices_to_parquet(
         if not vault_addresses:
             raise ValueError("vault_addresses cannot be empty because that would broaden deletion to the whole chain")
         vault_addresses = {address.lower() for address in vault_addresses}
+        # Direct callers such as scan-prices.py bypass the all-chain selector.
+        # Reject an excluded repair target before dropping its reader, otherwise
+        # the bounded replacement below could delete history without new rows.
+        blacklisted_addresses = vault_addresses & BROKEN_VAULT_CONTRACTS
+        if blacklisted_addresses:
+            raise ValueError(f"Selected vaults are blacklisted; refusing bounded deletion: {sorted(blacklisted_addresses)}")
+        # scan-prices.py can drop candidates during its activity/adapter filter
+        # while retaining their requested addresses. Validate that deletion has
+        # a corresponding supplied vault, independently of that caller's policy.
+        missing_addresses = vault_addresses - {vault.vault_address.lower() for vault in vaults}
+        if missing_addresses:
+            raise ValueError(f"Selected vaults have no supplied reader; refusing bounded deletion: {sorted(missing_addresses)}")
 
     logger.info(
         "Vault scan on %s: %s - %s, stateful is %s",
@@ -986,8 +1130,8 @@ def scan_historical_prices_to_parquet(
 
     vaults = cleaned_vaults
 
-    assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
-    assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
+    assert all(v.first_seen_at_block for v in vaults), "You need to set vault.first_seen_at_block hint in order to run this reader"
+    assert all(v.chain_id == chain_id for v in vaults), "All vaults must be on the same chain"
 
     if vaults:
         first_detect_block = min(v.first_seen_at_block for v in vaults)
@@ -1022,9 +1166,11 @@ def scan_historical_prices_to_parquet(
             end_block=end_block,
         )
 
+    greylist = frozenset(HexAddress(address.lower()) for address in greylist)
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
+        batch_size=batch_size,
         max_workers=max_workers,
         token_cache=token_cache,
         require_multicall_result=require_multicall_result,
@@ -1033,6 +1179,10 @@ def scan_historical_prices_to_parquet(
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
         rpc_request_stats=rpc_request_stats,
+        # This atomic writer preserves unreplaced greylisted keys. Standalone
+        # historical readers do not own that preservation step and stay strict.
+        allow_greylist_unavailable=True,
+        greylist=greylist,
     )
 
     reader_func = read_multicall_historical_stateful if stateful else read_multicall_historical
@@ -1077,10 +1227,20 @@ def scan_historical_prices_to_parquet(
     rows_written_by_vault: dict[str, int] = defaultdict(int)
     price_rows_written_by_vault: dict[str, int] = defaultdict(int)
 
+    # Keys are (lower-case vault address, source block number); chain is fixed
+    # by this export. Only verified greylisted replacements retire saved rows.
+    greylist_replacements: set[tuple[str, int]] = set()
+
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
             vault_address = entry.vault.vault_address.lower()
+            if vault_address in greylist:
+                # A partly decoded greylisted observation cannot replace good history.
+                # Null availability is not zero TVL; preserve the saved source row.
+                if entry.share_price is None or entry.total_assets is None:
+                    continue
+                greylist_replacements.add((vault_address, entry.block_number))
             rows_written_by_vault[vault_address] += 1
             if entry.share_price is not None:
                 price_rows_written_by_vault[vault_address] += 1
@@ -1127,6 +1287,7 @@ def scan_historical_prices_to_parquet(
             grouped = assets.group_by("address").aggregate([("total_assets", "max")])
             reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
 
+    greylist_history = None
     if existing_table is not None:
         logger.info(
             "Detected existing file %s with %d rows",
@@ -1144,6 +1305,13 @@ def scan_historical_prices_to_parquet(
         if vault_addresses is not None:
             address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
             mask = pc.and_(mask, address_mask)
+        if greylist:
+            # Keep only the greylisted source rows slated for replacement. At
+            # publication we retain keys not replaced by a complete successful
+            # observation. This avoids a full-file merge, duplicates and loss
+            # when a greylisted contract cannot supply a complete replacement.
+            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(greylist))))
+            greylist_history = existing_table.filter(grey_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
@@ -1237,6 +1405,21 @@ def scan_historical_prices_to_parquet(
             rows_written += len(chunk)
             chunks_done += 1
 
+        if greylist_history is not None and greylist_history.num_rows:
+            preserved = preserve_unreplaced_greylist_rows(greylist_history, greylist_replacements)
+            if preserved.num_rows:
+                writer.write_table(preserved.replace_schema_metadata(writer_schema.metadata))
+                existing_row_count += preserved.num_rows
+                rows_deleted -= preserved.num_rows
+                if enforce_live_freshness:
+                    # Preserved rows are still real source observations. Retain
+                    # their actual timestamp for the audit, never written_at or
+                    # the current scan horizon, so stale history stays stale.
+                    finite_history = preserved.filter(pc.and_(pc.is_finite(preserved["share_price"]), pc.is_finite(preserved["total_assets"])))
+                    for address, timestamp in zip(finite_history["address"].to_pylist(), finite_history["timestamp"].to_pylist()):
+                        reader.last_retained_at[address] = max(reader.last_retained_at.get(address, timestamp), timestamp)
+                logger.info("Preserved %d unavailable or unsampled greylisted vault source rows", preserved.num_rows)
+
         # Close the writer to finalise the file, then flush to disk
         # and atomically replace the target.  We also sync the parent
         # directory so the new filename is durable after power loss.
@@ -1254,6 +1437,106 @@ def scan_historical_prices_to_parquet(
             expected_rows=existing_row_count + rows_written,
             expected_schema=writer_schema,
         )
+        # Audit verified observations before publication while keeping diagnostics
+        # separate from the price data's validity. An audit implementation error
+        # is returned explicitly to the scheduler, but need not discard a valid
+        # completed scan or force its expensive historical reads to run again.
+        overdue_vaults: dict[str, str] = {}
+        freshness_eligible_vaults = 0
+        audit_error = None
+        try:
+            if enforce_live_freshness:
+                assert freshness_horizon is not None
+                horizon = freshness_horizon
+                expected_addresses = {address.lower() for address in (expected_live_vaults or ())}
+                contextual_addresses = {address.lower() for address, historical_reader in reader.readers.items() if historical_reader.uses_contextual_history}
+                contextual_history = None
+                if contextual_addresses and source_table is not None:
+                    contextual_mask = pc.and_(
+                        pc.equal(source_table["chain"], chain_id),
+                        pc.is_in(source_table["address"], value_set=pa.array(sorted(contextual_addresses))),
+                    )
+                    contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["share_price"]))
+                    contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["total_assets"]))
+                    contextual_history = source_table.select(["address", "block_number", "timestamp", "total_assets"]).filter(contextual_mask).to_pandas()
+                    if not contextual_history.empty:
+                        contextual_history = contextual_history.sort_values(["address", "timestamp", "block_number"], kind="stable")
+                for address, historical_reader in reader.readers.items():
+                    state = historical_reader.reader_state
+                    if isinstance(state, VaultReaderState) and state.exchange_rate == DENOMINATION_UNAVAILABLE_EXCHANGE_RATE:
+                        reader.denomination_unavailable_vaults.add(address.lower())
+                    qualified = address.lower() in expected_addresses or (isinstance(state, VaultReaderState) and state.freshness_qualified)
+                    if not qualified and historical_reader.uses_contextual_history:
+                        rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(historical_reader.vault).exchange_rate
+                        if rate in (UNKNOWN_EXCHANGE_RATE, DENOMINATION_UNAVAILABLE_EXCHANGE_RATE):
+                            (reader.denomination_unavailable_vaults if rate == DENOMINATION_UNAVAILABLE_EXCHANGE_RATE else reader.unknown_conversion_vaults).add(address.lower())
+                        else:
+                            prior_assets = contextual_history.loc[contextual_history["address"] == address.lower(), "total_assets"] if contextual_history is not None else None
+                            highest_usd = reader.prior_max_assets.get(address.lower(), Decimal(0)) * rate
+                            latest_usd = reader.latest_usd_tvl.get(address.lower())
+                            if latest_usd is None and prior_assets is not None and len(prior_assets):
+                                # Retain last-known eligibility when the source has no new observation.
+                                latest_usd = Decimal(str(prior_assets.iloc[-1])) * rate
+                            qualified = is_meaningful_usd_tvl(latest_usd, highest_usd)
+                    if not qualified:
+                        continue
+                    freshness_eligible_vaults += 1
+                    retained = reader.last_retained_at.get(address.lower())
+                    if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
+                        reason = "no_valid_source_observation" if address.lower() not in reader.latest_observed_at else "source_observation_not_retained"
+                        overdue_vaults[address.lower()] = "denomination_unavailable" if address.lower() in reader.denomination_unavailable_vaults else reason
+                missing_readers = expected_addresses - {address.lower() for address in reader.readers}
+                freshness_eligible_vaults += len(missing_readers)
+                for address in missing_readers:
+                    retained = reader.last_retained_at.get(address)
+                    if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
+                        overdue_vaults[address] = "reader_unavailable"
+                    else:
+                        logger.warning("Vault %s on chain %d has no historical reader in this scan; last price row is %s", address, chain_id, retained)
+                logger.info(
+                    "Vault price freshness on chain %d: eligible=%d, heartbeat rows=%d, overdue=%d, unknown USD conversion=%d",
+                    chain_id,
+                    freshness_eligible_vaults,
+                    reader.freshness_rows_written,
+                    len(overdue_vaults),
+                    len(reader.unknown_conversion_vaults),
+                )
+                if overdue_vaults:
+                    logger.warning(
+                        "%d vaults on chain %d have no source price row within 14 days of scan horizon %s; per reason: %s; examples: %s",
+                        len(overdue_vaults),
+                        chain_id,
+                        horizon,
+                        dict(Counter(overdue_vaults.values())),
+                        ", ".join(list(overdue_vaults)[:5]),
+                    )
+                for address, reason in overdue_vaults.items():
+                    logger.debug("Vault %s on chain %d has no source price row within 14 days of scan horizon %s: %s", address, chain_id, horizon, reason)
+
+        except (AttributeError, ValueError, TypeError, ArithmeticError) as error:
+            audit_error = f"{type(error).__name__}: {error}"
+            logger.error("Freshness audit failed on chain %d: %s", chain_id, audit_error, exc_info=True)
+        if stateful:
+            # Serialise progress before the price rename so a serialisation
+            # failure leaves the old output intact. The journal and returned
+            # result use the same legacy state snapshot for normal persistence
+            # and crash recovery; neither advances cursors beyond published data.
+            new_states = reader.export_reader_states()
+            logger.info("Total %d updates reader states available", len(new_states))
+            if any(not historical_reader.uses_contextual_history for historical_reader in reader.readers.values()):
+                assert len(new_states) > 0, f"Reader states are empty, this is a bug, chain_id: {chain_id}, vaults: {vaults}"
+            reader_states = reader_states or {}
+            reader_states.update(new_states)
+        else:
+            logger.info("Not a stateful scan, do not update states")
+
+        if stateful and reader_state_journal_path is not None:
+            # Atomic replacement cannot publish prices and the reader pickle
+            # together. Prepare a receipt bound to this verified temporary
+            # inode first; after rename the scheduler can recover it on restart.
+            # A crash before rename leaves a non-matching receipt, not progress
+            # that would incorrectly skip still-unpublished historical values.
+            save_reader_publication_journal(reader_state_journal_path, Path(temp_fname), output_fname, reader_states)
         os.replace(temp_fname, output_fname)
         dir_fd = os.open(str(output_fname.parent), os.O_RDONLY)
         try:
@@ -1270,88 +1553,12 @@ def scan_historical_prices_to_parquet(
             os.unlink(temp_fname)
         raise
 
-    size = output_fname.stat().st_size
-
-    overdue_vaults: dict[str, str] = {}
-    freshness_eligible_vaults = 0
-    if enforce_live_freshness:
-        assert freshness_horizon is not None
-        horizon = freshness_horizon
-        expected_addresses = {address.lower() for address in (expected_live_vaults or ())}
-        contextual_addresses = {address.lower() for address, historical_reader in reader.readers.items() if historical_reader.uses_contextual_history}
-        contextual_history = None
-        if contextual_addresses and source_table is not None:
-            contextual_mask = pc.and_(
-                pc.equal(source_table["chain"], chain_id),
-                pc.is_in(source_table["address"], value_set=pa.array(sorted(contextual_addresses))),
-            )
-            contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["share_price"]))
-            contextual_mask = pc.and_(contextual_mask, pc.is_finite(source_table["total_assets"]))
-            contextual_history = source_table.select(["address", "block_number", "timestamp", "total_assets"]).filter(contextual_mask).to_pandas()
-            if not contextual_history.empty:
-                contextual_history = contextual_history.sort_values(["address", "timestamp", "block_number"], kind="stable")
-        for address, historical_reader in reader.readers.items():
-            state = historical_reader.reader_state
-            qualified = address.lower() in expected_addresses or (isinstance(state, VaultReaderState) and state.freshness_qualified)
-            if not qualified and historical_reader.uses_contextual_history:
-                rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(historical_reader.vault).exchange_rate
-                if rate == UNKNOWN_EXCHANGE_RATE:
-                    reader.unknown_conversion_vaults.add(address.lower())
-                else:
-                    prior_assets = contextual_history.loc[contextual_history["address"] == address.lower(), "total_assets"] if contextual_history is not None else None
-                    highest_usd = reader.prior_max_assets.get(address.lower(), Decimal(0)) * rate
-                    latest_usd = reader.latest_usd_tvl.get(address.lower())
-                    if latest_usd is None and prior_assets is not None and len(prior_assets):
-                        # Retain last-known eligibility when the source has no new observation.
-                        latest_usd = Decimal(str(prior_assets.iloc[-1])) * rate
-                    qualified = is_meaningful_usd_tvl(latest_usd, highest_usd)
-            if not qualified:
-                continue
-            freshness_eligible_vaults += 1
-            retained = reader.last_retained_at.get(address.lower())
-            if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
-                reason = "no_valid_source_observation" if address.lower() not in reader.latest_observed_at else "source_observation_not_retained"
-                overdue_vaults[address.lower()] = reason
-        missing_readers = expected_addresses - {address.lower() for address in reader.readers}
-        freshness_eligible_vaults += len(missing_readers)
-        for address in missing_readers:
-            retained = reader.last_retained_at.get(address)
-            if retained is None or horizon - retained > MAX_VAULT_PRICE_ROW_AGE:
-                overdue_vaults[address] = "reader_unavailable"
-            else:
-                logger.warning("Vault %s on chain %d has no historical reader in this scan; last price row is %s", address, chain_id, retained)
-        logger.info(
-            "Vault price freshness on chain %d: eligible=%d, heartbeat rows=%d, overdue=%d, unknown USD conversion=%d",
-            chain_id,
-            freshness_eligible_vaults,
-            reader.freshness_rows_written,
-            len(overdue_vaults),
-            len(reader.unknown_conversion_vaults),
-        )
-        for address, reason in overdue_vaults.items():
-            logger.warning("Vault %s on chain %d has no source price row within 14 days of scan horizon %s: %s", address, chain_id, horizon, reason)
-
-    logger.info(
-        f"Exported {rows_written} vault {frequency} price rows, file size is now {size:,} bytes",
-    )
-
-    if stateful:
-        # Merge new reader states
-        new_states = reader.save_reader_state()
-        logger.info("Total %d updates reader states available", len(new_states))
-        if any(not historical_reader.uses_contextual_history for historical_reader in reader.readers.values()):
-            assert len(new_states) > 0, f"Reader states are empty, this is a bug, chain_id: {chain_id}, vaults: {vaults}"
-        reader_states = reader_states or {}
-        reader_states.update(new_states)
-    else:
-        logger.info("Not a stateful scan, do not update states")
-
     return ParquetScanResult(
         rows_written=rows_written,
         rows_deleted=rows_deleted,
         output_fname=output_fname,
         chain_id=chain_id,
-        file_size=size,
+        file_size=output_fname.stat().st_size,
         existing=existing,
         existing_row_count=existing_row_count,
         chunks_done=chunks_done,
@@ -1364,4 +1571,7 @@ def scan_historical_prices_to_parquet(
         freshness_eligible_vaults=freshness_eligible_vaults,
         overdue_vaults=overdue_vaults,
         unknown_conversion_vaults=sorted(reader.unknown_conversion_vaults),
+        denomination_unavailable_vaults=sorted(reader.denomination_unavailable_vaults),
+        audit_error=audit_error,
+        historical_state_window=getattr(web3, "_vault_historical_state_window", None) if chain_id == 143 else None,
     )

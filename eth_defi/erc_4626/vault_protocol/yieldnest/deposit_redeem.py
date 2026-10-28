@@ -20,6 +20,7 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626Redem
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_MATURITY_DATE, YNRWAX_VAULT_ADDRESS
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import DepositTicket, RedemptionTicket, UnsupportedVaultSimulation, VaultFlowUnavailable, VaultForcedSettlementResult
 
 #: ``ExceededMaxRedeem(address owner, uint256 shares, uint256 maxShares)``
@@ -165,6 +166,8 @@ class YieldNestDepositManager(ERC4626DepositManager):
 
         try:
             tx_hash = mock.functions.setIgnoreLiquidity(True).transact({"from": self.web3.eth.accounts[0]})
+            # Anvil >= 1.8 returns the hash before the automined block exists.
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
         except (ABIFunctionNotFound, AttributeError) as e:
             raise UnsupportedVaultSimulation(
                 "YieldNest liquidity override mock does not expose setIgnoreLiquidity(bool)",

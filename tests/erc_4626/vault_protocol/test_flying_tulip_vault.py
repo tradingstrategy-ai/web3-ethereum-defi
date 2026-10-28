@@ -7,10 +7,13 @@ import pytest
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
-from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipVault
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipStableVault, FlyingTulipVault
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
+from eth_defi.vault.flag import get_notes, is_flagged_vault
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -24,6 +27,13 @@ def test_flying_tulip_usdc_equivalent_fee_schedule_is_chain_specific() -> None:
         56: 0.001,
         146: 0.0007,
     }
+
+
+def test_flying_tulip_short_description_is_plain_text() -> None:
+    """Keep Markdown out of the listing summary, which the website renders verbatim."""
+
+    assert FLYING_TULIP_SHORT_DESCRIPTION == "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
+    assert not any(token in FLYING_TULIP_SHORT_DESCRIPTION for token in ("](", "[", "**", "`", "\n"))
 
 
 def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() -> None:
@@ -42,15 +52,17 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         assert fee_data.internalised is False
         assert fee_data.get_net_fees().deposit == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
         assert fee_data.get_net_fees().withdraw == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
+        assert vault.get_link() == "https://flyingtulip.com/ftusd/"
         assert "Performance assumes entry and exit fees USDC -> ftUSD -> sftUSD." in vault.get_notes()
         assert "[Ethereum FT/ftUSD Curve pool]" in vault.get_notes()
         assert "divided by the average amount staked during the period" in vault.get_notes()
         assert "Withdrawals may be subject to a variable exit delay or cooldown" in vault.get_notes()
-        assert "[Flying Tulip strategy documentation]" in vault.short_description
+        assert vault.short_description == FLYING_TULIP_SHORT_DESCRIPTION
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
 
     assert _get_hardcoded_protocol_features(FLYING_TULIP_SFTUSD_BY_CHAIN[1], 56) is None
+    assert _get_hardcoded_protocol_features(FLYING_TULIP_SFTUSD_BY_CHAIN[1]) is None
     assert get_vault_protocol_name({ERC4626Feature.flying_tulip_like}) == "Flying Tulip"
 
 
@@ -92,10 +104,69 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
-    assert metadata["short_description"] == "Flying Tulip uses [lending, staking and market-neutral strategies](https://docs.flyingtulip.com/product-suite/ft-usd/) to generate yield and FT rewards for sftUSD holders."
+    assert "compounded ftUSD yield to ssftUSD holders" in metadata["short_description"]
     assert "founded by [Andre Cronje]" in metadata["long_description"]
     assert "$200 million private round" in metadata["long_description"]
     assert "0.07%" in metadata["fee_description"]
     assert "[verified MintAndRedeem contract]" in metadata["fee_description"]
     assert get_vault_risk("Flying Tulip") == VaultTechnicalRisk.severe
     assert get_vault_fee_mode("Flying Tulip", FLYING_TULIP_SFTUSD_BY_CHAIN[1]) == VaultFeeMode.externalised
+
+
+def test_flying_tulip_stable_routing_and_public_copy() -> None:
+    """Keep the auto-compounder under Flying Tulip without FT reward history.
+
+    Classification, notes and curator identity use the reviewed Ethereum
+    deployment. The separately maintained notes must not flag the vault.
+
+    :return:
+        ``None`` after checking routing and exported metadata inputs.
+    """
+    address = FLYING_TULIP_SSFTUSD_BY_CHAIN[1]
+    features = _get_hardcoded_protocol_features(address, 1)
+    assert features == {ERC4626Feature.flying_tulip_stable_like}
+    vault = create_vault_instance(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), address, features)
+    assert isinstance(vault, FlyingTulipStableVault)
+    assert vault.get_protocol_name() == "Flying Tulip"
+    assert _get_hardcoded_protocol_features(address, 56) is None
+    assert _get_hardcoded_protocol_features(address) is None
+    assert identify_curator(1, "ssftUSD", "Stable Staked Flying Tulip USD", address, "flying-tulip") == "flying-tulip"
+    assert vault.get_notes() == FLYING_TULIP_SSFTUSD_NOTES
+    assert get_notes(address, chain_id=56) is None
+    assert not is_flagged_vault(address, protocol_name="Flying Tulip")
+    assert "September 2026" in vault.description
+    assert "2102404682685501823" in vault.get_notes()
+    assert "not a withdrawal lockup" in vault.get_notes()
+    assert vault.description != vault.get_notes()
+    assert vault.fetch_scan_record_extra_data() == {}
+    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_fee_data().fee_mode is VaultFeeMode.externalised
+    assert vault.get_fee_data().deposit == 0.0007
+    assert vault.get_fee_data().withdraw == 0.0007
+    assert vault.get_fee_data().management == 0
+    assert vault.get_fee_data().performance == 0
+    assert vault.get_strategy_tags() == {StrategyTag.lending, StrategyTag.delta_neutral, StrategyTag.carry_trade, StrategyTag.multistrategy}
+    assert vault.get_link() == "https://flyingtulip.com/ftusd/"
+    assert not vault.get_historical_reader(False).uses_contextual_history
+    assert not vault.get_historical_reader(False).uses_share_price_equivalence
+
+
+def test_flying_tulip_stable_capacity_exclusion_is_local() -> None:
+    """Exclude zero-address capacity only for the new auto-compounder.
+
+    Price multicalls retain standard accounting. Disabling the metadata probe
+    must avoid a network read and leave the generic reader's policy intact.
+
+    :return:
+        ``None`` after checking the local capacity exclusion.
+    """
+    vault = FlyingTulipStableVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, FLYING_TULIP_SSFTUSD_BY_CHAIN[1]))
+    reader = vault.get_historical_reader(False)
+    assert reader.should_skip_call("maxDeposit")
+    assert not reader.should_skip_call("total_assets")
+    assert not ERC4626HistoricalReader(vault, stateful=False).should_skip_call("maxDeposit")
+    assert vault.fetch_deposit_closed_reason() is None
+    with pytest.raises(ValueError, match="Unsupported"):
+        FlyingTulipStableVault(SimpleNamespace(), VaultSpec(56, vault.address))
+    with pytest.raises(ValueError, match="external FT"):
+        FlyingTulipStableVault(SimpleNamespace(), VaultSpec(1, vault.address), features={ERC4626Feature.share_price_equivalence})

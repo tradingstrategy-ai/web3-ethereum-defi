@@ -65,6 +65,7 @@ from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from scripts.gmx.script_utils import fetch_eth_spot_price
@@ -142,7 +143,7 @@ def main():
         chain = get_chain_name(chain_id).lower()
         console.print(f"Connected to [bold]{chain}[/bold] (chain_id={chain_id}, block={block_number})")
     except Exception as exc:
-        console.print(f"[red]Failed to connect: {exc}[/red]")
+        console.print(redact_rpc_urls(f"[red]Failed to connect: {exc}[/red]"))
         sys.exit(1)
 
     # ------------------------------------------------------------------
@@ -174,7 +175,7 @@ def main():
             console.print(f"  Oracle spot price:  ${spot_price:,.2f}")
             console.print(f"  Trigger price (+10%): ${trigger_price_usd:,.2f}")
         except Exception as exc:
-            console.print(f"[red]Could not fetch oracle price: {exc}[/red]")
+            console.print(redact_rpc_urls(f"[red]Could not fetch oracle price: {exc}[/red]"))
             sys.exit(1)
 
     # ------------------------------------------------------------------

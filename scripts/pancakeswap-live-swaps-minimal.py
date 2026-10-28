@@ -33,15 +33,15 @@ import os
 import time
 from functools import lru_cache
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import create_http_provider
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import decode_log
-from eth_defi.event_reader.reader import read_events, LogResult
-from eth_defi.uniswap_v2.pair import fetch_pair_details, PairDetails
-
+from eth_defi.event_reader.reader import LogResult, read_events
+from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 QUOTE_TOKENS = ["BUSD", "USDC", "USDT"]
 
@@ -53,7 +53,7 @@ def fetch_pair_details_cached(web3: Web3, pair_address: str) -> PairDetails:
 
 def main():
     json_rpc_url = os.environ.get("JSON_RPC_BINANCE", "https://bsc-dataseed.binance.org/")
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

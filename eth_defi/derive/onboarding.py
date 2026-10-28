@@ -4,6 +4,15 @@ This module provides onboarding helpers for the Derive.xyz exchange.
 
 .. important::
 
+    **Derive v3** has no separate "Derive Wallet". The wallet that owns the
+    account is the owner EOA or multisig on Ethereum, and v2 Derive Wallets
+    were moved to their owners during the v3 migration. Use the owner address
+    as ``derive_wallet_address``. An account is created by its first deposit,
+    and a multisig owner registers session keys with an onchain action. See
+    `smart contracts and multisigs <https://docs.derive.xyz/authentication/contract-owned-accounts>`__.
+
+    The LightAccount steps below describe the legacy v2 flow.
+
     **Account creation and initial session key** require the Derive web interface at
     https://testnet.derive.xyz/ (testnet) or https://derive.xyz/ (mainnet).
     The web UI deploys an ERC-4337 LightAccount smart contract wallet via a
@@ -51,6 +60,7 @@ from eth_account import Account
 from eth_typing import HexAddress
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.derive.authentication import DeriveApiClient
 from eth_defi.derive.constants import DERIVE_MAINNET_RPC_URL, DERIVE_TESTNET_RPC_URL, LIGHT_ACCOUNT_FACTORY_ABI, LIGHT_ACCOUNT_FACTORY_ADDRESS
 
@@ -88,6 +98,11 @@ def fetch_derive_wallet_address(
 ) -> HexAddress:
     """Derive the counterfactual LightAccount wallet address for an owner EOA.
 
+    .. warning::
+
+        Legacy Derive v2 only. Derive v3 accounts are owned by the owner EOA
+        or multisig directly, so use the owner address as the wallet.
+
     Calls ``LightAccountFactory.getAddress(owner, salt)`` on Derive Chain to
     get the deterministic CREATE2 address.  The contract does not need to be
     deployed -- the address is computed from ``create2(factory, salt, initCodeHash)``.
@@ -102,7 +117,7 @@ def fetch_derive_wallet_address(
         Counterfactual LightAccount address.
     """
     rpc_url = DERIVE_TESTNET_RPC_URL if is_testnet else DERIVE_MAINNET_RPC_URL
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    w3 = Web3(create_http_provider(rpc_url))
 
     factory = w3.eth.contract(
         address=Web3.to_checksum_address(LIGHT_ACCOUNT_FACTORY_ADDRESS),

@@ -1,18 +1,18 @@
 # remember to run `pip install python-dotenv`
 
 import os
+
 from dotenv import load_dotenv
+from eth_account import Account
 from web3 import Web3
 
-from eth_account import Account
-
-from eth_defi.abi import get_deployed_contract, get_abi_by_filename, get_contract
+from eth_defi.abi import get_abi_by_filename, get_contract, get_deployed_contract
+from eth_defi.compat import create_http_provider, install_poa_middleware
+from eth_defi.gas import apply_gas, estimate_gas_fees
+from eth_defi.hotwallet import HotWallet
 from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
-from eth_defi.gas import estimate_gas_fees, apply_gas
-from eth_defi.hotwallet import HotWallet
-from eth_defi.compat import install_poa_middleware
 
 # get user input for which blockchain to use
 user_input = input("Which blockchain do you want to use? Type `p` for polygon and `a` for arbitrum: ")
@@ -36,7 +36,7 @@ api_key = api_key_polygon if blockchain == "polygon" else api_key_arbitrum
 
 
 # web3 instance
-web3 = Web3(Web3.HTTPProvider(api_key))
+web3 = Web3(create_http_provider(api_key))
 
 # MIGRATED: Use compat middleware installation
 # see https://web3py.readthedocs.io/en/stable/middleware.html#geth-style-proof-of-authority

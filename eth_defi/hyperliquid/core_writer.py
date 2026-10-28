@@ -57,9 +57,10 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
 from eth_defi.hyperliquid.constants import HYPERCORE_BRIDGE_FEE_MARGIN
+from eth_defi.token import USDC_NATIVE_TOKEN
 
 if TYPE_CHECKING:
-    from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+    from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 
 #: CoreWriter system contract address on HyperEVM
 CORE_WRITER_ADDRESS: HexAddress = HexAddress("0x3333333333333333333333333333333333333333")
@@ -317,12 +318,28 @@ def get_core_writer_contract(web3: Web3) -> Contract:
 
 
 def _get_hypercore_contracts(
-    lagoon_vault: LagoonVault,
+    lagoon_vault: LagoonVault | LagoonSatelliteVault,
 ) -> tuple[Contract, Contract, Contract]:
-    """Resolve the Safe's USDC, CoreDepositWallet, and CoreWriter contracts."""
+    """Resolve the Safe's USDC, CoreDepositWallet, and CoreWriter contracts.
+
+    A :py:class:`~eth_defi.erc_4626.vault_protocol.lagoon.vault.LagoonSatelliteVault`
+    on HyperEVM has no vault contract and no ``spec``: its Safe holds the
+    chain's native USDC, so the chain comes from its connection and the asset
+    from :py:data:`~eth_defi.token.USDC_NATIVE_TOKEN`.
+
+    :param lagoon_vault:
+        Lagoon vault, or a satellite deployment, whose Safe trades on HyperCore.
+    :return:
+        ``(usdc_contract, core_deposit_wallet, core_writer)``.
+    """
     web3 = lagoon_vault.web3
-    chain_id = lagoon_vault.spec.chain_id
-    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    vault_contract = getattr(lagoon_vault, "vault_contract", None)
+    if vault_contract is None:
+        chain_id = web3.eth.chain_id
+        asset_address = USDC_NATIVE_TOKEN[chain_id]
+    else:
+        chain_id = lagoon_vault.spec.chain_id
+        asset_address = vault_contract.functions.asset().call()
     usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
     core_deposit_wallet = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET[chain_id])
     core_writer = get_core_writer_contract(web3)

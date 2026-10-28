@@ -1,8 +1,8 @@
 """Build isolated metadata for the private crypto-vaults bundle.
 
-The module intentionally does not reuse the public top-vaults selection or its
-state path.  It shares only the established metric calculations and JSON
-serialisation helpers so that public stablecoin exports remain unchanged.
+The module uses the shared metric calculations and JSON serialisation helpers
+with its own input selection and persistent state. Public top-vault selection
+and crypto-bundle admission remain separate.
 """
 
 import hashlib
@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import psutil
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from tqdm_loggable.auto import tqdm
 
@@ -51,6 +52,8 @@ from eth_defi.research.vault_metrics import (
     slugify_vaults,
 )
 from eth_defi.research.wrangle_vault_prices import (
+    DAILY_VAULT_PRICE_VERSION,
+    DAILY_VAULT_PRICE_VERSION_METADATA_KEY,
     filter_vaults_by_denomination_families,
     generate_cleaned_vault_datasets,
     materialise_daily_crypto_prices,
@@ -399,8 +402,10 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
     """Create the isolated daily stablecoin/ETH/BTC price Parquet.
 
     Stablecoin rows are derived from the existing standard cleaned Parquet;
-    ETH/BTC rows are cleaned from raw data. The result retains the final real
-    observation for each vault and UTC day.
+    ETH/BTC rows are cleaned from raw data. The result retains the final valid
+    price observation for each vault and UTC day.
+    It also retains each vault's first valid observation before its first daily
+    close, preserving the lifetime-return basis and same-day chart eligibility.
     It does not forward fill the exported rows; the shared lifetime-metrics
     calculation forward fills only its internal calendar-day series.
 
@@ -432,7 +437,8 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
     production inputs were not retained as an immutable before/after pair, so
     no like-for-like speed-up is claimed. Peak RSS was 7.1 GiB for the builder
     process; the old phase did not record RSS. The sidecar is used only when
-    its modification time is at least as new as the hourly source. This is a
+    its observation-policy version matches and its modification time is at
+    least as new as the hourly source. The mtime comparison is a
     best-effort stale-file guard for restored artefacts, not a cryptographic
     generation identifier; the hourly file remains the fallback authority.
     """
@@ -451,7 +457,8 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
         # metadata. Copied or restored files can retain unrelated modification
         # times, so this remains a best-effort guard rather than proof that the
         # two files came from the same cleaning invocation.
-        sidecar_is_fresh = cleaned_stablecoin_daily_path.stat().st_mtime_ns >= cleaned_stablecoin_path.stat().st_mtime_ns
+        metadata = pq.read_metadata(cleaned_stablecoin_daily_path).metadata or {}
+        sidecar_is_fresh = metadata.get(DAILY_VAULT_PRICE_VERSION_METADATA_KEY) == DAILY_VAULT_PRICE_VERSION and cleaned_stablecoin_daily_path.stat().st_mtime_ns >= cleaned_stablecoin_path.stat().st_mtime_ns
     use_daily_sidecar = cleaned_stablecoin_daily_path is not None and sidecar_is_fresh
     stage_started_at = time.perf_counter()
     if use_daily_sidecar:
@@ -468,7 +475,7 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
         logger.info("Crypto stablecoin sidecar load: %d rows in %.2f seconds", len(stable_prices), time.perf_counter() - stage_started_at)
     else:
         if cleaned_stablecoin_daily_path is not None and cleaned_stablecoin_daily_path.is_file() and not sidecar_is_fresh:
-            logger.warning("Ignoring stale daily stablecoin sidecar %s; hourly source is newer", cleaned_stablecoin_daily_path)
+            logger.warning("Ignoring stale or obsolete daily stablecoin sidecar %s; rebuilding from hourly prices", cleaned_stablecoin_daily_path)
         logger.info("Loading existing stablecoin prices %s", cleaned_stablecoin_path)
         stable_prices = pd.read_parquet(cleaned_stablecoin_path, dtype_backend="pyarrow")
         # Reapply current metadata membership because the public cleaned file can
@@ -837,11 +844,10 @@ def _build_native_crypto_metrics(
     records: list[pd.Series] = []
     for vault_id, group in tqdm(grouped_vaults, desc="Calculating native crypto metrics", total=grouped_vaults.ngroups):
         try:
-            # The old full-frame route keeps one midnight row per observed day,
-            # then forward-fills calendar gaps. Reproduce that semantic on the
-            # projected metric columns only; this avoids resampling the full
-            # object-heavy source frame while preserving lifetime sample counts.
+            # Daily rows supply the flow/state calculations; real observations
+            # preserve the return endpoints and actual sample count.
             group = group.sort_index(kind="stable")
+            price_observations = group[["id", "share_price", "total_assets", "block_number"]]
             group = group.resample("D").last().ffill()
             group["id"] = str(vault_id)
             record = calculate_vault_record(
@@ -850,6 +856,7 @@ def _build_native_crypto_metrics(
                 vault_id=str(vault_id),
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
                 crypto_usd_conversion_context=crypto_usd_conversion_context,
+                price_observations=price_observations,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
             logger.exception("Skipping invalid native crypto metrics record for %s", vault_id)
@@ -997,6 +1004,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         metric_columns = [column for column in stable_prices_df.columns if column not in UNUSED_METRIC_PRICE_COLUMNS]
         metric_prices_df = stable_prices_df.loc[:, metric_columns]
         daily_stable_prices_df = calculate_sparse_daily_returns_for_all_vaults(metric_prices_df)
+        price_observations = stable_prices_df[["id", "share_price", "total_assets", "block_number"]]
         logger.info(
             "Crypto stablecoin daily preparation: %d source rows, %d daily rows, %d of %d columns in %.2fs, RSS %.2f GiB",
             len(stable_prices_df),
@@ -1012,10 +1020,11 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
             daily_stable_prices_df,
             stable_vault_rows,
             stablecoin_rate_feeder=stablecoin_rate_feeder,
+            price_observations=price_observations,
         )
         logger.info("Crypto stablecoin lifetime metrics: %d vaults in %.2fs", len(stable_metrics_df), time.perf_counter() - metric_started_at)
         # Free the daily stablecoin frame before the native metrics phase.
-        del daily_stable_prices_df
+        del daily_stable_prices_df, price_observations
         free_memory()
     logger.info("Calculated stablecoin crypto metrics in %.2fs", time.perf_counter() - stable_metrics_started)
 

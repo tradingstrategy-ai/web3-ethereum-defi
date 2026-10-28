@@ -18,7 +18,7 @@ protocol operates its own vaults, 3Jane acts as their curator.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/3jane>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/3jane>`__
 - `Homepage <https://www.3jane.xyz/>`__
 - `Documentation <https://docs.3jane.xyz/>`__
 - `Twitter <https://x.com/3janexyz>`__

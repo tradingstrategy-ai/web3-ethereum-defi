@@ -4,9 +4,7 @@ role: curator
 website: https://www.apollo.com/
 short_description: Apollo is a global alternative asset manager with private credit strategies.
 long_description: |
-  Apollo is a global alternative asset manager. The vault metrics JSON uses
-  ``apollo`` as the curator identity for Ember Apollo ACRED, an Ember vault
-  linked to Apollo credit exposure.
+  [Apollo](https://www.apollo.com/) is a global alternative asset manager. The vault metrics JSON uses ``apollo`` as the curator identity for Ember Apollo ACRED, an Ember vault linked to Apollo credit exposure. [Nest's nACRDX vault](https://app.nest.credit/vaults/nest-acrdx-vault) likewise provides tokenised exposure to Apollo's diversified global credit strategy. This record attributes management of the underlying strategy to Apollo.
 
   This is intentionally distinct from ``apollo-crypto``, the separate
   Australian crypto-asset fund manager that curates Midas mAPOLLO products.
@@ -16,3 +14,5 @@ other-links:
     url: https://www.apollo.com/strategies/asset-management/credit
   - title: Ember Apollo ACRED vault
     url: https://ember.so/earn
+  - title: Nest nACRDX vault - Apollo global credit strategy exposure
+    url: https://app.nest.credit/vaults/nest-acrdx-vault

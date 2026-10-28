@@ -22,7 +22,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/usdai>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/usdai>`__
 - `Homepage <https://usd.ai/>`__
 - `App <https://usdai.fi/>`__
 - `Documentation <https://usdai.gitbook.io/usdai/>`__

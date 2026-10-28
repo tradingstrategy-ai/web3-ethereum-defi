@@ -1,0 +1,14 @@
+feeder-id: plume
+name: Plume
+role: curator
+website: https://www.plume.org/
+short_description: Plume operates an onchain platform for institutional real-world assets and curates its FACTOR private-credit vault.
+long_description: |
+  [Plume](https://www.plume.org/media-kit) develops infrastructure and vault products that bring institutional real-world assets into onchain markets. Its [FACTOR vault](https://app.nest.credit/vaults/plume-factor-vault) finances asset-backed receivables; the published vault description says Plume curates and underwrites each facility alongside Deep Ocean Partners. This curator record describes Plume's role in FACTOR rather than the independent issuers and asset managers whose products are available through other Nest vaults.
+twitter: plumenetwork
+linkedin: plume-network
+other-links:
+  - title: Plume media kit - official company and Nest vault overview
+    url: https://www.plume.org/media-kit
+  - title: Nest FACTOR vault - Plume facility curation and underwriting
+    url: https://app.nest.credit/vaults/plume-factor-vault

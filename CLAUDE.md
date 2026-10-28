@@ -9,6 +9,9 @@ touches the relevant area:
   Grok CLI usage patterns, cross-agent review commands, streaming output,
   timeouts, and common failure modes. See **Agents** below for when this
   file is mandatory.
+- `docs/README-lighter-core-execution.md` — read before changing Lighter pool
+  execution or multichain activation scripts; covers script defaults, custody
+  boundaries, recovery and the remaining funded verification requirements.
 
 ## Agents
 
@@ -32,6 +35,12 @@ Skill discovery rules:
 - Start by reading only `.claude/skills/<skill-name>/SKILL.md`.
 - If the skill references extra files, open only the files needed for the current task.
 - Prefer scripts, templates and checklists referenced by the skill over re-creating the workflow manually.
+
+After completing a feature, bug fix or maintained content change, use
+[clean-up-for-pr](.claude/skills/clean-up-for-pr/SKILL.md) before the review
+handoff. It covers code simplification, factual copy, documentation, repository
+conformance and an independent review with the opposite agent. Run it once for
+the completed change; delegated reviewers must not start another cleanup review.
 
 ## English
 
@@ -190,10 +199,11 @@ In the environment file, the RPC URLs are provided in the project-specific space
 
 ## Formatting code
 
-Run ruff to format code using Poetry:
+Run Ruff through Poetry on the Python files changed for the task. Pass the
+reviewed paths explicitly, including new files, so unrelated work is preserved:
 
 ```shell
-poetry run ruff format
+poetry run ruff format path/to/changed.py path/to/new.py
 ```
 
 ## Logging retries
@@ -372,8 +382,11 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ## Command line scripts
 
+- Scripts must use sane defaults and run without additional environment inputs wherever possible. Require an environment variable only when its value cannot be safely defaulted or inferred, such as private keys, API credentials or the user's RPC connections. Do not invent credentials or RPC URLs.
+- Routine settings such as amounts, fee allowances, chain selections, timeouts, output paths and logging levels must have sensible defaults appropriate to the script's purpose. Keep environment overrides optional; do not make users supply routine settings merely to acknowledge a default.
+- Document the default behaviour and clearly distinguish genuinely required inputs from optional overrides. Example commands should use the defaults after the private environment has been loaded, rather than require a list of routine environment assignments. Validate defaults and overrides before sending transactions or doing other irreversible work.
 - Use scripts/erc-4626/scab-vaults.py as an example how to set up logger and read any needed environment variables as input.
-- Always use environment variables. Do not attempt to create command line parsers unless explicitly asked.
+- When configuration is needed, use environment variables. Do not attempt to create command line parsers unless explicitly asked.
 - For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
 
 ## Parallerisation and optimising long running data reading pipelines
@@ -501,6 +514,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
 | `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
 | `docs/README-vault-scan-manifest.md` | Private readiness receipt: R2 keys, schema, sparse candle semantics, cache policy and rollout |
+| `docs/README-hypercore-permission-recovery.md` | Hypercore permission clocks, backed-up recovery and gated private R2 maintenance |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
 | `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
@@ -526,10 +540,14 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/vault_report/README-vault-report.md` | Monthly best-performing stablecoin vaults blog report — data sources, sections, branded charts, Ghost draft workflow |
+| `eth_defi/vault_report/README-blog-post-outline.md` | Monthly vault report blog post outline — section order, vault groups, selection rules, editor input and open decisions |
+| `eth_defi/vault_report/README-best-vaults-news.md` | Monthly vault report blog post drafts — goal of the skeleton, GitHub PR comment previews, Ghost draft creation, architecture diagram |
 | `eth_defi/yield_basis/README-YieldBasis.md` | YieldBasis LT vault model, valuation and historical pipeline |
 | `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
+| `eth_defi/erc_4626/vault_protocol/antarctic/README-Antarctic.md` | Antarctic perpetual DEX, AMLP/AHLP settlement data and event-based vault support |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
-| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |
+| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), Anvil 1.8 behaviour and mitigations (cache `source_id`, async mining, hedged receipt lookups), diagnosing slow fork tests, reference tests |
 | `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |

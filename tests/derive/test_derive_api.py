@@ -7,7 +7,7 @@ Required environment variables:
 
 - ``DERIVE_OWNER_PRIVATE_KEY``: Owner wallet private key (from web UI wallet)
 - ``DERIVE_SESSION_PRIVATE_KEY``: Session key private key (from testnet developer page)
-- ``DERIVE_WALLET_ADDRESS``: Derive wallet address (optional, auto-derived from owner key)
+- ``DERIVE_WALLET_ADDRESS``: Derive wallet address (optional, defaults to the owner EOA as in Derive v3)
 
 See tests/derive/derive-test-key-setup.md for detailed instructions.
 """
@@ -20,7 +20,6 @@ from eth_account import Account
 
 from eth_defi.derive.account import fetch_account_collaterals, fetch_account_summary, fetch_subaccount_ids
 from eth_defi.derive.authentication import DeriveApiClient
-from eth_defi.derive.onboarding import fetch_derive_wallet_address
 
 # Skip tests if not configured
 pytestmark = pytest.mark.skipif(
@@ -37,11 +36,11 @@ def owner_account():
 
 @pytest.fixture(scope="module")
 def derive_wallet_address(owner_account):
-    """Derive wallet address from env, or auto-derived from owner key."""
+    """Derive wallet address from env, or the owner EOA that owns Derive v3 accounts."""
     env_address = os.environ.get("DERIVE_WALLET_ADDRESS")
     if env_address:
         return env_address
-    return fetch_derive_wallet_address(owner_account.address, is_testnet=True)
+    return owner_account.address
 
 
 @pytest.fixture(scope="module")
@@ -63,6 +62,7 @@ def authenticated_client(owner_account, derive_wallet_address):
     return client
 
 
+@pytest.mark.skip(reason="Derive v3 migration: the testnet account and its session key need to be set up again (deposit on Ethereum Sepolia, then private/set_session_key)")
 def test_account_collaterals(authenticated_client):
     """Test fetching collaterals from a Derive account.
 
@@ -83,6 +83,7 @@ def test_account_collaterals(authenticated_client):
         assert col.total >= col.available, f"{col.token} total should be >= available"
 
 
+@pytest.mark.skip(reason="Derive v3 migration: the testnet account and its session key need to be set up again (deposit on Ethereum Sepolia, then private/set_session_key)")
 def test_account_summary(authenticated_client):
     """Test fetching complete account summary from a Derive account.
 
@@ -104,6 +105,7 @@ def test_account_summary(authenticated_client):
     assert len(summary.collaterals) > 0, "Funded account should have collaterals"
 
 
+@pytest.mark.skip(reason="Derive v3 migration: the testnet account and its session key need to be set up again (deposit on Ethereum Sepolia, then private/set_session_key)")
 def test_session_key_scope_read_only(authenticated_client):
     """Verify that session key can read account data."""
     ids = fetch_subaccount_ids(authenticated_client)

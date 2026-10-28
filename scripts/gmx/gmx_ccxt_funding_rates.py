@@ -6,12 +6,15 @@ Also demonstrates historical funding rate data.
 """
 
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 
 def main():
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     exchange = GMX(config)
 
@@ -46,7 +49,7 @@ def main():
             )
 
         except Exception as e:
-            print(f"Error fetching funding rate for {symbol}: {e}")
+            print(redact_rpc_urls(f"Error fetching funding rate for {symbol}: {e}"))
 
     print("\n" + "=" * 95)
     print("\nHistorical Funding Rates (ETH/USDC:USDC - Last 10 snapshots)\n")
@@ -67,7 +70,7 @@ def main():
             print(f"{i:<6} {rate:>15.10f} {hourly * 100:>14.4f}% {daily * 100:>14.4f}% {long_rate:>15.10f} {short_rate:>15.10f}")
 
     except Exception as e:
-        print(f"Error fetching funding rate history: {e}")
+        print(redact_rpc_urls(f"Error fetching funding rate history: {e}"))
 
 
 if __name__ == "__main__":

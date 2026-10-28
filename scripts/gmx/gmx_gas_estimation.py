@@ -18,15 +18,16 @@ import os
 import sys
 
 from rich.console import Console
-from rich.table import Table
 from rich.logging import RichHandler
+from rich.table import Table
 
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import redact_rpc_urls
 
 console = Console()
 
@@ -152,7 +153,7 @@ def main():
         except Exception as e:
             # If gas estimation fails (usually due to insufficient balance),
             # use rough estimates: ~450k gas for open position
-            console.print(f"  [yellow]Gas estimation failed:[/yellow] {str(e)[:200]}")
+            console.print(redact_rpc_urls(f"  [yellow]Gas estimation failed:[/yellow] {str(e)[:200]}"))
             console.print("  [dim]Using rough estimate: ~450k gas[/dim]")
             estimated_gas = 450000
             gas_cost_wei = estimated_gas * gas_price
@@ -203,7 +204,7 @@ def main():
             }
 
     except Exception as e:
-        console.print(f"  [red]Error: {e}[/red]")
+        console.print(redact_rpc_urls(f"  [red]Error: {e}[/red]"))
         open_result = None
 
     try:
@@ -232,7 +233,7 @@ def main():
             gas_cost_usd = estimate.estimated_cost_usd
         except Exception as e:
             # If gas estimation fails, use rough estimates: ~380k gas for close position
-            console.print(f"  [yellow]Gas estimation failed:[/yellow] {str(e)[:200]}")
+            console.print(redact_rpc_urls(f"  [yellow]Gas estimation failed:[/yellow] {str(e)[:200]}"))
             console.print("  [dim]Using rough estimate: ~380k gas[/dim]")
             estimated_gas = 380000
             gas_cost_wei = estimated_gas * gas_price
@@ -259,7 +260,7 @@ def main():
         }
 
     except Exception as e:
-        console.print(f"  [red]Error: {e}[/red]")
+        console.print(redact_rpc_urls(f"  [red]Error: {e}[/red]"))
         close_result = None
 
     # Summary table

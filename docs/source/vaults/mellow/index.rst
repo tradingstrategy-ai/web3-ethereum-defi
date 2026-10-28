@@ -25,7 +25,7 @@ redeem fees directly to their matching shared fields.
 Links
 -----
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/mellow>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/mellow>`__
 - `Homepage <https://mellow.finance/>`__
 - `App <https://app.mellow.finance/>`__
 - `Documentation <https://docs.mellow.finance/core-vaults>`__

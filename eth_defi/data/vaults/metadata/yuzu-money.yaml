@@ -34,7 +34,7 @@ links:
   defillama: https://defillama.com/protocol/yuzu-money
   audits: https://github.com/pashov/audits/blob/master/team/pdf/YuzuUSD-security-review_2025-08-28.pdf
   fees: https://yuzu-money.gitbook.io/yuzu-money/faq-1/performance-fee
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yuzu-money
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/yuzu-money
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yuzu_money/index.html
 example_smart_contracts:
   - https://plasmascan.to/address/0xebfc8c2fe73c431ef2a371aea9132110aab50dca

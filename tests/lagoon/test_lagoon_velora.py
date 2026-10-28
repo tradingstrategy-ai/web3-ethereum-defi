@@ -86,9 +86,14 @@ def new_depositor(web3, usdc) -> HexAddress:
     return new_depositor
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def asset_manager() -> HexAddress:
-    """The asset manager role."""
+    """The asset manager role.
+
+    Module scope matches ``tests/lagoon/conftest.py``, whose module-scoped fork
+    fixture depends on this name; a function-scoped override raises
+    ``ScopeMismatch``.
+    """
     return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
 
 

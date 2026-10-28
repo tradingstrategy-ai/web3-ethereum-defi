@@ -1,0 +1,11 @@
+feeder-id: nest-dao
+name: Nest DAO
+role: curator
+canonical-feeder-id: nest
+website: https://nest.credit/
+short_description: Nest DAO is the primary curator of Nest vaults.
+long_description: |
+  [Nest's official site](https://nest.credit/) identifies Nest DAO LLC as the primary curator of Nest vaults and states that it currently provides services to Kimber Labs Inc. Nest DAO oversees the vault programme, while product yield-source partners and underlying asset managers have separate roles.
+other-links:
+  - title: Nest - primary curator statement
+    url: https://nest.credit/

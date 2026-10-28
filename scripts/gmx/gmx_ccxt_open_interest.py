@@ -8,16 +8,19 @@ CCXT standard:
 - Preserves long/short breakdown in info field
 """
 
-from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMX
 from rich.console import Console
+from web3 import Web3
+
+from eth_defi.compat import create_http_provider
+from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 print = Console().print
 
 
 def main():
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+    web3 = Web3(create_http_provider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     gmx = GMX(config)
 
@@ -43,7 +46,7 @@ def main():
             token = symbol.replace("/USD", "")
             print(f"{token:<8} ${total_oi:>14,.0f} ${long_oi:>14,.0f} ${short_oi:>14,.0f}")
         except Exception as e:
-            print(f"Error fetching OI for {symbol}: {e}")
+            print(redact_rpc_urls(f"Error fetching OI for {symbol}: {e}"))
 
     print("\n" + "=" * 60)
     print("\nFetch Multiple Markets at Once\n")
@@ -53,7 +56,7 @@ def main():
         for symbol, oi in ois.items():
             print(f"{symbol}: ${oi['openInterestValue']:,.0f}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(redact_rpc_urls(f"Error: {e}"))
 
     print("\n" + "=" * 60)
     print("\nHistorical Open Interest (ETH/USDC:USDC - Last 5 snapshots)\n")
@@ -71,7 +74,7 @@ def main():
             print(f"{i:<6} ${total:>14,.0f} ${long:>14,.0f} ${short:>14,.0f}")
 
     except Exception as e:
-        print(f"Error fetching OI history: {e}")
+        print(redact_rpc_urls(f"Error fetching OI history: {e}"))
 
 
 if __name__ == "__main__":

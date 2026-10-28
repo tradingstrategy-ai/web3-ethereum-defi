@@ -11,7 +11,7 @@ from eth_defi.currency_api.client import DateRates
 from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.feed import stablecoin_rate
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder, build_depegged_stablecoin_lookups, iter_stablecoin_rate_targets, refresh_stablecoin_rates
-from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_metadata_json, get_stablecoin_available_logos, is_stablecoin_like
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR, build_stablecoin_metadata_json, get_stablecoin_available_logos, is_stablecoin_like, load_all_stablecoin_metadata, normalise_token_symbol
 
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
@@ -713,6 +713,33 @@ def test_packaged_chf_stablecoins_have_chf_source_currency() -> None:
 
         assert rate.source_currency == "chf"
         assert rate.coingecko_id == "frankencoin"
+
+
+def test_packaged_circle_euro_symbol_aliases() -> None:
+    """Circle's EURC rebrand retains EUROC metadata and EUR accounting.
+
+    Liquid Euro accepts EURC on Optimism, whose address is absent from the
+    packaged Ethereum deployment list. Symbol fallback must still resolve the
+    reviewed EUR currency without inventing a USD exchange rate.
+    """
+    metadata = load_all_stablecoin_metadata()
+    exported = build_stablecoin_metadata_json(STABLECOINS_DATA_DIR / "euroc.yaml")[0]
+    feeder = StablecoinRateFeeder()
+    optimism_eurc_address = "0xDCB612005417Dc906fF72c87DF732e5a90D49e11"
+
+    assert metadata["EURC"] == metadata["EUROC"]
+    assert exported["symbol"] == "EUROC"
+    assert exported["slug"] == "euroc"
+    assert exported["source_currency"] == "eur"
+
+    legacy_rate = feeder.get_denomination_token_rate_section(10, optimism_eurc_address, "EUROC")
+    for symbol in ("EURC", "EUROC"):
+        assert is_stablecoin_like(symbol) is True
+        assert normalise_token_symbol(symbol) == "EUROC"
+        rate = feeder.get_denomination_token_rate_section(10, optimism_eurc_address, symbol)
+        assert rate == legacy_rate
+        assert rate.source_currency == "eur"
+        assert rate.usd_rate is None
 
 
 def test_packaged_usdu_metadata_and_rate_target() -> None:

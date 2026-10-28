@@ -3,6 +3,10 @@
 This module provides session creation with retry logic and rate limiting
 for Hyperliquid API requests.
 
+Final vault-deposit observations can supply a monotonic deadline to use a
+single bounded public read. That path requires the ``curl`` executable and
+intentionally bypasses outage retries, proxy rotation and blocking rate limits.
+
 Rate limiting is thread-safe using SQLite backend, so the session can be
 shared across multiple threads when using ``joblib.Parallel`` or similar.
 
@@ -30,8 +34,11 @@ with an **independent rate limiter** so that each proxy IP can use its full
 rate allowance independently.
 """
 
+import json
 import logging
 import os
+import shutil
+import subprocess  # noqa: S404 -- the bounded public read uses a fixed curl executable, never a shell
 import tempfile
 import time
 from pathlib import Path
@@ -39,6 +46,7 @@ from pathlib import Path
 import requests as requests_lib
 from pyrate_limiter import SQLiteBucket
 from requests import Session
+from requests.utils import select_proxy
 from requests_ratelimiter import LimiterAdapter
 
 from eth_defi.event_reader.webshare import ProxyRotator
@@ -93,6 +101,9 @@ DEFAULT_REQUESTS_PER_SECOND = 1.0
 #: Maximum proxy rotation attempts in a single post_info() call
 #: before falling back to direct connection
 MAX_PROXY_ROTATIONS = 3
+
+#: Curl's documented total-transfer timeout exit code, distinct from HTTP errors.
+CURL_OPERATION_TIMED_OUT = 28
 
 
 def _create_adapter(
@@ -272,7 +283,86 @@ class HyperliquidSession(Session):
     # API helpers
     # ──────────────────────────────────────────────
 
-    def post_info(self, payload: dict, timeout: float = 30.0) -> requests_lib.Response:
+    def _post_info_before_deadline(self, payload: dict, deadline: float) -> requests_lib.Response:
+        """Fetch a public Info snapshot without extending a settlement deadline.
+
+        Requests socket timeouts measure inactivity, so neither they nor a
+        retry-free adapter bound DNS resolution or a slowly trickling body.
+        Curl is already installed in the executor image for health checks. Its
+        total transfer timeout, backed by a killable subprocess timeout, gives
+        final deposit verification a real elapsed-time budget without leaving
+        a worker thread performing reads after the executor has continued.
+
+        This path is deliberately limited to public vault-equity snapshots.
+        The caller polls at two-second intervals, below the endpoint's normal
+        one-request-per-second allowance. It does not enter the ordinary
+        session's blocking rate limiter, rotate proxies or retry 429 responses;
+        those outage-recovery policies are useful for market data but cannot
+        be allowed to pause settlement beyond its deadline.
+
+        See `curl's total transfer timeout <https://curl.se/docs/manpage.html#-m>`_.
+
+        :param payload: Public ``userVaultEquities`` Info request.
+        :param deadline: Absolute ``time.monotonic()`` deadline shared by all polls.
+        :return: Fully received response, compatible with existing API decoders.
+        :raises requests.Timeout: The transfer could not finish inside the budget.
+        :raises requests.ConnectionError: Curl is unavailable or the transfer failed.
+        """
+        assert payload.get("type") == "userVaultEquities", "Bounded reads are only for vault-equity confirmation"
+        url = f"{self.api_url}/info"
+        settings = self.merge_environment_settings(url, self._build_proxy_dict() or {}, False, None, None)
+        proxy = select_proxy(url, settings["proxies"]) or ""
+
+        # Feed configuration through stdin: a configured proxy can contain
+        # credentials, which must not appear in process arguments or errors.
+        # Disable .curlrc so operator retry/redirect settings cannot silently
+        # change this one-attempt, read-only request into an unbounded wait.
+        configuration = [
+            f"url = {json.dumps(url)}",
+            'header = "Content-Type: application/json"',
+            f"data-binary = {json.dumps(json.dumps(payload))}",
+            f"proxy = {json.dumps(proxy)}",
+        ]
+        if isinstance(settings["verify"], str):
+            configuration.append(f"cacert = {json.dumps(settings['verify'])}")
+        curl_path = shutil.which("curl")
+        if curl_path is None:
+            raise requests_lib.ConnectionError("Bounded HyperCore equity reads require the curl executable")
+        # Measure after preparing the request so setup time cannot renew its
+        # remaining budget. The subprocess and curl use that same allowance.
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise requests_lib.Timeout("HyperCore equity request deadline reached before starting the transfer")
+        self._request_count += 1
+        try:
+            result = subprocess.run(  # noqa: S603 -- fixed executable, private configuration through stdin, no shell
+                [curl_path, "--disable", "--silent", "--config", "-", "--max-time", str(remaining), "--write-out", "\n%{http_code}"],
+                input="\n".join(configuration).encode(),
+                capture_output=True,
+                timeout=remaining,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            # subprocess.run kills and reaps the child before raising. There
+            # is no background reader that can outlive the accepted trade.
+            raise requests_lib.Timeout("HyperCore equity request exceeded the settlement deadline") from error
+        except OSError as error:
+            raise requests_lib.ConnectionError("Could not start the bounded HyperCore equity request") from error
+
+        if result.returncode == CURL_OPERATION_TIMED_OUT or time.monotonic() >= deadline:
+            raise requests_lib.Timeout("HyperCore equity request did not complete before the settlement deadline")
+        if result.returncode != 0:
+            # Curl's stderr can describe proxy credentials or other private
+            # transport configuration; the exit code suffices for this warning.
+            raise requests_lib.ConnectionError(f"Bounded HyperCore equity request failed (curl exit {result.returncode})")
+        content, status = result.stdout.rsplit(b"\n", 1)
+        response = requests_lib.Response()
+        response.status_code = int(status)
+        response._content = content
+        response.url = url
+        return response
+
+    def post_info(self, payload: dict, timeout: float = 30.0, *, deadline: float | None = None) -> requests_lib.Response:
         """POST to the Hyperliquid ``/info`` endpoint with graceful proxy rotation.
 
         Uses the session's configured proxy (if any). Rotation policy:
@@ -305,7 +395,13 @@ class HyperliquidSession(Session):
         :param payload:
             JSON request body for the ``/info`` endpoint.
         :param timeout:
-            HTTP request timeout in seconds.
+            HTTP request timeout in seconds. With a deadline, this also caps
+            the complete transfer, rather than only socket inactivity.
+        :param deadline:
+            Optional absolute monotonic deadline for final vault-equity
+            confirmation. Uses a single bounded public read rather than the
+            session's long outage-recovery retries. Other readers retain their
+            existing retry and rate-limit policies.
         :return:
             The :py:class:`requests.Response` object.
         :raises requests.ConnectionError:
@@ -313,6 +409,9 @@ class HyperliquidSession(Session):
         :raises requests.Timeout:
             If the request times out and no proxy rotation is available.
         """
+        if deadline is not None:
+            return self._post_info_before_deadline(payload, min(deadline, time.monotonic() + timeout))
+
         # HTTP statuses that signal "slow down / upstream is overloaded",
         # but the proxy itself is fine. Rotate without marking dead.
         throttle_statuses = {429, 500, 502, 503, 504}

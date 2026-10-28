@@ -50,7 +50,11 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
-    # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
+    # Verified contracts have no strategy-fee accounting. Operator settlement
+    # and published API prices do not establish fee internalisation; see
+    # eth_defi/abi/infinit/README.md.
+    "Infinit": None,
+    # Direct sftUSD/ssftUSD staking is fee-free, but both adapters model the
     # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
     # investor-return fields are comparable with USDC-denominated vaults.
     "Flying Tulip": VaultFeeMode.externalised,
@@ -92,6 +96,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Asseto": VaultFeeMode.internalised_skimming,
     # Premium option-premium fees are not universal LP management,
     # performance, deposit or withdrawal fees.
+    "Antarctic": None,
     "Rysk": None,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
@@ -254,10 +259,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
     # https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt
     "GRVT": VaultFeeMode.externalised,
-    # Lighter pools - operator fee is a performance fee taken from PnL,
-    # already reflected in share prices (internalised skimming).
-    # Per-pool operator fees range from 0% (LLP) to variable amounts for user pools.
-    "Lighter": VaultFeeMode.internalised_skimming,
+    # Lighter operator fees are charged on participant profits upon withdrawal,
+    # separately from share-price returns. LLP has a 0% operator fee.
+    # https://docs.lighter.xyz/trading/public-pools
+    # https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/
+    "Lighter": VaultFeeMode.externalised,
     # Hibachi - all vault-level fees are zero (management, performance, deposit, withdrawal)
     # Platform charges trading taker fees and deposit/withdrawal fees at exchange level
     "Hibachi": VaultFeeMode.feeless,
@@ -441,6 +447,9 @@ def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> V
     :return:
         None if unknown
     """
-    del address
+    # IP Vault's conditional exit fees and fund costs remain under verification.
+    # Do not inherit the existing Asseto AoABT fee assessment for this product.
+    if vault_protocol_name == "Asseto" and address.lower() == "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9":
+        return None
 
     return VAULT_PROTOCOL_FEE_MATRIX.get(vault_protocol_name)

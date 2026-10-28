@@ -36,6 +36,8 @@ This submodule offers functionality to connect to and improve the resilience of 
    eth_defi.provider.rpc_monitoring_adapter
    eth_defi.provider.rpc_failure
    eth_defi.provider.rpcdb
+   eth_defi.provider.rpc_counter_maintenance
+   eth_defi.provider.rpc_counter_comparison
    eth_defi.provider.tenderly
 
 Selective retries for optional contract calls
@@ -48,3 +50,19 @@ for expected contract reverts. Pass
 ``retry_exceptions={requests.exceptions.ReadTimeout}`` to retry only a
 transient request timeout and let the fallback provider switch endpoint. The
 call's ``attempts`` and ``retry_sleep`` bound these selected fallback retries.
+
+RPC URL diagnostics
+~~~~~~~~~~~~~~~~~~~
+
+Provider factories register RPC endpoints before network requests. Diagnostic
+output uses :py:func:`eth_defi.utils.get_url_domain` to retain only the hostname
+and a non-default port. Shared logging also shortens registered endpoints in
+dependency messages and logged exception chains, while preserving unrelated
+links. Console setup registers endpoints from RPC environment variables.
+
+When constructing a provider outside these factories, call
+:py:func:`eth_defi.rpc_url.register_rpc_url` before its first request. Registration
+accepts the space-separated fallback configuration, including ``mev+`` URLs,
+and must run separately in each worker process. Use
+:py:func:`eth_defi.rpc_url.redact_rpc_urls` for diagnostic text written directly
+to a terminal; never use its result as a request URL.

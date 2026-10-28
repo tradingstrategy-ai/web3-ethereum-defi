@@ -38,6 +38,11 @@ from eth_defi.utils import to_unix_timestamp
 
 logger = logging.getLogger(__name__)
 
+#: Receipt poll interval on Anvil. Anvil mines in milliseconds, and with
+#: :py:class:`eth_defi.middleware.AnvilSyncSendMiddleware` a send returns only
+#: once mined, so a longer sleep is pure waiting.
+ANVIL_POLL_DELAY = datetime.timedelta(seconds=0.05)
+
 
 class BroadcastFailure(Exception):
     """Could not broadcast a transaction for some reason."""
@@ -192,6 +197,9 @@ def wait_transactions_to_complete(
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
 
+    if is_anvil(web3):
+        poll_delay = min(poll_delay, ANVIL_POLL_DELAY)
+
     logger.info("Waiting %d transactions to confirm in %d blocks, timeout is %s", len(txs), confirmation_block_count, max_timeout)
 
     started_at = native_datetime_utc_now()
@@ -276,7 +284,7 @@ def wait_transactions_to_complete(
                 provider.switch_provider()
                 next_node_switch = native_datetime_utc_now() + node_switch_timeout
             else:
-                logger.warning("TX confirmation takes long time. No alternative node available: %s", web3.provider)
+                logger.warning("TX confirmation takes long time. No alternative node available: %s", get_provider_name(web3.provider))
 
     return receipts_received
 
@@ -716,6 +724,46 @@ def _fetch_timed_out_transaction(provider: BaseProvider, tx_hash: HexBytes) -> d
     return response.get("result")
 
 
+#: JSON-RPC error fragments meaning the node already holds this exact transaction.
+#: Geth: ``already known``; BNB chain: ``ALREADY_EXISTS: already known``;
+#: reth and Anvil >= 1.8: ``transaction already imported``.
+_DUPLICATE_BROADCAST_FRAGMENTS = ("already known", "ALREADY_EXISTS", "already imported")
+
+
+#: JSON-RPC error fragments meaning another broadcast of ours already advanced the
+#: nonce, e.g. the first provider mined the transaction before the second saw it.
+_NONCE_RACE_FRAGMENTS = ("nonce too low", "nonce too high")
+
+
+def _is_nonce_race_error(error: BaseException) -> bool:
+    """Tell whether a broadcast error is a nonce race between our own providers.
+
+    :param error:
+        Exception raised by ``eth_sendRawTransaction``.
+    :return:
+        ``True`` when the node reports the nonce as already used or ahead.
+    """
+    message = str(error)
+    return any(fragment in message for fragment in _NONCE_RACE_FRAGMENTS)
+
+
+def _is_duplicate_broadcast_error(error: BaseException) -> bool:
+    """Tell whether a broadcast error means the node already has the transaction.
+
+    Rebroadcasting through several providers, or retrying while an earlier
+    broadcast is still pending in the pool, makes nodes answer with one of
+    :data:`_DUPLICATE_BROADCAST_FRAGMENTS`. The transaction is in flight, so
+    the broadcast counts as successful.
+
+    :param error:
+        Exception raised by ``eth_sendRawTransaction``.
+    :return:
+        ``True`` for a duplicate-transaction reply.
+    """
+    message = str(error)
+    return any(fragment in message for fragment in _DUPLICATE_BROADCAST_FRAGMENTS)
+
+
 def _broadcast_multiple_nodes(
     providers: Collection[BaseProvider],
     signed_tx: SignedTxType,
@@ -783,11 +831,12 @@ def _broadcast_multiple_nodes(
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
                 # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
-            elif "ALREADY_EXISTS" in resp_data["message"]:
-                # Some RPCs throw this custom error.
-                # BNB chain.
-                # {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+            elif _is_duplicate_broadcast_error(e):
+                # The node already holds this transaction, so the broadcast succeeded.
+                # BNB chain: {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+                # Reth-based nodes and Anvil >= 1.8: {'code': -32003, 'message': 'transaction already imported'}
                 logger.info("Already exists. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+                success.add(p)
 
             elif "transaction underpriced" in resp_data["message"]:
                 # Some RPCs throw this custom error.
@@ -816,7 +865,16 @@ def _broadcast_multiple_nodes(
                 raise ValueError(f"Does not know how to handle error: {e}\nTx: {tx_hash}, nonce {nonce}, address {address}, see logs for further details") from e
 
         except Exception as e:
-            exceptions[p] = e
+            # web3 raises Web3RPCError, not ValueError, for JSON-RPC errors, so the
+            # same benign replies must be classified here as well.
+            if _is_duplicate_broadcast_error(e):
+                logger.info("Node already holds tx %s, counting broadcast through %s as successful: %s", tx_hash, name, e)
+                success.add(p)
+            elif _is_nonce_race_error(e):
+                # Mirrors the ValueError branch above: the receipt poll decides.
+                logger.info("Nonce race for tx %s through %s, leaving confirmation to the receipt poll: %s", tx_hash, name, e)
+            else:
+                exceptions[p] = e
 
     if exceptions:
         if len(exceptions) == len(providers):
@@ -827,9 +885,9 @@ def _broadcast_multiple_nodes(
                 nonce,
             )
             for provider, exception in exceptions.items():
-                name = get_provider_name(p)
-                logger.error("%s failed with: %s", name, e)
-                logger.exception(e)
+                name = get_provider_name(provider)
+                logger.error("%s failed with: %s", name, exception)
+                logger.exception(exception)
 
             # Raise the last exception
             raise exception
@@ -854,8 +912,8 @@ def _broadcast_multiple_nodes(
             # It's enough that at least one provider success,
             # so no exception here
 
-    # All providers succeeded
-    logger.info("All providers succeeded to broadcast the tx: %s", tx_hash)
+    if not exceptions:
+        logger.info("All providers succeeded to broadcast the tx: %s", tx_hash)
 
 
 def wait_and_broadcast_multiple_nodes(
@@ -967,6 +1025,7 @@ def wait_and_broadcast_multiple_nodes(
     if anviled:
         # Keep the visibility deadline short on Anvil so unit tests remain fast.
         inter_node_delay = datetime.timedelta(seconds=0.5)
+        poll_delay = min(poll_delay, ANVIL_POLL_DELAY)
 
     for tx in txs:
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
@@ -989,8 +1048,8 @@ def wait_and_broadcast_multiple_nodes(
         providers = [transact_provider]
         logger.info(
             "MEV blocking enabled.\nBroadcast only through: %s\nAll providers: %s",
-            providers,
-            all_providers,
+            [get_provider_name(p) for p in providers],
+            [get_provider_name(p) for p in all_providers],
         )
     else:
         logger.info("No MEV blocker enable, Anvil is %s", anviled)
@@ -1013,6 +1072,7 @@ def wait_and_broadcast_multiple_nodes(
             used_nonces.add(nonce)
 
     started_at = native_datetime_utc_now()
+    last_anvil_mine_at = 0.0
 
     receipts_received = {}
 
@@ -1135,9 +1195,11 @@ def wait_and_broadcast_multiple_nodes(
                     raise e
 
             logger.info("We have still unconfirmed %d txs, sleeping %s", len(unconfirmed_txs), poll_delay.total_seconds())
-            if anviled:
-                # Anvil hack on failing to get receipts
+            if anviled and time.monotonic() - last_anvil_mine_at >= 1.0:
+                # Anvil hack on failing to get receipts. At most once a second,
+                # as the Anvil poll delay is short and each call mines a block.
                 mine(web3)
+                last_anvil_mine_at = time.monotonic()
             time.sleep(poll_delay.total_seconds())
 
             if native_datetime_utc_now() > started_at + max_timeout:
@@ -1169,18 +1231,18 @@ def wait_and_broadcast_multiple_nodes(
 
         if native_datetime_utc_now() >= next_node_switch:
             if transact_provider:
-                logger.info(f"Broadcast failed with {transact_provider} - trying again")
+                logger.info(f"Broadcast failed with {get_provider_name(transact_provider)} - trying again")
             else:
                 # Check if it time to try a better node provider
                 logger.warning(
                     "Timeout %s reached with this node provider. Trying confirm tx success with an alternative node provider: %s.",
                     node_switch_timeout,
-                    provider,
+                    get_provider_name(provider),
                 )
                 if hasattr(provider, "switch_provider"):
                     provider.switch_provider()
                 else:
-                    logger.warning(f"Unknown provider {provider} of {providers} - cannot switch. Not sure what's going on")
+                    logger.warning(f"Unknown provider {get_provider_name(provider)} of {[get_provider_name(p) for p in providers]} - cannot switch. Not sure what's going on")
 
             next_node_switch = native_datetime_utc_now() + node_switch_timeout
 
@@ -1543,7 +1605,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s, timeout is %s",
         len(txs),
         anviled,
-        transaction_provider,
+        get_provider_name(transaction_provider),
         max_timeout,
     )
 
@@ -1576,7 +1638,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         time.sleep(broadcast_and_read_delay.total_seconds())
 
                 if time.time() > try_other_provider_timeout:
-                    logger.info("Checking receipt through fallback provider %s", backup_provider)
+                    logger.info("Checking receipt through fallback provider %s", get_provider_name(backup_provider))
                     try:
                         backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
                     except TransactionNotFound:
@@ -1599,7 +1661,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         logger.info(
                             "No receipt, attempting to broadcast with hash: %s with backup provider %s",
                             tx.hash.hex(),
-                            backup_provider,
+                            get_provider_name(backup_provider),
                         )
                         try:
                             raw_bytes = get_tx_broadcast_data(tx)
@@ -1607,8 +1669,9 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                             logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
                             logger.info("Backup broadcast failed: %s", e)
-                            if "already known" in str(e):
+                            if "already known" in str(e) or "already imported" in str(e):
                                 # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
+                                # Reth-based nodes and Anvil >= 1.8: {'code': -32003, 'message': 'transaction already imported'}
                                 # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
                                 logger.info("Already known race condition: %s", str(e))
                             else:

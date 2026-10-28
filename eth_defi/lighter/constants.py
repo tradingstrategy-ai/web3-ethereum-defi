@@ -77,6 +77,12 @@ LIGHTER_L1_CONTRACT: HexAddress = "0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7"
 #: USDC on Ethereum mainnet — the Lighter deposit asset.
 LIGHTER_USDC_ETHEREUM: HexAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
+#: Lighter route type of the perpetuals balance.
+#:
+#: Used as ``routeType`` in L1 ``deposit`` and ``withdraw`` calls and as the
+#: source and destination route of L2 transfers.
+LIGHTER_ROUTE_PERP: int = 0
+
 #: Lighter mainnet API base URL.
 LIGHTER_API_URL: str = "https://mainnet.zklighter.elliot.ai"
 
@@ -93,10 +99,13 @@ LIGHTER_DEFAULT_REQUESTS_PER_SECOND: float = 2.0
 
 #: Fee mode for Lighter native pools.
 #:
-#: Pool operators can set an ``operator_fee`` (0-100%). The share prices
-#: from the API already reflect the operator's fee deduction, so the
-#: pipeline sees net-of-fees prices. This matches internalised skimming.
-LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
+#: Pool operators charge ``operator_fee`` (0-100%) on a participant's positive
+#: profits upon withdrawal. Share-price returns are gross of this investor fee.
+#: See `Lighter's public-pool documentation
+#: <https://docs.lighter.xyz/trading/public-pools>`__ and the independent
+#: `Cipher Intelligence public-pool example
+#: <https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/>`__.
+LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
 
 #: Pool denomination currency.
 #:

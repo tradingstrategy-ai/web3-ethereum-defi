@@ -37,7 +37,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/teller
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/teller
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/teller/index.html
 example_smart_contracts:
   - https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b

@@ -9,6 +9,19 @@ from eth_defi.vault import data_file_export
 from eth_defi.vault.settlement_data import VAULT_SETTLEMENT_DATABASE_FILENAME, VaultSettlementDatabase
 
 
+@pytest.fixture
+def scheduled_backups(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    """Capture delegation of DuckDB files to the separately tested scheduler."""
+    calls = []
+
+    def fake_backup_databases(client, bucket, registry, **_kwargs):
+        calls.extend((bucket, entry.path.name) for entry in registry)
+        return {entry.name: "uploaded" for entry in registry}
+
+    monkeypatch.setattr(data_file_export, "backup_databases", fake_backup_databases)
+    return calls
+
+
 def write_export_test_file(path: Path) -> None:
     """Create a valid export fixture file.
 
@@ -139,6 +152,7 @@ def test_data_file_export_requires_private_bucket(monkeypatch: pytest.MonkeyPatc
 def test_core3_duckdb_upload_targets_private_bucket_and_gets_daily_backup(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    scheduled_backups: list[tuple[str, str]],
 ):
     """Core3 DuckDB uploads and backs up only in the private bucket.
 
@@ -178,8 +192,9 @@ def test_core3_duckdb_upload_targets_private_bucket_and_gets_daily_backup(
     monkeypatch.setattr(data_file_export, "copy_r2_object_daily_backup", fake_copy_r2_object_daily_backup)
 
     data_file_export.main()
-    assert ("private-bucket", "core3.duckdb") in uploaded
-    assert ("private-bucket", "core3.duckdb") in backups
+    assert ("private-bucket", "core3.duckdb") in scheduled_backups
+    assert ("private-bucket", "core3.duckdb") not in uploaded
+    assert ("private-bucket", "core3.duckdb") not in backups
     assert all(bucket == "private-bucket" for bucket, _ in uploaded)
     assert all(bucket == "private-bucket" for bucket, _ in backups)
 
@@ -187,6 +202,7 @@ def test_core3_duckdb_upload_targets_private_bucket_and_gets_daily_backup(
 def test_exchange_rate_duckdb_upload_targets_private_bucket_and_gets_daily_backup(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    scheduled_backups: list[tuple[str, str]],
 ):
     """Exchange-rate DuckDB uploads and backs up only in the private bucket.
 
@@ -232,8 +248,9 @@ def test_exchange_rate_duckdb_upload_targets_private_bucket_and_gets_daily_backu
     monkeypatch.setattr(data_file_export, "copy_r2_object_daily_backup", fake_copy_r2_object_daily_backup)
 
     data_file_export.main()
-    assert ("private-bucket", "exchange-rates.duckdb") in uploaded
-    assert ("private-bucket", "exchange-rates.duckdb") in backups
+    assert ("private-bucket", "exchange-rates.duckdb") in scheduled_backups
+    assert ("private-bucket", "exchange-rates.duckdb") not in uploaded
+    assert ("private-bucket", "exchange-rates.duckdb") not in backups
     assert all(bucket == "private-bucket" for bucket, _ in uploaded)
     assert all(bucket == "private-bucket" for bucket, _ in backups)
 
@@ -241,6 +258,7 @@ def test_exchange_rate_duckdb_upload_targets_private_bucket_and_gets_daily_backu
 def test_exchange_rate_parquet_upload_targets_private_bucket_and_gets_daily_backup(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    scheduled_backups: list[tuple[str, str]],
 ) -> None:
     """The verified Parquet snapshot is only uploaded and backed up privately."""
     exchange_rate_parquet_path = tmp_path / "exchange-rates.parquet"
@@ -280,3 +298,57 @@ def test_exchange_rate_parquet_upload_targets_private_bucket_and_gets_daily_back
     assert ("private-bucket", "exchange-rates.parquet") in uploaded
     assert ("private-bucket", "exchange-rates.parquet") in backups
     assert all(bucket == "private-bucket" for bucket, _ in uploaded)
+
+
+def test_backup_failure_does_not_fail_successful_price_export(tmp_path, monkeypatch):
+    """An incomplete backup batch has its own status and keeps price readiness."""
+    monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", "private-bucket")
+    monkeypatch.setenv("R2_DATA_ENDPOINT_URL", "https://example.invalid")
+    monkeypatch.setenv("R2_DATA_ACCESS_KEY_ID", "access")
+    monkeypatch.setenv("R2_DATA_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setenv("R2_DAILY_BACKUP", "false")
+    monkeypatch.setattr(data_file_export, "create_r2_client", lambda **kwargs: object())
+    calls = []
+
+    def upload(**kwargs):
+        calls.append("prices")
+        return 1
+
+    def broken_backup(*args, **kwargs):
+        calls.append("backup")
+        raise data_file_export.DuckDBBackupError({"busy-db": "failed"})
+
+    monkeypatch.setattr(data_file_export, "upload_files_to_r2", upload)
+    monkeypatch.setattr(data_file_export, "backup_databases", broken_backup)
+    result = data_file_export.main(exchange_rate_parquet_path=tmp_path / "exchange-rates.parquet")
+    assert result == {"busy-db": "failed"}
+    assert calls == ["prices", "backup"]
+    assert (tmp_path / "duckdb-backup-status.json").exists()
+
+
+@pytest.mark.parametrize("registry_config", ["not-json", '[{"name":"missing-path"}]'])
+def test_invalid_backup_registry_cannot_block_price_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, registry_config: str) -> None:
+    """Malformed backup configuration is reported after publishing current prices.
+
+    Exercise the real registry parser so both invalid JSON and missing fields
+    cannot prevent ordinary data publication or the backup status receipt.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param monkeypatch: Supply configuration and replace only upload transport.
+    :param registry_config: Invalid explicit database registry definition.
+    :return: ``None`` after checking publication and separate backup failure.
+    """
+    monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", "private-bucket")
+    monkeypatch.setenv("R2_DATA_ENDPOINT_URL", "https://example.invalid")
+    monkeypatch.setenv("R2_DATA_ACCESS_KEY_ID", "fixture-access")
+    monkeypatch.setenv("R2_DATA_SECRET_ACCESS_KEY", "fixture-secret")
+    monkeypatch.setenv("R2_DAILY_BACKUP", "false")
+    monkeypatch.setenv("DUCKDB_EXTRA_BACKUPS", registry_config)
+    uploaded = []
+    monkeypatch.setattr(data_file_export, "upload_files_to_r2", lambda **kwargs: uploaded.append(kwargs["file_paths"]))
+    result = data_file_export.main(exchange_rate_parquet_path=tmp_path / "exchange-rates.parquet")
+    assert uploaded
+    assert result == {"registry": "failed"}
+    assert (tmp_path / "duckdb-backup-status.json").exists()

@@ -142,6 +142,30 @@ and exact timestamp. If ApeX later omits older source history or the local
 DuckDB is rebuilt, the export preserves previously collected unmatched rows;
 fresh rows still correct existing values at the same logical key.
 
+## Repairing cached vault links
+
+Older metadata exports used the official-vault `/1` suffix for user-created
+vaults. The metadata-only migration regenerates ApeX links from their native
+identities, using the same generator as new exports. It requires no API token
+or RPC configuration.
+
+Preview the changes, then apply them:
+
+```shell
+poetry run python scripts/apex/migrate-vault-links.py
+DRY_RUN=false poetry run python scripts/apex/migrate-vault-links.py
+```
+
+The default is a dry run. Set `VAULT_DB` to an explicit pickle path, or
+`PIPELINE_DATA_DIR` to the active pipeline directory. Persistent mode takes the
+shared scanner writer lock, creates a non-overwriting backup beside the pickle
+and writes atomically. Only ApeX `Link` fields change; official vaults keep
+their `/1` suffix. Prices, reader state, leads and scan progress are preserved.
+An unchanged rerun does not write the pickle or create another backup.
+
+Deploy the corrected exporter before applying the migration, then let the
+normal post-processing pipeline republish the metadata for the website.
+
 ## Environment configuration
 
 - `DB_PATH`: DuckDB path. Defaults to

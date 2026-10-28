@@ -13,6 +13,12 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    import duckdb
+except ImportError:
+    # DuckDB is an optional extra; core vault imports must remain usable.
+    duckdb = None
+
 logger = logging.getLogger(__name__)
 
 # Default path constant (assumed from context)
@@ -41,11 +47,20 @@ class BlockTimestampDatabase:
         self,
         chain_id: int,
         path: Path,
-    ):
-        """Initialize the database connection.
+    ) -> None:
+        """Initialise the database connection.
 
+        DuckDB is needed only when opening a timestamp cache, not when
+        importing the ordinary vault and Multicall interfaces.
+
+        :param chain_id: Chain whose timestamps are stored in this file.
         :param path: Path to the DuckDB file. Use ':memory:' for transient storage.
+        :return: ``None`` after the cache schema is ready.
         """
+        self.con = None
+        if duckdb is None:
+            message = "Timestamp caches require the optional duckdb extra: pip install web3-ethereum-defi[duckdb]"
+            raise ImportError(message)
 
         assert type(chain_id) is int, f"Expected int chain_id, got {type(chain_id)}"
         assert isinstance(path, Path), f"Expected str or Path for path, got {type(path)}"
@@ -55,36 +70,61 @@ class BlockTimestampDatabase:
         # Create cache folder if needed
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Be lazy about this so we do not mess imports
-        import duckdb
-
         self.chain_id = chain_id
         self.path = path
         self.con = duckdb.connect(self.path)
         self._init_schema()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.con is not None:
             self.con.close()
             self.con = None
 
-    def _init_schema(self):
-        """Ensure the table exists with the correct schema and primary key.
+    def _init_schema(self) -> None:
+        """Create the timestamp table and migrate legacy ART constraints.
 
-        - Disk/speed optimised, because we are mostly using this for vault events
-        - We have plenty of time before year 2038, and I won't be around
+        Large file-backed ART indexes can corrupt the native heap with DuckDB
+        1.5.0 on Python 3.14. Rebuild a legacy constrained table transactionally,
+        preserving every row, before accepting more timestamp chunks.
+        See https://github.com/duckdb/duckdb/issues/18190.
+
+        :return: ``None`` after the unconstrained schema is ready.
         """
+        self.con.execute("SET wal_autocheckpoint = '1TB'")
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS block_timestamps (
-                block_number UINT64 PRIMARY KEY,
-                timestamp UINT32,
+                block_number UINT64,
+                timestamp UINT32
             )
         """)
+        constraints = self.con.execute("""
+            SELECT constraint_type FROM duckdb_constraints()
+            WHERE table_name = 'block_timestamps'
+              AND constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+        """).fetchall()
+        if constraints:
+            row_count = self.get_count()
+            logger.info("Migrating %s timestamp rows away from ART constraints in %s", f"{row_count:,}", self.path)
+            self.con.execute("BEGIN TRANSACTION")
+            try:
+                self.con.execute("CREATE TABLE block_timestamps_migrated (block_number UINT64, timestamp UINT32)")
+                self.con.execute("INSERT INTO block_timestamps_migrated SELECT block_number, timestamp FROM block_timestamps")
+                migrated_count = self.con.execute("SELECT COUNT(*) FROM block_timestamps_migrated").fetchone()[0]
+                assert migrated_count == row_count, f"Timestamp migration changed row count: {row_count} -> {migrated_count}"
+                self.con.execute("DROP TABLE block_timestamps")
+                self.con.execute("ALTER TABLE block_timestamps_migrated RENAME TO block_timestamps")
+                self.con.execute("COMMIT")
+            except (duckdb.Error, AssertionError):
+                self.con.execute("ROLLBACK")
+                raise
+            logger.info("Migrated all %s timestamp rows in %s", f"{row_count:,}", self.path)
 
-    def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime] | pd.Series):
+    def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime] | pd.Series) -> None:
         """Import data from raw dictionary format to the database.
 
-        - Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
+        Stage deduplicated input, update changed timestamps through a hash join,
+        then insert missing block numbers through an anti-join. Repeated chunks
+        retain one row per block without requiring an ART-backed unique index.
 
         :param chain_id: Chain ID for the data being imported.
 
@@ -92,6 +132,8 @@ class BlockTimestampDatabase:
             Mapping of block number (int) to timestamp (datetime).
 
             Give block number -> unix timestamp pd.Series for max speed.
+
+        :return: ``None`` after the chunk is committed.
         """
 
         assert chain_id == self.chain_id, f"Import chain_id {chain_id} does not match database chain_id {self.chain_id}"
@@ -112,20 +154,43 @@ class BlockTimestampDatabase:
             # Legacy path
             df_new = pd.DataFrame([{"block_number": k, "timestamp": v} for k, v in data.items()])
             # Convert to 32-bit unix timestamp
-            df_new["timestamp"] = (df_new["timestamp"].astype("int64") // 10**9).astype("uint32")
+            df_new["timestamp"] = (df_new["timestamp"].astype("datetime64[ns]").astype("int64") // 10**9).astype("uint32")
 
-        # 2. Register df as a view so DuckDB can query it
+        if df_new.empty:
+            return
+        df_new = df_new.drop_duplicates(subset="block_number", keep="last")
+        bounds = [int(df_new["block_number"].min()), int(df_new["block_number"].max())]
         self.con.register("df_view", df_new)
-
-        # 3. Perform Insert / On Conflict Replace
-        self.con.execute("""
-            INSERT INTO block_timestamps (block_number, timestamp)
-            SELECT block_number, timestamp FROM df_view
-            ON CONFLICT (block_number) DO UPDATE SET timestamp = EXCLUDED.timestamp
-        """)
-
-        # Cleanup view
-        self.con.unregister("df_view")
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            self.con.execute(
+                """
+                UPDATE block_timestamps AS cached SET timestamp = incoming.timestamp
+                FROM df_view AS incoming
+                WHERE cached.block_number = incoming.block_number
+                  AND cached.block_number BETWEEN ? AND ?
+                  AND cached.timestamp IS DISTINCT FROM incoming.timestamp
+                """,
+                bounds,
+            )
+            self.con.execute(
+                """
+                INSERT INTO block_timestamps
+                SELECT incoming.block_number, incoming.timestamp
+                FROM df_view AS incoming
+                ANTI JOIN (
+                    SELECT block_number FROM block_timestamps
+                    WHERE block_number BETWEEN ? AND ?
+                ) AS cached ON cached.block_number = incoming.block_number
+                """,
+                bounds,
+            )
+            self.con.execute("COMMIT")
+        except duckdb.Error:
+            self.con.execute("ROLLBACK")
+            raise
+        finally:
+            self.con.unregister("df_view")
 
     @staticmethod
     def get_database_file_chain(chain_id: int, path=DEFAULT_TIMESTAMP_CACHE_FOLDER) -> Path:
@@ -136,21 +201,38 @@ class BlockTimestampDatabase:
 
     @staticmethod
     def load(chain_id: int, path: Path) -> "BlockTimestampDatabase":
-        """Load the database from disk."""
-        db = BlockTimestampDatabase(chain_id, path)
-        return db
+        """Open an existing timestamp file.
+
+        Initialisation performs the same schema checks as creating a cache.
+
+        :param chain_id: EVM chain identifier.
+        :param path: Path to the DuckDB file.
+        :return: Open timestamp database.
+        """
+        return BlockTimestampDatabase(chain_id, path)
 
     @staticmethod
     def create(chain_id: int, path: Path) -> "BlockTimestampDatabase":
-        """Create an in-memory instance."""
+        """Open a persistent per-chain timestamp cache.
+
+        The directory and table are created when absent; an existing file is
+        reused and its legacy constraints are migrated transactionally.
+
+        :param chain_id: EVM chain identifier.
+        :param path: Directory containing the per-chain DuckDB file.
+        :return: Open cache database.
+        """
         file = BlockTimestampDatabase.get_database_file_chain(chain_id, path)
         return BlockTimestampDatabase(chain_id, file)
 
-    def save(self):
-        """Force a checkpoint.
+    def save(self) -> None:
+        """Commit pending timestamp writes.
 
-        Note: DuckDB usually auto-commits. If moving from :memory: to disk,
-        we need to copy.
+        Imports already commit each chunk; this method remains available for
+        callers using the older explicit-save interface. It does not issue a
+        DuckDB ``CHECKPOINT``.
+
+        :return: ``None`` after committing.
         """
 
         # Just ensure WAL is flushed
@@ -163,8 +245,8 @@ class BlockTimestampDatabase:
         """
         res = self.con.execute(
             """
-            SELECT MIN(block_number), MAX(block_number) 
-            FROM block_timestamps 
+            SELECT MIN(block_number), MAX(block_number)
+            FROM block_timestamps
         """
         ).fetchone()
 
@@ -179,8 +261,8 @@ class BlockTimestampDatabase:
         """
         res = self.con.execute(
             """
-            SELECT MIN(block_number) 
-            FROM block_timestamps 
+            SELECT MIN(block_number)
+            FROM block_timestamps
         """
         ).fetchone()
 
@@ -195,8 +277,8 @@ class BlockTimestampDatabase:
         """
         res = self.con.execute(
             """
-            SELECT MAX(block_number) 
-            FROM block_timestamps 
+            SELECT MAX(block_number)
+            FROM block_timestamps
         """
         ).fetchone()
 
@@ -216,8 +298,8 @@ class BlockTimestampDatabase:
         # We also need ORDER or
         df = self.con.execute(
             """
-            SELECT block_number, timestamp 
-            FROM block_timestamps 
+            SELECT block_number, timestamp
+            FROM block_timestamps
             ORDER BY block_number ASC
         """
         ).df()
@@ -234,15 +316,15 @@ class BlockTimestampDatabase:
 
         Returns a Pandas Series to maintain compatibility with the original API.
 
-        :param chain_id: EVM chain id
         :param start_block: Inclusive start block
         :param end_block: Inclusive end block
 
         :return:
             Pandas series block number (int) -> block timestamp (pd.Timestamp)
         """
-        if start_block >= end_block:
-            raise ValueError("start_block must be <= end_block")
+        if start_block > end_block:
+            message = "start_block must be <= end_block"
+            raise ValueError(message)
 
         df = self.con.execute(
             """
@@ -260,15 +342,25 @@ class BlockTimestampDatabase:
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
 
-    def transform_time_values(self, series: pd.Series) -> pd.Series:
-        """Post-process our raw values from the database to actual time format.}
+    @staticmethod
+    def transform_time_values(series: pd.Series) -> pd.Series:
+        """Convert cached Unix seconds to naive UTC timestamps.
 
-        :param series: Pandas Series with datetime values
-        :return: Pandas Series with integer unix timestamps (seconds)
+        Keep block numbers as the Series index and second-level precision
+        without loading any additional cache rows.
+
+        :param series: Series of integer Unix seconds indexed by block number.
+        :return: Series of ``datetime64[s]`` timestamps with the same index.
         """
         return pd.to_datetime(series, unit="s").astype("datetime64[s]")
 
     def get_count(self) -> int:
+        """Count cached block timestamps.
+
+        Query DuckDB without loading timestamp values into Python.
+
+        :return: Number of persisted block rows.
+        """
         return self.con.execute(
             """
             SELECT COUNT(*) FROM block_timestamps
@@ -334,9 +426,16 @@ class BlockTimestampDatabase:
         return [(int(r[0]), int(r[1]), int(r[2])) for r in rows]
 
     def get_slicer(self) -> "BlockTimestampSlicer":
+        """Expose this cache through incremental timestamp lookups.
+
+        The slicer owns the open database connection and closes it when its
+        ``close()`` method is called.
+
+        :return: Cache-backed timestamp accessor.
+        """
         return BlockTimestampSlicer(self)
 
-    def close(self):
+    def close(self) -> None:
         """Release duckdb resources."""
         logger.info("Closing %s", self.path)
         if self.con is not None:
@@ -381,7 +480,7 @@ class BlockTimestampSlicer:
         returns the timestamp of the nearest available block in the current slice.
         """
 
-        assert not self.timestamp_db.is_closed(), f"BlockTimestampSlicer.get(): underlying database is already closed"
+        assert not self.timestamp_db.is_closed(), "BlockTimestampSlicer.get(): underlying database is already closed"
 
         if self.current_slice is not None and block_number in self.current_slice:
             return self.current_slice[block_number]

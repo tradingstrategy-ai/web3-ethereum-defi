@@ -35,7 +35,7 @@ links:
   defillama: https://defillama.com/protocol/frax-finance
   audits: https://docs.frax.finance/other/audits
   fees: https://docs.frax.finance/fraxlend/fraxlend-overview
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frax-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/frax-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frax/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52

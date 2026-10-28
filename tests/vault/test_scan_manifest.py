@@ -106,31 +106,49 @@ def test_price_provenance_missing_and_invalid(tmp_path: Path) -> None:
     assert _load_price_scan_state(path) == {"9999": "2026-09-22T00:00:00Z"}
 
 
-@pytest.mark.parametrize(("native", "scan_prices", "price_ok", "retry"), [(False, True, True, False), (False, False, True, False), (False, True, None, False), (False, True, False, False), (False, True, True, True), (True, False, True, False), (True, True, False, False)])
-def test_scanner_price_provenance_callback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, native: bool, scan_prices: bool, price_ok: bool | None, retry: bool) -> None:
+@pytest.mark.parametrize(
+    ("native", "scan_prices", "price_ok", "fail_first_attempt", "initial_error_category"),
+    [
+        (False, True, True, False, None),
+        (False, False, True, False, None),
+        (False, True, None, False, None),
+        (False, True, False, False, None),
+        (False, True, True, True, "transient"),
+        (False, True, True, True, "internal"),
+        (False, True, True, True, None),
+        (True, False, True, False, None),
+        (True, True, False, False, None),
+    ],
+)
+def test_scanner_price_provenance_callback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, native: bool, scan_prices: bool, price_ok: bool | None, fail_first_attempt: bool, initial_error_category: str | None) -> None:
     """Keep metadata-only and failed scans out of published price provenance.
 
     Drive the real tick coordinator with EVM and HyperCore collector results,
-    including an EVM retry. Native collection fetches prices independently of
-    the EVM ``scan_prices`` switch.
+    including an EVM retry. Internal and unclassified failures must leave
+    provenance unchanged and must not consume the queued successful response:
+    retrying them would replay expensive scans without evidence of recovery.
+    Native collection fetches prices independently of the EVM ``scan_prices`` switch.
 
     :param tmp_path: Isolated state paths.
     :param monkeypatch: Replace collectors and dashboard, not the coordinator.
     :param native: Exercise HyperCore rather than the EVM collection path.
     :param scan_prices: EVM price scanning switch.
     :param price_ok: Collector's explicit price-success flag.
-    :param retry: Fail the first EVM attempt before succeeding.
+    :param fail_first_attempt: Queue an EVM failure before a successful response.
+    :param initial_error_category: Determines whether the queued failure may be retried.
     :return: None; asserts exactly which chain advances price provenance.
     """
     name = "Hypercore" if native else "Ethereum"
     results = [ChainResult(name=name, status="success", price_scan_ok=price_ok)]
-    if retry:
-        results.insert(0, ChainResult(name=name, status="failed"))
+    if fail_first_attempt:
+        # The coordinator retries only classified transient failures: an
+        # unclassified error cannot justify replaying a potentially costly scan.
+        results.insert(0, ChainResult(name=name, status="failed", error="simulated scanner failure", error_category=initial_error_category))
     monkeypatch.setattr(scan_all_chains, "scan_chain", lambda *args, **kwargs: results.pop(0))
     monkeypatch.setattr(scan_all_chains, "scan_hypercore_fn", lambda *args, **kwargs: results.pop(0))
     monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *args, **kwargs: None)
     saved: list[str] = []
-    run_scan_tick(
+    tick_results = run_scan_tick(
         chains=[] if native else [ChainConfig("Ethereum", "JSON_RPC_ETHEREUM", True)],
         active_protocols=["Hypercore"] if native else [],
         scan_prices=scan_prices,
@@ -145,7 +163,7 @@ def test_scanner_price_provenance_callback(tmp_path: Path, monkeypatch: pytest.M
         core3_max_workers=1,
         currency_api_max_workers=1,
         frequency="1h",
-        retry_count=int(retry),
+        retry_count=int(fail_first_attempt),
         skip_post_processing=True,
         skip_cleaning=True,
         skip_top_vaults=True,
@@ -162,11 +180,16 @@ def test_scanner_price_provenance_callback(tmp_path: Path, monkeypatch: pytest.M
         lighter_db_path=tmp_path / "lighter.duckdb",
         hibachi_db_path=tmp_path / "hibachi.duckdb",
         apex_db_path=tmp_path / "apex.duckdb",
+        # xdist workers must not open the same operator accounting database.
+        rpc_tracking_database_path=tmp_path / "rpc-tracking.duckdb",
         bkp_files=[],
         bkp_dir=tmp_path,
         on_price_scan_success=saved.append,
     )
-    assert saved == (["9999" if native else "1"] if price_ok and (native or scan_prices) else [])
+    recovered = not fail_first_attempt or initial_error_category == "transient"
+    assert saved == (["9999" if native else "1"] if recovered and price_ok and (native or scan_prices) else [])
+    assert tick_results[name].status == ("success" if recovered else "failed")
+    assert len(results) == (0 if recovered else 1)
 
 
 def test_publish_manifest_private_object_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

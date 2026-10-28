@@ -10,6 +10,7 @@ from eth_defi.chain import has_graphql_support
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider import multi_provider as multi_provider_module
 from eth_defi.provider.anvil import AnvilForkMetadata, AnvilLaunch, launch_anvil
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.multi_provider import DEFAULT_ANVIL_RETRIES, DEFAULT_RETRIES, MultiProviderConfigurationError, MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -203,3 +204,36 @@ def test_multi_provider_keeps_remote_default_retries(
     web3 = create_multi_provider_web3(anvil.json_rpc_url)
 
     assert web3.get_fallback_provider().retries == DEFAULT_RETRIES
+
+
+def test_multi_provider_broadcast_only_transact_endpoint(anvil, monkeypatch: pytest.MonkeyPatch):
+    """A sequencer that rejects read methods must not fail the transact chain id probe.
+
+    https://mainnet-sequencer.base.org answers ``eth_chainId`` with HTTP 403 and
+    JSON-RPC ``-32601 rpc method is not allowed`` while accepting broadcasts.
+    """
+    import requests
+
+    from eth_defi.provider import multi_provider as multi_provider_module
+
+    real_create_http_provider = multi_provider_module.create_http_provider
+
+    def broadcast_only_http_provider(endpoint, *args, **kwargs):
+        provider = real_create_http_provider(endpoint, *args, **kwargs)
+        if "sequencer" in str(endpoint):
+            response = requests.Response()
+            response.status_code = 403
+            response._content = b'{"jsonrpc":"2.0","error":{"code":-32601,"message":"rpc method is not allowed"},"id":1}'
+
+            def refuse_reads(method, params):
+                raise requests.HTTPError("403 Client Error: Forbidden", response=response)
+
+            provider.make_request = refuse_reads
+        return provider
+
+    monkeypatch.setattr(multi_provider_module, "create_http_provider", broadcast_only_http_provider)
+
+    web3 = create_multi_provider_web3(f"mev+https://sequencer.example.invalid {anvil.json_rpc_url}")
+
+    assert isinstance(web3.provider, MEVBlockerProvider)
+    assert web3.eth.chain_id == 31337

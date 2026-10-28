@@ -19,6 +19,7 @@ import enum
 import logging
 import os
 import pathlib
+import re
 import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -64,6 +65,45 @@ MAX_VAULT_PRICE_ROW_AGE = datetime.timedelta(days=14)
 VAULT_PRICE_REFRESH_INTERVAL = datetime.timedelta(days=7)
 
 
+def normalise_vault_description(text: str | None) -> str | None:
+    r"""Return a vault description as single-line text.
+
+    Offchain metadata may contain actual line breaks or literal ``\n`` and
+    ``\r`` escapes. Replace these with spaces and collapse whitespace without
+    decoding other escapes or changing punctuation and links.
+
+    :param text:
+        Full or short vault description, or ``None`` when unavailable.
+    :return:
+        Single-line description, preserving ``None`` and empty strings.
+    """
+    if text is None:
+        return None
+    return " ".join(text.replace("\\r", " ").replace("\\n", " ").split())
+
+
+def normalise_vault_short_description(text: str | None) -> str | None:
+    """Return only the first sentence of a single-line vault summary.
+
+    Protocol APIs sometimes supply several sentences in their summary field,
+    or copy the full description into it. Flatten source line breaks before
+    finding the first sentence ending in a full stop, question mark or
+    exclamation mark followed by whitespace. Decimal points and dots within
+    URLs and dotted abbreviations such as ``U.S.`` and ``J.P.`` do not end
+    sentences. Text without a sentence boundary is retained.
+
+    :param text:
+        Protocol summary or full description being copied into a summary.
+    :return:
+        First sentence with its punctuation, preserving ``None`` and empty strings.
+    """
+    text = normalise_vault_description(text)
+    if not text:
+        return text
+    boundary = re.search(r"(?<!\b[A-Za-z]\.[A-Za-z]\.)(?<=[.!?])\s+", text)
+    return text[: boundary.start()] if boundary else text
+
+
 def is_meaningful_usd_tvl(current: Decimal | None, highest: Decimal | None) -> bool:
     """Check live price-row eligibility with $1,500 entry and $1,000 exit.
 
@@ -79,36 +119,6 @@ def is_meaningful_usd_tvl(current: Decimal | None, highest: Decimal | None) -> b
         Whether the vault meets the live freshness TVL limits.
     """
     return current is not None and (current >= MIN_MEANINGFUL_TVL_USD or (current >= MIN_MEANINGFUL_TVL_EXIT_USD and highest is not None and highest >= MIN_MEANINGFUL_TVL_USD))
-
-
-class WithdrawalDelayType(enum.StrEnum):
-    """Classify how a valid withdrawal request becomes redeemable."""
-
-    #: Immediate redemption without a protocol cooldown or epoch gate.
-    instant = "instant"
-
-    #: A request follows a fixed delay or asynchronous settlement lifecycle.
-    delay = "delay"
-
-    #: A request can be completed only in a protocol-defined epoch window.
-    epoch = "epoch"
-
-
-@dataclass(frozen=True, slots=True)
-class WithdrawalPeriod:
-    """Protocol withdrawal timing bounds exported by the vault scanner."""
-
-    #: Shortest contract-enforced wait before a withdrawal can become available.
-    min_period: datetime.timedelta | None
-
-    #: Longest contract-enforced wait, including a scheduling window.
-    max_period: datetime.timedelta | None
-
-    #: Whether the availability rule is a time delay or epoch window.
-    delay_type: WithdrawalDelayType
-
-    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
-    estimated_settlement: datetime.timedelta | None = None
 
 
 #: Minimum relative share-price movement retained by historical scans.
@@ -637,7 +647,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: Empty string if not set.
     #:
     #: Example values: ``"large_tvl"``, ``"small_tvl"``, ``"tiny_tvl"``,
-    #: ``"peaked"``, ``"faded"``, ``"first_read"`` and ``"contextual"``.
+    #: ``"peaked"``, ``"faded"``, ``"first_read"``, ``"unverified_tvl"``
+    #: and ``"contextual"``. Unknown TVL polls hourly without certifying USD value.
     #: Peaked and faded vaults poll weekly; otherwise estimated USD TVL
     #: of at least $10,000 polls hourly, $1,000-$10,000 daily, and tiny
     #: vaults weekly after their initial two-week daily period.
@@ -780,13 +791,14 @@ class VaultHistoricalRead:
     #: Currently only supported for D2 Finance vaults.
     trading: bool | None = None
 
-    #: Available liquidity for immediate withdrawal.
+    #: Available denomination-token liquidity reported by the adapter.
     #:
     #: Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.)
-    #: In denomination token units.
+    #: In denomination token units. Multi-market adapters may report only idle
+    #: vault assets, excluding redeemable liquidity in underlying markets.
     available_liquidity: Decimal | None = None
 
-    #: Utilisation percentage of the lending vault.
+    #: Borrower utilisation or, for multi-market adapters, capital deployment.
     #:
     #: Only applicable to lending protocol vaults.
     #: Value between 0.0 and 1.0 (0% to 100%).
@@ -1104,10 +1116,24 @@ class VaultHistoricalReader(ABC):
     - Allows to construct historical returns
     """
 
+    #: Retain every successful static Multicall sample, including unchanged NAVs.
+    write_all_samples: bool = False
+
     def __init__(self, vault: "VaultBase"):
         assert isinstance(vault, VaultBase)
         self.vault = vault
         self.reader_state: BatchCallState | None = None
+
+    @property
+    def share_price_change_threshold(self) -> Percent:
+        """Return this reader's sparse share-price comparison threshold.
+
+        Event-only readers may require every exact price change; ordinary
+        readers retain the existing ten-basis-point suppression threshold.
+
+        :return: Non-negative relative suppression threshold.
+        """
+        return DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD
 
     @property
     def uses_contextual_history(self) -> bool:
@@ -1337,6 +1363,14 @@ class VaultBase(ABC):
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
 
+    #: Whether NAV and historical total_assets already use synthetic USD units.
+    #:
+    #: Contextual adapters such as YieldBasis and Kinexys intentionally have no
+    #: ERC-20 denomination. Scanner admission and freshness conversion must use
+    #: a unit exchange rate for them without inventing a token contract. This
+    #: declaration does not assert that a volatile underlying asset is stable.
+    synthetic_usd_denomination: ClassVar[bool] = False
+
     def __init__(
         self,
         token_cache: dict | None = None,
@@ -1399,7 +1433,11 @@ class VaultBase(ABC):
 
     @property
     def description(self) -> str | None:
-        """Human-readable vault strategy description.
+        r"""Human-readable single-line vault strategy description.
+
+        Descriptions must not contain newline or carriage-return characters,
+        paragraph breaks, or literal ``\n`` / ``\r`` escape sequences. Adapters
+        must use :py:func:`normalise_vault_description` on offchain text.
 
         - Fetched from protocol-specific offchain sources (e.g. Euler GitHub labels, Lagoon web app API)
         - Returns None if the protocol does not provide descriptions or the vault is not in the metadata source
@@ -1409,9 +1447,18 @@ class VaultBase(ABC):
 
     @property
     def short_description(self) -> str | None:
-        """One-liner vault summary.
+        r"""Single-line, single-sentence vault summary.
+
+        Summaries must not contain newline or carriage-return characters,
+        paragraph breaks, or literal ``\n`` / ``\r`` escape sequences. Adapters
+        must use :py:func:`normalise_vault_short_description` on offchain text.
+        When automatically copying a description or a provider-supplied summary,
+        retain only its first sentence, including the ending punctuation.
 
         - Shorter version of :py:meth:`description` suitable for listings and tables
+        - Plain text only: Markdown (links, emphasis, lists) is not allowed, because
+          listings and tables render the short description verbatim.
+          Put links and formatted copy in :py:meth:`description` or :py:meth:`get_notes`
         - Returns None if not available
         - Override in subclasses that support offchain metadata
         """
@@ -1814,9 +1861,14 @@ class VaultBase(ABC):
         protocol = self.get_protocol_name()
         return get_vault_fee_mode(protocol, address)
 
-    def get_fee_data(self) -> FeeData:
+    def get_fee_data(self, block_identifier: BlockIdentifier = "latest") -> FeeData:
         """Get fee data structure for this vault.
 
+        Component fee reads share the requested block. Existing no-argument
+        callers retain latest-state behaviour.
+
+        :param block_identifier: Common fee source block, default latest.
+        :return: Fee mode and component fractions.
         :raise ValueError:
             In the case of broken or unimplemented fee reading methods in the smart contract
         """
@@ -1825,10 +1877,10 @@ class VaultBase(ABC):
 
         fees = FeeData(
             fee_mode=fee_mode,
-            management=self.get_management_fee(block_identifier="latest"),
-            performance=self.get_performance_fee(block_identifier="latest"),
-            deposit=self.get_deposit_fee(block_identifier="latest"),
-            withdraw=self.get_withdraw_fee(block_identifier="latest"),
+            management=self.get_management_fee(block_identifier=block_identifier),
+            performance=self.get_performance_fee(block_identifier=block_identifier),
+            deposit=self.get_deposit_fee(block_identifier=block_identifier),
+            withdraw=self.get_withdraw_fee(block_identifier=block_identifier),
         )
         return fees
 
@@ -1946,15 +1998,17 @@ class VaultBase(ABC):
         return None
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Get the amount of denomination token available for immediate withdrawal.
+        """Read the adapter's available denomination-token liquidity.
 
-        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
-        Non-lending protocols should leave this method unimplemented.
+        Single-market adapters report market liquidity. Multi-market adapters
+        such as Morpho and IPOR currently report idle vault assets, which can
+        understate redeemable liquidity in their underlying markets. A user's
+        withdrawal can also be limited by share ownership or protocol restrictions.
+        Non-lending adapters should leave this method unimplemented.
 
-        Note: `maxRedeem(address(0))` does NOT work as a proxy for available liquidity
-        because it requires a specific address that has already deposited shares.
-        For address(0), balanceOf is always 0, so maxRedeem returns 0 regardless of
-        actual liquidity.
+        ``maxRedeem(address(0))`` cannot measure market-wide liquidity because
+        ERC-4626 caps redemptions by the owner's share balance. The zero address
+        normally holds no shares, so a zero result says nothing about liquidity.
 
         :param block_identifier:
             Block to query. Defaults to "latest".
@@ -1968,10 +2022,12 @@ class VaultBase(ABC):
         raise NotImplementedError(f"{self.__class__.__name__} does not implement fetch_available_liquidity(). This method is only available for lending protocol vaults.")
 
     def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
-        """Get the percentage of assets currently lent out.
+        """Read the adapter's lending or capital-deployment utilisation.
 
-        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
-        Non-lending protocols should leave this method unimplemented.
+        Single-market adapters measure borrower utilisation. Multi-market
+        adapters such as Morpho and IPOR currently measure allocation outside
+        the vault, rather than aggregate utilisation by underlying borrowers.
+        Non-lending adapters should leave this method unimplemented.
 
         :param block_identifier:
             Block to query. Defaults to "latest".

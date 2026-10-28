@@ -25,7 +25,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/franklin-templeton
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/franklin-templeton
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/franklin/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x3ddc84940ab509c11b20b76b466933f40b750dc9

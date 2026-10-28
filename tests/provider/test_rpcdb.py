@@ -4,6 +4,7 @@ import datetime
 import pickle
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import duckdb
 import pytest
@@ -12,6 +13,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.rpcdb import (
+    RPCOperationRecorder,
     RPCRequestStats,
     RPCUsageDatabase,
     format_rpc_usage_report,
@@ -55,6 +57,48 @@ def test_rpc_request_stats_threaded_and_pickle_safe() -> None:
     assert calls[("rpc.example.com", "eth_blockNumber")] == 1
 
 
+def test_operation_recorders_share_counters_without_ambient_state() -> None:
+    """Concurrent providers attribute attempts explicitly to one shared sink.
+
+    Each worker receives a fixed-label recorder instead of a mutable operation
+    override. Synchronising their first requests exercises concurrent use of
+    distinct labels; errors remain in the same legacy counter schema. Pickling
+    the sink and both recorders together must preserve their shared identity.
+
+    :return: None; verify partitioned totals, errors and process serialisation.
+    """
+    stats = RPCRequestStats(operation="phase")
+    regular = RPCOperationRecorder(stats, "regular")
+    greylist = RPCOperationRecorder(stats, "greylist")
+    barrier = Barrier(2)
+
+    def record(recorder: RPCOperationRecorder) -> None:
+        """Interleave worker-owned labels against the shared locked counters.
+
+        :param recorder: Fixed operation binding assigned to this worker.
+        :return: None; retain physical attempts and failures in the shared sink.
+        """
+        barrier.wait(timeout=10)
+        for _ in range(100):
+            recorder.record_call("rpc.example", "eth_call")
+        recorder.record_error("rpc.example", "http_429", "rate limited")
+        stats.record_call("rpc.example", "eth_chainId")
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(record, [regular, greylist]))
+    restored, restored_regular, restored_greylist = pickle.loads(pickle.dumps((stats, regular, greylist)))
+    assert restored_regular.stats is restored_greylist.stats is restored
+    assert restored.operation == stats.operation == "phase"
+    assert restored.calls["rpc.example", "eth_call"] == 200
+    assert restored.operation_calls["regular", "rpc.example", "eth_call"] == 100
+    assert restored.operation_calls["greylist", "rpc.example", "eth_call"] == 100
+    assert restored.operation_calls["phase", "rpc.example", "eth_chainId"] == 2
+    assert restored.errors["rpc.example", "http_429", "rate limited"] == 2
+    restored_greylist.record_call("rpc.example", "eth_call")
+    assert restored.operation_calls["greylist", "rpc.example", "eth_call"] == 101
+    assert sum(restored.operation_calls.values()) == sum(restored.calls.values())
+
+
 def test_rpc_error_normalisation() -> None:
     """Stored errors retain provider diagnostics and stable error codes."""
 
@@ -88,7 +132,8 @@ def test_fallback_provider_accepts_endpointless_custom_provider() -> None:
     assert fallback.rpc_provider_domains[id(provider)] == "unknown"
 
 
-def test_fallback_provider_tracks_physical_attempt_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("labelled", [False, True])
+def test_fallback_provider_tracks_physical_attempt_domains(monkeypatch: pytest.MonkeyPatch, labelled: bool) -> None:
     """A recovered fallback records failed and successful physical attempts."""
 
     primary = HTTPProvider("https://primary.example/private-key", exception_retry_configuration=None)
@@ -111,11 +156,16 @@ def test_fallback_provider_tracks_physical_attempt_domains(monkeypatch: pytest.M
     monkeypatch.setattr(fallback, "make_request", fallback_request)
 
     stats = RPCRequestStats()
-    provider = FallbackProvider([primary, fallback], retries=1, sleep=0, rpc_request_stats=stats)
+    recorder = RPCOperationRecorder(stats, "isolated") if labelled else stats
+    provider = FallbackProvider([primary, fallback], retries=1, sleep=0, rpc_request_stats=recorder)
+    provider.set_rpc_request_stats(recorder)
     web3 = Web3(provider)
 
     assert web3.eth.block_number == 16
     calls, errors = stats.export()
+    expected_operation = "isolated" if labelled else "unclassified"
+    assert all(operation == expected_operation for operation, _domain, _method in stats.operation_calls)
+    assert sum(stats.operation_calls.values()) == sum(calls.values())
     assert calls[("primary.example", "eth_blockNumber")] == 1
     assert calls[("primary.example", "eth_chainId")] == 1
     assert calls[("fallback.example", "eth_chainId")] == 1

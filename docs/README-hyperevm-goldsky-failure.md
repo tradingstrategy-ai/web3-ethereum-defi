@@ -183,6 +183,7 @@ Recorded for reference only — these are **working vaults**, not blacklisted:
   `CoreReaderLib.ReadFailure` (`0x18c34104`) outside the node's HyperCore view.
 - [`eth_defi/event_reader/multicall_batcher.py`](../eth_defi/event_reader/multicall_batcher.py)
   — retry loop and the failover helpers.
-- `WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES` in the same file still classifies
+- `MULTICALL_RETRYABLE_MESSAGE_CLUES` in the same file still classifies
   `not enough agreement among responses` as retryable; the HyperEVM pin makes those
-  retries actually productive instead of cycling back onto goldsky.
+  retries prefer the configured Alchemy endpoint instead of cycling back onto
+  Goldsky. Its own state availability still needs verification.

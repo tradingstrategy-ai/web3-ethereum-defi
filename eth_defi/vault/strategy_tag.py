@@ -44,9 +44,25 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Rogue Trader Discretionary (GRVT).
     discretionary_trading = "discretionary_trading"
 
+    #: Trades on signals derived from market sentiment, such as public social
+    #: media posts, rather than from price data or fundamentals alone.
+    #: Example vault: Centaur Strategies: Black Bull (Lighter).
+    sentiment_trading = "sentiment_trading"
+
+    #: Follows, or deliberately fades, the publicly shared calls of identified
+    #: traders, for example their posts on X.
+    #: Example vault: Centaur Strategies: Inverse 1000x (Lighter).
+    social_trading = "social_trading"
+
     #: Uses programmed rules to select, execute, or manage positions.
     #: Example vault: Silentist BALANCE (GRVT).
     algorithmic_trading = "algorithmic_trading"
+
+    #: High-frequency strategies with many small wins and potential severe
+    #: drawdowns when positions cannot be closed profitably.
+    #: Must always be paired with :attr:`algorithmic_trading`.
+    #: Example vault: Growi HF (Hyperliquid).
+    high_frequency_high_win_rate = "high_frequency_high_win_rate"
 
     #: Captures price differences between markets or related instruments.
     #: Example vault: Axis Origin (Upshift).
@@ -99,6 +115,10 @@ class StrategyTag(str, enum.Enum):
     #: Supplies capital to a venue or protocol as a liquidity provider.
     #: Example vault: Hyperliquidity Provider (HLP).
     liquidity_provider = "liquidity_provider"
+
+    #: Supplies loss-bearing protocol equity and participates in net income.
+    #: Example vault: Frankencoin Shares (FCS).
+    protocol_equity = "protocol_equity"
 
     #: Actively makes markets by supplying liquidity through an automated
     #: market maker.
@@ -194,6 +214,10 @@ class StrategyTagMetadata(TypedDict):
 #: Descriptions are deliberately brief so API consumers can display them in a
 #: summary table without truncating the activity being described.
 STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
+    StrategyTag.protocol_equity: {
+        "label": "Protocol equity",
+        "description": "Supplies loss-bearing capital to a protocol and participates in its net income and losses.",
+    },
     StrategyTag.unknown: {
         "label": "Unknown strategy",
         "description": "The investment approach is unknown.",
@@ -214,9 +238,21 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
         "label": "Discretionary trading",
         "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts positions using judgement and market insight.",
     },
+    StrategyTag.sentiment_trading: {
+        "label": "Sentiment trading",
+        "description": "Trades on market sentiment read from public social media posts and other public commentary.",
+    },
+    StrategyTag.social_trading: {
+        "label": "Social trading",
+        "description": "Follows or fades the trades that identified traders share publicly, such as posts on X.",
+    },
     StrategyTag.algorithmic_trading: {
         "label": "Algorithmic trading",
         "description": "[Software-driven rules](https://tradingstrategy.ai/glossary/algorithmic-trading) choose, execute and manage trades automatically.",
+    },
+    StrategyTag.high_frequency_high_win_rate: {
+        "label": "High-frequency, high-win-rate trading",
+        "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
     },
     StrategyTag.arbitrage: {
         "label": "Arbitrage",

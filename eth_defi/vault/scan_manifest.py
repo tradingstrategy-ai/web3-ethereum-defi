@@ -30,6 +30,8 @@ import pyarrow.parquet as pq
 from eth_defi.chain import get_chain_name
 from eth_defi.cloudflare_r2 import create_r2_client, fetch_r2_object_head, upload_bytes_to_r2
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.vault.backup import file_sha256
+from eth_defi.vault.duckdb_backup import create_private_backup_client
 
 logger = logging.getLogger(__name__)
 
@@ -259,4 +261,42 @@ def publish_vault_scan_manifest(
         cache_control="no-store",
     )
     logger.info("Published vault scan manifest for %d chains to s3://%s/%s", len(manifest["chains"]), bucket_name, manifest_key)
+    return True
+
+
+def publish_hypercore_permission_manifest(cleaned_price_path: Path, permission_path: Path, price_scan_state_path: Path) -> bool:
+    """Publish an opt-in v2 manifest binding immutable prices and permissions.
+
+    This separate manifest leaves v1 clients on their existing endpoint. Enable
+    ``HYPERCORE_PERMISSION_MANIFEST_V2=true`` only when the authenticated endpoint,
+    client and executor all consume coherent sidecar snapshots and original
+    receipt clocks. Content-addressed private copies prevent mixed generations.
+
+    :param cleaned_price_path: Exact uploaded cleaned price snapshot.
+    :param permission_path: Independently clocked permission Parquet.
+    :param price_scan_state_path: Price collection provenance.
+    :return: ``True`` after successful publication, ``False`` when disabled.
+    """
+    if os.environ.get("HYPERCORE_PERMISSION_MANIFEST_V2", "false").lower() != "true":
+        return False
+    bucket = os.environ["R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME"]
+    client = create_private_backup_client()
+    prefix = os.environ.get("UPLOAD_PREFIX", "")
+    identities = {}
+    for label, path in (("price_file", cleaned_price_path), ("permission_file", permission_path)):
+        digest = file_sha256(path)
+        source_key = prefix + path.name
+        head = fetch_r2_object_head(client, bucket, source_key)
+        if not head or head.get("Metadata", {}).get("source_sha256") != digest:
+            raise ValueError("Local permission/price snapshot does not match the uploaded source")
+        key = prefix + f"hypercore-generations/{digest}/{path.name}"
+        if not fetch_r2_object_head(client, bucket, key):
+            client.copy_object(Bucket=bucket, Key=key, CopySource={"Bucket": bucket, "Key": source_key}, CopySourceIfMatch=head["ETag"])
+        immutable = fetch_r2_object_head(client, bucket, key)
+        if immutable.get("Metadata", {}).get("source_sha256") != digest:
+            raise ValueError("Immutable permission/price object checksum does not match")
+        identities[label] = {"key": key, "etag": immutable["ETag"].strip('"'), "sha256": digest}
+    manifest = build_vault_scan_manifest(cleaned_price_path, price_scan_state_path, price_object_key=identities["price_file"]["key"], price_etag=identities["price_file"]["etag"], published_at=native_datetime_utc_now())
+    manifest.update(schema_version=2, **identities, permission_schema_version=1, permission_selection="coherent_snapshot_receipt_ceiling_with_uncertainty_intervals")
+    upload_bytes_to_r2(s3_client=client, payload=json.dumps(manifest, sort_keys=True).encode(), bucket_name=bucket, object_name=prefix + "vault-scan-manifest-v2.json", content_type="application/json", cache_control="no-store")
     return True

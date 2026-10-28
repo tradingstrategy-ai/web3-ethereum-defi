@@ -8,6 +8,7 @@ import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -20,6 +21,7 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
@@ -46,6 +48,9 @@ from eth_defi.vault.flow_events import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault
 
 #: ``EndOfEpoch()`` custom-error selector, reverted by Gains GToken
 #: ``makeWithdrawRequest`` / ``redeem`` when called outside the per-epoch
@@ -161,7 +166,7 @@ class GainsDepositManager(ERC4626DepositManager):
     rather than reporting a false success.
     """
 
-    def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
+    def __init__(self, vault: "GainsVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
         assert isinstance(vault, GainsVault), f"Got {type(vault)}"
@@ -516,6 +521,8 @@ class GainsDepositManager(ERC4626DepositManager):
             transaction_hashes: list[HexBytes] = []
             while int(mock.functions.currentEpoch().call()) < ticket.unlock_epoch:
                 tx_hash = mock.functions.forceNewEpoch().transact({"from": self.web3.eth.accounts[0]})
+                # Anvil >= 1.8 returns the hash before the automined block exists.
+                assert_transaction_success_with_explanation(self.web3, tx_hash)
                 transaction_hashes.append(HexBytes(tx_hash))
                 if len(transaction_hashes) >= GAINS_MAX_SETTLEMENT_EPOCHS:
                     raise UnsupportedVaultSimulation(
@@ -767,7 +774,7 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     mock path executes its deterministic settlement round.
     """
 
-    def __init__(self, vault: "eth_defi.erc_4626.vault_protocol.gains.vault.OstiumVault"):
+    def __init__(self, vault: "OstiumVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault, OstiumVersion
 
         assert isinstance(vault, OstiumVault), f"Got {type(vault)}"
@@ -806,6 +813,8 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         if not isinstance(ticket, (OstiumDepositTicket, OstiumRedemptionTicket)):
             raise UnsupportedVaultSimulation(f"Ostium mock settlement requires an Ostium ticket, got {type(ticket)}")
         tx_hash = mock.functions.tryNewSettlement().transact({"from": self.web3.eth.accounts[0]})
+        # Anvil >= 1.8 returns the hash before the automined block exists.
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
         return VaultForcedSettlementResult(
             ticket=ticket,
             settlement_required=True,
@@ -1324,7 +1333,6 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         Maps Ostium's internal status to :py:class:`AsyncVaultRequestStatus`
         without raising :py:class:`OstiumSettlementFailed`.
         """
-        from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
         assert isinstance(ticket, OstiumDepositTicket)
         raw_status = self.vault.vault_contract.functions.getDepositStatus(ticket.owner, ticket.settlement_id).call()
@@ -1332,7 +1340,6 @@ class OstiumV15DepositManager(ERC4626DepositManager):
 
     def get_redemption_request_status(self, ticket: OstiumRedemptionTicket) -> "AsyncVaultRequestStatus":
         """Query Ostium V1.5 withdrawal status and map to generic enum."""
-        from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
         assert isinstance(ticket, OstiumRedemptionTicket)
         raw_status = self.vault.vault_contract.functions.getWithdrawStatus(ticket.owner, ticket.settlement_id).call()

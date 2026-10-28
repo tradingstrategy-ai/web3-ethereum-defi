@@ -19,6 +19,18 @@ subscription and redemption flows instead of ERC-4626 vault contracts.
 
 ## Website descriptions
 
+Individual vault `VaultBase.description` and `VaultBase.short_description`
+values must be single-line text. Never include newline or carriage-return
+characters, paragraph breaks, or literal `\n` / `\r` escape sequences. Apply
+`eth_defi.vault.base.normalise_vault_description()` to full descriptions and
+`normalise_vault_short_description()` to summaries, including cached metadata.
+Short descriptions must contain only one sentence. When automatically copying
+a full description or a provider-supplied summary, take only the first sentence
+and retain its ending punctuation; never copy several sentences into a summary.
+Preserve the wording and links within that sentence. This rule applies to
+individual vault fields; protocol-level Markdown fields below may still use
+paragraphs.
+
 Protocol metadata YAML is public website copy for DeFi professionals. The
 `short_description`, `long_description` and `fee_description` fields must
 explain the product, not this repository's integration.
@@ -587,6 +599,9 @@ If there are problems with the checklist, ask for human assistance.
 ## Step 17: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
+
+Finish with [clean-up-for-pr](../clean-up-for-pr/SKILL.md) at the outermost
+task's review handoff.
 
 ## Step 18: Pull request (optional)
 

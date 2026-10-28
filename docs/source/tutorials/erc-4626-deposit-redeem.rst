@@ -35,9 +35,9 @@ Output looks like:
     Using JSON RPC provider fallbacks lb.drpc.org, base-mainnet.g.alchemy.com for chain Base
     Forking Base with Anvil
     Attempting to allocate port 27388 to Anvil
-    Multi RPC detected, using Anvil at the first RPC endpoint https://lb.drpc.org/ogrpc?network=base&dkey=AiWA4TvYpkijvapnvFlyx_UuJsZmMjkR8JUBzoXPVSjK
-    Launching anvil: anvil --port 27388 --fork-url https://lb.drpc.org/ogrpc?network=base&dkey=AiWA4TvYpkijvapnvFlyx_UuJsZmMjkR8JUBzoXPVSjK --hardfork cancun --code-size-limit 99999
-    anvil forked network 8453, the current block is 31,815,357, Anvil JSON-RPC is http://localhost:27388
+    Multi RPC detected, using Anvil at the first RPC endpoint lb.drpc.org
+    Launching anvil: anvil --port 27388 --fork-url lb.drpc.org --hardfork cancun --code-size-limit 99999
+    anvil forked network 8453, the current block is 31,815,357, Anvil JSON-RPC is localhost:27388
     Making request with data: <class 'web3.providers.rpc.HTTPProvider'> {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': 3.0}
     Created provider localhost:27388, using request args {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': (10.0, 60.0)}, headers {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}
     Configuring MultiProviderWeb3. Call providers: ['localhost:27388'], transact providers -

@@ -19,6 +19,10 @@ The `vault scan manifest contract <https://github.com/tradingstrategy-ai/web3-et
 describes private R2 keys, freshness timestamps and cache policy for live
 strategy readiness polling.
 
+:meth:`eth_defi.vault.base.VaultBase.get_fee_data` accepts an optional source
+block. Reviewed metadata adapters use it to keep prepared fees and valuations
+at the same numeric block while no-argument callers retain latest-state reads.
+
 .. autosummary::
    :toctree: _autosummary_vault
    :recursive:
@@ -36,6 +40,7 @@ strategy readiness polling.
    eth_defi.vault.lower_case_dict
    eth_defi.vault.mass_buyer
    eth_defi.vault.flag
+   eth_defi.vault.handwritten_metadata
    eth_defi.vault.protocol_metadata
    eth_defi.vault.curator
    eth_defi.vault.curator_export
@@ -47,3 +52,8 @@ strategy readiness polling.
    eth_defi.vault.denomination
    eth_defi.vault.crypto_vaults
    eth_defi.vault.crypto_vault_export
+   eth_defi.vault.rpc_batch
+   eth_defi.vault.rpc_scan_state
+   eth_defi.vault.exception
+   eth_defi.vault.backup
+   eth_defi.vault.duckdb_backup

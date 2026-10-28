@@ -48,6 +48,10 @@ def morpho_v2_snapshot(morpho_v2_fork: AnvilLaunch) -> Iterator[None]:
 
 # First observed 2026-07-30: two CI attempts did not raise VaultFlowUnavailable,
 # while the fixed-fork test passed locally; the live fork's transfer preflight is nondeterministic.
+# 2026-10-27: both CI attempts on PR #1667 reverted the final redemption with TransferReverted
+# (0xace2a47e) after liquidity injection; reproduced locally in about 40% of runs. Root cause:
+# the one-unit injection margin did not cover per-second interest accrued before the
+# wall-clock-stamped retry block. The one basis point margin passed 8/8 local runs.
 @flaky.flaky
 def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morpho_v2_snapshot: None) -> None:
     """Map Apyx's transfer failure, inject liquidity and redeem normally.

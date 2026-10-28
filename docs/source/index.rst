@@ -80,13 +80,13 @@ Supported protocols, chains and integrations
      - `API <api/derive/index.html>`__
    * - gTrade
      - Leveraged trading, vaults
-     - `API <vaults/gains/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network>`__
+     - `API <vaults/gains/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/gains-network>`__
    * - Ostium
      - Leveraged trading, vaults
-     - `API <vaults/gains/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network>`__
+     - `API <vaults/gains/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/gains-network>`__
    * - Domination Finance
      - Leveraged trading, vaults
-     - `API <vaults/domination/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/domination-finance>`__
+     - `API <vaults/domination/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/domination-finance>`__
    * - LFG
      - Token swaps, data research
      - `API <api/uniswap_v2/index.html>`__
@@ -101,13 +101,13 @@ Supported protocols, chains and integrations
      - `API <api/aave_v2/index.html>`__
    * - Sky (MakerDAO)
      - Savings vaults
-     - `API <vaults/sky/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/sky>`__
+     - `API <vaults/sky/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/sky>`__
    * - Enzyme
      - Deposit to vaults, deploy, read vault data
      - `Tutorial <tutorials/enzyme-read-vaults.html>`__
    * - Lagoon
      - Deposit to vaults, deploy, read vault data
-     - `API <vaults/lagoon/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/lagoon-finance>`__
+     - `API <vaults/lagoon/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/lagoon-finance>`__
    * - Velvet
      - Deposit to vaults, deploy, read vault data
      - `API <api/velvet/index.html>`__
@@ -116,94 +116,94 @@ Supported protocols, chains and integrations
      - `Tutorial <tutorials/erc-4626-scan-prices.html>`__
    * - Euler
      - Read vault data
-     - `API <vaults/euler/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/euler>`__
+     - `API <vaults/euler/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/euler>`__
    * - Ethena
      - Read vault data
-     - `API <vaults/ethena/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ethena>`__
+     - `API <vaults/ethena/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/ethena>`__
    * - IPOR
      - Read vault data
-     - `API <vaults/ipor/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ipor>`__
+     - `API <vaults/ipor/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/ipor>`__
    * - 1delta
      - Open/close leveraged long/short positions
      - `API <api/one_delta/index.html>`__
    * - Yearn
      - Read vault data
-     - `API <vaults/yearn/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yearn>`__
+     - `API <vaults/yearn/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/yearn>`__
    * - NashPoint
      - Read vault data
-     - `API <vaults/nashpoint/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/nashpoint>`__
+     - `API <vaults/nashpoint/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/nashpoint>`__
    * - Untangle Finance
      - Read vault data
-     - `API <vaults/untangle/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/untangle-finance>`__
+     - `API <vaults/untangle/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/untangle-finance>`__
    * - Plutus
      - Read vault data
-     - `API <vaults/plutus/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/plutus>`__
+     - `API <vaults/plutus/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/plutus>`__
    * - D2 Finance
      - Read vault data
-     - `API <vaults/d2_finance/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance>`__
+     - `API <vaults/d2_finance/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/d2-finance>`__
    * - Umami Finance
      - Read vault data
-     - `API <vaults/umami/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/umami>`__
+     - `API <vaults/umami/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/umami>`__
    * - Harvest Finance
      - Read vault data
-     - `API <vaults/harvest/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance>`__
+     - `API <vaults/harvest/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/harvest-finance>`__
    * - USDAi
      - Read vault data
-     - `API <vaults/usdai/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/usdai>`__
+     - `API <vaults/usdai/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/usdai>`__
    * - AUTO Finance
      - Read vault data
-     - `API <vaults/auto_finance/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance>`__
+     - `API <vaults/auto_finance/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/auto-finance>`__
    * - Goat Protocol
      - Read vault data
-     - `API <vaults/goat/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/goat-protocol>`__
+     - `API <vaults/goat/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/goat-protocol>`__
    * - Cap
      - Read vault data
-     - `API <vaults/cap/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/cap>`__
+     - `API <vaults/cap/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/cap>`__
    * - Centrifuge
      - Read vault data
-     - `API <vaults/centrifuge/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge>`__
+     - `API <vaults/centrifuge/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/centrifuge>`__
    * - C-Sigma
      - Read vault data
-     - `API <vaults/csigma/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance>`__
+     - `API <vaults/csigma/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/csigma-finance>`__
    * - Deltr
      - Read vault data
      - `API <vaults/deltr/index.html>`__
    * - Foxify
      - Read vault data
-     - `API <vaults/foxify/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/foxify>`__
+     - `API <vaults/foxify/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/foxify>`__
    * - Liquid Royalty
      - Read vault data
-     - `API <vaults/liquid_royalty/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquid-royalty>`__
+     - `API <vaults/liquid_royalty/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/liquid-royalty>`__
    * - LLamma
      - Read vault data
-     - `API <vaults/llamma/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/llamma>`__
+     - `API <vaults/llamma/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/llamma>`__
    * - Maple
      - Read vault data
-     - `API <vaults/maple/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/maple>`__
+     - `API <vaults/maple/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/maple>`__
    * - Silo
      - Read vault data
-     - `API <vaults/silo/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/silo-finance>`__
+     - `API <vaults/silo/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/silo-finance>`__
    * - Spark
      - Read vault data
-     - `API <vaults/spark/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/spark>`__
+     - `API <vaults/spark/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/spark>`__
    * - Summer
      - Read vault data
-     - `API <vaults/summer/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi>`__
+     - `API <vaults/summer/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/summer-fi>`__
    * - Superform
      - Read vault data
-     - `API <vaults/superform/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/superform>`__
+     - `API <vaults/superform/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/superform>`__
    * - Teller
      - Read vault data
-     - `API <vaults/teller/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/teller>`__
+     - `API <vaults/teller/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/teller>`__
    * - Term Finance
      - Read vault data
-     - `API <vaults/term_finance/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance>`__
+     - `API <vaults/term_finance/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/term-finance>`__
    * - TrueFi
      - Read vault data
-     - `API <vaults/truefi/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/truefi>`__
+     - `API <vaults/truefi/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/truefi>`__
    * - Upshift
      - Read vault data
-     - `API <vaults/upshift/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/upshift>`__
+     - `API <vaults/upshift/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/upshift>`__
    * - USDD
      - Read vault data
      - `API <vaults/usdd/index.html>`__
@@ -290,7 +290,7 @@ Supported protocols, chains and integrations
      - `API <vaults/zerolend/index.html>`__
    * - BaseVol
      - Read vault data
-     - `API <vaults/basevol/index.html>`__ `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/basevol>`__
+     - `API <vaults/basevol/index.html>`__ `Listing <https://tradingstrategy.ai/vaults/protocols/basevol>`__
    * - Hypersync
      - Read historical data fast
      - `API <api/hypersync/index.html>`__

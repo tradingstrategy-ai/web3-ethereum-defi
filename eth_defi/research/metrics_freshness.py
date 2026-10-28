@@ -71,6 +71,9 @@ LOW_TVL_METRICS_MAX_AGE = datetime.timedelta(days=3)
 #: Schema version of the metrics freshness state document.
 VAULT_METRICS_STATE_SCHEMA_VERSION = 1
 
+#: Recompute cached rows when endpoint or annualisation definitions change.
+VAULT_METRICS_CALCULATION_VERSION = 2
+
 #: Default freshness state filename for the stablecoin bundle.
 VAULT_METRICS_STATE_FILENAME = "vault-metrics-state.json"
 
@@ -156,6 +159,7 @@ def make_empty_metrics_state(now: datetime.datetime) -> dict:
     """
     return {
         "schema_version": VAULT_METRICS_STATE_SCHEMA_VERSION,
+        "calculation_version": VAULT_METRICS_CALCULATION_VERSION,
         "updated_at": now.isoformat(),
         "vaults": {},
     }
@@ -168,6 +172,9 @@ def load_metrics_state(path: Path, now: datetime.datetime) -> dict:
     structure) is moved aside with a ``.corrupt-<timestamp>`` suffix and an
     empty state is returned: one full recompute follows and the gate applies
     from the next run.
+
+    A valid state from an older calculation version also triggers a full
+    recomputation, without quarantining the state or changing price history.
 
     :param path:
         State file path.
@@ -197,6 +204,9 @@ def load_metrics_state(path: Path, now: datetime.datetime) -> dict:
         quarantine_path = path.with_suffix(f".corrupt-{now.strftime('%Y%m%d%H%M%S')}")
         logger.warning("Metrics state at %s is corrupt (%s); moving it aside to %s and starting empty", path, e, quarantine_path)
         path.replace(quarantine_path)
+        return make_empty_metrics_state(now)
+    if state.get("calculation_version") != VAULT_METRICS_CALCULATION_VERSION:
+        logger.info("Metrics calculation version changed; recomputing cached performance records")
         return make_empty_metrics_state(now)
     return state
 

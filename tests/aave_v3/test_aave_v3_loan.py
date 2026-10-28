@@ -17,6 +17,10 @@ from eth_defi.trace import (
 )
 from eth_defi.tx import get_tx_broadcast_data
 
+# Aave is unsupported until a reintegration with Aave v4 in the future. The Hardhat-based local Aave deployment, its Anvil saved state
+# and the Aave/1delta integration tests are disabled.
+pytestmark = pytest.mark.skip(reason="Aave is unsupported until a reintegration with Aave v4 in the future")
+
 
 @pytest.fixture()
 def ausdc(web3, aave_deployment) -> Contract:

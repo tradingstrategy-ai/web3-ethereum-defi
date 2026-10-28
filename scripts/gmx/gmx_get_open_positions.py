@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core import GetOpenPositions
 
@@ -36,7 +37,7 @@ def display_positions(positions: dict):
 
 if __name__ == "__main__":
     rpc = os.environ["JSON_RPC_ARBITRUM"]
-    web3 = Web3(Web3.HTTPProvider(rpc))
+    web3 = Web3(create_http_provider(rpc))
     config = GMXConfig(web3)
 
     positions_manager = GetOpenPositions(config)

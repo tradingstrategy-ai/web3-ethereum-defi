@@ -27,30 +27,29 @@ Example::
 
 import datetime
 import logging
-from dataclasses import dataclass
-from decimal import Decimal
+from contextlib import closing
+from dataclasses import dataclass, fields
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
+from requests.exceptions import RequestException
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price, align_share_price_curve_to_anchor
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.deposit import aggregate_daily_flows, fetch_vault_deposits
 from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
-    HyperliquidVault,
     PortfolioHistory,
-    VaultInfo,
     VaultSummary,
     fetch_all_vaults,
 )
 from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
+from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +70,15 @@ class HyperliquidDailyPriceRow:
     apr: float | None = None
     is_closed: bool | None = None
     allow_deposits: bool | None = None
-    leader_fraction: float | None = None
-    leader_commission: float | None = None
+    leader_fraction: Percent | None = None
+    leader_commission: Percent | None = None
     daily_deposit_count: int | None = None
     daily_withdrawal_count: int | None = None
     daily_deposit_usd: float | None = None
     daily_withdrawal_usd: float | None = None
     epoch_reset: bool | None = None
     data_source: str = "api"
-    #: When this row was actually written/fetched (naive UTC)
+    #: First write clock (naive UTC); later price updates do not refresh it.
     written_at: datetime.datetime | None = None
 
     def __post_init__(self) -> None:
@@ -355,10 +354,10 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
     price_table = "vault_daily_prices"
     time_column = "date"
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         super().__init__(path)
 
-    def _init_price_schema(self):
+    def _init_price_schema(self) -> None:
         """Create the daily price table and run schema migrations."""
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_daily_prices (
@@ -377,75 +376,32 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
                 leader_fraction DOUBLE,
                 leader_commission DOUBLE,
                 epoch_reset BOOLEAN,
-                written_at TIMESTAMP,
-                PRIMARY KEY (vault_address, date)
+                written_at TIMESTAMP
             )
         """)
 
-        # Migration for existing databases: add deposit status columns to daily prices
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN is_closed BOOLEAN")
-        except duckdb.CatalogException:
-            pass
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN allow_deposits BOOLEAN")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add leader metrics to daily prices
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_fraction DOUBLE")
-        except duckdb.CatalogException:
-            pass
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN leader_commission DOUBLE")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add cumulative volume tracking
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN cumulative_volume DOUBLE")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add daily deposit/withdrawal flow columns
-        for col, col_type in [
+        # Explicit additive migrations preserve old column layouts and surface
+        # unexpected schema errors instead of swallowing CatalogException.
+        existing_columns = {row[0] for row in self.con.execute("DESCRIBE vault_daily_prices").fetchall()}
+        for name, sql_type in (
+            ("is_closed", "BOOLEAN"),
+            ("allow_deposits", "BOOLEAN"),
+            ("leader_fraction", "DOUBLE"),
+            ("leader_commission", "DOUBLE"),
+            ("cumulative_volume", "DOUBLE"),
             ("daily_deposit_count", "INTEGER"),
             ("daily_withdrawal_count", "INTEGER"),
             ("daily_deposit_usd", "DOUBLE"),
             ("daily_withdrawal_usd", "DOUBLE"),
-        ]:
-            try:
-                self.con.execute(f"ALTER TABLE vault_daily_prices ADD COLUMN {col} {col_type}")
-            except duckdb.CatalogException:
-                pass
+            ("epoch_reset", "BOOLEAN"),
+            ("data_source", "VARCHAR"),
+            ("written_at", "TIMESTAMP"),
+        ):
+            self.con.execute(f"ALTER TABLE vault_daily_prices ADD COLUMN IF NOT EXISTS {name} {sql_type}")
+        if "data_source" not in existing_columns:
+            self.con.execute("UPDATE vault_daily_prices SET data_source='api' WHERE data_source IS NULL")
 
-        # Migration for existing databases: track how far back flow data has been backfilled
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN flow_data_earliest_date DATE")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add epoch_reset column
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN epoch_reset BOOLEAN")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add data_source column to track provenance
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN data_source VARCHAR")
-            self.con.execute("UPDATE vault_daily_prices SET data_source = 'api' WHERE data_source IS NULL")
-        except duckdb.CatalogException:
-            pass
-
-        # Migration for existing databases: add written_at column for data auditability
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN written_at TIMESTAMP")
-        except duckdb.CatalogException:
-            pass
-
-    def _write_tombstone_rows(self, vault_addresses: list[str]) -> int:
+    def _write_tombstone_rows(self, vault_addresses: list[HexAddress]) -> int:
         """Write tombstone daily price rows for the given vault addresses.
 
         For each address that has existing price data, writes a single row
@@ -453,20 +409,12 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         known ``share_price`` and ``cumulative_pnl`` are carried forward so
         historical return calculations are not distorted.
 
-        ``is_closed`` and ``allow_deposits`` are left as ``None`` so that the
-        ``COALESCE`` in :py:meth:`upsert_daily_prices` preserves whatever
-        state the vault already has.  A vault that dropped below the TVL
-        threshold or disappeared from the bulk listing is not necessarily
-        permanently closed — it may simply have very low TVL — and marking
-        it ``is_closed=True`` would propagate through the forward-fill in
-        :py:func:`~eth_defi.hyperliquid.vault_data_export.build_raw_prices_dataframe`
-        into ``deposit_closed_reason="Vault is permanently closed"``, which
-        is incorrect.
+        Tombstones do not create permission observations. Compatibility flags
+        remain null; export selects independently timed state. Low TVL or absence
+        from the bulk listing does not prove permanent closure.
 
-        :param vault_addresses:
-            Lowercased vault addresses to tombstone.
-        :return:
-            Number of tombstone rows written.
+        :param vault_addresses: Lowercased vault addresses to tombstone.
+        :return: Number of inserted tombstone price rows.
         """
         if not vault_addresses:
             return 0
@@ -505,16 +453,15 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         self,
         rows: list[HyperliquidDailyPriceRow],
         cutoff_date: datetime.date | None = None,
-    ):
+    ) -> None:
         """Bulk upsert daily price rows for a vault.
 
         :param rows:
             List of :py:class:`HyperliquidDailyPriceRow` items.
 
-            The ``is_closed``, ``allow_deposits``, ``leader_fraction``, and
-            ``leader_commission`` fields should be ``None`` for historical rows
-            and only set for the latest (today's) row, so that we track how
-            these values evolve over time.
+            Permission compatibility fields on new rows may accompany the latest
+            source price. They never replace independent response observations,
+            and matching-key updates preserve their original values and clock.
 
             The flow columns (``daily_deposit_count`` etc.) should be ``None``
             for dates outside the backfill window and ``0`` for dates with
@@ -532,43 +479,7 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
         db_rows = [r.as_db_tuple() for r in rows]
 
-        # Thread safety: use a per-call cursor so concurrent worker
-        # threads do not clobber each other's result sets on the
-        # shared connection.  See ``HyperliquidMetricsDatabaseBase``.
-        self.con.cursor().executemany(
-            """
-            INSERT INTO vault_daily_prices (
-                vault_address, date, share_price, tvl, cumulative_pnl,
-                cumulative_volume, daily_pnl, daily_return, follower_count, apr,
-                is_closed, allow_deposits, leader_fraction, leader_commission,
-                daily_deposit_count, daily_withdrawal_count,
-                daily_deposit_usd, daily_withdrawal_usd, epoch_reset,
-                data_source, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (vault_address, date)
-            DO UPDATE SET
-                share_price = EXCLUDED.share_price,
-                tvl = EXCLUDED.tvl,
-                cumulative_pnl = EXCLUDED.cumulative_pnl,
-                cumulative_volume = COALESCE(EXCLUDED.cumulative_volume, vault_daily_prices.cumulative_volume),
-                daily_pnl = EXCLUDED.daily_pnl,
-                daily_return = EXCLUDED.daily_return,
-                follower_count = COALESCE(EXCLUDED.follower_count, vault_daily_prices.follower_count),
-                apr = COALESCE(EXCLUDED.apr, vault_daily_prices.apr),
-                is_closed = COALESCE(EXCLUDED.is_closed, vault_daily_prices.is_closed),
-                allow_deposits = COALESCE(EXCLUDED.allow_deposits, vault_daily_prices.allow_deposits),
-                leader_fraction = COALESCE(EXCLUDED.leader_fraction, vault_daily_prices.leader_fraction),
-                leader_commission = COALESCE(EXCLUDED.leader_commission, vault_daily_prices.leader_commission),
-                daily_deposit_count = COALESCE(EXCLUDED.daily_deposit_count, vault_daily_prices.daily_deposit_count),
-                daily_withdrawal_count = COALESCE(EXCLUDED.daily_withdrawal_count, vault_daily_prices.daily_withdrawal_count),
-                daily_deposit_usd = COALESCE(EXCLUDED.daily_deposit_usd, vault_daily_prices.daily_deposit_usd),
-                daily_withdrawal_usd = COALESCE(EXCLUDED.daily_withdrawal_usd, vault_daily_prices.daily_withdrawal_usd),
-                epoch_reset = COALESCE(EXCLUDED.epoch_reset, vault_daily_prices.epoch_reset),
-                data_source = COALESCE(EXCLUDED.data_source, vault_daily_prices.data_source),
-                written_at = EXCLUDED.written_at
-            """,
-            db_rows,
-        )
+        self.upsert_price_batch(db_rows, [field.name for field in fields(HyperliquidDailyPriceRow)])
 
     def get_all_daily_prices(self) -> pd.DataFrame:
         """Get all daily price data across all vaults.
@@ -576,14 +487,11 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             DataFrame with all daily price records, ordered by vault then date.
         """
-        return (
-            self.con.cursor()
-            .execute("""
-            SELECT * FROM vault_daily_prices
-            ORDER BY vault_address, date
-        """)
-            .df()
-        )
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute("""
+                SELECT * FROM vault_daily_prices
+                ORDER BY vault_address, date
+            """).df()
 
     def get_vault_daily_prices(self, vault_address: HexAddress) -> pd.DataFrame:
         """Get daily price data for a specific vault.
@@ -593,18 +501,15 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             DataFrame with price records for this vault, ordered by date.
         """
-        return (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute(
                 """
-            SELECT * FROM vault_daily_prices
-            WHERE vault_address = ?
-            ORDER BY date
-            """,
+                SELECT * FROM vault_daily_prices
+                WHERE vault_address = ?
+                ORDER BY date
+                """,
                 [vault_address.lower()],
-            )
-            .df()
-        )
+            ).df()
 
     def update_historical_daily_flows(
         self,
@@ -641,52 +546,51 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Number of existing daily price rows updated.
         """
-        address = vault_address.lower()
-        existing_dates = [
-            row[0]
-            for row in self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            address = vault_address.lower()
+            existing_dates = [
+                row[0]
+                for row in cursor.execute(
+                    """
+                    SELECT date
+                    FROM vault_daily_prices
+                    WHERE vault_address = ? AND date BETWEEN ? AND ?
+                    ORDER BY date
+                    """,
+                    [address, start_date, end_date],
+                ).fetchall()
+            ]
+            if not existing_dates:
+                return 0
+
+            update_rows = []
+            for date_value in existing_dates:
+                deposit_count, withdrawal_count, deposit_usd, withdrawal_usd = daily_flows.get(date_value, (0, 0, 0.0, 0.0))
+                update_rows.append((deposit_count, withdrawal_count, deposit_usd, withdrawal_usd, address, date_value))
+
+            cursor.executemany(
                 """
-                SELECT date
-                FROM vault_daily_prices
-                WHERE vault_address = ? AND date BETWEEN ? AND ?
-                ORDER BY date
+                UPDATE vault_daily_prices
+                SET daily_deposit_count = ?,
+                    daily_withdrawal_count = ?,
+                    daily_deposit_usd = ?,
+                    daily_withdrawal_usd = ?
+                WHERE vault_address = ? AND date = ?
                 """,
-                [address, start_date, end_date],
+                update_rows,
             )
-            .fetchall()
-        ]
-        if not existing_dates:
-            return 0
-
-        update_rows = []
-        for date_value in existing_dates:
-            deposit_count, withdrawal_count, deposit_usd, withdrawal_usd = daily_flows.get(date_value, (0, 0, 0.0, 0.0))
-            update_rows.append((deposit_count, withdrawal_count, deposit_usd, withdrawal_usd, address, date_value))
-
-        self.con.cursor().executemany(
-            """
-            UPDATE vault_daily_prices
-            SET daily_deposit_count = ?,
-                daily_withdrawal_count = ?,
-                daily_deposit_usd = ?,
-                daily_withdrawal_usd = ?
-            WHERE vault_address = ? AND date = ?
-            """,
-            update_rows,
-        )
-        self.con.cursor().execute(
-            """
-            UPDATE vault_metadata
-            SET flow_data_earliest_date = LEAST(
-                COALESCE(flow_data_earliest_date, ?),
-                ?
+            cursor.execute(
+                """
+                UPDATE vault_metadata
+                SET flow_data_earliest_date = LEAST(
+                    COALESCE(flow_data_earliest_date, ?),
+                    ?
+                )
+                WHERE vault_address = ?
+                """,
+                [start_date, start_date, address],
             )
-            WHERE vault_address = ?
-            """,
-            [start_date, start_date, address],
-        )
-        return len(update_rows)
+            return len(update_rows)
 
     def get_existing_dates(self, vault_address: HexAddress) -> set[datetime.date]:
         """Get all dates with existing data for a vault.
@@ -696,15 +600,12 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Set of dates that already have data in the database.
         """
-        rows = (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            rows = cursor.execute(
                 "SELECT date FROM vault_daily_prices WHERE vault_address = ?",
                 [vault_address.lower()],
-            )
-            .fetchall()
-        )
-        return {r[0] for r in rows}
+            ).fetchall()
+            return {r[0] for r in rows}
 
     def get_vault_daily_price_count(self, vault_address: HexAddress) -> int:
         """Get the number of daily price records for a vault.
@@ -714,14 +615,11 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Number of daily price records.
         """
-        return (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute(
                 "SELECT COUNT(*) FROM vault_daily_prices WHERE vault_address = ?",
                 [vault_address.lower()],
-            )
-            .fetchone()[0]
-        )
+            ).fetchone()[0]
 
     def get_vault_last_date(self, vault_address: HexAddress) -> datetime.date | None:
         """Get the last date with price data for a vault.
@@ -731,23 +629,21 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             The latest date, or None if no data.
         """
-        result = (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            result = cursor.execute(
                 "SELECT MAX(date) FROM vault_daily_prices WHERE vault_address = ?",
                 [vault_address.lower()],
-            )
-            .fetchone()[0]
-        )
-        return result
+            ).fetchone()[0]
+            return result
 
-    def get_leader_fraction_history(self, vault_address: str) -> pd.DataFrame:
+    def get_leader_fraction_history(self, vault_address: HexAddress) -> pd.DataFrame:
         """Get the recorded leader_fraction snapshots for a vault.
 
         Returns only rows where ``leader_fraction`` was recorded (non-NULL).
-        Each row represents a day when the scanner ran and observed the value.
-        Over time, daily scans build up a sparse history of leader capital
-        ownership that can be used to detect threshold crossings.
+        These are compatibility values attached to portfolio dates; they are not
+        independent observations and cannot establish fresh capacity. Use the
+        permission sidecar's ``capacity_observed_at`` and coherent source inputs
+        when checking the age of a leader-capital measurement.
 
         :param vault_address:
             Vault address to query (will be lowercased).
@@ -755,20 +651,17 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             DataFrame with columns ``date`` and ``leader_fraction``,
             ordered by date ascending. Empty if no snapshots recorded.
         """
-        return (
-            self.con.cursor()
-            .execute(
+        with closing(self.con.cursor()) as cursor:
+            return cursor.execute(
                 """
-            SELECT date, leader_fraction
-            FROM vault_daily_prices
-            WHERE vault_address = ?
-              AND leader_fraction IS NOT NULL
-            ORDER BY date
-            """,
+                SELECT date, leader_fraction
+                FROM vault_daily_prices
+                WHERE vault_address = ?
+                  AND leader_fraction IS NOT NULL
+                ORDER BY date
+                """,
                 [vault_address.lower()],
-            )
-            .df()
-        )
+            ).df()
 
     def delete_vault_daily_prices(self, vault_address: HexAddress) -> int:
         """Delete all daily price records for a vault.
@@ -781,12 +674,13 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
         :return:
             Number of rows deleted.
         """
-        count = self.get_vault_daily_price_count(vault_address)
-        self.con.cursor().execute(
-            "DELETE FROM vault_daily_prices WHERE vault_address = ?",
-            [vault_address.lower()],
-        )
-        return count
+        with closing(self.con.cursor()) as cursor:
+            count = self.get_vault_daily_price_count(vault_address)
+            cursor.execute(
+                "DELETE FROM vault_daily_prices WHERE vault_address = ?",
+                [vault_address.lower()],
+            )
+            return count
 
     def recompute_vault_share_prices(self, vault_address: HexAddress) -> dict:
         """Recompute share prices for a vault from stored tvl/pnl data.
@@ -1051,17 +945,6 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
 
         return pd.DataFrame(issues, columns=["vault_address", "name", "issue_type", "affected_rows", "example_value"])
 
-    def save(self):
-        """Force a checkpoint to ensure data is written to disk."""
-        self.con.commit()
-
-    def close(self):
-        """Close the database connection."""
-        logger.info("Closing daily metrics database at %s", self.path)
-        if self.con is not None:
-            self.con.close()
-            self.con = None
-
 
 def fetch_and_store_vault(
     session: HyperliquidSession,
@@ -1092,15 +975,8 @@ def fetch_and_store_vault(
     """
     vault_address = summary.vault_address.lower()
 
-    try:
-        vault = HyperliquidVault(
-            session=session,
-            vault_address=vault_address,
-            timeout=timeout,
-        )
-        info: VaultInfo = vault.fetch_metadata()
-    except Exception as e:
-        logger.warning("Failed to fetch vault details for %s (%s): %s", summary.name, vault_address, e)
+    info = db.fetch_vault_metadata(session, summary, timeout)
+    if info is None:
         return False
 
     # Get portfolio history — merge all available periods for higher resolution
@@ -1122,7 +998,7 @@ def fetch_and_store_vault(
     flow_start_date: datetime.date | None = None
 
     if flow_backfill_days > 0:
-        today = datetime.date.today()
+        today = native_datetime_utc_now().date()
         yesterday = today - datetime.timedelta(days=1)
         flow_start_date = today - datetime.timedelta(days=flow_backfill_days)
         flow_start_dt = datetime.datetime(flow_start_date.year, flow_start_date.month, flow_start_date.day)
@@ -1146,7 +1022,7 @@ def fetch_and_store_vault(
                 vault_address,
                 len(daily_flows),
             )
-        except Exception as e:
+        except (RequestException, ValueError, KeyError, TypeError, IndexError) as e:
             logger.warning("Failed to fetch deposit events for %s (%s): %s", summary.name, vault_address, e)
 
     # Store metadata
@@ -1261,7 +1137,7 @@ def fetch_and_store_vault(
             row_cumulative_volume = None
 
         # Flow data: only populate for dates within the backfill window
-        if flow_start_date is not None and flow_start_date <= date_val <= (datetime.date.today() - datetime.timedelta(days=1)):
+        if flow_start_date is not None and flow_start_date <= date_val <= (native_datetime_utc_now().date() - datetime.timedelta(days=1)):
             flow = daily_flows.get(date_val, (0, 0, 0.0, 0.0))
             dep_count, wd_count, dep_usd, wd_usd = flow
         else:
@@ -1329,7 +1205,7 @@ def run_daily_scan(
     max_workers: int = 16,
     cutoff_date: datetime.date | None = None,
     timeout: float = 30.0,
-    vault_addresses: list[str] | None = None,
+    vault_addresses: list[HexAddress] | None = None,
     flow_backfill_days: int = 7,
     full_scan: bool = False,
 ) -> HyperliquidDailyMetricsDatabase:
@@ -1388,13 +1264,16 @@ def run_daily_scan(
     for attempt in range(3):
         try:
             vault_summaries = list(fetch_all_vaults(session, timeout=timeout))
+            bulk_received_at = native_datetime_utc_now()
             break
-        except Exception as e:
+        except (RequestException, ValueError, KeyError, TypeError, IndexError) as e:
             logger.warning("Error fetching vault summaries (attempt %d/3): %s", attempt + 1, e)
             continue
 
     if vault_summaries is None:
         raise RuntimeError("Failed to fetch vault summaries after 3 attempts")
+
+    db.record_bulk_closures(vault_summaries, bulk_received_at)
 
     logger.info("Fetched %d total vaults from stats-data API", len(vault_summaries))
 

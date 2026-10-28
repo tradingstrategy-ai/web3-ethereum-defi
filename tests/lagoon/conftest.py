@@ -74,6 +74,18 @@ def test_block_number() -> int:
 
 
 @pytest.fixture(scope="module")
+def anvil_fork_isolation_group() -> str | None:
+    """Select an optional partition for independent mutable fork groups.
+
+    Transaction-heavy modules can override this fixture to avoid inheriting
+    an Anvil process degraded by another module's snapshot/revert cycles.
+
+    :return: Pool partition, or ``None`` for the existing shared fork.
+    """
+    return None
+
+
+@pytest.fixture(scope="module")
 def anvil_base_fork(
     request,
     anvil_fork_pool,
@@ -83,6 +95,7 @@ def anvil_base_fork(
     second_asset_manager,
     valuation_manager,
     test_block_number,
+    anvil_fork_isolation_group,
 ) -> AnvilLaunch:
     """Get a pooled fork of live Base chain.
 
@@ -103,6 +116,7 @@ def anvil_base_fork(
     return anvil_fork_pool.get_launch(
         JSON_RPC_BASE,
         fork_block_number=test_block_number,
+        isolation_group=anvil_fork_isolation_group,
         unlocked_addresses=[vault_owner, usdc_holder, asset_manager, second_asset_manager, valuation_manager],
     )
 
@@ -205,7 +219,7 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 
 @pytest.fixture(scope="session")
 def _lagoon_shared_deployment_cache() -> dict:
-    """Session-level cache of shared Lagoon deployments, keyed by fork URL.
+    """Session-level cache of shared Lagoon deployments, keyed by fork URL and process generation.
 
     One deployment per pooled fork per xdist worker. See
     :func:`shared_automated_lagoon_vault`.
@@ -239,7 +253,7 @@ def shared_automated_lagoon_vault(
     :func:`~eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_automated_lagoon_vault`
     directly in the test body instead (as ``test_lagoon_erc_4626`` etc. do).
     """
-    key = anvil_base_fork.json_rpc_url
+    key = (anvil_base_fork.json_rpc_url, anvil_base_fork.process.pid, anvil_base_fork.process.create_time())
     deploy_info = _lagoon_shared_deployment_cache.get(key)
     if deploy_info is not None:
         return deploy_info

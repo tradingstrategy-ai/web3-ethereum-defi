@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from itertools import islice
 from pathlib import Path
-from typing import Any, TypedDict, TypeVar
+from typing import Any, Literal, TypedDict, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,6 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.sparkline import (
-    MIN_SPARKLINE_HISTORY,
     SPARKLINE_BACKGROUND_COLOR,
     SPARKLINE_GRADIENT_ALPHA,
     SPARKLINE_GRADIENT_TOP_COLOR,
@@ -40,10 +39,13 @@ from eth_defi.research.sparkline import (
     SPARKLINE_SVG_LINE_WIDTH,
     SPARKLINE_SVG_MARGIN_RATIO,
     SPARKLINE_SVG_WIDTH,
+    SPARKLINE_TABLE_PNG_HEIGHT,
+    SPARKLINE_TABLE_PNG_WIDTH,
     SparklineData,
     prepare_sparkline_data,
     render_sparkline_png,
     render_sparkline_svg,
+    render_sparkline_table_png,
 )
 from eth_defi.vault.denomination import DenominationFamily, classify_denomination, resolve_sparkline_tvl_threshold
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
@@ -67,8 +69,11 @@ SPARKLINE_BATCH_SIZE = 100
 #: Number of hexadecimal characters in a SHA-256 digest.
 SHA256_HEX_LENGTH = 64
 
-#: Number of output formats required for a complete vault publication.
-SPARKLINE_FORMAT_COUNT = 2
+#: Required assets, identified by file extension and optional variant.
+SPARKLINE_REQUIRED_ASSETS = frozenset({("svg", None), ("png", None), ("png", "table")})
+
+#: Number of output assets required for a complete vault publication.
+SPARKLINE_FORMAT_COUNT = len(SPARKLINE_REQUIRED_ASSETS)
 
 #: Supported image families.
 SUPPORTED_SPARKLINE_FAMILIES = frozenset(
@@ -80,7 +85,14 @@ SUPPORTED_SPARKLINE_FAMILIES = frozenset(
 )
 
 
-class RenderData(TypedDict):
+class _RenderVariant(TypedDict, total=False):
+    """Optional asset variant, compatible with Python 3.10 TypedDict."""
+
+    #: Omitted for legacy SVG/square PNG objects.
+    variant: Literal["table"]
+
+
+class RenderData(_RenderVariant):
     """Rendered image payload for one vault and one output format."""
 
     vault_id: str
@@ -116,7 +128,7 @@ class SparklineVaultWorkResult:
     #: Canonical input digest when rendering was due.
     digest: str | None = None
 
-    #: SVG and PNG payloads when rendering succeeded.
+    #: SVG, square PNG and table PNG payloads when rendering succeeded.
     images: list[RenderData] | None = None
 
     #: Render error when one vault failed.
@@ -245,7 +257,10 @@ def _vault_symbol_map(vault_db: VaultDatabase) -> dict[str, str | None]:
 
 
 def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> set[str]:
-    """Select supported vaults with finite TVL and sufficient price history.
+    """Select supported vaults with finite TVL and two valid price observations.
+
+    Eligibility requires distinct valid observation timestamps, even within
+    one day. The metadata supplies the supported denomination family.
 
     :param vault_db:
         Vault metadata rows used for denomination-family classification.
@@ -253,7 +268,7 @@ def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> 
         Naive-UTC price rows containing ``id``, ``share_price`` and
         ``total_assets`` columns.
     :return:
-        Canonical IDs with supported denominations, sufficient history and at
+        Canonical IDs with supported denominations, two valid timestamps and at
         least one finite TVL observation.
     """
     required = {"id", "share_price", "total_assets"}
@@ -271,9 +286,11 @@ def get_included_vault_ids(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> 
             continue
         share_prices = pd.to_numeric(group["share_price"], errors="coerce")
         assets = pd.to_numeric(group["total_assets"], errors="coerce")
-        finite_share_mask = np.isfinite(share_prices.to_numpy(dtype=float, na_value=np.nan))
+        numeric_prices = share_prices.to_numpy(dtype=float, na_value=np.nan)
+        finite_share_mask = np.isfinite(numeric_prices) & (numeric_prices >= 0) & ~group.index.isna()
         finite_share_times = group.index[finite_share_mask]
-        has_history = bool(finite_share_times.size) and finite_share_times.max() - finite_share_times.min() >= MIN_SPARKLINE_HISTORY
+        span = finite_share_times.max() - finite_share_times.min() if finite_share_times.size else pd.Timedelta(0)
+        has_history = span > pd.Timedelta(0)
         if has_history and np.isfinite(assets.to_numpy(dtype=float, na_value=np.nan)).any():
             included.add(str(vault_id))
     return included
@@ -303,7 +320,7 @@ def prepare_vault_sparklines(prices_df: pd.DataFrame, included_ids: set[str]) ->
         sparkline_data = prepare_sparkline_data(selected.loc[vault_id])
         if sparkline_data is None:
             skipped += 1
-            logger.debug("Skipping sparkline for vault %s: less than %s of finite history", vault_id, MIN_SPARKLINE_HISTORY)
+            logger.debug("Skipping sparkline for vault %s: fewer than two valid observations at distinct timestamps", vault_id)
         else:
             prepared.append((vault_id, sparkline_data))
     return prepared, skipped
@@ -329,7 +346,7 @@ def latest_total_assets_by_id(prices_df: pd.DataFrame, prepared: list[tuple[str,
         except KeyError:
             result[vault_id] = None
             continue
-        chart_end = sparkline_data.end_at + pd.Timedelta(days=1)
+        chart_end = sparkline_data.end_at.normalize() + pd.Timedelta(days=1)
         numeric = pd.to_numeric(rows.loc[rows.index < chart_end], errors="coerce")
         finite_mask = np.isfinite(numeric.to_numpy(dtype=float, na_value=np.nan))
         finite = numeric.iloc[finite_mask].sort_index()
@@ -344,6 +361,7 @@ def calculate_sparkline_input_digest(sparkline_data: SparklineData) -> str:
     hasher.update(struct.pack("<I", SPARKLINE_RENDERER_VERSION))
     hasher.update(struct.pack("<II", SPARKLINE_SVG_WIDTH, SPARKLINE_SVG_HEIGHT))
     hasher.update(struct.pack("<II", SPARKLINE_PNG_WIDTH, SPARKLINE_PNG_HEIGHT))
+    hasher.update(struct.pack("<II", SPARKLINE_TABLE_PNG_WIDTH, SPARKLINE_TABLE_PNG_HEIGHT))
     for style in (SPARKLINE_LINE_COLOR, SPARKLINE_GRADIENT_TOP_COLOR, SPARKLINE_BACKGROUND_COLOR):
         encoded = style.encode("ascii")
         hasher.update(struct.pack("<I", len(encoded)))
@@ -361,27 +379,28 @@ def calculate_sparkline_input_digest(sparkline_data: SparklineData) -> str:
 
 
 def render_vault_sparklines(vault_id: str, sparkline_data: SparklineData) -> list[RenderData]:
-    """Render one vault's deterministic SVG and PNG payloads.
+    """Render one vault's deterministic SVG, square PNG and table PNG.
 
     :param vault_id:
         Canonical chain-address vault identifier used in object keys.
     :param sparkline_data:
         Prepared daily observations and fixed chart bounds.
     :return:
-        Exactly one SVG and one PNG payload.
+        Exactly one SVG, one legacy square PNG and one native 4:1 table PNG.
     :raises ValueError:
         If the prepared data cannot be rendered.
     """
+    svg = render_sparkline_svg(
+        sparkline_data,
+        width=SPARKLINE_SVG_WIDTH,
+        height=SPARKLINE_SVG_HEIGHT,
+        line_width=SPARKLINE_SVG_LINE_WIDTH,
+        margin_ratio=SPARKLINE_SVG_MARGIN_RATIO,
+    )
     return [
         {
             "vault_id": vault_id,
-            "payload": render_sparkline_svg(
-                sparkline_data,
-                width=SPARKLINE_SVG_WIDTH,
-                height=SPARKLINE_SVG_HEIGHT,
-                line_width=SPARKLINE_SVG_LINE_WIDTH,
-                margin_ratio=SPARKLINE_SVG_MARGIN_RATIO,
-            ),
+            "payload": svg,
             "content_type": "image/svg+xml",
             "extension": "svg",
         },
@@ -390,6 +409,13 @@ def render_vault_sparklines(vault_id: str, sparkline_data: SparklineData) -> lis
             "payload": render_sparkline_png(sparkline_data),
             "content_type": "image/png",
             "extension": "png",
+        },
+        {
+            "vault_id": vault_id,
+            "payload": render_sparkline_table_png(svg),
+            "content_type": "image/png",
+            "extension": "png",
+            "variant": "table",
         },
     ]
 
@@ -439,7 +465,8 @@ def upload_sparkline(s3_client: Any, bucket_name: str, render_data: RenderData) 
         already matched the source digest.
     """
     payload = render_data["payload"]
-    object_name = f"sparkline-90d-{render_data['vault_id']}.{render_data['extension']}"
+    prefix = "sparkline-table" if render_data.get("variant") == "table" else "sparkline"
+    object_name = f"{prefix}-90d-{render_data['vault_id']}.{render_data['extension']}"
     return upload_bytes_to_r2(
         s3_client=s3_client,
         payload=gzip.compress(payload, mtime=0),
@@ -464,8 +491,8 @@ def upload_sparklines(
     conditional upload and partial-failure behaviour.
 
     This compatibility helper retains the standalone script's previous public
-    API. The production coordinator uploads per-vault pairs directly so one
-    partial pair cannot be mistaken for a complete publication.
+    API. The production coordinator uploads per-vault asset sets directly so one
+    partial set cannot be mistaken for a complete publication.
 
     :param s3_client:
         Authenticated S3-compatible client.
@@ -609,8 +636,8 @@ def _render_one_safe(vault_id: str, sparkline_data: SparklineData) -> tuple[str,
     """Render one vault while keeping failures isolated to that vault."""
     try:
         images = render_vault_sparklines(vault_id, sparkline_data)
-        if len(images) != SPARKLINE_FORMAT_COUNT or {image["extension"] for image in images} != {"svg", "png"}:
-            return vault_id, [], "Renderer did not produce both SVG and PNG outputs"
+        if len(images) != SPARKLINE_FORMAT_COUNT or {(image["extension"], image.get("variant")) for image in images} != SPARKLINE_REQUIRED_ASSETS:
+            return vault_id, [], "Renderer did not produce SVG, square PNG and table PNG outputs"
         return vault_id, images, None
     except Exception as exc:
         return vault_id, [], str(exc)
@@ -621,9 +648,9 @@ def _publish_rendered_vault(
     bucket_name: str,
     images: list[RenderData],
 ) -> tuple[int, int, str | None]:
-    """Publish one vault's complete image pair in one worker task.
+    """Publish one vault's complete image set in one worker task.
 
-    The image pair remains the publication unit: a failure after one successful
+    The image set remains the publication unit: a failure after one successful
     object preserves the partial upload counters but returns an error so the
     caller does not advance the vault's completion digest.
 
@@ -632,12 +659,14 @@ def _publish_rendered_vault(
     :param bucket_name:
         Destination R2 bucket.
     :param images:
-        Exactly one SVG and one PNG render for a vault.
+        Exactly one SVG, square PNG and table PNG render for a vault.
     :return:
         Uploaded count, unchanged count and an optional terminal error string.
     """
     uploaded = 0
     unchanged = 0
+    if len(images) != SPARKLINE_FORMAT_COUNT or {(image["extension"], image.get("variant")) for image in images} != SPARKLINE_REQUIRED_ASSETS:
+        return 0, 0, "Incomplete sparkline publication: SVG, square PNG and table PNG are required"
     try:
         for image in images:
             if upload_sparkline(s3_client, bucket_name, image):
@@ -739,7 +768,7 @@ def _process_vault_for_export(  # noqa: PLR0914
     :param force:
         Whether cadence, backoff and digest skips are bypassed.
     :return:
-        Worker outcome, classification, digest and optional SVG/PNG payloads.
+        Worker outcome, classification, digest and optional image payloads.
     """
     if classify_denomination(symbol) not in SUPPORTED_SPARKLINE_FAMILIES:
         return SparklineVaultWorkResult(vault_id, "excluded")
@@ -752,7 +781,7 @@ def _process_vault_for_export(  # noqa: PLR0914
     if not np.isfinite(assets.to_numpy(dtype=float, na_value=np.nan)).any():
         return SparklineVaultWorkResult(vault_id, "excluded")
 
-    chart_end = sparkline_data.end_at + pd.Timedelta(days=1)
+    chart_end = sparkline_data.end_at.normalize() + pd.Timedelta(days=1)
     chart_assets = assets.loc[vault_prices.index < chart_end]
     finite_mask = np.isfinite(chart_assets.to_numpy(dtype=float, na_value=np.nan))
     finite_assets = chart_assets.iloc[finite_mask].sort_index()
@@ -927,7 +956,7 @@ def run_sparkline_export(  # noqa: PLR0914
         if dry_run or not rendered:
             publication_results = {result.vault_id: (0, 0, None) for result in rendered}
         else:
-            assert all(result.images is not None for result in rendered), "Successful renders must have image pairs"
+            assert all(result.images is not None for result in rendered), "Successful renders must have complete image sets"
             publication_tasks = (delayed(_publish_rendered_vault)(s3_client, bucket_name, result.images) for result in rendered)
             publication_values = Parallel(n_jobs=upload_workers, prefer="threads")(tqdm(publication_tasks, total=len(rendered), desc=f"Uploading sparkline batch to {bucket_name}"))
             publication_results = {result.vault_id: publication_result for result, publication_result in zip(rendered, publication_values, strict=True)}

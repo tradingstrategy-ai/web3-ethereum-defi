@@ -1,216 +1,123 @@
 # Utilisation and available liquidity metrics for lending vaults
 
-This document describes the utilisation and available liquidity API for lending protocol vaults.
+The lending adapters expose `fetch_available_liquidity()` in denomination-token
+units (`Decimal`) and `fetch_utilisation_percent()` as a fraction (`Percent`,
+0.0–1.0). Either can return `None` when an observation is unavailable. Zero is a
+valid observation and must not be treated as missing data.
 
-## Overview
+## Meaning of the metrics
 
-Lending protocol vaults expose two key metrics:
+For single-market adapters such as Llama Lend, Euler EVK, Gearbox and Silo,
+utilisation measures borrowing against supplied assets. Available liquidity
+measures the market's remaining lender liquidity. A particular user's withdrawal
+can also depend on their share balance, protocol restrictions and rounding.
 
-1. **Available liquidity** - Amount of denomination token available for immediate withdrawal
-2. **Utilisation percent** - Percentage of assets currently lent out (0.0 to 1.0)
+For Euler Earn, Morpho and IPOR, the current implementation measures the fraction
+allocated outside the vault and reports only its idle denomination-token balance.
+Underlying markets may have additional redeemable assets. These metrics therefore
+measure capital deployment and idle liquidity, rather than aggregate borrower
+utilisation or total redeemable capacity. See
+[redeemable liquidity versus utilisation](README-vault-redeemable.md).
 
-## Supported protocols
+`maxRedeem(address(0))` cannot measure market-wide liquidity: ERC-4626 limits the
+result to the owner's shares, and the zero address normally owns none.
 
-| Protocol | Liquidity method | Utilisation formula |
-|----------|-----------------|---------------------|
+## Sources used by the adapters
+
+| Adapter | Available liquidity source | Utilisation calculation |
+|---------|----------------------------|-------------------------|
 | Gearbox | `availableLiquidity()` | `totalBorrowed / (totalBorrowed + availableLiquidity)` |
 | Euler EVK | `cash()` | `totalBorrows / (cash + totalBorrows)` |
-| EulerEarn | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
-| Morpho V1 | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
-| Morpho V2 | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
-| IPOR | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
-| Llama Lend | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
-| Fluid | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
 | Silo | `getLiquidity()` | `getDebtAssets() / getCollateralAssets()` |
+| Llama Lend V1/V2 | `max(totalAssets() - controller.total_debt(), 0)` | `min(controller.total_debt() / totalAssets(), 1)` |
+| Euler Earn, Morpho V1/V2, IPOR, Fluid | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
 
-## Important limitation
+The idle-balance formula describes these adapters' implementation; it does not
+establish that every protocol stores all withdrawable assets in its vault.
 
-**`maxRedeem(address(0))` does NOT work as a proxy for available liquidity** because:
+## Llama Lend accounting
 
-- It requires a specific address that has already deposited shares
-- For `address(0)`, `balanceOf` is always 0, so `maxRedeem` returns 0 regardless of actual liquidity
-- This is documented in `can_check_redeem()` methods for each vault
+Llama holds unborrowed lending tokens in its controller. Reading the token
+balance of the vault itself generally reports zero and incorrectly implies full
+utilisation.
 
-## API usage
+The [V1 vault accounting](https://docs.curve.finance/developer/lending/contracts/vault/)
+adds the controller's token balance to outstanding debt. The
+[V2 vault accounting](https://docs.curve.finance/developer/llamalend-v2/vault/)
+adds its tracked available balance to debt and deducts accrued protocol fees.
+Both versions therefore support the same calculation:
 
-### Spot queries
-
-```python
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-
-vault = create_vault_instance_autodetect(web3, vault_address="0x...")
-
-# Get available liquidity (Decimal in denomination token units)
-available = vault.fetch_available_liquidity()
-
-# Get utilisation (float between 0.0 and 1.0)
-utilisation = vault.fetch_utilisation_percent()
+```text
+available_liquidity = max(totalAssets - controller.total_debt, 0)
+utilisation = min(controller.total_debt / totalAssets, 1)
 ```
 
-### Historical data via multicall
+An empty vault reports zero utilisation. The floor and cap handle protocol fees
+exhausting available lender liquidity. These protocol deductions are already in
+NAV; reporting zero separate management and performance fees does not mean the
+market has no protocol fees. An instant withdrawal period means no scheduled
+waiting period, subject to sufficient market liquidity.
 
-Each lending protocol has a custom `VaultHistoricalReader` that inherits from `ERC4626HistoricalReader`:
+Spot queries resolve dynamic block tags once per observation. Historical reads
+collect vault assets and controller debt at the same sampled block, with the debt
+call attributed to the vault. Failed or malformed assets/debt responses leave
+both lending metrics missing and produce diagnostics.
 
-```python
-reader = vault.get_historical_reader(stateful=False)
-calls = list(reader.construct_multicalls())
+## Reading and recording data
 
-# Calls include utilisation-specific queries like:
-# - "idle_assets" for idle assets pattern
-# - "availableLiquidity" for Gearbox
-# - "cash" and "totalBorrows" for Euler EVK
-```
-
-The `VaultHistoricalRead` dataclass includes:
-
-```python
-@dataclasses.dataclass(slots=True)
-class VaultHistoricalRead:
-    # ... other fields ...
-
-    #: Available liquidity for immediate withdrawal.
-    available_liquidity: Decimal | None = None
-
-    #: Utilisation percentage of the lending vault.
-    utilisation: Percent | None = None
-```
-
-### Identifying lending protocols
+Use an explicit block to compare the two spot methods at the same state:
 
 ```python
-from eth_defi.erc_4626.core import is_lending_protocol, LENDING_PROTOCOL_FEATURES
-
-# Check if a vault is a lending protocol
-if is_lending_protocol(vault.features):
-    available = vault.fetch_available_liquidity()
-    utilisation = vault.fetch_utilisation_percent()
-
-# LENDING_PROTOCOL_FEATURES includes:
-# - gearbox_like, ipor_like, euler_like, euler_earn_like
-# - morpho_like, morpho_v2_like, llamma_like
-# - fluid_like, silo_like
+block = web3.eth.block_number
+available = vault.fetch_available_liquidity(block)
+utilisation = vault.fetch_utilisation_percent(block)
 ```
 
-## Implementation pattern
+Llama also exposes `available, utilisation = vault.fetch_lending_metrics(block)`
+to read both values from one assets/debt pair. The metadata scanner uses this
+combined getter when provided by an adapter and keeps the separate-method path
+for other lending adapters.
 
-### Idle assets pattern (most protocols)
+Lending protocols are identified by
+`eth_defi.erc_4626.core.is_lending_protocol(vault.features)`. Historical adapters
+construct protocol-specific multicalls through `vault.get_historical_reader()`.
+For Llama, the extra call is `total_debt`, targeted at the controller.
 
-Most protocols use the "idle assets" pattern where unallocated funds sit in the vault:
+The metadata scanner stores spot observations in `_available_liquidity` and
+`_utilisation`. Historical rows carry `available_liquidity` and `utilisation` in
+`VaultHistoricalRead`, exported through the existing Parquet schema. Missing
+historical metrics export as missing values, rather than fabricated zeros.
 
-```python
-def fetch_available_liquidity(self, block_identifier="latest") -> Decimal | None:
-    denomination_token = self.denomination_token
-    idle_raw = denomination_token.contract.functions.balanceOf(self.address).call(
-        block_identifier=block_identifier
-    )
-    return denomination_token.convert_to_decimals(idle_raw)
+Deploying the corrected adapter affects subsequent observations. It does not
+repair historical Llama price rows. The metadata refresh version is bumped so
+the next enabled-chain metadata scan regenerates stored spot metrics instead
+of reusing its bounded cache. Preserve price history and reader state;
+any historical repair requires a separate, deliberate backfill. Normal historical
+scans retain their existing sampling and sparse-row policy, so they do not record
+every utilisation change.
+Published tables that prefer the latest historical row over metadata retain
+that row's old metrics until a new historical observation is retained.
 
-def fetch_utilisation_percent(self, block_identifier="latest") -> Percent | None:
-    total_assets = self.vault_contract.functions.totalAssets().call(
-        block_identifier=block_identifier
-    )
-    idle = denomination_token.contract.functions.balanceOf(self.address).call(
-        block_identifier=block_identifier
-    )
-    if total_assets == 0:
-        return 0.0
-    return (total_assets - idle) / total_assets
-```
+## Focused tests
 
-### Protocol-specific methods
-
-Some protocols expose dedicated methods:
-
-**Gearbox:**
-```python
-available = gearbox_contract.functions.availableLiquidity().call()
-total_borrowed = gearbox_contract.functions.totalBorrowed().call()
-utilisation = total_borrowed / (total_borrowed + available)
-```
-
-**Euler EVK:**
-```python
-cash = euler_contract.functions.cash().call()
-total_borrows = euler_contract.functions.totalBorrows().call()
-utilisation = total_borrows / (cash + total_borrows)
-```
-
-**Silo:**
-```python
-liquidity = silo_contract.functions.getLiquidity().call()
-debt = silo_contract.functions.getDebtAssets().call()
-collateral = silo_contract.functions.getCollateralAssets().call()
-utilisation = debt / collateral
-```
-
-## Historical reader classes
-
-| Protocol | Reader class |
-|----------|--------------|
-| Gearbox | `GearboxVaultHistoricalReader` |
-| Euler EVK | `EulerVaultHistoricalReader` |
-| EulerEarn | `EulerEarnVaultHistoricalReader` |
-| Morpho V1 | `MorphoV1VaultHistoricalReader` |
-| Morpho V2 | `MorphoV2VaultHistoricalReader` |
-| IPOR | `IPORVaultHistoricalReader` |
-| Llama Lend | `LlamaLendVaultHistoricalReader` |
-| Fluid | `FluidVaultHistoricalReader` |
-| Silo | `SiloVaultHistoricalReader` |
-
-All readers inherit from `ERC4626HistoricalReader` and implement:
-
-- `construct_multicalls()` - yields core ERC-4626 calls plus utilisation-specific calls
-- `construct_utilisation_calls()` - yields protocol-specific utilisation calls
-- `process_utilisation_result()` - decodes utilisation from multicall results
-- `process_result()` - returns `VaultHistoricalRead` with `available_liquidity` and `utilisation` fields
-
-## Testing the utilisation pipeline
-
-### Unit tests
-
-Each protocol has a test file that validates the utilisation API:
-
-| Protocol | Test file | Chain | RPC variable |
-|----------|-----------|-------|--------------|
-| Fluid | `tests/erc_4626/vault_protocol/test_fluid.py` | Plasma | `JSON_RPC_PLASMA` |
-| Silo | `tests/erc_4626/vault_protocol/test_silo.py` | Arbitrum | `JSON_RPC_ARBITRUM` |
-| Gearbox | `tests/erc_4626/vault_protocol/test_gearbox.py` | Ethereum | `JSON_RPC_ETHEREUM` |
-| IPOR | `tests/erc_4626/vault_protocol/test_ipor.py` | Ethereum | `JSON_RPC_ETHEREUM` |
-| Morpho V2 | `tests/erc_4626/vault_protocol/test_morpho_v2.py` | Arbitrum | `JSON_RPC_ARBITRUM` |
-
-Run tests with:
+The following unit tests run without RPC credentials:
 
 ```bash
-source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_fluid.py -v
+source .local-test.env && PYTHONPATH="$PWD" poetry run pytest tests/erc_4626/vault_protocol/test_llama_lend_utilisation.py -k 'not real_withdrawal'
 ```
 
-### Integration testing with vault scanner
-
-To verify the full pipeline collects utilisation metrics:
+The complete focused check also includes the shared Arbitrum V1 fork and the
+real Optimism V2 archive regression:
 
 ```bash
-# Scan a single chain with lending protocols
-source .local-test.env && \
-  TEST_CHAINS=Plasma SCAN_PRICES=true MAX_WORKERS=10 \
-  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
-
-# Verify metadata contains utilisation
-python -c "
-import pickle
-from pathlib import Path
-vault_db_path = Path.home() / '.tradingstrategy/vaults/vault-metadata-db.pickle'
-with open(vault_db_path, 'rb') as f:
-    vault_db = pickle.load(f)
-lending = [(s, r) for s, r in vault_db.items() if r.get('_available_liquidity')]
-print(f'Found {len(lending)} lending vaults with utilisation data')
-"
+source .local-test.env && PYTHONPATH="$PWD" poetry run pytest tests/erc_4626/vault_protocol/test_llama_lend.py tests/erc_4626/vault_protocol/test_llama_lend_utilisation.py
 ```
 
-### Chains with lending protocol support
-
-| Chain | Chain ID | Lending protocols |
-|-------|----------|-------------------|
-| Ethereum | 1 | Gearbox, Euler, EulerEarn, Morpho V1, IPOR, Llama Lend |
-| Arbitrum | 42161 | Morpho V2, Gearbox, Silo |
-| Base | 8453 | Morpho V1, IPOR, Fluid, Silo |
-| Plasma | 9745 | Fluid |
+`JSON_RPC_ARBITRUM` enables the V1 fork test. `JSON_RPC_OPTIMISM` enables V2 tests
+at blocks 158341301 and 158341302, immediately before and after the 8,910 USDC
+withdrawal on 17 October 2026. They verify spot reads, historical multicalls,
+exported values and scanner metadata against fixed expected values. Missing
+credentials skip the respective integration test; they do not count as a pass.
+The vault-protocol CI workflow accepts both RPC variables as repository secrets.
+An RPC provider must be able to execute the requested historical state; a
+provider's erroneous revert is a failed integration check, not zero liquidity.

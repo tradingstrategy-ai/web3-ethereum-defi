@@ -29,6 +29,26 @@ from eth_defi.vault.valuation import NetAssetValueCalculator, Route, UniswapV2Ro
 CI = os.environ.get("CI") == "true"
 
 
+#: On 2026-10-22, main CI attempt 1 stalled for 250 seconds during NAV fixture
+#: setup and exhausted the job cap during teardown; the case passed locally
+#: in 4.00 seconds and in CI attempt 2. Run these fork valuations serially in
+#: the slow workflow, retaining their real-provider coverage.
+_FORK_ISOLATION_GROUP = "fork:base:lagoon-valuation"
+pytestmark = [pytest.mark.slow, pytest.mark.xdist_group(_FORK_ISOLATION_GROUP)]
+
+
+@pytest.fixture(scope="module")
+def anvil_fork_isolation_group() -> str:
+    """Keep valuation snapshots independent of deployment-heavy modules.
+
+    Use a separate pooled Anvil process at the same fixed block, retaining
+    warm cache reads and the existing per-test snapshot isolation.
+
+    :return: Partition matching this module's xdist group.
+    """
+    return _FORK_ISOLATION_GROUP
+
+
 @pytest.fixture()
 def uniswap_v2(web3):
     return fetch_deployment(

@@ -9,9 +9,10 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import BASE_MIDNIGHT_BLOCK
-from eth_defi.tokenised_fund.shift.vault import ShiftVault
+from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -53,8 +54,10 @@ def test_shift_extusd_vault_reads_public_tvl_feed(web3: Web3) -> None:
         "timelock_seconds": 604800,
         "whitelist_enabled": False,
     }
-    assert vault.fetch_deposit_closed_reason() == "Shift deposit requests require executor approval; no public deposit manager is implemented"
-    assert vault.fetch_redemption_closed_reason() == "Shift withdrawals require executor batch resolution and a timelock; no public redemption manager is implemented"
+    assert vault.is_whitelisted_deposit() is False
+    assert VaultFlag.tokenised_fund not in vault.get_flags()
+    assert vault.fetch_deposit_closed_reason() is None
+    assert vault.fetch_redemption_closed_reason() is None
 
 
 def test_shift_ltpara_fee_and_stale_price_semantics(web3: Web3) -> None:
@@ -69,3 +72,5 @@ def test_shift_ltpara_fee_and_stale_price_semantics(web3: Web3) -> None:
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == SHIFT_LTPARA_PERFORMANCE_FEE
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
+    assert vault.is_whitelisted_deposit() is False
+    assert VaultFlag.tokenised_fund not in vault.get_flags()

@@ -15,7 +15,7 @@ vault yield.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/royco>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/royco>`__
 - `Homepage <https://royco.org/>`__
 - `Documentation <https://docs.royco.org/>`__
 - `Github <https://github.com/roycoprotocol/royco>`__

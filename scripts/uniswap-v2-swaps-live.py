@@ -44,11 +44,11 @@ from pathlib import Path
 
 import requests
 from tqdm import tqdm
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_api_call_counter_middleware, install_chain_middleware, install_retry_middleware
-from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.compat import create_http_provider, native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.block_time import measure_block_time
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_jsonrpc_value_to_int, decode_data
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
@@ -157,7 +157,7 @@ def main():
     session = requests.Session()
 
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
-    web3 = Web3(HTTPProvider(json_rpc_url, session=session))
+    web3 = Web3(create_http_provider(json_rpc_url, session=session))
 
     # Enable faster JSON decoding with orjson
     patch_web3(web3)

@@ -24,6 +24,9 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from eth_typing import HexAddress
+from web3 import Web3
+
 from eth_defi.lighter.session import LighterSession
 
 logger = logging.getLogger(__name__)
@@ -164,6 +167,58 @@ def fetch_lighter_account_by_index(
     if returned_index != account_index:
         raise ValueError(f"Lighter API returned account index {returned_index}, expected {account_index}")
     return account
+
+
+def fetch_lighter_accounts_equity(
+    session: LighterSession,
+    l1_address: HexAddress | str,
+    timeout: float = 30.0,
+) -> dict[int, LighterEquity]:
+    """Read every Lighter account owned by an L1 address in one response.
+
+    A vault that spreads capital over a master account and sub-accounts must
+    value them from one consistent snapshot. Separate per-account reads could
+    observe an in-flight internal transfer twice or not at all.
+
+    Uses ``/api/v1/account?by=l1_address&value={l1_address}``.
+
+    Authoritative endpoint documentation:
+    https://apidocs.lighter.xyz/reference/account
+
+    :param session:
+        Lighter HTTP session.
+    :param l1_address:
+        L1 address, normally a Lagoon Safe, owning the accounts.
+    :param timeout:
+        HTTP request timeout.
+    :return:
+        Equity keyed by account index.
+    :raises ValueError:
+        If the response contains no accounts, a duplicate index or malformed
+        decimal fields.
+    """
+    url = f"{session.api_url}/api/v1/account"
+    params = {"by": "l1_address", "value": Web3.to_checksum_address(l1_address)}
+    resp = session.get(url, params=params, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+
+    accounts = data.get("accounts", [])
+    if not accounts:
+        raise ValueError(f"No Lighter account data returned for L1 address {l1_address}")
+
+    result: dict[int, LighterEquity] = {}
+    for account in accounts:
+        equity = parse_lighter_account_equity(account)
+        if equity.account_index in result:
+            raise ValueError(f"Lighter API returned account index {equity.account_index} twice")
+        result[equity.account_index] = equity
+    logger.info(
+        "Lighter equity for %s: %s",
+        l1_address,
+        ", ".join(f"{index}={equity.total_asset_value}" for index, equity in sorted(result.items())),
+    )
+    return result
 
 
 def parse_lighter_account_equity(account: dict[str, Any]) -> LighterEquity:

@@ -3,8 +3,9 @@ slug: lighter
 short_description: |
   Native perpetual trading pools on Lighter DEX (ZK-rollup).
 long_description: |
-  Lighter is a zero-fee perpetual futures DEX built as a ZK-rollup on
-  Ethereum. It uses custom zero-knowledge circuits for verifiable order
+  Lighter is a decentralised perpetual futures exchange with an
+  Ethereum-settled ZK-rollup deployment and a Robinhood Chain deployment.
+  It uses custom zero-knowledge circuits for verifiable order
   matching and liquidations, delivering low-cost, low-latency trading
   with cryptographic proofs.
 
@@ -12,31 +13,39 @@ long_description: |
   from depositors. The main protocol pool is the LLP (Lighter Liquidity
   Pool), which provides market-making liquidity across all trading pairs.
 
-  All pools are denominated in USDC. Withdrawals have a 5-minute cooldown
-  period.
+  Ethereum pools are denominated in USDC and have a 5-minute withdrawal
+  cooldown. Robinhood Chain pools are denominated in USDG and currently
+  have no protocol withdrawal cooldown. These settings are deployment-specific.
 
   Key features:
 
   - Zero maker/taker fees for standard accounts
-  - Operators set per-pool performance fees (0-100%), deducted from PnL
+  - Operators set per-pool performance fees (0-100%), charged on positive profits upon withdrawal
   - LLP protocol pool has 0% operator fee
-  - ZK-rollup on Ethereum with verifiable matching and liquidations
-  - 5-minute withdrawal cooldown period
-  - All pools denominated in USDC
+  - Verifiable matching and liquidations
+  - Deployment-specific withdrawal cooldowns
+  - USDC on Ethereum and USDG on Robinhood Chain
 fee_description: |
   Pool operators set a per-pool performance fee (operator fee) that is
-  deducted from trading profits. This fee is already reflected in the
-  share price (internalised skimming model). The LLP protocol pool has
-  0% operator fee. User-created pools typically charge 10-20%. There
-  are no management fees, deposit fees, or withdrawal fees.
+  deducted from a participant's positive profits upon withdrawal. This is
+  an externalised fee: share-price returns are gross of the operator fee,
+  which must be deducted to calculate investor net returns. The LLP
+  protocol pool has a 0% operator fee; user-created pools have individually
+  configured rates. Operator performance fees are separate from exchange
+  trading fees and network transfer or withdrawal charges. Zero maker/taker
+  fees apply to Standard accounts; Plus and Premium accounts have trading fees.
+
+  This treatment follows [Lighter's public-pool documentation](https://docs.lighter.xyz/trading/public-pools)
+  and is corroborated by the worked public-pool example in the
+  [Cipher Intelligence guide](https://cipher-intelligence.io/blog/lighter-dex-lp-staking-guide/).
 links:
   homepage: https://lighter.xyz
   app: https://app.lighter.xyz/public-pools
   twitter: https://x.com/Lighter_xyz
   github:
-  documentation: https://docs.lighter.xyz/perpetual-futures/public-pools
+  documentation: https://docs.lighter.xyz/trading/public-pools
   defillama: https://defillama.com/protocol/lighter-perps
   audits:
-  fees: https://docs.lighter.xyz/perpetual-futures/fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/lighter
+  fees: https://docs.lighter.xyz/trading/trading-fees
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/lighter
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/lighter/index.html

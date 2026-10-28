@@ -2,7 +2,6 @@
 
 import os
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from web3 import Web3
@@ -11,10 +10,9 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
 from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault, LlamaLendVaultHistoricalReader
-from eth_defi.vault.fee import VaultFeeMode
-
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -38,8 +36,7 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
 
 def test_llama_lend(
     web3: Web3,
-    tmp_path: Path,
-):
+) -> None:
     """Read Llama Lend metadata"""
 
     vault = create_vault_instance_autodetect(
@@ -58,13 +55,13 @@ def test_llama_lend(
     assert vault.borrowed_token.symbol == "crvUSD"
     assert vault.denomination_token.symbol == "crvUSD"
 
-    # Check maxDeposit/maxRedeem with address(0)
+    # maxDeposit describes capacity; maxRedeem is limited by the owner's shares.
     max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit >= 0
-    assert max_redeem >= 0
+    assert max_redeem == 0
 
-    # Llama Lend doesn't support address(0) checks for maxDeposit/maxRedeem
+    # A zero-address redemption cannot establish market-wide liquidity.
     assert vault.can_check_redeem() is False
 
     # Test lending protocol identification
@@ -72,16 +69,40 @@ def test_llama_lend(
 
     # Test utilisation API
     available_liquidity = vault.fetch_available_liquidity()
-    assert available_liquidity is not None
-    assert available_liquidity >= Decimal(0)
+    assert available_liquidity == Decimal(0)
 
     utilisation = vault.fetch_utilisation_percent()
-    assert utilisation is not None
-    assert 0.0 <= utilisation <= 1.0
+    assert utilisation == 1.0
+    debt_call = vault.create_total_debt_call()
+    debt = int.from_bytes(debt_call.call(web3, "latest"), "big")
+    expected_debt = 82_065_590_629_787_312_714_881
+    assert debt == expected_debt
+    assert vault.vault_contract.functions.totalAssets().call() == debt
+    assert debt_call.address == vault.controller_address
 
     # Test historical reader
     reader = vault.get_historical_reader(stateful=False)
     assert isinstance(reader, LlamaLendVaultHistoricalReader)
     calls = list(reader.construct_multicalls())
     call_names = [c.extra_data.get("function") for c in calls if c.extra_data]
-    assert "idle_assets" in call_names
+    assert "total_debt" in call_names
+    assert "idle_assets" not in call_names
+
+
+def test_llama_lend_v1_controller_liquidity(web3: Web3) -> None:
+    """Read a V1 market with lender liquidity held outside the vault.
+
+    The shared Arbitrum midnight fork has idle crvUSD in the WETH market's
+    controller. The old vault-balance calculation would report zero liquidity.
+
+    :param web3: Shared fixed-block Arbitrum fork.
+    """
+    vault = create_vault_instance_autodetect(web3, vault_address="0x49014a8eb1585cbee6a7a9a50c3b81017bf6cc4d")
+    assert isinstance(vault, LlamaLendVault)
+    liquidity, utilisation = vault.fetch_lending_metrics()
+    expected_liquidity = Decimal("60635.696075301148357802")
+    assert liquidity == expected_liquidity
+    assert utilisation == pytest.approx(0.2960574952003071, rel=0, abs=1e-12)
+    token = vault.denomination_token
+    assert token.convert_to_decimals(token.contract.functions.balanceOf(vault.controller_address).call()) == expected_liquidity
+    assert token.contract.functions.balanceOf(vault.address).call() == 0

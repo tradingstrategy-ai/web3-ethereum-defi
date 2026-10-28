@@ -56,6 +56,7 @@ Because the Morpho Blue API is a live external service these tests are marked
 
 import datetime
 import logging
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -683,11 +684,12 @@ def test_morpho_clean_vault_no_warnings(web3_ethereum: Web3):
 
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
-def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
+def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3, tmp_path: Path) -> None:
     """bad_debt_realized warnings include metadata: bad_debt_share (and optionally bad_debt_usd).
 
     Dune USDC on Ethereum has ``bad_debt_realized`` (YELLOW) market warnings with
-    share-fraction metadata. Verifies that market warning metadata is parsed correctly.
+    debt-to-current-supply metadata. Verifies that market warning metadata is
+    parsed correctly using a fresh response from the live GraphQL API.
 
     Note: as of June 2026, the Morpho API returns ``badDebtUsd: null`` for
     ``bad_debt_realized`` warnings while ``badDebtShare`` remains populated.
@@ -696,11 +698,15 @@ def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
 
     1. Fetch data for Dune USDC (known to have bad_debt_realized YELLOW market warnings).
     2. Find a market warning of type bad_debt_realized.
-    3. Assert bad_debt_share is a float in the range (0.0, 1.0].
+    3. Assert bad_debt_share is a positive finite ratio, including values above 1.
     4. Assert bad_debt_usd, if present, is a positive float.
+
+    :param web3_ethereum: Ethereum connection used to identify the chain.
+    :param tmp_path: Isolated cache directory ensuring a real API request.
+    :return: None.
     """
     # 1. Fetch
-    data = fetch_morpho_vault_data(web3_ethereum, DUNE_USDC_ETHEREUM)
+    data = fetch_morpho_vault_data(web3_ethereum, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
     assert data is not None, "Expected Morpho data for Dune USDC"
 
     # 2. Find a bad_debt_realized market warning
@@ -709,9 +715,11 @@ def test_morpho_bad_debt_realized_metadata(web3_ethereum: Web3):
 
     w = realized_warnings[0]
 
-    # 3. bad_debt_share is a fraction in (0, 1]
+    # 3. On 2026-10-26 the live API reports 1.3069622501320681, equal to
+    # badDebtAssets / totalSupplyAssets. Realised debt can exceed the remaining
+    # supply; retaining that ratio must not be treated as a parsing failure.
     assert w["bad_debt_share"] is not None, "Expected bad_debt_share to be set"
-    assert 0.0 < w["bad_debt_share"] <= 1.0, f"Expected fraction in (0,1], got {w['bad_debt_share']}"
+    assert math.isfinite(w["bad_debt_share"]) and w["bad_debt_share"] > 0, f"Expected positive finite debt-to-supply ratio, got {w['bad_debt_share']}"
 
     # 4. bad_debt_usd, if present, is a positive float
     if w["bad_debt_usd"] is not None:

@@ -62,7 +62,7 @@ metadata pickle after a successful catalogue download.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yearn>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/yearn>`__
 - `Homepage <https://yearn.fi/>`__
 - `App <https://yearn.fi/vaults>`__
 - `Documentation <https://docs.yearn.fi/>`__

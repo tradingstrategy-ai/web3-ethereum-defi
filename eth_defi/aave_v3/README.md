@@ -1,5 +1,7 @@
 # About Aave v3
 
+> **Unsupported.** Aave integration is no longer maintained or tested. The Hardhat-based test deployment, its Anvil saved state and the Aave ABI builds are disabled. A reintegration with Aave v4 will happen in the future.
+
 This README explains how Aave v3 interest calculation works and how we use the ReserveDataUpdated
 events to track interest rates.
 

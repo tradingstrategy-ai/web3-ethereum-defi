@@ -7,6 +7,24 @@ published independently of an ERC-4626 conversion function.
 
 ## Registry and metadata
 
+IP Vault on Soneium is a separate, hardcoded RoyaltyVault variant under the
+Asseto label. `royalty.py` reads its onchain valuation methods without adding
+protocol detection probes. It remains under verification, has unknown technical
+risk and fees, and does not advertise transaction support. Its `review_needed`
+note records the discrepancy between documented and observed timelock settings.
+`royalty_migration.py` and `scripts/erc-4626/migrate-asseto-royalty-vault.py`
+register its historical deployment or refresh only its metadata, preserving
+other products, reader state and all price history. It is independent of the
+API registry and uses the normal EVM price scheduler rather than the dedicated
+Asseto fund-price feed. Existing Asseto artwork and feed identity are reused.
+
+The focused integration command is
+`source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_asseto_royalty.py -q`.
+It passed locally on 2026-10-27 using the supplied `JSON_RPC_SONEIUM` archive
+provider through the shared Anvil pool at block 29962224. This was a local run,
+not CI. It checks real deployed valuation calls and a metadata migration dry
+run; it does not certify deposit or redemption transactions.
+
 Asseto's public web application exposes undocumented endpoints at
 `/api/home/products`, `/api/product/get` and `/api/product/price/list`. They
 are useful for product identity, description, denomination and daily displayed

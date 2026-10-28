@@ -34,6 +34,7 @@ Tutorials
 - :ref:`lagoon-velora` - Velora integration
 - :ref:`lagoon-hyperliquid` - Deploying on HyperEVM with Hypercore deposits
 - ``scripts/lagoon/lagoon-lighter-example.py`` - Deploying a Lagoon vault with a Lighter API key
+- ``scripts/lagoon/deploy-lagoon-lighter-multichain.py`` - Manual multichain deployment with CCTP funding and satellite Lighter activation
 - ``scripts/lagoon/lagoon-lighter-trade-example.py`` - Trading an ETH perpetual with the deployed API key
 
 .. autosummary::
@@ -52,3 +53,8 @@ Tutorials
    eth_defi.lagoon.beacon_proxy
    eth_defi.lagoon.lagoon_compatibility
    eth_defi.lagoon.testing
+
+.. toctree::
+   :maxdepth: 1
+
+   lighter

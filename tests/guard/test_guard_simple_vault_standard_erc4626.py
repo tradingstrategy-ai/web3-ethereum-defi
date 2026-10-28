@@ -1,11 +1,14 @@
-"""Exercise standard ERC-4626 protocol managers through GuardV0.
+"""Exercise representative synchronous ERC-4626 managers through GuardV0.
 
 Each case uses a fixed Anvil block recorded by the deposit-status compatibility
 probe. These are deliberately separate from the canonical midnight block: the
 selected deployment accepted an immediate full deposit-and-redeem lifecycle at
 the listed historical state. The compatibility probe used governance as the
-asset manager, so this suite independently proves the GuardV0 policy with a
-distinct asset-manager wallet and adversarial address substitutions.
+asset manager, so this suite independently exercises the guarded lifecycle with
+a distinct asset-manager wallet. Keep one generic manager, a generic rounding
+case and the custom managers rather than repeating the same lifecycle for every
+protocol. Receiver and owner substitution checks live separately in
+``test_guard_standard_erc4626_rejection.py`` on the canonical fork.
 """
 
 import os
@@ -28,24 +31,16 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
-from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
-from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
-from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
-from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
-from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoVault
-from eth_defi.erc_4626.vault_protocol.silo.vault import SiloVault
-from eth_defi.erc_4626.vault_protocol.superform.vault import SuperformVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
-from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil, mine, set_balance
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
-from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -55,12 +50,19 @@ JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 class StandardERC4626Profile:
     """One historical immediate-redemption GuardV0 test case."""
 
+    #: Pytest case identifier.
     name: str
+    #: Historical deployment address.
     vault_address: HexAddress
+    #: Fixed block where the lifecycle can complete.
     fork_block: int
+    #: Expected autodetected adapter.
     vault_type: type[ERC4626Vault]
+    #: Expected share dust after redemption.
     expected_remaining_raw_shares: int = 0
+    #: Whether admission requires funding and redemption phases to overlap.
     requires_simultaneous_funding_and_redemption: bool = False
+    #: Raw denomination balance retained to satisfy admission rules.
     required_remaining_denomination_raw: int = 0
 
 
@@ -70,65 +72,116 @@ class StandardERC4626Profile:
 #: They prove a full manager lifecycle for the exact vault, but not GuardV0
 #: policy: the probe called the guard as governance. This test uses them only
 #: as deterministic liquidity candidates and independently exercises GuardV0.
+#:
+#: Select by manager behaviour, not protocol count: AutoPool's redemption
+#: estimate, D2's admission rules, Euler's generic manager, Euler Earn's share
+#: rounding, IPOR's redemption lock, Plutus' deposit estimate and Yearn's
+#: custom preflight and redemption dust. Other adapters retain their separate
+#: protocol tests but do not repeat this guarded synchronous lifecycle.
 PROFILES = (
     StandardERC4626Profile("autopool", "0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c", 483_533_711, AutoPoolVault),
     # D2 Finance accepts the lifecycle only during its funding phase, before
     # funds are custodied. Its admission rule is strictly greater than one
     # USDC, so retain one raw unit beyond that threshold for redemption too.
-    StandardERC4626Profile("d2_finance", "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004", 387_000_000, D2Vault, 0, True, 1_000_001),
-    StandardERC4626Profile("dolomite", "0x444868b6e8079ac2c55eea115250f92c2b2c4d14", 483_532_556, DolomiteVault),
+    StandardERC4626Profile("d2_finance", "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004", 387_000_000, D2Vault, requires_simultaneous_funding_and_redemption=True, required_remaining_denomination_raw=1_000_001),
     StandardERC4626Profile("euler", "0x05d28a86e057364f6ad1a88944297e58fc6160b3", 483_530_654, EulerVault),
-    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault, 1),
-    StandardERC4626Profile("fluid", "0x1a996cb54bb95462040408c06122d45d6cdb6096", 483_530_654, FluidVault),
-    StandardERC4626Profile("gearbox", "0x890a69ef363c9c7bdd5e36eb95ceb569f63acbf6", 483_533_025, GearboxVault),
+    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault, expected_remaining_raw_shares=1),
     StandardERC4626Profile("ipor", "0x7fbfd8cda97c0221b39c581c34afd24c523a3990", 483_532_955, IPORVault),
-    StandardERC4626Profile("kiln", "0x1c107c4233ab3056254e717c7a67f9917079b615", 483_530_654, KilnVault),
-    StandardERC4626Profile("peapods", "0xc2810eb57526df869049fbf4c541791a3255d24c", 483_533_273, ERC4626Vault),
     StandardERC4626Profile("plutus", "0xf2ee51a5e7af0f59e27dda070ce79c3c935a2a67", 483_533_532, PlutusVault),
-    StandardERC4626Profile("royco", "0x13c798c93e9c6293dd3c40d1f5c9fdcd4f92aa14", 483_530_654, RoycoVault),
-    StandardERC4626Profile("silo", "0x86b1c293e56cbac04d9c15a1af2ef1d2050ff6cd", 483_532_934, SiloVault),
-    StandardERC4626Profile("superform", "0x030cdecbdca6a34e8de3f49d1798d5f70e3a3414", 483_530_654, SuperformVault),
-    # Yearn V3's manager applies its maxRedeem epsilon correction, leaving a
-    # deterministic one-unit share remainder after a guarded full redemption.
-    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault, 1),
-    StandardERC4626Profile("yo", "0x0000000f2eb9f69274678c76222b35eec7588a65", 483_530_594, YoVault),
+    # This Yearn V3 deployment leaves a deterministic one-unit share remainder
+    # after a guarded full redemption at the selected historical block.
+    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault, expected_remaining_raw_shares=1),
 )
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
-    # Keep all custom historical Arbitrum forks on one worker.  The pool still
-    # reuses a fork whenever two cases select the same fixed block.
+    # Keep the exceptional historical Arbitrum forks on one worker, retaining
+    # the existing sequential snapshot isolation for these mutating lifecycles.
     pytest.mark.xdist_group("fork:arbitrum:guard-standard-erc4626"),
 ]
 
 
 @pytest.fixture(params=PROFILES, ids=lambda profile: profile.name)
 def profile(request: pytest.FixtureRequest) -> StandardERC4626Profile:
-    """Select one protocol's known-liquid guarded lifecycle state."""
+    """Select one protocol's known-liquid guarded lifecycle state.
+
+    The profile binds the deployment to its known-liquid historical state.
+
+    :param request:
+        Pytest request selecting the parametrised profile.
+
+    :return:
+        Selected historical profile.
+    """
     return request.param
 
 
 @pytest.fixture
 def anvil_fork(profile: StandardERC4626Profile, anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
-    """Return the shared Anvil launch for the selected immutable state."""
+    """Return the shared Anvil launch for the selected immutable state.
+
+    The session pool owns the process; per-test snapshots isolate mutations.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Pooled Anvil launch.
+    """
     return anvil_fork_pool.get_launch(JSON_RPC_ARBITRUM, profile.fork_block)
 
 
 @pytest.fixture
 def web3(profile: StandardERC4626Profile, anvil_fork_pool: AnvilForkPool) -> Web3:
-    """Connect to the selected pooled Arbitrum fork."""
+    """Connect to the selected pooled Arbitrum fork.
+
+    The pool supplies a connection matching the fork used by snapshot isolation.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param anvil_fork_pool:
+        Session pool owning the fixed-block Anvil forks.
+
+    :return:
+        Connected Web3 instance.
+    """
     return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, profile.fork_block)
 
 
 @pytest.fixture(autouse=True)
 def _evm_snapshot(anvil_fork: AnvilLaunch) -> Iterator[None]:
-    """Restore the selected pooled fork after every mutating protocol test."""
+    """Restore the selected pooled fork after every mutating protocol test.
+
+    Bracket the complete mutating lifecycle so later tests see the original fork state.
+
+    :param anvil_fork:
+        Pooled fork restored after the test.
+
+    :return:
+        Iterator yielding once before reverting the test mutations.
+    """
     yield from evm_snapshot_revert(anvil_fork)
 
 
 @pytest.fixture
 def protocol_vault(web3: Web3, profile: StandardERC4626Profile) -> ERC4626Vault:
-    """Open and type-check the protocol-specific ERC-4626 deployment."""
+    """Open and type-check the protocol-specific ERC-4626 deployment.
+
+    Autodetection must preserve the adapter selected for this representative.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :return:
+        Protocol-specific ERC-4626 vault adapter.
+    """
     vault = create_vault_instance_autodetect(web3, profile.vault_address)
     assert isinstance(vault, profile.vault_type)
     return vault
@@ -136,7 +189,19 @@ def protocol_vault(web3: Web3, profile: StandardERC4626Profile) -> ERC4626Vault:
 
 @pytest.fixture
 def guarded_simple_vault(web3: Web3, protocol_vault: ERC4626Vault) -> tuple[Contract, Contract, HotWallet]:
-    """Deploy a SimpleVaultV0 and allow its standard ERC-4626 call surface."""
+    """Deploy a SimpleVaultV0 and allow its standard ERC-4626 call surface.
+
+    Use a separate funded asset manager to exercise the guard independently of ownership.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param protocol_vault:
+        Detected protocol adapter for the selected deployment.
+
+    :return:
+        Simple vault, guard and asset-manager wallet.
+    """
     deployer = HotWallet(Account.create())
     asset_manager = HotWallet(Account.create())
     set_balance(web3, deployer.address, Web3.to_wei(10, "ether"))
@@ -154,7 +219,25 @@ def guarded_simple_vault(web3: Web3, protocol_vault: ERC4626Vault) -> tuple[Cont
 
 
 def _broadcast(web3: Web3, control: HotWallet, func: ContractFunction, gas: int = 2_000_000) -> HexBytes:
-    """Broadcast a generously gas-limited transaction from the Anvil control wallet."""
+    """Broadcast a generously gas-limited transaction from the Anvil control wallet.
+
+    Use the wallet nonce tracker and explicit gas so the test checks the mined result.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param control:
+        Wallet signing the transaction.
+
+    :param func:
+        Bound contract call to encode and execute.
+
+    :param gas:
+        Gas limit for the signed transaction.
+
+    :return:
+        Broadcast transaction hash.
+    """
     signed = control.sign_bound_call_with_new_nonce(func, {"gas": gas}, web3=web3, fill_gas_price=True)
     return web3.eth.send_raw_transaction(signed.rawTransaction)
 
@@ -165,25 +248,29 @@ def _perform_guarded_call(
     control: HotWallet,
     func: ContractFunction,
 ) -> HexBytes:
-    """Execute one manager-generated call through SimpleVaultV0 and GuardV0."""
+    """Execute one manager-generated call through SimpleVaultV0 and GuardV0.
+
+    Route the encoded manager transaction through the vault and assert its receipt succeeded.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param simple_vault:
+        SimpleVaultV0 executing manager calls through GuardV0.
+
+    :param control:
+        Wallet signing the transaction.
+
+    :param func:
+        Bound contract call to encode and execute.
+
+    :return:
+        Successful transaction hash.
+    """
     target, call_data = encode_simple_vault_transaction(func)
     tx_hash = _broadcast(web3, control, simple_vault.functions.performCall(target, call_data))
     assert_transaction_success_with_explanation(web3, tx_hash)
     return tx_hash
-
-
-def _assert_guarded_call_rejected(
-    web3: Web3,
-    simple_vault: Contract,
-    control: HotWallet,
-    func: ContractFunction,
-    expected_error: str,
-) -> None:
-    """Assert that GuardV0 rejects a substituted standard ERC-4626 address."""
-    target, call_data = encode_simple_vault_transaction(func)
-    tx_hash = _broadcast(web3, control, simple_vault.functions.performCall(target, call_data))
-    with pytest.raises(TransactionAssertionError, match=expected_error):
-        assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
@@ -192,7 +279,25 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
     protocol_vault: ERC4626Vault,
     guarded_simple_vault: tuple[Contract, Contract, HotWallet],
 ) -> None:
-    """Execute every synchronous manager phase through GuardV0."""
+    """Execute every synchronous manager phase through GuardV0.
+
+    Retained representatives exercise distinct manager or contract quirks with real approvals, deposits, event analysis and redemptions.
+
+    :param web3:
+        Web3 connection to the selected Anvil fork.
+
+    :param profile:
+        Fixed deployment and expected lifecycle behaviour.
+
+    :param protocol_vault:
+        Detected protocol adapter for the selected deployment.
+
+    :param guarded_simple_vault:
+        Configured SimpleVaultV0, its guard and asset-manager wallet.
+
+    :return:
+        ``None``; assertions verify the guarded lifecycle.
+    """
     simple_vault, guard, control = guarded_simple_vault
     manager = protocol_vault.get_deposit_manager()
     assert isinstance(manager, ERC4626DepositManager)

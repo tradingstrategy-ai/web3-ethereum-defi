@@ -20,7 +20,7 @@ links:
   defillama: https://defillama.com/protocol/peapods-finance
   audits: https://docs.peapods.finance/links/audits
   fees: https://docs.peapods.finance/pods/pod-fees
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/peapods
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/peapods
   integration_documentation:
 example_smart_contracts:
   - https://etherscan.io/address/0x3717e340140d30f3a077dd21fac39a86ace873aa

@@ -4,7 +4,10 @@ from pathlib import Path
 
 from PIL import Image
 
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_CHAIN_ID, ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT, INFINIT_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.infinit.tags import get_strategy_tags as get_infinit_strategy_tags
 from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.tags import get_strategy_tags
@@ -16,6 +19,78 @@ from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
+
+
+def test_identify_infinit_apex_curator() -> None:
+    """Attribute the reviewed Infinit product without claiming the ApeX exchange.
+
+    Address attribution covers older metadata without a manager name. Names
+    alone do not establish this curator, and a temporary investment does not
+    establish the legacy vault's curator.
+
+    :return: ``None``. Assertions cover identity, aliases and strategy tags.
+    """
+    assert identify_curator(INFINIT_CHAIN_ID, "inUSDC", "APEX MultiStrategy", APEX_PRODUCT.address.upper(), "infinit") == "apex-quants"
+    assert identify_curator(INFINIT_CHAIN_ID, "", "Unbranded vault", APEX_PRODUCT.address, "infinit", manager_name="Stale manager") == "apex-quants"
+    assert identify_curator(1, "", "Unbranded vault", APEX_PRODUCT.address, "infinit") is None
+    assert identify_curator(INFINIT_CHAIN_ID, "", "Unbranded vault", APEX_PRODUCT.share_token, "infinit") is None
+    assert identify_curator(INFINIT_CHAIN_ID, "", "Unbranded vault", "0x0", "infinit", manager_name="APEX Quants") is None
+    assert identify_curator(INFINIT_CHAIN_ID, "", "Apex Quant Capital strategy", "0x0", "infinit") is None
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "APEX Quants Alpha", "0x0", "hyperliquid") is None
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Apex Quant Capital strategy", "0x0", "hyperliquid") is None
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Infinit Multi-Strategy", "0x8220ed9e3d84da5e9d5f6d115a28a0b28b967388", "hyperliquid") is None
+    assert identify_curator(1, "", "ApeX MultiStrategy", "0x0", "apex") is None
+    assert identify_curator(1, "", "Unbranded vault", "0x0", "apex", manager_name="ApeX") is None
+    assert get_curator_name("apex-quants") == "Apex Quant Capital"
+    assert not is_protocol_curator("apex-quants")
+    assert get_infinit_strategy_tags(APEX_PRODUCT.address) == {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.perpetual_futures}
+    assert get_infinit_strategy_tags(APEX_PRODUCT.share_token) is None
+
+
+def test_apex_curator_metadata() -> None:
+    """Export the official identity, source links and original brand icon.
+
+    The shared feeder schema and curator exporter must preserve the linked
+    website and social account, distinct from the ApeX protocol feeder.
+
+    :return: ``None``. Assertions cover public metadata and logo dimensions.
+    """
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/apex-quants.yaml"), public_url="https://example.invalid")
+    assert metadata["name"] == "Apex Quant Capital"
+    assert metadata["website"] == "https://www.apexquants.xyz/"
+    assert metadata["twitter"] == "https://x.com/apexquantchef"
+    assert metadata["canonical_feeder_id"] is None
+    assert metadata["protocol_curator"] is False
+    assert metadata["short_description"]
+    assert "[Apex Quant Capital](https://www.apexquants.xyz/)" in metadata["long_description"]
+    assert "https://app.infinit.tech/vaults/apex-multistrategy" in metadata["long_description"]
+    for variant in ("light", "dark"):
+        assert metadata["logos"][variant] == f"https://example.invalid/curator-metadata/apex-quants/{variant}.png"
+        with Image.open(Path("eth_defi/data/vaults/formatted_logos/apex-quants") / f"{variant}.png") as logo:
+            assert logo.size == (256, 256)
+            assert logo.mode == "RGBA"
+            assert logo.getpixel((0, 0)) == (31, 63, 174, 255)
+
+
+def test_identify_antarctic_vaults_as_protocol_curated() -> None:
+    """Resolve both reviewed pools to Antarctic's canonical protocol feeder.
+
+    The alias supplies organisation descriptions and reuses the existing logo
+    and feed sources, without inventing a separate third-party manager.
+
+    :return:
+        ``None``. Assertions cover attribution and frontend metadata export.
+    """
+    for deployment in ANTARCTIC_DEPLOYMENTS:
+        assert identify_curator(ANTARCTIC_CHAIN_ID, deployment.product.upper(), "", deployment.address, "antarctic") == "antarctic"
+    assert is_protocol_curator("antarctic")
+    assert get_curator_name("antarctic") == "Antarctic"
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/antarctic.yaml"), public_url="https://example.invalid")
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "antarctic"
+    assert metadata["short_description"] and metadata["long_description"]
+    assert metadata["twitter"] == "https://x.com/Antarctic_EX"
+    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/antarctic/light.png"
 
 
 def test_identify_pallas_vaults_as_protocol_curated() -> None:
@@ -980,6 +1055,34 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
             manager_name=company_name,
         )
         assert slug == expected_slug, f"{vault_name!r} resolved to {slug!r}"
+
+
+def test_identify_ryllo_curator() -> None:
+    """Resolve Ryllo through Accountable metadata and vault branding.
+
+    Exact manager metadata must work independently of the vault name, and
+    the public export must include the organisation's descriptions and logos.
+
+    :return:
+        ``None``. Assertions validate attribution and exported metadata.
+    """
+    address = "0x899e270df335287f687fdac8a9089059b042044f"
+    assert identify_curator(143, "RYLG", "Unbranded vault", address, "accountable", manager_name=" Ryllo ") == "ryllo"
+    assert identify_curator(143, "RYLG", "Glasgow Cosmic by Ryllo", address, "accountable") == "ryllo"
+    assert get_curator_name("ryllo") == "Ryllo"
+    assert not is_protocol_curator("ryllo")
+
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/ryllo.yaml"), public_url="https://example.invalid")
+    assert metadata["website"] == "https://ryllo.co/"
+    assert metadata["short_description"]
+    assert "[Ryllo](https://ryllo.co/)" in metadata["long_description"]
+    assert "receivables" in metadata["long_description"]
+    assert metadata["protocol_curator"] is False
+    for variant in ("light", "dark"):
+        assert metadata["logos"][variant] == f"https://example.invalid/curator-metadata/ryllo/{variant}.png"
+        with Image.open(Path("eth_defi/data/vaults/formatted_logos/ryllo") / f"{variant}.png") as logo:
+            assert logo.size == (256, 256)
+            assert logo.mode == "RGBA"
 
 
 def test_identify_symbiotic_curators_by_official_metadata() -> None:

@@ -7,6 +7,7 @@ parameters, and env var helpers. No network access or API key needed.
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import hypersync
@@ -22,6 +23,8 @@ from eth_defi.hypersync.session import (
     get_hypersync_rpm_from_env,
     open_hypersync_stream,
 )
+
+HTTP_TIMEOUT_SECONDS = 120
 
 
 @pytest.fixture()
@@ -105,6 +108,28 @@ def test_throttled_get_acquires_rate_limit(
     assert asyncio.run(client.get(query)) is response
     mock_limiter.try_acquire.assert_called_once_with("hypersync")
     mock_native_client.get.assert_awaited_once_with(query)
+
+
+def test_page_http_timeout_starts_after_quota_wait(mock_native_client: AsyncMock, mock_limiter: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not spend the HTTP timeout while waiting for a shared quota slot."""
+    query = MagicMock(spec=hypersync.Query)
+    response = MagicMock(spec=hypersync.QueryResponse)
+    mock_native_client.get.return_value = response
+    client = ThrottledHypersyncClient(mock_native_client, mock_limiter)
+    acquired = False
+
+    async def acquire_slot(*_args: object) -> None:  # noqa: RUF029 - mirrors the client's async quota acquisition interface.
+        nonlocal acquired
+        acquired = True
+
+    async def wait_for_http(awaitable: Awaitable[hypersync.QueryResponse], *, timeout: float) -> hypersync.QueryResponse:
+        assert acquired
+        assert timeout == HTTP_TIMEOUT_SECONDS
+        return await awaitable
+
+    monkeypatch.setattr(hypersync_session, "_acquire_async", acquire_slot)
+    monkeypatch.setattr(hypersync_session.asyncio, "wait_for", wait_for_http)
+    assert asyncio.run(client.get(query, timeout=HTTP_TIMEOUT_SECONDS)) is response
 
 
 def test_create_stream_config_overrides(throttled_client: ThrottledHypersyncClient):

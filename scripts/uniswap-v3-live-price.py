@@ -23,9 +23,9 @@ import datetime
 import os
 import time
 
-from web3 import HTTPProvider, Web3
-from eth_defi.compat import geth_poa_middleware
+from web3 import Web3
 
+from eth_defi.compat import create_http_provider, geth_poa_middleware
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
 from eth_defi.uniswap_v3.oracle import update_live_price_feed
 from eth_defi.uniswap_v3.pool import fetch_pool_details
@@ -34,7 +34,7 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 def main():
     json_rpc_url = os.environ["ETHEREUM_JSON_RPC"]
 
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 

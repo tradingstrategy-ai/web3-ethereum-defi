@@ -95,6 +95,10 @@ reads the uploaded object's ETag with R2 HEAD, and uploads the small receipt.
 This assumes the scanner's existing single-writer pipeline lock: do not run
 concurrent publishers targeting the same bucket/key.
 
+Private prices and their readiness receipt publish before sparkline rendering
+and protocol metadata export. These later stages can take tens of minutes;
+their completion or failure does not determine price readiness.
+
 Private export reads the pipeline data directory. A different `cleaned_path`
 override is refused for manifest publication, rather than attaching local
 freshness claims to a different uploaded file. An unrelated failure in the

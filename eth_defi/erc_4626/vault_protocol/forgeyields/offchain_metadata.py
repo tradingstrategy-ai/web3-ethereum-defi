@@ -9,7 +9,8 @@
   ``https://api.forgeyields.com/strategies``
 - We reverse-engineered the API endpoint from the Next.js app at
   ``app.forgeyields.com``
-- Two-level caching: disk (2-day TTL) + in-process dictionary
+- Offchain fetching is disabled: existing disk metadata is retained without
+  expiry or modification because the upstream API is no longer working
 
 API response structure
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -40,18 +41,12 @@ import datetime
 import json
 import logging
 from decimal import Decimal
-from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
 
-import requests
-
-from web3 import Web3
 from eth_typing import HexAddress
-from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
-from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
-from eth_defi.utils import wait_other_writers
 
+from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 
 #: Where we cache fetched ForgeYields metadata files
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "forgeyields"
@@ -97,40 +92,24 @@ class ForgeYieldsVaultMetadata(TypedDict):
     ethereum_gateway: str | None
 
 
-def _parse_strategy(raw: dict) -> ForgeYieldsVaultMetadata:
-    """Parse a single strategy entry from the API response.
+def _read_cached_strategies(file: Path) -> dict[str, ForgeYieldsVaultMetadata]:
+    """Load the last successful strategy snapshot without changing its age.
 
-    :param raw:
-        Raw JSON dict from ``/strategies``
+    Scanner metadata and valuation lookups use the same Decimal conversion.
+    A missing snapshot returns an empty mapping; corrupt stored data remains
+    an explicit error instead of being mistaken for a valid zero-TVL response.
+
+    :param file: Shared JSON snapshot written by the strategy fetcher.
+    :return: Strategy metadata keyed by lower-case Ethereum gateway address.
     """
-    # Find the Ethereum gateway address
-    ethereum_gateway = None
-    for gw in raw.get("token_gateway_per_domain", []):
-        if gw.get("domain") == "ethereum":
-            addr = gw.get("token_gateway")
-            if addr and len(addr) == 42:
-                ethereum_gateway = Web3.to_checksum_address(addr)
-            break
-
-    info = raw.get("integrationInfo", {})
-
-    apy_raw = info.get("overallApy")
-    apy = float(apy_raw) if apy_raw is not None else None
-
-    tvl_usd_raw = info.get("overallUsdPrice", "0")
-    tvl_usd = Decimal(str(tvl_usd_raw))
-
-    tvl_raw = raw.get("tvl", "0")
-    tvl = Decimal(str(tvl_raw))
-
-    return ForgeYieldsVaultMetadata(
-        name=raw.get("name", ""),
-        symbol=raw.get("symbol", ""),
-        tvl_usd=tvl_usd,
-        tvl=tvl,
-        apy=apy,
-        ethereum_gateway=ethereum_gateway,
-    )
+    if not file.exists() or file.stat().st_size == 0:
+        return {}
+    with file.open() as source:
+        serialised = json.load(source)
+    for metadata in serialised.values():
+        metadata["tvl_usd"] = Decimal(metadata["tvl_usd"])
+        metadata["tvl"] = Decimal(metadata.get("tvl", "0"))
+    return serialised
 
 
 def fetch_forgeyields_strategies(
@@ -139,138 +118,36 @@ def fetch_forgeyields_strategies(
     now_: datetime.datetime | None = None,
     max_cache_duration: datetime.timedelta = datetime.timedelta(days=2),
 ) -> dict[str, ForgeYieldsVaultMetadata]:
-    """Fetch and cache ForgeYields strategy metadata.
+    """Read the retained ForgeYields metadata snapshot without refreshing it.
 
-    - Single API call returns all strategies
-    - Indexed by lowercased Ethereum gateway address
-    - Multiprocess safe via file lock
+    The `ForgeYields strategies API <https://api.forgeyields.com/strategies>`__
+    and its own app failed on 3 October 2026. Metadata and TVL callers must
+    retain the last successful snapshot indefinitely without issuing requests,
+    updating its modification time, or overwriting it with empty data. Values
+    read here are retained metadata, not fresh API observations. A missing
+    snapshot returns an empty mapping and never creates a replacement file.
 
-    :param cache_path:
-        Directory for cache files (default ``~/.tradingstrategy/cache/forgeyields/``)
-
-    :param api_base_url:
-        ForgeYields API base URL
-
-    :param now_:
-        Override current time (for testing)
-
-    :param max_cache_duration:
-        How long before refreshing cache (default 2 days)
-
-    :return:
-        Dict mapping lowercased Ethereum gateway address to :py:class:`ForgeYieldsVaultMetadata`
+    :param cache_path: Directory containing ``forgeyields_strategies.json``.
+    :param api_base_url: Retained for caller compatibility; fetching is disabled.
+    :param now_: Retained for caller compatibility; snapshot age is ignored.
+    :param max_cache_duration: Retained for caller compatibility; snapshots do not expire.
+    :return: Retained metadata keyed by lower-case Ethereum gateway address.
     """
-    assert isinstance(cache_path, Path), "cache_path must be Path instance"
-
-    cache_path.mkdir(parents=True, exist_ok=True)
-    file = cache_path / "forgeyields_strategies.json"
-    file = file.resolve()
-
-    file_size = file.stat().st_size if file.exists() else 0
-
-    if not now_:
-        now_ = native_datetime_utc_now()
-
-    with wait_other_writers(file):
-        if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
-            logger.info("Re-fetching ForgeYields strategies from %s", api_base_url)
-
-            url = f"{api_base_url}/strategies"
-            try:
-                resp = requests.get(url, headers={"Content-Type": "application/json"}, timeout=30)
-                resp.raise_for_status()
-                raw_list = resp.json()
-            except (requests.RequestException, JSONDecodeError) as e:
-                logger.warning("Failed to fetch ForgeYields strategies from %s: %s", url, e)
-                # Fall back to stale cache rather than returning empty
-                if file.exists() and file.stat().st_size > 0:
-                    logger.info("Using stale cache at %s after API failure", file)
-                    try:
-                        serialised = json.load(open(file, "rt"))
-                        result = {}
-                        for k, v in serialised.items():
-                            v["tvl_usd"] = Decimal(v["tvl_usd"])
-                            v["tvl"] = Decimal(v.get("tvl", "0"))
-                            result[k] = v
-                        return result
-                    except (JSONDecodeError, KeyError):
-                        pass
-                return {}
-
-            result: dict[str, ForgeYieldsVaultMetadata] = {}
-            for raw in raw_list:
-                entry = _parse_strategy(raw)
-                if entry["ethereum_gateway"]:
-                    key = entry["ethereum_gateway"].lower()
-                    result[key] = entry
-
-            logger.info("Fetched metadata for %d ForgeYields strategies", len(result))
-
-            if not result:
-                logger.warning("ForgeYields API returned 0 strategies, skipping cache write to avoid poisoning the cache")
-                return {}
-
-            # Serialise — Decimal needs string conversion
-            serialisable = {}
-            for k, v in result.items():
-                sv = dict(v)
-                sv["tvl_usd"] = str(sv["tvl_usd"])
-                sv["tvl"] = str(sv["tvl"])
-                serialisable[k] = sv
-
-            with file.open("wt") as f:
-                json.dump(serialisable, f, indent=2)
-
-            logger.info("Wrote ForgeYields cache %s", file)
-            assert file.stat().st_size > 0, f"File {file} is empty after writing"
-            return result
-
-        else:
-            timestamp = datetime.datetime.fromtimestamp(file.stat().st_mtime, tz=None)
-            ago = now_ - timestamp
-            logger.info("Using cached ForgeYields strategies from %s, last fetched at %s, ago %s", file, timestamp.isoformat(), ago)
-
-            if file_size == 0:
-                return {}
-
-            try:
-                serialised = json.load(open(file, "rt"))
-            except JSONDecodeError as e:
-                content = open(file, "rt").read()
-                raise RuntimeError(f"Could not parse ForgeYields cache at {file}, length {len(content)}, content starts with {content[:100]!r}") from e
-
-            # Deserialise Decimal strings back
-            result = {}
-            for k, v in serialised.items():
-                v["tvl_usd"] = Decimal(v["tvl_usd"])
-                v["tvl"] = Decimal(v.get("tvl", "0"))
-                result[k] = v
-            return result
+    del api_base_url, now_, max_cache_duration
+    # no longer working: disable offchain refreshes and preserve the existing copy.
+    return _read_cached_strategies(cache_path / "forgeyields_strategies.json")
 
 
 def fetch_forgeyields_vault_metadata(vault_address: HexAddress) -> ForgeYieldsVaultMetadata | None:
-    """Fetch vault metadata from ForgeYields' offchain strategies API.
+    """Look up an Ethereum gateway in the retained metadata snapshot.
 
-    - Uses a two-level cache: in-process dict + disk cache
-    - Looks up by the Ethereum gateway address
+    Vault adapters cache the returned entry for their lifetime. No network
+    request or cache rewrite occurs, including when the gateway is unknown.
 
-    :param vault_address:
-        Vault contract address (Ethereum TokenGateway)
-
-    :return:
-        Metadata dict or None if the address is not a known ForgeYields gateway
+    :param vault_address: Ethereum TokenGateway contract address.
+    :return: Retained metadata, or None when no matching snapshot entry exists.
     """
-    global _cached_strategies
-
-    if _cached_strategies is None:
-        _cached_strategies = fetch_forgeyields_strategies()
-
-    key = vault_address.lower()
-    return _cached_strategies.get(key)
-
-
-#: In-process cache of fetched strategies
-_cached_strategies: dict[str, ForgeYieldsVaultMetadata] | None = None
+    return fetch_forgeyields_strategies().get(vault_address.lower())
 
 
 class ForgeYieldsHistoryEntry(TypedDict):
@@ -314,63 +191,17 @@ class ForgeYieldsStrategyHistory(TypedDict):
 def fetch_forgeyields_history(
     api_base_url: str = DEFAULT_API_BASE_URL,
 ) -> list[ForgeYieldsStrategyHistory]:
-    """Fetch historical TVL/APR data from the ForgeYields API.
+    """Reject unavailable offchain history backfills before any data is changed.
 
-    The ``/strategies`` response includes a ``historyReports`` array with
-    ~30 daily snapshots per strategy. Each entry has TVL in both
-    denomination token units and USD, plus APR.
+    The retained metadata snapshot does not contain the raw ``historyReports``
+    needed by the one-shot backfill script. An explicit error keeps existing
+    price history intact instead of pretending that an empty response is a
+    successful backfill. Re-enable only after the upstream feed is reviewed.
 
-    This is a direct API call with no caching — intended for one-shot
-    backfill scripts.
-
-    :param api_base_url:
-        ForgeYields API base URL.
-
-    :return:
-        List of strategy histories, one per vault.
+    :param api_base_url: Retained for caller compatibility; no request is issued.
+    :return: No history is returned while fetching is disabled.
+    :raises RuntimeError: Offchain history fetching is disabled.
     """
-    url = f"{api_base_url}/strategies"
-    logger.info("Fetching ForgeYields history from %s", url)
-    resp = requests.get(url, headers={"Content-Type": "application/json"}, timeout=30)
-    resp.raise_for_status()
-    raw_list = resp.json()
-
-    results = []
-    for raw in raw_list:
-        # Find Ethereum gateway
-        ethereum_gateway = None
-        for gw in raw.get("token_gateway_per_domain", []):
-            if gw.get("domain") == "ethereum":
-                addr = gw.get("token_gateway")
-                if addr and len(addr) == 42:
-                    ethereum_gateway = Web3.to_checksum_address(addr)
-                break
-
-        # Parse history entries
-        history = []
-        for entry in raw.get("historyReports", []):
-            ts_str = entry.get("timestamp", "")
-            # Parse ISO 8601 to naive UTC datetime
-            ts = datetime.datetime.fromisoformat(ts_str.replace("Z", "+00:00")).replace(tzinfo=None)
-            history.append(
-                ForgeYieldsHistoryEntry(
-                    timestamp=ts,
-                    tvl=float(entry.get("tvl", 0)),
-                    tvl_usd=float(entry.get("tvlUSD", 0)),
-                    apr=float(entry.get("apr", 0)),
-                    underlying_price=float(entry.get("underlyingPrice", 0)),
-                )
-            )
-
-        results.append(
-            ForgeYieldsStrategyHistory(
-                name=raw.get("name", ""),
-                symbol=raw.get("symbol", ""),
-                underlying_symbol=raw.get("underlyingSymbol", ""),
-                ethereum_gateway=ethereum_gateway,
-                history=history,
-            )
-        )
-
-    logger.info("Fetched history for %d ForgeYields strategies", len(results))
-    return results
+    del api_base_url
+    # no longer working: do not request the broken offchain history endpoint.
+    raise RuntimeError("ForgeYields offchain history is disabled: no longer working; existing metadata and prices are preserved")

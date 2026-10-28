@@ -281,7 +281,7 @@ class FrankencoinVault(ERC4626Vault):
     def name(self) -> str:
         """Return a human-readable name for this vault.
 
-        The on-chain share token name is ``SavingsVault ZCHF``. Use the
+        The onchain share token name is ``SavingsVault ZCHF``. Use the
         protocol-facing product name in vault listings.
         """
         return "Frankencoin Savings Vault"

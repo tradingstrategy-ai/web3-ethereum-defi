@@ -267,12 +267,41 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
 
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
-    descriptions = [re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values()]
-    assert all(description.count(".") == 1 for description in descriptions)
-    assert all(len(description) <= max_description_length for description in descriptions)
+    descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
+    #: This maintainer-requested category includes a second sentence explaining
+    #: the drawdown risk alongside its trading activity.
+    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate]
+    assert all(description.count(".") == 1 for description in short_descriptions)
+    assert all(len(description) <= max_description_length for description in short_descriptions)
+    descriptions = descriptions_by_tag.values()
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
     assert all("we " not in description.lower() for description in descriptions)
     assert all("documented assets" not in description.lower() for description in descriptions)
+
+
+@pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
+def test_high_frequency_high_win_rate_category_export(has_vault: bool) -> None:
+    """Export the full category metadata even without a participating vault.
+
+    The public string identifier remains stable and the risk description is
+    preserved without truncation in both empty and populated exports.
+
+    :param has_vault: Whether to supply a vault carrying the new tag.
+    :return: ``None`` after checking the exported category record.
+    """
+    tag = StrategyTag.high_frequency_high_win_rate
+    assert tag.value == "high_frequency_high_win_rate"
+    vaults = [{"strategy_tags": [tag.value], "current_nav": 100.0}] if has_vault else []
+
+    categories = top_vaults_json.build_strategy_categories_for_export(vaults)
+
+    assert categories[tag.value] == {
+        "label": "High-frequency, high-win-rate trading",
+        "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
+        "vault_count": 1 if has_vault else 0,
+        "tvl_usd": 100.0 if has_vault else 0.0,
+        "one_month_apy": None,
+    }
 
 
 def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -307,6 +336,44 @@ def test_strategy_category_failure_does_not_block_vault_export(
     assert success is False
     assert "categories" not in output_data
     assert "Strategy category export failed" in caplog.text
+
+
+@pytest.mark.parametrize("use_fallback", [False, True])
+def test_sticky_export_shortens_fresh_and_stored_summaries(*, use_fallback: bool) -> None:
+    """Publish one sentence even when a summary comes from older stored state.
+
+    Replayed records and native vault records use the same final export gate
+    as freshly calculated ERC-4626 metrics.
+
+    :param use_fallback:
+        Reuse the stored record instead of supplying a current metrics row.
+    """
+    row = make_metrics_row()
+    row.update(
+        description="Full strategy.\n\nKeep every sentence.",
+        short_description=r"Earn 4.5% in money markets.\nMore details.",
+        notes="Preserved\nnotes.",
+    )
+    now = datetime.datetime(2026, 10, 28, 12, 0, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
+    result = top_vaults_json.apply_sticky_export_state(
+        make_lifetime_df(row),
+        top_vaults_json.make_empty_sticky_export_state(now),
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=3,
+    )
+    if use_fallback:
+        result = top_vaults_json.apply_sticky_export_state(
+            make_lifetime_df(),
+            result.state,
+            now=now + datetime.timedelta(days=1),
+            threshold_tvl=5_000.0,
+            stale_warning_age_days=3,
+        )
+
+    assert result.vaults[0]["description"] == "Full strategy. Keep every sentence."
+    assert result.vaults[0]["short_description"] == "Earn 4.5% in money markets."
+    assert result.vaults[0]["notes"] == "Preserved\nnotes."
 
 
 def test_sticky_export_first_qualification_creates_state():
@@ -1017,7 +1084,7 @@ def test_strict_json_writer_preserves_file_on_invalid_value(tmp_path: Path, capl
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Non-serializable values found"):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{"value": invalid}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{"value": invalid}]})
 
     assert "vaults -> 0 -> value" in caplog.text
     assert output_path.read_text(encoding="utf-8") == "previous output"
@@ -1029,7 +1096,7 @@ def test_strict_json_writer_rejects_nested_non_string_key(tmp_path: Path, caplog
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Non-serializable values found"):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{1: "invalid"}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{1: "invalid"}]})
 
     assert "vaults -> 0 -> 1" in caplog.text
     assert output_path.read_text(encoding="utf-8") == "previous output"
@@ -1041,7 +1108,7 @@ def test_strict_json_writer_preserves_accepted_values(tmp_path: Path, value: obj
     output_path = tmp_path / "top-vaults.json"
     document = {"vaults": [{"value": value}]}
 
-    top_vaults_json._write_strict_json(output_path, document)
+    top_vaults_json.write_strict_json(output_path, document)
 
     expected = json.loads(json.dumps(document, ensure_ascii=False, allow_nan=False))
     assert json.loads(output_path.read_text(encoding="utf-8")) == expected
@@ -1053,7 +1120,7 @@ def test_strict_json_writer_preserves_file_for_invalid_unicode(tmp_path: Path) -
     output_path.write_text("previous output", encoding="utf-8")
 
     with pytest.raises(UnicodeEncodeError):
-        top_vaults_json._write_strict_json(output_path, {"vaults": [{"name": "broken\ud800"}]})
+        top_vaults_json.write_strict_json(output_path, {"vaults": [{"name": "broken\ud800"}]})
 
     assert output_path.read_text(encoding="utf-8") == "previous output"
 

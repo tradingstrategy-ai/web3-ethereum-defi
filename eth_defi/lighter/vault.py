@@ -60,8 +60,8 @@ class LighterPoolSummary:
     #: Risk-adjusted return metric
     sharpe_ratio: float | None
 
-    #: Operator fee percentage (e.g. 10.0 = 10%)
-    operator_fee: Percent
+    #: Externalised fee on positive participant profits upon withdrawal (10.0 = 10%).
+    operator_fee: Percent | None
 
     #: Total asset value (TVL) in the deployment's collateral currency
     total_asset_value: float
@@ -104,8 +104,8 @@ class LighterPoolDetail:
     #: Total asset value in the deployment's collateral currency
     total_asset_value: float
 
-    #: Operator fee percentage (e.g. 10.0 = 10%)
-    operator_fee: Percent
+    #: Externalised fee on positive participant profits upon withdrawal (10.0 = 10%).
+    operator_fee: Percent | None
 
     #: Annual percentage yield
     annual_percentage_yield: float
@@ -177,7 +177,7 @@ class LighterPoolSnapshot:
     #: Cross-margin maintenance requirement in the deployment's collateral currency
     maintenance_margin_requirement: float | None
 
-    #: Operator performance fee as reported by Lighter
+    #: Withdrawal-time performance fee in percentage points, as reported by Lighter.
     operator_fee: Percent | None
 
     #: Minimum operator ownership rate as reported by Lighter
@@ -529,7 +529,7 @@ def fetch_all_pools(
                     l1_address=p.get("l1_address", ""),
                     annual_percentage_yield=float(p.get("annual_percentage_yield", 0)),
                     sharpe_ratio=sharpe_val,
-                    operator_fee=float(p.get("operator_fee", "0")),
+                    operator_fee=_parse_optional_float(p.get("operator_fee")),
                     total_asset_value=float(p.get("total_asset_value", "0")),
                     total_shares=int(p.get("total_shares", 0)),
                     status=int(p["status"]) if p.get("status") is not None else None,
@@ -644,7 +644,7 @@ def fetch_pool_detail(
         name=account.get("name", ""),
         description=account.get("description", ""),
         total_asset_value=float(account.get("total_asset_value", "0")),
-        operator_fee=float(pool_info.get("operator_fee", "0")),
+        operator_fee=_parse_optional_float(pool_info.get("operator_fee")),
         annual_percentage_yield=float(pool_info.get("annual_percentage_yield", 0)),
         sharpe_ratio=sharpe_val,
         share_prices=share_prices,

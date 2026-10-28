@@ -28,11 +28,12 @@ For more information on GMX events:
 import logging
 import os
 
-from web3 import Web3
 from rich.console import Console
+from web3 import Web3
 
 print = Console().print
 
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.events import (
     GMX_EVENT_NAMES,
     GMXEventData,
@@ -46,6 +47,8 @@ from eth_defi.gmx.events import (
     find_events_by_name,
     get_event_name_hash,
 )
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -268,10 +271,10 @@ def main():
     if " " in rpc:
         rpc = rpc.split()[0]
 
-    print(f"\nUsing RPC: {rpc[:50]}...")
+    print(f"\nUsing RPC: {get_url_domain(rpc)}...")
 
     try:
-        web3 = Web3(Web3.HTTPProvider(rpc))
+        web3 = Web3(create_http_provider(rpc))
         chain_id = web3.eth.chain_id
         print(f"Connected to chain ID: {chain_id}")
 
@@ -280,7 +283,7 @@ def main():
             print("Event parsing will still work but example transactions may not exist")
 
     except Exception as e:
-        print(f"Could not connect to RPC: {e}")
+        print(redact_rpc_urls(f"Could not connect to RPC: {e}"))
         print("Showing static examples only...\n")
         web3 = None
 
@@ -311,7 +314,7 @@ def main():
             example_extract_order_execution_result(web3, receipt)
 
         except Exception as e:
-            print(f"Error fetching transaction: {e}")
+            print(redact_rpc_urls(f"Error fetching transaction: {e}"))
 
     elif web3:
         print("\n" + "-" * 60)

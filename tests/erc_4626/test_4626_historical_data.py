@@ -172,7 +172,9 @@ def test_4626_historical_vault_data_stateful(
     # Deployed at 26_598_326
     # No data
     state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
-    assert state.entry_count == 75
+    # The 112 hourly slots cover five daily observations; buffered duplicates
+    # must not inflate this count as they did before result-feedback scheduling.
+    assert state.entry_count == 5
     assert state.vault.name == "Steakhouse sUSDS"
     assert state.get_frequency() == ("early", datetime.timedelta(days=1))
 

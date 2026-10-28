@@ -1,0 +1,36 @@
+name: Antarctic
+slug: antarctic
+short_description: |
+  USDT-denominated market-making and hedging liquidity pools for perpetual futures.
+long_description: |
+  [Antarctic Exchange](https://www.antarctic.exchange/) offers perpetual futures trading
+  supported by two liquidity pools: AMLP for market-making and AHLP for hedging, as
+  described in its [liquidity model](https://docs.antarctic.exchange/antarctic-overview/liquidity-provider-protection).
+  AMLP takes the opposite side of traders' gains and losses. The precise hedge instruments
+  used by AHLP are not established in the reviewed documentation.
+
+  The [hybrid LP design](https://docs.antarctic.exchange/technical-framework/hybird-lp-model)
+  combines smart-contract deposits and redemptions with offchain components. These Arbitrum
+  products use USDT-denominated shares and are exposed to trading losses, stablecoin and
+  settlement risks. The [FAQ](https://docs.antarctic.exchange/faq) describes a seven-day
+  AMLP removal wait followed by manual unlocking and confirmation; exits are asynchronous
+  and configuration may change. Separately distributed staking income is distinct from
+  changes in the value of LP shares.
+fee_description: |
+  LP management, performance and redemption fees have not been established in the reviewed
+  public material. Exchange maker/taker trading charges are not an LP management fee
+  schedule. See the [Antarctic FAQ](https://docs.antarctic.exchange/faq) for trading charges
+  and withdrawal conditions; unknown LP fee rates must not be interpreted as zero.
+links:
+  homepage: https://www.antarctic.exchange/
+  app: https://www.antarctic.exchange/lp/amlp
+  twitter: https://x.com/Antarctic_EX
+  github:
+  documentation: https://docs.antarctic.exchange/
+  audits:
+  fees: https://docs.antarctic.exchange/faq
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/antarctic
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/antarctic/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x152f5E6142db867f905a68617dBb6408D7993a4b
+  - https://arbiscan.io/address/0x5fd22dA8315992dbbD82d5AC1087803ff134C2c4

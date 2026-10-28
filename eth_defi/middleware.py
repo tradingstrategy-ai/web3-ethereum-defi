@@ -540,3 +540,118 @@ class StaticCallCacheMiddleware(Web3Middleware):
 
 
 static_call_cache_middleware = StaticCallCacheMiddleware
+
+
+#: How long, in milliseconds, a send through :py:class:`AnvilSyncSendMiddleware`
+#: waits for Anvil to mine the transaction before returning the hash anyway.
+#:
+#: An automined transaction is mined in about 15 ms. The bound only matters
+#: when the transaction cannot be mined at once: automining is off, the fork
+#: is on interval mining, there is a nonce gap, or a cold fork read is slow.
+#: The caller then gets the hash as with a normal send and polls for the
+#: receipt as before.
+ANVIL_SYNC_SEND_TIMEOUT_MS = 1000
+
+#: Receipt poll interval, in seconds, after an ``eth_sendTransaction`` in
+#: :py:class:`AnvilSyncSendMiddleware`.
+ANVIL_SYNC_SEND_POLL_SECONDS = 0.005
+
+#: EIP-7966 error code for a transaction accepted but not mined within the timeout.
+#: The error ``data`` carries the transaction hash.
+EIP_7966_TIMEOUT_ERROR_CODE = 4
+
+
+def _get_rpc_error(response_or_exception: RPCResponse | BaseException) -> dict | None:
+    """Get the JSON-RPC error payload from a response or a raised provider error.
+
+    The fallback provider raises error replies as ``ValueError(error_dict)``;
+    a plain provider returns them in the response.
+    """
+    if isinstance(response_or_exception, BaseException):
+        payload = response_or_exception.args[0] if response_or_exception.args else None
+        return payload if isinstance(payload, dict) else None
+    return response_or_exception.get("error")
+
+
+class AnvilSyncSendMiddleware(Web3Middleware):
+    """Return from a transaction send only once Anvil has mined the transaction.
+
+    Anvil 1.8 automines asynchronously: ``eth_sendRawTransaction`` and
+    ``eth_sendTransaction`` return the hash before the block exists, so the
+    first receipt poll misses and every receipt wait sleeps one poll interval,
+    one second in our confirmation helpers.
+
+    - ``eth_sendRawTransaction`` goes through the EIP-7966
+      ``eth_sendRawTransactionSync`` method, which Anvil answers with the
+      receipt once the transaction is mined. The middleware returns the hash,
+      as the plain method would.
+    - ``eth_sendTransaction`` is sent as is, because Anvil's
+      ``eth_sendTransactionSync`` takes no timeout and waits 30 s for a
+      transaction that cannot be mined. The middleware then polls the receipt
+      every :py:data:`ANVIL_SYNC_SEND_POLL_SECONDS` before returning.
+    - Both wait at most :py:data:`ANVIL_SYNC_SEND_TIMEOUT_MS`, then return the
+      hash, so tests that mine on demand keep working.
+    - On an Anvil without the sync method, raw sends fall back to the plain
+      method for the rest of the connection's life.
+    - Other errors, such as a nonce or gas error, are passed through unchanged.
+
+    Callers see no API change; their first receipt read succeeds.
+
+    Installed by :py:func:`eth_defi.provider.multi_provider.create_multi_provider_web3`
+    for Anvil connections only. It must be the innermost middleware, so that
+    the signing middleware's ``eth_sendRawTransaction`` also goes through it.
+    """
+
+    def __init__(self, w3: Web3):
+        super().__init__(w3)
+        self.raw_sync_supported = True
+
+    def wrap_make_request(self, make_request):
+        def send_raw_sync(method: RPCEndpoint, params: Any) -> RPCResponse:
+            try:
+                response = make_request(RPCEndpoint("eth_sendRawTransactionSync"), [params[0], ANVIL_SYNC_SEND_TIMEOUT_MS])
+                error = _get_rpc_error(response)
+            except ValueError as e:
+                error = _get_rpc_error(e)
+                if error is None:
+                    raise
+                response = None
+
+            if error is None:
+                return {**response, "result": response["result"]["transactionHash"]}
+
+            if error.get("code") == EIP_7966_TIMEOUT_ERROR_CODE and error.get("data"):
+                # A raised error carries no request id. web3 requires the field
+                # but only matches ids on persistent connections, not over HTTP.
+                request_id = response.get("id", 0) if response is not None else 0
+                return {"jsonrpc": "2.0", "id": request_id, "result": error["data"]}
+
+            if error.get("code") == -32601:
+                logger.info("Anvil does not support eth_sendRawTransactionSync, using %s", method)
+                self.raw_sync_supported = False
+                return make_request(method, params)
+
+            if response is not None:
+                return response
+            raise ValueError(error)
+
+        def send_and_wait(method: RPCEndpoint, params: Any) -> RPCResponse:
+            response = make_request(method, params)
+            tx_hash = response.get("result")
+            if not tx_hash:
+                return response
+            deadline = time.monotonic() + ANVIL_SYNC_SEND_TIMEOUT_MS / 1000
+            while time.monotonic() < deadline:
+                if make_request(RPCEndpoint("eth_getTransactionReceipt"), [tx_hash]).get("result"):
+                    break
+                time.sleep(ANVIL_SYNC_SEND_POLL_SECONDS)
+            return response
+
+        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+            if method == "eth_sendRawTransaction" and self.raw_sync_supported:
+                return send_raw_sync(method, params)
+            if method == "eth_sendTransaction":
+                return send_and_wait(method, params)
+            return make_request(method, params)
+
+        return middleware

@@ -5,9 +5,11 @@
 """
 
 import datetime
+import hashlib
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
+from pathlib import Path
 
 import eth_abi
 from attr import dataclass
@@ -17,20 +19,27 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.frankencoin.constants import FRANKENCOIN_SHARES_ADDRESS, FRANKENCOIN_SHARES_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinSharesVault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_PRODUCTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
+from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
+from eth_defi.tokenised_fund.asseto.royalty_constants import ROYALTY_CHAIN_ID, ROYALTY_VAULT_ADDRESS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.fdit.constants import FDIT_PRODUCTS, FDIT_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.franklin.constants import FRANKLIN_PRODUCTS, FRANKLIN_PRODUCTS_BY_TOKEN
@@ -38,7 +47,6 @@ from eth_defi.tokenised_fund.kaio.constants import KAIO_PRODUCTS, KAIO_PRODUCTS_
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS
-from eth_defi.tokenised_fund.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_PRODUCTS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
@@ -328,6 +336,7 @@ AAVE_ATOKEN_VAULTS_BY_CHAIN: dict[int, frozenset[HexAddress]] = {
 }
 #: Frankencoin hardcoded classification flags.
 FRANKENCOIN_HARDCODED_PROTOCOLS = {HexAddress(address): {ERC4626Feature.frankencoin_like} for address in FRANKENCOIN_SAVINGS_VAULTS}
+FRANKENCOIN_HARDCODED_PROTOCOLS[FRANKENCOIN_SHARES_ADDRESS] = {ERC4626Feature.frankencoin_fcs_like}
 
 #: Vault Street hardcoded classification flags.
 #:
@@ -356,11 +365,16 @@ NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
 #: unrelated contract cannot be selected by its generic ERC-20 surface.
 SHIFT_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.shift_like} for address in SHIFT_VAULT_ADDRESSES}
 
-#: Flying Tulip's reviewed sftUSD proxies are a finite, chain-aware registry.
-#: The generic ERC-4626 surface deliberately cannot identify this externally
-#: rewarded fixed-price vault family safely. Do not add ABI-selector probes:
-#: only the published address list may map a vault to Flying Tulip.
-FLYING_TULIP_HARDCODED_PROTOCOLS = {HexAddress(address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for address in FLYING_TULIP_SFTUSD_BY_CHAIN.values()}
+#: Reviewed Flying Tulip staking products, separated by reward accounting.
+#: Their generic ERC-4626 surface cannot establish protocol identity. Only
+#: reviewed chain/address pairs may select either adapter; no selector probes.
+FLYING_TULIP_PROTOCOLS_BY_CHAIN: dict[tuple[int, str], set[ERC4626Feature]] = {
+    **{(chain_id, address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for chain_id, address in FLYING_TULIP_SFTUSD_BY_CHAIN.items()},
+    **{(chain_id, address.lower()): {ERC4626Feature.flying_tulip_stable_like} for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()},
+}
+
+#: Address-only index retained for discovery eligibility; routing is chain-aware.
+FLYING_TULIP_HARDCODED_PROTOCOLS = {address: features for (_, address), features in FLYING_TULIP_PROTOCOLS_BY_CHAIN.items()}
 
 #: YieldBasis LTs are not ERC-4626 vaults. Keep reviewed Ethereum addresses
 #: routable while the Factory catalogue remains the discovery source of truth.
@@ -392,6 +406,17 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     normalised_address = HexAddress(address.lower())
     if normalised_address in NOVA_MARKETS_HARDCODED_PROTOCOLS:
         return NOVA_MARKETS_HARDCODED_PROTOCOLS[normalised_address].copy() if chain_id == NOVA_MARKETS_CHAIN_ID else None
+    if normalised_address == ROYALTY_VAULT_ADDRESS:
+        return {ERC4626Feature.asseto_royalty_like} if chain_id == ROYALTY_CHAIN_ID else None
+    if normalised_address in INFINIT_PRODUCTS:
+        return {ERC4626Feature.infinit_like} if chain_id == INFINIT_CHAIN_ID else None
+    if normalised_address in ANTARCTIC_BY_ADDRESS:
+        return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
+    if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
+        return FRANKENCOIN_HARDCODED_PROTOCOLS[normalised_address] if chain_id == FRANKENCOIN_SHARES_CHAIN_ID else None
+    if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
+        features = FLYING_TULIP_PROTOCOLS_BY_CHAIN.get((chain_id, normalised_address))
+        return set(features) if features is not None else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
 
@@ -501,12 +526,6 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in SHIFT_HARDCODED_PROTOCOLS:
             return None
 
-        flying_tulip_address = FLYING_TULIP_SFTUSD_BY_CHAIN.get(chain_id)
-        if flying_tulip_address is not None and normalised_address == HexAddress(flying_tulip_address.lower()):
-            return FLYING_TULIP_HARDCODED_PROTOCOLS[normalised_address]
-        if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
-            return None
-
     return HARDCODED_PROTOCOLS.get(normalised_address)
 
 
@@ -587,8 +606,10 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
     "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
-    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-08-06.
-    "operatorRegistry": {1, 56, 480, 9745, 43114, 98866},
+    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-10-06.
+    # Arc, Base, Monad and Robinhood selectors were also verified by live eth_call.
+    # Morph (2818) remains excluded until an RPC is configured and verified.
+    "operatorRegistry": {1, 56, 143, 480, 4663, 5042, 8453, 9745, 43114, 98866},
 }
 
 
@@ -1873,6 +1894,25 @@ def _is_hypurrfi_name(name: str) -> bool:
     return bool(re.search(r"hy[^-]+-\s*\d+(?:\x00|$)", name, re.IGNORECASE))
 
 
+#: Bump when external classification dependencies or deployment data change.
+VAULT_CLASSIFIER_VERSION = 1
+
+
+def create_vault_classifier_signature() -> str:
+    """Version classification helpers, probe definitions and module data together.
+
+    Hashing the complete module covers helper and deployment-map edits. The
+    explicit version must also be bumped for external dependency/data changes.
+    Comments and formatting are included in this conservative hash too: any
+    change to this file invalidates cached classifications on the next scan.
+    Lead-scan core logs that invalidation as a measurement event, because a
+    catalogue refresh temporarily adds probes to the RPC reduction comparison.
+
+    :return: Stable classifier provenance for finite-lived sidecars.
+    """
+    return hashlib.sha256(Path(__file__).read_bytes() + str(VAULT_CLASSIFIER_VERSION).encode()).hexdigest()
+
+
 def probe_vaults(
     chain_id: int,
     web3factory: Web3Factory,
@@ -1880,8 +1920,31 @@ def probe_vaults(
     block_identifier: BlockIdentifier,
     max_workers=8,
     progress_bar_desc: str | None = None,
+    current_state: bool = False,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> Iterable[VaultFeatureProbe]:
     """Perform multicalls against each vault address to extract the features of the vault smart contract.
+
+    Lead discovery calls this only for classifications that lack valid cached
+    provenance. Results are buffered per address because a chunk can contain
+    probes for multiple candidates. A task-local feature-probe counter is merged
+    once into the phase accumulator even if a later chunk fails, preserving the
+    physical cost of partial work without transferring parent counter history.
+
+    :param greylist:
+        Caller-selected targets on this chain; defaults to empty. Passed to the
+        chunked reader for isolation while keeping transport failures strict,
+        rather than recording an unavailable RPC response as a contract feature.
+    :param chain_id: Chain namespace for probe selection and worker verification.
+    :param web3factory: Worker connection factory with optional phase accounting.
+    :param addresses: Candidate vault addresses selected for fresh ABI probes.
+    :param block_identifier: Requested source block for historical/default probes.
+    :param max_workers: Maximum concurrent joblib workers.
+    :param progress_bar_desc: Optional label for observable probe progress.
+    :param current_state:
+        Live scans use threads. Live HyperEVM reads refresh a numeric head before
+        each batch to stay within its execution window. Historical callers retain
+        pinned blocks and the multiprocessing backend.
 
     :return:
         Iterator of what vault smart contract features we detected for each potential vault address
@@ -1889,23 +1952,43 @@ def probe_vaults(
 
     assert type(chain_id) == int
 
+    # IP Vault has one explicitly registered deployment and needs no ABI probes,
+    # including when discovery uses this batched path instead of autodetection.
+    if chain_id == ROYALTY_CHAIN_ID and any(address.lower() == ROYALTY_VAULT_ADDRESS for address in addresses):
+        yield VaultFeatureProbe(address=ROYALTY_VAULT_ADDRESS, features={ERC4626Feature.asseto_royalty_like})
+        addresses = [address for address in addresses if address.lower() != ROYALTY_VAULT_ADDRESS]
+        if not addresses:
+            return
+
     probe_calls = list(create_probe_calls(addresses, chain_id=chain_id))
 
-    # Temporary work buffer were we count that all calls to the address have been made,
-    # because results are dropping in one by one
+    # Decode features only once all subcalls have been collected for an address;
+    # batching can split one candidate's ABI probes across multiple chunks.
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
-    for call_result in read_multicall_chunked(
-        chain_id,
-        web3factory,
-        probe_calls,
-        block_identifier=block_identifier,
-        progress_bar_desc=progress_bar_desc,
-        max_workers=max_workers,
-    ):
-        address = call_result.call.address
-        address_calls = results_per_address[address]
-        address_calls[call_result.call.func_name] = call_result
+    parent_stats = getattr(web3factory, "rpc_request_stats", None)
+    probe_stats = RPCRequestStats(operation="feature_probe") if parent_stats is not None else None
+    try:
+        for call_result in read_multicall_chunked(
+            chain_id,
+            web3factory,
+            probe_calls,
+            block_identifier=block_identifier,
+            progress_bar_desc=progress_bar_desc,
+            max_workers=max_workers,
+            backend="threading" if current_state else "loky",
+            rpc_request_stats=probe_stats,
+            timestamped_results=False,
+            refresh_current_block=current_state and chain_id == 999,
+            greylist=greylist,
+        ):
+            address = call_result.call.address
+            address_calls = results_per_address[address]
+            address_calls[call_result.call.func_name] = call_result
+
+    finally:
+        if parent_stats is not None:
+            parent_stats.merge(probe_stats)
 
     for address, address_call_results in results_per_address.items():
         # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
@@ -1993,6 +2076,7 @@ def detect_vault_features(
     verbose=True,
     web3factory: Web3Factory | None = None,
     chunk_size: int = DETECT_VAULT_FEATURES_CHUNK_SIZE,
+    greylist: frozenset[HexAddress] = frozenset(),
 ) -> set[ERC4626Feature]:
     """Detect the ERC-4626 features of a vault smart contract.
 
@@ -2023,11 +2107,10 @@ def detect_vault_features(
     :param web3:
         Web3 connection to use.
 
-        Legacy parameter, kept first for backwards compatibility. It is wrapped
-        in :py:class:`~eth_defi.event_reader.web3factory.SimpleWeb3Factory` on
-        demand, so existing ``detect_vault_features(web3, address)`` callers get
-        batching without any change. Prefer ``web3factory`` in new code. May be
-        omitted when ``web3factory`` is given.
+        Legacy parameter, kept first for backwards compatibility. The private
+        Multicall reader uses it directly, so existing
+        ``detect_vault_features(web3, address)`` callers retain batching. Supply
+        either a connection used as-is or a factory that creates it once.
 
     :param address:
         Vault smart contract address to probe.
@@ -2036,15 +2119,16 @@ def detect_vault_features(
         Disable for command line scripts
 
     :param web3factory:
-        Factory that creates a Web3 connection. Preferred over ``web3``.
+        Factory that creates a Web3 connection when ``web3`` is omitted.
 
-        Passed to a private
-        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`;
-        when omitted, ``web3`` is used directly. The reader is constructed per
-        call on purpose — ``read_multicall_chunked()`` memoises one reader per
-        chain id in a thread-local, which would reuse an earlier connection (for
-        example an Anvil fork from a previous test) for a later call on the same
-        chain. Detection always talks to the connection you pass in.
+        Called once: chain/head selection and the private
+        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`
+        use the same connection. An explicitly supplied ``web3`` takes precedence.
+        The reader is constructed per
+        call on purpose. ``read_multicall_chunked()`` caches worker-local sessions
+        by chain, factory/provider identity and isolation policy. A private reader
+        keeps one-off detection tied to the exact caller-owned connection rather
+        than the lifetime of a reusable worker session.
 
     :param chunk_size:
         How many probe calls to pack into a single Multicall3 request.
@@ -2053,15 +2137,20 @@ def detect_vault_features(
         node rejects a batch on gas or response-size limits; raising it trades
         that risk for fewer round-trips.
 
+    :param greylist:
+        Caller-selected isolated targets on this chain, empty by default. CLI
+        entrypoints select chain policy; this library detector stays generic
+        and retains strict transport failures.
+
     :return:
         Detected vault features, to pass to :py:func:`create_vault_instance`.
     """
 
     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
 
-    # Accept either calling convention. A bare Web3 is wrapped in
-    # SimpleWeb3Factory on demand, so legacy callers get multicall batching
-    # without changing anything.
+    # Accept both calling conventions while retaining connection ownership.
+    # Factory callers create their connection here; legacy callers supply the
+    # exact Web3 instance the private reader must continue to use.
     assert web3 is not None or web3factory is not None, "Give either web3 or web3factory"
     if web3 is None:
         web3 = web3factory()
@@ -2082,13 +2171,13 @@ def detect_vault_features(
     # Batch the probes through Multicall3 instead of issuing one eth_call each.
     #
     # Deliberately construct a private reader bound to *this* connection rather
-    # than calling read_multicall_chunked(): that helper memoises a reader per
-    # chain id in a thread-local (`_reader_instance`), so a reader created
-    # earlier on the same thread — e.g. by a test using an Anvil fork — would be
-    # silently reused for a later live-RPC call on the same chain and query the
-    # wrong node ("BlockOutOfRangeError: block height is X but requested Y").
-    # Detection must always talk to the connection the caller handed us.
-    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size)
+    # than joining the reusable worker cache in read_multicall_chunked(). The
+    # cache distinguishes provider and policy identity, but one-off detection
+    # still owns an exact connection lifetime (including mutable fork state).
+    # Reuse the connection already used for chain/head selection. Calling the
+    # factory again would pay for setup twice and could probe a different fork
+    # or provider from the one whose block and hardcoded features we selected.
+    reader = MultiprocessMulticallReader(web3, batch_size=chunk_size, greylist=greylist)
 
     results = {}
     for call_result in reader.process_calls(
@@ -2190,6 +2279,10 @@ def create_vault_instance(
         from eth_defi.yield_basis.vault import YieldBasisVault
 
         return YieldBasisVault(web3, spec, **kwargs)
+    elif ERC4626Feature.flying_tulip_stable_like in features:
+        from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipStableVault
+
+        return FlyingTulipStableVault(web3, spec, **kwargs)
     elif ERC4626Feature.flying_tulip_like in features:
         from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipVault
 
@@ -2239,7 +2332,7 @@ def create_vault_instance(
 
         return OdaFactVault(web3, spec, **kwargs)
     elif ERC4626Feature.shift_like in features:
-        from eth_defi.tokenised_fund.shift.vault import ShiftVault
+        from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 
         return ShiftVault(web3, spec, **kwargs)
     elif ERC4626Feature.midas_like in features:
@@ -2258,10 +2351,22 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.openeden.vault import OpenEdenVault
 
         return OpenEdenVault(web3, spec, **kwargs)
+    elif ERC4626Feature.asseto_royalty_like in features:
+        from eth_defi.tokenised_fund.asseto.royalty import AssetoRoyaltyVault  # noqa: PLC0415 - match the lazy protocol factory imports
+
+        return AssetoRoyaltyVault(web3, spec, **kwargs)
     elif ERC4626Feature.asseto_like in features:
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.antarctic_like in features:
+        from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
+
+        return AntarcticVault(web3, spec, **kwargs)
+    elif ERC4626Feature.infinit_like in features:
+        from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault  # noqa: PLC0415 - load optional protocol dependencies only after classification
+
+        return InfinitVault(web3, spec, **kwargs)
     elif ERC4626Feature.rysk_premium_like in features:
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
@@ -2421,6 +2526,8 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 
         return SparkVault(web3, spec, **kwargs)
+    elif ERC4626Feature.frankencoin_fcs_like in features:
+        return FrankencoinSharesVault(web3, spec, **kwargs)
     elif ERC4626Feature.frankencoin_like in features:
         from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FrankencoinVault
 
@@ -2753,6 +2860,11 @@ def create_vault_instance(
 
         return ForgeYieldsVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.arcadia_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.arcadia.vault import ArcadiaVault
+
+        return ArcadiaVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.crystalclear_like in features:
         from eth_defi.erc_4626.vault_protocol.crystalclear.vault import CrystalClearVault
 
@@ -2787,6 +2899,8 @@ def create_vault_instance_autodetect(
 #:
 HARDCODED_PROTOCOLS = {
     **NOVA_MARKETS_HARDCODED_PROTOCOLS,
+    **{address: {ERC4626Feature.infinit_like} for address in INFINIT_PRODUCTS},
+    **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,
@@ -2815,6 +2929,8 @@ HARDCODED_PROTOCOLS = {
     "0x54251e24e7e5dfc66c02ea02f41bcb2419380bad": {ERC4626Feature.barker_like},
     **SHIFT_HARDCODED_PROTOCOLS,
     **PALLAS_HARDCODED_PROTOCOLS,
+    # Asseto IP Vault: chain-scoped by _get_hardcoded_protocol_features().
+    ROYALTY_VAULT_ADDRESS: {ERC4626Feature.asseto_royalty_like},
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

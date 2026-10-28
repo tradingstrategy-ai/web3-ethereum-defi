@@ -12,6 +12,7 @@ Gnosis Safe multisignature wallet integration.
    eth_defi.safe.deployment
    eth_defi.safe.trace
    eth_defi.safe.execute
+   eth_defi.safe.sweep
    eth_defi.safe.safe_compat
    eth_defi.safe.simulate
    eth_defi.safe.tx

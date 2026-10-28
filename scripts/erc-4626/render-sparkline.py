@@ -46,7 +46,14 @@ def display_png_in_browser(title: str, png_bytes: bytes) -> None:
 
 
 def main() -> None:
-    """Render the configured vault using the publication preparation policy."""
+    """Render the configured vault using the publication preparation policy.
+
+    Read ``VAULT_ID`` from the environment and require two valid observations
+    at distinct timestamps before displaying the production-style chart.
+
+    :return:
+        ``None`` after displaying and optionally uploading the chart.
+    """
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
 
@@ -64,7 +71,7 @@ def main() -> None:
     )
 
     sparkline_data = prepare_sparkline_data(vault_prices_df[["share_price", "total_assets"]])
-    assert sparkline_data is not None, f"Vault needs at least 14 days of finite share-price history: {vault_id}"
+    assert sparkline_data is not None, f"Vault needs two valid share-price observations at distinct timestamps: {vault_id}"
 
     fig = render_sparkline_gradient(
         sparkline_data.prices_df,

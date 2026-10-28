@@ -71,8 +71,8 @@ REQUIRED_READ_HEADERS = (
 
 #: Trading Strategy address-based vault redirector URL template.
 #:
-#: See: https://tradingstrategy.ai/trading-view/vaults/address/0x2431edfcb662e6ff6deab113cc91878a0b53fb0f
-TRADING_STRATEGY_VAULT_URL_TEMPLATE = "https://tradingstrategy.ai/trading-view/vaults/address/{address}"
+#: See: https://tradingstrategy.ai/vaults/address/0x2431edfcb662e6ff6deab113cc91878a0b53fb0f
+TRADING_STRATEGY_VAULT_URL_TEMPLATE = "https://tradingstrategy.ai/vaults/address/{address}"
 
 #: Hyperliquid native vault UI URL template.
 #:

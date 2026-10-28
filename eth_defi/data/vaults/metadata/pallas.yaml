@@ -34,7 +34,7 @@ links:
   defillama:
   audits:
   fees: https://app.pallas.fund/
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/pallas
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/pallas
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/pallas/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0x9b3aa83BD833123437d4efa656E7121B7F317899

@@ -38,7 +38,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/sky
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/sky
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sky/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9

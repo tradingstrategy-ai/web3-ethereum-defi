@@ -8,7 +8,7 @@ All tests use synthetic data — no AWS or Hyperliquid API access required.
 """
 
 import datetime
-import io
+import uuid
 from decimal import Decimal
 from pathlib import Path
 
@@ -29,6 +29,7 @@ from eth_defi.hyperliquid.backfill import (
 )
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow, fetch_and_store_vault
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
+from eth_defi.hyperliquid.permission import PermissionObservation, append_permission_observation
 from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
 from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
 
@@ -689,7 +690,7 @@ def test_fetch_and_store_vault_preserves_historical_apr_on_resume(tmp_path, monk
         )
 
         fetches = iter([first_vault_info, second_vault_info])
-        monkeypatch.setattr("eth_defi.hyperliquid.daily_metrics.HyperliquidVault.fetch_metadata", lambda self: next(fetches))
+        monkeypatch.setattr("eth_defi.hyperliquid.vault.HyperliquidVault.fetch_metadata", lambda self: next(fetches))
 
         first_summary = VaultSummary(
             name="Test Vault",
@@ -996,8 +997,25 @@ def test_tombstone_stale_vaults(tmp_path):
 
 # ──────────────────────────────────────────────────────────────────────
 # deposit_closed_reason tests: verify build_raw_prices_dataframe()
-# produces correct per-row deposit state from DuckDB state columns.
+# produces correct per-row deposit state from independent source receipts.
 # ──────────────────────────────────────────────────────────────────────
+
+
+def _store_daily_permission_fixtures(db: HyperliquidDailyMetricsDatabase, rows: list[HyperliquidDailyPriceRow], relationship_type: str = "normal") -> None:
+    """Store genuine independently clocked snapshots for daily export fixtures.
+
+    Synthetic fixture receipts coincide with their price dates by construction.
+    Price-only fixture rows never create a permission or capacity observation.
+
+    :param db: Open fixture database.
+    :param rows: Price fixtures containing the explicitly supplied response flags.
+    :param relationship_type: Relationship returned by the same synthetic response.
+    :return: ``None``.
+    """
+    for row in rows:
+        if row.is_closed is not None or row.allow_deposits is not None:
+            clock = datetime.datetime.combine(row.date, datetime.time())
+            append_permission_observation(db.con, PermissionObservation(uuid.uuid4().hex, row.vault_address, permission_observed_at=clock, capacity_observed_at=clock if row.leader_fraction is not None else None, is_closed=row.is_closed, allow_deposits=row.allow_deposits, relationship_type=relationship_type, leader_fraction=row.leader_fraction, provenance="observed"))
 
 
 def test_build_raw_prices_deposits_open_healthy(tmp_path):
@@ -1011,6 +1029,7 @@ def test_build_raw_prices_deposits_open_healthy(tmp_path):
         rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
         ]
+        _store_daily_permission_fixtures(db, rows)
         db.upsert_daily_prices(rows)
         db.save()
 
@@ -1041,6 +1060,7 @@ def test_build_raw_prices_includes_account_pnl(tmp_path):
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), cumulative_pnl=0.0, cumulative_volume=10000.0, follower_count=7),
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2), share_price=1.02, tvl=102000.0, cumulative_pnl=2000.0, cumulative_volume=15000.0, daily_pnl=2000.0, follower_count=8),
         ]
+        _store_daily_permission_fixtures(db, rows)
         db.upsert_daily_prices(rows)
         db.save()
 
@@ -1072,6 +1092,7 @@ def test_build_raw_prices_low_leader_fraction_is_capacity_not_closure(tmp_path: 
         rows = [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.04),
         ]
+        _store_daily_permission_fixtures(db, rows)
         db.upsert_daily_prices(rows)
         db.save()
 
@@ -1099,6 +1120,7 @@ def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
         rows = [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.001),
         ]
+        _store_daily_permission_fixtures(db, rows, relationship_type="parent")
         db.upsert_daily_prices(rows)
         db.save()
 
@@ -1125,12 +1147,12 @@ def test_low_share_cap_not_carried_into_unobserved_row(tmp_path: Path) -> None:
     db = HyperliquidDailyMetricsDatabase(tmp_path / "metrics.duckdb")
     try:
         _setup_metrics_db_with_metadata(db, VAULT_A)
-        db.upsert_daily_prices(
-            [
-                _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.05),
-                _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2)),
-            ]
-        )
+        fixture_rows = [
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.05),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2)),
+        ]
+        _store_daily_permission_fixtures(db, fixture_rows)
+        db.upsert_daily_prices(fixture_rows)
         db.save()
 
         # 2. A stale share cannot become a newly observed zero cap.
@@ -1153,6 +1175,7 @@ def test_build_raw_prices_deposit_closed_allow_deposits(tmp_path):
         rows = [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=False, leader_fraction=0.15),
         ]
+        _store_daily_permission_fixtures(db, rows)
         db.upsert_daily_prices(rows)
         db.save()
 
@@ -1177,6 +1200,7 @@ def test_build_raw_prices_unknown_state_rows(tmp_path):
         rows = [_make_daily_price_row(VAULT_A, datetime.date(2024, 1, d)) for d in range(1, 5)] + [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 5), is_closed=False, allow_deposits=True, leader_fraction=0.15),
         ]
+        _store_daily_permission_fixtures(db, rows)
         db.upsert_daily_prices(rows)
         db.save()
 

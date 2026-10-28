@@ -32,6 +32,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
@@ -218,6 +219,30 @@ class MorphoV1Vault(ERC4626Vault):
         """Morpho curator name from the offchain GraphQL API."""
         return (self.morpho_offchain_data or {}).get("manager_name")
 
+    @property
+    def description(self) -> str | None:
+        """Return reviewed strategy copy for an address-scoped deployment.
+
+        The base ERC-4626 adapter has no description source. Reviewed entries
+        supply strategy explanations and source links, keyed by chain and
+        address so they remain available after an onchain rename.
+
+        :return: Reviewed description, or the base adapter's default.
+        """
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.description if metadata else super().description
+
+    @property
+    def short_description(self) -> str | None:
+        """Return a reviewed one-sentence strategy summary.
+
+        The chain and address identify the product even after a rename.
+
+        :return: Reviewed summary, or the base adapter's default.
+        """
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.short_description if metadata else super().short_description
+
     def get_morpho_vault_flags(self) -> set[str]:
         """Return warning type strings from vault-level Morpho API warnings.
 
@@ -320,7 +345,9 @@ class MorphoV1Vault(ERC4626Vault):
             },
         )
         try:
-            data = fee_call.call(self.web3, block_identifier)
+            data = self._get_metadata_input("fee", block_identifier)
+            if data is None:
+                data = fee_call.call(self.web3, block_identifier)
         except ValueError as e:
             logger.info(
                 "Performance read reverted on Morpho V1 vault %s: %s",
@@ -341,6 +368,17 @@ class MorphoV1Vault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()
         return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}"
+
+    def fetch_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
+        """Reuse TVL and one idle-balance read for Morpho v1 metadata.
+
+        This preserves the adapter's idle-assets liquidity definition.
+
+        :param total_assets: TVL already read at the supplied source block.
+        :param block_identifier: Common source block for both metrics.
+        :return: Idle liquidity and utilisation fraction.
+        """
+        return self.fetch_idle_lending_snapshot(total_assets, block_identifier)
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.

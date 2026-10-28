@@ -13,16 +13,16 @@ Usage:
 
 import logging
 import os
-from eth_defi.compat import native_datetime_utc_fromtimestamp
 
 from joblib import Parallel, delayed
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from web3 import Web3
 
+from eth_defi.compat import create_http_provider, native_datetime_utc_fromtimestamp
 from eth_defi.gmx.events import (
     GMX_PRICE_PRECISION,
     GMX_USD_PRECISION,
@@ -162,7 +162,7 @@ def analyse_transaction_worker(
     :return:
         Dictionary with trade data, or None if not a relevant trade
     """
-    web3 = Web3(Web3.HTTPProvider(rpc_url))
+    web3 = Web3(create_http_provider(rpc_url))
     return analyse_transaction(web3, tx_hash, trader_address)
 
 
@@ -467,7 +467,7 @@ def main():
     trade_limit = int(os.environ.get("TRADE_LIMIT", "30"))
 
     # Connect to Arbitrum
-    web3 = Web3(Web3.HTTPProvider(rpc_url))
+    web3 = Web3(create_http_provider(rpc_url))
 
     if not web3.is_connected():
         console.print("[red]Failed to connect to Arbitrum RPC[/red]")

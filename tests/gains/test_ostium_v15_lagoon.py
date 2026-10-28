@@ -41,7 +41,8 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+# 2026-10-03: Ostium is unsupported after the hack.
+pytestmark = pytest.mark.skip(reason="Ostium unsupported after the hack")
 
 #: Post-upgrade fork block (V1.5 was deployed at block 457,238,658)
 FORK_BLOCK = 470_000_000

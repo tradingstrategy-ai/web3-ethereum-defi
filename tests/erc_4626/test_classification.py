@@ -20,6 +20,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.nest.offchain_metadata import NEST_CHAIN_NAMES
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
 # Chain IDs for reference
@@ -36,6 +37,9 @@ HYPEREVM = 999
 INK = 57073
 PLASMA = 9745
 PLUME = 98866
+WORLDCHAIN = 480
+ARC = 5042
+MORPH = 2818
 
 
 def test_vault_street_hardcoded_protocol_is_ethereum_only() -> None:
@@ -166,13 +170,15 @@ def test_upshift_multi_asset_probe_is_unrestricted() -> None:
 def test_nest_probe_is_limited_to_nest_deployment_chains() -> None:
     """Avoid classifying an unrelated async vault as Nest on another chain."""
 
+    assert CHAIN_RESTRICTED_PROBES["operatorRegistry"] == set(NEST_CHAIN_NAMES) - {MORPH}
     test_address = "0x0000000000000000000000000000000000000001"
-    avalanche_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=AVALANCHE)}
-    hyperevm_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=HYPEREVM)}
+    for chain_id in (AVALANCHE, PLUME, WORLDCHAIN, ARC, BASE, MONAD, ROBINHOOD):
+        calls = {call.func_name for call in create_probe_calls([test_address], chain_id=chain_id)}
+        assert "operatorRegistry" in calls
 
-    assert "operatorRegistry" in avalanche_calls
-    assert "operatorRegistry" not in hyperevm_calls
-    assert _should_yield_probe("operatorRegistry", PLUME) is True
+    for chain_id in (HYPEREVM, MORPH):
+        calls = {call.func_name for call in create_probe_calls([test_address], chain_id=chain_id)}
+        assert "operatorRegistry" not in calls
 
 
 def test_arcus_probe_is_limited_to_robinhood_and_expected_bridge_vault() -> None:

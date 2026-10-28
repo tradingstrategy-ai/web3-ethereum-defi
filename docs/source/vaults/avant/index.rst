@@ -18,7 +18,7 @@ options through senior and junior tranches.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/avant>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/avant>`__
 - `Homepage <https://www.avantprotocol.com/>`__
 - `Documentation <https://docs.avantprotocol.com/>`__
 - `Twitter <https://x.com/avantprotocol>`__

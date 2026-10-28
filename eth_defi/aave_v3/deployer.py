@@ -309,6 +309,10 @@ The Aavec deployment localhost report belwo. Addesses seem to be deterministc:
     │ EURS-TestnetMintableERC20-Aave │ '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44' │
     └────────────────────────────────┴──────────────────────────────────────────────┘
 
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
 """
 
 import json

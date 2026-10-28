@@ -1,0 +1,27 @@
+{
+  "evidence": "Arbitrum indexed logs, successful transaction receipts, RPC call trace and Hyperliquid userNonFundingLedgerUpdates; no documentation used for movements",
+  "arbitrum_range": 518462154,
+  "deposits": 28,
+  "depositor_addresses": 22,
+  "receipt_mints": 28,
+  "receipt_burns": 0,
+  "manager_withdrawals": 0,
+  "usdc_transfer_events_touching_vault": 0,
+  "deposit_amount_usdc": "506137.385298",
+  "minted_receipts": "506137.385298",
+  "custody_to_funding_wallet_usdc": "506137.385398",
+  "bridge_deposits_usdc": [
+    "5.00",
+    "10.00",
+    "506127.39"
+  ],
+  "native_vault_deposits_usdc": [
+    "5.00",
+    "506137.39"
+  ],
+  "native_vault_withdrawal_usdc": "505859.98",
+  "native_to_xyz_cumulative_usdc": "643058",
+  "xyz_to_native_cumulative_usdc": "301500",
+  "deposit_first_utc": "2026-07-16T10:01:13+00:00",
+  "deposit_last_utc": "2026-07-26T01:02:05+00:00"
+}

@@ -19,7 +19,7 @@ loans are accessible on 11 major blockchain networks, including Ethereum, Arbitr
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/csigma-finance>`__
 - `Homepage <https://csigma.finance/>`__
 - `csUSD vault <https://www.csigma.finance/csusd>`__
 - `Medium <https://csigma.medium.com/>`__

@@ -36,7 +36,7 @@ links:
   defillama: https://defillama.com/protocol/3jane
   audits: https://docs.3jane.xyz/resources/audits
   fees:
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/3jane
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/3jane
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/threejane/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc

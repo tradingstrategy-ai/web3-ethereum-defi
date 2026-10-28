@@ -247,7 +247,7 @@ class ThrottledHypersyncClient:
         await _acquire_async(self._limiter, "stream-setup")
         return await self._client.stream(query, config)
 
-    async def get(self, query: hypersync.Query) -> hypersync.QueryResponse:
+    async def get(self, query: hypersync.Query, *, timeout: float | None = None) -> hypersync.QueryResponse:
         """Fetch one paginated Hypersync response.
 
         Unlike :py:meth:`stream`, each call represents one HTTP request and
@@ -257,10 +257,15 @@ class ThrottledHypersyncClient:
 
         :param query:
             Query for the next response page.
+        :param timeout:
+            Optional HTTP timeout in seconds, starting after the rate-limit
+            slot is acquired. Quota waits do not consume this timeout.
         :return:
             One response page and its next block boundary.
         """
         await _acquire_async(self._limiter, "get")
+        if timeout is not None:
+            return await asyncio.wait_for(self._client.get(query), timeout=timeout)
         return await self._client.get(query)
 
     async def get_chain_id(self):

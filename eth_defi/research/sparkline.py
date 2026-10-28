@@ -20,17 +20,21 @@ from eth_defi.vault.base import VaultSpec
 #: Width of the time axis used by published vault sparklines.
 DEFAULT_SPARKLINE_WINDOW = pd.Timedelta(days=90)
 
-#: Minimum elapsed finite share-price history required for publication.
-MIN_SPARKLINE_HISTORY = pd.Timedelta(days=14)
+#: Optional duration floor. Publication requires two distinct valid timestamps.
+MIN_SPARKLINE_HISTORY = pd.Timedelta(0)
 
 #: Versioned visual contract used by canonical input digests and state.
-SPARKLINE_RENDERER_VERSION = 3
+SPARKLINE_RENDERER_VERSION = 5
 
 #: Public sparkline dimensions.
 SPARKLINE_SVG_WIDTH = 100
 SPARKLINE_SVG_HEIGHT = 25
 SPARKLINE_PNG_WIDTH = 300
 SPARKLINE_PNG_HEIGHT = 300
+
+#: Native 4:1 newsletter/table raster, uniformly scaled from the canonical SVG.
+SPARKLINE_TABLE_PNG_WIDTH = 300
+SPARKLINE_TABLE_PNG_HEIGHT = 75
 
 #: Stable visual style constants shared by direct renderers.
 SPARKLINE_LINE_COLOR = "#00ff88"
@@ -62,45 +66,49 @@ class SparklineCoordinates:
 
 @dataclass(slots=True)
 class SparklineData:
-    """Daily share prices and their fixed chart bounds.
+    """Daily closing prices, the initial observation and fixed chart bounds.
 
-    Every chart spans :data:`DEFAULT_SPARKLINE_WINDOW` and ends on the latest
-    UTC day containing a finite observation. A vault younger than the window
+    Charts span :data:`DEFAULT_SPARKLINE_WINDOW` unless a caller supplies a
+    different window, and end at the latest valid observation. A younger vault
     occupies only the right-hand side; the period before its first observation
     remains blank.
     """
 
-    #: Daily finite share-price observations. Established sparse vaults include
-    #: one carried observation at ``start_at``.
+    #: Valid daily closing prices and the initial price. Established sparse
+    #: vaults include one carried observation at ``start_at``.
     prices_df: pd.DataFrame
 
     #: Inclusive left edge of the chart.
     start_at: pd.Timestamp
 
-    #: Inclusive right edge and latest UTC day containing an observation.
+    #: Inclusive right edge and latest valid observation timestamp.
     end_at: pd.Timestamp
 
 
 def filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
-    """Return chart data with only finite, float share prices.
+    """Return chart rows with valid timestamps and non-negative finite prices.
 
     PyArrow-backed parquet data can expose ``share_price`` as a nullable or
     object-backed pandas series. Matplotlib compares y-axis bounds internally,
     so passing ``pd.NA`` through causes ``TypeError: boolean value of NA is
     ambiguous``.
 
+    Zero is a valid complete-loss observation. Negative prices, missing times
+    and non-finite values are excluded consistently from chart eligibility.
+
     :param vault_prices_df:
-        Single-vault price data with a ``share_price`` column.
+        Single-vault data indexed by naive UTC timestamps with a numeric or
+        nullable ``share_price`` column.
 
     :return:
-        Copy of the input rows whose share prices are finite Python floats.
+        Copy of valid rows with ``share_price`` converted to floating point.
 
     :raise ValueError:
         If the vault has no finite share-price observations to render.
     """
     numeric_prices = pd.to_numeric(vault_prices_df["share_price"], errors="coerce")
     numeric_values = numeric_prices.to_numpy(dtype=float, na_value=np.nan)
-    finite_mask = np.isfinite(numeric_values)
+    finite_mask = np.isfinite(numeric_values) & (numeric_values >= 0) & ~vault_prices_df.index.isna()
     if not finite_mask.any():
         message = "Cannot render sparkline without finite share prices"
         raise ValueError(message)
@@ -117,26 +125,27 @@ def prepare_sparkline_data(
 ) -> SparklineData | None:
     """Prepare one vault's observations for a fixed-width sparkline.
 
-    Eligibility is based on elapsed time between the first and latest finite
-    source observations, not row count. Once that span reaches two weeks by
-    default, observations are reduced to daily points. Charts always retain a
-    90-day axis by default. Young vaults leave the period before their first
-    observation blank, while older sparse vaults carry their last pre-window
-    value to the left boundary.
+    Two valid observations at distinct timestamps suffice, even on the first
+    day. Daily closing observations keep their actual timestamps, and the
+    initial observation is retained so its first day's movement is visible.
+    Charts retain a 90-day axis by default. Young vaults leave the period before
+    their first observation blank, while older sparse vaults carry their last
+    pre-window value to the left boundary.
 
     :param vault_prices_df:
         Single-vault data indexed by naive UTC timestamps with a
         ``share_price`` column.
     :param minimum_history:
-        Minimum elapsed finite share-price history required for publication.
+        Optional elapsed-history floor. Defaults to zero; two distinct valid
+        observation timestamps are still required.
     :param window:
         Full elapsed time represented by the horizontal axis.
     :return:
-        Daily observations and chart bounds, or ``None`` when the finite price
-        history is shorter than ``minimum_history``.
+        Daily closes, initial price and chart bounds, or ``None`` when there
+        are fewer than two distinct valid timestamps or history is too short.
     """
     assert isinstance(vault_prices_df.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got {type(vault_prices_df.index)}"
-    assert minimum_history > pd.Timedelta(0), f"Minimum history must be positive, got {minimum_history}"
+    assert minimum_history >= pd.Timedelta(0), f"Minimum history must be non-negative, got {minimum_history}"
     assert window >= minimum_history, f"Sparkline window {window} must cover minimum history {minimum_history}"
 
     try:
@@ -144,13 +153,16 @@ def prepare_sparkline_data(
     except ValueError:
         return None
 
-    if finite_prices_df.index[-1] - finite_prices_df.index[0] < minimum_history:
+    source_span = finite_prices_df.index[-1] - finite_prices_df.index[0]
+    if source_span <= pd.Timedelta(0) or source_span < minimum_history:
         return None
 
-    # Eligibility uses exact source timestamps. Published charts use day
-    # boundaries so the final plotted point reaches the fixed axis edge.
-    daily_prices_df = finite_prices_df.resample("D").last().dropna(subset=["share_price"])
-    end_at = daily_prices_df.index[-1]
+    # Keep real sample times and the initial price instead of assigning the
+    # first day's closing price as the apparent beginning of the investment.
+    daily_prices_df = finite_prices_df.groupby(finite_prices_df.index.normalize()).tail(1)
+    if daily_prices_df.index[0] != finite_prices_df.index[0]:
+        daily_prices_df = pd.concat((finite_prices_df.iloc[:1], daily_prices_df))
+    end_at = finite_prices_df.index[-1]
     start_at = end_at - window
     visible_prices_df = daily_prices_df.loc[(daily_prices_df.index > start_at) & (daily_prices_df.index <= end_at)]
 
@@ -384,6 +396,36 @@ def render_sparkline_svg(
     gradient_end_y = _format_svg_number(coordinates.baseline_y)
     svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{gradient_end_y}"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
     return svg.encode("utf-8")
+
+
+def render_sparkline_table_png(vault_prices_df: pd.DataFrame | SparklineData | bytes) -> bytes:
+    """Rasterise the canonical website sparkline for blog and email tables.
+
+    Render the 100 x 25 SVG directly onto a 300 x 75 canvas. Uniform scaling
+    preserves the observations, step path, time bounds, vertical padding,
+    gradient and round joins, including a 3 px counterpart of the SVG's 1 px
+    stroke. Resizing the legacy square PNG would compress these vertically.
+
+    See the `CairoSVG conversion API <https://cairosvg.org/documentation/>`__.
+
+    :param vault_prices_df:
+        Prepared sparkline data or a single-vault DataFrame indexed by naive
+        UTC timestamps with a finite numeric ``share_price`` column. Canonical
+        SVG bytes are also accepted, allowing publication to rasterise the
+        exact SVG payload it uploads without preparing the observations twice.
+    :return:
+        Native 4:1 PNG bytes suitable for a 72 x 18 HTML image.
+    """
+    # CairoSVG loads the native libcairo when imported. Importing it here keeps
+    # vault metadata parsing, which reaches this module via eth_defi.vault.curator,
+    # usable where only the scanner image installs libcairo2.
+    from cairosvg import svg2png  # noqa: PLC0415
+
+    return svg2png(
+        bytestring=vault_prices_df if isinstance(vault_prices_df, bytes) else render_sparkline_svg(vault_prices_df),
+        output_width=SPARKLINE_TABLE_PNG_WIDTH,
+        output_height=SPARKLINE_TABLE_PNG_HEIGHT,
+    )
 
 
 @lru_cache(maxsize=4)

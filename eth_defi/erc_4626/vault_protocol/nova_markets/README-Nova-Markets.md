@@ -256,8 +256,15 @@ lifecycle returns 99999999 raw USDC after request, epoch settlement and claim,
 and leaves zero shares. The reader reports a full three-day epoch rather than
 the six-hour oracle sampling interval; withdrawal bounds are three to nine days.
 
-Result: passed. The two fork tests also passed with CI's pinned Anvil v1.3.2
-on the same date; the committed seed was refreshed from that successful run.
+Result: passed. The two fork tests passed with Anvil v1.3.2, then passed again
+with the current CI-pinned Anvil v1.8.6 after merging the updated master branch
+on the same date. The committed seed was refreshed from the successful v1.8.6
+run. On this older-glibc host the official Alpine/musl build was used:
+
+```shell
+source .local-test.env && PATH="/tmp/foundry-1.8.6-musl:$PATH" PYTHONPATH="$PWD" timeout 180s poetry run pytest tests/erc_4626/vault_protocol/test_nova_markets.py -q --tb=short
+```
+
 This is a manual provider-backed Anvil run, not a CI result. Transactions were
 submitted only to the local fork. The test is automatically runnable wherever
 `JSON_RPC_ARBITRUM` and Anvil are supplied.

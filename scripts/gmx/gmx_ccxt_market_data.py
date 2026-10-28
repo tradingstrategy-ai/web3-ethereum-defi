@@ -14,10 +14,16 @@ Usage:
 """
 
 import os
+import sys
+import traceback
 from datetime import datetime, timedelta
+
 from web3 import Web3
-from eth_defi.gmx.config import GMXConfig
+
+from eth_defi.compat import create_http_provider
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.rpc_url import redact_rpc_urls
 
 
 def format_price(price):
@@ -152,7 +158,7 @@ def main():
     # Initialize GMX CCXT wrapper
     rpc = os.environ.get("JSON_RPC_ARBITRUM", "https://arb1.arbitrum.io/rpc")
 
-    web3 = Web3(Web3.HTTPProvider(rpc))
+    web3 = Web3(create_http_provider(rpc))
     config = GMXConfig(web3)
     gmx = GMX(config)
 
@@ -173,10 +179,9 @@ def main():
         print("=" * 60 + "\n")
 
     except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
+        print(redact_rpc_urls(f"\nError: {e}"))
 
-        traceback.print_exc()
+        sys.stderr.write(redact_rpc_urls(traceback.format_exc()))
         raise
 
 

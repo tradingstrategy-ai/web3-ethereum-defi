@@ -1,0 +1,2 @@
+Official BlackOpal partner wordmark published by [Nest CMS](https://cms.nest.credit/api/images/file/BlackOpal.svg), downloaded 2026-10-06. [BlackOpal homepage](https://www.blackopal.finance/) confirms the organisation and LiquidStone II product.
+The square brand mark is the [official BlackOpal favicon](https://www.blackopal.finance/favicon.ico), 48 × 48 pixels, downloaded 2026-10-06. It is used for the formatted icon because the CMS SVG is a wide wordmark.

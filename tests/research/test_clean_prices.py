@@ -16,6 +16,8 @@ import zstandard as zstd
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
+    DAILY_VAULT_PRICE_VERSION,
+    DAILY_VAULT_PRICE_VERSION_METADATA_KEY,
     approximate_hypercore_share_prices_from_pnl_nav,
     calculate_vault_returns,
     clean_by_tvl,
@@ -78,11 +80,20 @@ def test_clean_vault_price_data(
     vault_db: Path,
     raw_price_df: Path,
     tmp_path: Path,
-):
+) -> None:
     """Test cleaning vault price data.
 
-    - Use raw Hemi prices as test sample
-    - See `extract-uncleaned-price-data-sample.py` for extraction script
+    Clean the pinned raw Hemi snapshot and verify that the daily derivative
+    preserves observations and carries the current observation-policy version.
+
+    :param vault_db:
+        Pickled metadata fixture path.
+    :param raw_price_df:
+        Raw Hemi scanner Parquet fixture path.
+    :param tmp_path:
+        Isolated destination for hourly and daily cleaned files.
+    :return:
+        ``None`` after checking schema, source rows and sidecar metadata.
     """
 
     dst = tmp_path / "cleaned-vault-prices.parquet"
@@ -116,6 +127,7 @@ def test_clean_vault_price_data(
     assert "written_at" in df.columns
 
     assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(dst).metadata
+    assert pq.read_metadata(daily_dst).metadata[DAILY_VAULT_PRICE_VERSION_METADATA_KEY] == DAILY_VAULT_PRICE_VERSION
     hourly = pd.read_parquet(dst)
     expected_daily = materialise_daily_crypto_prices(hourly)
     actual_daily = pd.read_parquet(daily_dst)
@@ -305,6 +317,28 @@ def test_remove_inactive_lead_time():
 
     assert len(vault1_rows) == 2  # rows at index 3, 4
     assert len(vault2_rows) == 1  # row at index 3 (200)
+
+
+def test_arcus_preserves_funded_history_before_share_supply_changes() -> None:
+    """Preserve funded pToken prices before the next share-supply change.
+
+    Initial zero supply remains inactive, but funded observations must survive
+    even when subsequent market moves occur without another deposit.
+
+    :return:
+        ``None``; validates the three retained numeric price observations.
+    """
+    frame = pd.DataFrame(
+        {
+            "id": ["arcus"] * 4,
+            "protocol": ["Arcus"] * 4,
+            "total_supply": [0, 104.999132, 104.999132, 105.112491],
+            "share_price": [0, 96.606690, 92.0, 88.349833],
+        },
+        index=pd.date_range("2026-09-24", periods=4, freq="h"),
+    )
+    result = remove_inactive_lead_time(frame, logger=lambda _: None)
+    assert result["share_price"].tolist() == [96.606690, 92.0, 88.349833]
 
 
 def test_remove_inactive_lead_time_with_duplicate_timestamps():
@@ -1316,6 +1350,29 @@ def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     assert all(v is None for v in evm_rows.column("account_pnl").to_pylist())
     assert all(v is None for v in evm_rows.column("leader_fraction").to_pylist())
     assert all(v is None for v in evm_rows.column("hypercore_source").to_pylist())
+
+
+@pytest.mark.parametrize(("protocol", "expected"), [("Arcus", 60.0), ("Morpho", 100.0)])
+def test_outlier_repair_preserves_leveraged_ptoken_moves(protocol: str, expected: float) -> None:
+    """Preserve leveraged pToken moves while retaining generic spike repair.
+
+    Use the same numeric price path for Arcus and a generic lending vault so
+    the exception cannot disable repair for unrelated protocols.
+
+    :param protocol:
+        Protocol classification carried by the cleaned price rows.
+    :param expected:
+        Expected middle share price after repair.
+    :return:
+        ``None``; validates the cleaned prices and original audit prices.
+    """
+    prices = pd.DataFrame(
+        {"id": ["4663-0xvault"] * 3, "protocol": [protocol] * 3, "share_price": [100.0, 60.0, 100.0]},
+        index=pd.date_range("2026-09-24", periods=3, freq="h", name="timestamp"),
+    )
+    result = fix_outlier_share_prices(prices, logger=lambda _: None, look_back_hours=1, look_ahead_hours=1)
+    assert result["share_price"].tolist() == [100.0, expected, 100.0]
+    assert result["raw_share_price"].tolist() == [100.0, 60.0, 100.0]
 
 
 def test_fix_outlier_ipor_tau_yield_bond_spike():

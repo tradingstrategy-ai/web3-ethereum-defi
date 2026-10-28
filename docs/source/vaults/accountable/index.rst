@@ -38,7 +38,7 @@ be reported as KYC.
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/accountable>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/accountable>`__
 - `Homepage <https://www.accountable.capital/>`__
 - `Twitter <https://x.com/AccountableData>`__
 - `LinkedIn <https://www.linkedin.com/company/accountablecapital/>`__

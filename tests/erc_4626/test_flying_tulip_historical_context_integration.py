@@ -4,6 +4,7 @@ import asyncio
 import os
 from pathlib import Path
 
+import flaky
 import pytest
 
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -26,6 +27,9 @@ FLYING_TULIP_ETHEREUM_EPOCH_264_BLOCK = 25_822_053
 FLYING_TULIP_ETHEREUM_EPOCH_ID = 264
 
 
+# First observed 2026-09-30: CI stream initialisation failed on a temporary
+# eth.hypersync.xyz DNS lookup; the same real-provider test passed locally.
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_fetch_real_epoch_settlement_through_hypersync() -> None:
     """Stream a real sftUSD epoch event without mocks.
 

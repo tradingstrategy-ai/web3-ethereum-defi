@@ -19,7 +19,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
-from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_MATURITY_DATE, YNRWAX_VAULT_ADDRESS, YieldNestVault
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
@@ -29,6 +29,7 @@ from eth_defi.token import USDC_WHALE
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.flag import YIELDNEST_YNRWAX, VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -64,9 +65,30 @@ def yieldnest_snapshot(anvil_ethereum_fork: AnvilLaunch) -> Iterator[None]:
     yield from evm_snapshot_revert(anvil_ethereum_fork)
 
 
+# On 2026-10-22 CI failed deterministically because the wall clock had passed
+# maturity. Pin all three clock scenarios independently of the fixed fork.
+@pytest.mark.parametrize(
+    "now,expected_lock_up",
+    (
+        (YNRWAX_MATURITY_DATE - datetime.timedelta(days=1), datetime.timedelta(days=1)),
+        (YNRWAX_MATURITY_DATE, None),
+        (YNRWAX_MATURITY_DATE + datetime.timedelta(days=1), None),
+    ),
+    ids=("before-maturity", "at-maturity", "after-maturity"),
+)
 @flaky.flaky
-def test_yieldnest_ynrwax_metadata(web3: Web3) -> None:
-    """Read YieldNest ynRWAx vault metadata and capability."""
+def test_yieldnest_ynrwax_metadata(web3: Web3, monkeypatch: pytest.MonkeyPatch, now: datetime.datetime, expected_lock_up: datetime.timedelta | None) -> None:
+    """Read YieldNest metadata and check both sides of its maturity boundary.
+
+    Contract assertions use the shared fixed fork, while the adapter's public
+    lock-up estimate uses an explicit clock so this test cannot expire.
+
+    :param web3: Connection to the shared Ethereum fork.
+    :param monkeypatch: Fixture for replacing the adapter clock.
+    :param now: Naive UTC date to use for the lock-up estimate.
+    :param expected_lock_up: Exact remaining term, or no term at/after maturity.
+    :return: None.
+    """
     vault = create_vault_instance_autodetect(web3, vault_address=YNRWAX_VAULT_ADDRESS)
 
     assert isinstance(vault, YieldNestVault)
@@ -87,12 +109,14 @@ def test_yieldnest_ynrwax_metadata(web3: Web3) -> None:
 
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
-    assert vault.get_risk() is VaultTechnicalRisk.low
+    # The maintained 2026-10-23 liquidation notice applies independently of the
+    # historical fork block and the maturity clock scenarios below.
+    assert VaultFlag.illiquid in vault.get_flags()
+    assert YIELDNEST_YNRWAX in vault.get_notes()
+    assert vault.get_risk() is VaultTechnicalRisk.blacklisted
 
-    lock_up = vault.get_estimated_lock_up()
-    assert lock_up is not None
-    assert isinstance(lock_up, datetime.timedelta)
-    assert lock_up.days > 0
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.yieldnest.vault.native_datetime_utc_now", lambda: now)
+    assert vault.get_estimated_lock_up() == expected_lock_up
 
     assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False

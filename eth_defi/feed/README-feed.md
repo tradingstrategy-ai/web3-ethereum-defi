@@ -368,12 +368,17 @@ The collector currently supports LinkedIn company feeds only. It does not yet
 support LinkedIn personal profiles or organisations that require a different
 route structure.
 
-Real live bridge examples that were verified during implementation on
-2026-04-03:
+Real live bridge example verified on 2026-10-26:
 
-- `https://rsshub.pseudoyu.com/linkedin/company/gauntlet-xyz/posts`
-- `https://rss.owo.nz/linkedin/company/gauntlet-xyz/posts`
-- `https://rsshub.umzzz.com/linkedin/company/gauntlet-xyz/posts`
+- `https://rsshub-balancer.virworks.moe/linkedin/company/gauntlet-xyz/posts`
+
+The bridges verified on 2026-04-03 (`rsshub.pseudoyu.com`, `rss.owo.nz` and
+`rsshub.umzzz.com`) stopped serving LinkedIn on 2026-10-10. Public RSSHub
+instances are community-run and change often; to find a replacement, probe the
+[public instance list](https://docs.rsshub.app/guide/instances) with a known
+company and override the default with `LINKEDIN_FEED_URL_TEMPLATES`.
+Self-hosting RSSHub on the production host does not help: LinkedIn redirects
+its datacenter IP to the login wall (HTTP 999).
 
 ### Feed parsing
 

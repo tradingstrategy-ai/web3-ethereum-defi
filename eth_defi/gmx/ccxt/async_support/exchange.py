@@ -75,6 +75,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.rpc_url import register_rpc_url
 from eth_defi.token import fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 
@@ -715,6 +716,7 @@ class GMX(Exchange):
         # Note: AsyncWeb3 requires async provider
         # Store sync_web3 for use with sync helper functions (extract_order_key_from_receipt, decode_gmx_event)
         self.sync_web3 = create_multi_provider_web3(self._rpc_url)
+        register_rpc_url(self._rpc_url)
         self.web3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self._rpc_url))
 
         # Detect chain
@@ -1054,7 +1056,7 @@ class GMX(Exchange):
         :rtype: dict
         """
         # Try disk cache first
-        if self._market_cache:
+        if self._market_cache is not None:
             try:
                 cached_markets = self._market_cache.get_markets(
                     loading_mode="rest_api",
@@ -1311,7 +1313,7 @@ class GMX(Exchange):
             self.symbols = list(self.markets.keys())
 
             # Save to disk cache
-            if self._market_cache and self.markets:
+            if self._market_cache is not None and self.markets:
                 try:
                     self._market_cache.set_markets(
                         data=self.markets,
@@ -1741,7 +1743,7 @@ class GMX(Exchange):
 
         # Try disk cache first
         cached_apy = None
-        if self._market_cache:
+        if self._market_cache is not None:
             try:
                 cached_apy = self._market_cache.get_apy(period=period, check_expiry=True)
                 if cached_apy:
@@ -1762,7 +1764,7 @@ class GMX(Exchange):
                 cached_apy = apy_response.get("markets", {}) if isinstance(apy_response, dict) else {}
 
                 # Save to disk cache
-                if self._market_cache and cached_apy:
+                if self._market_cache is not None and cached_apy:
                     try:
                         self._market_cache.set_apy(
                             data=cached_apy,

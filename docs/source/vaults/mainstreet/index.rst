@@ -23,7 +23,7 @@ Key features:
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/mainstreet-finance>`__
 - `Homepage <https://mainstreet.finance/>`__
 - `Documentation <https://mainstreet-finance.gitbook.io/mainstreet.finance>`__
 - `GitHub <https://github.com/Mainstreet-Labs/mainstreet-core>`__

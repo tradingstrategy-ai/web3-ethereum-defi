@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.erc_4626.discovery_base import LeadScanReport, VaultDiscoveryBase
 from eth_defi.erc_4626.hypersync_discovery import HypersyncCrappedOut, HypersyncVaultDiscover
@@ -42,6 +43,7 @@ def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
     """Verify the base discovery workflow sees the clipped end block and lead sources."""
     discover = _create_discover(rpc_height=200)
     hardcoded_lead_sources = (("Test protocol", ()),)
+    greylist = frozenset({HexAddress("0x0000000000000000000000000000000000000001")})
 
     with (
         patch(
@@ -59,6 +61,7 @@ def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
             end_block=200,
             display_progress=False,
             hardcoded_lead_sources=hardcoded_lead_sources,
+            greylist=greylist,
         )
 
     assert report.end_block == 150
@@ -67,6 +70,7 @@ def test_hypersync_vault_discovery_scan_uses_clipped_end_block():
         150,
         display_progress=False,
         hardcoded_lead_sources=hardcoded_lead_sources,
+        greylist=greylist,
     )
 
 

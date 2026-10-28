@@ -16,12 +16,13 @@ import logging
 import os
 from typing import List
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.chainlink.round_data import fetch_chainlink_round_data
-from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, EnzymeDeployment, ARBITRUM_DEPLOYMENT
-from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed, UnsupportedBaseAsset
+from eth_defi.compat import create_http_provider
+from eth_defi.enzyme.deployment import ARBITRUM_DEPLOYMENT, POLYGON_DEPLOYMENT, EnzymeDeployment
+from eth_defi.enzyme.price_feed import EnzymePriceFeed, UnsupportedBaseAsset, fetch_price_feeds
 from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.token import fetch_erc20_details
@@ -35,7 +36,7 @@ def main():
     json_rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     assert json_rpc_url, f"You need to give JSON_RPC_ARBITRUM environment variable pointing ot your full node"
 
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(create_http_provider(json_rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

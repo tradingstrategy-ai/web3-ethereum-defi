@@ -10,7 +10,7 @@ On the lending side, 40acres operates a peer-to-pool model with ERC-4626-complia
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/40acres>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/40acres>`__
 - `Homepage <https://www.40acres.finance/>`__
 - `Documentation <https://docs.40acres.finance/>`__
 - `Twitter <https://x.com/40acres_finance>`__

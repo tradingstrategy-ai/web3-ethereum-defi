@@ -5,7 +5,8 @@ perpetual instruments and stores them in a local DuckDB database.
 
 The scan is resumeable — running it again fetches only new data
 since the last sync.  On first run it fetches the full available
-history (up to ~2 years back).
+v3 history available from the replacement API. Existing legacy v2 rows are
+preserved; the v3 API does not currently serve the full older history.
 
 Usage::
 

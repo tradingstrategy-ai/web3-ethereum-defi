@@ -29,7 +29,7 @@ links:
   defillama: https://defillama.com/protocol/d2-finance
   audits: https://gitbook.d2.finance/security-and-contracts/smart-contract-audits
   fees: https://gitbook.d2.finance/protocol/strategies-strategy-vaults
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/d2-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/d2_finance/index.html
 # D2's official links page also lists Medium and Discord, but the current
 # VaultProtocolLinks export schema has no fields for these links.

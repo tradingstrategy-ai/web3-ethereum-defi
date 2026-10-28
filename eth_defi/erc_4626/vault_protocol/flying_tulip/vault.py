@@ -1,4 +1,4 @@
-"""Flying Tulip sftUSD vault adapter and contextual historical reader.
+"""Flying Tulip staking adapters with separate FT and ftUSD reward accounting.
 
 sftUSD is an ERC-4626 vault with separately claimable FT rewards. The
 contextual reader emits a non-redeemable, reinvested
@@ -14,13 +14,14 @@ import datetime
 from collections.abc import Iterable
 from functools import cached_property
 from pathlib import Path
+from typing import Any
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, FlyingTulipSharePriceObservation
 from eth_defi.erc_4626.vault_protocol.flying_tulip.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -146,7 +147,109 @@ class FlyingTulipHistoricalReader(VaultHistoricalReader):
             yield from (self._create_share_price_read(observation) for observation in observations)
 
 
-class FlyingTulipVault(ERC4626Vault):
+class _FlyingTulipVaultBase(ERC4626Vault):
+    """Share staking metadata and the reviewed USDC conversion-fee convention.
+
+    The two products use the same fees, application and strategy-tag lookup.
+    Reward accounting and transaction capabilities remain in the concrete
+    adapters so ssftUSD cannot inherit sftUSD's synthetic FT reward history.
+    """
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return Flying Tulip's zero direct management fee.
+
+        See https://docs.flyingtulip.com/product-suite/ft-usd/ for the
+        staking products and their separate stablecoin conversion route.
+
+        :param block_identifier:
+            Retained common interface argument; fees are reviewed snapshots.
+        :return:
+            ``0.0``.
+        """
+
+        del block_identifier
+        return 0.0
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return Flying Tulip's zero direct performance fee.
+
+        The products' different treasury reward allocations are not vault
+        performance fees.
+
+        See https://docs.flyingtulip.com/product-suite/ft-usd/ for the
+        staking products and their separate stablecoin conversion route.
+
+        :param block_identifier:
+            Retained common interface argument; fees are reviewed snapshots.
+        :return:
+            ``0.0``.
+        """
+
+        del block_identifier
+        return 0.0
+
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return the USDC-funded Flying Tulip vault-equivalent entry fee.
+
+        Direct ftUSD staking into either product is fee-free. For consistent
+        comparison with USDC-denominated vaults, the common fee field models
+        the preceding USDC-to-ftUSD mint fee instead.
+
+        See https://docs.flyingtulip.com/product-suite/ft-usd/ for the
+        staking products and their separate stablecoin conversion route.
+
+        :param block_identifier:
+            Retained common interface argument; fees are reviewed snapshots.
+        :return:
+            Chain-specific externalised USDC entry fee.
+        """
+
+        del block_identifier
+        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
+
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return the USDC-funded Flying Tulip vault-equivalent exit fee.
+
+        Direct withdrawals from either product incur no staking fee. For
+        comparison with USDC-denominated vaults, the common fee field models
+        the separate ftUSD-to-USDC redemption fee instead. Withdrawal
+        settlement remains subject to each product's circuit-breaker flow.
+
+        See https://docs.flyingtulip.com/product-suite/ft-usd/ for the
+        staking products and their separate stablecoin conversion route.
+
+        :param block_identifier:
+            Retained common interface argument; fees are reviewed snapshots.
+        :return:
+            Chain-specific externalised USDC exit fee.
+        """
+
+        del block_identifier
+        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return conservative, address-reviewed Flying Tulip strategy tags.
+
+        :return:
+            Tag copy, or ``None`` for an unclassified reviewed deployment.
+        """
+
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Return Flying Tulip's ftUSD application page.
+
+        :param referral:
+            Unsupported referral code.
+        :return:
+            Public staking application URL.
+        """
+
+        del referral
+        return "https://flyingtulip.com/ftusd/"
+
+
+class FlyingTulipVault(_FlyingTulipVaultBase):
     """Read-only Flying Tulip sftUSD adapter.
 
     The adapter retains regular ERC-4626 principal methods. It deliberately
@@ -155,7 +258,7 @@ class FlyingTulipVault(ERC4626Vault):
     immediately delivering ftUSD.
     """
 
-    def __init__(self, web3: Web3, spec: VaultSpec, **kwargs) -> None:
+    def __init__(self, web3: Web3, spec: VaultSpec, **kwargs: Any) -> None:
         """Create an adapter only for a reviewed sftUSD proxy.
 
         :param web3:
@@ -177,8 +280,11 @@ class FlyingTulipVault(ERC4626Vault):
     def short_description(self) -> str:
         """Return the maintained sftUSD scanner summary.
 
+        The summary is plain text; Markdown is not allowed in a short
+        description. Documentation links belong in :py:meth:`get_notes`.
+
         :return:
-            Concise description explaining the external reward model.
+            Concise plain-text description explaining the external reward model.
         """
 
         return FLYING_TULIP_SHORT_DESCRIPTION
@@ -242,62 +348,6 @@ class FlyingTulipVault(ERC4626Vault):
 
         return None
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:
-        """Return Flying Tulip's zero direct management fee.
-
-        :param block_identifier:
-            Unused fee-read block.
-        :return:
-            ``0.0``.
-        """
-
-        del block_identifier
-        return 0.0
-
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
-        """Return Flying Tulip's zero direct performance fee.
-
-        :param block_identifier:
-            Unused fee-read block.
-        :return:
-            ``0.0``.
-        """
-
-        del block_identifier
-        return 0.0
-
-    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
-        """Return the USDC-funded Flying Tulip vault-equivalent entry fee.
-
-        The direct ftUSD-to-sftUSD conversion is fee-free. For consistent
-        comparison with USDC-denominated vaults, the common fee field models
-        the preceding USDC-to-ftUSD mint fee instead.
-
-        :param block_identifier:
-            Unused fee-read block.
-        :return:
-            Chain-specific externalised USDC entry fee.
-        """
-
-        del block_identifier
-        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
-
-    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
-        """Return the USDC-funded Flying Tulip vault-equivalent exit fee.
-
-        The direct sftUSD-to-ftUSD conversion is fee-free. For consistent
-        comparison with USDC-denominated vaults, the common fee field models
-        the following ftUSD-to-USDC redemption fee instead.
-
-        :param block_identifier:
-            Unused fee-read block.
-        :return:
-            Chain-specific externalised USDC exit fee.
-        """
-
-        del block_identifier
-        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
-
     def get_notes(self) -> str:
         """Explain the USDC-equivalent entry and exit fee model.
 
@@ -311,27 +361,6 @@ class FlyingTulipVault(ERC4626Vault):
         """
 
         return FLYING_TULIP_NOTES
-
-    def get_strategy_tags(self) -> set[StrategyTag] | None:
-        """Return conservative, address-reviewed Flying Tulip strategy tags.
-
-        :return:
-            Tag copy, or ``None`` for an unclassified reviewed deployment.
-        """
-
-        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return Flying Tulip's ftUSD application page.
-
-        :param referral:
-            Unsupported referral code.
-        :return:
-            Public staking application URL.
-        """
-
-        del referral
-        return "https://flyingtulip.com/ftusd/"
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
         """Mark the historical curve as non-redeemable in scanner exports.
@@ -349,3 +378,81 @@ class FlyingTulipVault(ERC4626Vault):
             "_external_reward_token": self.reward_token.address,
             "_protocol_notes": self.get_notes(),
         }
+
+
+class FlyingTulipStableHistoricalReader(ERC4626HistoricalReader):
+    """Read redeemable ssftUSD prices without a misleading capacity probe.
+
+    The vault rejects the zero-address receiver even when eligible users can
+    deposit. Price, supply and NAV use the standard ERC-4626 reader unchanged.
+    """
+
+    def should_skip_call(self, function_name: str) -> bool:
+        """Omit zero-address capacity reads alongside normal reader exclusions.
+
+        This exclusion is local to ssftUSD; other adapters retain their own
+        capacity and reader-state policies.
+
+        :param function_name:
+            Historical multicall name.
+        :return:
+            Whether the call must be omitted for this vault.
+        """
+        return function_name == "maxDeposit" or super().should_skip_call(function_name)
+
+
+class FlyingTulipStableVault(_FlyingTulipVaultBase):
+    """Read Flying Tulip's auto-compounding ftUSD staking vault.
+
+    ssftUSD rewards vest into the redeemable ERC-4626 share price. It has no
+    external FT reward curve. Standard withdrawals revert if the underlying
+    circuit breaker cannot settle synchronously.
+
+    See https://docs.flyingtulip.com/product-suite/ft-usd/ and the reviewed
+    implementation https://etherscan.io/address/0xD940d531b983557884B31fD915A1Df97bebe6e09#code.
+    """
+
+    def __init__(self, web3: Web3, spec: VaultSpec, **kwargs: Any) -> None:
+        """Create a reader for a reviewed ssftUSD chain/address pair.
+
+        The finite deployment registry prevents external-reward accounting
+        from being attached to a similarly named or unrelated contract.
+
+        :param web3:
+            Connection to the deployment chain.
+        :param spec:
+            Reviewed vault specification.
+        :param kwargs:
+            Common ERC-4626 adapter options.
+        :return:
+            ``None``.
+        """
+        expected = FLYING_TULIP_SSFTUSD_BY_CHAIN.get(spec.chain_id)
+        if expected is None or spec.vault_address.lower() != expected.lower():
+            raise ValueError(f"Unsupported Flying Tulip ssftUSD deployment: {spec}")
+        features = set(kwargs.pop("features", ()) or ())
+        if features & {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence}:
+            raise ValueError("ssftUSD cannot use the external FT reward-equivalence features")
+        features.add(ERC4626Feature.flying_tulip_stable_like)
+        super().__init__(web3, spec, features=features, **kwargs)
+
+    @property
+    def short_description(self) -> str:
+        return FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
+
+    @property
+    def description(self) -> str:
+        return FLYING_TULIP_SSFTUSD_DESCRIPTION
+
+    def can_check_deposit(self) -> bool:
+        return False
+
+    def get_historical_reader(self, stateful: bool) -> FlyingTulipStableHistoricalReader:
+        """Use ordinary share-price accounting without zero-address capacity.
+
+        :param stateful:
+            Enable persistent historical reader scheduling.
+        :return:
+            Standard ERC-4626 price reader with the ssftUSD capacity exclusion.
+        """
+        return FlyingTulipStableHistoricalReader(self, stateful=stateful)

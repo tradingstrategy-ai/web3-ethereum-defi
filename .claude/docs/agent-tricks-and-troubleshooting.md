@@ -21,6 +21,12 @@ These commands are in scope for this document and for the **Agents** gate in
 
 Equivalent wrappers or aliases for the same tools are covered as well.
 
+Besides reviews, the monthly vault report runs Claude CLI or Codex CLI
+unattended and unsandboxed, with web search, for its investability check. The
+exact commands live in `eth_defi.vault_report.vault_checks.build_agent_command()`
+and are documented in `eth_defi/vault_report/README-vault-report.md`
+(*Investability check*).
+
 ## Review rules (when one agent drives another)
 
 Apply these whenever this file is required before an agent CLI run:
@@ -154,8 +160,10 @@ Model metadata for `sol` not found. Defaulting to fallback metadata; this can de
  "message":"The 'sol' model is not supported when using Codex with a ChatGPT account."}}
 ```
 
-The **full model id `gpt-5.6-sol`** worked (confirmed by the smoke test below).
-So when a user asks for a short name like "sol", try the `gpt-5.6-<name>` form:
+The **full model id `gpt-5.6-sol`** worked (confirmed by the smoke test below)
+on that installation. This historical observation does not establish the ID
+or availability of a newer requested model. Use the explicitly requested full
+model ID and smoke-test it; do not replace its version with `5.6`.
 
 ```shell
 # Failed — bare short name rejected on this build/auth.
@@ -195,6 +203,14 @@ Notes:
   ```shell
   codex exec --json --sandbox read-only -m gpt-5.6-sol "Reply with exactly: OK" < /dev/null
   ```
+- On `codex-cli 0.155.1` (ChatGPT auth, 2026-09-25), `-m gpt-6-sol` was accepted
+  without a fallback-metadata warning and completed a full review, even though
+  the string does not appear in the installed npm package. Binary strings are
+  therefore not a complete list of usable ids; the smoke test is the check.
+- A `--sandbox read-only` Codex review cannot run this repository's pytest:
+  collection fails because Matplotlib needs a writable cache or temporary
+  directory. Run the focused tests yourself and tell the reviewer so, instead
+  of asking it to run them.
 
 ## Claude CLI
 
@@ -703,7 +719,60 @@ file before acting on it.
   a "no findings" result (see "The agent reviews the wrong tree").
 - **Clean up.** Remove `/tmp/grok-*.json` and prompt files after the run.
 
+## Kimi Code CLI
+
+Observed with `kimi` 2.0.2 (`~/.kimi-code/bin/kimi`) on 2026-09-25.
+
+- Non-interactive runs use `-p "prompt"` with `--output-format stream-json`.
+  Attach extra read-only context directories with `--add-dir`, e.g. the website
+  frontend checkout.
+- The model is chosen with `-m <alias>` from `~/.kimi-code/config.toml`.
+  K3 is `kimi-code/k3`, which defaults to `high` effort. There is no CLI flag for
+  the reasoning effort; it comes from the alias's `default_effort`. For max
+  effort, add a separate alias rather than editing the managed one. The session
+  log records the effort as `"thinkingEffort":"max"`:
+
+  ```toml
+  [models."kimi-code/k3-max"]
+  provider = "managed:kimi-code"
+  model = "k3"
+  max_context_size = 1048576
+  capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use", "dynamically_loaded_tools" ]
+  support_efforts = [ "low", "high", "max" ]
+  default_effort = "max"
+  ```
+
+- Tell Kimi explicitly that the review is read-only. It reads files and runs
+  shell commands itself.
+- A grounded plan review at max effort took about 45 minutes. Run it in the
+  background and poll the JSONL file. The run is finished when the final
+  `session.resume_hint` event appears; the review is the last assistant message
+  without tool calls.
+
+```shell
+nohup kimi -m kimi-code/k3-max --add-dir /path/to/frontend -p "$(cat prompt.txt)" \
+  --output-format stream-json < /dev/null > /tmp/kimi-review.jsonl 2> /tmp/kimi-review.err &
+```
+
 ## Cross-agent review patterns
+
+For a completed feature, bug fix or maintained content change, run
+[clean-up-for-pr](../skills/clean-up-for-pr/SKILL.md). The skill owns the
+cleanup checklist and requested reviewer models: Codex uses Claude CLI with
+Opus 5.5; Claude uses Codex CLI with GPT 6.1 sol. Resolve and smoke-test the
+exact requested model; generic `opus` examples and older model observations in
+this document do not override that selection. The invocation, tool access,
+streaming, timeout and result-validation guidance here still applies.
+
+On 2026-10-28, a local smoke test with `--model claude-opus-5-5` returned
+`OK` and reported that exact model in its initial event. This verifies Opus
+5.5 for the account used in that run; other accounts still need the smoke test.
+`gpt-6.1-sol` is the requested full Codex ID for this workflow and must be
+smoke-tested in the invoking Claude session before a substantial review.
+
+Include staged changes and untracked source files as well as unstaged diffs.
+Tell the reviewer not to invoke cleanup skills or start another reviewer, so
+the implementing agent remains responsible for a single completed review.
 
 Use the other agent as a reviewer when:
 

@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph ARB[Arbitrum - observed transactions]
+        U["22 depositor addresses"]
+        M["VaultManager<br/>0xafe4...62ee"]
+        V["Vault contract<br/>0xe646...638f<br/>No USDC transfers observed"]
+        R["inUSDC receipt token<br/>0xb5fb...5c08"]
+        S["Custody Safe<br/>0x79e7...164d"]
+        F["Funding EOA<br/>0xf246...0aaf"]
+        B["Hyperliquid bridge<br/>0x2df1...3df7"]
+        U -. "deposit(1, amount)" .-> M
+        M -. "deposit(user, amount)" .-> V
+        V -. "mint(user, amount)" .-> R
+        R -. "506,137.385298 receipts issued" .-> U
+        U -->|"16-26 Jul: 28 deposits<br/>506,137.385298 USDC<br/>Manager transferFrom"| S
+        S -->|"3 Aug: two transfers<br/>10 + 506,127.385398 USDC"| F
+        F -->|"3 Aug: three transfers<br/>5 + 10 + 506,127.39 USDC"| B
+    end
+    subgraph HL[Hyperliquid - observed account ledger]
+        H["Native perp balance<br/>0xf246...0aaf"]
+        L["Legacy native vault<br/>0x8220...7388"]
+        X["xyz collateral balance<br/>Same 0xf246...0aaf account"]
+        H -->|"3 Aug: two vault deposits<br/>5 + 506,137.39 USDC"| L
+        L -->|"6 Aug: withdrawal<br/>505,859.98 USDC"| H
+        H -->|"Aug-Oct: collateral transfers<br/>643,058 USDC cumulative"| X
+        X -->|"Sep-Oct: collateral transfers<br/>301,500 USDC cumulative"| H
+    end
+    B -->|"Matching Arbitrum transaction hashes<br/>5 + 10 + 506,127.39 USDC credited"| H

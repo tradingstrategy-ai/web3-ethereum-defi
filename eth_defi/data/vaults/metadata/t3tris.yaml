@@ -25,7 +25,7 @@ links:
   defillama:
   audits: https://lfglabs.dev/research/t3tris-hwm-performance-fee
   fees: https://github.com/t3tris-finance/mdoc-t3tris/blob/main/docs/en/02-liquidity-providers/05-understanding-fees.md
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/t3tris
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/t3tris
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/t3tris/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f

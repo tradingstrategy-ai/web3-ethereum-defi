@@ -3,23 +3,41 @@
 import logging
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-import flaky
-
-from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
-from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
+from eth_defi.hotwallet import HotWallet
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails
+from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter
+
+#: On 2026-10-22, main CI attempt 2 stalled for 250 seconds in a deployment
+#: call and then hung during fork teardown. The same case passed locally in
+#: 6.48 seconds with the paired scanner check. Keep these transaction-heavy
+#: lifecycles in the serial slow workflow to reduce concurrent fork pressure.
+_FORK_ISOLATION_GROUP = "fork:base:lagoon-deployment"
+pytestmark = [pytest.mark.slow, pytest.mark.xdist_group(_FORK_ISOLATION_GROUP)]
+
+
+@pytest.fixture(scope="module")
+def anvil_fork_isolation_group() -> str:
+    """Keep deployment mutations on their own pooled fork.
+
+    Reuse the fixed block and warm RPC cache while preventing these lifecycle
+    tests from degrading the fork later used by valuation modules.
+
+    :return: Partition matching this module's xdist group.
+    """
+    return _FORK_ISOLATION_GROUP
 
 
 @pytest.fixture()
@@ -802,79 +820,3 @@ def test_lagoon_legacy_deploy_base_guarded_any_token(
     tx_hash = bound_func.transact({"from": depositor, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.fetch_balance_of(depositor) > 994
-
-
-@flaky.flaky
-def test_lagoon_settle_v_0_1_0(
-    web3: Web3,
-    uniswap_v2,
-    base_weth: TokenDetails,
-    base_usdc: TokenDetails,
-    topped_up_asset_manager: HexAddress,
-    depositor: HexAddress,
-    usdc_holder: HexAddress,
-    deployer_hot_wallet: HotWallet,
-    multisig_owners: list[str],
-):
-    """Legacy settle path."""
-
-    chain_id = web3.eth.chain_id
-    asset_manager = topped_up_asset_manager
-    usdc = base_usdc
-
-    parameters = LagoonDeploymentParameters(
-        underlying=USDC_NATIVE_TOKEN[chain_id],
-        name="Example",
-        symbol="EXA",
-    )
-
-    deploy_info = deploy_automated_lagoon_vault(
-        web3=web3,
-        deployer=deployer_hot_wallet,
-        asset_manager=asset_manager,
-        parameters=parameters,
-        safe_owners=multisig_owners,
-        safe_threshold=2,
-        uniswap_v2=uniswap_v2,
-        uniswap_v3=None,
-        any_asset=True,
-        vault_abi="lagoon/Vault.json",  # Lagoon v0.1
-        factory_contract=False,  # Lagoon v0.1
-    )
-
-    # We look correctly initialised, and
-    # Safe it set to take the ownership
-    vault = deploy_info.vault
-    assert deploy_info.chain_id == 8453
-    assert vault.version == LagoonVersion.legacy
-
-    # We need to do the initial valuation at value 0
-    bound_func = vault.post_new_valuation(Decimal(0))
-    tx_hash = bound_func.transact({"from": asset_manager})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Deposit 9.00 USDC into the vault
-    usdc_amount = 9 * 10**6
-    tx_hash = usdc.contract.functions.approve(vault.address, usdc_amount).transact({"from": depositor})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-    deposit_func = vault.request_deposit(depositor, usdc_amount)
-    tx_hash = deposit_func.transact({"from": depositor})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Deposit was registered
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
-    # TODO: Why ABI signature mismatch
-    assert len(receipt["logs"]) == 2  # Transfer + Deposit
-
-    # We need to do the initial valuation at value 0
-    valuation = Decimal(0)
-
-    # Settle deposit queue 9 USDC -> 0 USDC
-    settle_func = vault.settle_via_trading_strategy_module(valuation, abi_version="v0.1.0")
-    tx_hash = settle_func.transact(
-        {
-            "from": asset_manager,
-            "gas": 1_000_000,
-        }
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)

@@ -15,7 +15,7 @@ Yield accrues in the Hub-derived share price; there is no explicit spoke-level f
 Links
 ~~~~~
 
-- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/aave>`__
+- `Listing <https://tradingstrategy.ai/vaults/protocols/aave>`__
 - `Homepage <https://aave.com/>`__
 - `App <https://app.aave.com/markets/>`__
 - `Documentation <https://aave.com/docs/aave-v4>`__

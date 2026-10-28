@@ -92,8 +92,15 @@ def test_gradient_sparkline_svg_is_deterministic() -> None:
     assert first_svg == second_svg
 
 
-def test_sparkline_requires_two_weeks_of_finite_price_history() -> None:
-    """Publish at exactly two weeks, but not before the threshold."""
+def test_sparkline_requires_two_distinct_valid_observations() -> None:
+    """Publish young histories without counting invalid or duplicate samples.
+
+    Same-day observations establish a chart, whereas missing prices or repeated
+    timestamps cannot meet the minimum. A caller can still require a duration.
+
+    :return:
+        ``None``; validates eligibility, retained prices and fixed chart bounds.
+    """
     start_at = pd.Timestamp("2026-08-01 12:00:00")
     index = pd.DatetimeIndex(
         [start_at, start_at + pd.Timedelta(days=13), start_at + pd.Timedelta(days=14)],
@@ -110,9 +117,27 @@ def test_sparkline_requires_two_weeks_of_finite_price_history() -> None:
     assert eligible.end_at - eligible.prices_df.index[0] == pd.Timedelta(days=14)
     assert prepare_sparkline_data(prices_df.iloc[:2]) is None
 
+    same_day = pd.DataFrame({"share_price": [96.606690, 76.246850]}, index=pd.to_datetime(["2026-09-24 12:10:57", "2026-09-24 18:37:08"]))
+    chart = prepare_sparkline_data(same_day)
+    assert chart is not None
+    assert chart.prices_df["share_price"].tolist() == [96.606690, 76.246850]
+    assert chart.prices_df.index.tolist() == same_day.index.tolist()
+    assert chart.end_at - chart.start_at == pd.Timedelta(days=90)
+    duplicate_times = same_day.copy()
+    duplicate_times.index = pd.DatetimeIndex([same_day.index[0]] * 2)
+    assert prepare_sparkline_data(duplicate_times) is None
+    assert prepare_sparkline_data(same_day, minimum_history=pd.Timedelta(days=14)) is None
+
 
 def test_short_sparkline_uses_full_90_day_axis_with_blank_left_side() -> None:
-    """A new vault's two-week line occupies only the chart's right edge."""
+    """Draw a young vault at the right edge of a full 90-day chart.
+
+    Bounds use the actual final observation time rather than its midnight label,
+    leaving the period before the first stored observation blank.
+
+    :return:
+        ``None``; validates the exact bounds and retained source timestamps.
+    """
     end_at = pd.Timestamp("2026-08-15 12:00:00")
     index = pd.date_range(end=end_at, periods=15, freq="D", name="timestamp")
     prices_df = pd.DataFrame(
@@ -130,8 +155,8 @@ def test_short_sparkline_uses_full_90_day_axis_with_blank_left_side() -> None:
     plotted_start = pd.Timestamp(fig.axes[0].lines[0].get_xdata()[0])
     plotted_end = pd.Timestamp(fig.axes[0].lines[0].get_xdata()[-1])
 
-    assert sparkline_data.start_at == end_at.normalize() - pd.Timedelta(days=90)
-    assert sparkline_data.prices_df.index[0] == (end_at - pd.Timedelta(days=14)).normalize()
+    assert sparkline_data.start_at == end_at - pd.Timedelta(days=90)
+    assert sparkline_data.prices_df.index[0] == end_at - pd.Timedelta(days=14)
     assert axis_start.floor("s") == sparkline_data.start_at
     assert axis_end.floor("s") == sparkline_data.end_at
     assert plotted_start == sparkline_data.prices_df.index[0]
@@ -240,3 +265,57 @@ def test_direct_renderers_normalise_parquet_datetime_resolution() -> None:
     coordinates = sparkline._calculate_sparkline_coordinates(prepared, width=SPARKLINE_SVG_WIDTH, height=SPARKLINE_SVG_HEIGHT, margin_ratio=4)
     assert coordinates.points[0][0] > 0.0
     assert coordinates.points[-1][0] == pytest.approx(SPARKLINE_SVG_WIDTH)
+
+
+@pytest.mark.parametrize(
+    "days, prices",
+    [
+        pytest.param([0, 45, 90], [1.0, 1.4, 1.2], id="normal"),
+        pytest.param([0, 5, 10], [1.0, 1.4, 1.2], id="short"),
+        pytest.param([0, 72, 90], [1.0, 1.4, 1.2], id="sparse-step"),
+        pytest.param([0, 45, 90], [1.0, 1.0, 1.0], id="constant"),
+    ],
+)
+def test_table_png_preserves_svg_geometry(days: list[int], prices: list[float]) -> None:
+    """Native table PNGs retain time coverage, steps, padding and stroke weight.
+
+    Decode actual raster pixels, including blank history, gradient and the
+    centre-line stroke. These checks catch a square PNG squeezed into a 4:1
+    canvas even when its final dimensions are correct.
+
+    :param days:
+        Elapsed observation days from launch.
+    :param prices:
+        Share prices at the observations.
+    """
+    index = pd.DatetimeIndex([pd.Timestamp("2026-01-01") + pd.Timedelta(days=day) for day in days])
+    data = prepare_sparkline_data(pd.DataFrame({"share_price": prices}, index=index))
+    assert data is not None
+    window_days = 90
+    green_threshold = 150
+    payload = sparkline.render_sparkline_table_png(data)
+    assert payload == sparkline.render_sparkline_table_png(data)
+    assert payload == sparkline.render_sparkline_table_png(render_sparkline_svg(data))
+    background = ImageColor.getrgb(sparkline.SPARKLINE_BACKGROUND_COLOR)
+    with Image.open(BytesIO(payload)) as image:
+        assert image.format == "PNG"
+        assert image.size == (300, 75)
+        image = image.convert("RGB")
+        if days[-1] < window_days:
+            assert image.crop((0, 0, 250, 75)).getextrema() == tuple((channel, channel) for channel in background)
+        if len(set(prices)) == 1:
+            green_rows = [y for y in range(75) if image.getpixel((150, y))[1] > green_threshold]
+            assert green_rows == [36, 37, 38]
+            assert image.getpixel((150, 20)) == background
+            assert image.getpixel((150, 50)) == background
+        else:
+            # A 4/25 margin gives approximately 9 px of padding on a 75 px canvas.
+            first_x = round(300 * (1 - days[-1] / 90))
+            step_x = round(300 * (1 - (days[-1] - days[1]) / 90))
+            low_x = (first_x + step_x) // 2
+            high_x = (step_x + 300) // 2
+            assert image.getpixel((low_x, 65))[1] > green_threshold
+            assert image.getpixel((high_x, 9))[1] > green_threshold
+            assert image.getpixel((low_x, 40)) == background
+            assert image.getpixel((high_x, 30))[1] > background[1]
+            assert image.getpixel((high_x, 70)) == background

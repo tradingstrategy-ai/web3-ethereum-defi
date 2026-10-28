@@ -23,15 +23,13 @@ import sys
 import textwrap
 
 import requests
-
-from web3 import HTTPProvider, Web3
-from eth_defi.compat import geth_poa_middleware
+from web3 import Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.compat import create_http_provider, geth_poa_middleware
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import read_events
 from eth_defi.uniswap_v2.pair import fetch_pair_details
-
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +70,7 @@ def main():
     session = requests.Session()
     session.hooks["response"].append(print_roundtrip)
 
-    web3 = Web3(HTTPProvider(json_rpc_url, request_kwargs={"timeout": TIMEOUT}, session=session))
+    web3 = Web3(create_http_provider(json_rpc_url, request_kwargs={"timeout": TIMEOUT}, session=session))
     web3.middleware_onion.clear()
     web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 

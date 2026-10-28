@@ -267,9 +267,10 @@ class MorphoMarketWarning(TypedDict):
     #: USD value of bad debt for this market, if applicable.
     bad_debt_usd: float | None
 
-    #: Bad debt as a fraction of total market supply (0.0-1.0).
+    #: Bad debt divided by the current total market supply.
     #:
     #: Example: ``0.0686`` means 6.86% of the market supply is bad debt.
+    #: Realised debt can exceed the remaining supply, so this ratio may exceed 1.
     #: Only present for ``bad_debt_unrealized`` / ``bad_debt_realized`` warnings.
     bad_debt_share: Percent | None
 

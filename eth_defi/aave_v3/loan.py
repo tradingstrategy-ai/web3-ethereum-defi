@@ -1,4 +1,10 @@
-"""Aave v3 loan"""
+"""Aave v3 loan
+
+.. warning::
+
+    Unsupported: Aave integration is no longer maintained or tested.
+    A reintegration with Aave v4 will happen in the future.
+"""
 
 from eth_typing import HexAddress
 from web3.contract.contract import Contract, ContractFunction

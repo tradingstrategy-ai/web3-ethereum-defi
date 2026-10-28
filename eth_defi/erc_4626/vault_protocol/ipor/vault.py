@@ -31,6 +31,7 @@ from eth_defi.vault.base import (
 )
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
@@ -364,11 +365,17 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
 
     @property
     def description(self) -> str | None:
-        """Full vault strategy description from IPOR's offchain customisation API.
+        """Full strategy description from reviewed copy or IPOR's API.
 
-        If the vault has a prospectus link, a markdown link is appended to the
-        description text.
+        Address-scoped handwritten copy takes precedence, including for legacy
+        deployments absent from the API. Otherwise the original customisation
+        description and optional prospectus link are retained.
+
+        :return: Reviewed or API-supplied strategy description, if available.
         """
+        handwritten = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if handwritten:
+            return handwritten.description
         metadata = self.ipor_metadata
         if not metadata:
             return None
@@ -385,7 +392,15 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
 
     @property
     def short_description(self) -> str | None:
-        """Short vault summary derived from the first sentence of the description."""
+        """Return a reviewed summary or the first sentence of IPOR's description.
+
+        Handwritten summaries also cover legacy products without API metadata.
+
+        :return: One-sentence summary when strategy metadata is available.
+        """
+        handwritten = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if handwritten:
+            return handwritten.short_description
         metadata = self.ipor_metadata
         if not metadata:
             return None
@@ -803,6 +818,17 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
     def can_check_redeem(self) -> bool:
         """IPOR maxRedeem check is unreliable, so we skip it."""
         return False
+
+    def fetch_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
+        """Reuse TVL and one idle-balance read for IPOR metadata.
+
+        This preserves the adapter's idle-assets liquidity definition.
+
+        :param total_assets: TVL already read at the supplied source block.
+        :param block_identifier: Common source block for both metrics.
+        :return: Idle liquidity and utilisation fraction.
+        """
+        return self.fetch_idle_lending_snapshot(total_assets, block_identifier)
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.

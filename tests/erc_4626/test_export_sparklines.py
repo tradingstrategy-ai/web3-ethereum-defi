@@ -104,6 +104,6 @@ def test_rendered_images_cross_joblib_process_boundary(export_sparklines_module:
 
     results = Parallel(n_jobs=2, prefer="processes")(delayed(module.render_vault_sparklines)(f"vault-{index}", sparkline_data) for index in range(2))
 
-    assert [[image["extension"] for image in vault_images] for vault_images in results] == [["svg", "png"], ["svg", "png"]]
+    assert [[image["extension"] for image in vault_images] for vault_images in results] == [["svg", "png", "png"], ["svg", "png", "png"]]
     assert all(vault_images[0]["payload"].startswith(b"<?xml") for vault_images in results)
     assert all(vault_images[1]["payload"].startswith(b"\x89PNG") for vault_images in results)

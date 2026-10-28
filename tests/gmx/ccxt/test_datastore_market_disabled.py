@@ -145,26 +145,22 @@ def test_decode_error_reason_standard_error_string():
 
     result = decode_error_reason(raw)
 
-    # Should decode or return None (Error(string) may not be in GMX_ERROR_SELECTORS
-    # but the function should still handle it gracefully)
-    logger.info("decode_error_reason Error(string) → %s", result)
+    assert result == 'Error(message: "market is disabled")'
 
 
-def test_decode_error_reason_unknown_selector_returns_none():
-    """decode_error_reason() must return None for unknown selectors."""
+def test_decode_error_reason_unknown_selector_returns_diagnostic():
+    """Unknown selectors retain their identity in the diagnostic."""
     raw = bytes.fromhex("deadbeef" + "00" * 32)
 
     result = decode_error_reason(raw)
 
-    # Should return None or a generic message — should not raise
-    logger.info("decode_error_reason unknown selector → %s", result)
+    assert result == "Unknown error (selector: 0xdeadbeef)"
 
 
 def test_decode_error_reason_empty_bytes_returns_none():
     """decode_error_reason() must not raise on empty bytes."""
     result = decode_error_reason(b"")
-    # Graceful: None or generic
-    logger.info("decode_error_reason empty bytes → %s", result)
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
