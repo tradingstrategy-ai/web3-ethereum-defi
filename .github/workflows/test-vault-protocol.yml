@@ -157,6 +157,7 @@ jobs:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
+          JSON_RPC_OPTIMISM: ${{ secrets.JSON_RPC_OPTIMISM }}
           JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}

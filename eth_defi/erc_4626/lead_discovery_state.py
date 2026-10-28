@@ -27,8 +27,8 @@ DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT = datetime.timedelta(days=7)
 # Bump this whenever a change alters values persisted by create_vault_scan_record()
 # or its protocol adapters.  The discovery cursor alone cannot detect those
 # changes, but existing rows must be regenerated before they are exported.
-# Version 6 refreshes cached discovery so both Antarctic LP leads are imported.
-VAULT_METADATA_REFRESH_VERSION = 6
+# Version 7 refreshes stored Llama liquidity/utilisation using controller debt.
+VAULT_METADATA_REFRESH_VERSION = 7
 
 
 def _remove_docstring(node: ast.AST) -> None:

@@ -316,10 +316,15 @@ def _fetch_lending_stats(
         return stats
 
     snapshot_reader = getattr(vault, "fetch_lending_snapshot", None)
+    fetch_metrics = getattr(vault, "fetch_lending_metrics", None)
     if snapshot_reader is not None:
         snapshot = _best_effort_vault_read(lambda: snapshot_reader(total_assets, block_identifier))
         if snapshot is not None:
             stats["_available_liquidity"], stats["_utilisation"] = snapshot
+    elif fetch_metrics is not None:
+        metrics = _best_effort_vault_read(lambda: fetch_metrics(block_identifier))
+        if metrics is not None:
+            stats["_available_liquidity"], stats["_utilisation"] = metrics
     else:
         stats["_available_liquidity"] = _best_effort_vault_read(lambda: vault.fetch_available_liquidity(block_identifier))
         stats["_utilisation"] = _best_effort_vault_read(lambda: vault.fetch_utilisation_percent(block_identifier))
