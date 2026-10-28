@@ -54,7 +54,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, SUMMER_FI_ILLIQUID, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -1929,6 +1929,120 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     assert exported["protocol_curator"] is True
 
 
+@pytest.mark.parametrize("manual_note_source", [None, "flag", "address", "chain", "protocol", "default"])
+def test_calculate_lifetime_metrics_exports_nova_pool_fee_mode(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    monkeypatch: pytest.MonkeyPatch,
+    manual_note_source: str | None,
+) -> None:
+    """Resolve cached unknown Nova fees through the reviewed fee matrix.
+
+    Use sample prices to verify that the public export recognises the direct
+    pool's feeless accounting without a metadata rescan. App funding charges
+    are outside this contract-level calculation.
+
+    :param vault_db: Sample scanner metadata database.
+    :param price_df: Sample prices remapped to Nova's Arbitrum deployment.
+    :param monkeypatch: Isolated changes to maintained manual note tables.
+    :param manual_note_source: A manual warning added after the strategy scan.
+    :return: ``None`` after checking the public fee schedule.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    source_spec = VaultSpec.parse_string(source_id)
+    spec = VaultSpec(42161, "0x9ca80193712f372e2ff33a00127292884f6f8598")
+    vault_row = dict(vault_db.rows[source_spec])
+    vault_row.update(
+        {
+            "Name": "Nova Conviction Pool",
+            "Address": spec.vault_address,
+            "Protocol": "Nova Markets",
+            "protocol_slug": "nova-markets",
+            "_risk": VaultTechnicalRisk.low,
+            "_notes": "Cached Conviction Pool strategy",
+            "_fees": FeeData(fee_mode=None, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0),
+            "_detection_data": replace(vault_row["_detection_data"], chain=spec.chain_id, address=spec.vault_address, features={ERC4626Feature.nova_markets_like}),
+        }
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = spec.chain_id
+
+    warning = "New manual warning added after scanning"
+    if manual_note_source == "flag":
+        monkeypatch.setitem(VAULT_FLAGS_AND_NOTES, spec.vault_address, (VaultFlag.long_duration, warning))
+    elif manual_note_source == "address":
+        monkeypatch.setitem(VAULT_NOTES, spec.vault_address, warning)
+    elif manual_note_source == "chain":
+        monkeypatch.setitem(CHAIN_SCOPED_VAULT_NOTES, (spec.chain_id, spec.vault_address), warning)
+    elif manual_note_source == "protocol":
+        monkeypatch.setitem(PROTOCOL_FLAGS_AND_NOTES, "Nova Markets", (VaultFlag.long_duration, warning))
+    elif manual_note_source == "default":
+        monkeypatch.setitem(PROTOCOL_NOTES, "Nova Markets", "Generic protocol default")
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
+
+    assert exported["fee_mode"] == "feeless"
+    assert exported["risk"] == "Dangerous"
+    assert exported["risk_numeric"] == VaultTechnicalRisk.dangerous.value
+    assert exported["net_fees"] == {"fee_mode": "feeless", "management": 0.0, "performance": 0.0, "deposit": 0.0, "withdraw": 0.0, "protocol": 0.0}
+    assert exported["lifetime_return_net"] is not None
+    assert exported["notes"] == (warning if manual_note_source in {"flag", "address", "chain", "protocol"} else "Cached Conviction Pool strategy")
+
+
+@pytest.mark.parametrize("cached_risk", [VaultTechnicalRisk.low, VaultTechnicalRisk.blacklisted])
+def test_calculate_lifetime_metrics_exports_nova_nlp_protocol_curator(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    cached_risk: VaultTechnicalRisk,
+) -> None:
+    """Export Nova NLP with Lagoon infrastructure and Nova protocol curation.
+
+    Reuse fixture prices solely to exercise the export pipeline. Cached rows
+    lacking Lagoon manager enrichment must still receive the reviewed curator
+    and its protocol-curator flag, without changing the vault's protocol.
+
+    :param vault_db: Sample scanner metadata database.
+    :param price_df: Sample hourly prices remapped to the NLP deployment.
+    :param cached_risk: Previous scan rating, including a stricter blacklist.
+    :return: ``None`` after validating the serialised public vault record.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    source_spec = VaultSpec.parse_string(source_id)
+    spec = VaultSpec(999, "0xeeed7bb939d65938fe8f40dd898cd5942e32f09e")
+    vault_row = dict(vault_db.rows[source_spec])
+    vault_row.update(
+        {
+            "Name": "Nova NLP",
+            "Share token": "sNLP",
+            "Address": spec.vault_address,
+            "Protocol": "Lagoon Finance",
+            "protocol_slug": "lagoon-finance",
+            "_risk": cached_risk,
+            "_manager_name": None,
+            "_curator_slug": None,
+            "_detection_data": replace(vault_row["_detection_data"], chain=999, address=spec.vault_address, features={ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}),
+        }
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = 999
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
+
+    assert exported["chain_id"] == spec.chain_id
+    assert exported["protocol"] == "Lagoon Finance"
+    assert exported["protocol_slug"] == "lagoon-finance"
+    assert exported["curator_slug"] == "nova-markets"
+    assert exported["curator_name"] == "Nova Markets"
+    assert exported["protocol_curator"] is True
+    expected_risk = max(cached_risk, VaultTechnicalRisk.dangerous, key=lambda level: level.value)
+    assert exported["risk"] == expected_risk.get_risk_level_name()
+    assert exported["risk_numeric"] == expected_risk.value
+
+
 def test_calculate_lifetime_metrics_uses_declared_curator_slug(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
@@ -1978,17 +2092,29 @@ def test_calculate_lifetime_metrics_does_not_infer_yearn_curator_for_excluded_va
     assert metrics.iloc[0]["curator_name"] is None
 
 
-def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
+@pytest.mark.parametrize("cached_notes", [None, "Cached strategy predating the manual warning"])
+def test_calculate_lifetime_metrics_applies_current_protocol_warning(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
+    cached_notes: str | None,
 ) -> None:
-    """Non-D2 protocol-wide notes are not newly applied in lifetime metric exports."""
+    """Apply current manual protocol warnings ahead of cached strategy notes.
+
+    Protocol warnings use the same export precedence as address warnings.
+    Cover both older cached text and a row with no scanned note.
+
+    :param vault_db: Sample scanner metadata database.
+    :param price_df: Sample price series for the exported row.
+    :param cached_notes: Strategy text from a previous scan, if any.
+    :return: ``None`` after checking the current protocol warning.
+    """
     vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
     spec = VaultSpec.parse_string(vault_id)
     vault_row = dict(vault_db.rows[spec])
     vault_row["Protocol"] = "Summer.fi"
     vault_row["_risk"] = VaultTechnicalRisk.negligible
     vault_row["_flags"] = set()
+    vault_row["_notes"] = cached_notes
     vault_prices = price_df.loc[price_df["id"] == vault_id]
 
     metrics = calculate_lifetime_metrics(
@@ -1996,8 +2122,8 @@ def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
         {spec: vault_row},
     )
 
-    note = metrics.iloc[0]["notes"] or ""
-    assert "Summer.fi vault is illiquid" not in note
+    assert metrics.iloc[0]["notes"] == SUMMER_FI_ILLIQUID
+    assert vault_row["_notes"] == cached_notes
 
 
 def test_calculate_period_metrics(

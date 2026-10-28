@@ -1,0 +1,27 @@
+name: Nova Markets
+slug: nova-markets
+short_description: |
+  USDC counterparty liquidity for Nova's perpetual markets on Arbitrum.
+long_description: |
+  [Nova Markets](https://nova.markets/) operates a perpetuals trading platform with its own Conviction Markets alongside access to Hyperliquid. Its [Conviction Pool](https://docs.nova.markets/#/conviction-pool) accepts USDC on Arbitrum and supplies shared counterparty liquidity for Nova's markets: profitable traders are paid from the pool, while fees and trader losses contribute to its capital.
+
+  Nova's [contract disclosures](https://docs.nova.markets/#/contracts) identify the pool and state that Nova controls its administration. Gains Network supplies the underlying contract design, while Nova operates the deployment. This pool is separate from Nova's Lagoon-based NLP vault on HyperEVM, which makes markets on Hyperliquid order books.
+
+  [Withdrawals and pool mechanics](https://docs.nova.markets/#/pool-mechanics) use a request and later claim, with a wait of one to three three-day epochs depending on collateralisation. Depositors bear trader PnL, USDC, oracle, smart-contract and administrative risks; Conviction Points are not guaranteed cash income. A separately dated launch announcement for this exact pool was not verified in the 28 October 2026 review.
+
+  Nova's [risk disclosures](https://docs.nova.markets/risks.md) describe operated keepers and oracles. A Nova 2-of-3 multisig controls governance: pool upgrades wait 14 days, while some trading-contract changes can use a ten-hour emergency route and market settings can change without a delay. The audit references in Nova's documentation concern upstream Gains contracts; no Nova-specific deployment audit report or attributable public development repository was verified as of 28 October 2026.
+fee_description: |
+  Direct Conviction Pool deposits and redemptions have no management, performance, entry or exit fee. Pool income and trader profit or loss accrue in the share value. Nova separately documents a flat 0.20 USDC charge for [funding a trading balance](https://docs.nova.markets/#/get-started); app funding and bridging costs are outside the direct vault fee schedule.
+
+  Nova's [published fee split](https://docs.nova.markets/#/markets) allocates 15% of opening and closing trading fees to Conviction Pool depositors, with borrowing fees and liquidation proceeds also contributing to pool income. The split can change; it describes trader fees allocated to the pool, rather than a 15% management or performance fee charged to depositors. Funding is paid between traders. See the [fee documentation](https://docs.nova.markets/#/fees) for current rates and transfer charges.
+links:
+  homepage: https://nova.markets/
+  app: https://app.nova.markets/earn/liquidity-pools
+  twitter: https://x.com/novadotmarkets
+  documentation: https://docs.nova.markets/
+  defillama: https://defillama.com/protocol/nova-markets
+  fees: https://docs.nova.markets/#/fees
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/nova-markets
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/nova_markets/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x9cA80193712F372e2ff33A00127292884F6F8598

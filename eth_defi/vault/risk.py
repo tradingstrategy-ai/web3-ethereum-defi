@@ -157,6 +157,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
+    # Manual review approved 2026-10-28: concentrated governance, operated
+    # oracles, no verified Nova-specific audit or public development history.
+    "Nova Markets": VaultTechnicalRisk.dangerous,
     "KiloEx": None,
     # Pallas uses verified upgradeable trading-vault proxies. No technical risk
     # level has been assigned yet.
@@ -364,6 +367,11 @@ REVIEWED_DISABLED_GMX_VAULTS: frozenset[HexAddress] = frozenset(
 #:
 #: Lowercase address-specific assessments, including explicit unassessed entries.
 VAULT_SPECIFIC_RISK = {
+    # Manual Nova risk decision, 2026-10-28. Include both addresses so the
+    # reviewed rating also supersedes stale scan metadata. NLP remains Lagoon.
+    # See vault_protocol/nova_markets/README-Nova-Markets.md for the evidence.
+    "0x9ca80193712f372e2ff33a00127292884f6f8598": VaultTechnicalRisk.dangerous,
+    "0xeeed7bb939d65938fe8f40dd898cd5942e32f09e": VaultTechnicalRisk.dangerous,
     # Asseto IP Vault remains under verification; do not inherit AoABT's assessment.
     # docs/protocol-research/ip-vault-0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9.md
     "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9": None,

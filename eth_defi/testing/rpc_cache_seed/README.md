@@ -130,6 +130,15 @@ read-only and uses the shared pool with a block-specific xdist group.
 
 ## Capturing a seed file
 
+`arbitrum/518876926/` covers Nova Markets' Conviction Pool metadata and the
+GuardV0 deposit, withdrawal-request, epoch-settlement and claim lifecycle in
+`tests/erc_4626/vault_protocol/test_nova_markets.py`. The canonical July block
+predates the pool, so this fixed October block is an intentional exception.
+The seed contains actual vault, USDC and PnL-feed state reads, plus the proxy
+implementation slot and implementation runtime used to pin the fee review.
+It was refreshed with CI-pinned Anvil v1.8.6 on 2026-10-28 after the complete
+Nova fork group passed on the merged branch.
+
 1. Run the relevant fork test locally against a responsive archive provider so
    Anvil populates `~/.foundry/cache/rpc/<network>/<block>/`.
 2. Copy the resulting `<network>/<block>/` directory here, keeping the layout.

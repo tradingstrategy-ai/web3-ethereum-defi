@@ -135,6 +135,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Peapods": None,
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
+    # The reviewed Conviction Pool runtime matches the Gains GToken fee paths:
+    # no depositor fees; trading rewards and PnL accrue in the share price.
+    # Nova's flat platform-funding charge is outside the direct vault route.
+    # See vault_protocol/nova_markets/README-Nova-Markets.md for the source proof.
+    "Nova Markets": VaultFeeMode.feeless,
     "KiloEx": None,
     # Shift's performance and maintenance fees are realised by minting shares
     # to its fee collector; per-vault rates are read by ShiftVault.

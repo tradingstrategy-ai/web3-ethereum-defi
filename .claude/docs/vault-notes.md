@@ -12,12 +12,20 @@ source links that are not otherwise visible from raw onchain metrics.
 
 - `VAULT_NOTES` contains address-specific descriptive notes that do not make a
   vault flagged.
+- `CHAIN_SCOPED_VAULT_NOTES` identifies an exact chain/address deployment.
 - `VAULT_FLAGS_AND_NOTES` contains address-specific notes paired with an optional
   `VaultFlag`. If the flag is in `BAD_FLAGS`, downstream risk logic can blacklist
   the vault.
 - `PROTOCOL_FLAGS_AND_NOTES` contains protocol-wide manual notes and flags.
+- `PROTOCOL_NOTES` contains generic descriptive protocol defaults.
 - `get_notes(address, chain_id=None, protocol_name=None)` applies those tables
-  and chain-level fallbacks.
+  and chain-level fallbacks. Pass `include_defaults=False` to check current
+  address notes and manual protocol warnings without generic defaults.
+
+Public exports resolve current manual address and protocol notes before cached
+`_notes`. This also applies to existing non-Gains vaults: metadata-only repairs
+preserve stored notes, while exports use the current manual review text. Generic
+protocol and chain defaults remain fallbacks after cached strategy notes.
 
 Manual bad-flag notes should take precedence over generic descriptive notes. A
 vault that has been explicitly marked as `subvault`, `illiquid`, `unofficial`,
@@ -83,12 +91,13 @@ fall back to the same protocol description that is already exported separately.
 `eth_defi/research/vault_metrics.py` calculates the exported `notes` field for
 top-vault JSON rows.
 
-The preferred source is `VaultRow["_notes"]`, because it comes from the
-protocol adapter at scan time. For old cached vault databases that pre-date
-`_notes`, metrics may still call `eth_defi.vault.flag.get_notes()` as a fallback
-using only address and chain ID. This fallback should remain generic and should
-not contain protocol-specific special cases when a protocol vault class can
-provide the note.
+Current explicit manual notes and warnings take precedence over
+`VaultRow["_notes"]`, so a warning added after scanning appears on the next
+metadata export. Metrics first call `get_notes(..., include_defaults=False)`,
+then use the cached adapter note, then apply generic protocol/chain defaults.
+This preserves richer strategy text when only a chain default is available.
+The lookup remains generic: do not add protocol-specific branches when an
+adapter can provide the strategy note.
 
 ## Recommended pattern
 
@@ -98,8 +107,8 @@ provide the note.
 3. Call `super().get_notes()` first so manual address flags and notes keep
    precedence.
 4. Store the result in scan metadata as `_notes`.
-5. Let lifetime metrics consume `_notes`, with only the central manual note
-   fallback for legacy rows.
+5. Let lifetime metrics consume `_notes` after checking current manual
+   overrides, with generic defaults as the final fallback.
 
 Avoid adding protocol-specific note branches directly to reporting code like
 `vault_metrics.py`.

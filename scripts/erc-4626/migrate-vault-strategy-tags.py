@@ -58,11 +58,14 @@ from eth_defi.erc_4626.vault_protocol.euler.tags import get_strategy_tags as get
 from eth_defi.erc_4626.vault_protocol.fluid.tags import STRATEGY_TAGS as FLUID_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.forty_acres.tags import STRATEGY_TAGS as FORTY_ACRES_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.gains.tags import STRATEGY_TAGS as GAINS_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.gains.tags import get_strategy_tags as get_gains_strategy_tags
 from eth_defi.erc_4626.vault_protocol.ipor.tags import STRATEGY_TAGS as IPOR_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.kiloex.tags import STRATEGY_TAGS as KILOEX_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.lagoon.tags import lookup_lagoon_strategy_tags
 from eth_defi.erc_4626.vault_protocol.liquid_royalty.tags import STRATEGY_TAGS as LIQUID_ROYALTY_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as get_morpho_strategy_tags
+from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.nova_markets.tags import STRATEGY_TAGS as NOVA_MARKETS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS as PLUTUS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
@@ -142,6 +145,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.domination_finance_like,
     ERC4626Feature.kiloex_like,
     ERC4626Feature.kiln_metavault_like,
+    ERC4626Feature.nova_markets_like,
     ERC4626Feature.gains_like,
     ERC4626Feature.ostium_like,
     ERC4626Feature.umami_like,
@@ -248,6 +252,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.euler_like: get_euler_strategy_tags,
     ERC4626Feature.domination_finance_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
     ERC4626Feature.kiloex_like: partial(lookup_strategy_tags, KILOEX_STRATEGY_TAGS),
+    ERC4626Feature.nova_markets_like: partial(lookup_strategy_tags, NOVA_MARKETS_STRATEGY_TAGS),
     ERC4626Feature.gains_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
     ERC4626Feature.ostium_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
     ERC4626Feature.atoma_like: partial(lookup_strategy_tags, ATOMA_STRATEGY_TAGS),
@@ -454,7 +459,12 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         # Preserve any existing manual tags until a direct resolver is added.
         return None
 
-    adapter_tags = evm_resolver(spec.vault_address)
+    if evm_feature in {ERC4626Feature.gains_like, ERC4626Feature.ostium_like, ERC4626Feature.domination_finance_like}:
+        adapter_tags = get_gains_strategy_tags(spec.chain_id, spec.vault_address)
+    elif evm_feature == ERC4626Feature.nova_markets_like:
+        adapter_tags = evm_resolver(spec.vault_address) if spec.chain_id == NOVA_MARKETS_CHAIN_ID else None
+    else:
+        adapter_tags = evm_resolver(spec.vault_address)
     if adapter_tags is None and curator_tags is None and evm_feature in REVIEWED_ADDRESS_STRATEGY_FEATURES:
         # No classification was reviewed for this address. Adding a resolver
         # must not erase independently maintained historical metadata.

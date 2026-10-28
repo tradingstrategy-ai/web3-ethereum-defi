@@ -1,5 +1,8 @@
 # 1.2
 
+- fix: Apply current manual vault warnings before cached strategy notes during metadata export (2026-10-28).
+- feat: Add exact-address Nova Markets Conviction Pool classification, independent protocol metadata, source-reproduced feeless accounting, audit and centralisation research, and epoch lifecycle support; attribute the Lagoon-based Nova NLP vault to Nova Markets and mark both Nova vaults Dangerous; improve gTrade vault strategy notes, app links and curator history (2026-10-28).
+
 - feat: Add source-linked descriptions for 36 AlphaPing Morpho and IPOR vaults, a metadata-only repair command, and a reviewed PR cleanup skill (2026-10-28).
 - feat: Classify KangCFA and nine other GRVT vaults as high-frequency, high-win-rate strategies following a review of current strategy disclosures and equity curves, preserving their existing tags (2026-10-28).
 - feat: Recognise Ethereum ssftUSD under Flying Tulip with redeemable price history, announcement-linked product notes and a targeted metadata refresh preserving historical data (2026-10-28).

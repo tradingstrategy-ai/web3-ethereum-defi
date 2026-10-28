@@ -3,9 +3,30 @@
 import pytest
 from eth_typing import HexAddress
 
-from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.vault.flag import BAD_FLAGS, HYPERCORE_VAULT_NOTE, PROTOCOL_NOTES, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, REVIEWED_DISABLED_GMX_VAULTS, VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
+
+
+@pytest.mark.parametrize(("chain_id", "protocol_name"), [(1, "Example protocol"), (HYPERCORE_CHAIN_ID, "")])
+def test_explicit_note_lookup_excludes_generic_defaults(monkeypatch: pytest.MonkeyPatch, chain_id: int, protocol_name: str) -> None:
+    """Keep generic defaults out of the lookup that precedes cached strategy notes.
+
+    Exports must distinguish an explicit manual override from a default note.
+    Ordinary callers still receive protocol and Hypercore defaults.
+
+    :param monkeypatch: Isolated protocol-note configuration.
+    :param chain_id: Chain with a protocol default or the Hypercore chain default.
+    :param protocol_name: Optional protocol with a generic descriptive note.
+    :return: ``None`` after validating both lookup modes.
+    """
+    address = "0x000000000000000000000000000000000000f00d"
+    if protocol_name:
+        monkeypatch.setitem(PROTOCOL_NOTES, protocol_name, "Generic protocol default")
+    expected = "Generic protocol default" if protocol_name else HYPERCORE_VAULT_NOTE
+    assert get_notes(address, chain_id=chain_id, protocol_name=protocol_name) == expected
+    assert get_notes(address, chain_id=chain_id, protocol_name=protocol_name, include_defaults=False) is None
 
 
 def test_travessia_note_is_chain_scoped_and_does_not_flag_vault() -> None:

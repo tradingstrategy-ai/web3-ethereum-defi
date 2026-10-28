@@ -9,6 +9,7 @@ import pytest
 from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -450,6 +451,26 @@ def test_parse_boolean_env_requires_a_recognised_value() -> None:
     assert migration.parse_boolean_env("OFF", default=True) is False
     with pytest.raises(ValueError, match="Expected a boolean"):
         migration.parse_boolean_env("maybe", default=True)
+
+
+def test_nova_strategy_refresh_is_chain_scoped() -> None:
+    """The shared migration recognises Nova without borrowing a gTrade mapping."""
+    migration = load_migration_module()
+    nova_spec = VaultSpec(NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS)
+    row = {"Protocol": "Nova Markets", "_detection_data": create_detection(nova_spec, {ERC4626Feature.nova_markets_like})}
+    tags, source = migration.resolve_strategy_tags(nova_spec, row)
+    assert tags == {
+        StrategyTag.amm,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_making,
+        StrategyTag.market_making_amm,
+        StrategyTag.perpetual_futures,
+    }
+    assert source == "Nova Markets tag resolver"
+    wrong_chain = VaultSpec(1, NOVA_POOL_ADDRESS)
+    row["_detection_data"] = create_detection(wrong_chain, {ERC4626Feature.nova_markets_like})
+    tags, source = migration.resolve_strategy_tags(wrong_chain, row)
+    assert tags is None
 
 
 @pytest.mark.parametrize(

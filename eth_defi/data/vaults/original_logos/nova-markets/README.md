@@ -14,3 +14,8 @@
 
 No official brand kit, standalone logo file, or dark-background counterpart
 was linked from the homepage.
+
+Reused for the Nova Markets protocol integration on 2026-10-28. The existing
+transparent 256x256 `formatted_logos/nova-markets/light.png` was visually
+checked and is recognised by the protocol metadata exporter. No separate
+dark-coloured official variant has been added.

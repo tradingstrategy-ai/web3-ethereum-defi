@@ -14,7 +14,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import REVIEW_NEEDED_OFF_MARKET_COLLATERAL, VaultFlag
 from eth_defi.vault.handwritten_metadata import ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -199,5 +199,7 @@ def test_alphaping_repaired_copy_reaches_public_metrics_json(migration: ModuleTy
     assert exported["description"] == metadata.description
     assert exported["short_description"] == metadata.short_description
     assert exported["name"] == "Acuto"
-    assert exported["notes"] == "Keep the risk warning."
+    # The repair preserves stored notes; export applies the current manual review.
+    assert row["_notes"] == "Keep the risk warning."
+    assert exported["notes"] == REVIEW_NEEDED_OFF_MARKET_COLLATERAL
     assert "illiquid" in exported["flags"]

@@ -1315,7 +1315,7 @@ def test_identify_gains_network_protocol_curator() -> None:
         chain_id=42161,
         vault_token_symbol="gDAI",
         vault_name="gDAI",
-        vault_address="0x0000000000000000000000000000000000000003",
+        vault_address="0xd85e038593d7a098614721eae955ec2022b9b91b",
         protocol_slug="gains-network",
     )
 
@@ -1440,7 +1440,7 @@ def test_identify_legacy_gtrade_as_gains_network() -> None:
         chain_id=42161,
         vault_token_symbol="gDAI",
         vault_name="gDAI",
-        vault_address="0x0000000000000000000000000000000000000004",
+        vault_address="0xd85e038593d7a098614721eae955ec2022b9b91b",
         protocol_slug="gtrade",
     )
 

@@ -54,7 +54,7 @@ from eth_defi.vault.flag import (
     get_notes,
 )
 from eth_defi.vault.price_source import PriceSource
-from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.risk import VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.xerberus.vault_export import (
@@ -3391,7 +3391,15 @@ def _calculate_vault_record_from_arrays(
     event_count = vault.last_value("event_count")
 
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
-    notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
+    # A newer address-specific manual review must not be masked by a lower
+    # cached scanner rating. Retain any stricter persisted manual judgement.
+    reviewed_risk = VAULT_SPECIFIC_RISK.get(vault_address.lower())
+    if reviewed_risk is not None and (not isinstance(risk, VaultTechnicalRisk) or reviewed_risk.value > risk.value):
+        risk = reviewed_risk
+    # A manual warning added after scanning must supersede cached strategy
+    # notes, while generic chain/protocol defaults remain fallbacks.
+    notes = get_notes(vault_address, chain_id=chain_id, protocol_name=protocol, include_defaults=False)
+    notes = notes or vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id, protocol_name=protocol)
     poll_frequency_values = vault.price_frame.poll_frequency
     vault_poll_frequency = _latest_vault_poll_frequency_from_values(poll_frequency_values[vault.source_positions] if poll_frequency_values is not None else None)
     raw_share_price_source = vault_metadata.get("_share_price_source")
