@@ -22,7 +22,7 @@ from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.frankencoin.constants import FRANKENCOIN_SHARES_ADDRESS, FRANKENCOIN_SHARES_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinSharesVault
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
@@ -360,11 +360,16 @@ NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
 #: unrelated contract cannot be selected by its generic ERC-20 surface.
 SHIFT_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.shift_like} for address in SHIFT_VAULT_ADDRESSES}
 
-#: Flying Tulip's reviewed sftUSD proxies are a finite, chain-aware registry.
-#: The generic ERC-4626 surface deliberately cannot identify this externally
-#: rewarded fixed-price vault family safely. Do not add ABI-selector probes:
-#: only the published address list may map a vault to Flying Tulip.
-FLYING_TULIP_HARDCODED_PROTOCOLS = {HexAddress(address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for address in FLYING_TULIP_SFTUSD_BY_CHAIN.values()}
+#: Reviewed Flying Tulip staking products, separated by reward accounting.
+#: Their generic ERC-4626 surface cannot establish protocol identity. Only
+#: reviewed chain/address pairs may select either adapter; no selector probes.
+FLYING_TULIP_PROTOCOLS_BY_CHAIN: dict[tuple[int, str], set[ERC4626Feature]] = {
+    **{(chain_id, address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for chain_id, address in FLYING_TULIP_SFTUSD_BY_CHAIN.items()},
+    **{(chain_id, address.lower()): {ERC4626Feature.flying_tulip_stable_like} for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()},
+}
+
+#: Address-only index retained for discovery eligibility; routing is chain-aware.
+FLYING_TULIP_HARDCODED_PROTOCOLS = {address: features for (_, address), features in FLYING_TULIP_PROTOCOLS_BY_CHAIN.items()}
 
 #: YieldBasis LTs are not ERC-4626 vaults. Keep reviewed Ethereum addresses
 #: routable while the Factory catalogue remains the discovery source of truth.
@@ -402,6 +407,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         return {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} if chain_id == ANTARCTIC_CHAIN_ID else None
     if normalised_address == FRANKENCOIN_SHARES_ADDRESS:
         return FRANKENCOIN_HARDCODED_PROTOCOLS[normalised_address] if chain_id == FRANKENCOIN_SHARES_CHAIN_ID else None
+    if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
+        features = FLYING_TULIP_PROTOCOLS_BY_CHAIN.get((chain_id, normalised_address))
+        return set(features) if features is not None else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
 
@@ -509,12 +517,6 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in shift_vaults:
             return SHIFT_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in SHIFT_HARDCODED_PROTOCOLS:
-            return None
-
-        flying_tulip_address = FLYING_TULIP_SFTUSD_BY_CHAIN.get(chain_id)
-        if flying_tulip_address is not None and normalised_address == HexAddress(flying_tulip_address.lower()):
-            return FLYING_TULIP_HARDCODED_PROTOCOLS[normalised_address]
-        if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -2270,6 +2272,10 @@ def create_vault_instance(
         from eth_defi.yield_basis.vault import YieldBasisVault
 
         return YieldBasisVault(web3, spec, **kwargs)
+    elif ERC4626Feature.flying_tulip_stable_like in features:
+        from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipStableVault
+
+        return FlyingTulipStableVault(web3, spec, **kwargs)
     elif ERC4626Feature.flying_tulip_like in features:
         from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipVault
 

@@ -1,8 +1,20 @@
-# Flying Tulip sftUSD integration
+# Flying Tulip staking integration
 
-[Flying Tulip](https://flyingtulip.com/ftusd/) issues **ftUSD**, a dollar-targeted settlement token, and **sftUSD**, the opt-in staking receipt for ftUSD. This package integrates the reviewed sftUSD deployments with the vault scanner on Ethereum, BNB Chain and Sonic.
+[Flying Tulip](https://flyingtulip.com/ftusd/) issues **ftUSD**, a dollar-targeted settlement token, and two optional staking positions: **sftUSD**, with separately claimable FT rewards, and **ssftUSD**, with yield compounded as ftUSD. This package covers reviewed sftUSD deployments on Ethereum, BNB Chain and Sonic and the reviewed ssftUSD deployment on Ethereum.
 
-The authoritative product description is the [Flying Tulip ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/). The reviewed deployment set is maintained against the [official contract registry](https://api.flyingtulip.com/ftusd/contracts/all), rather than discovered dynamically from arbitrary contracts.
+The authoritative product description is the [Flying Tulip ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/). The [current address book](https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json) includes ssftUSD; the older ftUSD contracts API lists only sftUSD. These are maintenance references, not runtime dependencies or dynamic classification sources.
+
+## Auto-compounding ssftUSD
+
+The [September update](https://blog.flyingtulip.com/flying-tulip-september-update/) corroborates the 22 September 2026 announcement. The reviewed Ethereum proxy is `0x232128844e5af56fd4b3f8bf97e08ab477282ab5`; on 2026-10-28 its explorer-reported implementation was [StableEpochRewardsVault](https://etherscan.io/address/0xD940d531b983557884B31fD915A1Df97bebe6e09#code). Verified source was read through Routescan's Ethereum `getsourcecode` API after resolving the ERC-1967 proxy. The implementation can be upgraded; these observations describe the reviewed version.
+
+`FlyingTulipStableVault` uses standard ERC-4626 price, supply and NAV accounting. The six-decimal ftUSD asset and eighteen-decimal share token must be scaled independently. Distributed ftUSD vests into the share price over eight hours; this is reward vesting, not an eight-hour withdrawal lockup. `totalAssets()` excludes unvested rewards, so the reported NAV follows vested accounting rather than gross funded backing. Treasury allocations are variable and the documented ssftUSD allocation is slightly lower than sftUSD.
+
+Standard withdrawals settle synchronously or revert atomically if the underlying circuit breaker would queue them. This differs from sftUSD's queue-ID return. The new adapter remains uncertified for public transaction-manager support.
+
+The vault rejects zero-address deposit receivers. Its local historical reader excludes `maxDeposit(0)` instead of interpreting zero as a global cap; existing generic readers are unchanged. Earlier persisted zero-address capacity observations cannot establish historical deposit availability. The metadata migration does not rewrite them or any price history.
+
+At review block `26,234,307`, NAV was `411946.118918` ftUSD, supply was `409264.10240710532903198` ssftUSD, and the share price was `1.006553265959853966066145662` ftUSD. The real-provider regression uses the shared Anvil pool at this post-deployment block because the canonical July Ethereum fork predates the vault.
 
 ## Product model
 
@@ -21,7 +33,7 @@ The outer USDC/ftUSD conversion uses Flying Tulip's `MintAndRedeem` engine. At t
 
 sftUSD holders receive FT distributions through settled reward epochs. The rewards are separately claimable FT: they do not automatically increase the ERC-4626 redemption amount. The documentation describes this distinction explicitly: ftUSD is non-yielding until it is staked, while sftUSD receives the distributions and users claim FT separately.
 
-## Why it is not an ordinary ERC-4626 vault
+## sftUSD external rewards
 
 The sftUSD contract presents a standard ERC-4626 surface, but its economics differ materially from a conventional auto-compounding vault.
 
@@ -39,10 +51,10 @@ The fee fields deliberately model the whole USDC-funded vault-equivalent route f
 
 ## Pipeline and data model
 
-The integration uses a protocol-owned contextual history pipeline because polling `totalAssets()` and `totalSupply()` cannot capture separately claimable FT rewards and would report a false zero reward return.
+The sftUSD integration uses a protocol-owned contextual history pipeline because polling `totalAssets()` and `totalSupply()` cannot capture separately claimable FT rewards and would report a false zero reward return. ssftUSD does not enter this pipeline or carry its synthetic-price flags.
 
 1. [`constants.py`](constants.py) contains the reviewed chain/address registry, fee model, Curve boundary and other maintained protocol facts.
-2. [`vault.py`](vault.py) classifies only those reviewed addresses, retains the live ERC-4626 price, models the USDC-equivalent fee path and selects the contextual reader.
+2. [`vault.py`](vault.py) contains separate adapters and price readers for the two reviewed products. A small private base shares only the fee convention, strategy-tag lookup and application link. Classification uses a shared chain-aware feature lookup; only sftUSD selects the contextual reader.
 3. [`historical_context.py`](historical_context.py) streams `EpochSettled` reward events and sftUSD mint/burn transfers with Hypersync. It persists raw, replayable evidence in the shared `vault-historical-context.duckdb` cache.
 4. [`reward_price.py`](reward_price.py) maps each settlement timestamp to Ethereum and stores the corresponding historical FT/ftUSD Curve oracle observation.
 5. `FlyingTulipHistoricalReader` replays supply and reward events in order. It compounds each priced FT distribution into `share_price_equivalence`; `total_assets` is the matching synthetic performance value, not contractual vault assets.
