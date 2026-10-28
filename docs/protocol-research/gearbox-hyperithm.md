@@ -77,3 +77,41 @@ The smart contracts are developed by Gearbox Protocol and deployed by Hyperithm 
 - The underlying asset is USDT0, a cross-chain USDT token on Plasma
 - The contract supports credit manager borrowing for leveraged positions
 - Gearbox Protocol has been actively deploying on Plasma chain with integrations for Pendle and other DeFi protocols
+
+## Coverage and TVL investigation (2026-10-28)
+
+Gearbox has more TVL than our page shows, and we are missing one material
+stablecoin pool. These figures are a snapshot checked live on 28 October 2026.
+
+| Measure | TVL |
+|---|---:|
+| Our page: eight visible stablecoin vaults | **$3.42M** |
+| Gearbox: stablecoin lending pools | **$4.33M** |
+| Gearbox: all lending pools | **$17.55M** |
+| Gearbox: headline protocol TVL | **$35.90M** |
+
+The comparison used [our listing](https://tradingstrategy.ai/vaults/protocols/gearbox),
+[Gearbox's live pool inventory](https://api.gearbox.foundation/v2/opportunities)
+and [Gearbox's live totals](https://api.gearbox.foundation/v2/opportunities/totals).
+Contract addresses were also checked against the
+[complete published vault dataset](https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json),
+generated at 2026-10-28 12:07:29 UTC, to distinguish missing coverage from
+vaults hidden by listing filters.
+
+- **Missing: Re7 USDC on Etherlink — $1.33M.** Contract
+  `0x653e62a9ef0e869f91dc3d627b479592aa02ea75`, chain **42793**. It is absent
+  from our entire published vault dataset. Etherlink also has no chain
+  configuration in this checkout.
+- **About $13.22M is in non-stablecoin pools**, principally KPK wstETH
+  ($10.11M), KPK WETH ($2.20M) and Gami Labs WBTC ($811K). Their exclusion
+  follows our current stablecoin-only public export.
+- **The major overlapping pools look consistent:** frxUSD is approximately
+  $2.56M on both; Monad UltraYield USDC approximately $197K on both.
+- Our $10K minimum and blacklist hide additional tracked vaults. Our inventory
+  also includes older pools outside Gearbox's current app inventory, so the
+  totals do not reconcile by subtraction alone.
+
+The priority follow-up is to add Etherlink coverage for the Re7 pool. Gearbox's
+headline TVL includes credit-account assets; **$17.55M total lending supply** is
+the closer comparison for full vault coverage. This investigation records the
+coverage gap; Etherlink support remains outstanding.
