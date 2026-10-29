@@ -1,9 +1,9 @@
 """Integration tests for feed collection."""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-import flaky
 import pytest
 import requests
 
@@ -17,7 +17,7 @@ from eth_defi.feed.sources import (
     mark_linkedin_source_disabled,
 )
 from eth_defi.feed.testing import make_test_tracked_source
-from eth_defi.feed.twitter_api import TwitterUserCache
+from eth_defi.feed.twitter_api import TwitterUserCache, resolve_twitter_handles
 
 RSS_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0">
@@ -48,10 +48,6 @@ ATOM_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 </feed>
 """
 
-
-GAUNTLET_TWITTER_LIVE_TEMPLATES = [
-    "https://nitter.cf/{handle}/rss",
-]
 
 GAUNTLET_LINKEDIN_LIVE_TEMPLATES = DEFAULT_LINKEDIN_URL_TEMPLATES
 
@@ -226,20 +222,27 @@ def test_collect_twitter_list_posts_maps_posts_to_sources(monkeypatch: pytest.Mo
         db.close()
 
 
-@flaky.flaky
+@pytest.mark.skipif(not os.environ.get("TWITTER_BEARER_TOKEN"), reason="TWITTER_BEARER_TOKEN is required for the live X API collection check")
 def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> None:
     """Read the current Gauntlet feeds and store them in DuckDB.
 
     1. Load the real Gauntlet feeder YAML from the repository feed folder.
     2. Upsert available source rows into DuckDB (Twitter is required; LinkedIn and RSS may be disabled or dead).
-    3. Fetch the live feeds that are still available and verify posts are stored.
+    3. Fetch Twitter through the authenticated X API, and optional remaining feeds.
+    4. Verify posts are stored against their registered sources.
 
     Integration test against live data: feeder sources get disabled or marked dead
     over time (``rss-dead-at``, ``linkedin-rss-hub-disabled-at``), which removes them
     from :func:`load_post_sources`. Only Twitter is treated as mandatory; LinkedIn and
     RSS are exercised only when still present in the feeder YAML.
 
-    Flaky: depends on public LinkedIn RSS bridge availability.
+    On 29 October 2026, the old mandatory Nitter bridge failed DNS resolution
+    in CI and locally. Use the existing production X API reader instead of
+    relying on that public bridge. This check requires supplied credentials;
+    ordinary RSS/bridge behaviour remains covered by the fixture-based cases.
+
+    :param tmp_path: Isolated post database and Twitter user cache directory.
+    :return: ``None`` after successful real collection and registration checks.
     """
 
     db = VaultPostDatabase(tmp_path / "posts.duckdb")
@@ -260,12 +263,18 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
         rss_source = next((source for source in sources if source.source_type == "rss"), None)
 
         # 3. Fetch the live feeds that are still available and verify posts are stored.
+        bearer_token = os.environ["TWITTER_BEARER_TOKEN"]
+        user_cache = TwitterUserCache(tmp_path / "twitter-users.json")
+        resolved_handles = resolve_twitter_handles([twitter_source.source_key], bearer_token, user_cache)
+        assert twitter_source.source_key in resolved_handles
         twitter_posts = collect_posts_for_source(
             twitter_source,
             max_posts_per_source=5,
             request_timeout=20,
             twitter_rss_base_urls=[],
-            twitter_url_templates=GAUNTLET_TWITTER_LIVE_TEMPLATES,
+            twitter_url_templates=[],
+            twitter_bearer_token=bearer_token,
+            twitter_user_cache=user_cache,
         )
         inserted_twitter = db.insert_posts(source_ids[twitter_source.get_logical_key()], twitter_posts)
 
@@ -308,7 +317,7 @@ def test_live_gauntlet_collection_and_source_registration(tmp_path: Path) -> Non
 
         assert inserted_twitter > 0
         assert not posts_df.empty
-        assert posts_df["title"].notna().any()
+        # X API posts carry their content in full_text rather than an RSS title.
         assert posts_df["post_url"].notna().any()
         assert posts_df["full_text"].str.len().gt(0).any()
         assert posts_df.loc[posts_df["source_id"] == source_ids[twitter_source.get_logical_key()]].shape[0] > 0
