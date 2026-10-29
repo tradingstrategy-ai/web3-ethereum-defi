@@ -8,3 +8,4 @@ Atoma ERC-4626 vault protocol integration.
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.atoma.vault
+   eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem

@@ -69,6 +69,8 @@ bytes4 constant SEL_WITHDRAW = 0xb460af94; // withdraw(uint256,address,address)
 bytes4 constant SEL_REDEEM = 0xba087652; // redeem(uint256,address,address)
 bytes4 constant SEL_REDEEM_SHARES = 0x983c676d; // redeemShares(uint256,address)
 bytes4 constant SEL_PLUTUS_REDEEM = 0x7bde82f2; // redeem(uint256,address)
+bytes4 constant SEL_ATOMA_REQUEST = 0x9ee679e8; // requestWithdrawal(uint256)
+bytes4 constant SEL_ATOMA_CLAIM = 0xf8444436; // claimWithdrawal(uint256)
 bytes4 constant SEL_PLUTUS_CANCEL_REDEEM = 0xc3f0d30e; // cancelRedeemRequest(uint256)
 
 // ===== ERC-4626 Umami (non-standard) =====
@@ -778,6 +780,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REDEEM_SHARES) {
             _validate_EmberRedeemShares(callData);
+        } else if (selector == SEL_ATOMA_REQUEST || selector == SEL_ATOMA_CLAIM) {
+            // Both operations are bound to msg.sender (the custody contract).
+            // There is no external owner, controller or payout receiver.
+            require(callData.length == 32, "Invalid Atoma payload");
+            abi.decode(callData, (uint256));
         } else if (selector == SEL_PLUTUS_REDEEM) {
             // Plutus Hedge: redeem(uint256 requestId, address receiver)
             _validate_PlutusRedeem(callData);
@@ -983,6 +990,18 @@ abstract contract GuardV0Base is IGuard, Multicall {
         (,, address receiver, address owner) = abi.decode(callData, (uint256, uint256, address, address));
         _requireAllowedReceiver(receiver);
         _requireAllowedOwner(owner);
+    }
+
+    /// Whitelist only Atoma's deposit, request and owner-bound claim surface.
+    function whitelistAtoma(address vault, string calldata notes) external onlyGuardOwner {
+        address asset = IERC4626(vault).asset();
+        allowCallSite(vault, SEL_DEPOSIT, notes);
+        allowCallSite(vault, SEL_ATOMA_REQUEST, notes);
+        allowCallSite(vault, SEL_ATOMA_CLAIM, notes);
+        allowApprovalDestination(vault, notes);
+        allowAsset(vault, notes);
+        _whitelistToken(asset, notes);
+        emit ERC4626Approved(vault, notes);
     }
 
     /// Whitelist Upshift's manager-controlled multi-asset surface.

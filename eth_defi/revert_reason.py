@@ -86,16 +86,20 @@ def extract_revert_data(error: Exception) -> bytes | None:
         ``None`` when no usable ABI payload is present.
     """
 
-    def visit(value) -> str | bytes | None:
+    def visit(value, *, structured: bool = False) -> str | bytes | None:
         if isinstance(value, bytes):
             return value
         if isinstance(value, str):
+            # Parameterless errors are exactly four bytes. Accept those only
+            # as an entire structured payload, not a short transport request id.
+            if structured and re.fullmatch(r"0x[0-9a-fA-F]{8}", value):
+                return value
             match = re.search(r"0x[0-9a-fA-F]{10,}", value)
             if match:
                 return match.group(0)
         if isinstance(value, dict):
             for key in ("data", "return", "result"):
-                result = visit(value.get(key))
+                result = visit(value.get(key), structured=True)
                 if result is not None:
                     return result
             for nested_value in value.values():
@@ -109,7 +113,7 @@ def extract_revert_data(error: Exception) -> bytes | None:
                     return result
         return None
 
-    data = visit(getattr(error, "data", None)) or visit(error.args)
+    data = visit(getattr(error, "data", None), structured=True) or visit(error.args)
     if data is None:
         return None
     if isinstance(data, bytes):
