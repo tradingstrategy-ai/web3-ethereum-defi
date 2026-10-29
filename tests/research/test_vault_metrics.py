@@ -1992,6 +1992,99 @@ def test_calculate_lifetime_metrics_exports_nova_pool_fee_mode(
 
 
 @pytest.mark.parametrize("cached_risk", [VaultTechnicalRisk.low, VaultTechnicalRisk.blacklisted])
+def test_tori_export_resolves_net_fees_and_current_disclosures(vault_db: VaultDatabase, price_df: pd.DataFrame, cached_risk: VaultTechnicalRisk, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Export Tori's known net accounting while retaining unknown gross retention.
+
+    Older scan metadata can lack both fee mode and current disclosures. The
+    export must resolve those from maintained data without double-charging
+    the investor or weakening a cached blacklist. Existing manual warnings
+    must survive alongside the new disclosure.
+
+    :param vault_db: Sample scanner metadata to remap to native strUSD.
+    :param price_df: Existing historical prices for exercising export only.
+    :param cached_risk: Older scanner rating, including a stronger exclusion.
+    :param monkeypatch: Temporary manual warning table entry.
+    :return: ``None`` after checking the public JSON contract.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    source = VaultSpec.parse_string(source_id)
+    spec = VaultSpec(1, "0x280839980a7ed0d7717f64125fe241012e5f5815")
+    row = dict(vault_db.rows[source])
+    row.update(
+        {
+            "Name": "Staked trUSD",
+            "Address": spec.vault_address,
+            "Protocol": "Tori Finance",
+            "protocol_slug": "tori",
+            "Denomination": "trUSD",
+            "_risk": cached_risk,
+            "_notes": "Old cached strategy",
+            "_fees": FeeData(None, 0.0, None, 0.0, 0.0),
+            "_detection_data": replace(row["_detection_data"], chain=1, address=spec.vault_address, features={ERC4626Feature.tori_like}),
+        }
+    )
+    prices = price_df.loc[price_df["id"] == source_id].copy()
+    prices["id"] = spec.as_string_id()
+    prices["chain"] = 1
+    monkeypatch.setitem(VAULT_NOTES, spec.vault_address, "Existing manual warning.")
+    metrics = calculate_lifetime_metrics(prices, {spec: row})
+    exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
+    assert exported["fee_mode"] == "internalised_skimming"
+    assert exported["gross_fees"]["performance"] is None
+    assert exported["net_fees"]["performance"] == 0.0
+    assert exported["lifetime_return_net"] is not None
+    assert exported["risk"] == ("Blacklisted" if cached_risk is VaultTechnicalRisk.blacklisted else "High")
+    assert exported["notes"].startswith("Existing manual warning.")
+    assert "retains an undisclosed share" in exported["notes"]
+    assert "Old cached strategy" not in exported["notes"]
+
+
+@pytest.mark.parametrize("warning_source", ["red", "missing", "bad_flag", "cached"])
+def test_tori_disclosure_preserves_morpho_warning_text(vault_db: VaultDatabase, price_df: pd.DataFrame, warning_source: str) -> None:
+    """Append Tori terms after live Morpho warnings and cached explanations.
+
+    Product copy must not short-circuit the warning resolver. Cover the richer
+    RED explanation, missing API and generic scan exclusions, and an existing
+    cached incident note, retaining the blacklist in every case.
+
+    :param vault_db: Scanner fixture metadata to remap to a Tori lender.
+    :param price_df: Sample historical prices used only for export coverage.
+    :param warning_source: Warning path exercised before disclosure append.
+    :return: ``None`` after checking warnings and product copy coexist.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec(1, "0x3bd9adae6643ddcddd02746b8b60075e56df9478")
+    row = dict(vault_db.rows[VaultSpec.parse_string(source_id)])
+    row.update(
+        {
+            "Name": "RockawayX Tori Ecosystem",
+            "Address": spec.vault_address,
+            "Protocol": "Morpho",
+            "protocol_slug": "morpho",
+            "_risk": VaultTechnicalRisk.low,
+            "_notes": "Existing cached incident warning." if warning_source == "cached" else None,
+            "_flags": {VaultFlag.not_in_morpho_api} if warning_source == "missing" else {VaultFlag.morpho_issues},
+            "_morpho_offchain_data": {"market_warnings": [{"level": "RED", "type": "bad_debt_unrealized"}]} if warning_source == "red" else None,
+            "_detection_data": replace(row["_detection_data"], chain=1, address=spec.vault_address, features={ERC4626Feature.morpho_like}),
+        }
+    )
+    prices = price_df.loc[price_df["id"] == source_id].copy()
+    prices["id"] = spec.as_string_id()
+    prices["chain"] = 1
+    metrics = calculate_lifetime_metrics(prices, {spec: row})
+    exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
+    expected = {
+        "red": "Morpho has flagged this vault with the following issues: bad_debt_unrealized",
+        "missing": "Vault has bad scan flags: not_in_morpho_api",
+        "bad_flag": "Vault has bad scan flags: morpho_issues",
+        "cached": "Existing cached incident warning.",
+    }
+    assert exported["notes"].startswith(expected[warning_source])
+    assert "These loans have Tori-related collateral exposure" in exported["notes"]
+    assert exported["risk"] == "Blacklisted"
+
+
+@pytest.mark.parametrize("cached_risk", [VaultTechnicalRisk.low, VaultTechnicalRisk.blacklisted])
 def test_calculate_lifetime_metrics_exports_nova_nlp_protocol_curator(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

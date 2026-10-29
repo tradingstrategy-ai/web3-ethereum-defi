@@ -16,7 +16,9 @@ from eth_defi.feed.sources import load_feeder_metadata, load_post_sources, resol
 from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.protocol_metadata import build_metadata_json
+from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,8 +54,8 @@ def test_tori_detection_and_static_metadata(tori: ToriVault) -> None:
     assert vault.features == {ERC4626Feature.tori_like}
     assert vault.get_protocol_name() == "Tori Finance"
     assert slugify_protocol(vault.get_protocol_name()) == "tori"
-    assert vault.get_risk() is None
-    assert vault.get_fee_mode() is None
+    assert vault.get_risk() is VaultTechnicalRisk.high
+    assert vault.get_fee_mode() is VaultFeeMode.internalised_skimming
     fees = vault.get_fee_data()
     assert fees.management == 0
     assert fees.performance is None

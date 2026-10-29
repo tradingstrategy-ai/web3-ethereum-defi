@@ -35,7 +35,11 @@ propagate. No public transaction-manager capability is advertised because the
 cooldown and claim lifecycle is not implemented by this integration.
 
 Management, deposit and withdrawal fees are zero. The retained income share
-and overall fee mode remain unknown. The technical risk assessment is unset.
+is unknown, but fees are internalised: share-price returns already reflect
+Tori's income retention. The technical risk assessment is High, reflecting
+upgradeable contracts, privileged loss reporting and dependencies on issuer
+valuation and reporting. Public matched source and audits do not remove those
+dependencies. This is separate from the risk of trading losses or a depeg.
 The maintained strategy tags are ``multistrategy``, ``delta_neutral``,
 ``arbitrage`` and ``carry_trade``.
 
@@ -56,8 +60,11 @@ respective scopes and limitations.
 
 See :doc:`the API reference </api/tori/index>` and
 :doc:`deployment instructions <deployment>` for the targeted metadata repair.
+See :doc:`risk and fees across Tori exposures <risk-and-fees>` for the reviewed
+third-party products and their separate charges.
 
 .. toctree::
    :hidden:
 
    deployment
+   risk-and-fees
