@@ -5,7 +5,7 @@ Purpose: Replace generic catalogue metadata with the maintained Tori reader.
 Scope: Ethereum 0x280839980a7ed0d7717f64125fe241012e5f5815 only.
 Branch: cover-tori-staked-trusd-vault
 PR title: feat: cover Tori native strUSD staking vault
-PR: Not opened; local implementation only.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1697
 Preserves: Unrelated row fields, discovery boundaries, prices, reader state and timestamp caches.
 Expected: One row refreshed; absent target reported without creation. No historical backfill.
 
