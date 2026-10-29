@@ -61,6 +61,24 @@ def test_historical_state_error_classification() -> None:
     assert not multicall_batcher.is_historical_state_unavailable_error("execution reverted")
 
 
+def test_drpc_pruned_history_is_retried_on_the_same_endpoint() -> None:
+    """Retry dRPC's pruned-replica error instead of failing or rotating it away.
+
+    dRPC's load balancer occasionally sends an archive ``eth_call`` to a pruned
+    node, which answers code ``4444``. Another request to the same endpoint
+    usually reaches an archive node, so the error must take the bounded retry
+    path, not the archive-gap rotation that gives up when there is only one
+    provider. The payload is the one that failed ``test_4626_historical_prices``
+    in CI on 2026-10-29.
+    """
+
+    error = ValueError({"code": 4444, "message": "pruned history unavailable: requested 21144431, earliest available 26288382"})
+    parsed_error = str(error).lower()
+
+    assert not multicall_batcher.is_historical_state_unavailable_error(parsed_error)
+    assert any(clue in parsed_error for clue in multicall_batcher.MULTICALL_RETRYABLE_MESSAGE_CLUES)
+
+
 def test_historical_state_exception_is_not_same_provider_retryable() -> None:
     """Allow callers to rotate archives without entering batch-size retries."""
 

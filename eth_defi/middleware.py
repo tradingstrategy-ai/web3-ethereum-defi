@@ -189,6 +189,25 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # succeed through another provider that retains the requested state.
     # Observed on Arbitrum dRPC in CI on 2026-07-24.
     "missing trie node",
+    # dRPC pruned-replica error, JSON-RPC code 4444:
+    #
+    #   {'code': 4444, 'message': 'pruned history unavailable: requested 21144431, earliest available 26288382'}
+    #
+    # dRPC (lb.drpc.live) balances each request across a pool of nodes, some
+    # of them pruned full nodes that keep only recent state. An eth_call at an
+    # old block that lands on one of those gets this error, which names the
+    # block we requested and the oldest block that node still has. The next
+    # request is routed afresh and usually reaches an archive node, so the
+    # fallback provider retries it like the other load-balancer errors here.
+    #
+    # Matched by message, not by code: 4444 is a dRPC-specific code with no
+    # standard meaning, and the message identifies the condition exactly.
+    #
+    # The multicall batcher has its own copy of this clue in
+    # MULTICALL_RETRYABLE_MESSAGE_CLUES, because its eth_calls pass
+    # ignore_error and so skip this retry list; see that entry for the full
+    # analysis. Observed on Ethereum in CI run 40874580065 on 2026-10-29.
+    "pruned history unavailable",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
