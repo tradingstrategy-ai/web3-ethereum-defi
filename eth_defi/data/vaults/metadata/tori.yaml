@@ -18,6 +18,14 @@ long_description: |
   value or prevent timely withdrawals, as explained in the
   [risk disclosures](https://docs.tori.finance/resources/risks).
 
+  The [privileged-role documentation](https://docs.tori.finance/security/roles)
+  describes contract upgrades, wallet restrictions and loss reporting. These
+  controls and reliance on issuer valuation and reporting are material
+  dependencies even with public source code and audit reports. Third-party
+  lending, liquidity, tranche and yield-token vaults add their own contract,
+  liquidation, maturity and withdrawal risks; holding one is not equivalent
+  to native staking.
+
   As at 29 October 2026, native strUSD withdrawals require a seven-day cooldown
   followed by a claim for trUSD; the delay can be changed by the operator.
   [Direct trUSD minting and redemption](https://docs.tori.finance/resources/institutional)
@@ -29,6 +37,10 @@ fee_description: |
   are free. Tori retains a share of gross trading income before distributing
   rewards to strUSD holders. The retained percentage is not disclosed, and the
   published reward rate is net of this share.
+
+  Third-party products apply their own fees in addition to costs already
+  reflected in Tori's rewards. Native staking terms do not establish a fee
+  waiver for an ecosystem vault, lending position, liquidity pool or tranche.
 
   As at 29 October 2026, the separate
   [trUSD minting and redemption service](https://docs.tori.finance/resources/institutional)

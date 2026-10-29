@@ -34,6 +34,7 @@ from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_AD
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import apply_period_gap_exclusions, mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
+from eth_defi.erc_4626.vault_protocol.tori.disclosures import append_tori_disclosure
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
 from eth_defi.research.k_ratio import MINIMUM_K_RATIO_OBSERVATIONS, calculate_k_ratio
@@ -3929,6 +3930,9 @@ def _calculate_vault_record_from_arrays(
         )
 
     notes = extend_notes_with_vault_scan_cycle(notes, vault_poll_frequency)
+    # Product disclosures supplement the final incident/scan warning. They
+    # must not enter the manual-override resolver and mask Morpho warnings.
+    notes = append_tori_disclosure(notes, vault_address, int(chain_id))
 
     # Legacy: One month metrics
     if one_month_pm and one_month_pm.error_reason is None:

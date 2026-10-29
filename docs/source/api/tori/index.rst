@@ -13,3 +13,4 @@ attribution and fee information.
    eth_defi.erc_4626.vault_protocol.tori.constants
    eth_defi.erc_4626.vault_protocol.tori.vault
    eth_defi.erc_4626.vault_protocol.tori.tags
+   eth_defi.erc_4626.vault_protocol.tori.disclosures
