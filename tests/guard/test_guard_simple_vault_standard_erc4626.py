@@ -58,8 +58,6 @@ class StandardERC4626Profile:
     fork_block: int
     #: Expected autodetected adapter.
     vault_type: type[ERC4626Vault]
-    #: Expected share dust after redemption.
-    expected_remaining_raw_shares: int = 0
     #: Whether admission requires funding and redemption phases to overlap.
     requires_simultaneous_funding_and_redemption: bool = False
     #: Raw denomination balance retained to satisfy admission rules.
@@ -76,7 +74,7 @@ class StandardERC4626Profile:
 #: Select by manager behaviour, not protocol count: AutoPool's redemption
 #: estimate, D2's admission rules, Euler's generic manager, Euler Earn's share
 #: rounding, IPOR's redemption lock, Plutus' deposit estimate and Yearn's
-#: custom preflight and redemption dust. Other adapters retain their separate
+#: custom preflight and exact full exit. Other adapters retain their separate
 #: protocol tests but do not repeat this guarded synchronous lifecycle.
 PROFILES = (
     StandardERC4626Profile("autopool", "0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c", 483_533_711, AutoPoolVault),
@@ -85,12 +83,10 @@ PROFILES = (
     # USDC, so retain one raw unit beyond that threshold for redemption too.
     StandardERC4626Profile("d2_finance", "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004", 387_000_000, D2Vault, requires_simultaneous_funding_and_redemption=True, required_remaining_denomination_raw=1_000_001),
     StandardERC4626Profile("euler", "0x05d28a86e057364f6ad1a88944297e58fc6160b3", 483_530_654, EulerVault),
-    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault, expected_remaining_raw_shares=1),
+    StandardERC4626Profile("euler_earn", "0xe4783824593a50bfe9dc873204cec171ebc62de0", 483_533_574, EulerEarnVault),
     StandardERC4626Profile("ipor", "0x7fbfd8cda97c0221b39c581c34afd24c523a3990", 483_532_955, IPORVault),
     StandardERC4626Profile("plutus", "0xf2ee51a5e7af0f59e27dda070ce79c3c935a2a67", 483_533_532, PlutusVault),
-    # This Yearn V3 deployment leaves a deterministic one-unit share remainder
-    # after a guarded full redemption at the selected historical block.
-    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault, expected_remaining_raw_shares=1),
+    StandardERC4626Profile("yearn_v3", "0x2e7aa06a0f0816de4b1a32a12b0ac4eb584bff2a", 483_531_738, YearnV3Vault),
 )
 
 pytestmark = [
@@ -369,14 +365,13 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
         mine(web3, increase_timestamp=redemption_delay.total_seconds())
 
     redemption_request = manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
+    assert redemption_request.raw_shares == raw_shares
     assert len(redemption_request.funcs) == 1
     redemption_hash = _perform_guarded_call(web3, simple_vault, control, redemption_request.funcs[0])
     redemption_ticket = redemption_request.parse_redeem_transaction([redemption_hash])
     redemption_analysis = manager.analyse_redemption(redemption_hash, redemption_ticket)
     analysed_raw_shares = protocol_vault.share_token.convert_to_raw(redemption_analysis.share_count)
-    # A vault may round the emitted ``Withdraw`` share amount down by one raw
-    # unit. Euler Earn leaves that unit as share dust in the caller balance.
-    assert 0 <= raw_shares - analysed_raw_shares <= 1
+    assert analysed_raw_shares == raw_shares
     assert redemption_analysis.denomination_amount > 0
-    assert protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address) == profile.expected_remaining_raw_shares
+    assert protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address) == 0
     assert protocol_vault.denomination_token.fetch_raw_balance_of(simple_vault.address) == profile.required_remaining_denomination_raw + protocol_vault.denomination_token.convert_to_raw(redemption_analysis.denomination_amount)

@@ -7,6 +7,8 @@ from web3.exceptions import ContractLogicError
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.euler.deposit_redeem import EulerEarnDepositManager
+from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV1DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
@@ -15,7 +17,7 @@ from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 OWNER = "0x0000000000000000000000000000000000000001"
 
 
-@pytest.mark.parametrize("manager_class", [ERC4626DepositManager, MorphoV1DepositManager, YearnV3DepositManager])
+@pytest.mark.parametrize("manager_class", [ERC4626DepositManager, EulerEarnDepositManager, MorphoV1DepositManager, YearnV3DepositManager])
 def test_redemption_request_preserves_exact_shares(manager_class: type[ERC4626DepositManager]) -> None:
     """Keep request metadata and calldata equal, including bounded rounding.
 
@@ -52,9 +54,11 @@ def test_redemption_request_preserves_exact_shares(manager_class: type[ERC4626De
     funcs.redeem.return_value.call.assert_called_once_with({"from": OWNER})
     if manager_class is MorphoV1DepositManager:
         assert isinstance(MorphoV1Vault.get_deposit_manager(vault), MorphoV1DepositManager)
+    if manager_class is EulerEarnDepositManager:
+        assert isinstance(EulerEarnVault.get_deposit_manager(vault), EulerEarnDepositManager)
 
 
-@pytest.mark.parametrize("manager_class", [MorphoV1DepositManager, YearnV3DepositManager])
+@pytest.mark.parametrize("manager_class", [EulerEarnDepositManager, MorphoV1DepositManager, YearnV3DepositManager])
 def test_redemption_rounding_refuses_shortfalls_and_failed_calls(manager_class: type[ERC4626DepositManager]) -> None:
     """Bound protocol exceptions and require a positive exact payout.
 

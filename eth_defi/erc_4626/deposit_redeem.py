@@ -79,7 +79,7 @@ class ERC4626DepositManager(VaultDepositManager):
     raises. A separate ``to`` receiver is not supported. Request construction
     preserves the exact requested raw share quantity in both metadata and
     calldata. It does not apply the low-level helper's percentage corrections.
-    Morpho V1 and Yearn V3 managers recognise narrowly bounded capacity rounding
+    EulerEarn, Morpho V1 and Yearn V3 managers recognise narrowly bounded capacity rounding
     and require a positive exact-call simulation before accepting it.
 
     **Queues and settlement**
