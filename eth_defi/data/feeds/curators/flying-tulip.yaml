@@ -14,24 +14,33 @@ feeder-id: flying-tulip
 name: Flying Tulip
 role: curator
 canonical-feeder-id: flying-tulip
-short_description: Flying Tulip operates ftUSD and the protocol-managed sftUSD and ssftUSD staking positions.
+short_description: Flying Tulip manages ftUSD's backing strategies and distributes income as FT token rewards for sftUSD holders or reinvested ftUSD rewards for ssftUSD holders.
 long_description: |
-  [Flying Tulip](https://flyingtulip.com/ftusd/) operates ftUSD and the optional
-  sftUSD and ssftUSD staking positions reviewed here. Its [ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
-  states that net strategy yield and protocol fee revenue are collected by the
-  treasury, then can be distributed to sftUSD stakers as separately claimable
-  FT or compounded as ftUSD for ssftUSD holders. The [September launch update](https://blog.flyingtulip.com/flying-tulip-september-update/)
-  explains the auto-compounding variant and its lower yield allocation.
-  This makes Flying Tulip the protocol-managed curator for these positions,
-  rather than an independent third-party manager. Users remain exposed to the
-  stablecoin, strategy and liquidity risks. sftUSD also carries FT-price and
-  possible queued-redemption exposure; ssftUSD withdrawals revert when they
-  cannot settle immediately. These considerations are
-  described in the product documentation.
+  [Flying Tulip](https://flyingtulip.com/ftusd/) manages the money backing ftUSD,
+  its token designed to track the US dollar, and the sftUSD and ssftUSD staking
+  vaults. Its [product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  describes stablecoin lending and savings through Aave and Spark, and lists
+  staking strategies that use borrowing to offset cryptocurrency price movements.
+  The [June 2026 update](https://blog.flyingtulip.com/flying-tulip-june-update/)
+  reported deploying the latter approach on Ethereum and Sonic. The documentation
+  describes available strategies rather than current allocations on every network.
+  The treasury collects strategy income and protocol revenue and decides how
+  much to distribute to holders.
+
+  sftUSD holders claim rewards in FT, Flying Tulip's token. ssftUSD holders
+  have their ftUSD rewards automatically reinvested. The product documentation
+  linked above states that ssftUSD receives a slightly smaller reward allocation.
+  The [September 2026 update](https://blog.flyingtulip.com/flying-tulip-september-update/)
+  explains its launch.
+
+  Rising borrowing costs or losses on backing assets can reduce income and
+  put pressure on ftUSD's dollar target. sftUSD rewards also depend on FT's
+  market price. Withdrawal rate limits can delay sftUSD exits; an ssftUSD
+  withdrawal fails without creating a queued claim if it cannot be paid immediately.
 other-links:
-  - title: Flying Tulip official address book - includes Ethereum ssftUSD
+  - title: Flying Tulip contract addresses, including Ethereum ssftUSD
     url: https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json
-  - title: Flying Tulip ftUSD documentation - strategy yield, treasury distribution and sftUSD staking
+  - title: Flying Tulip strategies and staking rewards
     url: https://docs.flyingtulip.com/product-suite/ft-usd/
-  - title: Flying Tulip official ftUSD contract registry - reviewed sftUSD deployments
+  - title: Flying Tulip sftUSD contract addresses
     url: https://api.flyingtulip.com/ftusd/contracts/all

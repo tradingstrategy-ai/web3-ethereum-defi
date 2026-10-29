@@ -4,13 +4,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipStableVault, FlyingTulipVault
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import get_notes, is_flagged_vault
@@ -32,7 +33,7 @@ def test_flying_tulip_usdc_equivalent_fee_schedule_is_chain_specific() -> None:
 def test_flying_tulip_short_description_is_plain_text() -> None:
     """Keep Markdown out of the listing summary, which the website renders verbatim."""
 
-    assert FLYING_TULIP_SHORT_DESCRIPTION == "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
+    assert "separately claimable FT tokens" in FLYING_TULIP_SHORT_DESCRIPTION
     assert not any(token in FLYING_TULIP_SHORT_DESCRIPTION for token in ("](", "[", "**", "`", "\n"))
 
 
@@ -53,10 +54,10 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         assert fee_data.get_net_fees().deposit == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
         assert fee_data.get_net_fees().withdraw == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
         assert vault.get_link() == "https://flyingtulip.com/ftusd/"
-        assert "Performance assumes entry and exit fees USDC -> ftUSD -> sftUSD." in vault.get_notes()
+        assert "Displayed entry and exit fees cover buying ftUSD with USDC" in vault.get_notes()
         assert "[Ethereum FT/ftUSD Curve pool]" in vault.get_notes()
         assert "divided by the average amount staked during the period" in vault.get_notes()
-        assert "Withdrawals may be subject to a variable exit delay or cooldown" in vault.get_notes()
+        assert "Withdrawals can be delayed" in vault.get_notes()
         assert vault.short_description == FLYING_TULIP_SHORT_DESCRIPTION
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
@@ -104,11 +105,12 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
-    assert "compounded ftUSD yield to ssftUSD holders" in metadata["short_description"]
+    assert "automatically reinvested ftUSD rewards for ssftUSD holders" in metadata["short_description"]
     assert "founded by [Andre Cronje]" in metadata["long_description"]
     assert "$200 million private round" in metadata["long_description"]
     assert "0.07%" in metadata["fee_description"]
-    assert "[verified MintAndRedeem contract]" in metadata["fee_description"]
+    assert "[Ethereum conversion contract]" in metadata["fee_description"]
+    assert all(venue in metadata["long_description"] for venue in ("Aave", "Spark", "delta-neutral carry"))
     assert get_vault_risk("Flying Tulip") == VaultTechnicalRisk.severe
     assert get_vault_fee_mode("Flying Tulip", FLYING_TULIP_SFTUSD_BY_CHAIN[1]) == VaultFeeMode.externalised
 
@@ -136,7 +138,7 @@ def test_flying_tulip_stable_routing_and_public_copy() -> None:
     assert not is_flagged_vault(address, protocol_name="Flying Tulip")
     assert "September 2026" in vault.description
     assert "2102404682685501823" in vault.get_notes()
-    assert "not a withdrawal lockup" in vault.get_notes()
+    assert "Holders can withdraw during this period" in vault.get_notes()
     assert vault.description != vault.get_notes()
     assert vault.fetch_scan_record_extra_data() == {}
     assert vault.get_deposit_manager_capability() is None
@@ -149,6 +151,25 @@ def test_flying_tulip_stable_routing_and_public_copy() -> None:
     assert vault.get_link() == "https://flyingtulip.com/ftusd/"
     assert not vault.get_historical_reader(False).uses_contextual_history
     assert not vault.get_historical_reader(False).uses_share_price_equivalence
+
+
+@pytest.mark.parametrize("vault_class,address", [(FlyingTulipVault, FLYING_TULIP_SFTUSD_BY_CHAIN[1]), (FlyingTulipStableVault, FLYING_TULIP_SSFTUSD_BY_CHAIN[1])])
+def test_flying_tulip_descriptions_and_strategy_notes(vault_class: type[FlyingTulipVault] | type[FlyingTulipStableVault], address: HexAddress) -> None:
+    """Keep strategy explanations accessible and listing text correctly formatted.
+
+    Notes retain the detailed backing strategies for both reward products,
+    while descriptions remain single-line and summaries one plain sentence.
+
+    :param vault_class: Adapter for one of the two staking products.
+    :param address: Reviewed Ethereum deployment address.
+    :return: ``None`` after checking public accessor output.
+    """
+    vault = vault_class(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, address))
+    assert vault.description == normalise_vault_description(vault.description)
+    assert vault.short_description == normalise_vault_short_description(vault.short_description)
+    assert not any(token in vault.short_description for token in ("](", "[", "**", "`", "\n"))
+    assert all(term in vault.get_notes() for term in ("Aave", "Spark", "ETH", "delta-neutral carry", "borrowing costs"))
+    assert "#yield-sources)" in vault.get_notes()
 
 
 def test_flying_tulip_stable_capacity_exclusion_is_local() -> None:

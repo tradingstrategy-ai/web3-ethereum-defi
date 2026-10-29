@@ -60,21 +60,33 @@ FLYING_TULIP_SSFTUSD_BY_CHAIN: dict[int, HexAddress] = {
 }
 
 #: Concise public summary of the auto-compounding staking product.
-FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION = "Flying Tulip's auto-compounding ftUSD staking vault. Yield is distributed in ftUSD and reflected in the value of ssftUSD shares."
+FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION = "Flying Tulip's ssftUSD vault automatically reinvests ftUSD rewards from the protocol's lending and other strategy income."
 
 #: Public product description, distinct from the external FT reward position.
-FLYING_TULIP_SSFTUSD_DESCRIPTION = """[Flying Tulip](https://flyingtulip.com/ftusd/) operates ssftUSD, an auto-compounding staking position for ftUSD. Its backing generates yield through lending and delta-neutral strategies. Distributed ftUSD rewards increase the amount of ftUSD represented by each ssftUSD share.
+FLYING_TULIP_SSFTUSD_DESCRIPTION = "Flying Tulip manages ssftUSD, a vault for ftUSD, its token designed to track the US dollar. Flying Tulip describes earning income on ftUSD's backing assets through stablecoin lending and savings, alongside staking strategies that use borrowing to offset exposure to cryptocurrency prices. Rewards paid in ftUSD are automatically reinvested, increasing the ftUSD represented by each ssftUSD share. Introduced in September 2026, ssftUSD receives a slightly smaller reward allocation than sftUSD, which pays separately claimable FT tokens."
 
-Flying Tulip [introduced ssftUSD in September 2026](https://blog.flyingtulip.com/flying-tulip-september-update/). Unlike sftUSD, which pays separately claimable FT rewards, ssftUSD retains its staking yield as ftUSD. The [product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) describes a slightly lower reward allocation for ssftUSD than sftUSD; returns are variable and depend on realised strategy returns and protocol policy."""
+#: Shared, source-linked explanation of the backing strategies, checked 2026-10-29.
+FLYING_TULIP_STRATEGY_NOTES = """Flying Tulip manages the money backing ftUSD, its token designed to track the US dollar. Its [product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/#yield-sources) describes three sources of strategy income:
+
+- Stablecoin lending and savings: supply stablecoins to Aave or Spark to earn interest.
+- Hedged staking: use stablecoins as collateral to borrow a network's native asset, such as ETH, then stake that asset. Income depends on staking returns exceeding borrowing costs.
+- Hedged crypto collateral: deposit a staking asset such as staked ETH, borrow a matching amount of ETH, sell the borrowed ETH for dollars and invest those dollars for income.
+
+The borrowing aims to offset cryptocurrency price movements; Flying Tulip calls this delta-neutral carry. Its [June 2026 update](https://blog.flyingtulip.com/flying-tulip-june-update/) reported deploying this approach on Ethereum and Sonic. The product documentation describes available strategies rather than current allocations on every network. These strategies depend on borrowing costs, staking returns and lenders' collateral requirements; positions can be liquidated if their collateral becomes insufficient. Protocol revenue also contributes to rewards, and Flying Tulip's treasury decides distributions."""
 
 #: Descriptive notes for the reviewed Ethereum ssftUSD deployment.
-FLYING_TULIP_SSFTUSD_NOTES = """Flying Tulip [announced ssftUSD on 22 September 2026](https://x.com/flyingtulip_/status/2102404682685501823), with further detail in its [September update](https://blog.flyingtulip.com/flying-tulip-september-update/). Staking yield compounds as ftUSD within the position; there is no separate FT claim for this yield.
+FLYING_TULIP_SSFTUSD_NOTES = (
+    FLYING_TULIP_STRATEGY_NOTES
+    + """
 
-In the [reviewed vault implementation](https://etherscan.io/address/0xD940d531b983557884B31fD915A1Df97bebe6e09#code), funded rewards vest into the share price over eight hours. This reward schedule is not a withdrawal lockup. Withdrawals settle immediately only when underlying liquidity and circuit-breaker capacity permit; otherwise the withdrawal reverts rather than creating a queued claim for the ssftUSD holder.
+Flying Tulip [announced ssftUSD on 22 September 2026](https://x.com/flyingtulip_/status/2102404682685501823). Its [September update](https://blog.flyingtulip.com/flying-tulip-september-update/) explains that rewards are automatically reinvested as ftUSD, increasing the amount represented by each share. The product documentation linked above states that ssftUSD's reward allocation is slightly smaller than sftUSD's allocation of separately claimable FT tokens.
 
-The fee fields model the separate USDC -> ftUSD -> ssftUSD entry and reverse exit route. The previously reviewed Ethereum USDC configuration charged 0.07% in each direction; this is a conversion cost, not a direct ssftUSD staking fee or a guarantee of current pricing. Check the application quote before transacting. Optional relayed transactions can charge an authorised relayer fee. Network fees and other execution costs are excluded.
+In the [vault version reviewed on 28 October 2026](https://etherscan.io/address/0xD940d531b983557884B31fD915A1Df97bebe6e09#code), each funded reward is gradually added to the share value over eight hours. Holders can withdraw during this period. A withdrawal succeeds only when enough underlying money is available and the protocol's withdrawal rate limit permits it; otherwise the transaction fails without creating a queued claim.
 
-Returns are variable. Holders remain exposed to ftUSD backing and peg risks, the underlying strategies and available redemption liquidity. See the [ftUSD product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) for yield allocation and risk context. Older recorded zero-address deposit-capacity observations do not establish whether deposits were available to eligible users."""
+Displayed entry and exit fees cover buying ftUSD with USDC before staking and converting back to USDC after withdrawal. The Ethereum USDC rates checked on 24 August 2026 were 0.07% in each direction. Check the application quote for current charges. Optional transactions submitted by a relayer can also carry an agreed service fee; network fees and other execution costs are excluded.
+
+Returns vary, and ftUSD can trade below its dollar target if backing assets lose value or cannot be sold promptly."""
+)
 
 #: FT reward-token addresses for the reviewed sftUSD proxy registry.
 #:
@@ -107,7 +119,10 @@ FLYING_TULIP_HARDCODED_LEADS = (
 #: Plain text only: Markdown is not allowed in a vault short description,
 #: because listings and tables render it verbatim. Put documentation links in
 #: :py:data:`FLYING_TULIP_NOTES` instead.
-FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
+FLYING_TULIP_SHORT_DESCRIPTION = "Flying Tulip's sftUSD vault pays separately claimable FT tokens as rewards from the protocol's lending and other strategy income."
+
+#: Single-line public description of the externally rewarded staking product.
+FLYING_TULIP_DESCRIPTION = "Flying Tulip manages sftUSD, a vault for ftUSD, its token designed to track the US dollar. Flying Tulip describes earning income on ftUSD's backing assets through stablecoin lending and savings, alongside staking strategies that use borrowing to offset exposure to cryptocurrency prices. Holders receive separately claimable rewards in FT, Flying Tulip's token; rewards do not automatically increase the ftUSD redeemable for each sftUSD share. The treasury decides distributions from strategy income and protocol revenue, so returns vary."
 
 #: USDC ``MintAndRedeem`` fees used to model Flying Tulip vault equivalents.
 #:
@@ -122,4 +137,15 @@ FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN: dict[int, Percent] = {
 }
 
 #: Protocol-owned note surfaced in vault metadata.
-FLYING_TULIP_NOTES = """Performance assumes entry and exit fees USDC -> ftUSD -> sftUSD.\n\nPerformance includes FT rewards valued through the [Ethereum FT/ftUSD Curve pool](https://etherscan.io/address/0x68102ff5406475881462880a8da3c9bc9181ad6c#code). At each reward settlement, distributed FT is converted to ftUSD using the latest available Curve oracle price, divided by the average amount staked during the period, and compounded into the displayed returns. See the [Flying Tulip integration documentation](https://web3-ethereum-defi.readthedocs.io/vaults/flying_tulip/index.html) for details.\n\nWithdrawals may be subject to a variable exit delay or cooldown; see the [Flying Tulip ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/).\n\nSee the [official deployment registry](https://api.flyingtulip.com/ftusd/contracts/all) for contract addresses."""
+FLYING_TULIP_NOTES = (
+    FLYING_TULIP_STRATEGY_NOTES
+    + """
+
+sftUSD pays rewards in separately claimable FT, Flying Tulip's token. These rewards do not automatically increase the ftUSD redeemable for each share. Their value also depends on FT's market price.
+
+Displayed returns include FT rewards valued through the [Ethereum FT/ftUSD Curve pool](https://etherscan.io/address/0x68102ff5406475881462880a8da3c9bc9181ad6c#code). Each distribution is valued in ftUSD using the latest available pool price and divided by the average amount staked during the period. The return calculation assumes reinvestment of those rewards; the vault does not reinvest them for holders. See the [performance calculation](https://web3-ethereum-defi.readthedocs.io/vaults/flying_tulip/index.html) for details.
+
+Displayed entry and exit fees cover buying ftUSD with USDC before staking and converting back to USDC after withdrawal. Rates checked on 24 August 2026 were 0.07% in each direction on Ethereum and Sonic, and 0.10% on BNB Chain. Check the application quote for current charges. Network fees and the cost of selling FT rewards are excluded.
+
+Withdrawals can be delayed when the protocol's withdrawal rate limit is reached, and ftUSD can trade below its dollar target if backing assets lose value or cannot be sold promptly. Contract addresses are listed in the [official address book](https://flyingtulip.com/address-book/flying-tulip-address-book-prod.json)."""
+)

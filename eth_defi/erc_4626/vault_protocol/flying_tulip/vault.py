@@ -21,7 +21,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_DESCRIPTION, FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_SSFTUSD_BY_CHAIN, FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, FlyingTulipSharePriceObservation
 from eth_defi.erc_4626.vault_protocol.flying_tulip.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -289,6 +289,10 @@ class FlyingTulipVault(_FlyingTulipVaultBase):
 
         return FLYING_TULIP_SHORT_DESCRIPTION
 
+    @property
+    def description(self) -> str:
+        return FLYING_TULIP_DESCRIPTION
+
     def fetch_reward_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Return the reviewed FT reward-token address for this deployment.
 
@@ -349,15 +353,14 @@ class FlyingTulipVault(_FlyingTulipVaultBase):
         return None
 
     def get_notes(self) -> str:
-        """Explain the USDC-equivalent entry and exit fee model.
+        """Explain the backing strategies, reward model and exit conditions.
 
-        The fee fields deliberately represent entering from and returning to
-        USDC so Flying Tulip can be compared with other vaults. The returned
-        Markdown distinguishes those conversion fees from the fee-free direct
-        sftUSD wrapping route and links to the authoritative deployment.
+        The source-linked Markdown explains lending and hedged staking before
+        distinguishing separately claimable FT from the performance curve's
+        reinvestment assumption and the USDC conversion costs.
 
         :return:
-            Protocol note with the fee route and operational caveats.
+            Public strategy notes, reward valuation and withdrawal limitations.
         """
 
         return FLYING_TULIP_NOTES

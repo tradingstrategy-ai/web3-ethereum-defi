@@ -1409,27 +1409,27 @@ observations of an invalid receiver, rather than evidence of a global cap.
 
 #### Flying Tulip description migration
 
-`migrate-flying-tulip-descriptions.py` is a later, copy-only repair separate
-from the original adapter metadata migration because it has materially
-different operational requirements: it needs no RPC provider and must not
-rebuild complete scanner rows. Its fixed scope is the reviewed Ethereum, BNB
-Chain and Sonic sftUSD addresses. It updates only `_short_description`,
-`_notes` and `_protocol_notes` in `vault-metadata-db.pickle`. Protocol metadata
-YAML is published separately by the normal metadata exporter.
+Migration `010-flying-tulip-strategy-descriptions.py` restores the strategy
+explanation and refreshes the copy for the three reviewed sftUSD deployments
+on Ethereum, BNB Chain and Sonic, plus Ethereum ssftUSD. It updates only
+`_description`, `_short_description` and `_notes`, together with sftUSD's
+`_protocol_notes`. Expect up to four existing rows and fifteen changed fields.
+Missing rows are reported without creating them; conflicting protocol
+classifications abort before any metadata is changed. No RPC is needed.
 
-The script defaults to a non-mutating dry run and requires all three reviewed
-rows to exist with the Flying Tulip protocol classification. Persistent mode
-takes the shared `scan-pipeline` writer lock and atomically replaces the
-metadata pickle. It does not read or write price Parquet, reader state, lead
-state, timestamp caches or historical-context DuckDB files.
+The standalone `migrate-flying-tulip-descriptions.py` is legacy reference and
+must not be run for this refresh. Use the [numbered migration production
+runbook](../../.claude/docs/migration-scripts.md#production-runbook). Deploy the
+new accessor code and build the stamped image before maintenance; stop the
+daemon and competing writers before preview and apply. Review the preview
+counts, then apply all pending migrations through `vault-migrate`.
 
-```shell
-# Expected: three reviewed rows and up to nine changed fields; no files changed.
-DRY_RUN=true poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
-
-# Apply after inspecting the dry-run table.
-DRY_RUN=false poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
-```
+The repair preserves names, flags, fees, unrelated metadata, price Parquet,
+reader state, leads, timestamps and historical context. A successful migration
+is skipped on later runs. Restart the same inspected image with normal export
+and upload work enabled to publish the refreshed vault fields and the protocol
+and curator YAML. Validate both staking products' descriptions and strategy
+notes in the public exports after a successful scanner cycle.
 
 #### Lead discovery cache
 
