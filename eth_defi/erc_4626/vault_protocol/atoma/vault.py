@@ -16,25 +16,39 @@ payout in ``claimWithdrawal()``.
 
 - App: https://app.atoma.fi/
 - AVS proxy: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-- AVS implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+- AVS implementation: https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code
 - AVS2 proxy: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
-- AVS2 implementation: https://arbitrum.blockscout.com/address/0x9521B08303AE010e85e24fC15D5334A0E506641E
+- AVS2 implementation: https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code
 """
 
 import datetime
 import logging
 from dataclasses import dataclass
+from decimal import Decimal
+from functools import cached_property
 from typing import Final
 
 from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
+from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem import AtomaDepositManager
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFlowUnavailable
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
+
+#: Reviewed execution implementation at Arbitrum block 519150162.
+ATOMA_IMPLEMENTATION = "0x9161be115867c347adfb4c88a80e759920de86dc"
+#: Historical decoding implementation at the shared July fork block.
+ATOMA_LEGACY_IMPLEMENTATION = "0x9521b08303ae010e85e24fc15d5334a0e506641e"
+#: ERC-1967 implementation storage slot.
+IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
 
 
 @dataclass(slots=True, frozen=True)
@@ -124,6 +138,138 @@ class AtomaVault(ERC4626Vault):
     later ``claimWithdrawal(epochId)`` after the settlement epoch has been
     processed.
     """
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Bind the current verified interface at the proxy address.
+
+        Execution methods independently verify the implementation; a binding
+        alone does not certify a future proxy upgrade.
+
+        :return: Bound Atoma contract.
+        """
+        return get_deployed_contract(self.web3, "atoma/AtomaVault.json", self.vault_address)
+
+    def fetch_implementation(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
+        """Read the proxy implementation at a specified block.
+
+        Uses the ERC-1967 slot rather than inferring a version from getters.
+
+        :param block_identifier: Historical block or latest state.
+        :return: Lowercase implementation address.
+        """
+        value = self.web3.eth.get_storage_at(self.address, IMPLEMENTATION_SLOT, block_identifier=block_identifier)
+        return HexAddress("0x" + bytes(value[-20:]).hex())
+
+    def check_execution_version(self, block_identifier: BlockIdentifier) -> HexAddress:
+        """Reject execution outside the reviewed deployments and version.
+
+        Static capability is separate from this current-state check.
+
+        :param block_identifier: Pinned operation block.
+        :return: Reviewed implementation address.
+        :raises VaultFlowUnavailable: Unsupported deployment or upgrade.
+        """
+        if self.chain_id != 42161 or self.web3.eth.chain_id != self.chain_id or self.address.lower() not in ATOMA_VAULT_ADDRESSES or self.fetch_implementation(block_identifier) != ATOMA_IMPLEMENTATION:
+            raise VaultFlowUnavailable("Unreviewed Atoma deployment or implementation", protocol="Atoma", vault_address=self.address, phase="preflight", preflight_result="unsupported_implementation")
+        return HexAddress(ATOMA_IMPLEMENTATION)
+
+    def fetch_receipt_contract(self, block_number: int) -> tuple[Contract, HexAddress]:
+        """Select a historical receipt decoder without guessing across upgrades.
+
+        A block containing an implementation change is deliberately ambiguous:
+        retain its receipt for reconciliation instead of retrying the operation.
+
+        :param block_number: Mined receipt block.
+        :return: Verified binding and implementation.
+        :raises ValueError: Unknown implementation or an upgrade in this block.
+        """
+        implementation = self.fetch_implementation(block_number)
+        interfaces = {ATOMA_IMPLEMENTATION: "atoma/AtomaVault.json", ATOMA_LEGACY_IMPLEMENTATION: "atoma/AtomaVaultLegacy.json"}
+        if implementation not in interfaces or self.fetch_implementation(block_number - 1) != implementation:
+            raise ValueError("Atoma receipt implementation is unknown or changed within its block; reconcile the mined receipt")
+        return get_deployed_contract(self.web3, interfaces[implementation], self.address), implementation
+
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Fetch the denomination-token deposit minimum.
+
+        Read the source-proven constant at the requested block.
+
+        :param block_identifier: State block.
+        :return: Decimal USDC minimum.
+        """
+        return self.denomination_token.convert_to_decimals(self.vault_contract.functions.MIN_DEPOSIT().call(block_identifier=block_identifier))
+
+    def fetch_current_epoch(self, block_identifier: BlockIdentifier = "latest") -> int:
+        """Read the active epoch from the contract's mutable schedule.
+
+        :param block_identifier: State snapshot.
+        :return: Current epoch id.
+        """
+        return self.vault_contract.functions.getCurrentEpoch().call(block_identifier=block_identifier)
+
+    def fetch_epoch(self, epoch: int, block_identifier: BlockIdentifier = "latest") -> tuple[int, int, bool]:
+        """Read aggregate requests and their fixed settlement NAV.
+
+        A settled epoch need not have enough idle assets for a claim. NAV uses
+        the contract's NAV_PRECISION and can subsequently be haircut.
+
+        :param epoch: Settlement epoch id.
+        :param block_identifier: State snapshot.
+        :return: Raw requested shares, settlement NAV and settled flag.
+        """
+        return tuple(self.vault_contract.functions.getEpoch(epoch).call(block_identifier=block_identifier))
+
+    def fetch_epoch_end(self, epoch: int, block_identifier: BlockIdentifier = "latest") -> datetime.datetime:
+        """Read the earliest operator-settlement time for a specific epoch.
+
+        This uses scheduled duration changes and gives no settlement guarantee.
+
+        :param epoch: Settlement or deposit-lock epoch.
+        :param block_identifier: State snapshot.
+        :return: Naive UTC epoch end.
+        """
+        timestamp = self.vault_contract.functions.getEpochEndTime(epoch).call(block_identifier=block_identifier)
+        return datetime.datetime.fromtimestamp(timestamp, datetime.UTC).replace(tzinfo=None)
+
+    def fetch_user_epoch_shares(self, owner: HexAddress, epoch: int, block_identifier: BlockIdentifier = "latest") -> int:
+        """Read the owner's whole unclaimed request aggregate.
+
+        The shares remain recorded after settlement burns the escrowed tokens.
+        A claim consumes this entire aggregate.
+
+        :param owner: Custody caller.
+        :param epoch: Settlement epoch.
+        :param block_identifier: State snapshot.
+        :return: Raw aggregate shares, zero after claim.
+        """
+        return self.vault_contract.functions.userEpochShares(epoch, owner).call(block_identifier=block_identifier)
+
+    def fetch_accrued_withdrawal_fees(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Read retained exit fees, separately from claimable assets.
+
+        This getter is specific to the reviewed current implementation.
+
+        :param block_identifier: State snapshot.
+        :return: Uncollected USDC fees in human-readable units.
+        """
+        block = self.web3.eth.block_number if block_identifier == "latest" else block_identifier
+        self.check_execution_version(block)
+        return self.denomination_token.convert_to_decimals(self.vault_contract.functions.accruedWithdrawalFees().call(block_identifier=block))
+
+    def get_deposit_manager(self) -> AtomaDepositManager:
+        return AtomaDepositManager(self)
+
+    def supports_generic_deposit_manager(self) -> bool:
+        return False
+
+    def is_whitelisted_deposit(self) -> bool:
+        return False
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability | None:
+        if self.chain_id != 42161 or self.address.lower() not in ATOMA_VAULT_ADDRESSES:
+            return None
+        return VaultDepositManagerCapability(can_deposit=True, can_redeem=True, deposit_flow="synchronous", redemption_flow="asynchronous", supports_anvil_settlement=True)
 
     @property
     def name(self) -> str:
@@ -235,21 +381,16 @@ class AtomaVault(ERC4626Vault):
             return DEFAULT_EPOCH_DURATION
 
     def get_withdrawal_period(self) -> WithdrawalPeriod:
-        """Return the epoch-bounded Atoma request-to-claim window.
+        """Describe operator-settled withdrawals without a promised maximum.
 
-        Atoma accepts a withdrawal request and pays it from the next processed
-        settlement epoch. A request can be made as soon as the current epoch
-        permits it, while the normal upper bound is one configured epoch.
-        See the `Atoma vault implementation <https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF>`__.
+        A request in epoch N targets N+1. The operator can settle only after
+        that epoch ends; elapsed time alone neither settles nor pays a claim.
+        Execution reads the ticket's actual epoch end from the contract.
 
         :return:
-            Zero-to-one epoch withdrawal period.
+            Epoch-based settlement with no guaranteed timing bounds.
         """
-        return WithdrawalPeriod(
-            min_period=datetime.timedelta(0),
-            max_period=self.get_estimated_lock_up(),
-            delay_type=WithdrawalDelayType.epoch,
-        )
+        return WithdrawalPeriod(min_period=None, max_period=None, delay_type=WithdrawalDelayType.epoch)
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the Atoma vault app link."""

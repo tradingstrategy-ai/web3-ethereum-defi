@@ -32,6 +32,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -63,9 +64,11 @@ def whitelist_vaults(
     for vault in vaults:
         notes = f"Whitelisting vault {vault.name}"
 
-        # In theory we could have different functions for vault whitelists,
-        # but for now we just assume all use the same function
+        # Atoma needs its request/claim policy; the generic whitelist enables
+        # deposits without authorising the required exit selectors.
         match vault:
+            case AtomaVault():
+                whitelist_call = trading_strategy_module.functions.whitelistAtoma(vault.address, notes)
             case LagoonVault():  # ERC-7540
                 whitelist_call = trading_strategy_module.functions.whitelistERC4626(vault.address, notes)
             case GainsVault():
