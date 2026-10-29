@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Preserve exact requested ERC-4626 redemption shares in metadata and calldata; refuse finite capacity shortfalls unless bounded Morpho V1 or Yearn rounding is confirmed by a positive exact-call simulation (2026-10-29).
 - feat: `deploy_automated_lagoon_vault(lighter_api_key_callback=...)` and `LagoonConfig.lighter_api_key_callback` receive each generated Lighter API key and its role before the key is registered, so a caller can save it and a later deployment failure cannot lose a registered key (2026-10-28).
 - feat: Add Tori trUSD stablecoin classification, verified Ethereum metadata, news feed and official artwork so Tori Ecosystem Vault remains in cleaned price history, and require writing style checks during PR cleanup (2026-10-28, [#1692](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1692)).
 - feat: Add numbered vault database migrations with persistent run records, staged previews and a daemon lifetime guard; consolidate the 28 October metadata repairs (2026-10-28).

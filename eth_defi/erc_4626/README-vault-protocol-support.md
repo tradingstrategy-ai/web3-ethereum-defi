@@ -77,6 +77,16 @@ the reserve cannot fill the request, the manager raises
 ``VaultFlowUnavailable`` instead of broadcasting a transaction that reverts
 ``WithdrawalPending()``.
 
+### Redemption quantities
+
+``ERC4626DepositManager.create_redemption_request()`` preserves the requested
+raw shares in both request metadata and calldata. It does not silently increase
+the quantity to the wallet balance or reduce it to an advertised capacity.
+Morpho V1 and Yearn V3 recognise narrowly bounded capacity rounding and require
+a positive simulation of the exact redemption before accepting it. These rules
+belong to the shared managers and apply equally to strategy execution and manual
+test trades. Callers should report residual shares after execution.
+
 ### Minimum amounts
 
 ``VaultBase`` exposes optional, block-aware minimum accessors so a caller can

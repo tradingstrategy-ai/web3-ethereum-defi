@@ -19,6 +19,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV1DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIResult,
@@ -164,6 +165,10 @@ class MorphoV1Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault`
     for the newer adapter-based architecture.
     """
+
+    def get_deposit_manager(self) -> MorphoV1DepositManager:
+        """Use MetaMorpho's bounded redemption rounding preflight."""
+        return MorphoV1DepositManager(self)
 
     def get_strategy_tags(self) -> set[StrategyTag]:
         """Return automatic lending plus any maintained Morpho tags.
