@@ -14,12 +14,16 @@ long_description: |
   and dual oracle protection for accurate pricing. Curvance is deployed on Monad, Ethereum,
   Arbitrum, Base, Optimism, Polygon zkEVM, and Blast.
 fee_description: |
-  Curvance uses an interest-based fee model rather than explicit deposit/withdrawal fees:
+  [Curvance's lending-market fee documentation](https://docs.curvance.com/app/developer-docs/lending-protocol/borrowablectoken)
+  describes a configurable protocol share of borrower interest, collected
+  through newly minted shares. This reduces lenders' interest income and is
+  reflected in the value of their shares. It is not a flat charge on every
+  source of return, such as rewards already earned by an underlying asset.
 
-  - **Interest fee**: The protocol takes a percentage (up to 60%) of borrower interest payments.
-    This is the primary revenue source and does not directly reduce depositor returns.
-  - **Flashloan fee**: 0.04% (4 basis points) on flash loan amounts.
-  - **No management or performance fees**: Depositors do not pay explicit fees on their deposits.
+  Rates depend on the lending market's configuration; the documented cap is
+  60% of borrower interest. Flash-loan charges and
+  the terms of separate yield strategies are distinct; a missing general
+  performance-fee percentage does not establish that all returns are fee-free.
 links:
   homepage: https://www.curvance.com/
   app: https://www.curvance.com/
@@ -28,7 +32,7 @@ links:
   documentation: https://docs.curvance.com/
   defillama: https://defillama.com/protocol/curvance
   audits: https://docs.curvance.com/cve/security/security-and-audits
-  fees:
+  fees: https://docs.curvance.com/app/developer-docs/lending-protocol/borrowablectoken
   trading_strategy: https://tradingstrategy.ai/vaults/protocols/curvance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/curvance/index.html
 example_smart_contracts:

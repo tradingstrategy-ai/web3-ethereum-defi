@@ -10,8 +10,15 @@ long_description: |
   trust.
 
 fee_description: |
-  Fee information is not publicly exposed on-chain. Accountable vaults do not have
-  explicit fee getter functions available for reading management or performance fees.
+  Accountable fees depend on the vault product and its contract configuration.
+  The [NAV strategy documentation](https://docs.accountable.capital/accountable-documentation/vault-as-a-service/accountable-nav)
+  explains performance fees charged on new profits above the previous peak,
+  while [loan-product terms](https://docs.accountable.capital/accountable-documentation/vault-as-a-service/accountable-fixed-term)
+  distinguish management, performance and borrower establishment charges.
+
+  Applicable management and performance charges reduce the value available
+  to investors. Borrower establishment or early-repayment charges are separate
+  from investor deposit and withdrawal fees.
 links:
   homepage: https://yield.accountable.capital/
   app: https://yield.accountable.capital/
@@ -20,7 +27,7 @@ links:
   documentation: https://docs.accountable.capital/
   defillama: https://defillama.com/protocol/accountable
   audits: https://docs.accountable.capital/accountable-documentation/readme/audits
-  fees:
+  fees: https://docs.accountable.capital/accountable-documentation/vault-as-a-service/accountable-nav
   trading_strategy: https://tradingstrategy.ai/vaults/protocols/accountable
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/accountable/index.html
   linkedin: https://www.linkedin.com/company/accountablecapital/
