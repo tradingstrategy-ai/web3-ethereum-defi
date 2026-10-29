@@ -191,6 +191,9 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault. Values use the canonical curator slug after
 #: applying :py:data:`PROTOCOL_CURATOR_SLUG_ALIASES`.
 PROTOCOL_CURATED_SLUGS: set[str] = {
+    # Native strUSD is operated by Tori, distinct from Upshift's etrUSD vault.
+    # https://docs.tori.finance/products/strusd
+    "tori",
     # Antarctic's reviewed AMLP/AHLP products form the exchange's own liquidity
     # system: https://docs.antarctic.exchange/technical-framework/hybird-lp-model
     "antarctic",
@@ -244,6 +247,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "tori": "Tori Finance",
     "auto-finance": "AUTO Finance",
     "40acres": "40acres",
     "ember": "Ember",

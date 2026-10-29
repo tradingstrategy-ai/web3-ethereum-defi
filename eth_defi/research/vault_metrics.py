@@ -725,6 +725,9 @@ def slugify_protocol(protocol: str) -> str:
     if "unknown" in protocol.lower() or "not identifier" in protocol.lower():
         return "unknown"
 
+    if protocol == "Tori Finance":
+        return "tori"
+
     return slugify(protocol)
 
 
