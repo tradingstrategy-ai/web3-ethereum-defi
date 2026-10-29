@@ -471,6 +471,15 @@ class LagoonConfig:
     #: API-key slot registered on every created sub-account.
     lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX
 
+    #: Called with each generated Lighter API key before it is registered.
+    #:
+    #: Receives the key and its role, ``master`` or ``sub-account <id>``.
+    #: Deployment returns the keys only when it completes, so a caller that
+    #: must not lose a registered key on a later failure saves it here, for
+    #: example to a mode-0600 file. An exception aborts the deployment before
+    #: the key is registered.
+    lighter_api_key_callback: "Callable[[LighterApiKey, str], None] | None" = None
+
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
 
@@ -2537,6 +2546,7 @@ def _activate_lighter_account(
     sub_account_count: int = 0,
     sub_account_api_key_index: int = MIN_API_KEY_INDEX,
     sub_account_labels: Sequence[str] = (),
+    api_key_callback: Callable[[LighterApiKey, str], None] | None = None,
 ) -> LighterAccountSetup:
     """Fund, activate and register a Lighter API key for a newly deployed Safe.
 
@@ -2631,6 +2641,8 @@ def _activate_lighter_account(
             account_index=account_index,
             api_key_index=api_key_index,
             zk_lighter=lighter_deployment.zk_lighter,
+            api_key_callback=api_key_callback,
+            role="master",
         )
         sub_accounts = []
         sub_account_count = len(sub_account_labels) or sub_account_count
@@ -2652,6 +2664,8 @@ def _activate_lighter_account(
                     account_index=sub_index,
                     api_key_index=sub_account_api_key_index,
                     zk_lighter=lighter_deployment.zk_lighter,
+                    api_key_callback=api_key_callback,
+                    role=f"sub-account {sub_account_labels[number] if sub_account_labels else sub_index}",
                 )
                 sub_accounts.append(
                     LighterSubAccountSetup(
@@ -2688,6 +2702,8 @@ def _register_lighter_api_key(
     account_index: int,
     api_key_index: int,
     zk_lighter: HexAddress,
+    api_key_callback: Callable[[LighterApiKey, str], None] | None = None,
+    role: str = "master",
 ) -> tuple[LighterApiKey, HexBytes]:
     """Generate an API key and register it on a Safe-owned Lighter account.
 
@@ -2712,10 +2728,18 @@ def _register_lighter_api_key(
         API-key slot to register.
     :param zk_lighter:
         ZkLighter L1 contract address.
+    :param api_key_callback:
+        Receives the generated key and ``role`` before registration, see
+        :attr:`LagoonConfig.lighter_api_key_callback`.
+    :param role:
+        ``master`` or ``sub-account <id>``, passed to ``api_key_callback``.
     :return:
         Generated key and the ``changePubKey`` transaction hash.
     """
     api_key = generate_lighter_api_key_pair(api_key_index)
+    if api_key_callback is not None:
+        # Before registration: once changePubKey lands, losing the key needs a Safe transaction to recover.
+        api_key_callback(api_key, role)
     tx_hash = execute_change_pubkey(
         web3=web3,
         safe=safe,
@@ -2758,6 +2782,7 @@ def deploy_automated_lagoon_vault(
     lighter_sub_account_count: int = 0,
     lighter_sub_account_api_key_index: int = MIN_API_KEY_INDEX,
     lighter_sub_account_labels: Sequence[str] = (),
+    lighter_api_key_callback: Callable[[LighterApiKey, str], None] | None = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
@@ -2861,6 +2886,10 @@ def deploy_automated_lagoon_vault(
         Stable ids of the sub-accounts to create, in creation order. When
         given, one sub-account is created per id and the count is ignored.
 
+    :param lighter_api_key_callback:
+        Called with each generated Lighter API key and its role before the
+        key is registered, see :attr:`LagoonConfig.lighter_api_key_callback`.
+
     :param max_settlement_amount:
         Optional maximum gross Lagoon settlement for one asset-manager module
         transaction, expressed in human-readable underlying-token units as a
@@ -2922,6 +2951,7 @@ def deploy_automated_lagoon_vault(
         lighter_sub_account_count = config.lighter_sub_account_count
         lighter_sub_account_api_key_index = config.lighter_sub_account_api_key_index
         lighter_sub_account_labels = config.lighter_sub_account_labels
+        lighter_api_key_callback = config.lighter_api_key_callback
         cctp_deployment = config.cctp_deployment
         any_hypercore_vault = config.any_hypercore_vault
         any_asset = config.any_asset
@@ -3394,6 +3424,7 @@ def deploy_automated_lagoon_vault(
                 sub_account_count=lighter_sub_account_count,
                 sub_account_labels=lighter_sub_account_labels,
                 sub_account_api_key_index=lighter_sub_account_api_key_index,
+                api_key_callback=lighter_api_key_callback,
             )
 
         # 3. Set owners after activation; multichain coordinates this after all workers.

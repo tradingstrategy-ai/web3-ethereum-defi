@@ -231,9 +231,11 @@ def test_activate_lighter_account_keys_sub_accounts_outside_reports(monkeypatch:
 
     Each sub-account key belongs to an external trader, so it must reach only
     the hand-over record, never a deployment report, even a secret-bearing one.
+    Each key must also reach the caller's backup callback before it is
+    registered, so a later failure cannot lose a registered key.
 
     1. Run the activation ceremony with two sub-accounts, mocking only Lighter and the Safe transaction.
-    2. Check the master and both sub-account keys were registered on the right accounts.
+    2. Check every key was backed up before its registration, on the right accounts.
     3. Serialise the deployment with secrets and check only the master key is present.
     4. Check the hand-over record and the redacted roundtrip.
     """
@@ -268,15 +270,19 @@ def test_activate_lighter_account_keys_sub_accounts_outside_reports(monkeypatch:
         api_key_index=API_KEY_INDEX,
         sub_account_count=2,
         sub_account_api_key_index=API_KEY_INDEX,
+        api_key_callback=lambda key, role: events.append(("backup", role, key.private_key)),
     )
 
-    # 2. Check the master and both sub-account keys were registered on the right accounts.
+    # 2. Check every key was backed up before its registration, on the right accounts.
     assert events == [
+        ("backup", "master", keys[0].private_key),
         ("register", ACCOUNT_INDEX),
         ("verify", ACCOUNT_INDEX),
         ("create", ACCOUNT_INDEX, 2, keys[0].private_key),
+        ("backup", f"sub-account {sub_indices[0]}", keys[1].private_key),
         ("register", sub_indices[0]),
         ("verify", sub_indices[0]),
+        ("backup", f"sub-account {sub_indices[1]}", keys[2].private_key),
         ("register", sub_indices[1]),
         ("verify", sub_indices[1]),
         "close",
