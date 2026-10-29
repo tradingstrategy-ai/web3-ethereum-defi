@@ -498,6 +498,10 @@ BORROWABLE_USDC_SILOID_142_ILLIQUID = "Borrowable USDC Deposit, SiloId: 142 is i
 
 BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is illiquid"
 
+BORROWABLE_USDC_SILOID_148_ILLIQUID = "Borrowable USDC Deposit, SiloId: 148 is illiquid"
+
+K3_CAPITAL_CLUSTER_ILLIQUID = "K3 Capital Cluster is illiquid"
+
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
 WRAPPED_HLP_ILLIQUID = "Wrapped HLP is illiquid"
@@ -918,6 +922,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x606fe9a70338e798a292ca22c1f28c829f24048e": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_142_ILLIQUID),
     # Borrowable USDC Deposit, SiloId: 145 on Arbitrum
     "0xdc1ab820c92735e7a5e48f10fa3d8424ec47a93e": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_145_ILLIQUID),
+    # Borrowable USDC Deposit, SiloId: 148 on Ethereum
+    "0xa6f6887ed116f3c41497a837a0319264a2eef3fa": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_148_ILLIQUID),
+    # K3 Capital Cluster (Euler on Avalanche)
+    "0x6fc9b3a52944a577cd8971fd8fde0819001bc595": (VaultFlag.illiquid, K3_CAPITAL_CLUSTER_ILLIQUID),
     # Peapods Interest Bearing USDC - 22 (Arbitrum)
     "0x0319c82013cf676661f7bde576c6731869a93fc0": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 38 (Sonic)
