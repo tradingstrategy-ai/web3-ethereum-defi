@@ -1183,6 +1183,15 @@ MULTICALL_RETRYABLE_MESSAGE_CLUES: Final[frozenset[str]] = frozenset(
         "exceeds block gas limit",
         "historical state",
         "state histories haven't been fully indexed yet",
+        # dRPC's load balancer sometimes routes an archive eth_call to a pruned
+        # replica, which answers code 4444 "pruned history unavailable:
+        # requested <block>, earliest available <recent block>". The next
+        # request is routed to another node, so this is retried on the same
+        # endpoint rather than rotated away as an archive gap. Seen on Ethereum
+        # in CI on 2026-10-29: test_4626_historical_prices failed at block
+        # 21,144,431 and test_steakhouse_usdt needed a flaky retry at block
+        # 19,597,798; both passed on the CI rerun and locally.
+        "pruned history unavailable",
         "Failed to call: InvalidTransaction",
         "failsafe timeout policy exceeded",
         # dRPC out of credit?

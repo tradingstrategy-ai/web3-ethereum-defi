@@ -71,6 +71,25 @@ def test_missing_trie_node_is_retryable():
     assert is_retryable_http_exception(exc)
 
 
+def test_drpc_pruned_history_is_retryable():
+    """Retry dRPC's pruned-replica error through the fallback provider.
+
+    dRPC's load balancer occasionally routes an archive request to a pruned
+    node, which answers code ``4444``; the next request reaches another node.
+    The payload was seen on Ethereum in CI on 2026-10-29.
+
+    :return:
+        None.
+    """
+    exc = ValueError(
+        {
+            "code": 4444,
+            "message": "pruned history unavailable: requested 21144431, earliest available 26288382",
+        }
+    )
+    assert is_retryable_http_exception(exc)
+
+
 def test_web3_rpc_error_retryable():
     """Check Web3RPCError uses JSON-RPC codes for retry decisions."""
     exc = Web3RPCError(

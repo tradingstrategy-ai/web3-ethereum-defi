@@ -189,6 +189,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # succeed through another provider that retains the requested state.
     # Observed on Arbitrum dRPC in CI on 2026-07-24.
     "missing trie node",
+    # dRPC's load balancer routed an archive request to a pruned replica:
+    # {'code': 4444, 'message': 'pruned history unavailable: requested 21144431, earliest available 26288382'}
+    # The next request reaches another node. Observed on Ethereum in CI on 2026-10-29.
+    "pruned history unavailable",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
