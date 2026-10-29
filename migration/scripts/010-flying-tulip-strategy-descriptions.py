@@ -4,7 +4,7 @@ Purpose: Restore source-linked strategy notes and apply the description writing 
 Scope: Ethereum, BNB Chain and Sonic sftUSD; Ethereum ssftUSD. Only descriptions and notes.
 Branch: research/flying-tulip-vault-strategies-prs
 PR title: notes: restore Flying Tulip strategy descriptions
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1693
 Preserves: Names, flags, fees, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: Up to four existing rows and fifteen changed fields; missing rows reported, never created.
 
