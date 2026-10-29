@@ -11,6 +11,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcadia import offchain_metadata as arcadia
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
 from eth_defi.erc_4626.vault_protocol.gains.metadata import REVIEWED_GAINS_VAULTS
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_ADDRESS
@@ -59,7 +60,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """All nine repairs compose without touching historical or unrelated state."""
+    """All numbered repairs compose without touching historical or unrelated state."""
 
     def rebuild(web3: object, discovery: ERC4262VaultDetection, block: int, cache: object) -> dict:
         return {"Protocol": "Flying Tulip", "Name": "ssftUSD", "Denomination": "ftUSD", "NAV": 1, "_detection_data": discovery, "_description": "Compounded yield.\nSecond sentence."}
@@ -73,9 +74,11 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
         (batch_database / name).write_bytes(b"unrecoverable history")
     original = {p.name: p.read_bytes() for p in batch_database.iterdir()}
     version = {"in_docker": False, "git_commit_hash": "a" * 40}
-    assert len(runner.run_pending_migrations(data_dir=batch_database, dry_run=True, provenance=version)) == 9
+    expected_migrations = len(tuple(runner.discover_migrations()))
+    assert any(spec.name == "010-flying-tulip-strategy-descriptions.py" for spec in runner.discover_migrations())
+    assert len(runner.run_pending_migrations(data_dir=batch_database, dry_run=True, provenance=version)) == expected_migrations
     assert {p.name: p.read_bytes() for p in batch_database.iterdir()} == original
-    assert len(runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version)) == 9
+    assert len(runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version)) == expected_migrations
     database = VaultDatabase.read(path)
     assert database.last_scanned_block == {1: 12345, 42161: 67890}
     assert database.rows[NOVA]["Protocol"] == "Nova Markets"
@@ -87,6 +90,9 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[NOVA]["_short_description"] == normalise_vault_short_description(adapter.short_description)
     assert database.rows[FT]["manual_enrichment"] == "keep"
     assert "_external_reward_token" not in database.rows[FT]
+    assert database.rows[FT]["_description"] == FLYING_TULIP_SSFTUSD_DESCRIPTION
+    assert database.rows[FT]["_short_description"] == FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
+    assert database.rows[FT]["_notes"] == FLYING_TULIP_SSFTUSD_NOTES
     assert database.rows[WRAPPED]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()

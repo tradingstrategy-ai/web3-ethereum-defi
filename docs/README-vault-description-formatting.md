@@ -38,7 +38,8 @@ Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for loc
 rollout. Set `PIPELINE_DATA_DIR` to an isolated copy directory for local checks.
 The former `fix-vault-descriptions.py` command is retired. Its standalone
 format is legacy; use a new numbered migration for later repairs. The unified command
-runs all pending repairs, with description normalisation last. Stop the daemon
+runs all pending repairs in numeric order. Later copy repairs must supply
+normalised descriptions and single-sentence summaries. Stop the daemon
 and competing writers before either preview or apply.
 
 After applying, restart the same inspected scanner image. Its normal cleaning,
