@@ -1057,6 +1057,53 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
         assert slug == expected_slug, f"{vault_name!r} resolved to {slug!r}"
 
 
+def test_identify_neutral_trade_autopilot_curator() -> None:
+    """Attribute Neutral Trade's Autopilot feeders to Neutral Trade, not IPOR.
+
+    1. Resolve the Ethereum and Monad Accountable deployments, with and
+       without Accountable's manager name.
+    2. Keep Harvest's IPOR Fusion "Autopilot" vaults on the IPOR pattern.
+    3. Attribute the Neutral Trade-distributed Meridian vault to Kappa Lab.
+    """
+
+    # 1. Resolve both Accountable deployments, with and without the manager name.
+    for chain_id, vault_address, manager_name in (
+        (1, "0x909dadbca7955614a455d9e7447ad4adb4902c8e", "Neutral Trade"),
+        (143, "0xaabab7598be3c4fe58c593e73c2f5934b73b573e", None),
+    ):
+        slug = identify_curator(
+            chain_id=chain_id,
+            vault_token_symbol="NTA",
+            vault_name="Neutral Trade Autopilot",
+            vault_address=vault_address,
+            protocol_slug="accountable",
+            manager_name=manager_name,
+        )
+        assert slug == "neutral-trade"
+    assert get_curator_name("neutral-trade") == "Neutral Trade"
+
+    # 2. Keep Harvest's IPOR Fusion Autopilot attribution unchanged.
+    slug = identify_curator(
+        chain_id=8453,
+        vault_token_symbol="bAutopilot_USDC",
+        vault_name="Autopilot USDC Base",
+        vault_address="0x0d877dc7c8fa3ad980dfdb18b48ec9f8768359c4",
+        protocol_slug="ipor-fusion",
+    )
+    assert slug == "ipor"
+
+    # 3. Attribute Meridian to Kappa Lab despite the co-branded manager name.
+    slug = identify_curator(
+        chain_id=4663,
+        vault_token_symbol="MLP",
+        vault_name="Meridian Liquidity Provider",
+        vault_address="0x24b84023c8e4da635be228c380c09bfe5271bf9d",
+        protocol_slug="accountable",
+        manager_name="Meridian x Kappa x Neutral Trade",
+    )
+    assert slug == "kappa-lab"
+
+
 def test_identify_ryllo_curator() -> None:
     """Resolve Ryllo through Accountable metadata and vault branding.
 

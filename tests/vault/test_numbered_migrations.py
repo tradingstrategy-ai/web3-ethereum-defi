@@ -18,7 +18,8 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_AD
 from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import VaultFlag, get_notes
-from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
+from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 from eth_defi.vault_protocols.repairs import flying_tulip
@@ -93,6 +94,12 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[FT]["_description"] == FLYING_TULIP_SSFTUSD_DESCRIPTION
     assert database.rows[FT]["_short_description"] == FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
     assert database.rows[FT]["_notes"] == FLYING_TULIP_SSFTUSD_NOTES
+    for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA:
+        autopilot = database.rows[VaultSpec(chain_id, address)]
+        assert autopilot["_description"] == NEUTRAL_AUTOPILOT_VAULT_METADATA[chain_id, address].description
+        assert autopilot["_notes"] == NEUTRAL_AUTOPILOT_NOTE
+        assert autopilot["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral}
+        assert autopilot["_manager_name"] == "Existing attribution"
     assert database.rows[WRAPPED]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()

@@ -171,9 +171,56 @@ NOON_YIELD_ENGINE_SOURCES: Final[str] = "Noon explains its [sources of investmen
 #: Asia-credit vault partners, and names staked AZND, muBOND and liquidity positions.
 ASIA_CREDIT_STRATEGY_DESCRIPTION: Final[str] = "The Asia Credit Yield Vault accepts USDC to invest in Asian debt markets and provide funds for trading on crypto platforms. Accountable launched it with SharpByte Capital and Mu Digital. The launch announcement names staked AZND and muBOND among its investments, alongside funds supplied to trading pools. The aim is to earn income from debt investments and trading activity. Borrower defaults, software failures or difficulty selling investments could cause losses or delay withdrawals."
 
-#: Neutral Trade's public strategy page describes Autopilot as a rebalanced
-#: portfolio; its strategy directory lists availability on Monad as well as Ethereum.
-NEUTRAL_AUTOPILOT_DESCRIPTION: Final[str] = "Neutral Trade Autopilot spreads USDC deposits across trading strategies run by several managers. It adjusts the mix as conditions change. The strategies balance trades to limit their dependence on whether markets rise or fall. They seek to earn income from payments between traders and differences between buying and selling prices. Trading losses, exchange failures or withdrawal delays can still affect depositors. Neutral Trade identifies Solana Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as company backers."
+#: Neutral Trade's Solana Autopilot vault, the destination of its EVM feeder vaults.
+NEUTRAL_AUTOPILOT_URL: Final[str] = "https://www.neutral.trade/strategies/neutral-autopilot"
+
+#: Neutral Trade's update confirming the Ethereum feeder, Accountable's role and custody.
+NEUTRAL_TRADE_UPDATE_URL: Final[str] = "https://www.neutral.trade/blog/september-october-2026-update"
+
+
+def _make_neutral_autopilot_metadata(network: str, other_network: str, link: str) -> HandwrittenVaultMetadata:
+    """Build the reviewed copy for one Neutral Trade Autopilot feeder vault.
+
+    Neutral Trade's Ethereum and Monad vaults, built with Accountable, are
+    entry points to the same Solana Autopilot vault. Sharing one template keeps
+    the explanation of that cross-linked capital identical on both networks.
+    Sources are recorded in
+    ``docs/protocol-research/neutral-trade-autopilot-2026-10-29.md``.
+
+    :param network: Network of the described feeder vault.
+    :param other_network: Network of the other Accountable feeder vault.
+    :param link: Canonical deposit or vault page for this deployment.
+    :return: Single-line display metadata for the deployment.
+    """
+    return HandwrittenVaultMetadata(
+        name="Neutral Trade Autopilot",
+        short_description=f"{network} entry point to Neutral Trade's Solana-based Autopilot vault, which spreads USDC across several trading strategies designed to limit exposure to market direction.",
+        description=(
+            f"This {network} vault, built with Accountable, accepts USDC and passes it into Neutral Autopilot, Neutral Trade's vault on Solana, where Neutral Trade says most of the strategy's money is held. "
+            "Autopilot is a multi-strategy portfolio: it spreads deposits across strategies run by Neutral Trade and by outside trading firms, such as arbitrage between exchanges, collecting funding payments between futures traders, market making and options trading, and shifts the mix as results change. "
+            "Most of these strategies balance their trades to limit their dependence on whether prices rise or fall, and Neutral Trade caps strategies that bet on price direction at 5% of the portfolio. "
+            f"A matching {other_network} vault also feeds the same Solana vault, so depositors on all three networks share the same positions and the same centralised exchange accounts, which Neutral Trade says are held through the custodians Ceffu or Copper. "
+            "Accountable calculates the vault's value independently of Neutral Trade. "
+            "As of 29 October 2026, the vault's onchain fee settings charge no management fee and a 3% performance fee on gains, all of which goes to Accountable; Neutral Trade does not state whether its own Autopilot fees also apply to money arriving through these vaults. "
+            "Withdrawals are not instant: since 12 October 2026, Neutral Autopilot has settled withdrawal requests weekly on Saturdays. "
+            "Depositors can still lose money through trading losses or the failure of an exchange or custodian, and withdrawals can be delayed. "
+            "Neutral Trade was founded in 2024 and names Solana Labs, YZi Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as investors in the company."
+        ),
+        link=link,
+    )
+
+
+#: Neutral Trade Autopilot feeder vaults built with Accountable.
+#:
+#: Links point to each deployment's Accountable vault page, keyed by the
+#: Accountable loan address rather than the share-token address.
+NEUTRAL_AUTOPILOT_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (1, HexAddress("0x909dadbca7955614a455d9e7447ad4adb4902c8e")): _make_neutral_autopilot_metadata("Ethereum", "Monad", "https://yield.accountable.capital/vaults/0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff"),
+    (143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")): _make_neutral_autopilot_metadata("Monad", "Ethereum", "https://yield.accountable.capital/vaults/0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c"),
+}
+
+#: Source-linked note explaining the cross-linked Autopilot feeder vaults.
+NEUTRAL_AUTOPILOT_NOTE: Final[str] = f"This Accountable vault is a wrapper, or entry point, for Neutral Trade's Solana-based [Neutral Autopilot]({NEUTRAL_AUTOPILOT_URL}) vault, where Neutral Trade says the main capital is held. Neutral Trade's Ethereum and Monad Autopilot vaults are cross-linked: both feed the same Solana vault, so their depositors share its positions and its centralised exchange accounts. Neutral Trade says exchange capital is held in off-exchange custody with Ceffu or Copper and that trading firms cannot withdraw deposits, in its [September and October 2026 update]({NEUTRAL_TRADE_UPDATE_URL}). Accountable [calculates the vault's value independently](https://x.com/accountabledata/status/2106036446503047195). Neutral Trade's [FAQ](https://www.neutral.trade/faq) describes its redemption schedule and company investors."
 
 #: Other reviewed Accountable deployments with manually researched descriptions.
 #:
@@ -204,12 +251,7 @@ ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA: Final[dict[tuple[int, HexAddress], Handw
         description=ASIA_CREDIT_STRATEGY_DESCRIPTION,
         link="https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP",
     ),
-    (143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")): HandwrittenVaultMetadata(
-        name="Neutral Trade Autopilot",
-        short_description="USDC trading strategies managed by Neutral Trade to limit exposure to market price swings.",
-        description=NEUTRAL_AUTOPILOT_DESCRIPTION,
-        link="https://www.neutral.trade/strategies/neutral-autopilot",
-    ),
+    **NEUTRAL_AUTOPILOT_VAULT_METADATA,
 }
 
 #: Source citations for reviewed Accountable vaults. These descriptive notes
@@ -230,7 +272,7 @@ ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES.update(
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[42161, HexAddress("0x9fe29a3fec55414f70454e2dbe6522f48ced3e85")] += " Symphony identifies Noon in its [launch announcement](https://www.symphony.io/blog/symphony-is-live-get-rewarded-for-saving-not-spending)."
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[1, HexAddress("0x0963c0f17d77e336ff75ed36c27d3a1522847615")] += " Noon lists its separate Sophon-network tokens as discontinued in its [token directory](https://docs.noon.capital/6.-resources/contract-addresses-and-oracles). This [vault is on Ethereum](https://etherscan.io/address/0x0963c0f17d77e336ff75ed36c27d3a1522847615#code); that notice does not establish whether this vault is still operating."
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0x4c0d041889281531ff060290d71091401caa786d")] = f"{ASIA_CREDIT_STRATEGY_DESCRIPTION}\n\nAccountable's [Monad launch announcement](https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP) names the partners and investments. [SharpByte Capital](https://www.sharpbyte.xyz/) describes its investment management business."
-ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")] = f"{NEUTRAL_AUTOPILOT_DESCRIPTION}\n\nSee Neutral Trade's [Autopilot strategy](https://www.neutral.trade/strategies/neutral-autopilot), [network availability](https://www.neutral.trade/strategies?tier=marketplace) and [company background and backers](https://www.neutral.trade/faq)."
+ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES.update(dict.fromkeys(NEUTRAL_AUTOPILOT_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE))
 # Use the dedicated source-linked Avalanche note instead of the generic Tauri note.
 ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES[43114, HexAddress("0x9c3da70cd7fedeaef528d060ea99ace133e08fd2")] = TRAVESSIA_TAURI_VAULT_NOTE
 
