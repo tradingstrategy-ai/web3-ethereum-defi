@@ -247,6 +247,18 @@ affected stage pending; no blind re-signing, duplicate burn or repeated subscrip
 State exactly which interruptions require manual recovery rather than promising
 universal resumability.
 
+Use the protocol's full-exit instruction rather than submitting a quoted whole
+balance. Hypercore's `vaultTransfer(vault, false, 0)` withdraws all at execution
+value; observe the actual perp credit before sizing the next transfer. For
+Lighter, a secure history row can remain `claimable` after an automatic L1
+claim. Check the pending balance and matching Safe credit before claiming again.
+The protocol guides linked above cover these cases and the dated mainnet run.
+
+When the protocol explicitly rejects a submission, retain its original hash and
+rejection evidence. An operator-confirmed recovery uses a new operation identity;
+never replace the amount under an already submitted hash. A timeout or an
+unchanged balance alone does not authorise such a replacement.
+
 For Lagoon, return external capital and resolve receivables before using local
 Safe cash as final NAV. Use normal share redemption, settlement and claim to the
 deployer. A direct owner sweep is not an equivalent test of investor redemption.

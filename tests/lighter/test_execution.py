@@ -307,9 +307,17 @@ def test_wait_claimable_stops_on_terminal_status(monkeypatch: pytest.MonkeyPatch
 
 def test_withdrawal_pagination_loop_fails(monkeypatch: pytest.MonkeyPatch, session: Mock) -> None:
     """Malformed provider pagination cannot make a history scan loop forever."""
-    monkeypatch.setattr(ex, "fetch_withdrawal_history", lambda *_: {"withdraws": [], "cursor": "same"})
+    monkeypatch.setattr(ex, "fetch_withdrawal_history", lambda *_: {"withdraws": [{"id": "repeated"}], "cursor": "same"})
     with pytest.raises(AssertionError, match="pagination loop"):
         tuple(ex.fetch_withdrawals(session, 123, "secret"))
+
+
+def test_withdrawal_empty_page_with_terminal_cursor(monkeypatch: pytest.MonkeyPatch, session: Mock) -> None:
+    """The live API returns a non-empty terminal cursor even without withdrawals."""
+    fetch = Mock(return_value={"withdraws": [], "cursor": "eyJpbmRleCI6LTEsImluZGV4MiI6LTF9"})
+    monkeypatch.setattr(ex, "fetch_withdrawal_history", fetch)
+    assert tuple(ex.fetch_withdrawals(session, 123, "secret")) == ()
+    fetch.assert_called_once()
 
 
 def test_bootstrap_conservation_rejects_double_counting() -> None:

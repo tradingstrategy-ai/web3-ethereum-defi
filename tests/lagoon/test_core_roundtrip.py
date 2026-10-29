@@ -297,6 +297,7 @@ def test_pending_secure_withdrawal_reuses_nonce_and_history_id(lighter_unwind_co
     claim = Mock()
     monkeypatch.setattr(rt, "bridge", bridge)
     monkeypatch.setattr(rt, "claim_lighter", claim)
+    monkeypatch.setattr(rt, "fetch_lighter_pending_balance", lambda *_args, **_kwargs: Decimal(11))
     with pytest.raises(rt.RoundtripPendingError, match="pending"):
         rt.unwind_lighter(ctx)
     saved = rt.load_state(ctx.settings.state_path, simulate=True)
@@ -311,11 +312,16 @@ def test_pending_secure_withdrawal_reuses_nonce_and_history_id(lighter_unwind_co
     bridge.assert_called_once()
 
 
-def test_external_claim_requires_original_safe_credit(lighter_unwind_context: rt.RoundtripContext, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("status", ["claimable", "completed"])
+@pytest.mark.parametrize("reverted_claim", [False, True])
+def test_external_claim_requires_original_safe_credit(lighter_unwind_context: rt.RoundtripContext, monkeypatch: pytest.MonkeyPatch, status: str, *, reverted_claim: bool) -> None:
     """An auto-claimed withdrawal must match its exact saved ID and Safe balance delta."""
     ctx = lighter_unwind_context
     ctx.state.lighter.update(withdrawal_baseline=[], withdrawal_id="simulation-0", withdrawal_amount="11", withdrawal_safe_before=0, operations={"withdraw": {"stage": "confirmed"}})
-    ctx.simulation.lighter.ledger["withdraws"] = [{"id": "simulation-0", "status": "completed", "type": "secure", "asset_id": 3, "amount": "11"}]
+    ctx.simulation.lighter.ledger["withdraws"] = [{"id": "simulation-0", "status": status, "type": "secure", "asset_id": 3, "amount": "11"}]
+    if reverted_claim:
+        ctx.state.transactions["lighter_claim"] = {"chain": "ethereum", "hash": "0xoriginal"}
+        ctx.web3["ethereum"].eth.get_transaction_receipt.return_value = {"status": 0}
     ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 11_000_000
     monkeypatch.setattr(rt, "fetch_lighter_pending_balance", lambda *_args, **_kwargs: Decimal(0))
     claim = Mock()
@@ -326,9 +332,15 @@ def test_external_claim_requires_original_safe_credit(lighter_unwind_context: rt
     claim.assert_not_called()
     bridge.assert_called_once()
     assert ctx.state.steps["lighter_external_claim"]["withdrawal_id"] == "simulation-0"
+    if reverted_claim:
+        assert ctx.state.transactions["lighter_claim"]["reverted"] is True
+        assert ctx.state.steps["lighter_external_claim"]["reverted_claim_hash"] == "0xoriginal"
     ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 12_000_000
     with pytest.raises(AssertionError, match="balance evidence"):
         del ctx.state.steps["lighter_external_claim"]
+        rt.unwind_lighter(ctx)
+    ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 0
+    with pytest.raises(rt.RoundtripPendingError, match="not yet visible"):
         rt.unwind_lighter(ctx)
     ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 11_000_000
     rt.unwind_lighter(ctx)
@@ -338,6 +350,54 @@ def test_external_claim_requires_original_safe_credit(lighter_unwind_context: rt
     bridge.reset_mock()
     rt.unwind_lighter(ctx)
     bridge.assert_called_once_with(ctx, "return_ethereum", "ethereum", "arbitrum")
+
+
+def test_unobserved_lighter_claim_blocks_external_credit_recovery(lighter_unwind_context: rt.RoundtripContext, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A credited Safe cannot make an original unobserved transaction safe to replace."""
+    ctx = lighter_unwind_context
+    ctx.state.lighter.update(withdrawal_baseline=[], withdrawal_id="simulation-0", withdrawal_amount="11", withdrawal_safe_before=0, operations={"withdraw": {"stage": "confirmed"}})
+    ctx.state.transactions["lighter_claim"] = {"chain": "ethereum", "hash": "0xunobserved"}
+    ctx.web3["ethereum"].eth.get_transaction_receipt.side_effect = TransactionNotFound("not indexed")
+    ctx.simulation.lighter.ledger["withdraws"] = [{"id": "simulation-0", "status": "claimable", "type": "secure", "asset_id": 3, "amount": "11"}]
+    ctx.usdc["ethereum"].fetch_raw_balance_of.return_value = 11_000_000
+    bridge = Mock()
+    monkeypatch.setattr(rt, "bridge", bridge)
+    with pytest.raises(rt.UncertainExecutionError, match="original Lighter claim"):
+        rt.unwind_lighter(ctx)
+    bridge.assert_not_called()
+    assert "lighter_external_claim" not in ctx.state.steps
+
+
+def test_reverted_lighter_claim_is_not_replayed(lighter_unwind_context: rt.RoundtripContext, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An explicit failure cannot authorise another claim while funds remain pending."""
+    ctx = lighter_unwind_context
+    ctx.state.lighter.update(withdrawal_baseline=[], withdrawal_id="simulation-0", withdrawal_amount="11", withdrawal_safe_before=0, operations={"withdraw": {"stage": "confirmed"}})
+    ctx.state.transactions["lighter_claim"] = {"chain": "ethereum", "hash": "0xreverted"}
+    ctx.web3["ethereum"].eth.get_transaction_receipt.return_value = {"status": 0}
+    ctx.simulation.lighter.ledger["withdraws"] = [{"id": "simulation-0", "status": "claimable", "type": "secure", "asset_id": 3, "amount": "11"}]
+    monkeypatch.setattr(rt, "fetch_lighter_pending_balance", lambda *_args, **_kwargs: Decimal(11))
+    claim, bridge = Mock(), Mock()
+    monkeypatch.setattr(rt, "claim_lighter", claim)
+    monkeypatch.setattr(rt, "bridge", bridge)
+    with pytest.raises(rt.UncertainExecutionError, match="reverted without a verified external credit"):
+        rt.unwind_lighter(ctx)
+    claim.assert_not_called()
+    bridge.assert_not_called()
+    assert ctx.state.transactions["lighter_claim"]["hash"] == "0xreverted"
+    assert ctx.state.transactions["lighter_claim"]["reverted"] is True
+
+
+def test_lighter_claim_requires_sufficient_settled_balance(lighter_unwind_context: rt.RoundtripContext, monkeypatch: pytest.MonkeyPatch) -> None:
+    """History readiness cannot authorise a claim larger than the actual L1 balance."""
+    ctx = lighter_unwind_context
+    ctx.state.lighter.update(withdrawal_baseline=[], withdrawal_id="simulation-0", withdrawal_amount="11", withdrawal_safe_before=0, operations={"withdraw": {"stage": "confirmed"}})
+    ctx.simulation.lighter.ledger["withdraws"] = [{"id": "simulation-0", "status": "claimable", "type": "secure", "asset_id": 3, "amount": "11"}]
+    monkeypatch.setattr(rt, "fetch_lighter_pending_balance", lambda *_args, **_kwargs: Decimal(10))
+    claim = Mock()
+    monkeypatch.setattr(rt, "claim_lighter", claim)
+    with pytest.raises(AssertionError, match="does not cover"):
+        rt.unwind_lighter(ctx)
+    claim.assert_not_called()
 
 
 def test_bridge_reconciliation_ignores_other_hub_credit(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -384,6 +444,29 @@ def test_unwind_cancels_prepared_but_unsigned_outbound(monkeypatch: pytest.Monke
     bridge.assert_not_called()
 
 
+def test_verified_rejected_core_exit_uses_new_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An operator-verified rejection preserves its evidence and refreshes sizing."""
+    ctx = Mock()
+    rejected = {"amount": "10.05", "rejection": {"hash": "0xoriginal", "error": "Insufficient vault equity for withdrawal"}}
+    ctx.state = rt.RoundtripState(targets={"hypercore": "vault"}, steps={"core_exit": rejected})
+    ctx.simulation = None
+    ctx.usdc = {"hyperliquid": SimpleNamespace(convert_to_raw=lambda amount: int(amount * 10**6), convert_to_decimals=lambda amount: Decimal(amount) / 10**6)}
+    monkeypatch.setattr(rt, "reconcile_core_entries", Mock())
+    monkeypatch.setattr(rt, "fetch_core_snapshot", Mock(return_value={"equity": "10.01", "locked_until": None}))
+    metadata = Mock()
+    metadata.fetch_info.return_value = SimpleNamespace(max_withdrawable=Decimal("10.01"), follower_equity=Decimal("10.01"), followers=[])
+    monkeypatch.setattr(rt, "HyperliquidVault", Mock(return_value=metadata))
+    monkeypatch.setattr(rt, "build_hypercore_withdraw_from_vault_call", Mock())
+    action = Mock(side_effect=rt.RoundtripPendingError("stop before submission"))
+    monkeypatch.setattr(rt, "core_action", action)
+    with pytest.raises(rt.RoundtripPendingError, match="stop before submission"):
+        rt.unwind_hypercore(ctx)
+    assert action.call_args.args[1] == "core_exit_1"
+    assert action.call_args.args[-1] == Decimal("10.01")
+    assert rt.build_hypercore_withdraw_from_vault_call.call_args.args[-1] == 0
+    assert ctx.state.steps["core_exit"] == rejected
+
+
 def test_confirmed_partial_core_exit_allows_distinct_followup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Moving equity leaves a remainder without replaying a confirmed withdrawal."""
     ctx = Mock()
@@ -396,7 +479,7 @@ def test_confirmed_partial_core_exit_allows_distinct_followup(monkeypatch: pytes
     monkeypatch.setattr(rt, "fetch_core_snapshot", lambda _: dict(ledger))
     monkeypatch.setattr(rt, "reconcile_core_entries", Mock())
     metadata = Mock()
-    metadata.fetch_info.side_effect = [SimpleNamespace(max_withdrawable=Decimal(9)), SimpleNamespace(max_withdrawable=Decimal("1.1"))]
+    metadata.fetch_info.side_effect = [SimpleNamespace(max_withdrawable=Decimal(9), follower_equity=Decimal(10), followers=[]), SimpleNamespace(max_withdrawable=Decimal("1.1"), follower_equity=Decimal("1.100000123"), followers=[])]
     monkeypatch.setattr(rt, "HyperliquidVault", Mock(return_value=metadata))
     monkeypatch.setattr(rt, "build_hypercore_withdraw_from_vault_call", Mock())
     monkeypatch.setattr(rt, "build_hypercore_transfer_usd_class_call", Mock())
@@ -431,6 +514,8 @@ def test_confirmed_partial_core_exit_allows_distinct_followup(monkeypatch: pytes
     assert sent == ["core_exit", "core_exit_1"]
     assert ctx.state.steps["core_exit_1"]["complete"]
     assert ctx.state.steps["core_exit_1"]["amount"] == "1.1"
+    assert ctx.state.steps["core_exit_1"]["withdraw_all"] is True
+    assert rt.build_hypercore_withdraw_from_vault_call.call_args.args[-1] == 0
 
 
 @pytest.mark.parametrize("spot,returned", [("0.5", "0.49"), ("0.009", None), ("0.0100005", None)])

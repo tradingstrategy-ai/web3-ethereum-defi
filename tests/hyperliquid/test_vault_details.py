@@ -34,9 +34,18 @@ def test_missing_vault_details_flags_remain_unknown() -> None:
     # 2. Missing flags remain unknown for the caller to handle.
     assert info.is_closed is None
     assert info.allow_deposits is None
+    assert info.follower_equity is None
     status = classify_hyperliquid_vault_deposit(info.is_closed, info.allow_deposits)
     assert status.deposits_open is None
     assert status.closed_reason is None
+
+
+def test_user_equity_is_independent_of_public_followers() -> None:
+    """Preserve caller-specific equity even when its user is absent from the public list."""
+    vault = HyperliquidVault(session=MagicMock(), vault_address="0x0000000000000000000000000000000000000001")
+    info = vault._parse_vault_details({"name": "Capped followers", "vaultAddress": vault.vault_address, "leader": "0x0000000000000000000000000000000000000002", "followers": [], "followerState": {"vaultEquity": "10.123456789012"}})
+    assert info.followers == []
+    assert info.follower_equity == Decimal("10.123456789012")
 
 
 @pytest.fixture(scope="module")

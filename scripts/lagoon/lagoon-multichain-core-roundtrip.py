@@ -79,6 +79,10 @@ Moving Hypercore equity or limited liquidity may leave a confirmed partial exit.
 Run unwind again to request its remainder under a new transaction identity.
 An unobserved or rejected Core action still requires explicit investigation;
 neither a zero equity guarantee nor automatic replay is available.
+After verifying a rejected withdrawal's Core execution, retain that record in
+the matching ``steps["core_exit"]["rejection"]`` (or ``core_exit_<n>``) entry.
+Preserve the original hash/amount; see ``docs/README-Hypercore-guard.md`` for the
+protected-state procedure. A timeout alone never permits this recovery.
 
 ``SIMULATE=true`` defaults to ``ACTION=all`` and runs the full flow immediately::
 

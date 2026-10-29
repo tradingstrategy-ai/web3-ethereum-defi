@@ -149,11 +149,14 @@ def encode_vault_deposit(vault: HexAddress | str, usdc_amount_wei: int) -> bytes
 def encode_vault_withdraw(vault: HexAddress | str, usdc_amount_wei: int) -> bytes:
     """Encode a CoreWriter vaultTransfer withdraw action (action ID 2).
 
+    Zero withdraws the entire investment at execution-time value, matching the
+    Max action in the `official vault interface <https://app.hyperliquid.xyz/vaults>`_.
+
     :param vault:
         Hypercore native vault address.
 
     :param usdc_amount_wei:
-        USDC amount in HyperCore wei (uint64).
+        USDC amount in HyperCore wei (uint64), or zero to withdraw all.
 
     :return:
         Raw action bytes for ``CoreWriter.sendRawAction()``.

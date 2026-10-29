@@ -596,7 +596,8 @@ def fetch_withdrawals(session: LighterSession, account_index: int, auth_token: s
     """Iterate the complete withdrawal history, including older pending requests.
 
     Following every cursor prevents first-page snapshots from mistaking an old
-    withdrawal for a newly submitted one. Repeated cursors fail explicitly.
+    withdrawal for a newly submitted one. An empty page ends the history even
+    when Lighter supplies its terminal cursor; repeated non-empty pages fail.
 
     :param session: Ethereum session.
     :param account_index: Safe-owned account.
@@ -607,6 +608,8 @@ def fetch_withdrawals(session: LighterSession, account_index: int, auth_token: s
     seen = set()
     while True:
         data = fetch_withdrawal_history(session, account_index, auth_token, cursor)
+        if not data["withdraws"]:
+            return
         yield from data["withdraws"]
         cursor = data.get("cursor")
         if not cursor:

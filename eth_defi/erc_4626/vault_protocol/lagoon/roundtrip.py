@@ -910,20 +910,35 @@ def unwind_hypercore(ctx: RoundtripContext) -> None:
             raise RoundtripPendingError(f"Hypercore locked until {current['locked_until']} UTC")
         # Use numeric sequence order independently of JSON key ordering.
         exits = sorted((name for name in ctx.state.steps if name == "core_exit" or name.startswith("core_exit_")), key=lambda name: 0 if name == "core_exit" else int(name.removeprefix("core_exit_")))
-        name = exits[-1] if exits and not ctx.state.steps[exits[-1]].get("complete") else (f"core_exit_{len(exits)}" if exits else "core_exit")
+        # An operator may record a verified HyperCore rejection after checking
+        # the original execution hash. Preserve that attempt and use a new ID.
+        name = exits[-1] if exits and not any(ctx.state.steps[exits[-1]].get(key) for key in ("complete", "rejection")) else (f"core_exit_{len(exits)}" if exits else "core_exit")
         if name not in ctx.state.steps:
-            available = equity if ctx.simulation else HyperliquidVault(ctx.hyper_session, ctx.state.targets["hypercore"]).fetch_info(user=safe.safe_address).max_withdrawable
+            saved = {"before": current, "withdraw_all": bool(ctx.simulation)}
+            if ctx.simulation:
+                available = equity
+            else:
+                info = HyperliquidVault(ctx.hyper_session, ctx.state.targets["hypercore"]).fetch_info(user=safe.safe_address)
+                available = info.max_withdrawable
+                assert info.follower_equity is not None, "User-specific Hypercore equity is unavailable"
+                # Use caller-specific values from the same response, not the
+                # capped public follower list or an earlier price snapshot.
+                saved["withdraw_all"] = token.convert_to_raw(available) >= token.convert_to_raw(info.follower_equity)
             amount = token.convert_to_decimals(token.convert_to_raw(min(equity, available)))
             if amount <= 0:
                 message = "Hypercore vault has no representable withdrawable amount; inspect current liquidity and remaining equity"
                 raise RoundtripPendingError(message)
-            ctx.state.steps[name] = {"amount": str(amount), "before": current}
+            saved["amount"] = str(amount)
+            ctx.state.steps[name] = saved
             ctx.save()
         saved = ctx.state.steps[name]
         saved.setdefault("before", current)
         amount = Decimal(saved["amount"])
         before = saved["before"]
-        core_action(ctx, name, build_hypercore_withdraw_from_vault_call(safe, ctx.state.targets["hypercore"], token.convert_to_raw(amount)), lambda s: Decimal(s["perp"]) > Decimal(before["perp"]) and Decimal(s["equity"]) < Decimal(before["equity"]), amount)
+        # The official app's Max action sends usd=0 to withdraw all at execution
+        # value: https://app.hyperliquid.xyz/vaults. A quoted full amount races
+        # trading PnL and can leave a rejected sub-5-USDC remaining investment.
+        core_action(ctx, name, build_hypercore_withdraw_from_vault_call(safe, ctx.state.targets["hypercore"], 0 if saved.get("withdraw_all") else token.convert_to_raw(amount)), lambda s: Decimal(s["perp"]) > Decimal(before["perp"]) and Decimal(s["equity"]) < Decimal(before["equity"]), amount)
         if Decimal(fetch_core_snapshot(ctx)["equity"]) > 0:
             # Never replay this action. A later invocation may withdraw the
             # remainder under a new identity, after this credit was observed.
@@ -1039,20 +1054,40 @@ def unwind_lighter(ctx: RoundtripContext) -> None:  # noqa: PLR0914 - Keep the s
         ctx.save()
     row = fetch_matching_withdrawal(ctx.lighter_session, index, ctx.state.lighter["withdrawal_id"], fetch_auth(ctx))
     assert row is not None
-    if "lighter_claim" not in ctx.state.transactions:
-        if row["status"] == "completed":
+    claim = ctx.state.transactions.get("lighter_claim")
+    if claim and not claim.get("confirmed"):
+        try:
+            receipt = ctx.web3["ethereum"].eth.get_transaction_receipt(claim["hash"])
+        except TransactionNotFound as error:
+            raise UncertainExecutionError(f"Reconcile original Lighter claim {claim['hash']} before returning funds") from error
+        if receipt["status"] == 0:
+            claim["reverted"] = True
+            ctx.save()
+    if claim is None or claim.get("reverted"):
+        pending = fetch_lighter_pending_balance(ctx.web3["ethereum"], owner=safe.safe_address, usdc=token)
+        # Secure history stays claimable after Lighter's automatic L1 claim:
+        # https://apidocs.lighter.xyz/reference/withdraw_history.
+        if row["status"] in {"claimable", "completed"} and pending == 0:
             claimed = token.convert_to_raw(Decimal(row["amount"]))
             assert 0 < Decimal(row["amount"]) <= amount
             baseline = ctx.state.lighter["withdrawal_safe_before"]
-            assert token.fetch_raw_balance_of(safe.safe_address) - baseline == claimed, "External claim does not match saved Safe balance evidence"
-            assert fetch_lighter_pending_balance(ctx.web3["ethereum"], owner=safe.safe_address, usdc=token) == 0
+            credited = token.fetch_raw_balance_of(safe.safe_address) - baseline
+            if credited == 0:
+                message = "Lighter history is ready but the Ethereum pending balance or Safe credit is not yet visible"
+                raise RoundtripPendingError(message)
+            assert credited == claimed, "External claim does not match saved Safe balance evidence"
             ctx.state.steps["lighter_external_claim"] = {"withdrawal_id": row["id"], "amount": row["amount"]}
+            if claim is not None:
+                ctx.state.steps["lighter_external_claim"]["reverted_claim_hash"] = claim["hash"]
             ctx.save()
             bridge(ctx, "return_ethereum", "ethereum", "arbitrum")
             return
+        if claim is not None:
+            raise UncertainExecutionError(f"Lighter claim {claim['hash']} reverted without a verified external credit; inspect it before explicit recovery")
         if row["status"] != "claimable":
             raise RoundtripPendingError(f"Secure withdrawal {row['id']} is {row['status']}")
         assert 0 < Decimal(row["amount"]) <= amount
+        assert pending >= Decimal(row["amount"]), "Settled Lighter balance does not cover the withdrawal history amount"
         claim_lighter(ctx, Decimal(row["amount"]))
     else:
         claim_lighter(ctx, Decimal(ctx.state.steps["lighter_claim_amount"]))

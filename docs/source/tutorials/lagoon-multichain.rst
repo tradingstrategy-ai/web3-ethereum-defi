@@ -60,9 +60,9 @@ Key concepts
 ------------
 
 **Deterministic Safe addresses**
-    A CREATE2 deployment with a fixed salt nonce produces the same Safe
-    address on every EVM chain. This simplifies bookkeeping — the same
-    address holds assets everywhere.
+    CREATE2 produces the same Safe address when the factory, implementation,
+    initial owner configuration and salt nonce match across chains. The same
+    address can then hold the vault's assets on each participating chain.
 
 **Source vs satellite chains**
     The source chain (first in the ``CHAINS`` list) deploys the full
@@ -72,7 +72,7 @@ Key concepts
 
 **CCTP V2 bridging**
     `Circle's Cross-Chain Transfer Protocol <https://www.circle.com/cross-chain-transfer-protocol>`__
-    enables trustless USDC transfers between chains. The source vault burns
+    transfers native USDC between chains using Circle's signed attestations. The source vault burns
     USDC on Arbitrum, Circle's attestation service signs the burn message,
     and a receiver mints fresh USDC on the destination chain. The script
     bridges to all destinations in parallel.
@@ -135,34 +135,24 @@ You need:
   (ETH on Arbitrum/Ethereum/Base, HYPE on HyperEVM, MON on Monad)
 - At least 2 native USDC on the source chain for vault funding and bridge testing
 - At least 1 native USDC in the deployer wallet on every satellite chain
-- RPC URLs for all chains (archive nodes recommended)
+- RPC URLs for all selected chains
 - Refer to the script source below for the full list of environment variables
 
 Running the script
 ------------------
 
+Load the selected RPCs and deployment key from your private environment first.
+Do not paste a private key into shell history. The examples use routine defaults.
+
 Simulate on Anvil forks (no real funds needed):
 
 .. code-block:: shell
 
-    SIMULATE=true \
-    JSON_RPC_ARBITRUM="https://..." \
-    JSON_RPC_ETHEREUM="https://..." \
-    JSON_RPC_BASE="https://..." \
-    JSON_RPC_HYPERLIQUID="https://..." \
-    JSON_RPC_MONAD="https://..." \
-    poetry run python scripts/lagoon/deploy-lagoon-multichain.py
+    SIMULATE=true poetry run python scripts/lagoon/deploy-lagoon-multichain.py
 
 Mainnet deployment (real funds):
 
 .. code-block:: shell
-
-    export LAGOON_MULTCHAIN_TEST_PRIVATE_KEY="0x..."
-    export JSON_RPC_ARBITRUM="https://..."
-    export JSON_RPC_ETHEREUM="https://..."
-    export JSON_RPC_BASE="https://..."
-    export JSON_RPC_HYPERLIQUID="https://..."
-    export JSON_RPC_MONAD="https://..."
 
     poetry run python scripts/lagoon/deploy-lagoon-multichain.py
 
@@ -170,11 +160,7 @@ Deploy on a subset of chains only:
 
 .. code-block:: shell
 
-    CHAINS=arbitrum,base \
-    SIMULATE=true \
-    JSON_RPC_ARBITRUM="https://..." \
-    JSON_RPC_BASE="https://..." \
-    poetry run python scripts/lagoon/deploy-lagoon-multichain.py
+    CHAINS=arbitrum,base SIMULATE=true poetry run python scripts/lagoon/deploy-lagoon-multichain.py
 
 Script workflow
 ---------------
@@ -183,7 +169,7 @@ The script follows these steps:
 
 1. **Set up chain connections** — creates Anvil forks (simulate mode) or connects to live RPCs
 2. **Create deployer wallet** — generates a random account (simulate) or loads from ``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY``
-3. **Check deployer balances** — verifies gas token balance on all chains (live mode only)
+3. **Check deployer balances** — verifies native gas on all chains, the hub subscription and satellite USDC reserves (live mode only)
 4. **Build per-chain configurations** — resolves ERC-4626 vaults, configures CCTP, CowSwap, and Hypercore per chain
 5. **Deploy across all chains in parallel** — deploys Safe, guard, and vault (source) or Safe + guard (satellites)
 6. **Print deployment summary** — shows vault, Safe, and module addresses per chain
