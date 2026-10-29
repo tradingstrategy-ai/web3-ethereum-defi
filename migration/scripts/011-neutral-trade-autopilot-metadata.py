@@ -4,7 +4,7 @@ Purpose: Replace scraped and earlier Autopilot copy with reviewed descriptions e
 Scope: Ethereum and Monad Neutral Trade Autopilot deployments; descriptions, notes, Link and strategy tags only. Curator attribution is resolved at export time.
 Branch: fix/neutral-trade-vault-curator-descriptions
 PR title: fix: attribute Neutral Trade Autopilot vaults and rewrite their descriptions
-PR: Not yet opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1694
 Preserves: Names, fees, flags, manager names, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: Up to two existing rows and ten changed fields (nine on the 2026-10-28 snapshot, where the Ethereum Link is already current); missing rows reported, never created. Repeated successful applies are skipped.
 
