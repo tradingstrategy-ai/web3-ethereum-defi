@@ -5,7 +5,7 @@ Purpose: Refresh cached fees; current risk and product disclosures resolve durin
 Scope: The 17 exact chain/address pairs in tori.disclosures.TORI_EXPOSURES.
 Branch: cover-tori-vault-risk-and-fees
 PR title: feat: cover risk and fees across Tori vault exposures
-PR: Pending creation for this branch.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1698
 Preserves: Protocol/curator identities, cached risk, flags, notes, descriptions, unrelated rows, prices, discovery boundaries, reader state and timestamp caches.
 Expected: 17 inspected rows when all tracked targets are present; missing rows reported without creation. Idempotent transformation.
 
