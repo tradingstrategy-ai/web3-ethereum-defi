@@ -1,0 +1,5 @@
+# Tori Finance feeds are collected through the trUSD stablecoin profile.
+feeder-id: tori
+name: Tori Finance
+role: protocol
+canonical-feeder-id: trusd

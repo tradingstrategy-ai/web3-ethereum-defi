@@ -20,24 +20,7 @@ Usage:
 import os
 import sys
 
-from slugify import slugify
-
-
-def slugify_protocol(protocol: str) -> str:
-    """Create a slug from protocol name for URLs.
-
-    Mirrors the implementation in eth_defi.research.vault_metrics.
-
-    :param protocol:
-        The protocol name from get_vault_protocol_name().
-
-    :return:
-        URL-friendly slug (lowercase, dashes instead of spaces).
-    """
-    if "unknown" in protocol.lower() or "not identifier" in protocol.lower():
-        return "unknown"
-
-    return slugify(protocol)
+from eth_defi.research.vault_metrics import slugify_protocol
 
 
 def main():

@@ -213,6 +213,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
     "Ethena": VaultTechnicalRisk.negligible,
+    "Tori Finance": None,
     "Decentralized USD": VaultTechnicalRisk.severe,
     "Term Finance": VaultTechnicalRisk.low,
     # The vault does not give any indication what kind of underlying activity and positions

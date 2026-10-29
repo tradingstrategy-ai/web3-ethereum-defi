@@ -33,6 +33,8 @@ from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -404,6 +406,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address == TORI_VAULT_ADDRESS:
+        return {ERC4626Feature.tori_like} if chain_id == TORI_CHAIN_ID else None
     if normalised_address in NOVA_MARKETS_HARDCODED_PROTOCOLS:
         return NOVA_MARKETS_HARDCODED_PROTOCOLS[normalised_address].copy() if chain_id == NOVA_MARKETS_CHAIN_ID else None
     if normalised_address == ROYALTY_VAULT_ADDRESS:
@@ -2650,6 +2654,9 @@ def create_vault_instance(
 
         return EthenaVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.tori_like in features:
+        return ToriVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.usdd_like in features:
         from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
 
@@ -2898,6 +2905,7 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    TORI_VAULT_ADDRESS: {ERC4626Feature.tori_like},
     **NOVA_MARKETS_HARDCODED_PROTOCOLS,
     **{address: {ERC4626Feature.infinit_like} for address in INFINIT_PRODUCTS},
     **{address: {ERC4626Feature.antarctic_like, ERC4626Feature.share_price_equivalence} for address in ANTARCTIC_BY_ADDRESS},

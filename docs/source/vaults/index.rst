@@ -249,6 +249,7 @@ Supported protocols
    teller/index
    term_finance/index
    threejane/index
+   tori/index
    truefi/index
    umami/index
    untangle/index

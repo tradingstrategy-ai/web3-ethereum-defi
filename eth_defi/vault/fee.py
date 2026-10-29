@@ -175,6 +175,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # internalised in the share price (https://docs.3jane.xyz/usd3-susd3/suppliers)
     "3Jane": VaultFeeMode.internalised_skimming,
     "Ethena": VaultFeeMode.feeless,
+    # Tori distributes net trading income, but the retained rate is undisclosed.
+    "Tori Finance": None,
     "Term Finance": VaultFeeMode.internalised_skimming,
     "Royco": None,
     "ETH Strategy": VaultFeeMode.feeless,

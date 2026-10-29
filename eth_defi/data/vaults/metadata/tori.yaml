@@ -1,0 +1,49 @@
+name: Tori Finance
+slug: tori
+short_description: Tori Finance issues trUSD, a dollar-tracking token whose holders can stake for rewards from money markets and trades that seek to profit from price differences.
+long_description: |
+  [Tori Finance](https://tori.finance/) issues trUSD, a token designed to track
+  one US dollar. Holders can [stake trUSD for strUSD](https://docs.tori.finance/products/strusd),
+  whose value in trUSD reflects variable rewards from Tori's trading activity.
+  Tori operates the native staking product. The separate
+  [Tori ecosystem vault](https://docs.tori.finance/resources/pre-deposit) uses
+  Upshift infrastructure and is curated by RockawayX.
+
+  Tori's [strategy overview](https://docs.tori.finance/strategy/overview) describes
+  short-term lending instruments and trades that buy and sell related investments
+  at the same time. These seek income from interest and pricing differences while
+  limiting exposure to broader market movements. Backing assets are held both
+  onchain and with [external custodians](https://docs.tori.finance/solution/backing).
+  Trading losses, custodian or counterparty failures and contract faults can reduce
+  value or prevent timely withdrawals, as explained in the
+  [risk disclosures](https://docs.tori.finance/resources/risks).
+
+  As at 29 October 2026, native strUSD withdrawals require a seven-day cooldown
+  followed by a claim for trUSD; the delay can be changed by the operator.
+  [Direct trUSD minting and redemption](https://docs.tori.finance/resources/institutional)
+  require identity checks and an approved wallet. Staking, obtaining trUSD on a
+  secondary market and converting trUSD back into USDC are separate operations.
+fee_description: |
+  The [strUSD fee explanation](https://docs.tori.finance/products/strusd) states
+  that no fee is charged on the staked token amount and that staking and unstaking
+  are free. Tori retains a share of gross trading income before distributing
+  rewards to strUSD holders. The retained percentage is not disclosed, and the
+  published reward rate is net of this share.
+
+  As at 29 October 2026, the separate
+  [trUSD minting and redemption service](https://docs.tori.finance/resources/institutional)
+  lists a 0.1% charge on each operation. This is not a strUSD staking or unstaking
+  charge. Secondary-market swaps can incur trading fees and price differences.
+links:
+  homepage: https://tori.finance/
+  app: https://app.tori.finance/
+  twitter: https://x.com/tori_finance
+  github: https://github.com/Tori-Finance/tori-contracts
+  documentation: https://docs.tori.finance/
+  defillama: ''
+  audits: https://docs.tori.finance/security/audits
+  fees: https://docs.tori.finance/products/strusd
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/tori
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/tori/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x280839980a7eD0D7717F64125fE241012E5F5815
