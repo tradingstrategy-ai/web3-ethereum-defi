@@ -14,7 +14,7 @@ from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_rede
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trade import TradeFail, TradeSuccess
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, UnsupportedVaultSimulation, VaultDepositManager, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, UnsupportedVaultSimulation, VaultDepositManager, VaultFlowUnavailable, extract_revert_data
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault import ERC4626Vault
@@ -76,7 +76,11 @@ class ERC4626DepositManager(VaultDepositManager):
     shares and returning denomination tokens to ``owner`` in the same
     transaction. There is no ticket to track and no separate claim step:
     :meth:`can_finish_redeem` is always ``True`` and :meth:`finish_redemption`
-    raises. A separate ``to`` receiver is not supported.
+    raises. A separate ``to`` receiver is not supported. Request construction
+    preserves the exact requested raw share quantity in both metadata and
+    calldata. It does not apply the low-level helper's percentage corrections.
+    EulerEarn, Morpho V1 and Yearn V3 managers recognise narrowly bounded capacity rounding
+    and require a positive exact-call simulation before accepting it.
 
     **Queues and settlement**
 
@@ -263,6 +267,15 @@ class ERC4626DepositManager(VaultDepositManager):
             check_enough_token=False,
         )
 
+    def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
+        """Whether a protocol's known rounding permits an exact-call check.
+
+        The generic manager never treats insufficient capacity as rounding.
+        Protocol managers may recognise a narrowly bounded discrepancy; request
+        construction must still simulate the exact redemption successfully.
+        """
+        return False
+
     def create_redemption_request(
         self,
         owner: HexAddress,
@@ -279,13 +292,63 @@ class ERC4626DepositManager(VaultDepositManager):
         if not raw_shares:
             raw_shares = self.vault.share_token.convert_to_raw(shares)
 
+        simulate_rounding = False
+        if check_max_redeem:
+            maximum = int(self.vault.vault_contract.functions.maxRedeem(owner).call())
+            # Preserve the existing zero-as-unadvertised convention for adapters
+            # such as Morpho V2, which perform their own exact-call preflight.
+            if maximum != 0 and raw_shares > maximum:
+                simulate_rounding = self._is_redemption_capacity_rounding(raw_shares, maximum)
+                if not simulate_rounding:
+                    raise VaultFlowUnavailable(
+                        f"Insufficient redemption capacity for vault {self.vault.address} on chain {self.vault.chain_id}: requested {raw_shares}, available {maximum}",
+                        protocol=self.vault.get_protocol_name(),
+                        vault_address=self.vault.address,
+                        caller=owner,
+                        direction="redeem",
+                        phase="preflight",
+                        requested_raw_amount=raw_shares,
+                        available_raw_amount=maximum,
+                    )
+
         func = redeem_4626(
             self.vault,
             owner,
             raw_amount=raw_shares,
             check_enough_token=check_enough_token,
-            check_max_redeem=check_max_redeem,
+            check_max_redeem=False,  # Checked above without silently resizing shares.
+            epsilon=None,
         )
+        if simulate_rounding:
+            try:
+                payout = func.call({"from": owner})
+            except (ContractLogicError, ValueError) as error:
+                revert_data = extract_revert_data(error)
+                if isinstance(error, ValueError) and revert_data is None:
+                    raise
+                raise VaultFlowUnavailable(
+                    f"Exact redemption reverted for vault {self.vault.address} on chain {self.vault.chain_id}: requested {raw_shares}, advertised capacity {maximum}",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    preflight_result="redemption_call_reverted",
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=maximum,
+                    raw_revert_data=revert_data,
+                    error_selector=revert_data[:4] if revert_data and len(revert_data) >= 4 else None,
+                ) from error
+        if simulate_rounding and payout <= 0:
+            raise VaultFlowUnavailable(
+                f"Exact redemption would return no assets for vault {self.vault.address} on chain {self.vault.chain_id}: requested {raw_shares}",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                requested_raw_amount=raw_shares,
+            )
         return ERC4626RedemptionRequest(
             vault=self.vault,
             owner=owner,

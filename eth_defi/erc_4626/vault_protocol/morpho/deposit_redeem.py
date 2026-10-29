@@ -1,4 +1,4 @@
-"""Morpho Vault V2 redemption transaction preflights.
+"""Morpho Vault V1 and V2 redemption transaction preflights.
 
 Morpho Vault V2 deliberately returns zero from its ERC-4626 maximum functions,
 so exact transaction simulation is needed to expose failures before broadcast.
@@ -25,6 +25,14 @@ MORPHO_V2_TRANSFER_REVERTED_SELECTOR = HexBytes("0xace2a47e")
 #: Divisor for the Anvil liquidity injection margin: ``10_000`` adds one basis
 #: point of the required payout to cover interest accrued before the retry block.
 MORPHO_V2_REDEMPTION_MARGIN_DIVISOR = 10_000
+
+
+class MorphoV1DepositManager(ERC4626DepositManager):
+    """Preserve requested shares across MetaMorpho's capacity conversion rounding."""
+
+    def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
+        """Allow at most one raw asset unit of shortfall after exact simulation."""
+        return 0 < maximum < raw_shares and self.vault.vault_contract.functions.previewRedeem(raw_shares - maximum).call() <= 1
 
 
 class MorphoV2DepositManager(ERC4626DepositManager):

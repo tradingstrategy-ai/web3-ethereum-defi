@@ -24,6 +24,10 @@ class YearnV3DepositManager(ERC4626DepositManager):
     expose a vault-specific admission rejection before broadcast.
     """
 
+    def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
+        """Allow a one-raw-share maxRedeem underestimate after exact simulation."""
+        return maximum > 0 and raw_shares - maximum == 1
+
     def fetch_global_deposit_closure_reason(self, owner: HexAddress) -> str | None:
         """Identify a Yearn closure that is independent of account policy.
 

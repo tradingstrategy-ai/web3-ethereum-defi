@@ -261,15 +261,28 @@ def test_max_deposit_guidance_is_reported_without_deciding_generic_support() -> 
 
 
 def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The probe can redeem its exact minted share balance without a decimal read."""
+    """The probe can redeem exact raw shares without a token-decimal read.
+
+    The contract is mocked to supply capacity without a network connection.
+
+    1. Provide a raw capacity reader and replace low-level calldata construction.
+    2. Build a redemption request using raw shares alone.
+    3. Verify capacity was checked and the requested quantity was preserved.
+    """
+    # 1. Provide a raw capacity reader and replace low-level calldata construction.
     vault = object.__new__(ERC4626Vault)
+    vault.vault_contract = Mock()
+    vault.vault_contract.functions.maxRedeem.return_value.call.return_value = 123
     manager = ERC4626DepositManager(vault)
     function = object()
     monkeypatch.setattr(erc_4626_deposit_redeem, "redeem_4626", lambda *args, **kwargs: function)
+    # 2. Build a redemption request using raw shares alone.
     request = manager.create_redemption_request(
         owner="0x0000000000000000000000000000000000000001",
         raw_shares=123,
     )
+    # 3. Verify capacity was checked and the requested quantity was preserved.
+    vault.vault_contract.functions.maxRedeem.assert_called_once_with(request.owner)
     assert request.raw_shares == 123
     assert request.funcs == [function]
 

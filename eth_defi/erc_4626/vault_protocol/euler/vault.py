@@ -21,6 +21,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.euler.deposit_redeem import EulerEarnDepositManager
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.erc_4626.vault_protocol.euler.tags import get_strategy_tags as get_euler_strategy_tags
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -542,6 +543,10 @@ class EulerEarnVault(ERC4626Vault):
     - Integrator guide: https://docs.euler.finance/developers/euler-earn/integrator-guide/
     - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
     """
+
+    def get_deposit_manager(self) -> EulerEarnDepositManager:
+        """Use EulerEarn's bounded redemption rounding preflight."""
+        return EulerEarnDepositManager(self)
 
     def get_strategy_tags(self) -> set[StrategyTag]:
         """Return automatic lending plus any maintained Euler tags.
