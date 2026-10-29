@@ -95,6 +95,21 @@ does not define a fee interface. Reward-only and borrower-interest fees
 must not be treated as a flat performance fee on all share-price returns.
 No native staking fee assumption is applied to third-party products.
 
+Missing fee figures and canonical sources
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Relevant vault notes include a labelled fee-model or fee-disclosure sentence
+with a Markdown link to the official documentation. Native strUSD and positions
+holding its yield explain that Tori has not published its retained-income
+percentage. Royco, Pendle, Stake DAO, Term and Curvance notes link the relevant
+product mechanics, distinguishing protocol charges, reward fees, interest fees
+and transfers between tranches. A missing general fee percentage is not treated
+as a zero charge or as proof that every product fee is undisclosed.
+
+Protocol fee descriptions provide the corresponding links. Accountable's copy
+also distinguishes NAV-strategy and loan-product fees, replacing the incorrect
+claim that fee terms are not available in contract configuration.
+
 Refresh and verification
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

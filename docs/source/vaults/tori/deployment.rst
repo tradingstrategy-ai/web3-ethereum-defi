@@ -60,3 +60,9 @@ RockawayX. For 013, check native High risk with stricter ratings/exclusions
 preserved, unchanged third-party ratings, each product's risk and fee notes,
 and current per-vault fee fields.
 Migration success alone does not publish these changes.
+
+Later fee-note and source-link copy changes resolve from maintained disclosures
+and protocol YAML during export. This follow-up changes no cached fee accessor,
+vault database field or historical store, so it needs no additional numbered
+migration. Rebuild protocol metadata and regenerate normal vault exports with
+the updated code; do not rerun a successful 013 solely to publish these notes.

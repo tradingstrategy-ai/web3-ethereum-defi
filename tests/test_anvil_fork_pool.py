@@ -257,8 +257,10 @@ def test_archive_preflight_rejects_proxy_failure(monkeypatch: pytest.MonkeyPatch
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Wire the bounded automatic policy without changing explicit modes.
 
-    The deliberately dead upstreams stop each launch at its smoke test, after
-    the proxy-selection branch has run but before an Anvil process is spawned.
+    A mocked RPC failure stops each launch at its smoke test, after the
+    proxy-selection branch has run but before an Anvil process is spawned.
+    Real localhost ports can belong to another parallel fork worker, so their
+    availability must not determine the outcome of this wiring test.
     When automatic or caller-provided proxying is enabled, the raised URL must
     be the proxy, proving both ordinary bootstrap calls and archive preflight
     can use the configured upstream failover policy.
@@ -269,6 +271,13 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     :return:
         None.
     """
+    # CI on 2026-10-29 reached a live listener at the assumed-dead proxy port
+    # and did not raise; the unchanged test passed locally. Fail the RPC read
+    # deterministically instead of probing shared runner ports.
+    smoke_provider = anvil_module.create_http_provider("http://127.0.0.1:1")
+    monkeypatch.setattr(smoke_provider, "make_request", Mock(side_effect=requests.ConnectionError("Simulated unavailable upstream")))
+    monkeypatch.setattr(anvil_module, "create_http_provider", Mock(return_value=smoke_provider))
+
     rpc_url = "http://127.0.0.1:1 http://127.0.0.1:2"
     managed_proxy = Mock(spec=RPCProxy)
     managed_proxy.url = "http://127.0.0.1:23456"

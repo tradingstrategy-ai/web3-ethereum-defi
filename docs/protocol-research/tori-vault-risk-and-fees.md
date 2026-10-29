@@ -298,3 +298,32 @@ The independent Claude Opus 5.5 follow-up review approved the final fee and
 access disclosures after corrections to lock-holder yield rights, maturity and
 Curvance lender risks. This review did not certify contract safety or close
 the audit-matching and offchain-income evidence gaps above.
+
+## Canonical fee-note follow-up
+
+The 29 October follow-up adds explicit fee-model/disclosure sentences to relevant
+vault notes and fills or corrects the associated protocol fee descriptions and
+fee links. Native and indirect strUSD exposure retains an unknown gross-income
+percentage; verified third-party costs are not relabelled as undisclosed merely
+because a scalar reader is unavailable. Curvance's incorrect claim that the
+interest fee does not reduce depositor returns, and Accountable's incorrect
+claim that contract fee terms are unavailable, are corrected.
+
+New primary documentation checked directly includes Royco's current governance
+and fee schedule, Term's strategy-vault fee governance, Curvance's BorrowableCToken
+protocol-revenue description, and Accountable's NAV and fixed-term fee mechanics.
+The exact canonical URLs are linked in the maintained public notes and protocol
+fee descriptions. These Accountable references describe different product
+families, rather than establishing which strategy the Monad vault uses. Royco's older incentive-provider fee page is a different
+product and is not used as the tranche fee schedule. Likewise, Curvance's broader
+revenue page does not establish a separate underlying-yield charge for this exact
+cstrUSD deployment.
+
+This is export-copy maintenance: numerical fee readers, cached database fields
+and historical stores are unchanged. No new numbered migration is needed;
+normal protocol metadata publication and vault export publish the updated copy.
+
+The follow-up passed 31 focused tests; 12 linked vault fee statements and five
+protocol JSON metadata exports were checked. Adapter runtime code was compared
+after removing docstrings and remained identical. The changed narrative passed
+the writing-style check and an independent Claude Opus 5.5 follow-up review.

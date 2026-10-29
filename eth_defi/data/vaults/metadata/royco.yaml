@@ -12,6 +12,14 @@ long_description: |
   to earn rewards in the form of ERC-20 tokens or points programmes alongside the underlying
   vault yield.
 fee_description: |
+  For tranche and managed-vault products, [Royco's fee schedule](https://docs.royco.org/governance-and-fees)
+  distinguishes management and performance charges from fees on yield shared
+  between tranches. Fees depend on the product and its live configuration.
+  Yield paid by senior holders for junior loss protection is a separate
+  economic cost, even when protocol-fee settings are zero.
+
+  Older incentive-wrapper products are a separate family. This schedule
+  does not establish their fee terms.
 links:
   homepage: https://royco.org/
   app:
@@ -20,7 +28,7 @@ links:
   documentation: https://docs.royco.org/
   defillama:
   audits:
-  fees:
+  fees: https://docs.royco.org/governance-and-fees
   trading_strategy: https://tradingstrategy.ai/vaults/protocols/royco
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/royco/index.html
 example_smart_contracts:

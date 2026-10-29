@@ -18,7 +18,10 @@ Key features:
 - Audited by Sigma Prime with DeFi Safety score of 93%
 
 Term Finance vaults use the Yearn V3 tokenised strategy pattern as a base,
-with fees internalised in the share price via the "discount rate markup".
+with performance fees internalised in the share price when profits are reported.
+See the `strategy-vault fee documentation
+<https://developers.term.finance/periphery-contracts/curated-vaults/administration/yearn-roles-and-governance>`__.
+Borrower auction charges are a separate layer.
 
 - Homepage: https://www.term.finance/
 - App: https://app.term.finance/
@@ -61,11 +64,26 @@ class TermFinanceVault(ERC4626Vault):
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Fees are internalised in the share price."""
+        """Leave the numerical management rate unknown in this reader.
+
+        Internalised accounting does not establish a zero charge. This
+        adapter does not currently read the vault's configured fee rates.
+
+        :param block_identifier: Block retained for the common fee interface.
+        :return: ``None`` for an unsupported numerical rate.
+        """
         return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Fees are internalised in the share price."""
+        """Leave the configured performance percentage unknown in this reader.
+
+        Strategy vaults can charge reported profits through the Yearn V3
+        mechanism. The absence of a numerical getter here does not make
+        that charge zero or undisclosed by the vault itself.
+
+        :param block_identifier: Block retained for the common fee interface.
+        :return: ``None`` for an unsupported numerical rate.
+        """
         return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:

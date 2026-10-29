@@ -2036,6 +2036,8 @@ def test_tori_export_resolves_net_fees_and_current_disclosures(vault_db: VaultDa
     assert exported["risk"] == ("Blacklisted" if cached_risk is VaultTechnicalRisk.blacklisted else "High")
     assert exported["notes"].startswith("Existing manual warning.")
     assert "retains an undisclosed share" in exported["notes"]
+    assert "https://docs.tori.finance/products/strusd" in exported["notes"]
+    assert "retained percentage" in exported["notes"]
     assert "Old cached strategy" not in exported["notes"]
 
 
