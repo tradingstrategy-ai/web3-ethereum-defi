@@ -313,6 +313,8 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "usdai": ["USD.AI", "USDai"],
     "agora-finance": ["Agora"],
     "tangent-finance": ["Tangent"],
+    # "Autopilot" identifies Harvest's IPOR Fusion vaults. Neutral Trade
+    # Autopilot is attributed by address override in CURATOR_ADDRESS_OVERRIDES.
     "ipor": ["IPOR", "Autopilot"],
     "reservoir": ["Reservoir"],
     "tau": ["TAU"],
@@ -418,6 +420,10 @@ METADATA_ONLY_CURATOR_SLUGS: set[str] = {
     "gmx",
     "ember",
     "d2-finance",
+    # Neutral Trade also distributes partner vaults, such as Kappa Lab's
+    # Meridian Liquidity Provider, and its brand appears in unreviewed vault
+    # names. Attribute only the reviewed Autopilot deployments.
+    "neutral-trade",
 }
 
 #: Protocol-specific curator metadata fields in curator YAML files.
@@ -439,6 +445,20 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Neutral Trade Autopilot feeder vaults on Ethereum and Monad, built with
+    #: Accountable, reviewed 2026-10-29. Both pass deposits into Neutral
+    #: Trade's Solana Autopilot vault. The bare "Autopilot" pattern belongs to
+    #: Harvest's IPOR Fusion vaults and must not claim these deployments.
+    #: https://www.neutral.trade/blog/september-october-2026-update
+    #: https://www.neutral.trade/strategies/neutral-autopilot?tab=deposit
+    (1, "0x909dadbca7955614a455d9e7447ad4adb4902c8e"): "neutral-trade",
+    (143, "0xaabab7598be3c4fe58c593e73c2f5934b73b573e"): "neutral-trade",
+    #: Meridian Liquidity Provider on Robinhood Chain (4663), reviewed
+    #: 2026-10-29. Accountable lists "Meridian x Kappa x Neutral Trade" as the
+    #: manager; Neutral Trade distributes the vault and names Kappa Lab as its
+    #: curator.
+    #: https://www.neutral.trade/blog/september-october-2026-update
+    (4663, "0x24b84023c8e4da635be228c380c09bfe5271bf9d"): "kappa-lab",
     #: Nova's independently administered Arbitrum Conviction Pool.
     #: https://docs.nova.markets/#/contracts (reviewed 2026-10-28).
     (42161, "0x9ca80193712f372e2ff33a00127292884f6f8598"): "nova-markets",

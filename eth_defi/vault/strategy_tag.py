@@ -370,8 +370,22 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
 #: metadata database on 2026-09-11.
 MORINI_CAPITAL_STRATEGY_TAGS = frozenset({StrategyTag.fx})
 
+#: Neutral Trade Autopilot feeder vaults on Ethereum and Monad, added 2026-10-29.
+#: Both pass deposits into the Solana Autopilot vault, which allocates across
+#: arbitrage, funding-rate, market-making and options strategies with a
+#: market-neutral core and a 5% cap on directional strategies.
+#: Sources:
+#: - https://www.neutral.trade/blog/neutral-autopilot-launch
+#: - https://www.neutral.trade/blog/september-october-2026-update
+#: - https://www.neutral.trade/faq
+NEUTRAL_AUTOPILOT_STRATEGY_TAGS = frozenset({StrategyTag.multistrategy, StrategyTag.delta_neutral})
+
 #: Chain-scoped classifications that follow a curator across vault protocols.
 CURATOR_STRATEGY_TAGS: dict[tuple[int, str], frozenset[StrategyTag]] = {
+    #: Accountable: Neutral Trade Autopilot (Ethereum)
+    (1, "0x909dadbca7955614a455d9e7447ad4adb4902c8e"): NEUTRAL_AUTOPILOT_STRATEGY_TAGS,
+    #: Accountable: Neutral Trade Autopilot (Monad)
+    (143, "0xaabab7598be3c4fe58c593e73c2f5934b73b573e"): NEUTRAL_AUTOPILOT_STRATEGY_TAGS,
     #: Accountable: https://piku.co/vaults/detail/aFXArbUSDTRY
     (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"): MORINI_CAPITAL_STRATEGY_TAGS,
     #: Midas: https://piku.co/vaults/detail/StockMarketTRBasisTrade
