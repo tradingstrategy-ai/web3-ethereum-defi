@@ -21,6 +21,72 @@ from eth_defi.vault.curator import build_curator_metadata_json, get_curator_avai
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
+def test_identify_nuwealth_ai_rocksteady() -> None:
+    """Keep the reviewed Hypercore vault separate from the Morpho curator.
+
+    Exact deployment evidence must survive name changes and stale declarations
+    without claiming the same address on another chain or similarly named vaults.
+
+    :return: ``None`` after checking chain-scoped curator attribution.
+    """
+    address = "0xd321ad79041bdad719ba5ff42fe950e1977df439"
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Agent RockSteady", address, "hyperliquid") == "nuwealth-ai"
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Renamed strategy", address.upper(), "hyperliquid", declared_curator_slug="nuwealth") == "nuwealth-ai"
+    assert identify_curator(999, "", "Agent RockSteady", address, "hyperliquid") is None
+    assert identify_curator(1, "", "Agent RockSteady", address, "morpho") is None
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Agent RockSteady", "0x0", "hyperliquid") is None
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "NuWealth.ai strategy", "0x0", "hyperliquid") == "nuwealth-ai"
+    assert get_curator_name("nuwealth-ai") == "NuWealth.ai"
+    assert not is_protocol_curator("nuwealth-ai")
+
+    morpho_vaults = (
+        ("NuWealth Anchor USDC", "0x2086eb7beabb123961a940bdc0b018a43de02a85"),
+        ("NuWealth Anchor EURC", "0x02d2488a2292c25d0d313a1b8d882a2d28e74598"),
+        ("NuWealth Anchor USDT", "0x6d387c4756610682c4e562c636dac46ac40780c8"),
+    )
+    for name, vault_address in morpho_vaults:
+        assert identify_curator(1, "", name, vault_address, "morpho") == "nuwealth"
+    assert get_curator_name("nuwealth") == "NuWealth"
+
+
+def test_nuwealth_curator_metadata() -> None:
+    """Export separate identities, linked disambiguation and the official logo.
+
+    The feeder schema and frontend exporter must keep the websites and social
+    accounts distinct, with no canonical alias linking these organisations.
+
+    :return: ``None`` after validating both public profiles and the new logo.
+    """
+    directory = Path("eth_defi/data/feeds/curators")
+    new = build_curator_metadata_json(directory / "nuwealth-ai.yaml", public_url="https://example.invalid")
+    existing = build_curator_metadata_json(directory / "nuwealth.yaml", public_url="https://example.invalid")
+    assert new["name"] == "NuWealth.ai"
+    assert new["website"] == "https://nuwealth.ai/"
+    assert new["twitter"] == "https://x.com/nuwealth_ai"
+    assert new["canonical_feeder_id"] is None
+    assert new["protocol_curator"] is False
+    assert new["short_description"]
+    assert "[nuwealth.ai](https://nuwealth.ai)" in new["long_description"]
+    assert "[Agent RockSteady](https://tradingstrategy.ai/vaults/agent-rocksteady)" in new["long_description"]
+    assert "https://nuwealth.ai/check" in new["long_description"]
+    assert "https://nuwealth.ai/record" in new["long_description"]
+    assert "[Blog](https://nuwealth.ai/blog)" in new["long_description"]
+    assert "[Docs](https://nuwealth.gitbook.io/product-docs)" in new["long_description"]
+    assert "[App](https://app.nuwealth.ai)" in new["long_description"]
+    assert "hyperliquid.xyz" not in new["long_description"]
+    assert "\n\n" in new["long_description"]
+    assert existing["name"] == "NuWealth"
+    assert existing["website"] == "https://nuwealth.io/"
+    assert existing["twitter"] == "https://x.com/nuwealthio"
+    assert existing["canonical_feeder_id"] is None
+    assert "separate from [NuWealth.ai](https://nuwealth.ai/check)" in existing["long_description"]
+    assert new["logos"]["generic"] == "https://example.invalid/curator-metadata/nuwealth-ai/generic.png"
+    with Image.open(Path("eth_defi/data/vaults/formatted_logos/nuwealth-ai/generic.png")) as logo:
+        assert logo.size == (256, 256)
+        assert logo.mode == "RGBA"
+        assert logo.getbbox() is not None
+
+
 def test_identify_infinit_apex_curator() -> None:
     """Attribute the reviewed Infinit product without claiming the ApeX exchange.
 

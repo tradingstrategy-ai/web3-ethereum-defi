@@ -449,6 +449,13 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Agent RockSteady on Hypercore (9999), reviewed 2026-10-30.
+    #: NuWealth.ai publishes this vault and its leader wallet. Hyperliquid's
+    #: vaultDetails confirms both addresses and links the nuwealth_ai account.
+    #: The Morpho curator at nuwealth.io is a separate organisation.
+    #: https://nuwealth.ai/check
+    #: https://app.hyperliquid.xyz/vaults/0xd321ad79041bdad719ba5ff42fe950e1977df439
+    (9999, "0xd321ad79041bdad719ba5ff42fe950e1977df439"): "nuwealth-ai",
     #: Neutral Trade Autopilot feeder vaults on Ethereum and Monad, built with
     #: Accountable, reviewed 2026-10-29. Both pass deposits into Neutral
     #: Trade's Solana Autopilot vault. The bare "Autopilot" pattern belongs to

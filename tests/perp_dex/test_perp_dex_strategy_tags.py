@@ -4,6 +4,7 @@ import datetime
 from collections.abc import Callable
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.apex import tags as apex_tags
 from eth_defi.apex.vault_data_export import create_apex_vault_row
@@ -21,6 +22,25 @@ from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 EXPECTED_GRVT_VAULT_COUNT = 26
 EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
+
+
+def test_rocksteady_native_export_strategy_tags() -> None:
+    """Export RockSteady as a programmed perpetual futures strategy.
+
+    Both address casing variants must use the maintained classification, and
+    callers must not be able to mutate its source mapping through the result.
+
+    :return: ``None`` after checking the native row and resolver output.
+    """
+    address = "0xd321ad79041bdad719ba5ff42fe950e1977df439"
+    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading}
+    for variant in (address, address.upper()):
+        _, row = create_hyperliquid_vault_row(HexAddress(variant), "Agent RockSteady", None, 1_000, datetime.datetime(2026, 2, 3))  # noqa: DTZ001 - Repository timestamps use naive UTC.
+        assert row["_strategy_tags"] == expected
+        assert hyperliquid_tags.get_strategy_tags(variant) == expected
+    hyperliquid_tags.get_strategy_tags(address).clear()
+    assert hyperliquid_tags.get_strategy_tags(address) == expected
+    assert hyperliquid_tags.get_strategy_tags("0x0000000000000000000000000000000000000001") == {StrategyTag.perpetual_futures}
 
 
 def test_market_making_is_the_only_general_market_tag() -> None:

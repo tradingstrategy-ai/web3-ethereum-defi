@@ -1,0 +1,32 @@
+feeder-id: nuwealth-ai
+name: NuWealth.ai
+role: curator
+website: https://nuwealth.ai/
+short_description: NuWealth.ai runs rules-based crypto trading strategies as public Hyperliquid vaults.
+long_description: |
+  NuWealth runs rules-based crypto trading strategies as public Hyperliquid vaults, through a web app at [nuwealth.ai](https://nuwealth.ai) where people deposit USDC.
+
+  Its live vault, [Agent RockSteady](https://tradingstrategy.ai/vaults/agent-rocksteady), has traded since 3 February 2026. It is a mean-reversion strategy on 30 Hyperliquid perpetual futures markets: it mostly buys sharp dips and takes profit on the rebound, with occasional shorts, and usually holds a trade for hours. It aims for many small winning trades rather than a few large moves. The rules went through more than 30 versions on 5 years of 1-minute data, 2021 to 2025, with a worst drawdown of 23.7% in testing, and were frozen before launch. AI tools are used in research and testing; live trading follows the fixed rules.
+
+  RockSteady's fee is Hyperliquid's standard 10% profit share, with no management fee, and its deposits follow Hyperliquid's user vault rules: a 1 day lockup after each deposit, and the leader keeps at least 5% of the vault. Vault and leader addresses, the fee and withdrawal steps are on [nuwealth.ai/check](https://nuwealth.ai/check); live figures on [nuwealth.ai/record](https://nuwealth.ai/record).
+
+  [X](https://x.com/nuwealth_ai) · [Blog](https://nuwealth.ai/blog) · [Docs](https://nuwealth.gitbook.io/product-docs) · [App](https://app.nuwealth.ai)
+twitter: nuwealth_ai
+
+# Primary sources identify Agent RockSteady and distinguish the two businesses.
+# Hyperliquid vaultDetails confirmed the vault and leader on 2026-10-30.
+other-links:
+  - title: NuWealth.ai - official vault and leader addresses, social account and naming clarification
+    url: https://nuwealth.ai/check
+  - title: NuWealth.ai - risk disclosure describing fixed-rule perpetual futures trading
+    url: https://nuwealth.ai/risk
+  - title: Trading Strategy - Agent RockSteady vault
+    url: https://tradingstrategy.ai/vaults/agent-rocksteady
+  - title: NuWealth.ai - live RockSteady figures
+    url: https://nuwealth.ai/record
+  - title: NuWealth.ai - official blog
+    url: https://nuwealth.ai/blog
+  - title: NuWealth.ai - product documentation
+    url: https://nuwealth.gitbook.io/product-docs
+  - title: NuWealth.ai - web app
+    url: https://app.nuwealth.ai
