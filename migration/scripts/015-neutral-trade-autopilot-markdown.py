@@ -4,7 +4,7 @@ Purpose: Replace the single dense paragraph with Markdown split into short parag
 Scope: Ethereum and Monad Neutral Trade Autopilot deployments; `_description` only. Summaries, notes, links and tags are unchanged.
 Branch: neutral-trade-followups
 PR title: fix: format vault descriptions as Markdown paragraphs
-PR: Not yet opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1702
 Preserves: Names, summaries, notes, links, fees, flags, tags, manager names, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: Up to two existing rows and two changed fields; missing rows reported, never created. Repeated successful applies are skipped.
 
