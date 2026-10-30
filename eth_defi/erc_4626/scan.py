@@ -24,7 +24,7 @@ from eth_defi.provider.broken_provider import get_safe_cached_latest_block_numbe
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultBase, WithdrawalPeriod, normalise_vault_description, normalise_vault_short_description
+from eth_defi.vault.base import VaultBase, WithdrawalPeriod, flatten_vault_text, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
@@ -356,7 +356,7 @@ def _normalise_scan_note(notes: str | None, description: str | None, short_descr
     if not notes:
         return None
 
-    if normalise_vault_description(notes) in {normalise_vault_description(description), normalise_vault_description(short_description)}:
+    if flatten_vault_text(notes) in {flatten_vault_text(description), flatten_vault_text(short_description)}:
         return None
 
     return notes

@@ -34,7 +34,7 @@ class VaultDescriptionUpdate:
     #: Existing text, including any line breaks or literal newline escapes.
     old_value: str
 
-    #: Equivalent single-line text.
+    #: Normalised Markdown description or single-line first-sentence summary.
     new_value: str
 
 

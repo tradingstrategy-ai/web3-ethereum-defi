@@ -1,4 +1,4 @@
-"""Test persisted single-line descriptions and first-sentence summaries."""
+"""Test persisted Markdown descriptions and single-line first-sentence summaries."""
 
 import importlib.util
 from copy import deepcopy
@@ -38,14 +38,14 @@ def vault_db() -> VaultDatabase:
         rows={
             nest_spec: {
                 "Protocol": "Nest",
-                "_description": "First.\n\nSecond.",
+                "_description": r"First.\n\nSecond.",
                 "_short_description": r"Short.\nSummary.",
                 "_notes": "Preserved\nnotes.",
                 "manual_field": "preserve",
             },
             VaultSpec(1, "0x0000000000000000000000000000000000000001"): {
                 "Protocol": "Morpho",
-                "_description": "Leave\nunchanged.",
+                "_description": "Leave\r\nunchanged.",
                 "_short_description": r"Keep\nthis.",
             },
             VaultSpec(1, "0x0000000000000000000000000000000000000002"): {
@@ -93,10 +93,10 @@ def test_repair_vault_descriptions_preserves_state(repair_module: ModuleType, va
     assert tuple(update.field for update in updates) == ("_description", "_short_description", "_description", "_short_description", "_short_description")
     nest_spec = updates[0].spec
     expected = deepcopy(before.rows)
-    expected[nest_spec]["_description"] = "First. Second."
+    expected[nest_spec]["_description"] = "First.\n\nSecond."
     expected[nest_spec]["_short_description"] = "Short."
     morpho_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
-    expected[morpho_spec]["_description"] = "Leave unchanged."
+    expected[morpho_spec]["_description"] = "Leave\nunchanged."
     expected[morpho_spec]["_short_description"] = "Keep this."
     coinshift_spec = VaultSpec(1, "0x09252d2c4afca9b1479efdd39faa53de9ff23114")
     expected[coinshift_spec]["_short_description"] = "Coinshift leveraged strategy."

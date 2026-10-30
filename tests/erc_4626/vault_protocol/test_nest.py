@@ -20,7 +20,7 @@ from eth_defi.erc_4626.vault_protocol.nest.vault import NestVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import AVALANCHE_MIDNIGHT_BLOCK
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description
 from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
@@ -192,16 +192,18 @@ def test_fetch_nest_vaults(tmp_path: Path) -> None:
 
     vault = NestVault(web3=None, spec=VaultSpec(43114, NEST_N_OPAL_AVALANCHE_VAULT))
     vault.__dict__["nest_metadata"] = nopal
-    for text in (vault.description, vault.short_description):
-        assert text
-        assert all(character not in text for character in ("\n", "\r", "\\n", "\\r"))
+    assert vault.description
+    assert vault.description == normalise_vault_description(vault.description)
+    assert vault.short_description
+    assert all(character not in vault.short_description for character in ("\n", "\r", "\\n", "\\r"))
 
 
-def test_nest_cached_descriptions_are_single_line() -> None:
+def test_nest_cached_descriptions_are_normalised() -> None:
     """Clean existing CMS cache values without fetching or rewriting the cache.
 
     Nest's nOPAL CMS summary has contained a literal newline escape, while the
-    full product description uses actual paragraph breaks.
+    full product description uses actual paragraph breaks. The description
+    keeps its Markdown paragraphs; the summary is one flattened sentence.
     """
     vault = NestVault(web3=None, spec=VaultSpec(43114, NEST_N_OPAL_AVALANCHE_VAULT))
     cached_metadata = {
@@ -210,7 +212,7 @@ def test_nest_cached_descriptions_are_single_line() -> None:
     }
     vault.__dict__["nest_metadata"] = cached_metadata
 
-    assert vault.description == "First paragraph. Second paragraph."
+    assert vault.description == "First paragraph.\n\nSecond paragraph."
     assert vault.short_description == "Investment grade short-duration payment receivables."
     assert "\n\n" in cached_metadata["description"]
     assert "\\n" in cached_metadata["short_description"]

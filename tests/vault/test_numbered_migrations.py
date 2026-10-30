@@ -55,7 +55,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
-    rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\nSecond.", "_short_description": "First. Second.", "custom": 123}
+    rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}
     VaultDatabase(rows=rows, last_scanned_block={1: 12345, 42161: 67890}).write(tmp_path / "vault-metadata-db.pickle")
     return tmp_path
 
@@ -105,9 +105,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()
     for spec, row in database.rows.items():
         if row.get("_description"):
-            assert "\n" not in row["_description"]
+            assert row["_description"] == normalise_vault_description(row["_description"])
         if (spec.chain_id, spec.vault_address) in ALPHAPING_VAULT_METADATA:
             assert row["_notes"] == "Keep warning"
+    assert database.rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")]["_description"] == "First.\n\nSecond."
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []

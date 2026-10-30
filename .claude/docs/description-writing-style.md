@@ -15,9 +15,12 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Write a short description as one useful sentence about the product or strategy.
 - Use the longer description to explain the fundamentals and add relevant facts.
   Do not pad it to reach a sentence or paragraph count.
-- Follow the field's output format: individual vault descriptions and summaries
-  are single-line text, while protocol Markdown descriptions and source-linked
-  notes can use paragraphs. See the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
+- Follow the field's output format. Individual vault summaries are one plain
+  sentence of single-line text. Full vault descriptions, protocol descriptions
+  and source-linked notes are Markdown: split them into paragraphs of two or
+  three sentences, use bold for the few facts a reader must not miss, link
+  sources inline and add `####` subheadings when the text covers several
+  topics. See the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
 - Explain a necessary financial term on first use. Prefer “loans funding grain
   purchases and transport” to “short-cycle working-capital credit exposure”.
 - Keep token names when they identify an actual deposit asset or investment,

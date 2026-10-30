@@ -28,7 +28,7 @@ def test_lagoon_coinshift_cached_summary_uses_first_sentence() -> None:
     vault.__dict__["lagoon_metadata"] = metadata
 
     assert vault.short_description == COINSHIFT_FIRST_SENTENCE
-    assert vault.description == "Full strategy. Additional strategy details."
+    assert vault.description == "Full strategy.\n\nAdditional strategy details."
     assert COINSHIFT_EXTRA_SENTENCE in metadata["short_description"]
 
 

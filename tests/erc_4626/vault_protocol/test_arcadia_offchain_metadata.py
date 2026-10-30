@@ -93,7 +93,7 @@ def test_generated_usdg_descriptions(pool_metadata: ArcadiaVaultMetadata) -> Non
     assert copy.description == ("This vault represents the senior tranche of Arcadia Finance’s USDG lending pool on Robinhood Chain. Depositors supply USDG, which borrowers use through collateralised Arcadia accounts, and receive shares that accrue lending interest. Interest rates vary with pool utilisation. Depositors are exposed to smart contract risk and potential losses if borrower liquidations do not cover outstanding debt. See [Arcadia’s lending documentation](https://docs.arcadia.finance/users/lenders).")
 
 
-@pytest.mark.parametrize("label", [None, "", " \n ", "USDG", "Senior USDG", VAULT_NAME, "  ARCADIA  USDG Pool.  "])
+@pytest.mark.parametrize("label", [None, "", " \n ", "USDG", "Senior USDG", VAULT_NAME, "  ARCADIA  USDG Pool.  ", "Arcadia\nUSDG Pool", r"Arcadia\r\nUSDG Pool"])
 def test_labels_are_not_narrative(label: str | None, pool_metadata: ArcadiaVaultMetadata) -> None:
     """Normalised display names never suppress generated explanations."""
     metadata = replace(pool_metadata, description=label)
@@ -120,11 +120,15 @@ def test_short_description_is_bounded_at_word_boundary() -> None:
 
 
 @pytest.mark.parametrize("separator", ["\n", "\r\n", r"\n", r"\r\n"])
-def test_provider_narrative_uses_shared_single_line_format(separator: str, pool_metadata: ArcadiaVaultMetadata) -> None:
-    """New and cached narratives follow the shared description formatting contract."""
+def test_provider_narrative_uses_shared_description_format(separator: str, pool_metadata: ArcadiaVaultMetadata) -> None:
+    """New and cached narratives follow the shared description formatting contract.
+
+    Full descriptions keep the provider's line break as Markdown, while the
+    summary is flattened to its first sentence.
+    """
     metadata = replace(pool_metadata, description=f"Earn interest.{separator}Borrowers provide collateral.")
     copy = resolve_arcadia_descriptions(chain_id=4663, vault_name=VAULT_NAME, asset_symbol="USDG", metadata=metadata)
-    assert copy.description == "Earn interest. Borrowers provide collateral."
+    assert copy.description == "Earn interest.\nBorrowers provide collateral."
     assert copy.short_description == "Earn interest."
 
 
