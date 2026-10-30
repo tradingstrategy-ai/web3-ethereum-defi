@@ -4,7 +4,7 @@ Purpose: Classify NuWealth.ai's reviewed fixed-rule strategy as algorithmic trad
 Scope: Only _strategy_tags for Agent RockSteady on Hypercore (9999). Curator attribution resolves at export time.
 Branch: add-curator-nuwealth-ai-rocksteady
 PR title: feat: add NuWealth.ai curator and attribute Agent RockSteady
-PR: Pending creation for branch add-curator-nuwealth-ai-rocksteady.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1701
 Preserves: All other metadata, unrelated rows, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; report absent rows without creating them.
 
