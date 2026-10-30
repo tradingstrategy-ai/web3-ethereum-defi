@@ -259,6 +259,12 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
+Vaults of the new type that already exist onchain were invisible to the
+scanner until now, so their leads and early price history may be missing.
+Recover them with a numbered migration and, where earlier history matters, a
+price backfill for the reviewed vaults only; see the
+[historical price backfills](../../docs/migration-scripts.md#historical-price-backfills) section of the migration guide.
+
 ## Step 12: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol

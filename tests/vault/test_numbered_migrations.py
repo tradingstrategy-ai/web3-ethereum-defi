@@ -22,7 +22,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import flying_tulip
+from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -70,6 +70,9 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     monkeypatch.setattr(flying_tulip, "create_multi_provider_web3", lambda _: SimpleNamespace(eth=SimpleNamespace(block_number=123)))
     monkeypatch.setattr(flying_tulip, "create_vault_scan_record", rebuild)
     monkeypatch.setattr(arcadia, "fetch_arcadia_vaults", lambda *args, **kwargs: None)
+    # Price backfills need archive RPC access; their helper has dedicated tests.
+    backfilled = []
+    monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets, **_kwargs: backfilled.extend(targets))
     path = batch_database / "vault-metadata-db.pickle"
     for name in ("vault-prices-1h.parquet", "vault-reader-state-1h.pickle", "timestamps.duckdb"):
         (batch_database / name).write_bytes(b"unrecoverable history")
@@ -111,6 +114,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")]["_description"] == "First.\n\nSecond."
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
+    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA}
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
     assert path.read_bytes() == applied
     state = runner.load_state(batch_database / "migration.json")

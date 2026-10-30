@@ -24,3 +24,9 @@ Then run the generated script using `python` console command.
 ## Display output
 
 Send all the script output back to the user, format as a table.
+
+If the check shows that our feature flags or protocol detection were wrong and
+the fix makes the scanner read the vault for the first time, its price history
+will start late. Mention this to the user and propose a price backfill as part
+of the repair migration; see the
+[historical price backfills](../../docs/migration-scripts.md#historical-price-backfills) section of the migration guide.

@@ -12,7 +12,9 @@ accessor refreshes and one-off historical data changes. Standalone
 `scripts/enzyme/migrate-*.py` and one-off backfill entrypoints are **legacy
 format and must not be used** for these tasks. Port the required operation into
 a new `migration/scripts/NNN-name.py`; retain its resumable helper logic and
-reviewed scope. Legacy migration commands below document the old implementations,
+reviewed scope. The guide's
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills)
+section lists the lessons from the Enzyme backfill. Legacy migration commands below document the old implementations,
 not the supported execution workflow. Scheduled readers and collectors keep
 their existing entry points.
 

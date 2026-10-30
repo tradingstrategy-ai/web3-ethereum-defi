@@ -43,7 +43,8 @@ migration, reusing pure transformation or historical-reader helpers as needed.
   recovery evidence and validate committed data.
 - Preserve unrelated metadata, leads, historical prices, timestamp caches and
   reader state. Add a historical backfill or reader-state change only when the
-  reviewed migration explicitly requires it.
+  reviewed migration explicitly requires it. Historical price backfills follow
+  the [backfill rules](../../.claude/docs/migration-scripts.md#historical-price-backfills) in the migration guide.
 - Both preview and apply require the daemon and competing writers to be
   stopped. Use the production Compose command above and follow the
   documented lifecycle-guard-before-writer-lock order; helpers must not relock.
@@ -132,14 +133,11 @@ grid is complete; subsequent scans reuse the exact entries already stored.
 
 ### Monad historical state
 
-[Monad full nodes retain all historical transaction data but only a
-provider-dependent window of historical state](https://docs.monad.xyz/developer-essentials/historical-data).
-Before scanning Monad vault prices, the reader probes its Multicall contract and
-starts at the oldest block whose state the configured RPC can read. Existing
-price rows before that boundary are preserved; a provider cannot reconstruct
-them once its state trie has been evicted. Do not retry an old `eth_call`, set
-`START_BLOCK=1`, or delete these rows in an attempt to run a full Monad archive
-backfill: that state history is unavailable by design.
+Monad full nodes keep only a provider-dependent window of historical state, so
+the price reader starts at the oldest block whose state the configured RPC can
+read and preserves earlier rows. See the
+[Monad backfill rules](../../.claude/docs/migration-scripts.md#monad) in the
+migration guide before attempting any Monad history repair.
 
 ## Perp DEX vault account metrics
 
@@ -458,71 +456,29 @@ run address-scoped history only where the reviewed migration requires it and
 a historical reader is supported. Standalone protocol repair scripts are legacy
 format and must not be generated or run for this task. Follow
 [`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md) and the
-migration documentation linked above.
+migration documentation linked above. Recovered vaults whose early price
+history is missing need a fixed-scope price backfill; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills)
+section.
 
 #### Rysk Premium migration
 
-This standalone entrypoint is legacy implementation reference. For a new Rysk
-repair, port its required metadata/history functions into a new numbered
-migration and use the migration guide linked above.
+`scripts/erc-4626/migrate-rysk-vaults.py` is the legacy one-off metadata
+repair and epoch-price backfill of eight Rysk Premium pools on Ethereum and
+HyperEVM. Port a new Rysk repair into a numbered migration; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide and the
+[Rysk vault documentation](../../eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md).
 
-Rysk Premium uses one fixed-scope migration script containing metadata repair
-and historical backfill functions. The reviewed scope is eight public pools as
-of 2026-08-25: four on Ethereum and four on HyperEVM. Issuer-labelled internal
-pools are excluded. The command defaults to `DRY_RUN=true`; `DRY_RUN=false` is
-the only migration-specific operator choice. RPC, Hypersync, logging and
-`MAX_WORKERS` variables remain normal infrastructure configuration.
+#### Enzyme Blue and Onyx history
 
-Historical preview command for the legacy implementation:
+`scripts/enzyme/backfill-history.py` is the legacy one-off backfill of the
+Enzyme families that do not implement ERC-4626, on Ethereum, Polygon, Base and
+Arbitrum. Port a new Enzyme history repair into a numbered migration; the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide lists its
+lessons, including chain-wide Multicall scans and the handling of
+`MulticallHistoricalDataUnavailable` provider responses.
 
-```shell
-source .local-test.env && \
-poetry run python scripts/erc-4626/migrate-rysk-vaults.py
-```
-
-The metadata stage reads each fixed deployment block timestamp, rebuilds the
-row through `RyskVault` and reports inserts and updates without writing. It
-then copies the production Parquet into temporary storage and exercises the
-historical merge there, alongside temporary context, token and timestamp-cache
-storage. This reports the real address-scoped deletion count without modifying
-production. The temporary workspace uses the mounted pipeline volume and
-preflights enough free space for both the Parquet copy and its atomic rewrite,
-approximately twice the production Parquet size. The legacy apply path
-atomically replaces only the
-common metadata pickle after all eight rows validate, then writes only the
-eight selected address histories to `vault-prices-1h.parquet` and the Rysk
-table in `vault-historical-context.duckdb`. The persistent run holds one shared
-scanner writer lock and never changes reader state.
-
-A new repair or change to this operation requires a numbered migration. Its PR
-must use the guarded host launcher and include the **Run after merge** reminder
-described in [Pull request run reminder](#pull-request-run-reminder).
-
-#### Enzyme Blue and Onyx migration
-
-`scripts/enzyme/backfill-history.py` covers the Enzyme families that do not
-implement ERC-4626. It scans the reviewed Onyx SharesFactory once on Base and
-the reviewed Blue persistent Dispatcher once each on Ethereum, Polygon, Base
-and Arbitrum. Base queries both the Onyx factory and the Blue Dispatcher in
-one chain scan. For each chain, all discovered vaults share one historical multicall
-scan; the script never performs a per-vault factory rediscovery or a per-vault
-price backfill. The shared history reader, rather than the migration script,
-handles a failed historical block's fallback-provider rotation; it does not
-repeat a whole chain scan.
-
-Run a non-mutating coverage check first:
-
-```shell
-source .local-test.env && DRY_RUN=true poetry run python scripts/enzyme/backfill-history.py
-```
-
-The full migration requires archive-capable values for `JSON_RPC_ETHEREUM`,
-`JSON_RPC_POLYGON`, `JSON_RPC_BASE` and `JSON_RPC_ARBITRUM`, plus
-`HYPERSYNC_API_KEY`. It stores its normal scanner state in the configured vault
-database, price parquet and reader-state paths. Do not delete existing reader
-state or price parquet before a rerun. `ENZYME_END_BLOCK_<chain-id>` can bound
-one chain for diagnosis; use `ENZYME_SCAN_PRICES=false` for a metadata-only
-repair. Historical fees are intentionally TODO. Current Blue metadata exports
+Historical fees are intentionally TODO. Current Blue metadata exports
 the user-facing management fee as the manager rate plus the additional
 ProtocolFeeTracker rate. Enzyme defines protocol access as a fee on Assets
 Under Technology, rather than a high-water-mark performance fee, so it is
@@ -545,31 +501,6 @@ The reconstructed set is persisted on the Onyx lead. Future ordinary scanner
 cycles update it from their incremental Hypersync stream and refresh the
 fixed-block permission with the same batched reader, so the migration result
 does not regress to ``unknown``.
-
-The migration is resumable. Its JSON checkpoint defaults to
-`enzyme-backfill-history-state.json` beside the vault database and is written
-after each discovered chain, metadata batch and completed price-history chain.
-If the process is interrupted, rerun the same command: it reuses the saved
-factory candidates and fixed end blocks, skips already-good metadata rows, and
-continues from the raw parquet and persisted reader state. Set
-`ENZYME_CHECKPOINT_PATH` only when all of the associated database, parquet and
-reader-state paths are moved together. A successfully completed run starts a
-fresh discovery on its next invocation so newly deployed vaults are included.
-Historical Multicall classifies node-retention failures as
-`MulticallHistoricalDataUnavailable`. This includes Geth's `missing trie node`,
-dRPC's `metadata is not found` and Alchemy's `layer stale` responses: all mean
-the RPC node cannot supply the requested historical state, rather than that a
-vault returned a zero value or reverted. The Enzyme Arbitrum backfill observed
-Alchemy's `-32000 layer stale` response at block `368,237,833` on 2026-08-20.
-For every failed historical block, Multicall keeps the original batch and makes
-one deterministic pass through the other configured RPC endpoints. This wraps
-from the final endpoint back to the first two, so an error from endpoint three
-does not end the chain before endpoints one and two have been tried for that
-exact block. It preserves the previous Parquet file until one complete scan
-verifies and atomically replaces it. If all configured providers report this
-exception for the same block, stop the migration with its checkpoint intact and
-obtain an archive-complete provider; do not publish a partial history as a
-completed backfill.
 
 The scanner does not support whole-chain lead resets. `RESET_LEADS` has been
 removed and setting it causes `scan-vaults.py` to fail before it makes any
@@ -704,136 +635,21 @@ source ~/vault-scanner/vault-rpc.env && \
 
 ### backfill-tokenised-funds.py
 
-Generic dispatcher for all reviewed tokenised-fund protocols. Set `PROTOCOLS`
-to a comma-separated list such as `securitize,ondo`; leaving it unset runs all
-registered integrations. Each protocol owns its implementation beside its
-vault adapter under `eth_defi/tokenised_fund/<protocol>/backfill.py`.
-
-The Securitize backfill groups products by chain, locates each deployment through the
-archive RPC, upserts only those lead and metadata rows, and rewrites only the
-selected vault histories. BUIDL deployments use the reviewed USD 1 estimate;
-ACRED, VBILL, STAC, HLSCOPE, BCAP and MI4 read RedStone push feeds through the
-same archive-block multicall as token supply. Funds without an authoritative
-NAV source remain metadata leads and their existing price rows are untouched.
-
-The full run needs archive RPC configuration for Ethereum, Polygon, Avalanche,
-Optimism, Arbitrum and Mantle. Historical block timestamps are fetched through
-the shared Hypersync cache. The default daily frequency is intentional because
-fundamental NAVs do not need hourly sampling.
-
-Before running the migration, provide these environment variables through
-`.local-test.env`:
-
-- `JSON_RPC_ETHEREUM`
-- `JSON_RPC_OPTIMISM`
-- `JSON_RPC_POLYGON`
-- `JSON_RPC_MANTLE`
-- `JSON_RPC_ARBITRUM`
-- `JSON_RPC_AVALANCHE`
-- `HYPERSYNC_API_KEY`
-
-The RPC connections must support archive-state calls. Preserve or restore the
-dense per-chain timestamp databases under
-`~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb` before the
-price scan. Missing historical ranges are downloaded through Hypersync and a
-large first-time timestamp fill may exceed the API key's rate limit. Diagnose
-existing cache gaps without changing them:
-
-```shell
-source .local-test.env && \
-  DRY_RUN=true \
-  TEST_CHAINS=Ethereum,Optimism,Polygon,Mantle,Arbitrum,Avalanche \
-  poetry run python scripts/erc-4626/heal-timestamps-all-chains.py
-```
-
-First verify product discovery and the migration plan. This mode does not scan
-prices and therefore does not validate timestamp-cache coverage:
-
-```shell
-source .local-test.env && \
-  DRY_RUN=true \
-  PROTOCOLS=securitize \
-  poetry run python scripts/backfill-tokenised-funds.py
-```
-
-Run the full daily metadata and price-history backfill with one command:
-
-```shell
-source .local-test.env && \
-  DRY_RUN=false \
-  FREQUENCY=1d \
-  PROTOCOLS=securitize \
-  poetry run python scripts/backfill-tokenised-funds.py
-```
-
-Do not replace the push-feed reads with RedStone's public prices REST endpoint:
-that endpoint rejects history older than 30 days and cannot perform an initial
-vault backfill.
-
-The script prints a final per-product table with total emitted historical rows
-and rows containing a non-null share price. Counts are collected during the
-existing in-memory export pass, without rereading Parquet. A completed scan
-fails if any product with an available estimate or RedStone feed produces no
-share-price rows in the requested block range.
-
-| Variable | Description |
-|----------|-------------|
-| `PROTOCOLS` | Optional. Comma-separated tokenised-fund protocol slugs; unset runs all registered protocols. |
-| `DRY_RUN` | Optional. Calculate the migration plan without writing data. The generic dispatcher defaults to true. |
-| `SECURITIZE_SCAN_PRICES` | Optional. Set to `false` to upsert leads and metadata only. Default: true. |
-| `SECURITIZE_PRODUCTS` | Optional. Comma-separated token addresses for a scoped repair; unset processes the full registry. |
-| `SECURITIZE_CLEAN_PRICES` | Optional. Set to `false` to retain existing cleaned histories. Default: true. |
-| `FREQUENCY` | Optional. Historical price frequency, `1h` or `1d`. Default: `1d`. |
-| `START_BLOCK` / `END_BLOCK` | Optional. Inclusive scoped historical price range. |
-| `MAX_WORKERS` | Optional. Historical multicall worker count. Default: 8. |
-| `VAULT_DB_PATH` | Optional. Metadata database path. Default: production path. |
-| `UNCLEANED_PRICE_DATABASE` | Optional. Raw price parquet path. Default: production path. |
-| `CLEANED_PRICE_DATABASE` | Optional. Cleaned price parquet path. Default: production path. |
-| `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production path. |
+Legacy one-off dispatcher for tokenised-fund metadata and NAV histories,
+implemented per protocol under `eth_defi/tokenised_fund/<protocol>/backfill.py`.
+Port a new tokenised-fund repair into a numbered migration that reuses those
+helpers; see the [historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration
+guide. Fundamental NAVs use daily sampling. Securitize BUIDL deployments use
+the reviewed USD 1 estimate; ACRED, VBILL, STAC, HLSCOPE, BCAP and MI4 read
+RedStone push feeds onchain, because RedStone's REST API rejects history older
+than 30 days. Funds without an authoritative NAV source remain metadata leads
+and their existing price rows are untouched.
 
 ### backfill-tokenised-fund-prices.py
 
-Run a price-only repair through the same recurring address-scoped scan path as
-`scan-vaults-all-chains.py`. Unlike `backfill-tokenised-funds.py`, this command
-does not discover leads, modify metadata or update reader state. It operates
-only on products already registered in `VAULT_DB_PATH` and rewrites only the
-selected products' raw-price rows from their continuation blocks onward.
-If existing rows inside that window were sampled at a higher frequency, the
-repair deliberately replaces them with the dedicated daily samples.
-
-The command defaults to `DRY_RUN=true` and prints the exact target and start
-block for each selected product. Use `TOKENISED_FUND_PRODUCTS` to scope an
-execution to exact token addresses; this is the recommended production repair
-workflow. The dedicated reader writes every approximate daily sample even when
-the NAV has not changed, so dashboard freshness advances for stable funds.
-
-```shell
-source .local-test.env && \
-  DRY_RUN=true \
-  TOKENISED_FUND_PROTOCOLS=securitize \
-  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
-  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
-```
-
-After reviewing the plan, execute the same targeted repair:
-
-```shell
-source .local-test.env && \
-  DRY_RUN=false \
-  TOKENISED_FUND_PROTOCOLS=securitize \
-  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
-  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
-```
-
-| Variable | Description |
-|----------|-------------|
-| `DRY_RUN` | Optional. Print the exact recurring-path plan without writing. Default: true. |
-| `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated recurring feed selectors; unset selects every price-capable feed. |
-| `TOKENISED_FUND_PRODUCTS` | Optional. Comma-separated token addresses, normalised to lowercase. Restricts both the plan and write window to these exact products. |
-| `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader worker count. Default: 8. |
-| `HYPERSYNC_CONCURRENCY` | Optional. Shared Hypersync stream concurrency. Default: 1. |
-| `VAULT_DB_PATH` | Optional. Existing vault metadata database path. Default: production path. |
-| `UNCLEANED_PRICE_DATABASE` | Optional. Shared raw price Parquet path. Default: production path. |
+Legacy one-off price-only repair of registered tokenised-fund products through
+the recurring scan path. Port a new repair into a numbered migration; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide.
 
 ### scan-vaults-all-chains.py
 
@@ -1126,84 +942,33 @@ the scanner, but GMX owns the ``gmx_historical_context`` table. It stores only
 source event observations. Calculated share prices and TVL are written to the
 normal vault Parquet files.
 
-The following legacy sequence is retained as implementation reference. Port a
-required operation into a numbered migration before running it. Its metadata
-stage refreshes existing GM and GLV rows by chain and share-token address,
-including index-aware GM names,
-backing-pair GLV names, full liquidity-provider descriptions and USDC display
-denomination:
+The original metadata migration, full backfill and examiner commands
+(`migrate-gmx-vaults-metadata.py`, `backfill-gmx-vault-prices.py`,
+`examine-gmx-vault-backfill.py` and `examine-gmx-vault-performance.py`) are
+legacy one-offs. Port a new GMX history repair into a numbered migration that
+prefills the event observations and then calls the common address-scoped
+writer; see the [historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration
+guide. The examiners remain useful read-only checks. A GMX history repair must
+keep these rules:
 
-```shell
-source .local-test.env && \
-  CHAINS=arbitrum,avalanche \
-  DRY_RUN=false \
-  poetry run python scripts/erc-4626/migrate-gmx-vaults-metadata.py
-```
-
-Use ``DRY_RUN=true`` for a read-only preview, then rerun with ``false`` before
-the backfill.
-
-Run the full backfill. The script needs no chain, range or frequency
-parameters: it processes Arbitrum and Avalanche sequentially, snapshots one
-safe head per chain, and scans the half-open range from block 1 to that head
-using hourly buckets. Cache insertion is idempotent, and repeating the command
-rebuilds the same complete GMX ranges without modifying scheduled reader state.
-GMX source events use bounded Hypersync `get()` pages instead of concurrent
-native streams so dense history does not accumulate native response buffers in
-the scanner container. The shared request limiter applies to every page, so a
-full backfill favours bounded memory over maximum download speed.
-The GMX DuckDB table also avoids `PRIMARY KEY` and `UNIQUE` constraints because
-DuckDB 1.5.0 ART indexes can corrupt the native heap on large file-backed
-databases under Python 3.14. Existing indexed GMX tables are migrated
-transactionally, while application-level batch joins preserve idempotency.
-
-```shell
-source .local-test.env && \
-  poetry run python scripts/erc-4626/backfill-gmx-vault-prices.py
-```
-
-Then check source linkage, positive values, the
-``total_assets = share_price × total_supply`` identity, duplicates and the
-common change threshold:
-
-```shell
-source .local-test.env && \
-  poetry run python scripts/erc-4626/examine-gmx-vault-backfill.py
-```
-
-Finally calculate the same lifetime and three-month metrics used by the common
-export pipeline:
-
-```shell
-source .local-test.env && \
-  PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
-  poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
-```
-
-``3M CAGR``, ``3M volatility`` and ``3M Sharpe`` are ``N/A`` when the available
-observation window does not satisfy the common three-month period rules. When
-available, volatility and Sharpe are the forward-filled,
-observation-cadence-sensitive approximations described above.
-
-| Variable | Script | Description |
-|----------|--------|-------------|
-| `CHAINS` | seed | Comma-separated `arbitrum,avalanche`; defaults to both. |
-| `MAX_WORKERS` | seed, backfill | Thread worker count. |
-| `DRY_RUN` | seed, backfill | Enumerate or use temporary output without changing production files. |
-| `VAULT_DATABASE` | all | Common metadata pickle override. |
-| `UNCLEANED_PRICE_DATABASE` | backfill, structural examiner | Common raw Parquet override. |
-| `PRICE_DATABASE` | performance examiner | Cleaned or raw common Parquet input. |
-| `TOKEN_CACHE` | performance examiner | Read-only token metadata cache used for token symbols. |
-| `CONTEXT_DATABASE` | backfill, structural examiner | Shared observation-cache DuckDB override. |
-| `REQUIRE_ALL_PRODUCTS` | structural examiner | Fail when any current product has no rows; use only after a full backfill. |
-| `MIN_TVL` / `LIMIT` | performance examiner | Filter and limit the output table. |
-| `LOG_LEVEL` | seed, backfill, performance examiner | Console log level. |
+- Read source events through bounded Hypersync `get()` pages rather than
+  concurrent native streams, so dense history does not accumulate native
+  response buffers; cache insertion stays idempotent.
+- The GMX DuckDB table avoids `PRIMARY KEY` and `UNIQUE` constraints because
+  DuckDB 1.5.0 ART indexes can corrupt the native heap on large file-backed
+  databases under Python 3.14. Existing indexed tables are migrated
+  transactionally, and application-level batch joins preserve idempotency.
+- `examine-gmx-vault-backfill.py` checks source linkage, positive values, the
+  ``total_assets = share_price × total_supply`` identity, duplicates and the
+  common change threshold. `examine-gmx-vault-performance.py` reports
+  ``3M CAGR``, ``3M volatility`` and ``3M Sharpe`` as ``N/A`` when the
+  observation window does not satisfy the common three-month period rules.
 
 The scheduled pipeline prefills at most
 ``GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` on its first run (default 100,000
 blocks), then follows the existing per-chain price-reader state. This avoids
 re-fetching a growing empty range when a chain has no recent GMX event. Use the
-manual backfill for older history.
+numbered backfill migration for older history.
 
 #### YieldBasis leveraged LT markets
 
@@ -1240,97 +1005,37 @@ deployment block, and context is committed in bounded idempotent batches.
 
 The scheduled scanner bounds its first context prefill with
 ``YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` (default 100,000 blocks). Use
-the manual backfill for complete reviewed history. Later cycles follow the
+a numbered backfill migration for complete reviewed history. Later cycles follow the
 shared per-chain price-reader position; YieldBasis contextual readers do not
 own separate reader-state entries. ``MAX_WORKERS`` controls the threaded
 archive-state reads and defaults to 4 in the backfill script.
 
-Run the one-off operations in this order. Both scripts have a fixed Ethereum
-scope and use environment variables for storage and infrastructure only.
-Metadata migration defaults to a dry run and never changes prices or reader
-state. It also removes the legacy ``· market <ID>`` suffix from the four
-public YieldBasis vault names while retaining the Factory ID in private
-catalogue metadata:
+The original metadata migration, history backfill and examiner commands
+(`migrate-yield-basis-vaults-metadata.py`, `backfill-yield-basis-vault-prices.py`,
+`examine-yield-basis-vault-backfill.py` and `examine-yield-basis-performance.py`)
+are legacy one-offs. Port a new YieldBasis history repair into a numbered
+migration that prefills the context table and then calls the common
+address-scoped writer; see the [historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of
+the migration guide. The examiners remain useful read-only checks.
 
-```shell
-source .local-test.env && DRY_RUN=true \
-  poetry run python scripts/erc-4626/migrate-yield-basis-vaults-metadata.py
-source .local-test.env && DRY_RUN=false \
-  poetry run python scripts/erc-4626/migrate-yield-basis-vaults-metadata.py
-```
+A YieldBasis history repair must keep these accounting rules:
 
-The historical backfill also defaults to a retained, inspectable dry-run
-workspace. It snapshots one safe head, uses the half-open range from the
-earliest reviewed Factory event to that head, prefills all four context rows,
-and invokes the common address-scoped Parquet writer without touching scheduled
-reader state:
-
-```shell
-source .local-test.env && DRY_RUN=true \
-  poetry run python scripts/erc-4626/backfill-yield-basis-vault-prices.py
-source .local-test.env && DRY_RUN=false \
-  poetry run python scripts/erc-4626/backfill-yield-basis-vault-prices.py
-```
-
-Both modes reuse the canonical dense cache at
-`~/.tradingstrategy/block-timestamp` so a dry run does not bootstrap thousands
-of sparse exact-timestamp requests. `TIMESTAMP_CACHE` may override that folder
-when an operator has prepared an equivalent dense copy. The retained
-YieldBasis valuation context, token cache and Parquet remain isolated.
-
-The first run after upgrading from earlier accounting logs and removes context
-rows for the four reviewed products that cannot reproduce a TRD-inclusive
-share price; context for products outside the current allow-list is preserved.
-Endpoint conversion is a fixed VaultBase cost assumption and is not historical
-context. The full backfill reconstructs redemption inputs and replaces the four
-earlier YieldBasis histories in the address-scoped Parquet write. Do not rely
-on an ordinary bounded scanner cycle for this accounting migration.
-
-After a full backfill, run the read-only structural check and the dual-CAGR
-report. The structural check reproduces every gross raw share price from the
-exact redemption inputs. The report prints redemption-basis gross USD CAGR and
-depositor net USD CAGR alongside fundamental underlying-token lifetime and
-three-month CAGR using identical endpoint blocks. Depositor net CAGR uses
-fundamental PPS at entry, redemption value at exit and the fixed 10-bps generic
-stablecoin conversion once at each endpoint. It does not include price impact.
-Current TVL, TRD, one-way conversion cost, round-trip cost and staked ratio are
-shown where available:
-
-```shell
-source .local-test.env && REQUIRE_ALL_PRODUCTS=true \
-  poetry run python scripts/erc-4626/examine-yield-basis-vault-backfill.py
-source .local-test.env && \
-  poetry run python scripts/erc-4626/examine-yield-basis-performance.py
-```
-
-For a production run, stop or coordinate with `vault-scanner-looped` and keep
-the mounted pipeline directory and per-chain timestamp cache. Use the oneshot
-service so the metadata pickle, raw Parquet, context table and token cache
-remain on the host volume. Inspect the dry-run output, then repeat the
-backfill with `DRY_RUN=false` and validate with both examiner commands before
-starting the looped scanner again. The migration changes only the reviewed
-YieldBasis metadata rows; the backfill changes only those four address
-histories and the YieldBasis context table.
-Keep the retained dry-run directory until both printed examiners pass; remove
-it only after that review is complete.
-
-The mounted production equivalent is:
-
-```shell
-source ~/vault-scanner/vault-rpc.env
-cd ~/vault-scanner/web3-ethereum-defi
-docker compose stop vault-scanner-looped
-docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot \
-  -lc 'DRY_RUN=true python scripts/erc-4626/backfill-yield-basis-vault-prices.py'
-# Review the retained dry-run workspace and run the two printed examiners.
-docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot \
-  -lc 'DRY_RUN=false python scripts/erc-4626/backfill-yield-basis-vault-prices.py'
-docker compose start vault-scanner-looped
-```
-
-Run the metadata migration first when the four YieldBasis rows are absent, and
-use its same `vault-scanner-oneshot` wrapper. Do not run the persistent backfill
-while `vault-scanner-looped` or another pipeline writer is active.
+- The first run after upgrading from earlier accounting logs and removes
+  context rows for the four reviewed products that cannot reproduce a
+  TRD-inclusive share price; context for products outside the current
+  allow-list is preserved. Endpoint conversion is a fixed VaultBase cost
+  assumption and is not historical context.
+- The full backfill reconstructs redemption inputs and replaces the four
+  earlier YieldBasis histories in the address-scoped Parquet write. Do not rely
+  on an ordinary bounded scanner cycle for this accounting migration.
+- After a full backfill, `examine-yield-basis-vault-backfill.py` with
+  `REQUIRE_ALL_PRODUCTS=true` must reproduce every gross raw share price from
+  the exact redemption inputs. `examine-yield-basis-performance.py` prints
+  redemption-basis gross USD CAGR and depositor net USD CAGR alongside
+  fundamental underlying-token lifetime and three-month CAGR using identical
+  endpoint blocks. Depositor net CAGR uses fundamental PPS at entry, redemption
+  value at exit and the fixed 10-bps generic stablecoin conversion once at each
+  endpoint; it does not include price impact.
 
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
@@ -1341,6 +1046,10 @@ when an existing database is opened. See the
 storage and partial-scan replacement rules.
 
 #### Flying Tulip reward-equivalence backfill
+
+The backfill command in this section is a legacy one-off. Port a new
+history repair into a numbered migration; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide.
 
 Flying Tulip sftUSD has separately claimable FT rewards. Its historical series
 is therefore a non-redeemable,
@@ -2187,36 +1896,10 @@ After inspecting the dry-run output, omit -e DRY_RUN=true to apply it.
 
 ### backfill-frankencoin-shares.py
 
-Seed or refresh the reviewed Ethereum FCS deployment at
-`0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b`. This uses the equity adapter,
-independently of the svZCHF savings TVL repair below. Metadata includes the
-Frankencoin protocol and curator, four maintained strategy tags, reference
-valuation semantics and actual redemption restrictions.
-
-```shell
-source .local-test.env && DRY_RUN=true FRANKENCOIN_SHARES_SCAN_PRICES=false \
-  poetry run python scripts/erc-4626/backfill-frankencoin-shares.py
-```
-
-| Variable | Description |
-|----------|-------------|
-| `DRY_RUN` | Retain reviewable staged outputs; default `true`. Set `false` to apply. |
-| `FRANKENCOIN_SHARES_SCAN_PRICES` | Include hourly historical prices; default `false`. |
-| `JSON_RPC_ETHEREUM` | Required configured Ethereum RPC providers; archive state is needed for prices. |
-| `HYPERSYNC_API_KEY` | Required configured Hypersync authentication for discovery and timestamp reads. |
-| `VAULT_DB_PATH`, `PARQUET_PATH` | Override shared pipeline metadata and price files. |
-| `TIMESTAMP_CACHE` | Dense cache directory; defaults to `~/.tradingstrategy/block-timestamp`. |
-| `START_BLOCK`, `END_BLOCK` | Optional inclusive/exclusive price bounds; default deployment block 25,852,506 and safe head. |
-| `MAX_WORKERS` | Maximum historical-read workers; default `4`. |
-| `LOG_LEVEL` | Console logging level; default `info`. |
-
-Prices require dense Ethereum timestamps through the end boundary. Existing
-rows outside the target address and range, discovery counts, chain cursors and
-scheduled reader state are retained. Applied runs hold the scanner lock and
-back up metadata. Apply mode rejects a missing metadata database path.
-Stop the persistent scanner first and inspect dry-run outputs
-before applying; see the [protocol documentation](../../docs/source/vaults/frankencoin/index.rst)
-for the production Compose commands.
+Legacy one-off metadata reclassification and price backfill of Ethereum
+Frankencoin Shares (FCS) at `0xdb861830d9ae2d1fcf99fa0cfd3973de382b0b5b`. Port
+a new FCS repair into a numbered migration; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide.
 
 ### fix-frankencoin-tvl.py
 
@@ -2474,63 +2157,9 @@ to publish the corrected metadata.
 
 ### backfill-kamui-vault-prices.py
 
-Backfill only Kamui Stable, Balanced and Boosted on Ethereum. Their zero
-vault-local ``Deposit`` counts kept them out of ordinary price scanning until
-the address-specific exemption landed in [#1606](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1606)
-on 2026-09-28. The script scans hourly
-from their reviewed first-detection blocks (25,888,764 for Stable, 25,897,234
-for Balanced and 25,897,239 for Boosted) up to, but excluding, block
-26,076,164, the first existing Kamui price observation. The fixed range and
-three-address scope make reruns idempotent. It stages and validates a copy of
-the common raw Parquet before replacing it under the ``scan-pipeline`` lock.
-Later Kamui observations, all other vaults, metadata and the scheduled reader
-state are preserved. The mounted dense Ethereum timestamp cache is required.
-
-Run the full no-publish validation first:
-
-```shell
-source .local-test.env && DRY_RUN=true \
-  poetry run python scripts/erc-4626/backfill-kamui-vault-prices.py
-```
-
-Expect exactly three vaults and zero existing rows inside the replacement
-range unless this backfill was already applied. The preserved later-row count
-can increase as ordinary scanning continues. The default is ``DRY_RUN=true``;
-it performs the complete historical RPC scan and staged-Parquet validation,
-then discards the result without publishing it. It copies both the raw price
-file and dense timestamp cache to scratch storage, so allow roughly 1 GB of
-free space and several minutes of runtime. It does not update the shared
-timestamp cache, scheduled reader state or raw price file.
-For production, use the mounted ``vault-scanner-oneshot`` service after the new
-image is deployed. Stop the looped scanner, run the script and restart it:
-
-```shell
-source ~/vault-scanner/vault-rpc.env && \
-(cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
-
-source ~/vault-scanner/vault-rpc.env && \
-(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
-  --entrypoint /bin/bash -e DRY_RUN=true vault-scanner-oneshot \
-  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
-
-source ~/vault-scanner/vault-rpc.env && \
-(cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm \
-  --entrypoint /bin/bash -e DRY_RUN=false vault-scanner-oneshot \
-  -lc 'python scripts/erc-4626/backfill-kamui-vault-prices.py')
-
-source ~/vault-scanner/vault-rpc.env && \
-(cd ~/vault-scanner/web3-ethereum-defi && docker compose start vault-scanner-looped)
-```
-
-``DRY_RUN=false`` needs ``JSON_RPC_ETHEREUM`` with archive state and the usual
-Hypersync configuration. ``MAX_WORKERS`` defaults to four; ``TIMESTAMP_CACHE``
-can point to an equivalent prepopulated dense cache. The script prints
-per-vault historical price counts and the finite observation span. It aborts
-if any vault has less than 14 days of finite raw price history or a later
-observation is changed. The next normal
-post-processing cycle regenerates cleaned prices, metrics and sparklines from
-the repaired raw file; cleaned-price filters can still affect sparkline
-eligibility independently of this raw-history check.
+Legacy one-off backfill of three Ethereum Kamui Lagoon vaults. Its approach
+is now the shared numbered-migration helper; see the
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills) section of the migration guide.
 
 ### migrate-arcus-vault-metadata.py
 

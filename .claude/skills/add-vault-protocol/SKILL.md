@@ -92,7 +92,16 @@ Standalone `migrate-<protocol>-vaults.py` and one-off `backfill-history.py`
 entrypoints are **legacy format and must not be used** for these repairs.
 Add `migration/scripts/NNN-name.py` with `migrate(context)` and use the unified
 runner. Reuse historical-reader helpers where a backfill is actually required;
-helpers must not reacquire the runner's locks. Include the guarded production
+helpers must not reacquire the runner's locks.
+
+A new protocol integration usually finds vaults that have been operating for
+weeks or months before the scanner could read them. Their price history then
+starts at the integration date. If a reviewed vault's earlier history matters,
+add a price backfill to the migration with `run_price_backfill()`, covering
+only those vaults from their first-seen block to their first collected price.
+Follow the [historical price backfills](../../docs/migration-scripts.md#historical-price-backfills) section of the migration
+guide, including its preview-only `MIGRATION_BACKFILL_BLOCKS` local check and
+the Monad state-window rules. Include the guarded production
 launcher commands and expected results in a **Run after merge** PR comment.
 
 ## Strategy tags
