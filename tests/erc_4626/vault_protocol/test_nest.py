@@ -42,7 +42,7 @@ NEST_N_OPAL_TARGET_APY = 0.1
 NEST_N_OPAL_TVL_USD = 123.45
 NEST_N_OPAL_HOLDERS = 100
 NEST_N_OPAL_VOLUME_24H = 42.5
-REVIEWED_NEST_ENTRYPOINTS = 27
+REVIEWED_NEST_ENTRYPOINTS = 30
 
 
 @pytest.fixture(scope="module")
@@ -318,6 +318,8 @@ def test_reviewed_nest_strategy_tags() -> None:
     assert lookup_strategy_tags(STRATEGY_TAGS, NEST_ARC_VAULTS["nest-opal-vault"]) == {StrategyTag.rwa, StrategyTag.rwa_credit}
     assert lookup_strategy_tags(STRATEGY_TAGS, NEST_ARC_VAULTS["nest-falconx-clo"]) == {StrategyTag.lending}
     assert lookup_strategy_tags(STRATEGY_TAGS, NEST_ARC_VAULTS["plume-factor-vault"]) == {StrategyTag.rwa, StrategyTag.rwa_credit}
+    for address in ("0x338b266ada6861438f802a677217a6eea7f58ff4", "0x16dcb3a74a5391318c3dd4c788cc5306222739fa", "0x722a80991e575142394bcb72935199fdc8d6632d"):
+        assert lookup_strategy_tags(STRATEGY_TAGS, address) == {StrategyTag.rwa, StrategyTag.rwa_credit}
     assert lookup_strategy_tags(STRATEGY_TAGS, "0x0000000000000000000000000000000000000001") is None
 
 

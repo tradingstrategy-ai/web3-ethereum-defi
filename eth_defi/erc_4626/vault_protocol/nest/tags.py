@@ -113,4 +113,17 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision: Same invoice-financing strategy on a separate entrypoint.
     #: Source: https://app.nest.credit/vaults/plume-factor-vault
     "0x13ad100ebb7a2d1e7c3b4797a408da25c6561895": {StrategyTag.rwa, StrategyTag.rwa_credit},
+    #: Vault: FACTOR, USDC routes on Ethereum, Base, Arc, Monad and Plume. Added: 2026-10-30.
+    #: Decision: Same reviewed invoice-financing strategy on current entrypoints.
+    #: Sources: https://api.nest.credit/v1/vaults?status=all
+    #: - https://app.nest.credit/vaults/plume-factor-vault
+    "0x338b266ada6861438f802a677217a6eea7f58ff4": {StrategyTag.rwa, StrategyTag.rwa_credit},
+    #: Vault: FACTOR, Robinhood USDG route. Added: 2026-10-30.
+    #: Decision: Same reviewed invoice-financing strategy on the current entrypoint.
+    #: Source: https://api.nest.credit/v1/vaults?status=all
+    "0x16dcb3a74a5391318c3dd4c788cc5306222739fa": {StrategyTag.rwa, StrategyTag.rwa_credit},
+    #: Vault: FACTOR, Plume pUSD route. Added: 2026-10-30.
+    #: Decision: Same reviewed invoice-financing strategy on the current entrypoint.
+    #: Source: https://api.nest.credit/v1/vaults?status=all
+    "0x722a80991e575142394bcb72935199fdc8d6632d": {StrategyTag.rwa, StrategyTag.rwa_credit},
 }
