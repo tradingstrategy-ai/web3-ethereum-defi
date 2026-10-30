@@ -25,7 +25,11 @@ class HandwrittenVaultMetadata:
     #: One-sentence strategy summary for listings.
     short_description: str
 
-    #: Longer strategy explanation, optionally containing Markdown links.
+    #: Longer strategy explanation in Markdown, shown as "About the vault".
+    #:
+    #: Use paragraphs of two or three sentences separated by blank lines.
+    #: Bold text, inline links and ``####`` subheadings are allowed; see
+    #: ``docs/README-vault-description-formatting.md``.
     description: str
 
     #: Canonical vault or manager-maintained product page.
@@ -178,45 +182,64 @@ NEUTRAL_AUTOPILOT_URL: Final[str] = "https://www.neutral.trade/strategies/neutra
 NEUTRAL_TRADE_UPDATE_URL: Final[str] = "https://www.neutral.trade/blog/september-october-2026-update"
 
 
-def _make_neutral_autopilot_metadata(network: str, other_network: str, link: str) -> HandwrittenVaultMetadata:
+#: Accountable vault pages for the Neutral Trade Autopilot feeders, keyed by
+#: network name. Accountable uses the loan address, not the share-token address.
+NEUTRAL_AUTOPILOT_ACCOUNTABLE_URLS: Final[dict[str, str]] = {
+    "Ethereum": "https://yield.accountable.capital/vaults/0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff",
+    "Monad": "https://yield.accountable.capital/vaults/0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c",
+}
+
+
+def _make_neutral_autopilot_metadata(network: str, other_network: str) -> HandwrittenVaultMetadata:
     """Build the reviewed copy for one Neutral Trade Autopilot feeder vault.
 
     Neutral Trade's Ethereum and Monad vaults, built with Accountable, are
     entry points to the same Solana Autopilot vault. Sharing one template keeps
-    the explanation of that cross-linked capital identical on both networks.
-    Sources are recorded in
+    the explanation of that cross-linked capital identical on both networks,
+    and each description links to the other network's vault. The description
+    is Markdown with short paragraphs and ``####`` subheadings, following
+    ``docs/README-vault-description-formatting.md``. Sources are recorded in
     ``docs/protocol-research/neutral-trade-autopilot-2026-10-29.md``.
 
     :param network: Network of the described feeder vault.
     :param other_network: Network of the other Accountable feeder vault.
-    :param link: Canonical deposit or vault page for this deployment.
-    :return: Single-line display metadata for the deployment.
+    :return: Display metadata for the deployment.
     """
+    link = NEUTRAL_AUTOPILOT_ACCOUNTABLE_URLS[network]
+    other_link = NEUTRAL_AUTOPILOT_ACCOUNTABLE_URLS[other_network]
+    description = f"""This {network} vault, built with [Accountable]({link}), is an entry point to [Neutral Autopilot]({NEUTRAL_AUTOPILOT_URL}), Neutral Trade's multi-strategy vault on Solana. It accepts USDC and passes it into the Solana vault, where Neutral Trade says most of the strategy's money is held. Accountable [calculates the vault's value independently](https://x.com/accountabledata/status/2106036446503047195) of Neutral Trade.
+
+#### How the strategy works
+
+Autopilot spreads deposits across strategies run by Neutral Trade and by outside trading firms, such as arbitrage between exchanges, collecting funding payments between futures traders, market making and options trading. It shifts the mix as results change.
+
+Most of these strategies balance their trades to limit their dependence on whether prices rise or fall. Neutral Trade [caps strategies that bet on price direction](https://www.neutral.trade/blog/neutral-autopilot-launch) at **5% of the portfolio**.
+
+#### Shared capital and custody
+
+**This vault and a matching [{other_network} vault]({other_link}) both feed the same Solana vault.** Depositors on all three networks therefore share the same positions and the same centralised exchange accounts. Neutral Trade says this exchange capital is [held by the custodians Ceffu or Copper]({NEUTRAL_TRADE_UPDATE_URL}), and that trading firms can trade but cannot withdraw deposits.
+
+#### Fees, withdrawals and risks
+
+As of 29 October 2026, the vault's onchain fee settings charge **no management fee and a 3% performance fee** on gains, all of which goes to Accountable. Neutral Trade does not state whether its own Autopilot fees also apply to money arriving through these vaults.
+
+Withdrawals are not instant: since 12 October 2026, Neutral Autopilot has settled withdrawal requests **weekly on Saturdays**. Depositors can still lose money through trading losses or the failure of an exchange or custodian, and withdrawals can be delayed.
+
+#### Company
+
+Neutral Trade was founded in 2024. Its [FAQ](https://www.neutral.trade/faq) names Solana Labs, YZi Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as investors in the company; they do not guarantee vault returns."""
     return HandwrittenVaultMetadata(
         name="Neutral Trade Autopilot",
         short_description=f"{network} entry point to Neutral Trade's Solana-based Autopilot vault, which spreads USDC across several trading strategies designed to limit exposure to market direction.",
-        description=(
-            f"This {network} vault, built with Accountable, accepts USDC and passes it into Neutral Autopilot, Neutral Trade's vault on Solana, where Neutral Trade says most of the strategy's money is held. "
-            "Autopilot is a multi-strategy portfolio: it spreads deposits across strategies run by Neutral Trade and by outside trading firms, such as arbitrage between exchanges, collecting funding payments between futures traders, market making and options trading, and shifts the mix as results change. "
-            "Most of these strategies balance their trades to limit their dependence on whether prices rise or fall, and Neutral Trade caps strategies that bet on price direction at 5% of the portfolio. "
-            f"A matching {other_network} vault also feeds the same Solana vault, so depositors on all three networks share the same positions and the same centralised exchange accounts, which Neutral Trade says are held through the custodians Ceffu or Copper. "
-            "Accountable calculates the vault's value independently of Neutral Trade. "
-            "As of 29 October 2026, the vault's onchain fee settings charge no management fee and a 3% performance fee on gains, all of which goes to Accountable; Neutral Trade does not state whether its own Autopilot fees also apply to money arriving through these vaults. "
-            "Withdrawals are not instant: since 12 October 2026, Neutral Autopilot has settled withdrawal requests weekly on Saturdays. "
-            "Depositors can still lose money through trading losses or the failure of an exchange or custodian, and withdrawals can be delayed. "
-            "Neutral Trade was founded in 2024 and names Solana Labs, YZi Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as investors in the company."
-        ),
+        description=description,
         link=link,
     )
 
 
 #: Neutral Trade Autopilot feeder vaults built with Accountable.
-#:
-#: Links point to each deployment's Accountable vault page, keyed by the
-#: Accountable loan address rather than the share-token address.
 NEUTRAL_AUTOPILOT_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
-    (1, HexAddress("0x909dadbca7955614a455d9e7447ad4adb4902c8e")): _make_neutral_autopilot_metadata("Ethereum", "Monad", "https://yield.accountable.capital/vaults/0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff"),
-    (143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")): _make_neutral_autopilot_metadata("Monad", "Ethereum", "https://yield.accountable.capital/vaults/0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c"),
+    (1, HexAddress("0x909dadbca7955614a455d9e7447ad4adb4902c8e")): _make_neutral_autopilot_metadata("Ethereum", "Monad"),
+    (143, HexAddress("0xaabab7598be3c4fe58c593e73c2f5934b73b573e")): _make_neutral_autopilot_metadata("Monad", "Ethereum"),
 }
 
 #: Source-linked note explaining the cross-linked Autopilot feeder vaults.

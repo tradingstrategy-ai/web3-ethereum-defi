@@ -22,17 +22,19 @@ subscription and redemption flows instead of ERC-4626 vault contracts.
 Read and follow the shared [description writing style](../../docs/description-writing-style.md)
 before writing or editing public descriptions.
 
-Individual vault `VaultBase.description` and `VaultBase.short_description`
-values must be single-line text. Never include newline or carriage-return
-characters, paragraph breaks, or literal `\n` / `\r` escape sequences. Apply
+Individual vault `VaultBase.description` values are Markdown, shown as
+"About the vault": paragraphs of two or three sentences, bold for key facts,
+inline links and `####` subheadings where useful.
+`VaultBase.short_description` values must be single-line plain text: never
+include Markdown, newline or carriage-return characters, or literal `\n` /
+`\r` escape sequences. Apply
 `eth_defi.vault.base.normalise_vault_description()` to full descriptions and
 `normalise_vault_short_description()` to summaries, including cached metadata.
 Short descriptions must contain only one sentence. When automatically copying
 a full description or a provider-supplied summary, take only the first sentence
 and retain its ending punctuation; never copy several sentences into a summary.
-Preserve the wording and links within that sentence. This rule applies to
-individual vault fields; protocol-level Markdown fields below may still use
-paragraphs.
+Preserve the wording within that sentence. Protocol-level Markdown fields
+below follow the same paragraph rules as full vault descriptions.
 
 Protocol metadata YAML is public website copy for a general audience. The
 `short_description`, `long_description` and `fee_description` fields must

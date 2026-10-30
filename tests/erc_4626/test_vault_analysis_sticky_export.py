@@ -371,7 +371,7 @@ def test_sticky_export_shortens_fresh_and_stored_summaries(*, use_fallback: bool
             stale_warning_age_days=3,
         )
 
-    assert result.vaults[0]["description"] == "Full strategy. Keep every sentence."
+    assert result.vaults[0]["description"] == "Full strategy.\n\nKeep every sentence."
     assert result.vaults[0]["short_description"] == "Earn 4.5% in money markets."
     assert result.vaults[0]["notes"] == "Preserved\nnotes."
 
