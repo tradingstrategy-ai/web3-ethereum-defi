@@ -24,6 +24,16 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Agent RockSteady.
+    #: Added: 2026-10-30.
+    #: Decision material: NuWealth.ai identifies this vault and states that
+    #: its perpetual futures strategies run by fixed rules. AI tools help build
+    #: and test strategies but do not make live trading decisions.
+    #: Sources:
+    #: - https://nuwealth.ai/check
+    #: - https://nuwealth.ai/risk
+    #: - https://app.hyperliquid.xyz/vaults/0xd321ad79041bdad719ba5ff42fe950e1977df439
+    "0xd321ad79041bdad719ba5ff42fe950e1977df439": {StrategyTag.algorithmic_trading},
     #: Vault: drkmttr.
     #: Added: 2026-08-30.
     #: Decision material: The public vault description calls the strategy
