@@ -149,6 +149,31 @@ class VaultReadNotSupported(Exception):
     """Vault cannot be read due to misconfiguration somewhere."""
 
 
+def fetch_monad_state_available(web3: Web3, block_number: int) -> bool:
+    """Check whether the connected Monad provider can execute calls at a block.
+
+    Block headers and events survive Monad state eviction, so checking their
+    existence cannot establish whether a historical ``eth_call`` works. Probe
+    the same Multicall3 contract used by historical vault batches instead.
+    Multicall's returned block number also guards against an upstream silently
+    serving current state for a requested historical block. See
+    `Monad historical data documentation <https://docs.monad.xyz/developer-essentials/historical-data>`_.
+
+    :param web3:
+        Monad JSON-RPC connection to probe.
+    :param block_number:
+        Requested historical execution block.
+    :return:
+        Whether Multicall executes at that exact block.
+    """
+    multicall = get_multicall_contract(web3)
+    try:
+        received_block_number = multicall.functions.getBlockNumber().call(block_identifier=block_number)
+    except (BadFunctionCallOutput, ContractLogicError, ProbablyNodeHasNoBlock):
+        return False
+    return received_block_number == block_number
+
+
 def fetch_monad_historical_state_start_block(
     web3: Web3,
     start_block: int,
@@ -189,24 +214,8 @@ def fetch_monad_historical_state_start_block(
     assert start_block >= 0, f"Invalid start block: {start_block}"
     assert end_block >= start_block, f"End block {end_block} is before start block {start_block}"
 
-    multicall = get_multicall_contract(web3)
-
     def fetch_state_availability(block_number: int) -> bool:
-        """Probe the execution path used by historical vault batches.
-
-        Block headers and events survive Monad state eviction, so checking
-        their existence cannot establish whether a historical eth_call works.
-        Multicall's returned block also guards against an upstream silently
-        serving current state for a requested historical block.
-
-        :param block_number: Requested historical execution block.
-        :return: Whether Multicall executes at that exact block.
-        """
-        try:
-            received_block_number = multicall.functions.getBlockNumber().call(block_identifier=block_number)
-        except (BadFunctionCallOutput, ContractLogicError, ProbablyNodeHasNoBlock):
-            return False
-        return received_block_number == block_number
+        return fetch_monad_state_available(web3, block_number)
 
     if fetch_state_availability(start_block):
         return start_block

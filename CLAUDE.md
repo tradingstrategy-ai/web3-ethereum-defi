@@ -81,6 +81,9 @@ and one-off backfill entrypoints are **legacy format and must not be used**
 for these tasks. Port a required legacy repair into a new numbered script;
 existing commands in old runbooks are historical references, not templates.
 Do not edit or rerun a successful initial migration for a later accessor change.
+When a newly discovered, repaired or reclassified vault lacks early price
+history, add a fixed-scope price backfill to the numbered migration; see
+[historical price backfills](.claude/docs/migration-scripts.md#historical-price-backfills).
 Both preview and apply require the looped scanner to be stopped; use the direct
 Compose command in the production runbook, preserving the
 lifetime-guard-before-writer-lock order. The host launcher is optional for
@@ -138,6 +141,8 @@ contract state. No provider offers arbitrary-depth historical state; see the
 - Use Hypersync for historical Monad events and timestamps. For historical
   vault values, `scan_historical_prices_to_parquet()` probes Multicall and
   begins at the oldest state block the configured provider can execute.
+  Backfill a Monad price gap soon after finding it, while the state is still
+  readable; see the [Monad backfill rules](.claude/docs/migration-scripts.md#monad).
 - Preserve existing Monad price rows before that dynamically detected boundary:
   the current provider cannot reconstruct them. Monad fork and historical tests
   must use current-state or state-relative assertions.

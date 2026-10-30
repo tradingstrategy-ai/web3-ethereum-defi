@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add historical price backfills to numbered migrations with a shared address-scoped helper, a preview-only block limit for local checks and a migration guide section, and backfill the early price history of the Neutral Trade Autopilot vaults on Ethereum and Monad (2026-10-30).
 - fix: Reconstruct escrowed Atoma redemption requests without repeating submission admission, and require attributable canonical claim quotes at a consistent block (2026-10-30).
 - feat: Add NuWealth.ai curator metadata and artwork, attribute Agent RockSteady on Hypercore, distinguish the separate NuWealth Morpho curator and include a targeted strategy-tag migration (2026-10-30, [#1701](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1701)).
 - fix: Link Tori-related vault fee disclosures to canonical documentation and clarify protocol fee descriptions where percentages are missing or apply to different income sources (2026-10-29).

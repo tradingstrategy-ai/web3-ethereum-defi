@@ -54,6 +54,13 @@ When export-time resolution already picks up the change, document that no
 migration is needed. Include the production launcher reminder when a PR with
 a migration is requested; keep authoring separate from production execution.
 
+Curator research often surfaces a curator's vaults whose price history starts
+weeks after they launched, because the scanner did not read them earlier.
+Compare each newly attributed vault's first-seen block with its first price
+row. When the gap matters, propose a price backfill for those vaults only, as
+described in the [historical price backfills](../../docs/migration-scripts.md#historical-price-backfills) section of the
+migration guide.
+
 ## Naming policy
 
 Use one clean, organisation-level public name for a curator. Prefer the main

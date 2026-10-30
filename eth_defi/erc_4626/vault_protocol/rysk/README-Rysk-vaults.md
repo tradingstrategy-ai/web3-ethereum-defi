@@ -130,7 +130,10 @@ classifier.
 The standalone repair and one-off backfill entrypoints documented here are
 **legacy format and must not be used for new repair or refresh tasks**. Follow
 the [numbered migration guide](../../../../.claude/docs/migration-scripts.md) and port the reviewed operation into
-`migration/scripts/NNN-name.py` before running it. The implementation details
+`migration/scripts/NNN-name.py` before running it. Its
+[historical price backfills](../../../../.claude/docs/migration-scripts.md#historical-price-backfills)
+section explains how to prefill protocol context and then call the common
+address-scoped writer. The implementation details
 and old commands below are historical references; read-only examination tools
 remain usable.
 

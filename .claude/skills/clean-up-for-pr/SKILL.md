@@ -52,6 +52,8 @@ the entire patch into context.
 3. **Update documentation.** For database repairs or persisted accessor
    refreshes, check the [migration documentation](../../docs/migration-scripts.md)
    and require a new numbered migration or an explicit no-migration rationale.
+   When a repair or newly discovered vault starts collecting prices late,
+   check whether it needs a [historical price backfill](../../docs/migration-scripts.md#historical-price-backfills).
    Standalone repair scripts are legacy format: do not recommend creating or
    invoking them, or rerunning a successful initial migration for a new change.
    Check that runbooks and PR reminders use the production Compose command

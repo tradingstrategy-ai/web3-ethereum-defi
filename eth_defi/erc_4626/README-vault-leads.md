@@ -42,7 +42,9 @@ backfill must invoke its fixed-scope historical writer explicitly, verify its
 dense timestamp cache and price-write postconditions, and fail if the work is
 skipped or unavailable. Do not call a legacy wrapper that silently skips prices
 because `SCAN_PRICES` or `UPSHIFT_SCAN_PRICES` is false; follow the guide's
-historical-backfill requirements.
+[historical price backfills](../../.claude/docs/migration-scripts.md#historical-price-backfills)
+section and use its `run_price_backfill()` helper for recovered leads whose
+early price history is missing.
 
 `RESET_LEADS` has been removed. Setting it for `scan-vaults.py` is an error.
 Use the bounded all-chain cache refresh only for the scanner's automatic
