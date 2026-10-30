@@ -244,11 +244,13 @@ class AtomaDepositManager(ERC4626DepositManager):
         raw = self._amount(shares, raw_shares, shares=True)
         block = self.web3.eth.block_number
         implementation = self.vault.check_execution_version(block)
-        if raw > self.fetch_unlocked_shares(owner, block):
+        if check_enough_token and raw > self.fetch_unlocked_shares(owner, block):
             raise self._unavailable("insufficient_unlocked_shares", owner)
         f = self.vault.vault_contract.functions
         epoch = f.getCurrentEpoch().call(block_identifier=block) + 1
-        if f.userEpochShares(epoch, owner).call(block_identifier=block):
+        # The executor reconstructs a mined request with check_enough_token=False.
+        # Its shares are already escrowed; admission applies only to new requests.
+        if check_enough_token and f.userEpochShares(epoch, owner).call(block_identifier=block):
             raise self._unavailable("epoch_request_already_exists", owner)
         return AtomaRedemptionRequest(vault=self.vault, owner=owner, to=owner, shares=self.vault.share_token.convert_to_decimals(raw), raw_shares=raw, funcs=[f.requestWithdrawal(raw)], implementation=implementation)
 
@@ -326,9 +328,9 @@ class AtomaDepositManager(ERC4626DepositManager):
         self._validate_ticket(ticket)
         return ticket
 
-    def get_redemption_request_status(self, ticket: AtomaRedemptionTicket) -> AsyncVaultRequestStatus:
+    def get_redemption_request_status(self, ticket: AtomaRedemptionTicket, block_identifier: BlockIdentifier = "latest") -> AsyncVaultRequestStatus:
         self._validate_ticket(ticket, canonical=True)
-        block = self.web3.eth.block_number
+        block = self.web3.eth.block_number if block_identifier == "latest" else block_identifier
         self.vault.check_execution_version(block)
         f = self.vault.vault_contract.functions
         if not f.userEpochShares(ticket.settlement_epoch, ticket.owner).call(block_identifier=block):
@@ -463,7 +465,7 @@ class AtomaDepositManager(ERC4626DepositManager):
         :param block_identifier: State snapshot.
         :return: Raw USDC gross, fee and net payout.
         """
-        self._validate_ticket(ticket)
+        self._validate_ticket(ticket, canonical=True)
         block = self.web3.eth.block_number if block_identifier == "latest" else block_identifier
         self.vault.check_execution_version(block)
         f = self.vault.vault_contract.functions
@@ -471,6 +473,9 @@ class AtomaDepositManager(ERC4626DepositManager):
         if not settled:
             raise self._unavailable("epoch_not_settled", ticket.owner, "claim")
         shares = f.userEpochShares(ticket.settlement_epoch, ticket.owner).call(block_identifier=block)
+        if ticket.reconciliation_required or shares != ticket.raw_shares:
+            reason = "claim_already_completed" if shares == 0 else "request_reconciliation_required"
+            raise self._unavailable(reason, ticket.owner, "valuation")
         gross = shares * nav // f.NAV_PRECISION().call(block_identifier=block)
         before = f.epochIndexAtSettle(ticket.settlement_epoch).call(block_identifier=block)
         now = f.shortfallIndexWad().call(block_identifier=block)

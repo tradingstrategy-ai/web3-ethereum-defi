@@ -116,6 +116,56 @@ def test_receiver_validation(manager: AtomaDepositManager) -> None:
         manager.create_redemption_request(OWNER, to=OTHER, raw_shares=1)
 
 
+def test_reconstruct_escrowed_redemption(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reconstruct a mined request without reopening admission for new requests.
+
+    1. Stub the RPC boundary with all shares escrowed and an existing epoch request.
+    2. Refuse a new request but reconstruct its original call with balance checks disabled.
+    """
+    # 1. Stub the RPC boundary with all shares escrowed and an existing epoch request.
+    contract = Mock()
+    contract.functions.getCurrentEpoch.return_value.call.return_value = 4
+    contract.functions.userEpochShares.return_value.call.return_value = 10**12
+    monkeypatch.setattr(manager.vault, "vault_contract", contract)
+    monkeypatch.setattr(manager, "fetch_unlocked_shares", lambda owner, block: 0)
+    # 2. Refuse a new request but reconstruct its original call with balance checks disabled.
+    with pytest.raises(VaultFlowUnavailable, match="insufficient_unlocked_shares"):
+        manager.create_redemption_request(OWNER, raw_shares=10**12)
+    request = manager.create_redemption_request(OWNER, raw_shares=10**12, check_enough_token=False)
+    assert request.raw_shares == 10**12
+    assert request.implementation == ATOMA_IMPLEMENTATION
+    assert len(request.funcs) == 1
+    contract.functions.userEpochShares.assert_not_called()
+
+
+def test_claim_quote_requires_attribution(manager: AtomaDepositManager, ticket: AtomaRedemptionTicket, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refuse aggregate and consumed claims rather than quoting another trade's value.
+
+    1. Stub RPC values for a settled single-ticket entitlement and quote it.
+    2. Refuse a larger owner aggregate and a consumed request, retaining zero-loss distinction.
+    """
+    # 1. Stub RPC values for a settled single-ticket entitlement and quote it.
+    contract = Mock()
+    f = contract.functions
+    f.getEpoch.return_value.call.return_value = (0, 100, True)
+    f.userEpochShares.return_value.call.return_value = ticket.raw_shares
+    f.NAV_PRECISION.return_value.call.return_value = ticket.raw_shares
+    f.epochIndexAtSettle.return_value.call.return_value = 1
+    f.shortfallIndexWad.return_value.call.return_value = 1
+    f.WITHDRAWAL_FEE_BPS.return_value.call.return_value = 0
+    monkeypatch.setattr(manager.vault, "vault_contract", contract)
+    # Canonical receipts have separate tests; this one isolates quote attribution.
+    monkeypatch.setattr(manager, "_validate_ticket", lambda *args, **kwargs: None)
+    assert manager.fetch_claim_amounts(ticket, block_identifier=10) == (100, 0, 100)
+    # 2. Refuse a larger owner aggregate and a consumed request, retaining zero-loss distinction.
+    f.userEpochShares.return_value.call.return_value = ticket.raw_shares + 1
+    with pytest.raises(VaultFlowUnavailable, match="request_reconciliation_required"):
+        manager.fetch_claim_amounts(ticket, block_identifier=10)
+    f.userEpochShares.return_value.call.return_value = 0
+    with pytest.raises(VaultFlowUnavailable, match="claim_already_completed"):
+        manager.fetch_claim_amounts(ticket, block_identifier=10)
+
+
 def test_unknown_implementation(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:
     """An upgrade cannot silently fall back to ERC-4626 execution."""
     monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: OTHER)

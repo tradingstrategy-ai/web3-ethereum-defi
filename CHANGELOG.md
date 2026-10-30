@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Reconstruct escrowed Atoma redemption requests without repeating submission admission, and require attributable canonical claim quotes at a consistent block (2026-10-30).
 - fix: Link Tori-related vault fee disclosures to canonical documentation and clarify protocol fee descriptions where percentages are missing or apply to different income sources (2026-10-29).
 - feat: Cover risk and fees for 17 native and third-party Tori exposures, with sourced fee and withdrawal disclosures and a guarded numbered fee refresh that preserves historical data (2026-10-29).
 - feat: Add Tori Finance native strUSD staking vault classification, protocol and curator metadata, withdrawal timing, strategy tags and a targeted numbered metadata migration (2026-10-29).
