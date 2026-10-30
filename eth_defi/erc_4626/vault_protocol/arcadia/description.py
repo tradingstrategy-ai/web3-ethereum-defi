@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from eth_defi.chain import CHAIN_NAMES
 from eth_defi.erc_4626.vault_protocol.arcadia.offchain_metadata import ArcadiaVaultMetadata, normalise_text
-from eth_defi.vault.base import normalise_vault_description, normalise_vault_short_description
+from eth_defi.vault.base import flatten_vault_text, normalise_vault_description, normalise_vault_short_description
 
 #: Maximum listing-summary length, including any ellipsis.
 MAX_SHORT_DESCRIPTION_LENGTH = 200
@@ -38,13 +38,13 @@ class ArcadiaVaultDescriptions:
 def _normalise_label(value: str | None) -> str:
     """Normalise a display label for equality comparisons.
 
-    Case, repeated whitespace and trailing punctuation do not turn a pool
-    label into narrative copy.
+    Case, repeated whitespace, line breaks and trailing punctuation do not
+    turn a pool label into narrative copy.
 
     :param value: Optional display label.
     :return: Case-folded, whitespace-normalised label.
     """
-    return (normalise_vault_description(value) or "").casefold().rstrip(". !?:;—\u2013-")
+    return (flatten_vault_text(value) or "").casefold().rstrip(". !?:;—\u2013-")
 
 
 def _tranche_designation(vault_name: str | None, metadata: ArcadiaVaultMetadata | None) -> str | None:

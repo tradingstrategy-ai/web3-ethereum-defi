@@ -1,4 +1,4 @@
-"""Single-line vault descriptions shared by adapters and scanner exports."""
+"""Markdown vault descriptions and single-line summaries shared by adapters and scanner exports."""
 
 import pytest
 
@@ -12,23 +12,29 @@ from eth_defi.vault.base import normalise_vault_description, normalise_vault_sho
         ("", ""),
         (" \t\r\n ", ""),
         ("Unchanged description.", "Unchanged description."),
-        ("First.\n\nSecond.", "First. Second."),
-        ("First.\r\nSecond.\rThird.", "First. Second. Third."),
-        (r"First.\nSecond.\r\nThird.", "First. Second. Third."),
-        ("  First.\\n\tSecond.\r\nThird.  ", "First. Second. Third."),
-        ("Issuer\u2019s [strategy](https://example.com/vault).\n£100.", "Issuer\u2019s [strategy](https://example.com/vault). £100."),
+        ("First.\n\nSecond.", "First.\n\nSecond."),
+        ("First.\r\nSecond.\rThird.", "First.\nSecond.\nThird."),
+        (r"First.\nSecond.\r\nThird.", "First.\nSecond.\nThird."),
+        (r"First paragraph.\n\nSecond paragraph.", "First paragraph.\n\nSecond paragraph."),
+        ("  First.\\n\tSecond.\r\nThird.  ", "First.\nSecond.\nThird."),
+        ("First.\n \t\n\n\r\n\nSecond.", "First.\n\nSecond."),
+        ("#### Heading\n\nA  **bold**\t[link](https://example.com).  ", "#### Heading\n\nA **bold** [link](https://example.com)."),
+        ("Issuer\u2019s [strategy](https://example.com/vault).\n£100.", "Issuer\u2019s [strategy](https://example.com/vault).\n£100."),
         (r"Keep \u0041 and \t escapes.", r"Keep \u0041 and \t escapes."),
     ],
 )
 def test_normalise_vault_description(text: str | None, expected: str | None) -> None:
-    """Clean source line breaks while preserving text and missing values.
+    """Tidy source line breaks while preserving Markdown structure and missing values.
 
-    Repeated normalisation must be stable across cached and newly fetched text.
+    Paragraph breaks, headings, bold text and links survive. Literal escapes
+    and carriage returns become real line breaks, and runs of blank lines
+    collapse to one paragraph break. Repeated normalisation must be stable
+    across cached and newly fetched text.
 
     :param text:
         Raw optional description.
     :param expected:
-        Expected single-line description.
+        Expected Markdown description.
     """
     assert normalise_vault_description(text) == expected
     assert normalise_vault_description(normalise_vault_description(text)) == expected
@@ -52,6 +58,7 @@ def test_normalise_vault_description(text: str | None, expected: str | None) -> 
         ("J.P. Morgan manages U.S. Treasuries. More details.", "J.P. Morgan manages U.S. Treasuries."),
         ("Lend assets, e.g. USDC. More details.", "Lend assets, e.g. USDC."),
         ("See [the vault](https://example.com/vault). More details.", "See [the vault](https://example.com/vault)."),
+        ("First sentence\ncontinues. Second sentence.", "First sentence continues."),
     ],
 )
 def test_normalise_vault_short_description(text: str | None, expected: str | None) -> None:

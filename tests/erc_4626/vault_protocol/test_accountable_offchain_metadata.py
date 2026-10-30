@@ -7,7 +7,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import _parse_vault_metadata  # noqa: PLC2701
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA, get_handwritten_vault_metadata
 
 
@@ -135,7 +135,8 @@ def test_reviewed_accountable_descriptions_work_offline(monkeypatch: pytest.Monk
     assert vault.short_description == metadata.short_description
     assert vault.get_link() == metadata.link
     assert vault.description and vault.short_description
-    assert all(separator not in vault.description and separator not in vault.short_description for separator in ("\n", "\r", r"\n", r"\r"))
+    assert vault.description == normalise_vault_description(vault.description)
+    assert all(separator not in vault.short_description for separator in ("\n", "\r", r"\n", r"\r"))
     fetch_metadata.assert_not_called()
 
 

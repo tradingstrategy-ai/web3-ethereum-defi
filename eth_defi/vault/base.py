@@ -66,16 +66,44 @@ VAULT_PRICE_REFRESH_INTERVAL = datetime.timedelta(days=7)
 
 
 def normalise_vault_description(text: str | None) -> str | None:
-    r"""Return a vault description as single-line text.
+    r"""Return a vault description as tidy Markdown.
 
-    Offchain metadata may contain actual line breaks or literal ``\n`` and
-    ``\r`` escapes. Replace these with spaces and collapse whitespace without
-    decoding other escapes or changing punctuation and links.
+    The website renders the full description ("About the vault") as Markdown,
+    so paragraph breaks, headings, bold text and inline links are preserved.
+    Offchain metadata may contain Windows or old Mac line endings, literal
+    ``\n`` and ``\r`` escapes, ragged whitespace or runs of blank lines.
+    Convert line endings and literal escapes to real newlines, collapse spaces
+    and tabs within each line, and reduce consecutive blank lines to a single
+    paragraph break. Other escapes, punctuation and links are left unchanged.
+    Leading indentation is not preserved, so nested lists and indented code
+    blocks are flattened to their first level.
+
+    See ``docs/README-vault-description-formatting.md`` for the field rules.
 
     :param text:
-        Full or short vault description, or ``None`` when unavailable.
+        Full vault description, or ``None`` when unavailable.
     :return:
-        Single-line description, preserving ``None`` and empty strings.
+        Normalised Markdown description, preserving ``None`` and empty strings.
+    """
+    if text is None:
+        return None
+    text = text.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = (" ".join(line.split()) for line in text.split("\n"))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def flatten_vault_text(text: str | None) -> str | None:
+    r"""Return vault text as a single line.
+
+    Replace actual line breaks and literal ``\n`` / ``\r`` escapes with spaces
+    and collapse whitespace. Used for summaries, which listings and tables
+    display verbatim, and to compare texts regardless of paragraph breaks.
+
+    :param text:
+        Optional text to flatten.
+    :return:
+        Single-line text, preserving ``None`` and empty strings.
     """
     if text is None:
         return None
@@ -97,7 +125,7 @@ def normalise_vault_short_description(text: str | None) -> str | None:
     :return:
         First sentence with its punctuation, preserving ``None`` and empty strings.
     """
-    text = normalise_vault_description(text)
+    text = flatten_vault_text(text)
     if not text:
         return text
     boundary = re.search(r"(?<!\b[A-Za-z]\.[A-Za-z]\.)(?<=[.!?])\s+", text)
@@ -1433,11 +1461,15 @@ class VaultBase(ABC):
 
     @property
     def description(self) -> str | None:
-        r"""Human-readable single-line vault strategy description.
+        r"""Human-readable vault strategy description in Markdown.
 
-        Descriptions must not contain newline or carriage-return characters,
-        paragraph breaks, or literal ``\n`` / ``\r`` escape sequences. Adapters
-        must use :py:func:`normalise_vault_description` on offchain text.
+        The website shows this as "About the vault" and renders it as Markdown.
+        Write it in paragraphs of two or three sentences separated by a blank
+        line. Bold text, inline links and ``####`` subheadings are allowed.
+        Adapters must use :py:func:`normalise_vault_description` on offchain
+        text, which converts carriage returns and literal ``\n`` / ``\r``
+        escapes to real line breaks. See
+        ``docs/README-vault-description-formatting.md`` for the field rules.
 
         - Fetched from protocol-specific offchain sources (e.g. Euler GitHub labels, Lagoon web app API)
         - Returns None if the protocol does not provide descriptions or the vault is not in the metadata source

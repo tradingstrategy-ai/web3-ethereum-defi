@@ -158,7 +158,7 @@ def test_flying_tulip_descriptions_and_strategy_notes(vault_class: type[FlyingTu
     """Keep strategy explanations accessible and listing text correctly formatted.
 
     Notes retain the detailed backing strategies for both reward products,
-    while descriptions remain single-line and summaries one plain sentence.
+    while descriptions are normalised Markdown and summaries one plain sentence.
 
     :param vault_class: Adapter for one of the two staking products.
     :param address: Reviewed Ethereum deployment address.

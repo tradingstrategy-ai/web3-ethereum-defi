@@ -227,16 +227,17 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
 
 
 def test_create_vault_scan_record_normalises_descriptions(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Persist single-line descriptions even when an adapter returns raw text.
+    """Persist normalised Markdown descriptions even when an adapter returns raw text.
 
-    The scanner boundary also drops a duplicate multiline note after flattening
-    the description, preventing the original text from leaking into notes.
+    Paragraph breaks survive, literal escapes become real line breaks and the
+    summary is flattened to one sentence. The scanner boundary also drops a
+    note that duplicates the normalised description.
 
     :param monkeypatch:
         Fixture replacing the adapter factory with a metadata-only vault.
     """
     vault = _FakeVault()
-    vault.description = "First paragraph.\n\nSecond paragraph."
+    vault.description = "First paragraph.\r\n\r\n\r\nSecond  paragraph."
     vault.short_description = r"Short\nsummary. More details belong in the full description."
     monkeypatch.setattr(vault, "get_notes", lambda: vault.description)
     monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
@@ -248,7 +249,7 @@ def test_create_vault_scan_record_normalises_descriptions(monkeypatch: pytest.Mo
         token_cache={},
     )
 
-    assert record["_description"] == "First paragraph. Second paragraph."
+    assert record["_description"] == "First paragraph.\n\nSecond paragraph."
     assert record["_short_description"] == "Short summary."
     assert record["_notes"] is None
 
