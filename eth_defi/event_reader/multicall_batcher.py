@@ -1183,6 +1183,48 @@ MULTICALL_RETRYABLE_MESSAGE_CLUES: Final[frozenset[str]] = frozenset(
         "exceeds block gas limit",
         "historical state",
         "state histories haven't been fully indexed yet",
+        # dRPC pruned-replica error, JSON-RPC code 4444.
+        #
+        # The full error, as raised by FallbackProvider.make_request() through
+        # ExtraValueError for a historical Multicall3 eth_call:
+        #
+        #   {'code': 4444, 'message': 'pruned history unavailable: requested 21144431, earliest available 26288382'}
+        #
+        # What it means: dRPC (lb.drpc.live) is a load balancer in front of a
+        # pool of third-party nodes. It picks a node per request. Most of the
+        # Ethereum pool is archive nodes, but some are pruned full nodes that
+        # keep only recent state. When an archive eth_call at an old block
+        # lands on a pruned node, that node answers code 4444 and states its
+        # retention window: "requested" is the block we asked for, "earliest
+        # available" is the oldest block it still has state for. Here the
+        # window began at block 26,288,382 (2026-10-28 02:58 UTC), about 34
+        # hours or 10,000 blocks behind the head when the error was seen, so
+        # the node could serve nothing older; the vault and the block are fine.
+        #
+        # Why retryable and not an archive gap: the node choice is per request,
+        # so the next request to the same dRPC endpoint usually reaches an
+        # archive node and succeeds. The archive-gap path
+        # (is_historical_state_unavailable_error ->
+        # MulticallHistoricalDataUnavailable) assumes the endpoint itself lacks
+        # the state: it never retries the same endpoint and gives up at once
+        # when only one provider is configured, which is the usual CI setup.
+        # The retryable path instead retries with growing backoff, switching
+        # provider when a fallback has several, and raises
+        # MulticallRetryExhausted once its budget runs out, so a node that is
+        # genuinely pruned still fails with a clear error after a few retries.
+        #
+        # Before this entry the message matched no clue, so the batcher raised
+        # MulticallNonRetryable and one unlucky request failed a whole scan.
+        #
+        # Evidence, all Ethereum on 2026-10-29, CI run 40874580065:
+        # - attempt 1, job 123449996800: test_4626_historical_prices failed at
+        #   block 21,144,431 (Lagoon vault 0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc),
+        #   earliest available 26,288,382;
+        # - attempt 2: test_steakhouse_usdt hit the same error at block
+        #   19,597,798 (earliest available 26,288,395) and passed only on its
+        #   flaky retry, while test_4626_historical_prices passed;
+        # - both tests passed locally against the same RPC configuration.
+        "pruned history unavailable",
         "Failed to call: InvalidTransaction",
         "failsafe timeout policy exceeded",
         # dRPC out of credit?

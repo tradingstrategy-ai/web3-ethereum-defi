@@ -22,6 +22,15 @@ long_description: |
   event together with the verified implementation ABI, because deposits are emitted at the proxy
   address while the public proxy ABI only exposes proxy administration events.
 fee_description: |
+  Upshift fees vary by vault and can include an annual management charge,
+  a performance charge on profits, and withdrawal charges. Management and
+  performance charges in multi-asset vaults reduce the share price. An optional
+  instant-redemption route can charge more than a queued withdrawal and is
+  subject to liquidity.
+
+  The [Tori ecosystem product disclosure](https://www.rockawayx.com/insights/rockawayx-tori-ecosystem-vault-investment-thesis-risk-disclosure)
+  describes a fee waiver for its early pre-deposit phase. That historical
+  waiver does not establish a current exemption or apply to other Upshift vaults.
 links:
   homepage: https://www.upshift.finance/
   app: https://app.upshift.finance/

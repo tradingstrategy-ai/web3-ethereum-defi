@@ -19,6 +19,15 @@ long_description: |
   - Collateral sits in isolated noncustodial smart contracts (repoLocker)
   - No rehypothecation - collateral cannot be lent to other borrowers
 fee_description: |
+  [Term's strategy-vault fee documentation](https://developers.term.finance/periphery-contracts/curated-vaults/administration/yearn-roles-and-governance)
+  describes manager-set performance fees collected when profits are reported.
+  Rates depend on the vault's current configuration. Fees within underlying
+  lending allocations are an additional layer and can have a different
+  calculation base.
+
+  The separate [auction servicing fee](https://docs.term.finance/protocol/fees-and-penalties/servicing-fee)
+  is charged to borrowers. The absence of a direct auction fee for lenders
+  does not establish that a managed strategy vault has no performance fee.
 links:
   homepage: https://www.term.finance/
   app: https://app.term.finance/
@@ -27,7 +36,7 @@ links:
   documentation: https://developers.term.finance
   defillama:
   audits:
-  fees:
+  fees: https://developers.term.finance/periphery-contracts/curated-vaults/administration/yearn-roles-and-governance
   trading_strategy: https://tradingstrategy.ai/vaults/protocols/term-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/term_finance/index.html
 example_smart_contracts:

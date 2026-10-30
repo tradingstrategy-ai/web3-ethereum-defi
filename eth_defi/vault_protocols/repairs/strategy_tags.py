@@ -47,6 +47,7 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.tags import STRATEGY_TAGS as 
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS as PLUTUS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
 from eth_defi.gmx.tags import STRATEGY_TAGS as GMX_STRATEGY_TAGS
@@ -164,6 +165,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.maple_aqru_like,
     ERC4626Feature.centrifuge_like,
     ERC4626Feature.ethena_like,
+    ERC4626Feature.tori_like,
     ERC4626Feature.usdd_like,
     ERC4626Feature.zerolend_like,
     ERC4626Feature.royco_tranche_like,
@@ -211,6 +213,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
 )
 
 EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
+    ERC4626Feature.tori_like: partial(lookup_strategy_tags, TORI_STRATEGY_TAGS),
     ERC4626Feature.autopool_like: partial(lookup_strategy_tags, AUTOPOOL_STRATEGY_TAGS),
     ERC4626Feature.ember_like: partial(lookup_strategy_tags, EMBER_STRATEGY_TAGS),
     ERC4626Feature.fluid_like: partial(lookup_strategy_tags, FLUID_STRATEGY_TAGS),

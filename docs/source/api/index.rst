@@ -61,6 +61,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    bulla/index
    ondo/index
    nara/index
+   tori/index
    nest/index
    franklin/index
    atoma/index

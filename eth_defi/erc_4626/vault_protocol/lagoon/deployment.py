@@ -46,6 +46,7 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
@@ -2114,7 +2115,8 @@ def setup_guard(
                     erc_4626_vault.vault_address,
                 )
                 note = f"Whitelisting {erc_4626_vault.name}"
-                partial_cal = module.functions.whitelistERC4626(erc_4626_vault.vault_address, note)
+                whitelist = module.functions.whitelistAtoma if isinstance(erc_4626_vault, AtomaVault) else module.functions.whitelistERC4626
+                partial_cal = whitelist(erc_4626_vault.vault_address, note)
                 multicalls.append(partial_cal)
 
             call = module.functions.multicall(encode_multicalls(multicalls))

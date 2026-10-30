@@ -615,6 +615,11 @@ class ERC4626Feature(enum.Enum):
     #: https://ethena.fi/
     ethena_like = "ethena_like"
 
+    #: Tori Finance native strUSD staking vault.
+    #:
+    #: https://docs.tori.finance/products/strusd
+    tori_like = "tori_like"
+
     #: Decentralized USD (USDD)
     #:
     #: Decentralized stablecoin protocol with sUSDD savings vault.
@@ -1369,6 +1374,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.ethena_like in features:
         return "Ethena"
+
+    elif ERC4626Feature.tori_like in features:
+        return "Tori Finance"
 
     elif ERC4626Feature.usdd_like in features:
         return "Decentralized USD"

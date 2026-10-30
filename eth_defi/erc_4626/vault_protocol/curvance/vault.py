@@ -19,8 +19,9 @@ Key features:
 
 The protocol uses cToken contracts (BorrowableCToken, SimpleCToken, etc.) that
 implement ERC-4626 for deposits and withdrawals. The ``interestFee`` on borrowable
-tokens represents the protocol's share of borrower interest (not a direct fee on
-depositors).
+tokens represents the protocol's share of borrower interest. Minting protocol
+shares for this fee reduces lenders' interest income. See the `lending fee
+documentation <https://docs.curvance.com/app/developer-docs/lending-protocol/borrowablectoken>`__.
 """
 
 import datetime
@@ -48,7 +49,8 @@ class CurvanceVault(ERC4626Vault):
 
     - Interest fee: Protocol takes a percentage of borrower interest (up to 60%)
     - Flashloan fee: 0.04% (4 basis points)
-    - No explicit management or performance fees on deposits
+    - Borrower-interest fees reduce lenders' income; this adapter does not
+      express them as a flat performance fee on all returns
 
     Example contracts:
 
@@ -60,17 +62,25 @@ class CurvanceVault(ERC4626Vault):
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """No management fee on deposits.
+        """Return the adapter's zero annual management charge.
 
-        The protocol earns through interest fees on borrowers, not depositors.
+        The separate share of borrower interest reduces lenders' income;
+        it is not an annual charge on deposited principal.
+
+        :param block_identifier: Block retained for the common fee interface.
+        :return: Zero annual management fee as a fraction.
         """
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """No explicit performance fee.
+        """Leave a flat performance-fee percentage unspecified.
 
-        Interest fees (up to 60%) are taken from borrower interest payments,
-        but this is not a direct performance fee on depositor returns.
+        Interest fees reduce lenders' income through newly minted protocol
+        shares. They apply to borrower interest, rather than every source of
+        return, and this adapter does not map them to a general percentage.
+
+        :param block_identifier: Block retained for the common fee interface.
+        :return: ``None`` for the unsupported flat fee, not a zero interest fee.
         """
         return None
 

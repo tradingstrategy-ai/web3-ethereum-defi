@@ -1,5 +1,9 @@
 # 1.2
 
+- fix: Link Tori-related vault fee disclosures to canonical documentation and clarify protocol fee descriptions where percentages are missing or apply to different income sources (2026-10-29).
+- feat: Cover risk and fees for 17 native and third-party Tori exposures, with sourced fee and withdrawal disclosures and a guarded numbered fee refresh that preserves historical data (2026-10-29).
+- feat: Add Tori Finance native strUSD staking vault classification, protocol and curator metadata, withdrawal timing, strategy tags and a targeted numbered metadata migration (2026-10-29).
+- feat: Add Atoma Index and RWA deposits and epoch-based withdrawal requests and claims, with persistent tickets, payout analysis and Guard/Safe support (2026-10-29).
 - feat: `deploy_automated_lagoon_vault(lighter_api_key_callback=...)` and `LagoonConfig.lighter_api_key_callback` receive each generated Lighter API key and its role before the key is registered, so a caller can save it and a later deployment failure cannot lose a registered key (2026-10-28).
 - fix: Preserve exact requested ERC-4626 redemption shares in metadata and calldata; refuse finite capacity shortfalls unless bounded EulerEarn, Morpho V1 or Yearn rounding is confirmed by a positive exact-call simulation (2026-10-29).
 - feat: Add Tori trUSD stablecoin classification, verified Ethereum metadata, news feed and official artwork so Tori Ecosystem Vault remains in cleaned price history, and require writing style checks during PR cleanup (2026-10-28, [#1692](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1692)).

@@ -213,6 +213,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
     "Ethena": VaultTechnicalRisk.negligible,
+    # Reviewed 2026-10-29: public matched source and audits, but upgradeable
+    # contracts, privileged loss reporting and offchain backing visibility.
+    # docs/protocol-research/tori-vault-risk-and-fees.md
+    "Tori Finance": VaultTechnicalRisk.high,
     "Decentralized USD": VaultTechnicalRisk.severe,
     "Term Finance": VaultTechnicalRisk.low,
     # The vault does not give any indication what kind of underlying activity and positions
@@ -367,6 +371,11 @@ REVIEWED_DISABLED_GMX_VAULTS: frozenset[HexAddress] = frozenset(
 #:
 #: Lowercase address-specific assessments, including explicit unassessed entries.
 VAULT_SPECIFIC_RISK = {
+    # Native Ethereum strUSD review, 2026-10-29. Match the protocol matrix
+    # when older scans retain a weaker rating. This existing matrix is
+    # address-scoped; classification itself remains chain-aware.
+    # docs/protocol-research/tori-vault-risk-and-fees.md
+    "0x280839980a7ed0d7717f64125fe241012e5f5815": VaultTechnicalRisk.high,
     # Manual Nova risk decision, 2026-10-28. Include both addresses so the
     # reviewed rating also supersedes stale scan metadata. NLP remains Lagoon.
     # See vault_protocol/nova_markets/README-Nova-Markets.md for the evidence.

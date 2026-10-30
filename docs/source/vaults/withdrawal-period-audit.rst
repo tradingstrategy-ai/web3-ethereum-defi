@@ -15,9 +15,11 @@ The following adapters now return ``WithdrawalPeriod`` and populate
 ``min_withdrawal_period``, ``max_withdrawal_period``,
 ``withdrawal_delay_type`` and ``estimated_settlement`` in lifetime JSON:
 
-* **Atoma** — zero to one ``epochDuration()`` interval; the verified vault
-  uses ``requestWithdrawal``/``claimWithdrawal``. See the
-  `Atoma vault implementation <https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF>`__.
+* **Atoma** — a request in epoch N targets N+1, which the operator can settle
+  only after its end. There is no guaranteed settlement maximum; claims also
+  require idle assets. Execution reads the actual ticket's epoch end from the
+  `current Atoma implementation <https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code>`__.
+
 * **Avant, Ethena, Mainstreet, USDX Money** — the live
   ``cooldownDuration()`` value, as a fixed ``delay``. The accessor is read
   from each deployment instead of using the documented seven-day default.

@@ -1,0 +1,20 @@
+# Tori Finance feeds are collected through the trUSD stablecoin profile.
+feeder-id: tori
+name: Tori Finance
+role: curator
+canonical-feeder-id: trusd
+short_description: Tori Finance issues trUSD, a token designed to track one US dollar, and operates its strUSD staking product.
+long_description: |
+  [Tori Finance](https://tori.finance/) issues trUSD, a token designed to track one US dollar, and
+  operates its [native strUSD staking vault](https://docs.tori.finance/products/strusd).
+  Rewards come from money-market positions and trades that seek pricing differences
+  while offsetting market exposure. This is a protocol-operated product; RockawayX
+  curates the separate [Tori ecosystem vault](https://docs.tori.finance/resources/pre-deposit)
+  built using Upshift.
+other-links:
+  - title: Tori Finance - native strUSD staking product and withdrawal terms
+    url: https://docs.tori.finance/products/strusd
+  - title: Tori Finance - privileged roles and operator controls
+    url: https://docs.tori.finance/security/roles
+  - title: Tori Finance - separate RockawayX-curated Upshift ecosystem vault
+    url: https://docs.tori.finance/resources/pre-deposit
