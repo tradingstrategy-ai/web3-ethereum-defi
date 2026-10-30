@@ -4,7 +4,7 @@ Purpose: The scanner began collecting prices for both Accountable feeder vaults 
 Scope: Ethereum 0x909dadbca7955614a455d9e7447ad4adb4902c8e, blocks [25,846,919, 25,973,565); Monad 0xaabab7598be3c4fe58c593e73c2f5934b73b573e, blocks [107,330,102, 108,068,133). Raw hourly prices only.
 Branch: neutral-trade-price-backfill
 PR title: feat: add historical price backfills to numbered migrations
-PR: Not yet opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1704
 Preserves: Metadata, reader state, all other vaults, and both vaults' existing rows at or after their first collected price block.
 Expected: Ethereum gains about 18 days of history from 2026-08-27; Monad gains up to 3 days from 2026-09-23 if the provider still holds that state, otherwise it is reported as monad_state_unavailable and preserved.
 Preview evidence: a local MIGRATION_BACKFILL_BLOCKS=20000 preview on 2026-10-30 against the 2026-10-28 snapshot read both vaults at their first-seen blocks, replaced no rows and preserved all later rows. Run it soon: Monad state ages out of the provider's window.
