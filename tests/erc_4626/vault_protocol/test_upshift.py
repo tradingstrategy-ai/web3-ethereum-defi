@@ -180,13 +180,12 @@ def test_upshift_multi_asset_vault_metadata(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
+        "supports_anvil_settlement": True,
         "deposit_assets": [token.address for token in denomination_tokens],
     }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_total_supply(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
-    assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is not None
+    assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is None
     assert vault.fetch_deposit_closed_reason() == expected_deposit_closed_reason
     assert vault.fetch_redemption_closed_reason() == "Upshift withdrawalsPaused() is true"
     assert vault.can_check_deposit() is False
@@ -239,8 +238,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
+        "supports_anvil_settlement": True,
         "deposit_assets": [token.address for token in manager.fetch_accepted_assets()],
     }
     assert manager.has_synchronous_deposit() is True

@@ -661,6 +661,25 @@ class AtomaDepositManager(ERC4626DepositManager):
             raise self._unavailable("request_history_mismatch", ticket.owner, "reconciliation")
         return replace(ticket, reconciliation_required=False)
 
+    def fetch_pending_redemption_value(self, ticket: AtomaRedemptionTicket, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Replace burned claimable shares with their validated net entitlement.
+
+        Pending escrowed shares retain ordinary share valuation. Consumed or
+        aggregate requests must be recovered before publishing a valuation.
+
+        :param ticket: Single-request Atoma ticket.
+        :param block_identifier: Consistent valuation block.
+        :return: Claimable net denomination amount, or the normal share fallback.
+        """
+        assert not ticket.reconciliation_required and len(ticket.parts) == 1, "Atoma reconciliation or aggregate claims are unsupported"
+        status = self.get_redemption_request_status(ticket, block_identifier=block_identifier)
+        if status is AsyncVaultRequestStatus.none:
+            raise self._unavailable("Recover completed Atoma claim before valuation", ticket.owner, "valuation")
+        if status is AsyncVaultRequestStatus.claimable:
+            _, _, net = self.fetch_claim_amounts(ticket, block_identifier=block_identifier)
+            return self.vault.denomination_token.convert_to_decimals(net)
+        return None
+
     def fetch_completed_redemption_tx_hash(self, ticket: AtomaRedemptionTicket) -> HexBytes | None:
         # Hypersync is an optional extra. Import it only for indexed recovery,
         # keeping normal Atoma/Lagoon execution usable without that package.

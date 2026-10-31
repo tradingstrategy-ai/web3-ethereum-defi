@@ -11,14 +11,15 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
-from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftMultiAssetDepositManager
+from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftDepositManager, UpshiftMultiAssetDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVaultMetadata, fetch_upshift_vault_metadata
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
@@ -178,7 +179,9 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
         if denomination_token is not None and max_withdrawal_result is not None and max_withdrawal_result.success:
             # Upshift names this value as a withdrawal amount, but it is
             # denomination-token liquidity, not share-token ``maxRedeem``.
-            available_liquidity = denomination_token.convert_to_decimals(convert_int256_bytes_to_int(max_withdrawal_result.result))
+            # A request cap does not establish payout liquidity. Historical
+            # liquidity remains unknown until a token balance is actually read.
+            available_liquidity = None
 
         if share_price_result is not None and share_price_result.state is not None and share_price is not None:
             share_price_result.state.on_called(
@@ -270,18 +273,32 @@ class UpshiftVault(ERC4626Vault):
 
         return fetch_upshift_vault_metadata(self.web3, self.vault_address)
 
-    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report Upshift account admission independently of its asset list.
+    def is_whitelisted_deposit(self) -> bool:
+        """Report the actual account admission policy, independently of assets.
 
-        Both supported Upshift families accept deposits from any account.
-        Multi-asset vaults separately restrict which input tokens may be used;
-        that accepted-asset set is validated by
-        :class:`UpshiftMultiAssetDepositManager` and is not KYC.
+        Multi-asset deployments can configure a sender whitelist; legacy
+        deployments have a blacklist instead of a positive admission list.
 
-        :return:
-            Always ``False`` because deposits have no per-account gate.
+        :return: Whether an allow-list is configured.
         """
-        return False
+        return self.multi_asset_like and self.upshift_contract.functions.sendersWhitelistAddress().call().lower() != ZERO_ADDRESS_STR
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Read sender membership or the legacy blacklist.
+
+        Admission is checked for both funder and receiver by the manager.
+        An unreadable policy propagates rather than assuming permission.
+
+        :param address: Custody account to check.
+        :return: Whether the account passes the configured policy.
+        """
+        if not self.multi_asset_like:
+            return not self.upshift_contract.functions.isBlacklisted(address).call()
+        whitelist = self.upshift_contract.functions.sendersWhitelistAddress().call()
+        if whitelist.lower() == ZERO_ADDRESS_STR:
+            return True
+        contract = get_deployed_contract(self.web3, "upshift/ISendersAllocationWhitelist.json", whitelist)
+        return bool(contract.functions.isWhitelisted(address).call())
 
     @property
     def description(self) -> str | None:
@@ -411,7 +428,8 @@ class UpshiftVault(ERC4626Vault):
     def fetch_all_denomination_tokens(self) -> tuple[TokenDetails, ...]:
         """Fetch every configured multi-asset denomination token.
 
-        The returned tuple preserves the onchain whitelist ordering. These are
+        The returned tuple starts with the reference asset, then preserves
+        extra whitelist ordering and removes duplicate token addresses. These are
         accepted deposit assets and may differ from the accounting asset
         returned by :meth:`fetch_denomination_token`.
 
@@ -425,18 +443,14 @@ class UpshiftVault(ERC4626Vault):
             token = super().fetch_denomination_token()
             return (token,) if token is not None else ()
 
-        addresses = self.assets_whitelist_contract.functions.getWhitelistedAssets().call()
-        if not addresses:
-            # Older multi-asset proxies can expose a whitelist contract before
-            # it has any configured assets. Their ERC-4626 asset remains the
-            # only observable primary denomination token.
-            token = super().fetch_denomination_token()
-            return (token,) if token is not None else ()
+        reference = self.upshift_contract.functions.asset().call()
+        extras = self.assets_whitelist_contract.functions.getWhitelistedAssets().call()
+        addresses = tuple(dict.fromkeys(address.lower() for address in (reference, *extras)))
         tokens = []
         for address in addresses:
             token = fetch_erc20_details(
                 self.web3,
-                address,
+                Web3.to_checksum_address(address),
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
                 cause_diagnostics_message=f"Upshift vault {self.address} denomination token lookup",
@@ -653,7 +667,7 @@ class UpshiftVault(ERC4626Vault):
 
         return super().fetch_nav(block_identifier)
 
-    def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
+    def get_deposit_manager(self) -> UpshiftMultiAssetDepositManager:
         """Get deposit/redeem manager.
 
         The generic ERC-4626 deposit manager calls ERC-4626 deposit/redeem
@@ -665,7 +679,7 @@ class UpshiftVault(ERC4626Vault):
         if self.multi_asset_like:
             return UpshiftMultiAssetDepositManager(self)
 
-        return super().get_deposit_manager()
+        return UpshiftDepositManager(self)
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare Upshift's fork-proven directional lifecycle support.
@@ -684,24 +698,15 @@ class UpshiftVault(ERC4626Vault):
         :return:
             Directional capability and accepted assets for the vault shape.
         """
-        if self.multi_asset_like:
-            accepted_assets = tuple(token.address for token in self.fetch_all_denomination_tokens())
-            return VaultDepositManagerCapability(
-                can_deposit=True,
-                can_redeem=True,
-                deposit_flow="synchronous",
-                redemption_flow="asynchronous",
-                supports_anvil_settlement=False,
-                anvil_settlement_unsupported_reason="upshift_operator_settlement_requires_mock",
-                deposit_assets=accepted_assets,
-                publish_partial=True,
-            )
-
+        asynchronous = not self.get_deposit_manager().has_synchronous_redemption()
         return VaultDepositManagerCapability(
             can_deposit=True,
             can_redeem=True,
             deposit_flow="synchronous",
-            redemption_flow="synchronous",
+            redemption_flow="asynchronous" if asynchronous else "synchronous",
+            supports_anvil_settlement=True if asynchronous else None,
+            deposit_assets=tuple(token.address for token in self.fetch_all_denomination_tokens()) if self.multi_asset_like else (),
+            publish_partial=self.multi_asset_like,
         )
 
     def can_check_deposit(self) -> bool:
@@ -711,6 +716,26 @@ class UpshiftVault(ERC4626Vault):
             return False
 
         return super().can_check_deposit()
+
+    def fetch_deposit_cap(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Read the global cap, recognising the one verified uncapped implementation.
+
+        Wildcat's older verified TokenizedVault has only a per-deposit limit.
+        A failed getter on any other implementation remains a hard error; it
+        must never turn an unreadable limit into unlimited capacity.
+
+        :param block_identifier: Block used for both getter and implementation.
+        :return: Raw reference-asset global cap, or verified absence of a cap.
+        """
+        try:
+            return int(self.upshift_contract.functions.depositCap().call(block_identifier=block_identifier))
+        except (ContractLogicError, BadFunctionCallOutput, ExtraValueError):
+            slot = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
+            value = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block_identifier)
+            implementation = "0x" + bytes(value[-20:]).hex()
+            if implementation != "0xaacc687cea8cd706bd7a56be0f7ad85d420767dc":
+                raise
+            return None
 
     def fetch_deposit_closed_reason(self) -> str | None:
         """Fetch live deposit closure reason.
@@ -731,9 +756,9 @@ class UpshiftVault(ERC4626Vault):
         if raw_max_deposit == 0:
             return "Upshift maxDepositAmount() is zero"
 
-        raw_deposit_cap = functions.depositCap().call()
+        raw_deposit_cap = self.fetch_deposit_cap()
         raw_total_assets = functions.getTotalAssets().call()
-        if raw_total_assets >= raw_deposit_cap:
+        if raw_deposit_cap is not None and raw_total_assets >= raw_deposit_cap:
             return "Upshift depositCap() has been reached"
 
         return None
@@ -745,9 +770,6 @@ class UpshiftVault(ERC4626Vault):
         ``withdrawalsPaused()`` and ``maxWithdrawalAmount()`` instead of
         ERC-4626 ``maxRedeem(address)``.
         """
-
-        if not self.multi_asset_like:
-            return super().fetch_redemption_closed_reason()
 
         if self.upshift_contract.functions.withdrawalsPaused().call():
             return "Upshift withdrawalsPaused() is true"
@@ -761,9 +783,10 @@ class UpshiftVault(ERC4626Vault):
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch immediately available withdrawal liquidity.
 
-        For Upshift multi-asset vaults, ``maxWithdrawalAmount()`` is denominated
-        in the vault denomination token and mirrors the value exported by the
-        historical reader as ``available_liquidity``.
+        Only a zero-lag deployment without queued obligations has known
+        immediate liquidity. Queued defaults report unknown instead of a gross
+        token balance or configured cap. Managers check a particular mature
+        ticket against the actual token balance separately.
 
         :param block_identifier:
             Block number or ``"latest"``.
@@ -772,15 +795,15 @@ class UpshiftVault(ERC4626Vault):
             Available withdrawal liquidity in denomination token units.
         """
 
-        if not self.multi_asset_like:
-            return super().fetch_available_liquidity(block_identifier)
-
-        token: TokenDetails | None = self.denomination_token
+        token = self.denomination_token
         if token is None:
             return None
-
-        raw_amount = self.upshift_contract.functions.maxWithdrawalAmount().call(block_identifier=block_identifier)
-        return token.convert_to_decimals(raw_amount)
+        functions = self.upshift_contract.functions
+        if int(functions.lagDuration().call(block_identifier=block_identifier)) > 0 or int(functions.globalLiabilityShares().call(block_identifier=block_identifier)) > 0:
+            # A token balance is not immediately redeemable liquidity while
+            # withdrawals are queued or competing obligations remain.
+            return None
+        return token.fetch_balance_of(self.address, block_identifier=block_identifier)
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:  # noqa: FBT001
         """Get the historical reader for this Upshift vault.

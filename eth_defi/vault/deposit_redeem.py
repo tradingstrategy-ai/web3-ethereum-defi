@@ -1577,6 +1577,19 @@ class VaultDepositManager(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")
 
+    def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> RedemptionRequest:
+        """Rebuild request metadata for a transaction that already executed.
+
+        The default preserves existing manager behaviour without checking an
+        escrowed wallet balance. Protocols whose admission changes on request
+        must override this hook so receipt parsing never reruns live preflights.
+
+        :param owner: Original share owner.
+        :param raw_shares: Exact requested native shares.
+        :return: Request parser and original call shape.
+        """
+        return self.create_redemption_request(owner=owner, shares=self.vault.share_token.convert_to_decimals(raw_shares), check_enough_token=False)
+
     @abstractmethod
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         """Check if the owner has an active redemption request.
@@ -1757,6 +1770,19 @@ class VaultDepositManager(ABC):
             If not implemented for this vault protocoll.
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
+    def fetch_pending_redemption_value(self, ticket: RedemptionTicket, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Quote a ticket when ordinary share valuation no longer represents it.
+
+        The default retains normal share valuation. Protocols with fixed
+        request-time entitlements or burned pending shares override this hook.
+        Returning a value does not recognise cash or complete settlement.
+
+        :param ticket: Persisted request belonging to one trade.
+        :param block_identifier: Block used for all valuation reads.
+        :return: Net denomination value, or ``None`` to value ordinary shares.
+        """
+        return None
 
     def fetch_completed_redemption_tx_hash(
         self,

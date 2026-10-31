@@ -50,6 +50,8 @@ from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
+from eth_defi.erc_4626.vault_protocol.upshift.deployment import fetch_upshift_guard_calls
+from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
@@ -2115,9 +2117,11 @@ def setup_guard(
                     erc_4626_vault.vault_address,
                 )
                 note = f"Whitelisting {erc_4626_vault.name}"
-                whitelist = module.functions.whitelistAtoma if isinstance(erc_4626_vault, AtomaVault) else module.functions.whitelistERC4626
-                partial_cal = whitelist(erc_4626_vault.vault_address, note)
-                multicalls.append(partial_cal)
+                if isinstance(erc_4626_vault, UpshiftVault):
+                    multicalls.extend(fetch_upshift_guard_calls(module, erc_4626_vault, note))
+                else:
+                    whitelist = module.functions.whitelistAtoma if isinstance(erc_4626_vault, AtomaVault) else module.functions.whitelistERC4626
+                    multicalls.append(whitelist(erc_4626_vault.vault_address, note))
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
