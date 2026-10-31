@@ -3,6 +3,7 @@
 import os
 from collections.abc import Iterator
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from eth_typing import HexAddress
@@ -15,9 +16,12 @@ from web3.exceptions import ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import setup_guard
 from eth_defi.erc_4626.vault_protocol.upshift.deployment import fetch_upshift_guard_calls
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
-from eth_defi.provider.anvil import fund_erc20_on_anvil
+from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import ANVIL_PRIVATE_KEY, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
@@ -84,8 +88,14 @@ def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contrac
     simple, guard, _ = custody
     vault = create_vault_instance_autodetect(web3, address)
     assert isinstance(vault, UpshiftVault)
-    for function in fetch_upshift_guard_calls(guard, vault, "Upshift integration"):
-        assert_transaction_success_with_explanation(web3, function.transact({"from": web3.eth.accounts[0]}))
+    if public_batch:
+        # Exercise address-only deployment through the shared guard setup.
+        # Only the receiver's address is needed; custody is the real SimpleVault.
+        descriptor = ERC4626Vault(web3, vault.spec)
+        setup_guard(web3=web3, safe=SimpleNamespace(address=simple.address), deployer=HotWallet.from_private_key(ANVIL_PRIVATE_KEY), owner=web3.eth.accounts[0], asset_managers=[custody[2]], vault=None, module=guard, broadcast_func=lambda function: function.transact({"from": web3.eth.accounts[0]}), erc_4626_vaults=[descriptor], hack_sleep=0)
+    else:
+        for function in fetch_upshift_guard_calls(guard, vault, "Upshift integration"):
+            assert_transaction_success_with_explanation(web3, function.transact({"from": web3.eth.accounts[0]}))
     manager = vault.get_deposit_manager()
     outsider = web3.eth.accounts[3]
     bad = vault.upshift_contract.functions.deposit(vault.denomination_token.address, 1, outsider) if vault.multi_asset_like else vault.upshift_contract.functions.deposit(1, outsider)

@@ -44,6 +44,7 @@ from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, e
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import deploy_contract
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
@@ -1946,6 +1947,13 @@ def setup_guard(
     function verifies the module/Safe pairing before broadcasting any policy
     transactions whenever a limit is requested.
 
+    External vault callers pass ordinary ERC-4626 descriptors with known
+    feature metadata. This shared setup resolves Atoma and Upshift through the
+    existing vault factory and installs their existing policies. Plain address
+    descriptors without features are detected here. Other protocol descriptors
+    retain the generic policy; metadata-only subclasses are not probed without
+    features, so unsupported diagnostic adapters remain isolated.
+
     ``lagoon_max_settlement_amount_raw`` is deliberately a lower-level raw-unit
     argument. Public deployment callers normally use
     :func:`deploy_automated_lagoon_vault` or :class:`LagoonConfig`, which accept
@@ -2097,6 +2105,22 @@ def setup_guard(
 
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
+        # Resolve specialised policies here so deployment callers can pass
+        # ordinary descriptors with their known features. Keep generic bindings
+        # for other protocols, including adapters outside this ERC-4626 path.
+        erc_4626_vaults = list(erc_4626_vaults)
+        for index, descriptor in enumerate(erc_4626_vaults):
+            assert isinstance(descriptor, ERC4626Vault), f"Expected ERC4626Vault, got {type(descriptor)}"
+            if isinstance(descriptor, (AtomaVault, UpshiftVault)):
+                continue
+            features = descriptor.features
+            if not features and type(descriptor) is ERC4626Vault:
+                features = detect_vault_features(web3, descriptor.vault_address, verbose=False)
+            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.upshift_like}:
+                resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
+                assert isinstance(resolved, (AtomaVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
+                erc_4626_vaults[index] = resolved
+
         # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
 
         # Do N vaults per one multicall
@@ -2107,7 +2131,6 @@ def setup_guard(
             logger.info("Processing ERC-4626 vaults chunk #%d, size %d", chunk_id, len(chunk))
 
             for idx, erc_4626_vault in enumerate(chunk, start=1):
-                assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
                 # This will whitelist vault deposit/withdraw and its share and denomination token.
                 # USDC may be whitelisted twice because denomination tokens are shared.
                 logger.info(
