@@ -438,6 +438,35 @@ ABNORMAL_VOLATILITY = "Annualised volatility is unrealistically high, likely a l
 
 HYPERCORE_VAULT_NOTE = "Profit and loss (PnL) results here differ from the method used on the Hyperliquid website. Instead of raw account PnL, the data is cleaned from deposit/redeem flow and reflects better the actual profitability of the underlying trading activity."
 
+#: Agent RockSteady research history supplied by NuWealth on 2026-10-30.
+#:
+#: These are operator-reported simulations, not independently verified live
+#: performance. The current public disclosures confirm that research can use
+#: AI tools while live execution follows fixed rules.
+ROCKSTEADY_VAULT_NOTE = (
+    "#### Research and testing\n\n"
+    "NuWealth reports testing more than 30 versions of RockSteady's rules on five years of one-minute market data, from 2021 to 2025, before freezing the rules for launch. "
+    "The operator reports a **23.7% maximum drawdown in testing**: a hypothetical fall from a simulated peak, not the vault's live maximum drawdown or a limit on future losses. "
+    "Its [risk disclosure](https://nuwealth.ai/risk) explains that testing uses historical data with hindsight and may miss real trading costs, delays and price gaps.\n\n"
+    "#### Live execution and identity\n\n"
+    "AI tools help research and test the strategy; **no AI makes live trading decisions**. "
+    "NuWealth's [address and withdrawal checks](https://nuwealth.ai/check) explain that the vault's original launch description mentioning Claude cannot be edited, and identify the vault and leader wallet. "
+    "The operator is NuWealth.ai, separate from the NuWealth Morpho business at nuwealth.io; its [live record](https://nuwealth.ai/record) is separate from the testing figures.\n\n"
+    "#### Performance methodology\n\n"
+    f"{HYPERCORE_VAULT_NOTE}"
+)
+
+#: Agent RockSteady, Hyperliquid on Hypercore (9999), added 2026-10-31.
+#: The requester reported missing strategy copy. This is descriptive metadata
+#: with no warning flag, scoped to the reviewed deployment so the same address
+#: on another chain cannot inherit the note.
+#: https://tradingstrategy.ai/vaults/agent-rocksteady
+#: https://hypurrscan.io/address/0xd321ad79041bdad719ba5ff42fe950e1977df439
+#: https://nuwealth.ai/check
+#: https://nuwealth.ai/record
+#: https://nuwealth.ai/risk
+CHAIN_SCOPED_VAULT_NOTES[9999, "0xd321ad79041bdad719ba5ff42fe950e1977df439"] = ROCKSTEADY_VAULT_NOTE
+
 UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 
 FOXIFY_VAULT = "Foxify offers perp DEX and funding for proprietary trades. This vault is associated with this activity, but it is not publicly described how the vault works."
