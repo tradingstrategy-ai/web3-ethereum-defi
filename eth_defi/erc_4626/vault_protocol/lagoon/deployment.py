@@ -1089,7 +1089,7 @@ class LagoonMultichainDeployment:
     #: The salt nonce used for deterministic Safe deployment
     safe_salt_nonce: int
 
-    #: Redacted bootstrap funding, absent on legacy deployments.
+    #: Redacted bootstrap funding, including deployer contributions; absent on legacy deployments.
     lighter_funding: dict[str, Any] | None = None
 
     #: Protected progress/key backup location, never the key itself.
@@ -3604,8 +3604,8 @@ def deploy_multichain_lagoon_vault(  # noqa: PLR0914 - keep phase ordering visib
         Defaults to the number of chains.
 
     :param lighter_activation:
-        Optional coordinated hub subscription, CCTP funding and Ethereum
-        satellite activation. All contract workers finish before funding and
+        Optional Ethereum satellite activation using one prefunded USDC from
+        the deployer on Ethereum. No hub subscription or bridge is performed. All contract workers finish before funding and
         owner finalisation follows verified key registration. The protected
         progress file supports explicit manual recovery after interruption.
 
@@ -3643,6 +3643,9 @@ def deploy_multichain_lagoon_vault(  # noqa: PLR0914 - keep phase ordering visib
             record_activation(lighter_activation.report_path, stage, **details)
 
     if lighter_activation is not None:
+        # Assert prefunded Ethereum USDC and gas on every chain before workers
+        # or report creation. See ``docs/README-lighter-core-execution.md#deployment``;
+        # failed asserts include the exact ``scripts/lifi/feed-cross-chain.py`` command.
         preflight_lighter_multichain(chain_web3, chain_configs, deployer, lighter_activation)
         create_activation_report(lighter_activation.report_path)
         progress("preflight_complete", deployer=deployer.address, safe_salt_nonce=safe_salt_nonce)

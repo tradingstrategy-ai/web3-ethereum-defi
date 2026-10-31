@@ -99,12 +99,14 @@ def test_execution_rejects_missing_account_data(monkeypatch: pytest.MonkeyPatch,
 
 def test_holdings_use_investor_shares_and_current_value(monkeypatch: pytest.MonkeyPatch, session: Mock, account: dict, pool: ex.LighterPoolState) -> None:
     """Principal and operator fees remain separate from account equity."""
-    account["shares"] = [{"public_pool_index": 42, "shares_amount": 10, "principal_amount": "20", "entry_usdc": "19", "entry_timestamp": 1700000000}]
+    # Exact millisecond timestamp observed in a confirmed live mint on 2026-10-27.
+    account["shares"] = [{"public_pool_index": 42, "shares_amount": 10, "principal_amount": "20", "entry_usdc": "19", "entry_timestamp": 1793133715587}]
     monkeypatch.setattr(ex, "fetch_lighter_account_by_index", lambda *_: account)
     monkeypatch.setattr(ex, "fetch_pool_state", lambda *_: pool)
     (row,) = ex.fetch_pool_holdings(session, 123)
     assert row.gross_value == Decimal(25) and row.estimated_fee == Decimal(1)
     assert row.principal == Decimal(20) and row.entry_usdc == Decimal(19)
+    assert row.entered_at == datetime.datetime(2026, 10, 27, 20, 41, 55, 587000, tzinfo=datetime.UTC).replace(tzinfo=None)
 
 
 def test_current_pool_converts_operator_fee_percentage(monkeypatch: pytest.MonkeyPatch, session: Mock, account: dict) -> None:
@@ -305,9 +307,17 @@ def test_wait_claimable_stops_on_terminal_status(monkeypatch: pytest.MonkeyPatch
 
 def test_withdrawal_pagination_loop_fails(monkeypatch: pytest.MonkeyPatch, session: Mock) -> None:
     """Malformed provider pagination cannot make a history scan loop forever."""
-    monkeypatch.setattr(ex, "fetch_withdrawal_history", lambda *_: {"withdraws": [], "cursor": "same"})
+    monkeypatch.setattr(ex, "fetch_withdrawal_history", lambda *_: {"withdraws": [{"id": "repeated"}], "cursor": "same"})
     with pytest.raises(AssertionError, match="pagination loop"):
         tuple(ex.fetch_withdrawals(session, 123, "secret"))
+
+
+def test_withdrawal_empty_page_with_terminal_cursor(monkeypatch: pytest.MonkeyPatch, session: Mock) -> None:
+    """The live API returns a non-empty terminal cursor even without withdrawals."""
+    fetch = Mock(return_value={"withdraws": [], "cursor": "eyJpbmRleCI6LTEsImluZGV4MiI6LTF9"})
+    monkeypatch.setattr(ex, "fetch_withdrawal_history", fetch)
+    assert tuple(ex.fetch_withdrawals(session, 123, "secret")) == ()
+    fetch.assert_called_once()
 
 
 def test_bootstrap_conservation_rejects_double_counting() -> None:
@@ -396,7 +406,7 @@ def test_wrong_signed_account_is_rejected(executor: ex.LighterPoolExecutor) -> N
 
 def test_redemption_reads_only_the_held_target_pool(monkeypatch: pytest.MonkeyPatch, executor: ex.LighterPoolExecutor, account: dict, pool: ex.LighterPoolState) -> None:
     """An unrelated unavailable pool does not prevent exiting another holding."""
-    account["shares"] = [{"public_pool_index": 42, "shares_amount": 10, "principal_amount": "20", "entry_usdc": "20", "entry_timestamp": 1700000000}, {"public_pool_index": 43, "shares_amount": 1, "principal_amount": "1", "entry_usdc": "1", "entry_timestamp": 1700000000}]
+    account["shares"] = [{"public_pool_index": 42, "shares_amount": 10, "principal_amount": "20", "entry_usdc": "20", "entry_timestamp": 1700000000000}, {"public_pool_index": 43, "shares_amount": 1, "principal_amount": "1", "entry_usdc": "1", "entry_timestamp": 1700000000000}]
     monkeypatch.setattr(ex, "fetch_execution_account", lambda *_: (account, None))
     read_pool = Mock(return_value=replace(pool, status=1))
     monkeypatch.setattr(ex, "fetch_pool_state", read_pool)

@@ -12,7 +12,6 @@ import pytest
 from eth_account import Account
 from hexbytes import HexBytes
 
-from eth_defi.cctp.fees import CCTPFeeQuote
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon import deployment as dep
 from eth_defi.erc_4626.vault_protocol.lagoon import lighter as mc
@@ -24,9 +23,11 @@ from eth_defi.token import USDC_NATIVE_TOKEN
 
 
 @pytest.fixture
-def topology(tmp_path: Path) -> SimpleNamespace:
+def topology(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     """Two checked networks with realistic config objects and minimal RPCs."""
     owner = Account.create()
+    monkeypatch.setattr(mc, "is_anvil", Mock(return_value=False))
+    monkeypatch.setattr(mc, "is_account_activated", Mock(return_value=True))
     activation = mc.LagoonLighterActivation(report_path=tmp_path / "activation.jsonl")
     connections, configs = {}, {}
     for name, chain_id in [("hyperliquid", 999), ("ethereum", 1)]:
@@ -35,30 +36,68 @@ def topology(tmp_path: Path) -> SimpleNamespace:
     return SimpleNamespace(owner=owner, activation=activation, connections=connections, configs=configs)
 
 
-@pytest.fixture
-def usdc() -> SimpleNamespace:
-    """Source native USDC whose funding can change between checks."""
-    return SimpleNamespace(address=USDC_NATIVE_TOKEN[999], fetch_balance_of=Mock(return_value=Decimal(20)), convert_to_raw=lambda v: int(v * 10**6), convert_to_decimals=lambda v: Decimal(v) / 10**6)
-
-
-def test_preflight_rejects_hub_shortfall_before_any_workers(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, usdc: SimpleNamespace) -> None:
-    """Ethereum funds do not replace the required hub-wallet subscription."""
-    usdc.fetch_balance_of.return_value = Decimal("19.99")
-    monkeypatch.setattr(mc, "fetch_erc20_details", lambda *_: usdc)
+def test_unactivated_hypercore_deployer_stops_all_workers(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace) -> None:
+    """A missing Core account fails before spending gas on the other chains."""
+    monkeypatch.setattr(mc, "is_account_activated", Mock(return_value=False))
     worker = Mock()
     monkeypatch.setattr(dep, "deploy_automated_lagoon_vault", worker)
-    with pytest.raises(AssertionError, match=r"observed 19\.99"):
+    with pytest.raises(AssertionError, match="Activate the deployer on Hypercore"):
         dep.deploy_multichain_lagoon_vault(chain_web3=topology.connections, deployer=topology.owner, chain_configs=topology.configs, lighter_activation=topology.activation)
     worker.assert_not_called()
     assert not topology.activation.report_path.exists()
 
 
-def test_preflight_preserves_settlement_cap(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, usdc: SimpleNamespace) -> None:
-    """An explicit cap below bootstrap cannot be deferred to an onchain failure."""
-    topology.configs["hyperliquid"].max_settlement_amount = Decimal(19)
+@pytest.fixture
+def usdc() -> SimpleNamespace:
+    """Ethereum native USDC whose funding can change between checks."""
+    return SimpleNamespace(address=USDC_NATIVE_TOKEN[1], fetch_balance_of=Mock(return_value=Decimal(1)), convert_to_raw=lambda v: int(v * 10**6), convert_to_decimals=lambda v: Decimal(v) / 10**6)
+
+
+def test_preflight_rejects_ethereum_shortfall_before_any_workers(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, usdc: SimpleNamespace) -> None:
+    """Missing Ethereum prefunding fails before contract deployment or report creation."""
+    usdc.fetch_balance_of.return_value = Decimal("0.99")
     monkeypatch.setattr(mc, "fetch_erc20_details", lambda *_: usdc)
-    with pytest.raises(AssertionError, match="Settlement cap"):
-        mc.preflight_lighter_multichain(topology.connections, topology.configs, topology.owner, topology.activation)
+    worker = Mock()
+    monkeypatch.setattr(dep, "deploy_automated_lagoon_vault", worker)
+    with pytest.raises(AssertionError, match=r"observed 0\.99") as error:
+        dep.deploy_multichain_lagoon_vault(chain_web3=topology.connections, deployer=topology.owner, chain_configs=topology.configs, lighter_activation=topology.activation)
+    worker.assert_not_called()
+    assert not topology.activation.report_path.exists()
+    assert "docs/README-lighter-core-execution.md#deployment" in str(error.value)
+    assert "ETHEREUM_USDC_AMOUNT=5 DRY_RUN=false poetry run python scripts/lifi/feed-cross-chain.py" in str(error.value)
+    assert topology.owner.key.hex() not in str(error.value)
+
+
+@pytest.mark.parametrize("empty_chain", ["ethereum", "hyperliquid"])
+def test_prefunding_gas_asserts_before_workers(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, usdc: SimpleNamespace, empty_chain: str) -> None:
+    """Missing gas on any participating chain stops deployment with usable instructions."""
+    topology.connections[empty_chain].eth.get_balance = lambda _: 0
+    monkeypatch.setattr(mc, "fetch_erc20_details", lambda *_: usdc)
+    worker = Mock()
+    monkeypatch.setattr(dep, "deploy_automated_lagoon_vault", worker)
+    with pytest.raises(AssertionError, match=f"native gas on {empty_chain}") as error:
+        dep.deploy_multichain_lagoon_vault(chain_web3=topology.connections, deployer=topology.owner, chain_configs=topology.configs, lighter_activation=topology.activation)
+    assert topology.owner.address in str(error.value)
+    assert "TARGET_CHAINS=hyperliquid,ethereum" in str(error.value)
+    assert "docs/README-lighter-core-execution.md#deployment" in str(error.value)
+    assert 'PRIVATE_KEY="${LAGOON_MULTCHAIN_TEST_PRIVATE_KEY:?' in str(error.value)
+    worker.assert_not_called()
+    assert not topology.activation.report_path.exists()
+
+
+def test_activation_needs_no_hub_usdc_settlement_or_cctp(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, usdc: SimpleNamespace) -> None:
+    """Only Ethereum deployer USDC is read; activation has no settlement or bridge dependency."""
+    topology.configs["hyperliquid"].max_settlement_amount = Decimal("0.5")
+    for config in topology.configs.values():
+        config.cctp_deployment = None
+
+    def fetch_token(web3, address):
+        assert web3.eth.chain_id == 1
+        assert address == USDC_NATIVE_TOKEN[1]
+        return usdc
+
+    monkeypatch.setattr(mc, "fetch_erc20_details", fetch_token)
+    assert mc.preflight_lighter_multichain(topology.connections, topology.configs, topology.owner, topology.activation) is usdc
 
 
 @pytest.mark.parametrize("failure", [None, "worker", "activation", "owner"])
@@ -94,7 +133,7 @@ def test_parallel_barrier_then_activation_then_owners(monkeypatch: pytest.Monkey
         if failure == "activation":
             message = "key not indexed"
             raise TimeoutError(message)
-        return deployments, {"subscription_usdc": "20"}
+        return deployments, {"subscription_usdc": "0", "contribution_usdc": "1"}
 
     def owners(_web3: object, _safe: object, _deployer: object, **_kwargs: object) -> None:
         """Finalise the policy only after the full activation returns."""
@@ -116,7 +155,7 @@ def test_parallel_barrier_then_activation_then_owners(monkeypatch: pytest.Monkey
         assert '"stage": "complete"' not in topology.activation.report_path.read_text()
     else:
         result = dep.deploy_multichain_lagoon_vault(**kwargs)
-        assert result.lighter_funding == {"subscription_usdc": "20"}
+        assert result.lighter_funding == {"subscription_usdc": "0", "contribution_usdc": "1"}
         assert events.count("owner") == 2
         rows = [json.loads(line) for line in topology.activation.report_path.read_text().splitlines()]
         assert rows[-1]["stage"] == "complete"
@@ -135,10 +174,9 @@ def test_legacy_multichain_does_not_defer_owners(monkeypatch: pytest.MonkeyPatch
     assert result.lighter_funding is None and result.activation_report_path is None
 
 
-@pytest.mark.parametrize("failure", [None, "subscription", "burn", "attestation", "receive", "activation", "reconciliation", "relay", "relay_race"])
+@pytest.mark.parametrize("failure", [None, "funding", "receipt", "activation", "reconciliation", "balance_changed", "unexpected_safe_balance", "gas_spent"])
 def test_funding_and_activation_boundaries(monkeypatch: pytest.MonkeyPatch, topology: SimpleNamespace, failure: str | None) -> None:
-    """Run the actual funding coordinator with mocked bridge and Lighter responses."""
-
+    """Contribute on Ethereum exactly once, then activate without any hub transactions."""
     events = []
     safe_address = "0x" + "22" * 20
     deployments = {}
@@ -150,71 +188,75 @@ def test_funding_and_activation_boundaries(monkeypatch: pytest.MonkeyPatch, topo
         vault.address = topology.owner.address
         vault.safe.retrieve_owners.return_value = [topology.owner.address]
         vault.safe.retrieve_threshold.return_value = 1
-        vault.transact_via_trading_strategy_module.side_effect = lambda call: call
         deployments[name] = dep.LagoonAutomatedDeployment(chain_id=topology.connections[name].eth.chain_id, vault=vault, trading_strategy_module=SimpleNamespace(address=topology.owner.address), asset_managers=(topology.owner.address,), valuation_manager=topology.owner.address, multisig_owners=[topology.owner.address], deployer=topology.owner.address, block_number=1, parameters=config.parameters, vault_abi="lagoon/v0.5.0/Vault.json", safe_address=safe_address)
-    source = SimpleNamespace(convert_to_raw=lambda v: int(v * 10**6), convert_to_decimals=lambda v: Decimal(v) / 10**6, fetch_balance_of=lambda address: Decimal(20) if address == topology.owner.address else (Decimal("18.99") if "subscription" in events else Decimal(0)))
-    eth = SimpleNamespace(fetch_balance_of=lambda _: Decimal("0.009") if "activation" in events else Decimal(0))
-    monkeypatch.setattr(mc, "fetch_erc20_details", lambda web3, _: source if web3.eth.chain_id == 999 else eth)
-    monkeypatch.setattr(mc, "fetch_cctp_fee_quote", lambda *_: CCTPFeeQuote(2000, 1010000, 1000, 10000))
+
+    def fetch_balance(address):
+        if address == topology.owner.address:
+            return Decimal(0) if failure == "balance_changed" else Decimal(1)
+        assert address == safe_address
+        return Decimal(1) if failure == "unexpected_safe_balance" else Decimal(0)
+
+    eth = SimpleNamespace(fetch_balance_of=fetch_balance, transfer=Mock(return_value="transfer_call"))
+    hub = SimpleNamespace(fetch_balance_of=lambda _: Decimal(0))
+    monkeypatch.setattr(mc, "fetch_erc20_details", lambda web3, _: eth if web3.eth.chain_id == 1 else hub)
 
     def step(name: str) -> None:
-        """Record or fail a single irreversible boundary without retries."""
         if failure == name:
             raise TimeoutError(name)
         events.append(name)
 
-    monkeypatch.setattr(mc, "fund_lagoon_vault", lambda **_: step("subscription"))
-    monkeypatch.setattr(mc, "prepare_approve_for_burn", lambda *_: object())
-    monkeypatch.setattr(mc, "prepare_deposit_for_burn", lambda *_, **__: object())
-    monkeypatch.setattr(mc, "prepare_receive_message", lambda *_: object())
-    relayed = iter([False, True]) if failure == "relay_race" else None
-    monkeypatch.setattr(mc, "fetch_message_received", lambda *_: next(relayed) if relayed else failure == "relay")
-    monkeypatch.setattr(mc, "wait_for_safe_usdc", lambda token, *_: Decimal(20) if token is source else Decimal("1.009"))
-
-    def send(_web3: object, _wallet: object, _call: object, _progress: object, label: str) -> str:
-        if failure == "relay_race" and label == "cctp_receive":
-            message = "Message already received"
-            raise mc.Reverted(message)
-        step(label.removeprefix("cctp_"))
+    def send(web3, wallet, call, _progress, label):
+        assert web3 is topology.connections["ethereum"] and wallet is wallets["ethereum"]
+        assert call == "transfer_call" and label == "ethereum_funding"
+        step("funding")
         return "0x1234"
 
-    def attestation(*_args: object, **_kwargs: object) -> SimpleNamespace:
-        step("attestation")
-        return SimpleNamespace(message=b"message", attestation=b"attestation")
+    def receipt(*_args):
+        step("receipt")
+        return Decimal(1)
 
-    def activate(*_args: object, **_kwargs: object) -> LighterAccountSetup:
+    def activate(*_args, **_kwargs):
         step("activation")
         return LighterAccountSetup(123, 4, "SECRET", "pubkey", Decimal(1), "deposit", "key", Decimal(2) if failure == "reconciliation" else Decimal(1))
 
     monkeypatch.setattr(mc, "send_recorded_transaction", send)
-    monkeypatch.setattr(mc, "fetch_attestation", attestation)
+    monkeypatch.setattr(mc, "wait_for_safe_usdc", receipt)
     monkeypatch.setattr(mc, "activate_lighter_safe", activate)
-    args = (topology.connections, deployments, wallets, topology.activation, lambda *_, **__: None)
-    if failure not in {None, "relay", "relay_race"}:
+    progress = Mock()
+    if failure == "gas_spent":
+        topology.connections["ethereum"].eth.get_balance = lambda _: 0
+    args = (topology.connections, deployments, wallets, topology.activation, progress)
+    if failure:
         with pytest.raises((TimeoutError, AssertionError)):
             mc.fund_and_activate_lighter(*args)
     else:
         updated, funding = mc.fund_and_activate_lighter(*args)
-        assert funding["actual_bridge_fee_usdc"] == "0.001"
+        assert funding["funding_source"] == "ethereum_deployer"
+        assert funding["subscription_usdc"] == "0"
+        assert funding["contribution_usdc"] == "1"
+        assert funding["funding_tx_hash"] == "0x1234"
         assert updated["ethereum"].lighter_account_setup.observed_collateral == Decimal(1)
-        expected = ["subscription", "approve", "burn", "attestation"]
-        assert events == expected + (["receive"] if failure is None else []) + ["activation"]
-    assert events.count("burn") <= 1
+        assert events == ["funding", "receipt", "activation"]
+        eth.transfer.assert_called_once_with(safe_address, Decimal(1))
+        assert "SECRET" not in repr(progress.call_args_list)
+    assert events.count("funding") <= 1
+    if failure in {"balance_changed", "unexpected_safe_balance", "gas_spent"}:
+        eth.transfer.assert_not_called()
 
 
 @pytest.mark.parametrize("uncertain", [False, True])
-def test_bridge_hash_saved_before_broadcast(monkeypatch: pytest.MonkeyPatch, *, uncertain: bool) -> None:
+def test_funding_hash_saved_before_broadcast(monkeypatch: pytest.MonkeyPatch, *, uncertain: bool) -> None:
     """A lost send response leaves the original nonce/hash available for recovery."""
 
     tx = SimpleNamespace(hash=HexBytes("0xabcd"), nonce=7)
     wallet = Mock()
     wallet.sign_bound_call_with_new_nonce.return_value = tx
-    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=999, get_transaction_receipt=lambda _: {"status": 1, "gasUsed": 21_000}))
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, get_transaction_receipt=lambda _: {"status": 1, "gasUsed": 21_000}))
     records = []
 
     def broadcast(*_args: object) -> None:
         """Require durable identity before the external broadcast boundary."""
-        assert records == [("burn_signed", {"chain_id": 999, "tx_hash": "0xabcd", "nonce": 7})]
+        assert records == [("ethereum_funding_signed", {"chain_id": 1, "tx_hash": "0xabcd", "nonce": 7})]
         if uncertain:
             message = "lost response"
             raise TimeoutError(message)
@@ -229,11 +271,11 @@ def test_bridge_hash_saved_before_broadcast(monkeypatch: pytest.MonkeyPatch, *, 
 
     if uncertain:
         with pytest.raises(TimeoutError):
-            mc.send_recorded_transaction(web3, wallet, object(), record, "burn")
+            mc.send_recorded_transaction(web3, wallet, object(), record, "ethereum_funding")
         assert len(records) == 1
     else:
-        assert mc.send_recorded_transaction(web3, wallet, object(), record, "burn") == "0xabcd"
-        assert records[-1][0] == "burn_confirmed"
+        assert mc.send_recorded_transaction(web3, wallet, object(), record, "ethereum_funding") == "0xabcd"
+        assert records[-1][0] == "ethereum_funding_confirmed"
 
 
 @pytest.mark.parametrize("mismatch", ["rpc", "factory", "contract"])
