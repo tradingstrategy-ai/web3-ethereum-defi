@@ -50,7 +50,8 @@ from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -263,6 +264,8 @@ def create_hyperliquid_vault_row(
     status = classify_hyperliquid_vault_deposit(is_closed, allow_deposits, relationship_type)
     deposit_closed_reason = status.closed_reason
     deposit_access = classify_perp_vault_deposit_access(public_deposits_open=status.deposits_open, closed_reason=deposit_closed_reason)
+    # Reviewed address/chain overrides supersede immutable provider launch copy.
+    handwritten_metadata = get_handwritten_vault_metadata(chain_id, address)
 
     row: VaultRow = {
         "Symbol": (name or "")[:10],
@@ -287,8 +290,8 @@ def create_hyperliquid_vault_row(
         "_flags": flags,
         "_strategy_tags": get_strategy_tags(address),
         "_lockup": lockup,
-        "_description": None,
-        "_short_description": description,
+        "_description": handwritten_metadata.description if handwritten_metadata else None,
+        "_short_description": handwritten_metadata.short_description if handwritten_metadata else description,
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": deposit_closed_reason,
@@ -302,6 +305,9 @@ def create_hyperliquid_vault_row(
         "_whitelist_notes": deposit_access.whitelist_notes,
         "_share_price_source": PriceSource.approximation,
     }
+
+    if manual_notes := get_notes(address, chain_id=chain_id, protocol_name="Hyperliquid", include_defaults=False):
+        row["_notes"] = manual_notes
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
     return spec, row

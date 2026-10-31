@@ -36,6 +36,27 @@ class HandwrittenVaultMetadata:
     link: str
 
 
+#: Agent RockSteady on Hypercore (9999), reviewed on 2026-10-31.
+#:
+#: The operator supplied the 30-market mean-reversion remit and holding periods
+#: in the NuWealth.ai curator request on 2026-10-30. The official check and
+#: record pages corroborate the vault identity, fixed-rule execution, launch
+#: date, fees and withdrawal timing. Keep this override scoped to Hypercore.
+#: https://tradingstrategy.ai/vaults/agent-rocksteady
+#: https://nuwealth.ai/check
+#: https://nuwealth.ai/record
+#: https://nuwealth.ai/risk
+#: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
+ROCKSTEADY_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (9999, "0xd321ad79041bdad719ba5ff42fe950e1977df439"): HandwrittenVaultMetadata(
+        name="Agent RockSteady",
+        short_description="Automated crypto futures strategy that mostly buys sharp dips and takes profit on rebounds.",
+        description=("Agent RockSteady accepts USDC for a mean-reversion strategy run by [NuWealth.ai](https://nuwealth.ai/). It trades perpetual futures on Hyperliquid, contracts that follow cryptocurrency prices, using fixed rules rather than live AI decisions.\n\nNuWealth describes trading across **30 markets**, mostly buying sharp dips and taking profit when prices rebound, with occasional short positions that benefit from falling prices. Trades usually last hours, and the strategy aims for many small winning trades rather than a few large moves.\n\nThe vault has traded live since **3 February 2026**. Its [published vault details](https://nuwealth.ai/check) specify a **10% profit share** for the leader, with no management fee.\n\nEach deposit locks the depositor's whole vault position for **24 hours** before withdrawals are available. The leader must retain at least **5% of the vault's capital**; depositors can use Hyperliquid directly to withdraw without the NuWealth app."),
+        link="https://tradingstrategy.ai/vaults/agent-rocksteady",
+    ),
+}
+
+
 #: Morini Capital's canonical public overview of its curated vault strategies.
 MORINI_VAULTS_OVERVIEW_URL: Final[str] = "https://morini.capital/"
 
@@ -459,7 +480,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
+    return ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
