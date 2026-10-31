@@ -258,8 +258,9 @@ classification, while live prices refresh configurable lifecycle metadata.
 The guarded fee-bearing instant method is also exercised with exact net
 amounts; it is the same multi-asset selector selected by zero-lag defaults.
 
-The executor is pinned to the locally reviewed adapter revision. Neither
-repository has been pushed, and no production migration or canary was run.
+At the implementation handoff, the executor was pinned to the locally reviewed
+adapter revision. Neither repository had been pushed, and no production
+migration or canary had been run.
 
 ## Permission correction and rollout
 
@@ -307,7 +308,8 @@ field. Validate the journal and normal scanner publication afterwards: USPC
 must export `whitelisted` in `deposit_permission`, `whitelist.status` and
 `deposit_manager.deposit_permission`. Refresh strategy metadata and confirm
 the existing whitelist exclusion. Do not rewrite frozen research inputs.
-Production migrations remain unapplied; no changes have been pushed.
+Production migrations remain unapplied. At the implementation handoff, no
+changes had been pushed; publication is tracked in the implementation PRs.
 
 ## Review record
 

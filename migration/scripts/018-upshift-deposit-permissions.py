@@ -3,7 +3,7 @@
 Purpose: Replace the former blanket permissionless classification with each deployment's account-admission policy, including permissioned USPC Custody Vault.
 Scope: Every existing metadata row with Upshift detection/features; only _deposit_permission changes. No address or chain scope overrides.
 Branch: check-upshift-deposit-adapter
-PR title: fix: classify permissioned Upshift vaults from sender policy
+PR title: feat: support guarded Upshift vault deposits and withdrawals
 PR: Not opened.
 Preserves: Capability, notes, flags, unrelated metadata, prices, leads, reader state and timestamp caches.
 Expected: The 2026-10-30 production snapshot has 126 Upshift rows, including 12 allow-listed deployments. Counts follow live policy; pending 017 may already correct USPC.
