@@ -5,7 +5,7 @@ Purpose: Replace the old launch summary and missing strategy description with ma
 Scope: Only _description, _short_description and _notes for Hypercore 9999:0xd321ad79041bdad719ba5ff42fe950e1977df439.
 Branch: notes/agent-rocksteady-strategy
 PR title: notes: describe Agent RockSteady's strategy and research history
-PR: Not opened; local branch implementation.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1706
 Preserves: Names, links, fees, flags, risk, strategy tags, unrelated rows, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and three changed fields; absent targets are reported without creation. Idempotent transformation.
 
