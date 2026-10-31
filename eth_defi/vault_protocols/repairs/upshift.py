@@ -9,16 +9,21 @@ import pyarrow.parquet as pq
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
-from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols.repairs.price_backfill import _assert_rows_unchanged
 
-#: Public EVM USDC-input inventory reviewed on 2026-10-30. No new rows are created.
+#: Catalogue EVM USDC-input audit inventory reviewed on 2026-10-30, including
+#: permissioned USPC. These are repair targets, not a permissionless shortlist.
+#: No new rows are created.
 TARGETS = (
     VaultSpec(1, "0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870"),  # USPC Custody Vault
     VaultSpec(1, "0xAD958C4c0c90bf0216e0f5472F074a9AB30f595F"),  # Axis Origin USDx
@@ -36,6 +41,66 @@ TARGETS = (
     VaultSpec(1, "0x80E1048eDE66ec4c364b4F22C8768fc657FF6A42"),  # Upshift USDC
     VaultSpec(1, "0x18EE038C114a07f4B08b420fb1E4149a4F357249"),  # Upshift Wildcat USD
 )
+
+
+def refresh_upshift_deposit_permissions(database: VaultDatabase, fetch_web3: Callable[[int], Web3] | None = None) -> dict[str, object]:
+    """Refresh account-admission policy for every existing Upshift row.
+
+    The previous adapter classified the whole protocol as permissionless.
+    Re-read all detected Upshift deployments through the scanner's shared
+    resolver, including vaults outside the USDC lifecycle repair inventory.
+    Validate identities first and complete all reads before staging changes.
+    An unresolved read aborts the repair rather than preserving a potentially
+    incorrect public classification or journalling an incomplete refresh.
+
+    Only ``_deposit_permission`` changes. Capability, notes, flags, discovery,
+    prices and reader state are preserved. Current-state reads use one recent
+    provider-safe block per chain and the scanner's adapter selection. No
+    token, provider or offchain caches are written.
+
+    :param database: Migration-owned staged metadata database.
+    :param fetch_web3: Optional supplied per-chain connection factory for tests.
+    :return: Inspected and changed counts, permission counts and read blocks.
+    :raises ValueError: If identity conflicts or permission cannot be resolved.
+    """
+    candidates = []
+    for spec, row in database.rows.items():
+        detection = row.get("_detection_data")
+        features = set(row.get("features") or ())
+        detected_features = detection.features if isinstance(detection, ERC4262VaultDetection) else set()
+        if not {ERC4626Feature.upshift_like, ERC4626Feature.upshift_multi_asset_like} & (features | detected_features):
+            continue
+        if not isinstance(detection, ERC4262VaultDetection) or detection.get_spec() != spec or ERC4626Feature.upshift_like not in detected_features:
+            raise ValueError(f"Conflicting Upshift detection at {spec.as_string_id()}")
+        if row.get("Address", spec.vault_address).lower() != spec.vault_address or ("features" in row and features != detected_features):
+            raise ValueError(f"Conflicting Upshift row identity/features at {spec.as_string_id()}")
+        candidates.append((spec, row, detection))
+
+    connections = {}
+    blocks = {}
+    updates = []
+    counts = {permission.value: 0 for permission in VaultDepositPermission}
+    for spec, row, detection in tqdm(candidates, desc="Refreshing Upshift deposit permissions"):
+        if spec.chain_id not in connections:
+            web3 = fetch_web3(spec.chain_id) if fetch_web3 else create_multi_provider_web3(read_json_rpc_url(spec.chain_id))
+            if web3.eth.chain_id != spec.chain_id:
+                raise ValueError(f"Wrong RPC chain for Upshift {spec.as_string_id()}")
+            connections[spec.chain_id] = web3
+            blocks[spec.chain_id] = get_almost_latest_block_number(web3)
+        vault = create_vault_instance(connections[spec.chain_id], spec.vault_address, features=detection.features, default_block_identifier=blocks[spec.chain_id])
+        if not isinstance(vault, UpshiftVault):
+            raise ValueError(f"Scanner does not select an Upshift adapter at {spec.as_string_id()}")
+        permission = fetch_deposit_permission(vault)
+        if permission is VaultDepositPermission.unknown:
+            raise ValueError(f"Unresolved Upshift deposit permission at {spec.as_string_id()}; repair remains pending")
+        counts[permission.value] += 1
+        if row.get("_deposit_permission") != permission.value:
+            updates.append((spec, row, permission.value))
+
+    changes = [{"id": spec.as_string_id(), "old_permission": row.get("_deposit_permission"), "new_permission": permission} for spec, row, permission in updates]
+    for _spec, row, permission in updates:
+        row["_deposit_permission"] = permission
+    return {"inspected_rows": len(candidates), "changed_rows": len(updates), "permission_counts": counts, "permission_changes": changes, "read_blocks": {str(chain): block for chain, block in blocks.items()}}
 
 
 def refresh_upshift_metadata(database: VaultDatabase, fetch_web3: Callable[[int], Web3] | None = None) -> dict:

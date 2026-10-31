@@ -76,6 +76,9 @@ A new vault protocol integration is not complete unless it includes:
 
 - Protocol detection or hardcoded address classification
 - Vault class and `create_vault_instance()` wiring
+- Per-deployment account-admission classification through the existing hooks,
+  with restricted/public controls and unknown-read coverage; follow
+  [account admission and permissionless shortlists](../../../eth_defi/erc_4626/README-vault-protocol-support.md#account-admission-and-permissionless-shortlists)
 - Deposit manager and public deposit/redemption flow capability, backed by a guarded fork transaction test
 - Risk and fee matrix entries
 - Protocol metadata YAML under `eth_defi/data/vaults/metadata/`
@@ -601,6 +604,11 @@ After implementation, verify:
 - [ ] `create_probe_calls()` has a unique probe for the protocol, or the protocol is intentionally using `HARDCODED_PROTOCOLS`
 - [ ] `identify_vault_features()` or `HARDCODED_PROTOCOLS` correctly identifies the protocol
 - [ ] `create_vault_instance()` creates the correct vault class
+- [ ] Optional sender/receiver gates were checked for every supported contract
+      generation; public examples and accepted-token lists were not used to
+      infer permissionless admission for the whole protocol
+- [ ] Persisted permission corrections have a numbered migration covering all
+      affected deployments, plus an export/publication reminder
 - [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_{protocol_slug}.py -v`
 - [ ] Metadata YAML parses successfully
 - [ ] Original logos are saved under `eth_defi/data/vaults/original_logos/{protocol-slug}/`

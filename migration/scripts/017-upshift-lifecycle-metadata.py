@@ -1,7 +1,7 @@
 """Refresh Upshift lifecycle metadata and remove historical caps labelled as liquidity.
 
 Purpose: Publish repaired admission, accepted assets and queued-withdrawal support; clear unsupported historical liquidity observations without changing prices.
-Scope: The 15 public USDC-input EVM deployments frozen in repairs/upshift.py on 2026-10-30. Existing rows only.
+Scope: The 15 catalogue USDC-input EVM deployments frozen in repairs/upshift.py on 2026-10-30, including permissioned USPC. Existing rows only.
 Branch: check-upshift-deposit-adapter
 PR title: fix: support Upshift through guarded vault execution
 PR: Not opened.

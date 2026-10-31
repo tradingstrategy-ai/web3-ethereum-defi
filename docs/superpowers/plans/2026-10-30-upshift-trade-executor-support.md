@@ -4,7 +4,7 @@ Date: 2026-10-30. Status: implementation added in both repositories; validation 
 
 ## Outcome and baseline
 
-Make the existing Upshift adapters usable through the generic vault execution path, including deposits, withdrawals, guarded Lagoon custody, persisted settlement and the existing `perform-test-trade` command. Cover the public EVM vaults accepting USDC. Reuse the existing managers, tickets, routing, state, settlement resolver and CLI commands.
+Make the existing Upshift adapters usable through the generic vault execution path, including deposits, withdrawals, guarded Lagoon custody, persisted settlement and the existing `perform-test-trade` command. Cover permissionless EVM vaults accepting USDC. Keep restricted deployments in the diagnostic inventory, excluded from the strategy shortlist. Reuse the existing managers, tickets, routing, state, settlement resolver and CLI commands.
 
 Both repositories were fetched from `origin/master` before planning:
 
@@ -51,7 +51,7 @@ Snapshot: 2026-10-30, from the [official catalogue](https://api.upshift.finance/
 |---|---|---|---|---|---|
 | Ethereum | Sentora USD | `0x74aD2F789Ed583DBd141bbdafC673fE1F033718b` | USDC | 3 days | First multi-asset round trip |
 | Ethereum | NEMO USDC Prime | `0x955256B31097dDf47a9E47A95aDfDFB4460D8522` | USDC | 30 days | Multi-asset, longer queue |
-| Ethereum | USPC Custody Vault | `0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870` | USDC | 3 days | Permissioned; admission test first |
+| Ethereum | USPC Custody Vault | `0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870` | USDC | 3 days | Permissioned; excluded from strategy shortlist |
 | Ethereum | SharpByte RWA Ecosystem | `0x5776B576474ad2513E550190C5855613859F3A26` | USDC | 3 days | Multi-asset |
 | Ethereum | Sentora Protected USD | `0x02EA41404CCA842dF16e7fd327756192d576F503` | USDC | 3 days | Multi-asset |
 | Ethereum | Upshift Clear RWA | `0x076f3f14d87eA2D34DB66A4b5b9f091918008552` | USDC | 2 days | Reference-asset discovery regression |
@@ -65,7 +65,7 @@ Snapshot: 2026-10-30, from the [official catalogue](https://api.upshift.finance/
 | Ethereum | Tori Ecosystem | `0xcd69123b3FBBfC666E1f6a501da27B564C00De54` | trUSD | 7 days | Different payout token |
 | Monad | earnAUSD | `0x36eDbF0C834591BFdfCaC0Ef9605528c75c406aA` | AUSD | 3 days | Different payout token |
 
-There are 15 public candidates: 12 with USDC accounting/payout and three with a different accounting/payout token. The USPC test account was not whitelisted; this does not establish whether the strategy's custody address is admitted. Wildcat's cap read failed, so its capacity is unverified. Hidden Azure Tide USDC (`0x69FC3f84FD837217377d9Dae0212068cEB65818e`) and hidden, deposit-paused SingularV USDC Max Yield (`0x73B04B604DF15A6d920Ee62E228548cD88DD3549`) remain diagnostic candidates, outside default public enablement. Non-EVM products need separate integrations.
+The diagnostic inventory has 15 catalogue entries: 12 with USDC accounting/payout and three with a different accounting/payout token. USPC is permissioned and excluded from the permissionless strategy shortlist regardless of individual custody admission. Wildcat's cap read failed in the initial snapshot, so its capacity needed verification. Hidden Azure Tide USDC (`0x69FC3f84FD837217377d9Dae0212068cEB65818e`) and hidden, deposit-paused SingularV USDC Max Yield (`0x73B04B604DF15A6d920Ee62E228548cD88DD3549`) remain diagnostic candidates, outside default public enablement. Non-EVM products need separate integrations.
 
 ## Reuse map
 
@@ -140,7 +140,7 @@ This group remains part of the support target. A refusal with a precise route/li
 
 ### 6. Complete the vault matrix, documentation and rollout
 
-1. Refresh all 15 public candidates using the existing discovery and metadata paths. Record implementation, accepted USDC address, accounting token, LP token, permissions for the intended custody address, configured delay, capacity and observed liquidity. Reuse protocol-family tests, but run a minimal admission/transaction check for each vault to catch deployment-specific restrictions. Record denied/unavailable cases separately from successful round trips.
+1. Audit all 15 catalogue entries using the existing discovery and metadata paths. Exclude permissioned USPC from the strategy shortlist. Record implementation, accepted USDC address, payout/denomination token, LP token, configured delay, capacity and observed liquidity. Reuse protocol-family tests, but run a minimal admission/transaction check for each eligible vault to catch deployment-specific restrictions. Record excluded and unavailable cases separately from successful round trips.
 2. Prove the Ethereum family cases first, then HyperEVM and Monad using existing chain configuration. Monad uses current-state forks and relative assertions because old state expires; it cannot use a permanently pinned historical state block. Do not provision RPC endpoints or assume another chain's USDC address.
 3. Update the existing Upshift ABI notes, manager docstrings and `docs/source/api/upshift/index.rst` with supported flows and limitations. Add only the missing links and Upshift caveats to executor's existing vault guide; avoid another lifecycle framework document.
 4. If persisted scanner metadata/capabilities need refresh, add a new numbered migration under the [migration workflow](../../../.claude/docs/migration-scripts.md), with preview and a PR run reminder. If corrected discovery exposes missing early prices, include a fixed-scope backfill with the dense timestamp cache. Preserve existing rows and reader state, including old Monad rows. Metadata-only repairs disable price scanning. If no persisted accessor changes are required, document why no migration is needed.
@@ -201,10 +201,12 @@ Observed coverage on the shared Ethereum midnight fork:
   refuse invalid execution or aggregate accounting.
 
 The [dated availability report](2026-10-30-upshift-availability.json) contains
-current reads for all 15 candidates, including Monad and HyperEVM. Its
+dated reads for all 15 audit entries, including Monad and HyperEVM. Its
 `account_admission_unverified` status is intentional when no actual custody
-address was supplied. It does not claim per-vault transaction success. USPC
-requires admitted custody; Axis, Tori and earnAUSD still require verified
+address was supplied. It does not claim per-vault transaction success. Its
+historical USPC `custody_admission_required` status is superseded by the
+shortlist rule: permissioned deployments are excluded, not cleared by account
+admission. The current diagnostic reports `permissioned_excluded`. Axis, Tori and earnAUSD still require verified
 conversion routes. Those three are not enabled for a USDC strategy. Wildcat's
 verified older implementation has a per-deposit limit but no global-cap getter;
 that exception is tied to its exact implementation, and unknown cap failures
@@ -258,6 +260,54 @@ amounts; it is the same multi-asset selector selected by zero-lag defaults.
 
 The executor is pinned to the locally reviewed adapter revision. Neither
 repository has been pushed, and no production migration or canary was run.
+
+## Permission correction and rollout
+
+The 31 October 2026 admission audit found the old blanket public classification
+in all 126 Upshift records in the downloaded production metadata. Direct
+onchain reads found 12 sender-gated deployments, including USPC. Five were in
+the exported catalogue. USPC is excluded from the permissionless shortlist;
+the historical availability report is retained as dated evidence, not clearance.
+
+Migration `018-upshift-deposit-permissions.py` uses the scanner's shared adapter
+selection and permission resolver to refresh the admission field across all
+stored Upshift deployments. It uses one recent provider-safe block per chain,
+preserves unrelated metadata and history, and fails before staging changes if
+a policy is unknown or the scanner selects another adapter. Pending 017 covers
+only USPC among the 12 affected deployments; 018 then corrects the remaining 11
+if policy is unchanged. These counts are observations, not fixed assertions.
+
+Validation on 31 October 2026: 119 focused tests passed, with one optional live
+migration test skipped. This includes real fixed-state Ethereum policy and
+membership reads, guarded lifecycle regressions, metadata exports and 017/018
+sequencing. A manual preview and apply of 018 on a disposable production
+metadata copy inspected 126 rows and corrected 12 permission fields through
+the real adapter factory and supplied chain RPC providers. Every other
+metadata field, lead and discovery boundary was preserved; preview created no
+files, the backup matched its input, and the journalled rerun skipped. The
+separate tests preserved price and reader-state bytes. Both Claude Opus 5.5
+reviews approved the final correction with no blocking findings; prose was
+checked against the repository writing guide. No production state was changed.
+
+**Run after merge:** use the [production migration procedure](../../../.claude/docs/migration-scripts.md#production-runbook)
+from `~/vault-scanner/web3-ethereum-defi`, inspect the Compose mounts and build
+the merged, stamped image first. Stop all scanner writers. Preview the pending
+numbered batch, inspect the reported changes, then apply it:
+
+```shell
+source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
+```
+
+Migration 018 affects only `vault-metadata-db.pickle`; it needs no price
+backfill. Pending 017 separately clears the reviewed historical liquidity
+field. Validate the journal and normal scanner publication afterwards: USPC
+must export `whitelisted` in `deposit_permission`, `whitelist.status` and
+`deposit_manager.deposit_permission`. Refresh strategy metadata and confirm
+the existing whitelist exclusion. Do not rewrite frozen research inputs.
+Production migrations remain unapplied; no changes have been pushed.
 
 ## Review record
 

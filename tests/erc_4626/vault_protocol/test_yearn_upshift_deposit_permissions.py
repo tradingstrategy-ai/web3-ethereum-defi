@@ -1,16 +1,19 @@
 """Unit coverage for Yearn and Upshift deposit-permission discovery."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YBOLD_VAULT, YSYBOLD_VAULT
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositPermission, WhitelistingRequired
 
 
 def test_ybold_note_links_to_yield_bearing_staking_vault() -> None:
@@ -145,6 +148,7 @@ def test_upshift_sender_whitelist_is_not_an_asset_whitelist() -> None:
     # 1. Bind a multi-asset pool with a configured sender whitelist.
     vault = object.__new__(UpshiftVault)
     vault.features = {ERC4626Feature.upshift_multi_asset_like}
+    vault.default_block_identifier = 123
     vault.__dict__["vault_contract"] = MagicMock()
     call = vault.vault_contract.functions.sendersWhitelistAddress.return_value.call
     call.return_value = "0x1111111111111111111111111111111111111111"
@@ -153,6 +157,51 @@ def test_upshift_sender_whitelist_is_not_an_asset_whitelist() -> None:
     # 3. Disable that policy and verify the vault is permissionless.
     call.return_value = ZERO_ADDRESS_STR
     assert vault.is_whitelisted_deposit() is False
+    assert all(invocation.kwargs == {"block_identifier": 123} for invocation in call.call_args_list)
+
+
+def test_upshift_unreadable_sender_policy_is_unknown() -> None:
+    """A failed sender-policy read must never advertise public admission.
+
+    The scanner's existing unknown result keeps an RPC/ABI failure distinct
+    from a source-proven zero whitelist address.
+    """
+    vault = object.__new__(UpshiftVault)
+    vault.spec = VaultSpec(1, "0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870")
+    vault.features = {ERC4626Feature.upshift_multi_asset_like}
+    vault.default_block_identifier = 123
+    vault.__dict__["vault_contract"] = MagicMock()
+    vault.vault_contract.functions.sendersWhitelistAddress.return_value.call.side_effect = ExtraValueError("RPC unavailable")
+
+    assert fetch_deposit_permission(vault) is VaultDepositPermission.unknown
+
+
+def test_upshift_live_admission_does_not_use_delayed_metadata_head(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a live non-member even if delayed metadata still shows no gate.
+
+    Metadata's cached head can lag by 1,000 blocks. Only an explicit historical
+    pin may use old policy; unpinned execution must observe the new allow-list.
+
+    :param monkeypatch: Replace the RPC-bound whitelist membership contract.
+    """
+    vault = object.__new__(UpshiftVault)
+    vault.spec = VaultSpec(1, "0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870")
+    vault.features = {ERC4626Feature.upshift_like, ERC4626Feature.upshift_multi_asset_like}
+    vault.default_block_identifier = None
+    vault.web3 = SimpleNamespace(provider=object(), client_version="Geth/v1")
+    vault._get_block_identifier = MagicMock(return_value=123)
+    vault.__dict__["vault_contract"] = MagicMock()
+    vault.vault_contract.functions.sendersWhitelistAddress.return_value.call.side_effect = lambda *, block_identifier: "0x1111111111111111111111111111111111111111" if block_identifier == "latest" else ZERO_ADDRESS_STR
+    whitelist = MagicMock()
+    whitelist.functions.isWhitelisted.return_value.call.return_value = False
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.upshift.vault.get_deployed_contract", lambda *args: whitelist)
+    owner = "0x2222222222222222222222222222222222222222"
+
+    with pytest.raises(WhitelistingRequired):
+        vault.get_deposit_manager().check_deposit_whitelist(owner)
+
+    whitelist.functions.isWhitelisted.return_value.call.assert_called_once_with(block_identifier="latest")
+    vault._get_block_identifier.assert_not_called()
 
 
 def test_upshift_optional_cap_requires_verified_implementation() -> None:

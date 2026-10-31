@@ -1,4 +1,13 @@
-"""Upshift vault support."""
+"""Upshift vault support, with deployment-specific account admission.
+
+Multi-asset deployments may restrict senders independently of their accepted
+tokens. Read ``sendersWhitelistAddress()`` before classifying deposits; USPC
+Custody Vault is an allow-listed deployment. An asset whitelist, public app
+listing or implemented deposit manager does not establish public admission.
+The denomination token is the withdrawal payout token returned by ``asset()``;
+additional accepted deposit tokens do not change the denomination.
+See ``eth_defi/abi/upshift/README.md`` for verified contract sources.
+"""
 
 import datetime
 import logging
@@ -19,6 +28,7 @@ from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVa
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.broken_provider import get_fork_safe_latest_block
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
@@ -178,7 +188,7 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
         max_withdrawal_result = call_by_name.get("maxWithdrawalAmount")
         if denomination_token is not None and max_withdrawal_result is not None and max_withdrawal_result.success:
             # Upshift names this value as a withdrawal amount, but it is
-            # denomination-token liquidity, not share-token ``maxRedeem``.
+            # a denomination-token request limit, not share-token ``maxRedeem``.
             # A request cap does not establish payout liquidity. Historical
             # liquidity remains unknown until a token balance is actually read.
             available_liquidity = None
@@ -210,8 +220,10 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
 class UpshiftVault(ERC4626Vault):
     """Upshift protocol vaults.
 
-    Upshift democratises institutional-grade DeFi yield strategies through non-custodial vaults
-    built on August infrastructure.
+    Upshift hosts independently managed vaults built on August infrastructure.
+    Account admission is read per deployment through the shared permission
+    hooks; a permissionless strategy must exclude allow-listed vaults such as
+    USPC even when their transaction manager is supported.
 
     The adapter supports two observed contract families:
 
@@ -276,12 +288,24 @@ class UpshiftVault(ERC4626Vault):
     def is_whitelisted_deposit(self) -> bool:
         """Report the actual account admission policy, independently of assets.
 
-        Multi-asset deployments can configure a sender whitelist; legacy
-        deployments have a blacklist instead of a positive admission list.
+        A non-zero ``sendersWhitelistAddress()`` on a multi-asset deployment
+        requires prior account approval and maps to ``whitelisted`` in scanner
+        metadata. A zero address means no positive admission list. Supported
+        legacy deployments use a blacklist, checked separately per account.
+        Accepted tokens, pauses, capacity and adapter capability do not change
+        this classification. Read failures propagate so the scanner reports
+        ``unknown`` rather than inventing permissionless access.
+        An explicit metadata block is honoured; unpinned execution checks use
+        fresh state rather than the delayed, cached metadata head.
 
-        :return: Whether an allow-list is configured.
+        Contract source: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+
+        :return: Whether the deployment requires positive account admission.
         """
-        return self.multi_asset_like and self.upshift_contract.functions.sendersWhitelistAddress().call().lower() != ZERO_ADDRESS_STR
+        if not self.multi_asset_like:
+            return False
+        block = self.default_block_identifier if self.default_block_identifier is not None else get_fork_safe_latest_block(self.web3)
+        return self.upshift_contract.functions.sendersWhitelistAddress().call(block_identifier=block).lower() != ZERO_ADDRESS_STR
 
     def is_account_whitelisted(self, address: HexAddress) -> bool:
         """Read sender membership or the legacy blacklist.
@@ -292,13 +316,14 @@ class UpshiftVault(ERC4626Vault):
         :param address: Custody account to check.
         :return: Whether the account passes the configured policy.
         """
+        block = self.default_block_identifier if self.default_block_identifier is not None else get_fork_safe_latest_block(self.web3)
         if not self.multi_asset_like:
-            return not self.upshift_contract.functions.isBlacklisted(address).call()
-        whitelist = self.upshift_contract.functions.sendersWhitelistAddress().call()
+            return not self.upshift_contract.functions.isBlacklisted(address).call(block_identifier=block)
+        whitelist = self.upshift_contract.functions.sendersWhitelistAddress().call(block_identifier=block)
         if whitelist.lower() == ZERO_ADDRESS_STR:
             return True
         contract = get_deployed_contract(self.web3, "upshift/ISendersAllocationWhitelist.json", whitelist)
-        return bool(contract.functions.isWhitelisted(address).call())
+        return bool(contract.functions.isWhitelisted(address).call(block_identifier=block))
 
     @property
     def description(self) -> str | None:
@@ -408,7 +433,10 @@ class UpshiftVault(ERC4626Vault):
 
     @cached_property
     def assets_whitelist_contract(self) -> Contract:
-        """Get the multi-asset denomination-token whitelist contract.
+        """Get the multi-asset accepted-deposit-token whitelist contract.
+
+        This list describes deposit inputs, independently of the single
+        withdrawal payout and accounting denomination returned by ``asset()``.
 
         :return:
             The configured whitelist contract.
@@ -426,16 +454,17 @@ class UpshiftVault(ERC4626Vault):
         )
 
     def fetch_all_denomination_tokens(self) -> tuple[TokenDetails, ...]:
-        """Fetch every configured multi-asset denomination token.
+        """Fetch accepted deposit tokens, with the withdrawal payout token first.
 
-        The returned tuple starts with the reference asset, then preserves
-        extra whitelist ordering and removes duplicate token addresses. These are
-        accepted deposit assets and may differ from the accounting asset
-        returned by :meth:`fetch_denomination_token`.
+        The inherited method name is retained for compatibility. Its tuple is
+        a deposit-input list, not a choice of accounting denominations. It
+        starts with the reference/payout asset, preserves extra whitelist
+        ordering and removes duplicate addresses. Only
+        :meth:`fetch_denomination_token` defines the denomination.
 
         :return:
-            Whitelisted denomination tokens in protocol order. Standard
-            single-asset Upshift vaults return their normal denomination token.
+            Accepted deposit tokens in protocol order. Single-asset Upshift
+            vaults return only their denomination/payout token.
         :raise ValueError:
             If a configured token cannot be read as an ERC-20.
         """
@@ -463,23 +492,22 @@ class UpshiftVault(ERC4626Vault):
         return tuple(tokens)
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Fetch Upshift's accounting denomination token.
+        """Fetch the withdrawal payout token as Upshift's denomination.
 
-        **Supported simulation path**
+        In both supported contract families, ``asset()`` identifies the token
+        used for withdrawal payouts and share-price accounting. Multi-asset
+        deposits can accept other tokens, but they never replace this
+        denomination. Axis is denominated in USDx, Tori Ecosystem in trUSD and
+        earnAUSD in AUSD, even when they accept USDC deposits. Use this token's
+        address and decimals for payout analysis and valuation; an input-token
+        choice does not implement conversion back to a strategy's reserve.
 
-        Multi-asset vaults retain the ERC-4626 ``asset()`` token as their
-        accounting unit even when deposits accept a separate token whitelist.
-        Keeping these concepts separate is required when the first accepted
-        token uses different decimals from the accounting asset.
-
-        **Known limitations**
-
-        Accepted assets are exposed separately through
-        :meth:`fetch_all_denomination_tokens`; callers must explicitly select
-        one when creating or estimating a multi-asset deposit.
+        Accepted inputs are exposed through :meth:`fetch_all_denomination_tokens`.
+        Verified payout implementation: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
 
         :return:
-            ERC-4626 accounting asset configured by the vault.
+            Withdrawal payout/accounting token configured by ``asset()``, or
+            ``None`` when ``asset()`` or its token metadata cannot be read.
         """
         return super().fetch_denomination_token()
 

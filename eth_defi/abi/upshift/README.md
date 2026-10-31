@@ -44,11 +44,32 @@ block. The legacy event includes date and fixed net entitlement inputs.
 claims; it does not unlock a later user claim. GuardV0 grants the asset manager
 only deposit, request, claim and the supported multi-asset instant surface.
 
+`asset()` returns `_referenceAsset`. Both dated payouts and `instantRedeem`
+transfer that reference token to the receiver, so it is the withdrawal payout
+and denomination token. `assetsWhitelistAddress()` describes extra deposit
+inputs; receiving USDC on deposit does not change the vault's payout token.
+Keep token identity and decimals tied to `asset()` for accounting and receipt
+analysis, rather than choosing an accepted input as the denomination.
+
 `ISendersAllocationWhitelist.json` exports the exact two runtime methods from
 `ISendersWhitelist` and `ISendersAllocationWhitelist` in that same verified
 multi-asset source. Quota validation uses `checkAndRecordDeposit` through a
 read-only `eth_call` from the configured vault; it does not persist a quota
 change or require a funding transaction.
+
+Account admission is separate from the accepted-token list. A non-zero
+`sendersWhitelistAddress()` configures sender approval; membership is read with
+`isWhitelisted(address)`. `assetsWhitelistAddress()` only restricts input
+tokens. Never infer public account admission from that asset list, an enabled
+deposit method or the absence of restrictions on another Upshift deployment.
+
+At Ethereum block 26,309,233, USPC Custody Vault
+[`0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870`](https://etherscan.io/address/0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870#readProxyContract)
+configured sender policy `0x86b525d64047f0a23269Fcef0212691B09453f26` and
+rejected account `0x1111111111111111111111111111111111111111`. The
+fixed-state regression in `test_upshift_permissions.py` covers it alongside
+public multi-asset and legacy controls. These are dated policy observations,
+not claims that a deployment's configuration cannot change.
 
 The protocol's claimability getter is keyed by the scheduled date and receiver,
 not an individual request id. Multiple requests for the same receiver and date

@@ -9,6 +9,9 @@ amount is 10 USDC. Optional UPSHIFT_OWNER checks that custody account; without
 it, account-specific admission remains unverified. Optional AMOUNT,
 MAX_WORKERS (default 4), and REPORT_JSON override sizing, concurrency and the
 JSON report path. Read-only eligibility is not a successful executor round trip.
+When policy reads succeed, permissioned deployments are ``permissioned_excluded``
+from this USDC shortlist, even when UPSHIFT_OWNER is admitted. Failed reads stay
+``read_failed``. The audit retains excluded entries; it requests no admission.
 """
 
 import json
@@ -63,10 +66,12 @@ def fetch_vault_result(spec: VaultSpec, amount: Decimal, owner: HexAddress | Non
         result["payout_token_balance"] = str(vault.denomination_token.fetch_balance_of(vault.address))
         result["deposit_closed_reason"] = vault.fetch_deposit_closed_reason()
         result["withdrawal_closed_reason"] = vault.fetch_redemption_closed_reason()
-        if usdc.lower() not in {token.address_lower for token in accepted}:
+        if result["requires_whitelist"]:
+            result["status"] = "permissioned_excluded"
+        elif usdc.lower() not in {token.address_lower for token in accepted}:
             result["status"] = "usdc_not_accepted"
-        elif result["owner_admitted"] is False or (result["requires_whitelist"] and owner is None):
-            result["status"] = "custody_admission_required"
+        elif result["owner_admitted"] is False:
+            result["status"] = "custody_account_blocked"
         elif vault.denomination_token.address_lower != usdc.lower():
             result["status"] = "payout_conversion_route_required"
         elif result["deposit_closed_reason"] or result["withdrawal_closed_reason"]:
@@ -85,7 +90,7 @@ def fetch_vault_result(spec: VaultSpec, amount: Decimal, owner: HexAddress | Non
 
 
 def main(max_workers: int = 4) -> None:
-    """Check the fixed public inventory and optionally export dated evidence.
+    """Check the fixed catalogue inventory and optionally export dated evidence.
 
     RPC credentials come from the normal environment. The report records no
     provider URLs, keys or transaction journals.
