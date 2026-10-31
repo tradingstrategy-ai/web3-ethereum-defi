@@ -1,0 +1,388 @@
+{
+  "checked_at": "2026-10-31T00:10:40.792700",
+  "amount_usdc": "10",
+  "owner": null,
+  "results": [
+    {
+      "chain_id": 1,
+      "vault_address": "0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870",
+      "status": "custody_admission_required",
+      "block": 26309071,
+      "name": "USPC Custody Vault",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x569A0B66Cd7c13c038eCd8649dc12339608A92A4",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": true,
+      "owner_admitted": null,
+      "payout_token_balance": "0.000003",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0xad958c4c0c90bf0216e0f5472f074a9ab30f595f",
+      "status": "payout_conversion_route_required",
+      "block": 26309071,
+      "name": "Axis Origin USDx",
+      "payout_asset": "USDx",
+      "payout_address": "0xa1fA7777974312f7d801A8880714a218F76233f8",
+      "share_token": "0x29e0fD0771BfAb37897e7F9AE8c5eba7caaf0bfD",
+      "accepted_assets": [
+        {
+          "symbol": "USDx",
+          "address": "0xa1fA7777974312f7d801A8880714a218F76233f8"
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        }
+      ],
+      "configured_lag_seconds": 604800,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "292793.373172455035736653",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0xcd69123b3fbbfc666e1f6a501da27b564c00de54",
+      "status": "payout_conversion_route_required",
+      "block": 26309071,
+      "name": "Tori Ecosystem Vault",
+      "payout_asset": "trUSD",
+      "payout_address": "0xd0580192E98eA6CEB9c7b6191Ed2E27560911697",
+      "share_token": "0x6f20aE2C98c2D34e6A57f3411f2C5Af92E32592d",
+      "accepted_assets": [
+        {
+          "symbol": "trUSD",
+          "address": "0xd0580192E98eA6CEB9c7b6191Ed2E27560911697"
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        }
+      ],
+      "configured_lag_seconds": 604800,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "38280.567483559931135937",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null
+    },
+    {
+      "chain_id": 143,
+      "vault_address": "0x42b3b62a6685e3a3f93483715ef4300f5e7336cc",
+      "status": "account_admission_unverified",
+      "block": 118037790,
+      "name": "earnAUSD Loop",
+      "payout_asset": "USDC",
+      "payout_address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "share_token": "0xEA7e0955D410C5BA9dAc457539EF0FA53a1399Ed",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "155.930098",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 97598797205166
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x5776b576474ad2513e550190c5855613859f3a26",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "SharpByte RWA Ecosystem Vault",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x494591984f0A6ccfE40774BCF7BC58c9036ecD0F",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "2738.312628",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 2869249087372
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0xe9b725010a9e419412ed67d0fa5f3a5f40159d32",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Upshift Core USDC",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0xE9B725010A9E419412ed67d0fA5f3A5f40159D32",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 0,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "92085.637631",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": null
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x955256b31097ddf47a9e47a95adfdfb4460d8522",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "NEMO USDC Yield",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0xee012eC1c18Cb50Cd8205450dCeAd60879E62E6C",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 2592000,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "791647.354196",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 85001321858000
+    },
+    {
+      "chain_id": 999,
+      "vault_address": "0xcfe06d2499ae635830d11859941e76354d5717cc",
+      "status": "account_admission_unverified",
+      "block": 49967855,
+      "name": "Coinmerce USDC",
+      "payout_asset": "USDC",
+      "payout_address": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+      "share_token": "0x4Ba29277131FF1c44C98D19b2153183419526865",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+        }
+      ],
+      "configured_lag_seconds": 172800,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "6902.527751",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 8253758472250
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x998d7b14c123c1982404562b68eddb057b0477cb",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Upshift Gamma USDC Vault",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x998D7b14c123c1982404562b68edDB057b0477cB",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "2858.701755",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": null
+    },
+    {
+      "chain_id": 143,
+      "vault_address": "0x36edbf0c834591bfdfcac0ef9605528c75c406aa",
+      "status": "payout_conversion_route_required",
+      "block": 118037796,
+      "name": "earnAUSD",
+      "payout_asset": "AUSD",
+      "payout_address": "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a",
+      "share_token": "0x103222f020e98Bba0AD9809A011FDF8e6F067496",
+      "accepted_assets": [
+        {
+          "symbol": "AUSD",
+          "address": "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a"
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "269599.339116",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x076f3f14d87ea2d34db66a4b5b9f091918008552",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Upshift Clear RWA",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x854A0b6bC7baCDE292F94304584E2c747b53c402",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        },
+        {
+          "symbol": "PYUSD",
+          "address": "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8"
+        },
+        {
+          "symbol": "USCC",
+          "address": "0x14d60E7FDC0D71d8611742720E4C50E7a974020c"
+        }
+      ],
+      "configured_lag_seconds": 172800,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "7646.665184",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 4795824655409
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x74ad2f789ed583dbd141bbdafc673fe1f033718b",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Sentora USD Earn",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0xe8aA1A9eC6b9BC455D8f33E4BDC685dedFf82407",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        },
+        {
+          "symbol": "RLUSD",
+          "address": "0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD"
+        },
+        {
+          "symbol": "PYUSD",
+          "address": "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8"
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "199144.008672",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 100000000000000
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x02ea41404cca842df16e7fd327756192d576f503",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "psentUSD",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x9215cBD8FcFF139c780e8E1d3cf2b5569cC7319f",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "17.20702",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 998996764279184
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x80e1048ede66ec4c364b4f22c8768fc657ff6a42",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Upshift USDC",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0x80E1048eDE66ec4c364b4F22C8768fc657FF6A42",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 0,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "120252.562914",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": null
+    },
+    {
+      "chain_id": 1,
+      "vault_address": "0x18ee038c114a07f4b08b420fb1e4149a4f357249",
+      "status": "account_admission_unverified",
+      "block": 26309072,
+      "name": "Upshift Wildcat USD",
+      "payout_asset": "USDC",
+      "payout_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "share_token": "0xeF866BfbD0eEc6D6b42C37d8acC0D5fd26828376",
+      "accepted_assets": [
+        {
+          "symbol": "USDC",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        }
+      ],
+      "configured_lag_seconds": 259200,
+      "requires_whitelist": false,
+      "owner_admitted": null,
+      "payout_token_balance": "2168.002534",
+      "deposit_closed_reason": null,
+      "withdrawal_closed_reason": null,
+      "deposit_capacity_raw": 100000000000000
+    }
+  ]
+}

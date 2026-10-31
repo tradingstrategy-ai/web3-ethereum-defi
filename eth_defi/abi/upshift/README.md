@@ -1,7 +1,11 @@
 # Upshift ABI files
 
-`TokenizedAccount.json` is the existing narrow ERC-4626-like interface used by
-the Upshift vault integration.
+`TokenizedAccount.json` includes the verified legacy deposit, dated request,
+claim and native events. It was refreshed on 2026-10-30 against Core USDC proxy
+`0xE9B725010A9E419412ed67d0fA5f3A5f40159D32` and implementation
+[`0xf2cd14f02b4fdc0d26681fbc7f60a11b8378f96d`](https://etherscan.io/address/0xf2cd14f02b4fdc0d26681fbc7f60a11b8378f96d#code),
+using Etherscan's verified implementation ABI. Its three-argument
+`requestRedeem` pays immediately at zero lag; standard `redeem` reverts.
 
 `MultiAssetVault.json` is the narrow runtime interface used by the Upshift
 multi-asset adapter. It was reduced from the shared verified implementation ABI
@@ -20,6 +24,7 @@ redemptions:
 - `withdrawalsPaused()`
 - `maxDepositAmount()`
 - `maxWithdrawalAmount()`
+- `globalLiabilityShares()`
 - `previewRedemption(uint256,bool)`
 - `instantRedeem(uint256,address)`
 - `requestRedeem(uint256,address)`
@@ -31,12 +36,40 @@ redemptions:
 The redemption functions and standard `Withdraw` event were verified against
 the shared implementation at
 [`0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2`](https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code)
-on 2026-07-27. `requestRedeem` returns the claimable epoch and calendar date;
-the request event itself contains only shares, holder and receiver, so the
-manager persists the immediately-read `getWithdrawalEpoch()` state alongside
-the validated event. `processAllClaimsByDate` is an operator settlement call,
-not a GuardV0 manager call; GuardV0 only whitelists the deposit, instant
-redeem, request and final claim surfaces.
+on 2026-07-27, with the complete verified interface refreshed on 2026-10-30.
+`getWithdrawalEpoch()` returns **year, month, day, epoch**. The multi-asset
+request event omits the date, so the manager reads it at the request receipt's
+block. The legacy event includes date and fixed net entitlement inputs.
+`processAllClaimsByDate` is public after maturity and directly pays and clears
+claims; it does not unlock a later user claim. GuardV0 grants the asset manager
+only deposit, request, claim and the supported multi-asset instant surface.
+
+`asset()` returns `_referenceAsset`. Both dated payouts and `instantRedeem`
+transfer that reference token to the receiver, so it is the withdrawal payout
+and denomination token. `assetsWhitelistAddress()` describes extra deposit
+inputs; receiving USDC on deposit does not change the vault's payout token.
+Keep token identity and decimals tied to `asset()` for accounting and receipt
+analysis, rather than choosing an accepted input as the denomination.
+
+`ISendersAllocationWhitelist.json` exports the exact two runtime methods from
+`ISendersWhitelist` and `ISendersAllocationWhitelist` in that same verified
+multi-asset source. Quota validation uses `checkAndRecordDeposit` through a
+read-only `eth_call` from the configured vault; it does not persist a quota
+change or require a funding transaction.
+
+Account admission is separate from the accepted-token list. A non-zero
+`sendersWhitelistAddress()` configures sender approval; membership is read with
+`isWhitelisted(address)`. `assetsWhitelistAddress()` only restricts input
+tokens. Never infer public account admission from that asset list, an enabled
+deposit method or the absence of restrictions on another Upshift deployment.
+
+At Ethereum block 26,309,233, USPC Custody Vault
+[`0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870`](https://etherscan.io/address/0x0A152C5b8D48C26619FF3ae85Ef1B54A79e20870#readProxyContract)
+configured sender policy `0x86b525d64047f0a23269Fcef0212691B09453f26` and
+rejected account `0x1111111111111111111111111111111111111111`. The
+fixed-state regression in `test_upshift_permissions.py` covers it alongside
+public multi-asset and legacy controls. These are dated policy observations,
+not claims that a deployment's configuration cannot change.
 
 The protocol's claimability getter is keyed by the scheduled date and receiver,
 not an individual request id. Multiple requests for the same receiver and date
@@ -82,3 +115,16 @@ events. Routescan reports both proxies use the shared implementation
 `0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2`. Discovery needs an
 implementation-level event interface because logs are emitted at the proxy
 address but decoded with the implementation event ABI.
+
+
+Wildcat variant
+---------------
+
+Wildcat proxy `0x18EE038C114a07f4B08b420fb1E4149a4F357249` used verified
+implementation [`0xaacc687cea8cd706bd7a56be0f7ad85d420767dc`](https://etherscan.io/address/0xaacc687cea8cd706bd7a56be0f7ad85d420767dc#code)
+on 2026-10-30. Its deposit function enforces `maxDepositAmount` but has no
+`depositCap` getter or global-cap check. The adapter recognises that exact
+ERC-1967 implementation when the optional getter reverts; it never treats an
+unknown implementation's unreadable cap as unlimited. Its older sender list
+has no receiver-allocation call in the deposit path. Shared deposit/request/
+claim signatures remain in the runtime multi-asset ABI.

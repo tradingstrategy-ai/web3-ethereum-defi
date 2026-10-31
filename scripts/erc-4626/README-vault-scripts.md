@@ -2747,39 +2747,22 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 
 ### migrate-vault-deposit-permissions.py
 
-Refresh cached `_deposit_permission` values through each vault's current
-protocol adapter. Use this targeted metadata-only repair after a reviewed
-permission-classification fix when waiting for the normal metadata scan is not
-appropriate. It does not change vault discovery, prices, reader state, or any
-other cached metadata field.
+Legacy standalone repair; do not run it for a new classification correction.
+Use a numbered migration through the guarded runner described above. In
+particular, `018-upshift-deposit-permissions.py` refreshes
+`_deposit_permission` for **all existing Upshift rows**, including restricted
+USPC and deployments outside migration 017's USDC lifecycle inventory.
 
-First inspect live differences without modifying the pickle:
+The former Upshift adapter reported every deployment as permissionless. A
+configured sender allow-list now exports `whitelisted`; accepted-token lists,
+pauses and transaction capability remain independent. Permissionless strategy
+shortlists exclude restricted deployments, even if one custody account is
+admitted. The read-only `check-upshift-usdc.py` reports them as
+`permissioned_excluded`.
 
-```shell
-source .local-test.env && \
-  DRY_RUN=true \
-  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
-```
-
-Then persist the reviewed differences:
-
-```shell
-source .local-test.env && \
-  DRY_RUN=false \
-  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
-```
-
-The migration creates a non-overwriting `*.bak-deposit-permission` backup
-before writing. It preserves an existing `whitelisted` or `permissionless`
-value when the live adapter read is inconclusive (`unknown`). Run
-`export-data-files.py` afterwards to publish the corrected JSON.
-
-| Variable | Description |
-|----------|-------------|
-| `VAULT_DB_PATH` | Optional vault metadata pickle path. Defaults to `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
-| `DRY_RUN` | Report only when true. Default: true. |
-| `JSON_RPC_<CHAIN>` | Required for every EVM chain represented in the cache. |
-| `LOG_LEVEL` | Optional console log level. Default: info. |
+Migration 018 changes only the permission field and fails on unresolved reads.
+Its scope and expected counts are documented in the numbered script. The
+[implementation record](../../docs/superpowers/plans/2026-10-30-upshift-trade-executor-support.md#permission-correction-and-rollout) contains validation and the production run reminder.
 
 ### migrate-withdrawal-period-estimates.py
 

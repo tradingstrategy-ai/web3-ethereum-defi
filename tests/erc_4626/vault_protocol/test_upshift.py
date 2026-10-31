@@ -21,7 +21,7 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
-from eth_defi.token import TokenDiskCache
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDiskCache
 from eth_defi.vault.base import WithdrawalDelayType
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode
@@ -172,6 +172,14 @@ def test_upshift_multi_asset_vault_metadata(
     denomination_tokens = vault.fetch_all_denomination_tokens()
     assert denomination_tokens
     assert vault.denomination_token.symbol == expected_accounting_symbol
+    # The verified withdrawal implementation pays ``asset()``, independently
+    # of extra accepted inputs. Tori must retain trUSD accounting for USDC deposits.
+    payout_address = vault.upshift_contract.functions.asset().call()
+    assert vault.denomination_token.address_lower == payout_address.lower()
+    assert denomination_tokens[0].address_lower == payout_address.lower()
+    if vault_address == UPSHIFT_TORI_VAULT:
+        assert vault.denomination_token.decimals == 18
+        assert USDC_NATIVE_TOKEN[1].lower() in {token.address_lower for token in denomination_tokens}
 
     assert isinstance(vault.get_historical_reader(stateful=False), UpshiftMultiAssetHistoricalReader)
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
@@ -180,13 +188,12 @@ def test_upshift_multi_asset_vault_metadata(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
+        "supports_anvil_settlement": True,
         "deposit_assets": [token.address for token in denomination_tokens],
     }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_total_supply(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
-    assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is not None
+    assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is None
     assert vault.fetch_deposit_closed_reason() == expected_deposit_closed_reason
     assert vault.fetch_redemption_closed_reason() == "Upshift withdrawalsPaused() is true"
     assert vault.can_check_deposit() is False
@@ -239,8 +246,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
+        "supports_anvil_settlement": True,
         "deposit_assets": [token.address for token in manager.fetch_accepted_assets()],
     }
     assert manager.has_synchronous_deposit() is True

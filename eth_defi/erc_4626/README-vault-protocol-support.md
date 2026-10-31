@@ -13,6 +13,49 @@ synchronous lifecycle. It executes the manager-selected approval, deposit and
 redemption calls through ``SimpleVaultV0.performCall()`` on a fixed Ethereum
 mainnet Anvil fork.
 
+## Account admission and permissionless shortlists
+
+Classify account admission for each deployment through the existing
+``VaultBase.is_whitelisted_deposit()`` hook. Read the verified contract's
+optional sender/receiver allow-list or identity policy. A public app listing,
+supported deposit manager, accepted-token list or successful deposit by an
+approved account does not establish permissionless access. Protocols can mix
+public and restricted deployments; never extrapolate one example to the whole
+protocol. Keep pauses, caps, quotas, withdrawal windows and liquidity separate
+from identity approval.
+
+The shared scanner resolver, ``fetch_deposit_permission()``, persists
+``_deposit_permission`` as ``whitelisted``, ``permissionless`` or ``unknown``.
+An unreadable or unsupported policy must not become ``permissionless``.
+The metrics exporter copies this field to ``deposit_permission``,
+``whitelist.status`` and the supported ``deposit_manager`` mapping. Capability
+still describes implemented transaction flows; permission does not change it.
+Do not add blacklist flags or invent another availability field for this case.
+
+Permissionless strategy shortlists exclude ``whitelisted`` deployments even
+when a particular custody account is admitted. Keep ``unknown`` separate from
+verified public admission. Trade-executor already uses
+``mark_whitelisted_vaults_ignored()`` to retain restricted vaults as data-only
+diagnostics. A catalogue entry or a report ranking is not shortlist clearance.
+Explicit integrations with approved accounts still use the existing membership
+hook and ``WhitelistingRequired`` preflight; do not remove that capability.
+
+Cover both public and restricted deployments with source-proven policy tests,
+including unknown read failures and an unapproved account. Upshift's USPC
+Custody Vault is the regression example: a non-zero
+``sendersWhitelistAddress()`` requires account approval, whereas
+``assetsWhitelistAddress()`` restricts input tokens. See the
+[verified Upshift interfaces](../abi/upshift/README.md) and
+``tests/erc_4626/vault_protocol/test_upshift_permissions.py``.
+
+When changing an admission accessor, add a numbered metadata migration and
+refresh every affected deployment, including those outside an implementation
+test inventory. Preserve flags, capabilities, notes and price history. Follow
+the [migration workflow](../../.claude/docs/migration-scripts.md), then let the
+normal scanner export and publish corrected metadata. Verify the published
+fields and strategy exclusion; an adapter fix alone does not repair cached
+labels or frozen research inputs.
+
 ## Strategy tags
 
 VaultBase adapters expose ``VaultBase.get_strategy_tags()`` for investment
