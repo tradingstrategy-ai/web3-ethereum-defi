@@ -9,6 +9,8 @@ amount is 10 USDC. Optional UPSHIFT_OWNER checks that custody account; without
 it, account-specific admission remains unverified. Optional AMOUNT,
 MAX_WORKERS (default 4), and REPORT_JSON override sizing, concurrency and the
 JSON report path. Read-only eligibility is not a successful executor round trip.
+``observed_head_block`` records the head seen before the diagnostic; individual
+views read current state and are not a snapshot pinned to that block.
 When policy reads succeed, permissioned deployments are ``permissioned_excluded``
 from this USDC shortlist, even when UPSHIFT_OWNER is admitted. Failed reads stay
 ``read_failed``. The audit retains excluded entries; it requests no admission.
@@ -31,6 +33,7 @@ from web3.exceptions import Web3Exception
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN
@@ -53,8 +56,9 @@ def fetch_vault_result(spec: VaultSpec, amount: Decimal, owner: HexAddress | Non
     try:
         web3 = create_multi_provider_web3(read_json_rpc_url(spec.chain_id))
         block = web3.eth.block_number
-        result["block"] = block
+        result["observed_head_block"] = block
         vault = create_vault_instance_autodetect(web3, spec.vault_address)
+        assert isinstance(vault, UpshiftVault), "Detected adapter is not Upshift"
         manager = vault.get_deposit_manager()
         result.update(name=vault.name, payout_asset=vault.denomination_token.symbol, payout_address=vault.denomination_token.address, share_token=vault.share_token.address)
         accepted = vault.fetch_all_denomination_tokens()

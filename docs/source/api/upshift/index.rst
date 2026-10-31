@@ -65,7 +65,7 @@ A USDC strategy still needs a verified conversion from a different payout
 token back to USDC. Defining denomination correctly does not add that swap.
 
 Deposits and withdrawals
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Multi-asset vaults accept their reference asset as well as extra whitelisted
 inputs, and mint a separate LP token. The manager includes the LP approval

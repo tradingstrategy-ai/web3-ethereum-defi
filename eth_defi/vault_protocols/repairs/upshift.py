@@ -112,6 +112,7 @@ def refresh_upshift_metadata(database: VaultDatabase, fetch_web3: Callable[[int]
     :param database: Migration-owned staged database.
     :param fetch_web3: Optional supplied per-chain connection factory for tests.
     :return: JSON-safe counts and missing reviewed identities.
+    :raises ValueError: If an identity conflicts or admission cannot be resolved.
     """
     connections = {}
     updates = []
@@ -129,12 +130,15 @@ def refresh_upshift_metadata(database: VaultDatabase, fetch_web3: Callable[[int]
         web3 = connections[spec.chain_id]
         assert web3.eth.chain_id == spec.chain_id
         vault = UpshiftVault(web3, spec, features=detection.features)
+        permission = fetch_deposit_permission(vault)
+        if permission is VaultDepositPermission.unknown:
+            raise ValueError(f"Unresolved Upshift deposit permission at {spec.as_string_id()}; repair remains pending")
         updates.append(
             (
                 row,
                 {
                     "_deposit_manager": vault.get_deposit_manager_capability().as_initial_public_schema(),
-                    "_deposit_permission": fetch_deposit_permission(vault).value,
+                    "_deposit_permission": permission.value,
                     "_lockup": vault.get_estimated_lock_up(),
                     "_withdrawal_period": vault.get_withdrawal_period(),
                     "_available_liquidity": vault.fetch_available_liquidity(),

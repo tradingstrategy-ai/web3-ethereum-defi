@@ -62,22 +62,23 @@ def _perform(web3: Web3, custody: tuple[Contract, Contract, HexAddress], functio
 
 
 @pytest.mark.parametrize(
-    "address,expected_shares,expected_payout,instant",
+    "address,expected_shares,expected_payout,instant,public_batch",
     [
-        ("0x74aD2F789Ed583DBd141bbdafC673fE1F033718b", 9_696_832, 9_999_999, False),
-        ("0x74aD2F789Ed583DBd141bbdafC673fE1F033718b", 9_696_832, 9_980_000, True),
-        ("0xE9B725010A9E419412ed67d0fA5f3A5f40159D32", 9_737_856, 9_999_999, False),
-        ("0x998D7b14c123c1982404562b68edDB057b0477cB", 9_366_802, 9_999_999, False),
-        ("0x80E1048eDE66ec4c364b4F22C8768fc657FF6A42", 9_463_784, 9_999_999, False),
+        ("0x74aD2F789Ed583DBd141bbdafC673fE1F033718b", 9_696_832, 9_999_999, False, False),
+        ("0x74aD2F789Ed583DBd141bbdafC673fE1F033718b", 9_696_832, 9_999_999, False, True),
+        ("0x74aD2F789Ed583DBd141bbdafC673fE1F033718b", 9_696_832, 9_980_000, True, False),
+        ("0xE9B725010A9E419412ed67d0fA5f3A5f40159D32", 9_737_856, 9_999_999, False, False),
+        ("0x998D7b14c123c1982404562b68edDB057b0477cB", 9_366_802, 9_999_999, False, False),
+        ("0x80E1048eDE66ec4c364b4F22C8768fc657FF6A42", 9_463_784, 9_999_999, False, False),
     ],
 )
-def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contract, HexAddress], address: HexAddress, expected_shares: int, expected_payout: int, instant: bool) -> None:
+def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contract, HexAddress], address: HexAddress, expected_shares: int, expected_payout: int, instant: bool, public_batch: bool) -> None:
     """Prove manager calls, epoch parsing, guarded claims and exact accounting.
 
     1. Configure the production guard policy and fund only the depositor.
     2. Deposit through the guard and verify actual minted shares.
     3. Request withdrawal, reload its ticket and advance only fork time.
-    4. Claim through the guard and analyse the real net payout.
+    4. Analyse the exact payout from a guarded claim or an outsider's public batch.
     """
     # 1. Configure the production guard policy and fund only the depositor.
     simple, guard, _ = custody
@@ -126,11 +127,15 @@ def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contrac
         result = manager.force_settle(ticket)
         assert result.status_after is AsyncVaultRequestStatus.claimable
         assert result.synthetic_assets_injected_raw == 0
-        tx = _perform(web3, custody, manager.finish_redemption(ticket))
+        if public_batch:
+            tx = vault.upshift_contract.functions.processAllClaimsByDate(ticket.year, ticket.month, ticket.day, 1).transact({"from": outsider})
+            assert_transaction_success_with_explanation(web3, tx)
+        else:
+            tx = _perform(web3, custody, manager.finish_redemption(ticket))
         assert manager.get_redemption_request_status(ticket) is AsyncVaultRequestStatus.none
     else:
         tx = txs[-1]
-    # 4. Claim through the guard and analyse the real net payout.
+    # 4. Analyse the exact payout from a guarded claim or an outsider's public batch.
     analysis = manager.analyse_redemption(tx, ticket)
     assert analysis.share_count == vault.share_token.convert_to_decimals(expected_shares)
     assert analysis.denomination_amount == asset.convert_to_decimals(expected_payout)

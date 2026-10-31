@@ -10,6 +10,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols.repairs.price_backfill import _assert_rows_unchanged
 from eth_defi.vault_protocols.repairs.upshift import TARGETS, refresh_upshift_metadata, stage_upshift_liquidity_correction
@@ -46,6 +47,7 @@ def test_upshift_metadata_refresh_stages_before_mutation(monkeypatch: pytest.Mon
     1. Report absent reviewed rows without inventing discoveries.
     2. Refresh two existing rows through supplied provider boundaries.
     3. Fail the second read and prove neither input row was partly updated.
+    4. Refuse an unresolved admission policy without publishing partial data.
     """
     # 1. Report absent reviewed rows without inventing discoveries.
     empty = VaultDatabase(rows={})
@@ -76,5 +78,11 @@ def test_upshift_metadata_refresh_stages_before_mutation(monkeypatch: pytest.Mon
         row.pop("_deposit_manager")
     vault.fetch_available_liquidity.side_effect = [Decimal(100), ValueError("RPC unavailable")]
     with pytest.raises(ValueError, match="RPC unavailable"):
+        refresh_upshift_metadata(database, lambda chain: provider)
+    assert all("_deposit_manager" not in row for row in rows.values())
+    # 4. Refuse an unresolved admission policy without publishing partial data.
+    vault.fetch_available_liquidity.side_effect = None
+    vault.is_whitelisted_deposit.side_effect = [False, ExtraValueError("RPC unavailable")]
+    with pytest.raises(ValueError, match="Unresolved Upshift deposit permission"):
         refresh_upshift_metadata(database, lambda chain: provider)
     assert all("_deposit_manager" not in row for row in rows.values())

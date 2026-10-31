@@ -81,7 +81,7 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
 
         :return:
             Calls for vault share price, NAV, LP token supply, pause flags and
-            configured maximum deposit/withdrawal amounts.
+            configured deposit limits.
         """
 
         upshift = self.vault.upshift_contract.functions
@@ -93,7 +93,6 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
             "withdrawalsPaused": upshift.withdrawalsPaused(),
             "maxDepositAmount": upshift.maxDepositAmount(),
             "depositCap": upshift.depositCap(),
-            "maxWithdrawalAmount": upshift.maxWithdrawalAmount(),
         }
 
         for function_name, contract_call in calls.items():
@@ -138,6 +137,8 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
         deposits_open = None
         redemption_open = None
         max_deposit = None
+        # A request cap does not establish payout liquidity. Historical
+        # liquidity stays unknown until a token balance is actually read.
         available_liquidity = None
         errors = []
 
@@ -184,14 +185,6 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
             max_deposit = denomination_token.convert_to_decimals(min(raw_per_deposit_limit, raw_remaining_capacity))
             if deposits_open:
                 deposits_open = max_deposit > 0
-
-        max_withdrawal_result = call_by_name.get("maxWithdrawalAmount")
-        if denomination_token is not None and max_withdrawal_result is not None and max_withdrawal_result.success:
-            # Upshift names this value as a withdrawal amount, but it is
-            # a denomination-token request limit, not share-token ``maxRedeem``.
-            # A request cap does not establish payout liquidity. Historical
-            # liquidity remains unknown until a token balance is actually read.
-            available_liquidity = None
 
         if share_price_result is not None and share_price_result.state is not None and share_price is not None:
             share_price_result.state.on_called(

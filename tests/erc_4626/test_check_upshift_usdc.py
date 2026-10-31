@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from eth_typing import HexAddress
 
+from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.vault.base import VaultSpec
 
@@ -29,7 +30,7 @@ def test_permissioned_upshift_excluded_even_for_admitted_owner(monkeypatch: pyte
     spec.loader.exec_module(module)
     usdc = USDC_NATIVE_TOKEN[1]
     token = SimpleNamespace(symbol="USDC", address=usdc, address_lower=usdc.lower(), fetch_balance_of=lambda address: Decimal(100))
-    vault = MagicMock()
+    vault = MagicMock(spec=UpshiftVault)
     vault.name = "USPC Custody Vault"
     vault.denomination_token = token
     vault.share_token = token
@@ -46,5 +47,6 @@ def test_permissioned_upshift_excluded_even_for_admitted_owner(monkeypatch: pyte
     result = module.fetch_vault_result(VaultSpec(1, "0x0a152c5b8d48c26619ff3ae85ef1b54a79e20870"), Decimal(10), owner)
 
     assert result["status"] == "permissioned_excluded"
+    assert result["observed_head_block"] == 123
     assert result["owner_admitted"] is (True if owner else None)
     vault.get_deposit_manager.return_value.create_deposit_request.assert_not_called()
