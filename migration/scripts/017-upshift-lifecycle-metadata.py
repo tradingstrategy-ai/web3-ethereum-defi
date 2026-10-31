@@ -4,7 +4,7 @@ Purpose: Publish repaired admission, accepted assets and queued-withdrawal suppo
 Scope: The 15 catalogue USDC-input EVM deployments frozen in repairs/upshift.py on 2026-10-30, including permissioned USPC. Existing rows only.
 Branch: check-upshift-deposit-adapter
 PR title: feat: support guarded Upshift vault deposits and withdrawals
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1705
 Preserves: Every price, timestamp, row identity, discovery boundary, reader state and cache. Other vaults and fields remain unchanged.
 Expected: Reviewed metadata rows refreshed and their historical available_liquidity values replaced with null. Preview reports exact counts.
 

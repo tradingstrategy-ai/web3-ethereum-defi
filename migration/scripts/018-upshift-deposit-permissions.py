@@ -4,7 +4,7 @@ Purpose: Replace the former blanket permissionless classification with each depl
 Scope: Every existing metadata row with Upshift detection/features; only _deposit_permission changes. No address or chain scope overrides.
 Branch: check-upshift-deposit-adapter
 PR title: feat: support guarded Upshift vault deposits and withdrawals
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1705
 Preserves: Capability, notes, flags, unrelated metadata, prices, leads, reader state and timestamp caches.
 Expected: The 2026-10-30 production snapshot has 126 Upshift rows, including 12 allow-listed deployments. Counts follow live policy; pending 017 may already correct USPC.
 
