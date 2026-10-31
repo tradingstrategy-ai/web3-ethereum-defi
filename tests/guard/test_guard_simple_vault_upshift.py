@@ -4,6 +4,7 @@ import os
 from collections.abc import Iterator
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from eth_typing import HexAddress
@@ -16,6 +17,7 @@ from web3.exceptions import ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import setup_guard
 from eth_defi.erc_4626.vault_protocol.upshift.deployment import fetch_upshift_guard_calls
@@ -28,6 +30,7 @@ from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -206,3 +209,39 @@ def test_upshift_outside_addition_halts(web3: Web3, custody: tuple[Contract, Con
         manager.get_redemption_request_status(ticket)
     with pytest.raises(AssertionError, match="aggregate"):
         manager.fetch_pending_redemption_value(ticket)
+
+
+def test_shared_guard_preserves_other_protocol_descriptors(web3: Web3, custody: tuple[Contract, Contract, HexAddress]) -> None:
+    """Keep generic guard support when features would select another adapter.
+
+    The Mellow flag is a metadata control: the explicit ERC-4626 descriptor
+    must not be replaced with a non-ERC-4626 adapter. Core supplies real
+    ERC-4626 asset/token views for this guard-configuration check; no deposit
+    or claim is attempted through this deliberately generic policy.
+
+    :param web3: Shared Ethereum fork.
+    :param custody: Existing guarded custody and its authorised manager.
+    """
+    simple, guard, manager = custody
+    descriptor = ERC4626Vault(web3, VaultSpec(1, "0xe9b725010a9e419412ed67d0fa5f3a5f40159d32"), features={ERC4626Feature.mellow_like})
+    setup_guard(web3=web3, safe=SimpleNamespace(address=simple.address), deployer=HotWallet.from_private_key(ANVIL_PRIVATE_KEY), owner=web3.eth.accounts[0], asset_managers=[manager], vault=None, module=guard, broadcast_func=lambda function: function.transact({"from": web3.eth.accounts[0]}), erc_4626_vaults=[descriptor], hack_sleep=0)
+    assert guard.functions.isAllowedCallSite(descriptor.address, Web3.keccak(text="deposit(uint256,address)")[:4]).call() is True
+    assert guard.functions.isAllowedCallSite(descriptor.address, Web3.keccak(text="claim(uint256,uint256,uint256,address)")[:4]).call() is False
+    assert guard.functions.isAllowedAsset(descriptor.address).call() is True
+
+
+def test_shared_guard_resolves_conflicts_before_broadcast(web3: Web3, custody: tuple[Contract, Contract, HexAddress]) -> None:
+    """Reject conflicting policy metadata before sending configuration calls.
+
+    The real factory sees both protocol flags. The broadcast spy proves that
+    a failed resolution cannot leave a partly configured guard.
+
+    :param web3: Shared Ethereum fork.
+    :param custody: Existing guarded custody and its authorised manager.
+    """
+    simple, guard, manager = custody
+    descriptor = ERC4626Vault(web3, VaultSpec(1, "0xe9b725010a9e419412ed67d0fa5f3a5f40159d32"), features={ERC4626Feature.mellow_like, ERC4626Feature.upshift_like})
+    broadcast = Mock()
+    with pytest.raises(AssertionError, match="Conflicting guard policy features"):
+        setup_guard(web3=web3, safe=SimpleNamespace(address=simple.address), deployer=HotWallet.from_private_key(ANVIL_PRIVATE_KEY), owner=web3.eth.accounts[0], asset_managers=[manager], vault=None, module=guard, broadcast_func=broadcast, erc_4626_vaults=[descriptor], hack_sleep=0)
+    broadcast.assert_not_called()

@@ -2031,6 +2031,24 @@ def setup_guard(
         # whose balances and Lagoon vault pairing deployment is configuring.
         assert module.functions.avatar().call() == safe.address, "TradingStrategyModuleV0 avatar must be the paired Safe"
         assert module.functions.target().call() == safe.address, "TradingStrategyModuleV0 target must be the paired Safe"
+    # Resolve every policy before sending any guard configuration transaction.
+    # Callers supply ordinary descriptors; only the supported specialised
+    # policies need a protocol adapter. Other flags retain the generic binding.
+    if erc_4626_vaults:
+        erc_4626_vaults = list(erc_4626_vaults)
+        for index, descriptor in enumerate(erc_4626_vaults):
+            assert isinstance(descriptor, ERC4626Vault), f"Expected ERC4626Vault, got {type(descriptor)}"
+            if isinstance(descriptor, (AtomaVault, UpshiftVault)):
+                continue
+            logger.info("Resolving vault guard policy at %s", descriptor.vault_address)
+            features = descriptor.features
+            if not features and type(descriptor) is ERC4626Vault:
+                features = detect_vault_features(web3, descriptor.vault_address, verbose=False)
+            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.upshift_like}:
+                resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
+                assert isinstance(resolved, (AtomaVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
+                erc_4626_vaults[index] = resolved
+
     _broadcast = broadcast_func
     entries: list[WhitelistEntry] = []
 
@@ -2105,22 +2123,6 @@ def setup_guard(
 
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
-        # Resolve specialised policies here so deployment callers can pass
-        # ordinary descriptors with their known features. Keep generic bindings
-        # for other protocols, including adapters outside this ERC-4626 path.
-        erc_4626_vaults = list(erc_4626_vaults)
-        for index, descriptor in enumerate(erc_4626_vaults):
-            assert isinstance(descriptor, ERC4626Vault), f"Expected ERC4626Vault, got {type(descriptor)}"
-            if isinstance(descriptor, (AtomaVault, UpshiftVault)):
-                continue
-            features = descriptor.features
-            if not features and type(descriptor) is ERC4626Vault:
-                features = detect_vault_features(web3, descriptor.vault_address, verbose=False)
-            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.upshift_like}:
-                resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
-                assert isinstance(resolved, (AtomaVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
-                erc_4626_vaults[index] = resolved
-
         # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
 
         # Do N vaults per one multicall
