@@ -473,7 +473,7 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         if raw_amount <= 0:
             reason = "Upshift deposit amount must be positive"
             raise ValueError(reason)
-        raw_preview_shares, _ = self._fetch_deposit_preview(asset, raw_amount, "latest")
+        raw_preview_shares, raw_reference = self._fetch_deposit_preview(asset, raw_amount, "latest")
         if raw_preview_shares <= 0:
             raise self._create_unavailable("Upshift deposit rounds to zero shares", owner, "deposit", "preflight", asset=asset.address)
         closed_reason = self.vault.fetch_deposit_closed_reason()
@@ -513,7 +513,6 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         whitelist = self.vault.upshift_contract.functions.sendersWhitelistAddress().call()
         if whitelist.lower() != ZERO_ADDRESS_STR and self.vault.fetch_deposit_cap() is not None:
             quota = get_deployed_contract(self.web3, "upshift/ISendersAllocationWhitelist.json", whitelist)
-            _, raw_reference = self._fetch_deposit_preview(asset, raw_amount, "latest")
             quota.functions.checkAndRecordDeposit(receiver, raw_reference).call({"from": self.vault.address})
         return ERC4626DepositRequest(
             vault=self.vault,

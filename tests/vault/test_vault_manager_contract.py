@@ -1,5 +1,6 @@
 """Regression coverage for shared concrete managers and temporary recovery delays."""
 
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -31,6 +32,37 @@ def test_shared_managers_remain_concrete(vault_type: type, manager_type: type) -
     manager = manager_type(vault)
     assert manager.vault is vault
     assert not manager_type.__abstractmethods__
+
+
+def test_upshift_sender_quota_uses_original_deposit_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use one preview observation for minted shares and sender quota value.
+
+    A second latest-state preview can disagree with the first. The quota must
+    receive the reference value accompanying the shares already checked.
+
+    :param monkeypatch: Replace the preview helper with changing results.
+    """
+    owner = "0x1111111111111111111111111111111111111111"
+    vault = MagicMock(spec=UpshiftVault)
+    vault.web3 = MagicMock()
+    vault.fetch_deposit_closed_reason.return_value = None
+    vault.fetch_deposit_cap.return_value = 10_000_000
+    vault.upshift_contract.functions.sendersWhitelistAddress.return_value.call.return_value = owner
+    manager = UpshiftMultiAssetDepositManager(vault)
+    asset = MagicMock()
+    asset.convert_to_decimals.return_value = Decimal(1)
+    preview = MagicMock(side_effect=[(1_000_000, 1_000_001), (1_000_000, 2_000_000)])
+    monkeypatch.setattr(manager, "check_deposit_whitelist", lambda account: None)
+    monkeypatch.setattr(manager, "_fetch_accepted_asset", lambda account, selected: asset)
+    monkeypatch.setattr(manager, "_fetch_deposit_preview", preview)
+    quota = MagicMock()
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem.get_deployed_contract", lambda *args: quota)
+
+    manager.create_deposit_request(owner, raw_amount=1_000_000, check_max_deposit=False, check_enough_token=False)
+
+    preview.assert_called_once_with(asset, 1_000_000, "latest")
+    quota.functions.checkAndRecordDeposit.assert_called_once_with(owner, 1_000_001)
+    quota.functions.checkAndRecordDeposit.return_value.call.assert_called_once_with({"from": vault.address})
 
 
 def test_consumed_upshift_request_defers_for_indexer_lag(monkeypatch: pytest.MonkeyPatch) -> None:

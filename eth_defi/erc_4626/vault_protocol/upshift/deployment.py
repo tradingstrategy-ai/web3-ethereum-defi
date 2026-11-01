@@ -22,10 +22,8 @@ def fetch_upshift_guard_calls(guard: Contract, vault: UpshiftVault, notes: str) 
     granted. See the verified
     interfaces in ``eth_defi/abi/upshift/README.md``.
 
-    This builds protocol configuration for the shared ``setup_guard()`` and
-    guarded tests. Deployment callers pass descriptors to that existing setup;
-    they do not need another Upshift resolver or whitelist implementation.
-    Request, claim and payout logic stays in the deposit manager.
+    Used by shared ``setup_guard()`` and guarded tests.
+    See ``.claude/docs/vault-integration.md`` for caller responsibilities.
 
     :param guard: GuardV0 or a compatible Lagoon trading module.
     :param vault: Upshift deployment to admit.

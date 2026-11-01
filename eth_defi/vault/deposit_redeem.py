@@ -1206,11 +1206,8 @@ class VaultDepositManager(ABC):
     subclasses report a zero delay.
 
     **Integration boundary.** Protocol subclasses own ABI-specific calls,
-    preflights, receipts and ticket fields. Callers reuse this interface for
-    synchronous or queued execution; a different contract signature is not a
-    reason to add a protocol branch to routing or a second settlement loop.
-    Prefer the existing mined-request, pending-value and completed-payout hooks
-    before adding another abstraction. See ``.claude/docs/vault-integration.md``.
+    preflights, receipts and ticket fields behind this shared synchronous/queued
+    interface. See ``.claude/docs/vault-integration.md`` for extension guidance.
 
     **Whitelisting / access control**
 
