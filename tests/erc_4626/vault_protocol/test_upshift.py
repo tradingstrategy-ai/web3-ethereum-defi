@@ -36,7 +36,7 @@ UPSHIFT_TORI_VAULT = "0xcd69123b3FBBfC666E1f6a501da27B564C00De54"
 UPSHIFT_CTUSD_VAULT = "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce"
 UPSHIFT_NEMO_USDC_VAULT = "0x955256B31097dDf47a9E47A95aDfDFB4460D8522"
 UPSHIFT_SENTORA_USD_EARN_VAULT = "0x74ad2f789ed583dbd141bbdafc673fe1f033718b"
-UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES = 969_683
+UPSHIFT_SENTORA_ONE_UNIT_RAW_SHARES = 969_683
 UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
 UPSHIFT_GAMMA_BTC_VAULT = "0x3e4ef6ccc7e4a045c9d3f48b08813d59df14e256"
 UPSHIFT_GAMMA_BTC_MANAGEMENT_FEE = 0.005
@@ -223,13 +223,14 @@ def test_upshift_nemo_withdrawal_period(web3: Web3) -> None:
 
 
 @pytest.mark.xdist_group("fork:ethereum:midnight")
-def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sentora_snapshot: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deposit the selected whitelist asset into Sentora USD Earn on Anvil.
+@pytest.mark.parametrize("alternative_asset", [None, "USDT"], ids=("denomination-default", "explicit-alternative"))
+def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sentora_snapshot: None, monkeypatch: pytest.MonkeyPatch, alternative_asset: str | None) -> None:
+    """Exercise ordinary denomination deposits and the explicit alternative API.
 
     The request contains its required ERC-20 approval followed by Upshift's
-    non-ERC-4626 ``deposit(asset, assets, receiver)`` call.  The exact vault's
-    fixed-block whitelist contains USDT, allowing the test to directly fund the
-    Anvil account without relying on a mutable mainnet token holder.
+    non-ERC-4626 ``deposit(asset, assets, receiver)`` call. At this fixed block,
+    one unit of USDC or the explicit USDT input mints the same shares. Fund
+    the Anvil account directly without relying on a mutable mainnet holder.
     """
     del sentora_snapshot
     vault = create_vault_instance_autodetect(sentora_web3, vault_address=UPSHIFT_SENTORA_USD_EARN_VAULT)
@@ -238,7 +239,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert isinstance(manager, UpshiftMultiAssetDepositManager)
 
     owner = sentora_web3.eth.accounts[0]
-    asset = next(asset for asset in manager.fetch_accepted_assets() if asset.symbol == "USDT")
+    asset = vault.denomination_token if alternative_asset is None else next(asset for asset in manager.fetch_accepted_assets() if asset.symbol == alternative_asset)
     raw_amount = asset.convert_to_raw(Decimal(1))
     capability = vault.get_deposit_manager_capability()
     assert capability.as_initial_public_schema() == {
@@ -254,10 +255,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert manager.can_create_deposit_request(owner) is True
     assert manager.can_create_redemption_request(owner) is False
 
-    with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
-        manager.create_deposit_request(owner=owner, raw_amount=raw_amount)
-    with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
-        manager.estimate_deposit(owner, Decimal(1))
+    assert manager.estimate_deposit(owner, Decimal(1)) == Decimal("0.969683")
     assert manager.estimate_redeem(owner, Decimal(1)) > 0
 
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), asset.address) == Decimal("0.969683")
@@ -268,12 +266,10 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     eighteen_decimal_max_deposit = manager.fetch_max_deposit_for_asset(eighteen_decimal_asset.address)
     assert eighteen_decimal_asset.convert_to_decimals(eighteen_decimal_max_deposit) == asset.convert_to_decimals(max_deposit)
 
-    # The generic deposit-limit hook answers from the multi-asset reader (first
-    # accepted asset) instead of raising ABIFunctionNotFound on the missing
-    # ERC-4626 maxDeposit.
-    first_asset = manager.fetch_accepted_assets()[0]
+    # The generic limit uses the denomination even if catalogue ordering changes.
+    monkeypatch.setattr(manager, "fetch_accepted_assets", lambda: (eighteen_decimal_asset, asset, vault.denomination_token))
     hook_limit = manager.fetch_depositable_raw_assets(owner)
-    assert hook_limit == manager.fetch_max_deposit_for_asset(first_asset.address)
+    assert hook_limit == manager.fetch_max_deposit_for_asset(vault.denomination_token.address)
     assert hook_limit > 0
 
     with pytest.raises(VaultFlowUnavailable, match="protocol limits") as exc_info:
@@ -290,13 +286,13 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     deposit_ticket = manager.create_deposit_request(
         owner=owner,
         raw_amount=raw_amount,
-        accepted_asset=asset.address,
+        **({"accepted_asset": asset.address} if alternative_asset is not None else {}),
     ).broadcast()
     monkeypatch.setattr(manager, "fetch_accepted_assets", lambda: ())
     analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
     assert analysis.denomination_amount == Decimal(1)
     assert analysis.share_count == Decimal("0.969683")
-    assert vault.share_token.fetch_raw_balance_of(owner) == UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES
+    assert vault.share_token.fetch_raw_balance_of(owner) == UPSHIFT_SENTORA_ONE_UNIT_RAW_SHARES
     assert manager.force_settle(None).settlement_required is False
 
 

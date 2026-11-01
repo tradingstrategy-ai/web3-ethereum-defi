@@ -1,5 +1,11 @@
 # ruff: noqa: EM101
-"""Upshift multi-asset deposit flow."""
+"""Upshift denomination-token execution and optional alternative deposit inputs.
+
+Normal deposits and withdrawals use the same denomination token. The explicit
+multi-token API is a deposit convenience: Upshift converts alternative inputs
+into its reference-asset accounting. It does not create another withdrawal
+denomination, and trade-executor does not need that input conversion feature.
+"""
 
 import datetime
 from dataclasses import dataclass
@@ -116,12 +122,15 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
     operator settlement step. One receiver/date obligation must belong to one
     ticket; aggregate requests halt instead of allocating proceeds.
 
+    Ordinary deposit and estimate methods use the withdrawal denomination.
+    Explicit ``accepted_asset`` and :meth:`estimate_deposit_for_asset` remain
+    available for library callers using Upshift's internal input conversion.
+    Alternative stablecoin inputs are a convenience rather than a separate
+    strategy capability; trade-executor uses only the denomination-token flow.
+
     See https://docs.upshift.finance/contracts/vault-interface and the verified
     implementation provenance in ``eth_defi/abi/upshift/README.md``.
     """
-
-    #: The direct deposit accepts an explicitly selected asset.
-    supports_multi_asset_deposit = True
 
     def check_deposit_whitelist(self, owner: HexAddress) -> None:
         """Check allow-list membership and the legacy negative admission policy.
@@ -186,20 +195,23 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         return self.vault.fetch_all_denomination_tokens()
 
     def _fetch_accepted_asset(self, owner: HexAddress | None, accepted_asset: HexAddress | None) -> TokenDetails:
-        """Resolve and validate an explicitly selected deposit token.
+        """Resolve and validate the denomination or an explicit deposit token.
+
+        Ordinary callers use the payout token. Alternative inputs remain an
+        explicit library option for vault-side conversion.
 
         :param owner:
             Deposit owner used for structured error context.
         :param accepted_asset:
-            Token address selected by the caller.
+            Optional alternative input; ``None`` uses the denomination token.
         :return:
             Selected token details.
         :raise VaultFlowUnavailable:
-            If no token was selected or it is not accepted by the vault.
+            If the selected token is not accepted by the vault.
         """
-        if accepted_asset is None:
-            reason = "Upshift multi-asset deposit requires an explicitly selected accepted asset"
-            raise self._create_unavailable(reason, owner, "deposit", "preflight")
+        denomination = self.vault.denomination_token
+        if accepted_asset is None or accepted_asset.lower() == denomination.address_lower:
+            return denomination
         asset = next((token for token in self.fetch_accepted_assets() if token.address_lower == accepted_asset.lower()), None)
         if asset is None:
             reason = "Upshift selected deposit asset is not on the vault whitelist"
@@ -264,24 +276,19 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         The multi-asset Upshift vault does not implement the standard ERC-4626
         ``maxDeposit`` (its limit surface is ``maxDepositAmount`` / ``depositCap``
         / asset-aware ``previewDeposit``). Overriding the generic hook means a
-        generic-path deposit preflight receives a real limit — for the vault's
-        first whitelisted asset, in that asset's raw units — instead of the raw
-        ``ABIFunctionNotFound`` the base implementation would raise. The
-        protocol-specific :meth:`create_deposit_request` still uses the
+        generic-path deposit preflight receives a real limit in denomination
+        token units instead of the ``ABIFunctionNotFound`` the base would raise.
+        The protocol-specific :meth:`create_deposit_request` still uses the
         per-selected-asset :meth:`fetch_max_deposit_for_asset` for an actual
         deposit.
 
         :param owner:
-            Unused; the multi-asset limit is not owner-specific.
+            Account checked for admission; the limit itself is vault-wide.
         :return:
-            Deposit limit for the vault's first accepted asset in raw units, or
-            ``None`` when the vault currently accepts no asset.
+            Deposit limit in denomination-token raw units.
         """
         self.check_deposit_whitelist(owner)
-        accepted = self.fetch_accepted_assets()
-        if not accepted:
-            return None
-        return self.fetch_max_deposit_for_asset(accepted[0].address)
+        return self.fetch_max_deposit_for_asset(self.vault.denomination_token.address)
 
     def estimate_deposit(
         self,
@@ -289,20 +296,22 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         amount: Decimal,
         block_identifier: BlockIdentifier = "latest",
     ) -> Decimal:
-        """Refuse an ambiguous estimate without an accepted-asset selection.
+        """Estimate LP shares for a deposit in the withdrawal denomination.
+
+        Reuse the protocol preview with the denomination selected internally.
+        Alternative input conversion remains available through
+        :meth:`estimate_deposit_for_asset` for explicit library callers.
 
         :param owner:
             Deposit owner used for structured error context.
         :param amount:
-            Ambiguous amount whose token is not specified.
+            Denomination-token amount.
         :param block_identifier:
-            Unused because the request is rejected before an onchain read.
-        :raise VaultFlowUnavailable:
-            Always, directing the caller to :meth:`estimate_deposit_for_asset`.
+            Block at which to read the share price.
+        :return:
+            Estimated LP shares rounded down to share-token precision.
         """
-        del amount, block_identifier
-        reason = "Upshift multi-asset deposit estimation requires an explicitly selected accepted asset"
-        raise self._create_unavailable(reason, owner, "deposit", "estimate")
+        return self.estimate_deposit_for_asset(owner, amount, self.vault.denomination_token.address, block_identifier=block_identifier)
 
     def estimate_deposit_for_asset(
         self,
@@ -431,7 +440,9 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         """Create approval and deposit calls for one selected asset.
 
         The returned synchronous request approves the vault and then calls its
-        multi-asset ``deposit`` entry point.
+        multi-asset ``deposit`` entry point. By default the input is the same
+        denomination token returned on withdrawal. An explicit alternative is
+        retained for library callers using the vault's input conversion.
 
         :param owner:
             Address funding the deposit.
@@ -446,7 +457,7 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):  # noqa: PLR0904
         :param check_enough_token:
             Whether to check the owner's selected-token balance.
         :param accepted_asset:
-            Explicitly selected whitelist token.
+            Optional alternative whitelist token; defaults to the denomination.
         :return:
             Synchronous approval and deposit request.
         :raise VaultFlowUnavailable:
@@ -936,9 +947,6 @@ class UpshiftDepositManager(UpshiftMultiAssetDepositManager):  # noqa: PLR0904
     the configured lag is zero. Standard ``redeem`` is not supported.
     """
 
-    #: Legacy pools accept only their denomination asset.
-    supports_multi_asset_deposit = False
-
     def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True, *, accepted_asset: HexAddress | None = None) -> ERC4626DepositRequest:
         """Build the standard legacy deposit using the existing ERC-4626 helper.
 
@@ -951,6 +959,7 @@ class UpshiftDepositManager(UpshiftMultiAssetDepositManager):  # noqa: PLR0904
         :param raw_amount: Raw denomination amount.
         :param check_max_deposit: Whether to preflight capacity.
         :param check_enough_token: Whether to preflight the owner's balance.
+        :param accepted_asset: Optional denomination address; legacy pools accept no alternative.
         :return: Standard synchronous deposit request.
         """
         assert accepted_asset is None or accepted_asset.lower() == self.vault.denomination_token.address_lower

@@ -6,6 +6,10 @@ Custody Vault is an allow-listed deployment. An asset whitelist, public app
 listing or implemented deposit manager does not establish public admission.
 The denomination token is the withdrawal payout token returned by ``asset()``;
 additional accepted deposit tokens do not change the denomination.
+Ordinary manager calls deposit that same payout token. Optional multi-token
+deposits are a vault-side conversion convenience; for stablecoin vaults this
+converts another stablecoin input into reference-asset accounting. The executor
+does not need this feature and uses the denomination in both directions.
 See ``eth_defi/abi/upshift/README.md`` for verified contract sources.
 """
 
@@ -455,6 +459,10 @@ class UpshiftVault(ERC4626Vault):
         ordering and removes duplicate addresses. Only
         :meth:`fetch_denomination_token` defines the denomination.
 
+        Extra inputs are available to explicit library callers. Their internal
+        conversion is a deposit convenience, not a separate executor capability;
+        ordinary deposits and estimates use the payout token.
+
         :return:
             Accepted deposit tokens in protocol order. Single-asset Upshift
             vaults return only their denomination/payout token.
@@ -713,8 +721,10 @@ class UpshiftVault(ERC4626Vault):
 
         .. note::
 
-            Trade-executor must inspect the matching directional flag and use
-            ``deposit_assets`` to require an explicit accepted-asset selection.
+            Trade-executor inspects the directional flags and uses the manager's
+            ordinary denomination-token methods. ``deposit_assets`` also lists
+            optional library inputs converted into reference-asset accounting;
+            it does not require token selection in the executor.
 
         :return:
             Directional capability and accepted assets for the vault shape.

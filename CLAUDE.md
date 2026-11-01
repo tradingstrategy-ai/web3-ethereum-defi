@@ -9,6 +9,9 @@ touches the relevant area:
   Grok CLI usage patterns, cross-agent review commands, streaming output,
   timeouts, and common failure modes. See **Agents** below for when this
   file is mandatory.
+- `.claude/docs/vault-integration.md` — read before changing ERC-4626-style
+  vault adapters, their guard deployment or executor integration; defines
+  existing ownership, descriptor handling and checks against unnecessary layers.
 - `docs/README-lighter-core-execution.md` — read before changing Lighter pool
   execution or multichain activation scripts; covers script defaults, custody
   boundaries, recovery and the remaining funded verification requirements.

@@ -61,8 +61,19 @@ inputs are exposed as ``deposit_manager.deposit_assets``. Do not relabel the
 denomination as USDC because a vault accepts it. The share token is separate
 from both.
 
+Ordinary ``create_deposit_request()`` and ``estimate_deposit()`` use the
+withdrawal denomination. Explicit ``accepted_asset`` deposits and
+``estimate_deposit_for_asset()`` remain available to library callers.
+For stablecoin vaults these extra inputs are a convenience: Upshift handles
+the conversion into reference-asset accounting inside the vault. They are not
+needed by trade-executor, which deposits and receives the denomination token.
+Eth-defi's shared guard setup registers that token rather than every optional
+input. A library caller using an alternative input through guarded custody
+must separately allow that token with the existing guard configuration calls.
+
 A USDC strategy still needs a verified conversion from a different payout
-token back to USDC. Defining denomination correctly does not add that swap.
+token back to USDC. The direct executor route requires the denomination to
+match its funded reserve; defining denomination correctly does not add a swap.
 
 Deposits and withdrawals
 ~~~~~~~~~~~~~~~~~~~~~~~~

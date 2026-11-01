@@ -1954,6 +1954,13 @@ def setup_guard(
     retain the generic policy; metadata-only subclasses are not probed without
     features, so unsupported diagnostic adapters remain isolated.
 
+    Keep policy selection here rather than duplicating it in CLI commands,
+    universe builders or simulated controllers. A separate LP token or ABI
+    changes the adapter and allowed calls, not the executor's lifecycle.
+    Resolve all required descriptors before the first policy broadcast, even
+    when resolution requires RPC reads. See ``.claude/docs/vault-integration.md``
+    for caller responsibilities and guarded regression coverage.
+
     ``lagoon_max_settlement_amount_raw`` is deliberately a lower-level raw-unit
     argument. Public deployment callers normally use
     :func:`deploy_automated_lagoon_vault` or :class:`LagoonConfig`, which accept

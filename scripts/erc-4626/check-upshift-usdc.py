@@ -82,8 +82,7 @@ def fetch_vault_result(spec: VaultSpec, amount: Decimal, owner: HexAddress | Non
             result["status"] = "temporarily_unavailable"
         else:
             if owner:
-                kwargs = {"accepted_asset": usdc} if vault.multi_asset_like else {}
-                manager.create_deposit_request(owner, amount=amount, check_enough_token=False, **kwargs)
+                manager.create_deposit_request(owner, amount=amount, check_enough_token=False)
             else:
                 result["deposit_capacity_raw"] = manager.fetch_max_deposit_for_asset(usdc) if vault.multi_asset_like else None
             result["status"] = "eligible_not_traded" if owner else "account_admission_unverified"

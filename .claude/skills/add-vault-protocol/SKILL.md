@@ -72,6 +72,10 @@ Before starting, gather the following information from the user:
 
 ## Completion requirements
 
+Before implementation, read [vault integration through the existing framework](../../docs/vault-integration.md).
+Keep ABI differences in the protocol manager and policy resolution in shared
+guard setup; do not add protocol-selection wrappers in deployment callers.
+
 A new vault protocol integration is not complete unless it includes:
 
 - Protocol detection or hardcoded address classification

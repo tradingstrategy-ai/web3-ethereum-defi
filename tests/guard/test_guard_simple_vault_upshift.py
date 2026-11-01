@@ -110,6 +110,12 @@ def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contrac
         target, data = encode_simple_vault_transaction(bad_asset)
         with pytest.raises((ContractLogicError, ValueError), match="Token not allowed"):
             simple.functions.performCall(target, data).call({"from": custody[2]})
+        # A real accepted stablecoin is also excluded from this deployment's
+        # denomination-only configuration, despite the library accepting it.
+        alternative = next(token for token in vault.fetch_all_denomination_tokens() if token.address_lower != vault.denomination_token.address_lower)
+        target, data = encode_simple_vault_transaction(vault.upshift_contract.functions.deposit(alternative.address, 1, simple.address))
+        with pytest.raises((ContractLogicError, ValueError), match="Token not allowed"):
+            simple.functions.performCall(target, data).call({"from": custody[2]})
     if not vault.multi_asset_like:
         bad = vault.upshift_contract.functions.requestRedeem(1, simple.address, outsider)
         target, data = encode_simple_vault_transaction(bad)
@@ -119,8 +125,7 @@ def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contrac
     fund_erc20_on_anvil(web3, asset.address, simple.address, asset.convert_to_raw(Decimal(10)))
     _perform(web3, custody, asset.approve(manager.get_deposit_approval_target(), Decimal(10)))
     # 2. Deposit through the guard and verify actual minted shares.
-    kwargs = {"accepted_asset": asset.address} if vault.multi_asset_like else {}
-    request = manager.create_deposit_request(simple.address, amount=Decimal(10), **kwargs)
+    request = manager.create_deposit_request(simple.address, amount=Decimal(10))
     txs = [_perform(web3, custody, function) for function in request.funcs]
     analysis = manager.analyse_deposit(txs[-1], request.parse_deposit_transaction(txs))
     assert analysis.denomination_amount == Decimal(10)
@@ -192,7 +197,7 @@ def test_upshift_outside_addition_halts(web3: Web3, custody: tuple[Contract, Con
         assert_transaction_success_with_explanation(web3, function.transact({"from": web3.eth.accounts[0]}))
     token = vault.denomination_token
     fund_erc20_on_anvil(web3, token.address, simple.address, token.convert_to_raw(Decimal(10)))
-    request = manager.create_deposit_request(simple.address, amount=Decimal(10), accepted_asset=token.address)
+    request = manager.create_deposit_request(simple.address, amount=Decimal(10))
     for function in request.funcs:
         _perform(web3, custody, function)
     request = manager.create_redemption_request(simple.address, raw_shares=vault.share_token.fetch_raw_balance_of(simple.address))
@@ -201,7 +206,7 @@ def test_upshift_outside_addition_halts(web3: Web3, custody: tuple[Contract, Con
     # 2. Let an independent holder add a real small request for that receiver.
     outsider = web3.eth.accounts[3]
     fund_erc20_on_anvil(web3, token.address, outsider, token.convert_to_raw(Decimal(1)))
-    manager.create_deposit_request(outsider, amount=Decimal(1), accepted_asset=token.address).broadcast()
+    manager.create_deposit_request(outsider, amount=Decimal(1)).broadcast()
     assert_transaction_success_with_explanation(web3, vault.share_token.approve(vault.address, vault.share_token.convert_to_decimals(1)).transact({"from": outsider}))
     assert_transaction_success_with_explanation(web3, vault.upshift_contract.functions.requestRedeem(1, simple.address).transact({"from": outsider}))
     # 3. Halt status and valuation without attempting an aggregate payout split.

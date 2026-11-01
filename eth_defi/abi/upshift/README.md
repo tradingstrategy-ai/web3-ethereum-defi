@@ -51,6 +51,16 @@ inputs; receiving USDC on deposit does not change the vault's payout token.
 Keep token identity and decimals tied to `asset()` for accounting and receipt
 analysis, rather than choosing an accepted input as the denomination.
 
+The normal manager methods deposit and estimate in that denomination. The
+optional `accepted_asset` and `estimate_deposit_for_asset()` APIs preserve
+multi-token deposits for explicit library callers. For stablecoin vaults,
+alternative inputs are a vault-side conversion convenience, valued in
+reference-asset units by `previewDeposit`; they do not provide a different
+withdrawal token. Trade-executor does not use this feature. Eth-defi's shared
+guard setup registers the denomination token rather than every alternative
+input. A library caller using an alternative input through guarded custody
+must separately allow that token with the existing guard configuration calls.
+
 `ISendersAllocationWhitelist.json` exports the exact two runtime methods from
 `ISendersWhitelist` and `ISendersAllocationWhitelist` in that same verified
 multi-asset source. Quota validation uses `checkAndRecordDeposit` through a

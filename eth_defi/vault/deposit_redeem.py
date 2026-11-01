@@ -1205,6 +1205,13 @@ class VaultDepositManager(ABC):
     such as an epoch that only accepts requests on some days. Synchronous
     subclasses report a zero delay.
 
+    **Integration boundary.** Protocol subclasses own ABI-specific calls,
+    preflights, receipts and ticket fields. Callers reuse this interface for
+    synchronous or queued execution; a different contract signature is not a
+    reason to add a protocol branch to routing or a second settlement loop.
+    Prefer the existing mined-request, pending-value and completed-payout hooks
+    before adding another abstraction. See ``.claude/docs/vault-integration.md``.
+
     **Whitelisting / access control**
 
     Deposit admission is enforced by :meth:`check_deposit_whitelist`, the shared

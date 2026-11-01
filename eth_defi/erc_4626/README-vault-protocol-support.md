@@ -13,6 +13,12 @@ synchronous lifecycle. It executes the manager-selected approval, deposit and
 redemption calls through ``SimpleVaultV0.performCall()`` on a fixed Ethereum
 mainnet Anvil fork.
 
+For implementation ownership, deployment descriptors and checks against
+duplicated integration layers, read the
+[agent integration workflow](../../.claude/docs/vault-integration.md).
+ABI differences belong in the protocol manager and shared guard configuration;
+they do not require a separate executor lifecycle.
+
 ## Account admission and permissionless shortlists
 
 Classify account admission for each deployment through the existing
