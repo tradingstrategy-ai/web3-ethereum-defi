@@ -39,6 +39,7 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionTicket,
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
+    VaultRequestInvariantViolation,
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
 )
@@ -167,12 +168,17 @@ class AtomaDepositManager(ERC4626DepositManager):
     def _unavailable(self, reason: str, owner: HexAddress | None = None, phase: str = "preflight") -> VaultFlowUnavailable:
         """Build a contextual error without treating RPC failures as availability.
 
+        Attribution mismatches use a fatal subtype so consumers can halt
+        without inspecting Atoma's reason strings. Other refusals retain the
+        existing availability and recovery behaviour.
+
         :param reason: Stable reason for deferred or unsupported execution.
         :param owner: Custody account when known.
         :param phase: Lifecycle phase.
-        :return: Structured flow exception.
+        :return: Structured flow exception, fatal for an aggregate mismatch.
         """
-        return VaultFlowUnavailable(reason, protocol="Atoma", vault_address=self.vault.address, caller=owner, phase=phase, preflight_result=reason)
+        error_type = VaultRequestInvariantViolation if reason == "request_reconciliation_required" else VaultFlowUnavailable
+        return error_type(reason, protocol="Atoma", vault_address=self.vault.address, caller=owner, phase=phase, preflight_result=reason)
 
     def _amount(self, decimal: Decimal | None, raw: int | None, *, shares: bool) -> int:
         """Validate mutually exclusive input units before constructing calldata.

@@ -76,6 +76,23 @@ ledger, duplicate ticket fields as a pricing cache, or infer executor behaviour
 from a protocol-specific ticket key. A changed signature or separate share
 token alone does not justify a new CLI, router or persistence mechanism.
 
+An adapter must distinguish temporary unavailability from unsafe attribution.
+Raise `VaultRequestInvariantViolation` when the observed request aggregate
+cannot be assigned to its recorded ticket; consumers must halt rather than
+retry it as a settlement delay. Atoma selects this error in its existing
+`_unavailable()` helper. A consumed ticket still uses ordinary recovery.
+Its explicit aggregate-reconciliation library methods are outside the
+executor's single-request operating model and must not run automatically.
+
+Successful receipt analyses own the evidence for realised amounts, including
+a proven zero-payout redemption. Keep protocol validation in the analysis
+subclass and use the executor's existing zero-proceeds accounting opt-in.
+Live startup and ticks resolve all vaults once before valuation and treasury
+sync, so no protocol-specific scheduling predicate or saved capability flag
+is needed. Backtests keep their existing post-sync settlement order. Remaining
+consumer-specific ticket and preflight exceptions belong in small policy
+helpers, preserving whole-batch checks before any claim.
+
 Account admission is per deployment. Accepted deposit inputs do not redefine
 the withdrawal denomination, and a supported manager does not establish public
 access. USPC remains permissioned even when a particular custody account is

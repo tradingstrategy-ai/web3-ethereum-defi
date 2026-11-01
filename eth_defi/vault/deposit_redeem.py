@@ -392,6 +392,15 @@ class VaultFlowUnavailable(VaultFlowError):  # noqa: N818
     """A vault flow cannot be safely created before transaction broadcast."""
 
 
+class VaultRequestInvariantViolation(VaultFlowUnavailable):  # noqa: N818
+    """A request cannot be attributed safely to its recorded entitlement.
+
+    This is a fatal accounting failure, not a temporary settlement delay.
+    Consumers must halt automatic settlement and inspect custody/state before
+    retrying. Structured context is inherited from :class:`VaultFlowError`.
+    """
+
+
 class WhitelistingRequired(VaultFlowUnavailable):  # noqa: N818
     """A deposit was attempted for a vault whose whitelist excludes the owner.
 
@@ -517,8 +526,10 @@ class DepositRedeemEventFailure:
 class DepositRedeemEventAnalysis:
     """Analyse a vault deposit/redeem event.
 
-    - Done for the transaction where we get our assets into our wallet,
-      so we can determine the actualy executed price of shares we received/sold
+    Managers return this only after validating the mined receipt and its token
+    flows. The default requires positive assets and shares. A protocol subclass
+    may accept zero redemption proceeds when the receipt proves that shares
+    were consumed for a total loss; an absent or undecodable payout is a failure.
     """
 
     from_: HexAddress
