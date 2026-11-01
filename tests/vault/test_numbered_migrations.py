@@ -76,7 +76,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     backfilled = []
     monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets, **_kwargs: backfilled.extend(targets))
     path = batch_database / "vault-metadata-db.pickle"
-    # Migration 017 validates the price file even when no reviewed vault has rows.
+    # Migration 018 validates the price file even when no reviewed vault has rows.
     # Keep real unrelated Parquet data so the complete batch exercises that path.
     pq.write_table(pa.table({"chain": [1], "address": ["0x0000000000000000000000000000000000000001"], "share_price": [1.25], "available_liquidity": [123.0]}), batch_database / "vault-prices-1h.parquet")
     for name in ("vault-reader-state-1h.pickle", "timestamps.duckdb"):

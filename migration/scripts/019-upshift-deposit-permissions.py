@@ -6,7 +6,7 @@ Branch: check-upshift-deposit-adapter
 PR title: feat: support guarded Upshift vault deposits and withdrawals
 PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1705
 Preserves: Capability, notes, flags, unrelated metadata, prices, leads, reader state and timestamp caches.
-Expected: The 2026-10-30 production snapshot has 126 Upshift rows, including 12 allow-listed deployments. Counts follow live policy; pending 017 may already correct USPC.
+Expected: The 2026-10-30 production snapshot has 126 Upshift rows, including 12 allow-listed deployments. Counts follow live policy; pending 018 may already correct USPC.
 
 This metadata-only repair adds no discoveries or early price gaps, so no price
 backfill is needed. Reads finish before staging changes; unresolved policies

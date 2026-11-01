@@ -212,13 +212,13 @@ verified older implementation has a per-deposit limit but no global-cap getter;
 that exception is tied to its exact implementation, and unknown cap failures
 remain errors.
 
-Migration `017-upshift-lifecycle-metadata.py` refreshes the reviewed persisted
+Migration `018-upshift-lifecycle-metadata.py` refreshes the reviewed persisted
 fields and clears historical caps mislabelled as liquidity. The staged Parquet
 correction is tested across 200,003 rows, including NaNs, and preserves every
 price, timestamp, row and unrelated column. It creates no discoveries or early
 price gaps, so it needs no state backfill. It has not been run in production.
 Before rollout, stop scanner writers and use the existing migration runbook to
-preview and apply 017; refresh the normal feed/bundle afterwards. Deploy or
+preview and apply 018; refresh the normal feed/bundle afterwards. Deploy or
 reconfigure compatible existing guard policies before strategy enablement.
 
 Validation completed on 2026-10-31:
@@ -271,18 +271,19 @@ onchain reads found 12 sender-gated deployments, including USPC. Five were in
 the exported catalogue. USPC is excluded from the permissionless shortlist;
 the historical availability report is retained as dated evidence, not clearance.
 
-Migration `018-upshift-deposit-permissions.py` uses the scanner's shared adapter
+Migration `019-upshift-deposit-permissions.py` uses the scanner's shared adapter
 selection and permission resolver to refresh the admission field across all
 stored Upshift deployments. It uses one recent provider-safe block per chain,
 preserves unrelated metadata and history, and fails before staging changes if
-a policy is unknown or the scanner selects another adapter. Pending 017 covers
-only USPC among the 12 affected deployments; 018 then corrects the remaining 11
+a policy is unknown or the scanner selects another adapter. Pending 018 covers
+only USPC among the 12 affected deployments; 019 then corrects the remaining 11
 if policy is unchanged. These counts are observations, not fixed assertions.
 
 Validation on 31 October 2026: 119 focused tests passed, with one optional live
 migration test skipped. This includes real fixed-state Ethereum policy and
-membership reads, guarded lifecycle regressions, metadata exports and 017/018
-sequencing. A manual preview and apply of 018 on a disposable production
+membership reads, guarded lifecycle regressions, metadata exports and 018/019
+sequencing. A manual preview and apply of the permission migration (then
+numbered 018, now 019) on a disposable production
 metadata copy inspected 126 rows and corrected 12 permission fields through
 the real adapter factory and supplied chain RPC providers. Every other
 metadata field, lead and discovery boundary was preserved; preview created no
@@ -303,8 +304,8 @@ source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --
 source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
 ```
 
-Migration 018 affects only `vault-metadata-db.pickle`; it needs no price
-backfill. Pending 017 separately clears the reviewed historical liquidity
+Migration 019 affects only `vault-metadata-db.pickle`; it needs no price
+backfill. Pending 018 separately clears the reviewed historical liquidity
 field. Validate the journal and normal scanner publication afterwards: USPC
 must export `whitelisted` in `deposit_permission`, `whitelist.status` and
 `deposit_manager.deposit_permission`. Refresh strategy metadata and confirm

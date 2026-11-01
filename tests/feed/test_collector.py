@@ -360,7 +360,7 @@ def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> N
 
     1. Load a Microsoft feeder YAML with only a LinkedIn source.
     2. Collect posts through ``DEFAULT_LINKEDIN_URL_TEMPLATES``.
-    3. Assert posts link back to LinkedIn, including a Microsoft post.
+    3. Assert the company feed returns dated posts with canonical LinkedIn links.
     """
     # VanEck returned HTTP 502 on 2026-10-28 while Microsoft's feed succeeded.
     # 1. Load a Microsoft feeder YAML with only a LinkedIn source.
@@ -380,7 +380,8 @@ def test_live_default_linkedin_bridge_returns_company_posts(tmp_path: Path) -> N
     # 3. LinkedIn uses both named post links and activity links for shared posts.
     assert 0 < len(posts) <= 5
     assert all(post.post_url.startswith(("https://www.linkedin.com/posts/", "https://www.linkedin.com/feed/update/urn:li:activity:")) for post in posts)
-    assert any(post.post_url.startswith("https://www.linkedin.com/posts/microsoft_") for post in posts)
+    # The company feed may contain only shared posts with activity-ID URLs.
+    # Both canonical LinkedIn URL forms above are valid provider responses.
     assert all(post.published_at is not None for post in posts)
 
 

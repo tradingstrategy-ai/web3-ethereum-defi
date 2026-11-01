@@ -2749,9 +2749,9 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 
 Legacy standalone repair; do not run it for a new classification correction.
 Use a numbered migration through the guarded runner described above. In
-particular, `018-upshift-deposit-permissions.py` refreshes
+particular, `019-upshift-deposit-permissions.py` refreshes
 `_deposit_permission` for **all existing Upshift rows**, including restricted
-USPC and deployments outside migration 017's USDC lifecycle inventory.
+USPC and deployments outside migration 018's USDC lifecycle inventory.
 
 The former Upshift adapter reported every deployment as permissionless. A
 configured sender allow-list now exports `whitelisted`; accepted-token lists,
@@ -2760,7 +2760,7 @@ shortlists exclude restricted deployments, even if one custody account is
 admitted. The read-only `check-upshift-usdc.py` reports them as
 `permissioned_excluded`.
 
-Migration 018 changes only the permission field and fails on unresolved reads.
+Migration 019 changes only the permission field and fails on unresolved reads.
 Its scope and expected counts are documented in the numbered script. The
 [implementation record](../../docs/superpowers/plans/2026-10-30-upshift-trade-executor-support.md#permission-correction-and-rollout) contains validation and the production run reminder.
 

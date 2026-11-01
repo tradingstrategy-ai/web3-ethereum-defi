@@ -36,7 +36,7 @@ not change the account-admission classification.
 Permissionless strategy shortlists must exclude restricted vaults even when
 an individual account is admitted. Transaction capability remains independent;
 an explicitly authorised integration can still use the membership preflight.
-Numbered migration 018 repairs cached admission fields across existing Upshift
+Numbered migration 019 repairs cached admission fields across existing Upshift
 records; normal scanner publication is needed before consumers see the fix.
 
 Denomination and deposit tokens
