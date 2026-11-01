@@ -26,7 +26,7 @@ from eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem import INSUFFICIENT_I
 from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_IMPLEMENTATION, ATOMA_LEGACY_IMPLEMENTATION, ATOMA_VAULT_ADDRESS, AtomaVault
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventFailure, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventFailure, VaultFlowUnavailable, VaultRequestInvariantViolation
 from eth_defi.vault.flow_events import IndexedVaultFlowLog
 
 OWNER = Web3.to_checksum_address("0x" + "11" * 20)
@@ -159,11 +159,14 @@ def test_claim_quote_requires_attribution(manager: AtomaDepositManager, ticket: 
     assert manager.fetch_claim_amounts(ticket, block_identifier=10) == (100, 0, 100)
     # 2. Refuse a larger owner aggregate and a consumed request, retaining zero-loss distinction.
     f.userEpochShares.return_value.call.return_value = ticket.raw_shares + 1
-    with pytest.raises(VaultFlowUnavailable, match="request_reconciliation_required"):
+    with pytest.raises(VaultRequestInvariantViolation, match="request_reconciliation_required"):
         manager.fetch_claim_amounts(ticket, block_identifier=10)
+    with pytest.raises(VaultRequestInvariantViolation, match="request_reconciliation_required"):
+        manager.finish_redemption(ticket)
     f.userEpochShares.return_value.call.return_value = 0
-    with pytest.raises(VaultFlowUnavailable, match="claim_already_completed"):
+    with pytest.raises(VaultFlowUnavailable, match="claim_already_completed") as consumed:
         manager.fetch_claim_amounts(ticket, block_identifier=10)
+    assert not isinstance(consumed.value, VaultRequestInvariantViolation)
 
 
 def test_unknown_implementation(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:

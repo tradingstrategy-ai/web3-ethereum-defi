@@ -1626,6 +1626,16 @@ class VaultBase(ABC):
         is independent of a caller's current balance, allowance, pause state,
         capacity, and request lifecycle.
 
+        Inspect every supported deployment generation for optional account
+        gates. A public app listing or one permissionless example must not
+        become a protocol-wide ``False`` default: Upshift's USPC deployment
+        configures a sender allow-list while other Upshift deployments do not.
+        Keep account and accepted-token allow-lists separate. Permissionless
+        strategy shortlists exclude a ``True`` result even if one particular
+        custody account is admitted. Repairs to this accessor need a numbered
+        migration for the persisted ``_deposit_permission`` field and normal
+        export publication; changing the adapter alone leaves stale labels.
+
         :return:
             ``True`` when deposits require account pre-approval and
             ``False`` when they do not.

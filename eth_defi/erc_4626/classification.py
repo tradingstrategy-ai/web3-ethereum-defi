@@ -2215,6 +2215,13 @@ def create_vault_instance(
     See also
     - :py:func:`detect_vault_features` to determine features for a vault address
 
+    This factory constructs protocol-specific vault classes for metadata,
+    scanning and execution where supported, including classes outside the
+    :class:`~eth_defi.erc_4626.vault.ERC4626Vault` hierarchy. Guard-deployment
+    callers pass ordinary descriptors and known features to ``setup_guard()``,
+    which owns supported policy resolution.
+    See ``.claude/docs/vault-integration.md`` for the integration boundary.
+
     :param features:
         Previously/manually extracted vault feature flags for the type.
 

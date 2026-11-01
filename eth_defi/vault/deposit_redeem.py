@@ -392,6 +392,15 @@ class VaultFlowUnavailable(VaultFlowError):  # noqa: N818
     """A vault flow cannot be safely created before transaction broadcast."""
 
 
+class VaultRequestInvariantViolation(VaultFlowUnavailable):  # noqa: N818
+    """A request cannot be attributed safely to its recorded entitlement.
+
+    This is a fatal accounting failure, not a temporary settlement delay.
+    Consumers must halt automatic settlement and inspect custody/state before
+    retrying. Structured context is inherited from :class:`VaultFlowError`.
+    """
+
+
 class WhitelistingRequired(VaultFlowUnavailable):  # noqa: N818
     """A deposit was attempted for a vault whose whitelist excludes the owner.
 
@@ -517,8 +526,10 @@ class DepositRedeemEventFailure:
 class DepositRedeemEventAnalysis:
     """Analyse a vault deposit/redeem event.
 
-    - Done for the transaction where we get our assets into our wallet,
-      so we can determine the actualy executed price of shares we received/sold
+    Managers return this only after validating the mined receipt and its token
+    flows. The default requires positive assets and shares. A protocol subclass
+    may accept zero redemption proceeds when the receipt proves that shares
+    were consumed for a total loss; an absent or undecodable payout is a failure.
     """
 
     from_: HexAddress
@@ -1205,6 +1216,10 @@ class VaultDepositManager(ABC):
     such as an epoch that only accepts requests on some days. Synchronous
     subclasses report a zero delay.
 
+    **Integration boundary.** Protocol subclasses own ABI-specific calls,
+    preflights, receipts and ticket fields behind this shared synchronous/queued
+    interface. See ``.claude/docs/vault-integration.md`` for extension guidance.
+
     **Whitelisting / access control**
 
     Deposit admission is enforced by :meth:`check_deposit_whitelist`, the shared
@@ -1577,6 +1592,19 @@ class VaultDepositManager(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")
 
+    def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> RedemptionRequest:
+        """Rebuild request metadata for a transaction that already executed.
+
+        The default preserves existing manager behaviour without checking an
+        escrowed wallet balance. Protocols whose admission changes on request
+        must override this hook so receipt parsing never reruns live preflights.
+
+        :param owner: Original share owner.
+        :param raw_shares: Exact requested native shares.
+        :return: Request parser and original call shape.
+        """
+        return self.create_redemption_request(owner=owner, shares=self.vault.share_token.convert_to_decimals(raw_shares), check_enough_token=False)
+
     @abstractmethod
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         """Check if the owner has an active redemption request.
@@ -1757,6 +1785,19 @@ class VaultDepositManager(ABC):
             If not implemented for this vault protocoll.
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
+    def fetch_pending_redemption_value(self, ticket: RedemptionTicket, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Quote a ticket when ordinary share valuation no longer represents it.
+
+        The default retains normal share valuation. Protocols with fixed
+        request-time entitlements or burned pending shares override this hook.
+        Returning a value does not recognise cash or complete settlement.
+
+        :param ticket: Persisted request belonging to one trade.
+        :param block_identifier: Block used for all valuation reads.
+        :return: Net denomination value, or ``None`` to value ordinary shares.
+        """
+        return None
 
     def fetch_completed_redemption_tx_hash(
         self,

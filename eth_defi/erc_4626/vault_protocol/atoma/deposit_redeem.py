@@ -39,6 +39,7 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionTicket,
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
+    VaultRequestInvariantViolation,
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
 )
@@ -167,12 +168,17 @@ class AtomaDepositManager(ERC4626DepositManager):
     def _unavailable(self, reason: str, owner: HexAddress | None = None, phase: str = "preflight") -> VaultFlowUnavailable:
         """Build a contextual error without treating RPC failures as availability.
 
+        Attribution mismatches use a fatal subtype so consumers can halt
+        without inspecting Atoma's reason strings. Other refusals retain the
+        existing availability and recovery behaviour.
+
         :param reason: Stable reason for deferred or unsupported execution.
         :param owner: Custody account when known.
         :param phase: Lifecycle phase.
-        :return: Structured flow exception.
+        :return: Structured flow exception, fatal for an aggregate mismatch.
         """
-        return VaultFlowUnavailable(reason, protocol="Atoma", vault_address=self.vault.address, caller=owner, phase=phase, preflight_result=reason)
+        error_type = VaultRequestInvariantViolation if reason == "request_reconciliation_required" else VaultFlowUnavailable
+        return error_type(reason, protocol="Atoma", vault_address=self.vault.address, caller=owner, phase=phase, preflight_result=reason)
 
     def _amount(self, decimal: Decimal | None, raw: int | None, *, shares: bool) -> int:
         """Validate mutually exclusive input units before constructing calldata.
@@ -660,6 +666,25 @@ class AtomaDepositManager(ERC4626DepositManager):
         if self.vault.vault_contract.functions.userEpochShares(ticket.settlement_epoch, ticket.owner).call(block_identifier=block) != ticket.raw_shares:
             raise self._unavailable("request_history_mismatch", ticket.owner, "reconciliation")
         return replace(ticket, reconciliation_required=False)
+
+    def fetch_pending_redemption_value(self, ticket: AtomaRedemptionTicket, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Replace burned claimable shares with their validated net entitlement.
+
+        Pending escrowed shares retain ordinary share valuation. Consumed or
+        aggregate requests must be recovered before publishing a valuation.
+
+        :param ticket: Single-request Atoma ticket.
+        :param block_identifier: Consistent valuation block.
+        :return: Claimable net denomination amount, or the normal share fallback.
+        """
+        assert not ticket.reconciliation_required and len(ticket.parts) == 1, "Atoma reconciliation or aggregate claims are unsupported"
+        status = self.get_redemption_request_status(ticket, block_identifier=block_identifier)
+        if status is AsyncVaultRequestStatus.none:
+            raise self._unavailable("Recover completed Atoma claim before valuation", ticket.owner, "valuation")
+        if status is AsyncVaultRequestStatus.claimable:
+            _, _, net = self.fetch_claim_amounts(ticket, block_identifier=block_identifier)
+            return self.vault.denomination_token.convert_to_decimals(net)
+        return None
 
     def fetch_completed_redemption_tx_hash(self, ticket: AtomaRedemptionTicket) -> HexBytes | None:
         # Hypersync is an optional extra. Import it only for indexed recovery,

@@ -463,6 +463,10 @@ each numbered script's docstring.
 
 ## Pull request reminder and checks
 
+Admission accessor corrections must refresh all affected deployments, rather
+than only the transaction-test inventory, and include normal publication. See
+[account admission and permissionless shortlists](../../eth_defi/erc_4626/README-vault-protocol-support.md#account-admission-and-permissionless-shortlists).
+
 Preserve the repository's Why, Lessons learnt, Summary, Related issues and PRs,
 and Unrelated CI and test fixes sections. State whether migrations are needed
 or N/A. Include a production reminder comment with numbered filenames, exact
