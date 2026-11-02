@@ -427,6 +427,16 @@ def format_d2_strategy_url(address: HexAddress | str) -> str:
     return D2_STRATEGY_URL_TEMPLATE.format(address=str(address).lower())
 
 
+#: All D2 strategies use epoch-gated withdrawals; documentation reviewed
+#: 2026-11-02 following the user's request to explain closed withdrawal windows.
+#: https://docs.d2.finance/docs/vault-design
+D2_WITHDRAWAL_NOTE = """#### Withdrawal restrictions
+
+**Deposits and withdrawals are closed during the trading phase.** D2's [vault design documentation](https://docs.d2.finance/docs/vault-design), reviewed on 2 November 2026, explains that each trading cycle, called an epoch, has separate funding, trading and withdrawal phases. During trading, the trader may take custody of the vault's funds.
+
+Withdrawals reopen after the trader returns the funds and the epoch ends. A displayed epoch-end time is an estimate, not a guaranteed withdrawal deadline: the funds must also be back in the vault before withdrawals can proceed."""
+
+
 def format_d2_vault_note(address: HexAddress | str) -> str:
     """Format a generic D2 Finance vault note.
 
@@ -448,9 +458,11 @@ def format_d2_vault_note(address: HexAddress | str) -> str:
 
     return f"""D2 Finance strategy vault.
 
-**Summary:** This vault is a D2 Finance managed strategy vault. D2 strategies are tokenised derivative strategies executed on-chain with proprietary off-chain trading logic and epoch-based funding, trading and withdrawal phases.
+**Summary:** This vault is a D2 Finance managed strategy vault. D2 strategies are tokenised derivative strategies executed onchain with proprietary offchain trading logic and epoch-based funding, trading and withdrawal phases.
 
 The authoritative D2 source for this vault is the [D2 strategy page]({strategy_url}).{article_note}
+
+{D2_WITHDRAWAL_NOTE}
 """
 
 
@@ -471,6 +483,8 @@ def format_d2_texas_hedge_note() -> str:
 The authoritative D2 source for this vault is the [D2 strategy page]({format_d2_strategy_url(D2_TEXAS_HEDGE_ADDRESS)}).
 
 This is not a market-neutral yield product; D2 categorises it as a degen/tactical strategy where investors can lose the full vault stake.
+
+{D2_WITHDRAWAL_NOTE}
 """
 
 
