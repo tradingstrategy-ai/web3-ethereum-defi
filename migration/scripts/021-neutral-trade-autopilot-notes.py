@@ -4,7 +4,7 @@ Purpose: The "Notes" box repeated the description in one dense paragraph. Refres
 Scope: Ethereum and Monad Neutral Trade Autopilot deployments; `_description` and `_notes` only.
 Branch: neutral-trade-notes-markdown
 PR title: notes: split Neutral Trade Autopilot strategy and risk notes
-PR: Not yet opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1709
 Preserves: Names, summaries, links, fees, flags, tags, manager names, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: Up to two existing rows and four changed fields; missing rows reported, never created. Repeated successful applies are skipped.
 
