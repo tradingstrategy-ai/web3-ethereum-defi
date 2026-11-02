@@ -66,8 +66,9 @@ class LighterSession(Session):
 
 def create_lighter_session(
     api_url: str | None = None,
-    retries: int = DEFAULT_RETRIES,
+    retries: int | None = DEFAULT_RETRIES,
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    max_retry_duration: float | None = None,
     requests_per_second: float = LIGHTER_DEFAULT_REQUESTS_PER_SECOND,
     pool_maxsize: int = 32,
     rate_limit_db_path: Path = LIGHTER_RATE_LIMIT_SQLITE_DATABASE,
@@ -95,8 +96,14 @@ def create_lighter_session(
         deployment URL.
     :param retries:
         Maximum number of retry attempts for failed requests.
+        ``None`` bounds retries by ``max_retry_duration`` alone.
     :param backoff_factor:
         Backoff factor for exponential retry delays.
+    :param max_retry_duration:
+        Optional seconds after the first failure during which a request is
+        retried. Live executors set this to ride out a Lighter API outage
+        instead of failing a fail-closed valuation after a few seconds.
+        See :py:attr:`~eth_defi.logging_retry.LoggingRetry.max_retry_duration`.
     :param requests_per_second:
         Maximum requests per second to avoid rate limiting.
     :param pool_maxsize:
@@ -111,6 +118,7 @@ def create_lighter_session(
     :return:
         Configured :py:class:`LighterSession` with rate limiting and retry logic.
     """
+    assert retries is not None or max_retry_duration is not None, "retries=None needs max_retry_duration, otherwise requests are retried forever"
     rate_limit_db_path.parent.mkdir(parents=True, exist_ok=True)
 
     session = LighterSession(api_url=api_url, deployment=deployment)
@@ -121,6 +129,7 @@ def create_lighter_session(
         status_forcelist=[429, 500, 502, 503, 504],
         respect_retry_after_header=True,
         logger=logger,
+        max_retry_duration=max_retry_duration,
     )
 
     # LimiterAdapter combines rate limiting with retry logic.
