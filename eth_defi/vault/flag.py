@@ -58,7 +58,8 @@ class VaultFlag(str, enum.Enum):
     ``scripts/erc-4626/vault-analysis-json.py`` /
     :py:mod:`eth_defi.vault.top_vaults_json`.
 
-    After changing :class:`VaultFlag`, :py:data:`VAULT_DESCRIPTIVE_FLAGS`, or
+    After changing :class:`VaultFlag`, :py:data:`VAULT_DESCRIPTIVE_FLAGS`,
+    :py:data:`PROTOCOL_DESCRIPTIVE_FLAGS`, or
     :py:data:`VAULT_FLAGS_AND_NOTES`, rerun the vault metadata scan and its
     top-vault JSON post-processing. Running only the JSON export against an old
     ``vault-metadata-db.pickle`` will keep the previously stored flags.
@@ -154,6 +155,11 @@ class VaultFlag(str, enum.Enum):
 
     #: This is for vaults with especially long redemption periods.
     long_duration = "long_duration"
+
+    #: Withdrawals depend on a queue, trading window or operator action.
+    #: Liquidity and repayment risks have separate flags. This is not a claim
+    #: that every withdrawal route is closed. Deliberately outside BAD_FLAGS.
+    withdrawal_restrictions = "withdrawal_restrictions"
 
     #: 40acres withdrawal warning: USDC is lent against income-generating
     #: collateral and reported assets include outstanding borrower loans.
@@ -445,8 +451,58 @@ PROTOCOL_NOTES: dict[str, str] = {
     "YieldBasis": YIELD_BASIS_NOTE,
 }
 
+#: Plutus Hedge, Arbitrum; reviewed 2026-11-02 following a user report.
+#: The displayed closed direct-redemption route does not prove the queue is
+#: closed. The protocol documents queue processing of up to seven days.
+#: https://tradingstrategy.ai/vaults/plutus-hedge-token
+#: https://arbiscan.io/address/0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a
+#: https://docs.plutus.fi/products/plvassets
+PLUTUS_HEDGE_WITHDRAWAL_NOTE = """#### Withdrawal restrictions
+
+**Withdrawals are not available on demand through every route.** [Plutus's withdrawal documentation](https://docs.plutus.fi/products/plvassets), reviewed on 2 November 2026, describes limited direct-redemption windows and a withdrawal queue that can be entered through its app at any time. Plutus states that queued requests can remain pending for up to seven days before processing; this is the protocol's stated timing, not a guaranteed payment deadline.
+
+A closed direct-redemption window does not by itself establish that the queue is closed. Trading Strategy's 30-day lockup figure is an estimate, not a guaranteed withdrawal deadline. Queued withdrawals are valued at the exchange rate when processed, and the tokens must then be claimed.
+
+The app can also route exits through a liquidity pool. Such an exit depends on market liquidity and can incur slippage, meaning the proceeds may differ from the vault's quoted share value."""
+
+#: Protocol-wide descriptive classifications; these do not hide vaults.
+#: D2 Finance, all chains; reviewed 2026-11-02 at the user's request. The
+#: trading phase closes withdrawals until funds return, rather than proving
+#: permanent illiquidity. Preserve strategy notes and any manual bad flags.
+#: Example: HYPE++ (Arbitrum).
+#: https://tradingstrategy.ai/vaults/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004
+#: https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004
+#: https://docs.d2.finance/docs/vault-design
+PROTOCOL_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
+    "D2 Finance": {VaultFlag.withdrawal_restrictions},
+}
+
 #: Product classification flags that are descriptive rather than exclusionary.
 VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
+    # Plutus Hedge Token (Plutus, Arbitrum); reviewed 2026-11-02.
+    # Queue and direct-window restrictions; no blacklisting. Sources and
+    # timing qualification accompany PLUTUS_HEDGE_WITHDRAWAL_NOTE above.
+    "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a": {VaultFlag.withdrawal_restrictions},
+    # IP Vault (Asseto, Soneium); reviewed 2026-11-02. Queue settlement can
+    # depend on underlying fund proceeds, with no guaranteed date. Retain
+    # review_needed. Sources and explorer link accompany its manual entry.
+    # https://ipusd.gitbook.io/ipusd-docs/user-guide/exiting-the-ip-vault
+    "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9": {VaultFlag.withdrawal_restrictions},
+    # Legacy ESPN (ETH Strategy, Ethereum); reviewed 2026-11-02. Direct exits
+    # are owner-controlled; a queue is documented. Keep long_duration and
+    # add a descriptive restriction warning, rather than blacklist.
+    # https://tradingstrategy.ai/vaults/0xb250c9e0f7be4cff13f94374c993ac445a1385fe
+    # https://etherscan.io/address/0xb250c9e0f7be4cff13f94374c993ac445a1385fe
+    # https://docs.ethstrat.xyz/espn/espn
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": {VaultFlag.withdrawal_restrictions},
+    # Four reviewed 40acres pools (Base Aerodrome, Optimism Velodrome,
+    # Avalanche Pharaoh and Blackhole); reviewed 2026-11-02. Immediate
+    # exits require cash, replenished by collateral income and repayments.
+    # Retain the separate liquidity/repayment-risk flag and sourced notes.
+    # These pools do not receive the queue/window withdrawal restriction
+    # flag: recovery depends on repayments and can involve permanent losses.
+    # https://docs.40acres.finance/lending
+    # https://docs.40acres.finance/risk-disclosure
     "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5": {VaultFlag.forty_acres_withdrawal_risk},
     "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957": {VaultFlag.forty_acres_withdrawal_risk},
     "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7": {VaultFlag.forty_acres_withdrawal_risk},
@@ -475,6 +531,7 @@ CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
 } | AXIS_NOTES_BY_CHAIN | {(chain_id, address.lower()): FLYING_TULIP_SSFTUSD_NOTES for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()} | ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
 CHAIN_SCOPED_VAULT_NOTES |= {
+    (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a"): PLUTUS_HEDGE_WITHDRAWAL_NOTE,
     (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"): FORTY_ACRES_AERODROME_NOTE,
     (10, "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957"): FORTY_ACRES_VELODROME_NOTE,
     (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"): FORTY_ACRES_PHARAOH_NOTE,
@@ -489,7 +546,8 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
     Vault flags can be address-specific or protocol-wide. Protocol-wide flags
     are used when all vaults under a detected protocol should inherit the same
     manual warning, such as the Summer.fi illiquid flag added after the
-    2026-07-06 exploit reporting.
+    2026-07-06 exploit reporting. Descriptive protocol flags qualify access
+    without excluding vaults from the catalogue.
     """
     address = address.lower()
     flags = set(VAULT_DESCRIPTIVE_FLAGS.get(address, _empty_set))
@@ -499,6 +557,7 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
             flags.add(entry[0])
 
     if protocol_name:
+        flags.update(PROTOCOL_DESCRIPTIVE_FLAGS.get(protocol_name, ()))
         protocol_entry = PROTOCOL_FLAGS_AND_NOTES.get(protocol_name)
         if protocol_entry:
             if protocol_entry[0]:
@@ -744,16 +803,14 @@ PROTOCOL_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
 #: YieldNest RWA MAX collateral liquidation warning.
 YIELDNEST_YNRWAX = "The vault is currently ongoing of collateral liquidation process which may take long time. Do not deposit."
 
-ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
+#: Legacy ESPN withdrawal arrangements; official documentation reviewed 2026-11-02.
+ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) is a legacy vault that bought long-dated ETH call options through ETH Strategy's convertible notes and sold shorter-dated call options on Derive. The [official ESPN documentation](https://docs.ethstrat.xyz/espn/espn), reviewed on 2 November 2026, marks it as superseded by EARN.
 
-Third-party comment:
+#### Withdrawal restrictions
 
-> They do not have a redemption queue in place (yet), that's one of the things on the roadmap they're promising since months and nothing is happening.
->
-> I have read the docs and I know that they're using options on Derive, but in the last few months at least a part of those must have been expired, and they propably rolled them over to new ones without satisfying redemptions. If that isn't scammy behaviour, then I don't know...
+**Direct withdrawals are controlled by the owner, and queued exits depend on available liquidity.** The documentation states that direct withdrawals are disabled by default and can be enabled or disabled by the owner. It separately describes a redemption queue for when instant liquidity is unavailable, so closed direct withdrawals do not mean every exit route is closed.
 
-[Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
-"""
+The documented queue processes requests in order and fixes their USDS value when queued. Shares awaiting withdrawal do not earn further ESPN yield. The documentation does not establish a guaranteed payment date for an individual request; holders should check the legacy vault and queue before relying on an exit."""
 
 LIQUID_ROYALTY_NOTE = "Early withdrawal within 7-day cooldown incurs a 20% liquidation penalty on the unstaked amount. Initiate cooldown and wait 7 days to withdraw without penalty."
 
@@ -766,7 +823,7 @@ The vault runs on Soneium, the Ethereum network developed by Sony Block Solution
 
 Users subscribe with ipUSD and receive sIPUSD investment shares after settlement. Returns and losses are reflected in the value of each share. Holding the ipUSD stablecoin alone does not earn the vault's royalty returns. See the [product overview](https://ipusd.gitbook.io/ipusd-docs/general/understanding-ipusd-and-the-ip-vault).
 
-The [withdrawal documentation](https://ipusd.gitbook.io/ipusd-docs/user-guide/exiting-the-ip-vault) describes instant withdrawals with a 5% protocol fee, subject to available capacity. Standard withdrawals have no protocol withdrawal fee but wait in a queue. When the vault needs proceeds from the underlying fund, the wait can extend to several months; the documentation gives an example of approximately six months. There is no guaranteed settlement date, and the share value can change while waiting.
+The [withdrawal documentation](https://ipusd.gitbook.io/ipusd-docs/user-guide/exiting-the-ip-vault) describes instant withdrawals with a 5% protocol fee, subject to available capacity. **Standard withdrawals have no guaranteed settlement date** and wait in a queue without a protocol withdrawal fee. When the vault needs proceeds from the underlying fund, the wait can extend to several months; the documentation gives an example of approximately six months. The share value can change while waiting.
 
 IP Vault is still under verification. At Soneium block 29,979,401 on 27 October 2026, the live administrative delay was three minutes, while the [contract disclosures](https://ipusd.gitbook.io/ipusd-docs/technical-reference/contracts-roles-and-disclosures) stated three days. The administrator can change this delay, as shown in the [deployed timelock](https://soneium.blockscout.com/address/0x921530D47da54b3461704A804b4F9E686989B77F?tab=contract). Valuations can reuse older fund prices and include assets awaiting settlement. Governance, valuation and withdrawal arrangements remain under review; these observations precede the announced opening."""
 

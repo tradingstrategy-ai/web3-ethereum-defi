@@ -34,6 +34,7 @@ def test_forty_acres_warning_is_visible_and_sourced(spec: VaultSpec) -> None:
     """
     flags = get_vault_special_flags(spec.vault_address.upper(), "40acres")
     assert flags == {VaultFlag.forty_acres_withdrawal_risk}
+    assert VaultFlag.withdrawal_restrictions not in flags
     assert not flags & BAD_FLAGS
     assert not is_flagged_vault(spec.vault_address, "40acres")
     note = get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name="40acres", include_defaults=False)
