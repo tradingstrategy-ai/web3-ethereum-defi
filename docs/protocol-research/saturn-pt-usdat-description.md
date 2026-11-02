@@ -96,3 +96,11 @@ The follow-up classification review used Claude Opus 5.5. Its error-message
 mismatch finding was corrected and the focused suite passed (68 tests, one
 opt-in live test skipped). The complete-batch fixture now includes Accountable
 detection records, as required by the new tag migration's safety check.
+
+The rebased PR uses migrations 026 and 027 because 021–025 were allocated
+upstream. The writing-guide conflict was resolved by retaining upstream source
+linking and selective-emphasis rules alongside the new glossary and identity
+rules. A focused Claude Opus 5.5 follow-up approved these adjustments; the final
+copy passed 37 affected tests after the full focused suite's 68 passes and one
+opt-in skip. The companion glossary PR is
+https://github.com/tradingstrategy-ai/docs/pull/98.

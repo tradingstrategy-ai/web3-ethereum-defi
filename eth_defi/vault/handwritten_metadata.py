@@ -362,17 +362,17 @@ SATURN_PT_USDAT_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVa
 
 This vault invests USDC in PT-USDat and borrows more USDC to increase the investment. It aims to earn more from the tokens than it pays in borrowing costs, while taking on the risk of larger losses.
 
-[USDat](https://tradingstrategy.ai/glossary/usdat) is Saturn's digital dollar: a [stablecoin](https://tradingstrategy.ai/glossary/stablecoin), meaning a token intended to keep a stable price. [Saturn](https://saturn.credit/) describes USDat as backed by PayPal USD through PYUSDx, a token representing that backing. USDat is distinct from sUSDat, Saturn's separate investment product that receives income from company securities.
+[USDat](https://tradingstrategy.ai/glossary/usdat) is Saturn's digital dollar: a [stablecoin](https://tradingstrategy.ai/glossary/stablecoin), meaning a token intended to keep a stable price. USDat is [backed by PayPal USD through PYUSDx](https://saturn.credit/), a token representing that backing. USDat is distinct from sUSDat, Saturn's separate investment product that receives income from company securities.
 
 [Pendle](https://tradingstrategy.ai/glossary/pendle) is a marketplace that separates a token's future income or rewards from its redemption value. A [principal token](https://tradingstrategy.ai/glossary/principal-token), or PT, represents the redemption part; PT-USDat is the version associated with USDat. Its [maturity](https://tradingstrategy.ai/glossary/maturity) is the date when that redemption becomes available.
 
 #### How it earns returns
 
-The vault buys principal tokens below their redemption value and aims to earn the difference by holding them until maturity. [Pendle's documentation](https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT) explains that redemption is measured in the asset specified by each market, rather than a guaranteed cash payment in US dollars. Selling before maturity can produce a different return because the market price changes.
+The vault buys principal tokens below their redemption value and aims to earn the difference by holding them until maturity. Redemption is [measured in the asset specified by each market](https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT), rather than a guaranteed cash payment in US dollars. Selling before maturity can produce a different return because the market price changes.
 
 The vault uses its tokens as [collateral](https://tradingstrategy.ai/glossary/collateral), assets pledged to secure a loan, and borrows USDC through [Morpho](https://tradingstrategy.ai/glossary/morpho), a lending platform. It invests the borrowed money in more PT-USDat and can repeat this process, known as [recursive looping](https://tradingstrategy.ai/glossary/recursive-looping). This creates [leverage](https://tradingstrategy.ai/glossary/leverage): a larger investment than depositors' money alone could buy.
 
-Returns depend on the gain from buying tokens below their redemption value, after borrowing costs and fees. **The vault's return is not fixed:** borrowing rates can rise, reducing profits or causing losses, and borrowed money magnifies the effect. The vault's [published strategy](https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe) says it moves into tokens with a later maturity as the existing ones approach redemption, so it does not have a single end date.
+Returns depend on the gain from buying tokens below their redemption value, after borrowing costs and fees. **The vault's return is not fixed:** borrowing rates can rise, reducing profits or causing losses, and borrowed money magnifies the effect. The strategy involves moving into tokens with a later maturity as the existing ones approach redemption, so the vault does not have a single end date.
 
 #### What can cause losses
 
@@ -382,9 +382,9 @@ USDat can fall below its intended dollar value, and problems with its backing or
 
 #### Withdrawals
 
-**Withdrawals are not immediate.** The published strategy says requests made near the tokens' maturity can be settled through redemption, avoiding a sale of those tokens on the market. Otherwise, the vault sells tokens on Pendle in smaller batches as buyers and trading funds become available; selling early can reduce the amount returned.
+**Withdrawals are not immediate.** Under the [published withdrawal terms](https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe), requests made near the tokens' maturity can be settled through redemption, avoiding a sale of those tokens on the market. Otherwise, the vault sells tokens on Pendle in smaller batches as buyers and trading funds become available; selling early can reduce the amount returned.
 
-The published strategy estimates one to two weeks in most cases and describes a limit of the earlier of maturity or two months. The same description warns that shortages of USDC in the Morpho market or buyers for PT-USDat can delay processing. Treat these as the operator's stated timings, not a guaranteed payment deadline.""",
+The stated processing time is one to two weeks in most cases, with a stated limit of the earlier of maturity or two months. However, shortages of USDC in the Morpho market or buyers for PT-USDat can delay processing. Treat these as the operator's stated timings, not a guaranteed payment deadline.""",
         link="https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe",
     ),
 }

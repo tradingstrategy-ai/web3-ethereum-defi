@@ -53,9 +53,6 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   description; the page already displays them in dedicated boxes. Start with
   what the money funds. Name other products or venues only when needed to explain
   an investment mechanism, cost, risk or withdrawal condition.
-- Do not add research-status phrases such as “As checked on”, “As of our review”
-  or “At the time of writing”. Keep verification dates in research notes or
-  source comments, outside the public description.
 - Keep token names when they identify an actual deposit asset or investment,
   but avoid strings of unexplained acronyms.
 - Use British English, spell “onchain” without a hyphen, and use sentence case
@@ -107,6 +104,8 @@ Do not add research-process preambles such as “As checked”, “As verified�
 “At the time of review” or “Our research found”. Describe the product or fact
 directly. When a changing fact needs a snapshot date, use wording such as
 “In November 2026, the vault held…” rather than describing when we checked it.
+Keep verification dates in research notes or source comments, outside the public
+description.
 
 Keep programming and repository details out of public descriptions: no scanner
 behaviour, adapters, API methods, ABI names, classifiers, bytecode or metadata
