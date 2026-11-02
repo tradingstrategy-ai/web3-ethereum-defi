@@ -1,61 +1,23 @@
 {
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true,
-    "editor.formatOnPaste": false,
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
-    }
-  },
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true,
   "search.exclude": {
-    "**/contracts": true,
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/.git": true,
-    "**/docs/build": true
+    "**/.sst": true
   },
-  "python.analysis.exclude": [
-    "**/.venv",
-    "**/.claude/worktrees",
-    "**/node_modules",
-    "**/contracts",
-    "**/docs/build"
-  ],
-  "python.analysis.include": ["eth_defi", "tests", "scripts"],
-  "python.analysis.diagnosticMode": "workspace",
-  "files.watcherExclude": {
-    "**/.claude/worktrees/**": true,
-    "**/.venv/**": true,
-    "**/node_modules/**": true
-  },
-  "[markdown]": {
-    "editor.defaultFormatter": null,
-    "editor.formatOnSave": false
-  },
-  "chat.tools.terminal.autoApprove": {
-    "poetry": true
-  },
-  "workbench.colorCustomizations": {
-    "activityBar.activeBackground": "#5dd04b",
-    "activityBar.background": "#5dd04b",
-    "activityBar.foreground": "#15202b",
-    "activityBar.inactiveForeground": "#15202b99",
-    "activityBarBadge.background": "#6777d7",
-    "activityBarBadge.foreground": "#e7e7e7",
-    "commandCenter.border": "#15202b99",
-    "sash.hoverBorder": "#5dd04b",
-    "statusBar.background": "#42b830",
-    "statusBar.foreground": "#15202b",
-    "statusBarItem.hoverBackground": "#339025",
-    "statusBarItem.remoteBackground": "#42b830",
-    "statusBarItem.remoteForeground": "#15202b",
-    "titleBar.activeBackground": "#42b830",
-    "titleBar.activeForeground": "#15202b",
-    "titleBar.inactiveBackground": "#42b83099",
-    "titleBar.inactiveForeground": "#15202b99"
-  },
-  "peacock.color": "#42b830"
+  "task.allowAutomaticTasks": true,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "debug.openDebug": "neverOpen",
+  "problems.autoReveal": true,
+  "terminal.integrated.hideOnStartup": "always",
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.inheritEnv": false,
+  "jestrunner.configPath": "jest.unit.config.cjs",
+  "compile-hero.disable-compile-files-on-did-save-code": true,
+  "tasks": {
+    "label": "lint on open",
+    "type": "shell",
+    "command": "npm run lint",
+    "runOn": "folderOpen"
+  }
 }

@@ -8,8 +8,6 @@ dist
 .ipynb_checkpoints
 
 # IDE
-.vscode/*
-!.vscode/settings.json
 .idea
 .python-version
 
@@ -25,6 +23,7 @@ uni-v2-last-block-state.txt
 
 # Ignore Aave v3 authentication file
 docs/source/tutorials/aave.json
+temp_auto_push.bat
 
 # hardhat export
 contracts/aave-v3-deploy/hardhat-deployment-export.json
@@ -48,4 +47,5 @@ node_modules/
 node_modules/.cache
 
 # Claude working on work trees
-.claude/worktrees
+.claude/worktrees.gitignore
+branch_structure.json
