@@ -5,7 +5,7 @@ Scope: Ethereum Silo 148 and Apostro USDC Core, and Sonic Mainstreet Greenhouse
 USDC; exact deployments below, updating only _flags and _notes.
 Branch: flag-illiquid-borrowable-usdc-siloid-148
 PR title: notes: flag Silo 148, Apostro Core and Mainstreet Greenhouse as illiquid
-PR: Pending creation.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1708
 Preserves: Unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: Three validated targets, at most six updated fields; safe to retry.
 
