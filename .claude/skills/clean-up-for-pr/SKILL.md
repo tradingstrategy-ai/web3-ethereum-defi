@@ -78,15 +78,20 @@ the entire patch into context.
    include canonical API links and DataFrame column/value expectations where
    relevant. Replace prose that merely translates the implementation into
    English. Avoid padding simple functions or repeating inherited docstrings.
-6. **Check the writing style guide (required).** Read and follow the shared
+6. **Check the writing style guide (required for user-facing text).** Read
+   and follow the shared
    [description writing style guide](../../docs/description-writing-style.md)
-   for all added or changed manually maintained narrative text, including public
+   for added or changed user-facing website and data text: public
    descriptions, notes and metadata. Check the audience, plain language, field
    formatting, sources and dated claims; remove jargon, filler, hype and
-   repetition. Reuse an earlier style review for unchanged text, but check
-   subsequent substantive edits again. Record completion, the earlier review,
-   or N/A when there are no narrative changes, including in the PR checklist
-   when a PR is requested.
+   repetition. Repository engineering documentation, such as READMEs, Sphinx
+   pages, `.claude` docs, docstrings, code comments, `CHANGELOG.md` entries
+   and pull request descriptions, is outside the guide's scope: check it
+   against the English rules in `CLAUDE.md` only. Reuse an earlier style
+   review for unchanged text, but check subsequent substantive edits again.
+   Record completion, the earlier review, or N/A when there are no
+   user-facing text changes, including in the PR checklist when a PR is
+   requested.
 7. **Obtain an independent review** using the opposite agent as described below.
 
 ## Review with the opposite agent
