@@ -11,7 +11,7 @@ from eth_defi.vault_protocols import migration as runner
 
 #: Reviewed deployments, expected identities and public warning text.
 TARGETS = ((VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751"), "Gearbox", "EDGE UltraYield USDC is illiquid."),)
-SCRIPT_NAME = "023-edge-ultrayield-usdc-illiquid.py"
+SCRIPT_NAME = "025-edge-ultrayield-usdc-illiquid.py"
 #: Only persisted flags and notes are refreshed.
 EXPECTED_UPDATED_FIELDS = 2
 

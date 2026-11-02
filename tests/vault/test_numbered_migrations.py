@@ -30,7 +30,7 @@ FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
 WRAPPED = VaultSpec(999, "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5")
 ARCADIA = VaultSpec(4663, "0xa5e1e1f92a244f192943899eb5810e2bab372ea4")
-#: Gearbox deployment required by migration 023.
+#: Gearbox deployment required by migration 025.
 EDGE_ULTRAYIELD = VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751")
 
 
