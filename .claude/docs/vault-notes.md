@@ -1,8 +1,15 @@
 # Vault notes
 
-Vault notes are short Markdown messages shown in vault exports and diagnostics.
-They explain special vault behaviour, risk context, missing data, or authoritative
-source links that are not otherwise visible from raw onchain metrics.
+Vault notes are Markdown messages shown in the website's "Notes" box, vault
+exports and diagnostics. They explain risks and special conditions that are not
+visible from raw onchain metrics: centralised operators and custodians, shared
+capital, offchain valuation, withdrawal limits, missing data and warnings, with
+authoritative source links.
+
+Notes complement the vault description, which explains the strategy. Never
+repeat the description's sentences in a note. Break a longer note into short
+paragraphs or bullet points with bold lead-ins under `####` subheadings; see
+the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
 
 ## Current sources
 

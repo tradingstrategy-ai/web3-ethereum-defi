@@ -32,7 +32,11 @@ decide. When a later run looks at the vault again, add its finding to the same
 comment block rather than a new entry.
 
 The note message itself goes in a module-level constant with a ``#:`` comment,
-so it can be shared by vaults with the same problem. See the King RSS USDC
+so it can be shared by vaults with the same problem. Notes are Markdown shown
+in the website's "Notes" box: cover risks and warnings, not the strategy
+already explained in the vault description, and do not repeat its sentences.
+Break a longer note into short paragraphs or bullet points with bold lead-ins,
+and link sources inline; see ``docs/README-vault-description-formatting.md``. See the King RSS USDC
 Vault entry for an example. After changing flags, rerun the vault metadata
 scan, see :class:`VaultFlag`.
 """

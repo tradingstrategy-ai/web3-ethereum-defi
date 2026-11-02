@@ -19,8 +19,13 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   sentence of single-line text. Full vault descriptions, protocol descriptions
   and source-linked notes are Markdown: split them into paragraphs of two or
   three sentences, use bold for the few facts a reader must not miss, link
-  sources inline and add `####` subheadings when the text covers several
-  topics. See the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
+  sources inline, use bullet points for lists and add `####` subheadings when
+  the text covers several topics. See the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
+- Keep the vault description and notes separate. The description explains the
+  strategy, fees and company; notes cover risks and warnings, such as
+  centralised custody, counterparties, offchain valuation and withdrawal
+  limits. They appear side by side, so never repeat a sentence or point in
+  both.
 - Explain a necessary financial term on first use. Prefer “loans funding grain
   purchases and transport” to “short-cycle working-capital credit exposure”.
 - Keep token names when they identify an actual deposit asset or investment,
