@@ -1,10 +1,15 @@
 # Description writing style
 
-Use this guide for the public descriptions we manually maintain in repository
-files: vault and protocol metadata, curator profiles, stablecoin descriptions,
-handwritten Python fallbacks, fee descriptions and source-linked vault notes.
-It applies whether the text lives in YAML, Python or Markdown. Technical API
-documentation and code comments have a different audience.
+Use this guide only for user-facing text that we manually maintain for the
+website and published data: vault and protocol metadata, curator profiles,
+stablecoin descriptions, handwritten Python fallbacks, fee descriptions and
+source-linked vault notes. It applies whether the text lives in YAML, Python
+or Markdown.
+
+It does not apply to repository engineering documentation, such as READMEs,
+`docs/` and Sphinx pages, `.claude` docs and skills, docstrings, code
+comments, `CHANGELOG.md` entries and pull request descriptions. Those are
+written for developers and follow the English rules in `CLAUDE.md`.
 
 ## Write for a general audience
 
