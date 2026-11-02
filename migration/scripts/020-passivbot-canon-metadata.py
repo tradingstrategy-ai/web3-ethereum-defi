@@ -5,7 +5,7 @@ Purpose: Replace the template-only summary and missing description with research
 Scope: Only _description, _short_description and _strategy_tags for Hypercore 9999:0x490af7d4a048a81db0f677517ed6373565b42349.
 Branch: notes/passivbot-canon-metadata
 PR title: notes: document PassivBot curator and reference vault strategy
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1707
 Preserves: Names, links, notes, fees, flags, risk, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and three changed fields; absent targets are reported without creation. Idempotent transformation.
 
