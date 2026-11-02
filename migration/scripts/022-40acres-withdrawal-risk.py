@@ -5,7 +5,7 @@ Scope: Exact Base Aerodrome, Optimism Velodrome and Avalanche Pharaoh and
 Blackhole supply vaults below; update only _flags and _notes.
 Branch: check-40acres-vault-liquidity-warning-notes
 PR title: notes: explain 40acres withdrawal restrictions and loan exposure
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1712
 Preserves: Unrelated flags and metadata, Hydrex, prices, leads, reader state
 and timestamp caches. No historical price backfill is needed.
 Expected: Four validated targets, at most eight updated fields; safe to retry.
