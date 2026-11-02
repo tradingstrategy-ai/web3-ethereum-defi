@@ -9,8 +9,9 @@ vault" box. Write it for reading on a vault page:
 
 - **Paragraphs of two or three sentences**, separated by a blank line. Do not
   write one long block of text.
-- **Bold** for the few facts a reader must not miss, such as fees, lock-ups or
-  the fact that capital is shared with another vault.
+- **Bold** only for key words, amounts or short phrases a reader must not miss,
+  such as fees, lock-ups or shared capital. Emphasise a whole sentence only
+  when its complete wording is essential to a material warning.
 - **Inline links** to the sources of material claims, each linked once,
   preferably on first mention.
 - **`####` subheadings** when a description covers several topics, such as how
@@ -64,6 +65,35 @@ vault is next scanned or when a later migration supplies new copy, such as
 `015-neutral-trade-autopilot-markdown.py`. It preserves
 notes, all other metadata and scanning state.
 Rerunning an applied repair makes no further changes.
+
+## Nest AXI manual override
+
+Nest AXI's Plume vault (`98866:0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0`)
+uses reviewed copy from `eth_defi/vault/handwritten_metadata.py` for both text
+fields. The Nest adapter resolves that exact deployment before consulting
+provider metadata, so subsequent scans retain the override.
+
+**Run after merge:** migration `023-nest-axi-description.py` refreshes only
+`_description` and `_short_description` in `vault-metadata-db.pickle`: at most
+one existing row and two changed fields. A missing row is reported without
+creation. Prices, reader state, timestamp caches and all other metadata remain
+unchanged; no historical price backfill is needed.
+
+Follow the [production runbook](../.claude/docs/migration-scripts.md#production-runbook)
+to inspect Compose mounts, build the merged revision into the stamped image,
+and stop persistent and competing writers before either command. From
+`~/vault-scanner/web3-ethereum-defi`, preview all pending repairs, review their
+reported changes, then apply:
+
+```shell
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+```
+
+Recreate the persistent services with the same image as described in the
+runbook. After their normal export and upload cycle, check both published AXI
+descriptions against the maintained copy. Migration success alone does not
+publish the change.
 
 ## Apply the repair
 
