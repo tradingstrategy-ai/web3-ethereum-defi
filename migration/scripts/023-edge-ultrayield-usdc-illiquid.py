@@ -4,7 +4,7 @@ Purpose: Refresh stored flags and notes so exports exclude the reviewed vault.
 Scope: Exact Gearbox deployment on Monad below; update only _flags and _notes.
 Branch: add-vault-note-illiquid-edge-ultrayield-usdc-5
 PR title: notes: mark EDGE UltraYield USDC on Monad as illiquid
-PR: Pending creation.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1713
 Preserves: Unrelated flags and metadata, prices, leads, reader state and
 timestamp caches. No historical price backfill is needed.
 Expected: One validated target, at most two updated fields; safe to retry.
