@@ -36,6 +36,43 @@ class HandwrittenVaultMetadata:
     link: str
 
 
+#: Passivbot Canon on Hypercore (9999), reviewed on 2026-11-01.
+#:
+#: The project README links this exact vault as its reference long-only
+#: configuration. Hyperliquid vaultDetails describes an unaltered template
+#: configuration and reports a 10% leader commission. Current project defaults
+#: do not prove the vault's running software version or exact settings.
+#: https://github.com/enarjord/passivbot
+#: https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md
+#: https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
+#: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy
+PASSIVBOT_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (9999, "0x490af7d4a048a81db0f677517ed6373565b42349"): HandwrittenVaultMetadata(
+        name="Passivbot Canon",
+        short_description="Automated long-only crypto futures trading using PassivBot's reference strategy.",
+        description=(
+            "Passivbot Canon pools USDC to trade cryptocurrency perpetual futures on Hyperliquid, contracts that follow crypto prices without an expiry date. "
+            "The [PassivBot project](https://github.com/enarjord/passivbot) identifies this exact vault as a live example of its reference **long-only configuration**, which buys exposure to rising prices.\n\n"
+            "#### How the strategy works\n\n"
+            "PassivBot is open-source trading software that automatically places and manages orders. "
+            "Its contrarian approach aims to buy during price falls and take profit on rebounds, adding to positions within configured exposure limits to lower their average entry price.\n\n"
+            "The software supports staggered limit orders at different prices and trailing orders that wait for a price move and a reversal before acting. "
+            "The vault describes its configuration as the unaltered project template; its running software version and exact settings have not been independently verified.\n\n"
+            "Adding to a losing position increases the money exposed to further price falls. "
+            "A sustained decline can leave positions at a large loss or cause liquidation, where the exchange closes positions because there is insufficient collateral; frequent small winning trades do not ensure an overall profit.\n\n"
+            "#### Fees and withdrawals\n\n"
+            "As checked on **1 November 2026**, the vault charges a **10% leader share of profits**. "
+            "Hyperliquid's user-vault terms impose a **one-day lock-up after deposits**, and withdrawals can incur slippage when open positions are closed.\n\n"
+            "#### Sources\n\n"
+            "- [PassivBot strategy documentation](https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md)\n"
+            "- [Passivbot Canon on Hyperliquid](https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349)\n"
+            "- [Hyperliquid user-vault fees and withdrawals](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy)"
+        ),
+        link="https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349",
+    ),
+}
+
+
 #: Agent RockSteady on Hypercore (9999), reviewed on 2026-10-31.
 #:
 #: The operator supplied the 30-market mean-reversion remit and holding periods
@@ -480,7 +517,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
+    return PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

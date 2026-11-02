@@ -1,0 +1,32 @@
+feeder-id: passivbot
+name: PassivBot
+role: curator
+website: https://github.com/enarjord/passivbot
+short_description: PassivBot is an open-source trading bot project for automated cryptocurrency futures strategies.
+long_description: |
+  [PassivBot](https://github.com/enarjord/passivbot) is an open-source project that provides software for automated cryptocurrency futures trading. Its contrarian approach manages buy and sell orders around price moves, aiming to buy dips and take profit on rebounds.
+
+  A built-in backtester and optimiser help users compare trading configurations against past prices. The project identifies [Passivbot Canon](https://tradingstrategy.ai/vaults/passivbot-canon) as its live reference vault running a long-only configuration on Hyperliquid.
+
+  #### Further reading
+
+  - [Official strategy documentation](https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md)
+  - [CoinLedger: The best open source crypto trading bots](https://coinledger.io/tools/the-best-open-source-and-free-crypto-trading-bots)
+  - [Futuresboard: Passivbot guide — historical community guidance](https://ecoppen.github.io/futuresboard/passivbot/)
+
+# The project README identifies this exact reference vault. Software users may
+# run independently operated vaults, so attribution is scoped to its address.
+# Reviewed 2026-11-01. Articles are background reading, not current vault terms.
+other-links:
+  - title: PassivBot - official project and README identifying the long-only Hyperliquid reference vault
+    url: https://github.com/enarjord/passivbot
+  - title: PassivBot - official bot strategy and position management documentation
+    url: https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md
+  - title: Hyperliquid - Passivbot Canon reference vault
+    url: https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
+  - title: Trading Strategy - Passivbot Canon vault profile
+    url: https://tradingstrategy.ai/vaults/passivbot-canon
+  - title: CoinLedger - article comparing open-source crypto trading bots, including PassivBot
+    url: https://coinledger.io/tools/the-best-open-source-and-free-crypto-trading-bots
+  - title: Futuresboard - historical community guide to PassivBot grid trading and exposure risk
+    url: https://ecoppen.github.io/futuresboard/passivbot/
