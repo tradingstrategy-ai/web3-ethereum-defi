@@ -5,7 +5,7 @@ Purpose: Refresh the listing summary and full description from reviewed copy.
 Scope: Only _description and _short_description for Plume 98866:0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0.
 Branch: explain-nest-axi-vault-description-override
 PR title: feat: clarify Nest AXI vault descriptions
-PR: Not yet opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1715
 Preserves: Names, links, fees, flags, notes, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and two changed fields; missing target reported without creation. Idempotent transformation.
 
