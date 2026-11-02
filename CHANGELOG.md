@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Preserve monthly vault report editorial text, add empty news sections and record the November 2026 report exclusions (2026-11-02).
 - feat: Add researched manual descriptions for Nest AXI Vault, a targeted metadata refresh and clearer public writing guidance (2026-11-02).
 - feat: `LoggingRetry(max_retry_duration=...)` keeps retrying with exponential backoff until a time budget runs out, and `create_lighter_session(max_retry_duration=...)` passes it through, so a live executor can wait out a Lighter API outage instead of failing a valuation after about 15 seconds (2026-11-02, [#1710](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1710)).
 - feat: Support guarded Upshift deposits and queued withdrawals, classify account admission per deployment and repair cached metadata without changing price history (2026-10-31).

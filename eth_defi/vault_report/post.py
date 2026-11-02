@@ -6,9 +6,10 @@ The post body is Ghost-compatible HTML:
   in ``<!--kg-card-begin: html-->`` comments, which Ghost imports as raw HTML
   cards, keeping their markup intact
 - Charts are Ghost image cards
-- The post has no editor callouts. The parts the editor writes (the month's
-  highlight, the report content updates, community news and commentary, the
-  feature image) are listed in the editor workflow of ``README-vault-report.md``.
+- The post has no editor callouts. Two empty news subsections are left for
+  the editor to rename, fill or remove. The other parts the editor writes
+  (the month's highlight, report content updates, commentary and feature
+  image) are listed in the editor workflow of ``README-vault-report.md``.
 
 Evergreen sections (*About the report*, *Next steps*) are copied from the
 previous report post, so edits made in Ghost carry over month to month. The
@@ -272,7 +273,7 @@ BEST_SECTIONS = (
         heading="Tokenised funds",
         heading_id="best-performing-tokenised-funds",
         subject="the best-performing tokenised funds",
-        intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p><p>Often there is no clear distinction between a vault and a tokenised fund. From the technical point of view, both use exactly the same smart contract technology with whitelisting. For the report, we define a project as a tokenised fund if we have found evidence that they have self-declared themselves as a tokenised fund.</p>',
+        intro=f'<p>The <a href="{GLOSSARY_URL}/tokenised-fund">tokenised funds</a> with the best returns. Their yields follow money market, treasury and credit rates, and many are open only to qualified or institutional investors. See all <a href="{VAULTS_URL}/funds">tokenised funds</a>.</p><p>Often there is no clear distinction between a vault and a tokenised fund. From the technical point of view, both use exactly the same smart contract technology with whitelisting. For the report, we define a project as a tokenised fund if we find evidence that it has self-declared as a tokenised fund.</p>',
         link="tradingstrategy.ai/vaults/funds",
     ),
 )
@@ -605,15 +606,15 @@ def build_post_html(context: PostContext) -> str:
     3. *Report content updates*: a link to the previous report and the
        generated statistics; the editor writes the month's integrations
        under the opening sentence
-    4. *DeFi vault community news*: an introduction only, the editor writes the news
+    4. *DeFi vault community news*: an introduction and two empty news subsections
     5. *Latest podcasts*, when episodes were read
     6. The data sections of :py:data:`SECTION_TEMPLATES`, each only when it has content
     7. *Partners*, rendered from :py:data:`PARTNERS`, and *Next steps*,
        copied from the previous post
 
-    The post has no editor callouts or placeholders: the sections the
-    editor completes are listed in the editor workflow of
-    ``README-vault-report.md`` instead.
+    The editor renames, fills or removes the empty news subsections before
+    publishing. The post has no editor callouts; the other parts the editor
+    completes are listed in the editor workflow of ``README-vault-report.md``.
 
     Tables and the podcast list are wrapped in ``<!--kg-card-begin: html-->``
     comments so Ghost imports each as one raw HTML card and keeps its
@@ -658,15 +659,18 @@ def build_post_html(context: PostContext) -> str:
     parts += [
         "<p>These benchmarks include:</p>",
         _bullets([_bold_numbers(html.escape(stat)) for stat in context.stats]),
+        '<p>For access to the datasets used in this report, see our <a href="https://tradingstrategy.ai/pricing">Pro vault data subscription</a>.</p>',
         f'<h2 id="defi-vault-community-news">DeFi vault community news, {month}</h2>',
         f'<p>Highlights of what happened in the DeFi vault industry in the last month. Read more news and research on our <a href="{BLOG_URL}">blog</a>.</p>',
+        '<h3 id="news-item-1">News item 1</h3>',
+        '<h3 id="news-item-2">News item 2</h3>',
     ]
 
     # News before the data analytics sections; without the Content API there are no episodes and no section
     if context.podcasts:
         parts += [
             '<h2 id="latest-podcasts">Latest podcasts</h2>',
-            f'<p>The latest episodes of the <a href="{PODCAST_PAGE_URL}">Trading Strategy podcast</a>, where we talk with DeFi vault protocols and curators.</p>',
+            f'<p>The latest episodes of the <a href="{PODCAST_PAGE_URL}">Trading Strategy podcast</a>. We interview onchain strategy researchers, quants and vault curators.</p>',
             f"<!--kg-card-begin: html-->\n{render_podcast_episodes(context.podcasts, context.podcast_images)}\n<!--kg-card-end: html-->",
         ]
 

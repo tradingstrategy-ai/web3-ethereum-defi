@@ -22,7 +22,8 @@ The skeleton keeps the structure of the earlier posts:
   (`<div id="table-of-contents"></div>` in an HTML card);
 - the introduction sections *About the report* and *Report content updates*,
   with this month's figures in bold: blockchains, protocols, vaults and TVL;
-- *DeFi vault community news* and *Latest podcasts* before the data sections;
+- *DeFi vault community news*, with two empty *News item 1* and *News item 2*
+  subsections for the editor, and *Latest podcasts* before the data sections;
 - the data sections with their charts and tables: *The best-performing
   vaults*, *Yield by chain and protocol*, *Risk and return*, *Vaults and
   tokenised funds TVL*, and *Inflows and outflows* last. *The best-performing
@@ -225,7 +226,8 @@ The steps:
 1. Run the exporter with the investability check and the Admin API key.
 2. Review the check's `uncertain` decisions and any new `flag.py` blacklist
    entries; commit the reviewed entries.
-3. Open the draft from the editor link, write the highlight, the new
-   integrations, the community news and any commentary, add the feature
-   image, and publish from Ghost.
+3. Open the draft from the editor link, rename and fill the empty *News item 1*
+   and *News item 2* subsections, or remove unused ones. Write the highlight,
+   the new integrations and any commentary, add the feature image, and publish
+   from Ghost.
 4. Attach `hero-square.png` when posting on X.

@@ -165,7 +165,7 @@ def parse_podcast_episode(post: GhostPost) -> PodcastEpisode:
         title=post.title,
         url=f"{BLOG_URL}/{post.slug}",
         published_at=post.published_at,
-        promotion=" ".join(promotion.split()),
+        promotion=" ".join(promotion.replace("on-chain", "onchain").split()),
         spotify_url=clean_episode_link(html.unescape(spotify.group(1))) if spotify else None,
         youtube_url=clean_episode_link(html.unescape(youtube.group(1))) if youtube else None,
         logo_slug=guest_page.group(1) if guest_page else None,
