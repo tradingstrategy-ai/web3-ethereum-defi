@@ -1464,8 +1464,11 @@ class VaultBase(ABC):
         r"""Human-readable vault strategy description in Markdown.
 
         The website shows this as "About the vault" and renders it as Markdown.
-        Write it in paragraphs of two or three sentences separated by a blank
-        line. Bold text, inline links and ``####`` subheadings are allowed.
+        It explains the strategy: what depositors fund, how returns are earned,
+        who runs it, fees and the company. Risks and warnings belong in
+        :py:meth:`get_notes`; the two texts must not repeat each other. Write it
+        in paragraphs of two or three sentences separated by a blank line. Bold
+        text, bullet lists, inline links and ``####`` subheadings are allowed.
         Adapters must use :py:func:`normalise_vault_description` on offchain
         text, which converts carriage returns and literal ``\n`` / ``\r``
         escapes to real line breaks. See
@@ -2105,7 +2108,22 @@ class VaultBase(ABC):
         return get_vault_special_flags(self.address, self.get_protocol_name())
 
     def get_notes(self) -> str | None:
-        """Get a human readable message if we know somethign special is going on with this vault."""
+        """Get a Markdown note on risks or special conditions of this vault.
+
+        The website shows notes in the "Notes" box and renders them as
+        Markdown. Notes cover what a depositor relies on beyond the strategy:
+        centralised operators, custodians and counterparties, offchain
+        valuation, withdrawal limits, data caveats and warnings. The strategy
+        itself belongs in :py:attr:`description`; the two texts must not repeat
+        each other. Use short paragraphs, bullet points with a bold lead-in,
+        ``####`` subheadings and inline source links instead of one long
+        paragraph. See ``docs/README-vault-description-formatting.md``.
+
+        The default implementation returns manual address and protocol notes
+        from :py:mod:`eth_defi.vault.flag`.
+
+        :return: Markdown note, or ``None`` when there is nothing to add.
+        """
         return get_notes(self.address, chain_id=self.chain_id, protocol_name=self.get_protocol_name())
 
     def get_link(self, referral: str | None = None) -> str:

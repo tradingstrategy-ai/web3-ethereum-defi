@@ -1,28 +1,60 @@
 # Vault description formatting
 
-Individual vault records have two text fields with different formats.
+Individual vault records have three text fields with different formats and
+purposes.
+
+| Field | Shown as | Content | Format |
+|---|---|---|---|
+| `short_description` | Listings and tables | The product or strategy in one sentence | One plain sentence |
+| `description` | "About the vault" | The strategy: what depositors fund, how returns are earned, who runs it, fees and the company | Markdown |
+| `notes` | "Notes" | Risks and warnings: centralised operators, custodians and counterparties, offchain valuation, withdrawal limits, data caveats | Markdown |
+
+The description and the notes appear side by side on the vault page. **Never
+repeat the same sentences or points in both.** Explain each fact once, in the
+field it belongs to.
 
 #### Full description (`description`, "About the vault")
 
 The website renders the full description as Markdown in the "About the
-vault" box. Write it for reading on a vault page:
+vault" box. Focus it on the strategy and write it for reading on a vault page:
 
 - **Paragraphs of two or three sentences**, separated by a blank line. Do not
   write one long block of text.
-- **Bold** for the few facts a reader must not miss, such as fees, lock-ups or
-  the fact that capital is shared with another vault.
+- **Bold** for the few facts a reader must not miss, such as fees or the
+  limit on directional bets.
+- **Bullet points** for lists of strategies, markets or assets.
 - **Inline links** to the sources of material claims, each linked once,
   preferably on first mention.
 - **`####` subheadings** when a description covers several topics, such as how
-  the strategy works, custody, fees and withdrawals, or the company. Do not use
-  larger heading levels; the page already has its own section headings.
+  the strategy works, fees or the company. Do not use larger heading levels;
+  the page already has its own section headings.
 
 `normalise_vault_description()` keeps this structure. It converts carriage
 returns and literal `\n` / `\r` escapes from provider APIs to real line
 breaks, collapses spaces within each line and reduces runs of blank lines to
 a single paragraph break. Leading indentation is not preserved, so avoid
-nested lists. See the [Neutral Trade Autopilot descriptions](../eth_defi/vault/handwritten_metadata.py)
-for an example with subheadings, bold text and inline links.
+nested lists. See the [Neutral Trade Autopilot description and note](../eth_defi/vault/handwritten_metadata.py)
+for an example of both fields with subheadings, bullet points, bold text and
+inline links.
+
+#### Notes (`notes`, "Notes")
+
+Vault notes come from manual tables in `eth_defi/vault/flag.py`, adapter
+`get_notes()` overrides and handwritten metadata. The website renders them as
+Markdown in the "Notes" box. Use them for what a depositor relies on beyond
+the strategy:
+
+- centralised operators, custodians, exchanges and trading firms;
+- shared or cross-linked capital, such as a vault that passes deposits to
+  another vault;
+- offchain valuation and how it is checked;
+- withdrawal schedules, lock-ups and other liquidity limits;
+- data caveats and warnings, such as a review flag.
+
+A note of one or two sentences can be a single paragraph. Break anything
+longer into short paragraphs or bullet points with a **bold lead-in**, group
+related points under `####` subheadings and link sources inline. Do not write
+one long block of text, and do not restate the strategy from the description.
 
 #### Short description (`short_description`)
 

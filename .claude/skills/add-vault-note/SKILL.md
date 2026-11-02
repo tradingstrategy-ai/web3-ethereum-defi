@@ -10,6 +10,14 @@ This skill adds a human-readable note to a specific vault in the database.
 Read and follow the shared [description writing style](../../docs/description-writing-style.md)
 before writing or editing public vault notes or handwritten descriptions.
 
+Notes are Markdown shown in the website's "Notes" box, beside the vault
+description. Use them for risks and warnings, such as centralised custody,
+counterparties, offchain valuation and withdrawal limits, not for the strategy
+the description already explains. Never repeat the description's sentences.
+Keep a short note to one paragraph; break a longer one into short paragraphs or
+bullet points with bold lead-ins under `####` subheadings, with inline source
+links. Follow the [vault description formatting rules](../../../docs/README-vault-description-formatting.md).
+
 ## Required inputs
 
 Before starting, gather the following information from the user:

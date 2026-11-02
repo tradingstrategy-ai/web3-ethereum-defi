@@ -1,13 +1,15 @@
 """Exercise the Neutral Trade Autopilot refresh through the numbered runner on isolated files."""
 
+import re
 from pathlib import Path
 
 import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, normalise_vault_description
 from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.handwritten_metadata import NEUTRAL_AUTOPILOT_ACCOUNTABLE_URLS, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
@@ -187,7 +189,7 @@ def test_markdown_migration_preview_apply_and_retry(markdown_migration: tuple[Pa
     """Replace only the description with structured Markdown.
 
     1. Preview leaves the database byte-identical.
-    2. Apply writes the adapter's Markdown description with paragraphs, subheadings, bold text and a link to the other network's vault.
+    2. Apply writes the adapter's Markdown description with paragraphs, subheadings and bold text.
     3. Summaries, notes and links are unchanged and a repeat run is skipped.
 
     :param markdown_migration: Isolated metadata and migration resources.
@@ -205,16 +207,14 @@ def test_markdown_migration_preview_apply_and_retry(markdown_migration: tuple[Pa
     # 2. Apply writes structured Markdown matching the adapter.
     assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
     database = VaultDatabase.read(path)
-    other_vault_links = {1: "0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c", 143: "0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff"}
     for spec in TARGETS:
         row = database.rows[spec]
         vault = AccountableVault(Web3(), VaultSpec(spec.chain_id, Web3.to_checksum_address(spec.vault_address)))
         assert row["_description"] == vault.description
         paragraphs = row["_description"].split("\n\n")
-        assert "#### Shared capital and custody" in paragraphs
+        assert "#### How the strategy works" in paragraphs
         assert all(paragraph.count(". ") <= 2 for paragraph in paragraphs)  # noqa: PLR2004 - At most two sentence boundaries in a paragraph of up to three sentences.
         assert "**no management fee and a 3% performance fee**" in row["_description"]
-        assert other_vault_links[spec.chain_id] in row["_description"]
 
         # 3. Summaries, notes and links are unchanged.
         assert row["_short_description"] == "Keep summary."
@@ -243,3 +243,129 @@ def test_markdown_migration_rejects_unexpected_protocol(markdown_migration: tupl
     with pytest.raises(ValueError, match="unexpected protocol"):
         runner.run_pending_migrations(data_dir=data_dir, scripts_dir=scripts_dir, dry_run=False, provenance={"in_docker": False})
     assert path.read_bytes() == before
+
+
+#: Migration separating the strategy description from the risk note.
+NOTES_SCRIPT_NAME = "021-neutral-trade-autopilot-notes.py"
+
+
+def _sentences(text: str) -> set[str]:
+    """Split Markdown into comparable sentences, ignoring short fragments.
+
+    :param text: Markdown description or note.
+    :return: Sentences longer than 25 characters, stripped of list markers.
+    """
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
+    return {part.strip(" -*") for part in parts if len(part.strip(" -*")) > 25}  # noqa: PLR2004 - Ignore headings and list fragments.
+
+
+def test_description_and_note_do_not_repeat() -> None:
+    """The strategy description and the risk note share no sentence.
+
+    1. Each description contains no sentence of the note.
+    2. The note is structured Markdown with subheadings and bullet points.
+    3. The note links both networks' Accountable vaults.
+    """
+    note_sentences = _sentences(NEUTRAL_AUTOPILOT_NOTE)
+
+    # 1. Each description contains no sentence of the note.
+    for metadata in NEUTRAL_AUTOPILOT_VAULT_METADATA.values():
+        assert not _sentences(metadata.description) & note_sentences
+
+    # 2. The note is structured Markdown with subheadings and bullet points.
+    assert NEUTRAL_AUTOPILOT_NOTE.count("\n#### ") == 3  # noqa: PLR2004 - Shared capital, custody and trading, valuation and withdrawals.
+    assert NEUTRAL_AUTOPILOT_NOTE.count("\n- **") == 7  # noqa: PLR2004 - Seven bold-led risk bullets.
+    assert NEUTRAL_AUTOPILOT_NOTE == normalise_vault_description(NEUTRAL_AUTOPILOT_NOTE)
+
+    # 3. The note links both networks' Accountable vaults.
+    assert all(url in NEUTRAL_AUTOPILOT_NOTE for url in NEUTRAL_AUTOPILOT_ACCOUNTABLE_URLS.values())
+
+
+@pytest.fixture
+def notes_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    """Build rows holding the dense note and description persisted by migrations 011 and 015.
+
+    :param tmp_path: Temporary directory owned by pytest.
+    :param monkeypatch: Environment isolation for pipeline path overrides.
+    :return: Pipeline directory and single-script resource directory.
+    """
+    for name in ("VAULT_DB", "VAULT_DB_PATH"):
+        monkeypatch.delenv(name, raising=False)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    rows = {spec: {"Protocol": "Accountable", "_description": "Old description.", "_short_description": "Keep summary.", "_notes": "Old dense note.", "Link": "https://example.com/keep"} for spec in TARGETS}
+    VaultDatabase(rows=rows).write(data_dir / "vault-metadata-db.pickle")
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    script = next(spec for spec in runner.discover_migrations() if spec.name == NOTES_SCRIPT_NAME)
+    (scripts_dir / script.name).write_bytes(script.source)
+    return data_dir, scripts_dir
+
+
+def test_notes_migration_preview_apply_and_retry(notes_migration: tuple[Path, Path]) -> None:
+    """Refresh only the description and note, matching what exports resolve.
+
+    1. Preview leaves the database byte-identical.
+    2. Apply writes the adapter description and the manual note.
+    3. Summaries and links are unchanged and a repeat run is skipped.
+
+    :param notes_migration: Isolated metadata and migration resources.
+    :return: ``None`` after preview, apply and repeat validation.
+    """
+    data_dir, scripts_dir = notes_migration
+    path = data_dir / "vault-metadata-db.pickle"
+    original = path.read_bytes()
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+
+    # 1. Preview leaves the database byte-identical.
+    assert len(runner.run_pending_migrations(dry_run=True, **options)) == 1
+    assert path.read_bytes() == original
+
+    # 2. Apply writes the adapter description and the manual note.
+    assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
+    database = VaultDatabase.read(path)
+    for spec in TARGETS:
+        row = database.rows[spec]
+        vault = AccountableVault(Web3(), VaultSpec(spec.chain_id, Web3.to_checksum_address(spec.vault_address)))
+        assert row["_description"] == vault.description
+        assert row["_notes"] == get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name="Accountable") == NEUTRAL_AUTOPILOT_NOTE
+
+        # 3. Summaries and links are unchanged.
+        assert row["_short_description"] == "Keep summary."
+        assert row["Link"] == "https://example.com/keep"
+    entry = next(iter(runner.load_state(data_dir / "migration.json").values()))
+    assert entry["other_data"]["updated_fields"] == 4  # noqa: PLR2004 - Description and note on two deployments.
+    applied = path.read_bytes()
+    assert runner.run_pending_migrations(dry_run=False, **options) == []
+    assert path.read_bytes() == applied
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_notes_migration_validates_targets(notes_migration: tuple[Path, Path], *, missing: bool) -> None:
+    """Report an absent deployment and reject an unexpected classification before writing.
+
+    :param notes_migration: Isolated metadata and migration resources.
+    :param missing: Remove the Monad target instead of misclassifying it.
+    :return: ``None`` after checking missing-row or failure handling.
+    """
+    data_dir, scripts_dir = notes_migration
+    path = data_dir / "vault-metadata-db.pickle"
+    database = VaultDatabase.read(path)
+    target = TARGETS[1]
+    if missing:
+        del database.rows[target]
+    else:
+        database.rows[target]["Protocol"] = "Unexpected"
+    database.write(path)
+    before = path.read_bytes()
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "dry_run": False, "provenance": {"in_docker": False}}
+    if missing:
+        runner.run_pending_migrations(**options)
+        assert target not in VaultDatabase.read(path).rows
+        entry = next(iter(runner.load_state(data_dir / "migration.json").values()))
+        assert entry["other_data"]["missing_specs"] == [target.as_string_id()]
+        assert entry["other_data"]["updated_fields"] == 2  # noqa: PLR2004 - Description and note on the remaining deployment.
+    else:
+        with pytest.raises(ValueError, match="unexpected protocol"):
+            runner.run_pending_migrations(**options)
+        assert path.read_bytes() == before
