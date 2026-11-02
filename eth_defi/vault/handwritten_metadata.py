@@ -349,6 +349,47 @@ NEUTRAL_AUTOPILOT_VAULT_METADATA: Final[dict[tuple[int, HexAddress], Handwritten
 #: Source-linked note explaining the cross-linked Autopilot feeder vaults.
 NEUTRAL_AUTOPILOT_NOTE: Final[str] = f"This Accountable vault is a wrapper, or entry point, for Neutral Trade's Solana-based [Neutral Autopilot]({NEUTRAL_AUTOPILOT_URL}) vault, where Neutral Trade says the main capital is held. Neutral Trade's Ethereum and Monad Autopilot vaults are cross-linked: both feed the same Solana vault, so their depositors share its positions and its centralised exchange accounts. Neutral Trade says exchange capital is held in off-exchange custody with Ceffu or Copper and that trading firms cannot withdraw deposits, in its [September and October 2026 update]({NEUTRAL_TRADE_UPDATE_URL}). Accountable [calculates the vault's value independently](https://x.com/accountabledata/status/2106036446503047195). Neutral Trade's [FAQ](https://www.neutral.trade/faq) describes its redemption schedule and company investors."
 
+#: Saturn PT-USDat on Monad, reviewed on 2026-11-02.
+#:
+#: Accountable's cached strategy describes the loop and withdrawal policy.
+#: Saturn's current homepage distinguishes USDat from the separate sUSDat product.
+#: See ``docs/protocol-research/saturn-pt-usdat-description.md`` for evidence limits.
+SATURN_PT_USDAT_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (143, HexAddress("0x1a5b77cef5e4b6f806aeac6f6ea9213a617dc7e3")): HandwrittenVaultMetadata(
+        name="Saturn PT-USDat Loop Vault",
+        short_description="This vault invests USDC in tokens redeemable at a future date and borrows money to increase the investment, magnifying potential gains and losses.",
+        description="""#### What the vault invests in
+
+This vault invests USDC in PT-USDat and borrows more USDC to increase the investment. It aims to earn more from the tokens than it pays in borrowing costs, while taking on the risk of larger losses.
+
+[USDat](https://tradingstrategy.ai/glossary/usdat) is Saturn's digital dollar: a [stablecoin](https://tradingstrategy.ai/glossary/stablecoin), meaning a token intended to keep a stable price. USDat is [backed by PayPal USD through PYUSDx](https://saturn.credit/), a token representing that backing. USDat is distinct from sUSDat, Saturn's separate investment product that receives income from company securities.
+
+[Pendle](https://tradingstrategy.ai/glossary/pendle) is a marketplace that separates a token's future income or rewards from its redemption value. A [principal token](https://tradingstrategy.ai/glossary/principal-token), or PT, represents the redemption part; PT-USDat is the version associated with USDat. Its [maturity](https://tradingstrategy.ai/glossary/maturity) is the date when that redemption becomes available.
+
+#### How it earns returns
+
+The vault buys principal tokens below their redemption value and aims to earn the difference by holding them until maturity. Redemption is [measured in the asset specified by each market](https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT), rather than a guaranteed cash payment in US dollars. Selling before maturity can produce a different return because the market price changes.
+
+The vault uses its tokens as [collateral](https://tradingstrategy.ai/glossary/collateral), assets pledged to secure a loan, and borrows USDC through [Morpho](https://tradingstrategy.ai/glossary/morpho), a lending platform. It invests the borrowed money in more PT-USDat and can repeat this process, known as [recursive looping](https://tradingstrategy.ai/glossary/recursive-looping). This creates [leverage](https://tradingstrategy.ai/glossary/leverage): a larger investment than depositors' money alone could buy.
+
+Returns depend on the gain from buying tokens below their redemption value, after borrowing costs and fees. **The vault's return is not fixed:** borrowing rates can rise, reducing profits or causing losses, and borrowed money magnifies the effect. The strategy involves moving into tokens with a later maturity as the existing ones approach redemption, so the vault does not have a single end date.
+
+#### What can cause losses
+
+USDat can fall below its intended dollar value, and problems with its backing or redemption process can affect the tokens the vault holds. PT prices can also fall before maturity, while borrowing interest increases the debt. If the collateral no longer sufficiently covers the loan, [liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale to repay lenders, can cause losses.
+
+[Morpho's lending markets](https://docs.morpho.org/learn/concepts/blue/) rely on an [oracle](https://tradingstrategy.ai/glossary/oracle), a price feed used to value collateral. Incorrect prices, unsuitable market settings, mistakes by the manager or failures in the software controlling the funds can cause losses. Limited [liquidity](https://tradingstrategy.ai/glossary/liquidity), meaning too little money available to trade or repay borrowing, can make it harder to reduce the investment or return deposits.
+
+#### Withdrawals
+
+**Withdrawals are not immediate.** Under the [published withdrawal terms](https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe), requests made near the tokens' maturity can be settled through redemption, avoiding a sale of those tokens on the market. Otherwise, the vault sells tokens on Pendle in smaller batches as buyers and trading funds become available; selling early can reduce the amount returned.
+
+The stated processing time is one to two weeks in most cases, with a stated limit of the earlier of maturity or two months. However, shortages of USDC in the Morpho market or buyers for PT-USDat can delay processing. Treat these as the operator's stated timings, not a guaranteed payment deadline.""",
+        link="https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe",
+    ),
+}
+
+
 #: Other reviewed Accountable deployments with manually researched descriptions.
 #:
 #: Sources and the limits of deployment-specific evidence are recorded in
@@ -379,6 +420,7 @@ ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA: Final[dict[tuple[int, HexAddress], Handw
         link="https://www.linkedin.com/posts/accountablecapital_verifiable-yield-arrives-on-monad-foundation-activity-7398798395642982401-6WqP",
     ),
     **NEUTRAL_AUTOPILOT_VAULT_METADATA,
+    **SATURN_PT_USDAT_VAULT_METADATA,
 }
 
 #: Source citations for reviewed Accountable vaults. These descriptive notes
