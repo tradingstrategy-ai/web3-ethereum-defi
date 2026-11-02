@@ -58,6 +58,13 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[VaultSpec(1, "0xa6f6887ed116f3c41497a837a0319264a2eef3fa")] = {"Protocol": "Silo Finance"}
     rows[VaultSpec(1, "0xff5b00730ba463994fe0dbf574c538da258bc2ca")] = {"Protocol": "Euler"}
     rows[VaultSpec(146, "0x17271da949bbd4713c7c599759e2bf30604fc8da")] = {"Protocol": "Euler"}
+    for chain_id, address in (
+        (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"),
+        (10, "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957"),
+        (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"),
+        (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd"),
+    ):
+        rows[VaultSpec(chain_id, address)] = {"Protocol": "40acres"}
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}

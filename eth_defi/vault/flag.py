@@ -154,6 +154,18 @@ class VaultFlag(str, enum.Enum):
 
     #: This is for vaults with especially long redemption periods.
     long_duration = "long_duration"
+
+    #: 40acres withdrawal warning: USDC is lent against income-generating
+    #: collateral and reported assets include outstanding borrower loans.
+    #: Immediate withdrawals require USDC held by the supply vault; lenders
+    #: cannot demand loan repayment or trigger automatic collateral liquidation.
+    #: Collateral income and voluntary repayments replenish cash, without a
+    #: guaranteed completion date. Reduced or failed income can delay repayment
+    #: or cause losses. Applied only to reviewed liquidity-constrained pools,
+    #: not every 40acres deployment; deliberately excluded from :py:data:`BAD_FLAGS` so
+    #: affected vaults remain visible in the catalogue and data exports.
+    forty_acres_withdrawal_risk = "forty_acres_withdrawal_risk"
+
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,
@@ -275,6 +287,142 @@ Performance is shown in USD using the marginal amount returned by `preview_withd
 The entry and exit fee fields each model a 0.10% conversion between a generic USD stablecoin and the pool's BTC or ETH token. These endpoint costs sit outside the historical equity curve and exclude price impact, gas and MEV.
 """
 
+#: Shared explanation of the reviewed 40acres pools' repayment-dependent exits.
+FORTY_ACRES_WITHDRAWAL_NOTE = """#### Withdrawal restrictions
+
+**Withdrawals depend on available USDC and may remain restricted for an uncertain period.**
+Depositors fund borrower loans secured by income-generating collateral. The
+[lending documentation](https://docs.40acres.finance/lending) explains that
+borrowers' collateral rewards fund lender returns and that fully utilised
+pools require repayments before lenders can withdraw.
+
+Reported vault assets include outstanding loans, rather than only USDC ready
+to pay withdrawals. Collateral income and voluntary borrower repayments can
+replenish that cash, but lenders cannot demand immediate loan repayment or
+trigger automatic collateral liquidation. The
+[risk disclosure](https://docs.40acres.finance/risk-disclosure) explains that
+repayment has no fixed timeline: falling rewards can extend it, and failed
+reward generation can leave the vault with bad debt and losses for depositors.
+
+"""
+
+#: Team-reported reserve exhaustion and subsequent collateral migration.
+FORTY_ACRES_AERO_HISTORY_NOTE = """#### Reserve exhaustion and collateral migration
+
+In its [30 March 2026 lender update](https://40acresfinance.substack.com/p/40-acres-lender-update),
+40acres reported that a $3.3 million withdrawal outflow exhausted available
+USDC reserves, leaving remaining lenders dependent on loan repayments. The
+update did not identify individual affected pools, so it does not establish
+the outflow's allocation between vaults.
+
+The same lender update announced secondary markets for vault shares. These
+do not guarantee a buyer, an exit price or enough liquidity for a depositor
+to sell their shares.
+
+The [8 October 2026 migration announcement](https://40acresfinance.substack.com/p/aero-migration-what-40acres-users)
+said Aerodrome and Velodrome borrowers' collateral would migrate to sAERO,
+a staked AERO position held in borrower portfolio accounts on Base, with
+its rewards continuing to repay loans. The stated three-to-five-day delay
+for Velodrome borrowers withdrawing collateral after repayment is **not a
+withdrawal timetable for USDC lenders**.
+"""
+
+#: Aerodrome USDC, 40acres on Base; user-requested review on 2026-11-02,
+#: independently checked using RPC and the official API at block 53,417,278.
+#: Zero direct USDC against 5,600,744.570341 USDC of reported assets. A visible
+#: descriptive warning records repayment-dependent exits without blacklisting.
+#: https://tradingstrategy.ai/vaults/aerodrome-usdc
+FORTY_ACRES_AERODROME_NOTE = (
+    FORTY_ACRES_WITHDRAWAL_NOTE
+    + """
+#### Aerodrome USDC snapshot
+
+On **2 November 2026**, the [Base vault](https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5)
+held **zero USDC available for immediate withdrawals**, against approximately
+5.60 million USDC of reported assets. Approximately 5.61 million USDC was
+recorded as outstanding loan principal. These are dated observations, not a
+guarantee of future liquidity or recovery. The
+[official contract directory](https://docs.40acres.finance/contracts) identifies
+the supply vault and its associated loan contract.
+"""
+    + FORTY_ACRES_AERO_HISTORY_NOTE
+)
+
+#: Velodrome USDC, 40acres on Optimism; user-requested review on 2026-11-02,
+#: independently checked using RPC and the official API at block 159,012,563.
+#: Zero direct USDC against 635,156.416471 USDC of reported assets. The same
+#: visible warning applies; migrated collateral on Base does not move this vault.
+#: https://tradingstrategy.ai/vaults/velodrome-usdc
+FORTY_ACRES_VELODROME_NOTE = (
+    FORTY_ACRES_WITHDRAWAL_NOTE
+    + """
+#### Velodrome USDC snapshot
+
+On **2 November 2026**, the [Optimism vault](https://optimistic.etherscan.io/address/0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957)
+held **zero USDC available for immediate withdrawals**, against approximately
+635,156 USDC of reported assets and 636,038 USDC of outstanding loan principal.
+These are dated observations, not a guarantee of future liquidity or recovery.
+The [official contract directory](https://docs.40acres.finance/contracts)
+identifies this USDC supply vault on Optimism; the announced collateral
+migration to Base does not itself make its USDC available for withdrawal.
+"""
+    + FORTY_ACRES_AERO_HISTORY_NOTE
+)
+
+#: Pharaoh USDC, 40acres on Avalanche; user-requested review on 2026-11-02,
+#: independently checked using RPC and the official API at block 99,220,018.
+#: Zero direct USDC against 243,666.472184 USDC of reported assets. Do not infer
+#: that the March announcement specifically described this pool.
+#: https://tradingstrategy.ai/vaults/pharaoh-usdc
+FORTY_ACRES_PHARAOH_NOTE = (
+    FORTY_ACRES_WITHDRAWAL_NOTE
+    + """
+#### Pharaoh USDC snapshot
+
+On **2 November 2026**, the [Avalanche vault](https://snowtrace.io/address/0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7)
+held **zero USDC available for immediate withdrawals**, against approximately
+243,666 USDC of reported assets and 244,036 USDC of outstanding loan principal.
+The [40acres FAQ](https://docs.40acres.finance/faq) identifies
+Pharaoh's xPHAR market. [Pharaoh's documentation](https://docs.phar.gg/pages/xphar)
+explains that xPHAR is a token providing voting rights and protocol rewards.
+The [official contract directory](https://docs.40acres.finance/contracts)
+lists the associated supply vault and loan contract. The liquidity figures
+are dated observations, not a guaranteed withdrawal timetable.
+"""
+)
+
+#: Blackhole USDC, 40acres on Avalanche; user-requested review on 2026-11-02,
+#: independently checked using RPC and the official API at block 99,220,018.
+#: Only 1,581.265377 USDC direct cash against 635,055.027604 USDC reported assets.
+#: Protocol-reported collateral valuation is indicative, not realisable recovery.
+#: https://tradingstrategy.ai/vaults/blackhole-usdc
+FORTY_ACRES_BLACKHOLE_NOTE = (
+    FORTY_ACRES_WITHDRAWAL_NOTE
+    + """
+#### Blackhole USDC snapshot and collateral concerns
+
+On **2 November 2026**, the [Avalanche vault](https://snowtrace.io/address/0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd)
+held approximately **1,581 USDC available for immediate withdrawals against
+635,055 USDC of reported assets**, or about 0.25%. Approximately 633,474 USDC
+was recorded as outstanding loan principal. The onchain check also showed
+that the vault was not accepting new deposits.
+The [official contract directory](https://docs.40acres.finance/contracts)
+identifies the supply vault and the loan contract for veBLACK, positions
+representing locked BLACK tokens.
+
+On the same date, 40acres' [official live-data service](https://docs.40acres.finance/ai-assistants.md)
+reported approximately **634,000 USDC of borrower debt against $222,000 to $224,000
+of indicative collateral value**. Debt can include amounts beyond outstanding
+principal.
+
+This protocol-reported valuation is not a verified sale price,
+recovery estimate or established realised loss, but it raises concerns about
+repayment beyond the immediate cash shortage. Neither the remaining cash nor
+the collateral valuation establishes when a lender can exit in full.
+"""
+)
+
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -299,6 +447,10 @@ PROTOCOL_NOTES: dict[str, str] = {
 
 #: Product classification flags that are descriptive rather than exclusionary.
 VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
+    "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5": {VaultFlag.forty_acres_withdrawal_risk},
+    "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957": {VaultFlag.forty_acres_withdrawal_risk},
+    "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7": {VaultFlag.forty_acres_withdrawal_risk},
+    "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd": {VaultFlag.forty_acres_withdrawal_risk},
     **{address: {VaultFlag.tokenised_fund} for address in SECURITIZE_TOKENISED_FUND_ADDRESSES},
     **{address: {VaultFlag.tokenised_fund} for address in ONDO_TOKENISED_FUND_ADDRESSES},
     "0x09864f52b035ae22ee739dfa5c748fa080d07bd8": {VaultFlag.tokenised_fund},
@@ -322,6 +474,12 @@ CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     (chain_id, address): format_handwritten_vault_note(metadata)
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
 } | AXIS_NOTES_BY_CHAIN | {(chain_id, address.lower()): FLYING_TULIP_SSFTUSD_NOTES for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()} | ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
+CHAIN_SCOPED_VAULT_NOTES |= {
+    (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"): FORTY_ACRES_AERODROME_NOTE,
+    (10, "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957"): FORTY_ACRES_VELODROME_NOTE,
+    (43114, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"): FORTY_ACRES_PHARAOH_NOTE,
+    (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd"): FORTY_ACRES_BLACKHOLE_NOTE,
+}
 # fmt: on
 
 
