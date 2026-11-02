@@ -19,6 +19,12 @@ created in Ghost, see [`README-best-vaults-news.md`](README-best-vaults-news.md)
 source .local-test.env && poetry run python scripts/erc-4626/generate-monthly-vault-report.py
 ```
 
+When reusing another checkout's Poetry environment in a git worktree, run
+from the worktree root and run `export PYTHONPATH="$PWD"` before invoking the script.
+Otherwise the environment's editable installation can load the other checkout's
+code and run the investability agent there, writing its proposed vault flags
+outside the report worktree.
+
 Without the investability check, a run with cached downloads took about 40
 seconds on 2026-09-29, most of it rendering the charts. With the check, which
 runs an LLM agent, a run with Sonnet 5.5 took about 5 minutes on 2026-09-30;
@@ -539,12 +545,13 @@ then commit it in a pull request of its own.
 2. Open the draft in Ghost Admin using the editor link the script prints.
 3. Add the feature image in the post settings; `hero.png` in the bundle is a
    ready-made option.
-4. Write the editor's parts; the post has no placeholders for them: a one or
-   two sentence highlight after the opening paragraph, the new integrations
-   under the *Report content updates* opening sentence (changelog candidates
-   are in `report.json`, `changelog_entries`; the figures are generated),
-   community news as `h3` subsections, and, where useful, comments on the top
-   vaults, the yields, the TVL trends and the largest inflows and outflows.
+4. Rename and fill the empty *News item 1* and *News item 2* subsections, or
+   remove unused ones before publishing. Write the other editorial parts:
+   a one or two sentence highlight after the opening paragraph, the new
+   integrations under the *Report content updates* opening sentence
+   (changelog candidates are in `report.json`, `changelog_entries`; the figures
+   are generated), and, where useful, comments on the top vaults, the yields,
+   the TVL trends and the largest inflows and outflows.
 5. Review the investability check, see [Review workflow](#review-workflow),
    and commit any `flag.py` blacklist and `review_needed` entries separately.
 6. Review the tables. Unusual entries, such as capped `>9,999%` returns or

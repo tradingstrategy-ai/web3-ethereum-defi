@@ -93,8 +93,8 @@ Every data section and subsection opens with an introduction paragraph that expl
 | — | *Intro paragraph* | One generated sentence | The month's highlight |
 | — | *Table of contents* | `<div id="table-of-contents"></div>` in an HTML card, filled by the Ghost theme from the headings, as in the earlier posts | — |
 | 1 | About the report | Copied from the previous post, without empty paragraphs | — |
-| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL | The new integrations, under the opening sentence; changelog candidates are in `report.json` |
-| 3 | DeFi vault community news, {Month} | — | News as `h3` subsections |
+| 2 | Report content updates | Data statistics with the figures in bold: chains, protocols, vault count, TVL; dataset subscription link after the statistics | The new integrations, under the opening sentence; changelog candidates are in `report.json` |
+| 3 | DeFi vault community news, {Month} | Introduction and two empty `h3` subsections: *News item 1* and *News item 2* | Rename and fill the news subsections, or remove unused ones, before publishing |
 | 3b | Latest podcasts | The **4 latest podcast episodes**: guest logo, title linked to the blog post, promotion text, YouTube and Spotify links | — |
 | 4 | The best-performing vaults | Section notes on the table ranking and format only: no introduction and no T-bill caption | Comment on the top vaults |
 | 4.1 | ↳ New vaults | Performance chart of the top 8 of the table, each line from the vault's launch, and table: launched in the last 60 days, at least $15k TVL. The chart subtitle states these rules, so the section has no notes | — |
@@ -139,6 +139,10 @@ them; keep them when changing the templates in `post.py` or the notes in
 - The post has no editor callouts ("post-it" boxes). What the editor writes
   is listed in the *Editor input* column above and in the editor workflow of
   `README-vault-report.md`.
+- The draft's community-news section includes two empty `h3` subsections,
+  *News item 1* and *News item 2*, after its introduction. Their bodies are
+  empty, with no instructions or copied news. The editor renames and fills
+  them, or removes unused ones, before publishing.
 - *About the report*, *Report content updates*, *DeFi vault community news*
   and *Latest podcasts* come before the data sections. *About the report*
   and *Next steps*, the call to action, are copied from the previous post.
@@ -159,7 +163,7 @@ them; keep them when changing the templates in `post.py` or the notes in
 - *Inflows and outflows* is the last data section, with the subsections
   *Inflows and outflows by vault* and *Inflows and outflows by blockchain*,
   one chart each.
-- A grouping heading appears only when one of its subsections has content.
+- A data grouping heading appears only when one of its subsections has content.
 - The post never lists the excluded vaults. They go to a dated Markdown file
   in `eth_defi/vault_report/excluded-vaults/`, committed with the report's
   pull request and posted as a PR comment.
@@ -172,7 +176,8 @@ them; keep them when changing the templates in `post.py` or the notes in
   a predefined strategy with investors' money.
 - *Tokenised funds* explains that vaults and funds use the same smart contract
   technology with whitelisting; the report treats projects as tokenised funds
-  when there is evidence they have declared themselves as such.
+  when there is evidence they have declared themselves as such. Its definition
+  says "if we find evidence that it has self-declared as a tokenised fund".
 - *Yield by chain and protocol* opens with the market competition between
   blockchains and protocols, comparing returns as well as TVL, then explains
   the dots and the Treasury bill benchmark in a separate paragraph.
@@ -181,13 +186,18 @@ them; keep them when changing the templates in `post.py` or the notes in
   `podcast-episode-description` and listening links sit inside a
   `podcast-episode-links` div. Use these stylesheet hooks instead of inline
   styles, line breaks and separators for the podcast layout.
+- The podcast introduction describes interviews with onchain strategy
+  researchers, quants and vault curators, without promotional superlatives.
 - Every section and subsection opens with an introduction paragraph linking
-  to the matching tradingstrategy.ai page or glossary entry, except *The
-  best-performing vaults*, which has no introduction and no T-bill caption
-  and goes straight to its subsections.
+  to the matching tradingstrategy.ai page or glossary entry, except the two
+  empty news subsections and *The best-performing vaults*. The latter has no
+  introduction or T-bill caption and goes straight to its subsections.
 - *Report content updates*: the generated figures stay; the editor writes the
   new integrations under the opening sentence. The changelog candidates go
   to `report.json`, not into the post.
+- After the statistics, include a permanent paragraph offering access to the
+  report's datasets through the *Pro vault data subscription*, linked to
+  `https://tradingstrategy.ai/pricing`.
 - Statistics are plain counts: "29 blockchains and 116 vault protocols",
   "5,647 stablecoin-denominated vaults, of which 4,255 have up-to-date data",
   "Combined TVL of the vaults is $36.5B". No qualifiers such as "identified"

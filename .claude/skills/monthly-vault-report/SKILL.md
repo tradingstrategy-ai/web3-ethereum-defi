@@ -79,6 +79,13 @@ headings, image and table counts, the empty feature image, and that no
 excluded vault appears in the post. The Ghost site is private, so the draft
 can be viewed only in the Ghost editor.
 
+The template includes the dataset subscription link after the statistics,
+the podcast audience description and the shorter tokenised-fund definition
+in the writing rules. Community news has two empty `h3` subsections,
+*News item 1* and *News item 2*, for the editor to rename and fill, or remove
+if unused, before publishing. Leave their bodies empty; do not copy the
+previous month's news or add editor callouts.
+
 ## 4. Excluded vaults
 
 The run writes `eth_defi/vault_report/excluded-vaults/{date}-excluded-vaults.md`.
