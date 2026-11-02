@@ -4,7 +4,7 @@ Purpose: Persist the maintained copy and frontend glossary links.
 Scope: One Accountable share-token deployment on Monad; two description fields.
 Branch: check-saturn-pt-vault-description-source
 PR title: fix: explain Saturn PT-USDat strategy and glossary terms
-PR: Pending; no pull request opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1717
 Preserves: All other metadata, prices, reader state and timestamp caches.
 Expected: Up to one existing row and two changed fields; missing rows reported.
 Run after merge, after publishing the glossary; see the Saturn research note.

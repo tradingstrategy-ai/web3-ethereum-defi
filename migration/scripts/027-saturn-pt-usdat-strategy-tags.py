@@ -4,7 +4,7 @@ Purpose: Add lending looping, carry trade and AMM venue classifications.
 Scope: Only _strategy_tags for Saturn's share token on Monad (143).
 Branch: check-saturn-pt-vault-description-source
 PR title: fix: explain and categorise Saturn PT-USDat strategy
-PR: Pending; no pull request opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1717
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; report absent rows.
 Run after merge using the production reminder in the Saturn research note.
