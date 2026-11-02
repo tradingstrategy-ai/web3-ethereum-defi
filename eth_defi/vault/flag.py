@@ -509,6 +509,12 @@ ETHEREALM_USDC_ILLIQUID = "Etherealm USDC is illiquid"
 
 APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
 
+#: User-reported illiquidity of Apostro's Ethereum USDC Core vault.
+APOSTRO_USDC_CORE_ILLIQUID = "Apostro USDC Core is illiquid."
+
+#: User-reported illiquidity of Mainstreet Greenhouse's Sonic USDC vault.
+MAINSTREET_GREENHOUSE_USDC_ILLIQUID = "Mainstreet Greenhouse USDC is illiquid."
+
 HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
 
 RESOLV_ILLIQUID = "Resolv vault is illiquid"
@@ -526,6 +532,9 @@ BORROWABLE_USDC_SILOID_111_ILLIQUID = "Borrowable USDC Deposit, SiloId: 111 is i
 BORROWABLE_USDC_SILOID_142_ILLIQUID = "Borrowable USDC Deposit, SiloId: 142 is illiquid"
 
 BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is illiquid"
+
+#: User-reported illiquidity of Silo Finance's Ethereum market 148 USDC vault.
+BORROWABLE_USDC_SILOID_148_ILLIQUID = "Borrowable USDC Deposit, SiloId: 148 is illiquid."
 
 VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
 
@@ -721,6 +730,15 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506": (VaultFlag.illiquid, ILLIQUID_ABNORMAL_SHARE_PRICE),
     # Borrowable USDC Deposit, SiloId: 111 (Sonic)
     "0xae79b0d94e1c53cd2e8160899b8d58ec138d341f": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_111_ILLIQUID),
+    # Borrowable USDC Deposit, SiloId: 148 (Silo Finance on Ethereum).
+    # Added 2026-11-02 following a user report explicitly requesting an illiquid
+    # classification. No withdrawal-liquidity figures or incident cause were
+    # supplied; this records the user's classification, not an onchain check.
+    # Use illiquid to exclude the vault from investable rankings and exports.
+    # Sources identifying the reviewed deployment:
+    # - https://tradingstrategy.ai/vaults/borrowable-usdc-deposit-siloid-148
+    # - https://etherscan.io/address/0xa6f6887ed116f3c41497a837a0319264a2eef3fa
+    "0xa6f6887ed116f3c41497a837a0319264a2eef3fa": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_148_ILLIQUID),
     # 40avax-USDC-VAULT on Avalanche
     "0xbed7c02887efd6b5eb9a547ac1a4d5e582791647": (VaultFlag.abnormal_share_price, UNKNOWN_ABNORMAL_SHARE_PRICE),
     # XAU Aplha Vault on Arbitrum
@@ -937,6 +955,24 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Apostro USDC Frontier (Euler on Ethereum)
     "0xed9278c5188f37670b33ef3b00729e38260cd5d5": (VaultFlag.illiquid, APOSTRO_USDC_FRONTIER_ILLIQUID),
+    # Apostro USDC Core (Euler on Ethereum), curated by Apostro.
+    # Added 2026-11-02 following a user report explicitly requesting an illiquid
+    # classification. No withdrawal-liquidity figures or incident cause were
+    # supplied; this records the user's classification, not an onchain check.
+    # Use illiquid to exclude the vault from investable rankings and exports.
+    # Sources identifying the reviewed deployment:
+    # - https://tradingstrategy.ai/vaults/apostro-usdc-core
+    # - https://etherscan.io/address/0xff5b00730ba463994fe0dbf574c538da258bc2ca
+    "0xff5b00730ba463994fe0dbf574c538da258bc2ca": (VaultFlag.illiquid, APOSTRO_USDC_CORE_ILLIQUID),
+    # Mainstreet Greenhouse USDC (Euler on Sonic).
+    # Added 2026-11-02 following a user report explicitly requesting an illiquid
+    # classification. No withdrawal-liquidity figures or incident cause were
+    # supplied; this records the user's classification, not an onchain check.
+    # Use illiquid to exclude the vault from investable rankings and exports.
+    # Sources identifying the reviewed deployment:
+    # - https://tradingstrategy.ai/vaults/mainstreet-greenhouse-usdc
+    # - https://sonicscan.org/address/0x17271da949bbd4713c7c599759e2bf30604fc8da
+    "0x17271da949bbd4713c7c599759e2bf30604fc8da": (VaultFlag.illiquid, MAINSTREET_GREENHOUSE_USDC_ILLIQUID),
     # Blue Chip USDC Vault (Prime) on Ethereum - Morpho
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # VaultMorpho on Ethereum - Morpho

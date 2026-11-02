@@ -55,6 +55,9 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution"}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    rows[VaultSpec(1, "0xa6f6887ed116f3c41497a837a0319264a2eef3fa")] = {"Protocol": "Silo Finance"}
+    rows[VaultSpec(1, "0xff5b00730ba463994fe0dbf574c538da258bc2ca")] = {"Protocol": "Euler"}
+    rows[VaultSpec(146, "0x17271da949bbd4713c7c599759e2bf30604fc8da")] = {"Protocol": "Euler"}
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}
