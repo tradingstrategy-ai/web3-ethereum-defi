@@ -36,6 +36,52 @@ class HandwrittenVaultMetadata:
     link: str
 
 
+#: Nest AXI Vault on Plume (98866), reviewed on 2026-11-02.
+#:
+#: Plain-language replacement for Nest's payment-financing marketing copy.
+#: The published explanation describes "fiat and stablecoin liquidity" delivered
+#: where needed, but does not specify borrower costs or income sharing.
+#: Use the verified public production page rather than its development mirror.
+#: Scope this override to the reviewed vault entrypoint, not its share token.
+#: Nest's first-party catalogue explicitly names "Axiym AXI" as the target
+#: composition and maps the XUPL route to the Plume token below. The public
+#: transparency panel reports XUPL holdings. This establishes product exposure,
+#: not the complete legal lending chain or the identities of ultimate borrowers.
+#: Research evidence and remaining gaps: .claude/docs/nest-axi-research.md.
+#: https://api.nest.credit/v1/vaults/nest-axi-vault
+#: https://www.axiym.io/terms-conditions
+#: https://www.avalanche.com/about/blog/how-axiym-is-rewiring-global-payments-on-avalanche
+#: https://www.wearefreemarket.com/news/freemarket-and-axiym-partner-to-unlock-instant-liquidity-for-businesses
+#: https://tether.io/news/global-industrial-conglomerate-hyundai-completes-enterprise-treasury-pilot-on-tether-usdt-moving-corporate-funds-across-global-borders/
+#: https://tradingstrategy.ai/vaults/nest-axi-vault
+#: https://explorer.plume.org/address/0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0
+#: https://app.plume.org/vaults/nest-axi-vault?section=transparency
+NEST_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (98866, HexAddress("0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0")): HandwrittenVaultMetadata(
+        name="Nest AXI Vault",
+        short_description="Financing for payment businesses so they can send money without keeping as much cash parked in advance.",
+        description=(
+            "Nest AXI Vault aims to earn income by financing businesses that send money for customers. "
+            "This gives those businesses money to make payments without keeping as much of their own cash in payment accounts beforehand.\n\n"
+            "#### Business relationships\n\n"
+            "The vault's planned investment is [Axiym AXI payment financing](https://api.nest.credit/v1/vaults/nest-axi-vault). "
+            "Axiym provides [financing for licensed money-transfer and payment businesses](https://www.avalanche.com/about/blog/how-axiym-is-rewiring-global-payments-on-avalanche). "
+            "Axiym's operator is [Axi Labs AG, a Swiss company](https://www.axiym.io/terms-conditions).\n\n"
+            "#### Examples of Axiym services\n\n"
+            "In April 2025, payment platform Freemarket announced [access to Axiym financing in US dollars and euros](https://www.wearefreemarket.com/news/freemarket-and-axiym-partner-to-unlock-instant-liquidity-for-businesses) for business customers through their Freemarket accounts.\n\n"
+            "In July 2026, Hyundai Motor America and Hyundai Motor de México used Axiym for a [$20,000 cross-border payment pilot](https://tether.io/news/global-industrial-conglomerate-hyundai-completes-enterprise-treasury-pilot-on-tether-usdt-moving-corporate-funds-across-global-borders/). "
+            "This demonstrated a payment service; the announcement did not describe a loan.\n\n"
+            "#### Transparency\n\n"
+            "In November 2026, the [vault's transparency dashboard](https://app.plume.org/vaults/nest-axi-vault?section=transparency) showed almost all its assets in XUPL, "
+            "a token named [USDC PayFi Lending Vault](https://explorer.plume.org/token/0x72ee4fb6ed94436438e9c45c39660d7c2b4152f5). "
+            "The dashboard does not name the **businesses borrowing the money**, and neither example above is confirmed to have used this vault's money.\n\n"
+            "Public disclosures do not include the full lending agreements, what borrowers pay for financing or how income is shared with depositors."
+        ),
+        link="https://app.plume.org/vaults/nest-axi-vault?section=transparency",
+    ),
+}
+
+
 #: Passivbot Canon on Hypercore (9999), reviewed on 2026-11-01.
 #:
 #: The project README links this exact vault as its reference long-only
@@ -517,7 +563,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
+    return NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

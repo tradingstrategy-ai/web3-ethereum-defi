@@ -23,9 +23,13 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Follow the field's output format. Individual vault summaries are one plain
   sentence of single-line text. Full vault descriptions, protocol descriptions
   and source-linked notes are Markdown: split them into paragraphs of two or
-  three sentences, use bold for the few facts a reader must not miss, link
+  three sentences, use bold for key words or short phrases a reader must not miss, link
   sources inline and add `####` subheadings when the text covers several
   topics. See the [vault description formatting rules](../../docs/README-vault-description-formatting.md).
+- Keep bold emphasis selective: highlight key words, amounts or short phrases,
+  rather than whole sentences or paragraphs. Emphasise an entire sentence only
+  when its full wording is essential to understanding a material warning.
+  Keep source links visually selective too, as described below.
 - Explain a necessary financial term on first use. Prefer “loans funding grain
   purchases and transport” to “short-cycle working-capital credit exposure”.
 - Keep token names when they identify an actual deposit asset or investment,
@@ -75,6 +79,11 @@ Do not repeat the same point in different words, add rhetorical questions or
 finish with a summary that merely repeats the opening. Avoid unsupported labels
 such as “leading”, “safe”, “trusted” or “institutional-grade”.
 
+Do not add research-process preambles such as “As checked”, “As verified”,
+“At the time of review” or “Our research found”. Describe the product or fact
+directly. When a changing fact needs a snapshot date, use wording such as
+“In November 2026, the vault held…” rather than describing when we checked it.
+
 Keep programming and repository details out of public descriptions: no scanner
 behaviour, adapters, API methods, ABI names, classifiers, bytecode or metadata
 repair history. Mention a network or technical mechanism only when it helps
@@ -89,7 +98,22 @@ establish a performance history or current holdings by itself.
 
 Link material claims to their sources in Markdown-capable descriptions or
 notes. For plain-text fields, preserve the sources in the accompanying note
-or research file. Attribute manager-reported claims where needed.
+or research file.
+
+Never introduce a source with “According to X” or an equivalent attribution
+preamble such as “X says”, “X reports” or “as described by X”. State the fact
+directly and link a short, meaningful phrase within the supported claim.
+Avoid generic labels such as “source” or “click here”, and avoid turning long
+sentences into blocks of linked text. Link a whole sentence only when it is
+short and the full wording is needed to make the source connection clear.
+For example:
+
+> The vault's planned investment is [Axiym AXI payment financing](https://api.nest.credit/v1/vaults/nest-axi-vault).
+
+Direct linking does not make an unverified claim a verified fact. Retain
+necessary qualifications in the sentence, such as “targets”, “aims to”
+or “reported”, and state material evidence gaps explicitly. Link each source
+page once, choosing the claim that best represents what it supports.
 
 Check that the evidence describes the actual vault or product. Do not turn a
 provider's general investment approach into a claim about every vault it runs.
@@ -99,6 +123,13 @@ filling them with plausible generic copy.
 Date changing facts such as fees, funding totals and historical returns, and
 verify them before adding or updating them. Do not present a past rate as a
 current offer or a historical result as a promise of future returns.
+
+Use month–year dates in public descriptions by default, for example “April
+2025” or “November 2026”. Include the day only when it is critical to the
+context, such as a redemption deadline, incident timeline, effective date or
+comparison within the same month. Announcement examples and routine holdings
+snapshots normally need only the month and year. Keep exact research dates
+and source publication dates in accompanying research notes where useful.
 
 ## Final read
 
