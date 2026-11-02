@@ -673,6 +673,9 @@ APOSTRO_USDC_CORE_ILLIQUID = "Apostro USDC Core is illiquid."
 #: User-reported illiquidity of Mainstreet Greenhouse's Sonic USDC vault.
 MAINSTREET_GREENHOUSE_USDC_ILLIQUID = "Mainstreet Greenhouse USDC is illiquid."
 
+#: User-reported illiquidity of UltraYield's Gearbox USDC vault on Monad.
+EDGE_ULTRAYIELD_USDC_ILLIQUID = "EDGE UltraYield USDC is illiquid."
+
 HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
 
 RESOLV_ILLIQUID = "Resolv vault is illiquid"
@@ -1269,6 +1272,18 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
     # Wrapped HLP (Hyperlend on HyperEVM)
     "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5": (VaultFlag.illiquid, WRAPPED_HLP_ILLIQUID),
+    # EDGE UltraYield USDC (Gearbox on Monad, curator UltraYield)
+    #
+    # Added 2026-11-02 following a user report explicitly requesting an illiquid
+    # classification. No withdrawal failure or liquidity measurement was supplied;
+    # this classification records the user report, not an independent onchain check.
+    # Use illiquid to exclude the vault from investable rankings and exports.
+    # This is a separate deployment from the similarly named Morpho vault on Base.
+    #
+    # - https://tradingstrategy.ai/vaults/edge-ultrayield-usdc-5
+    # - https://monadscan.com/address/0x6b343f7b797f1488aa48c49d540690f2b2c89751
+    # - https://app.gearbox.fi/
+    "0x6b343f7b797f1488aa48c49d540690f2b2c89751": (VaultFlag.illiquid, EDGE_ULTRAYIELD_USDC_ILLIQUID),
     # King RSS USDC Vault (Morpho V1 on Base)
     #
     # Added 2026-09-26 by the vault report investability check
