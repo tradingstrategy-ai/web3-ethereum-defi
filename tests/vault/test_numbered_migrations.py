@@ -68,6 +68,11 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         (43114, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd"),
     ):
         rows[VaultSpec(chain_id, address)] = {"Protocol": "40acres"}
+    # Migration 024 requires these reviewed deployments; 022 handles 40acres.
+    rows[VaultSpec(42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a")] = {"Protocol": "Plutus"}
+    rows[VaultSpec(1868, "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9")] = {"Protocol": "Asseto"}
+    rows[VaultSpec(1, "0xb250c9e0f7be4cff13f94374c993ac445a1385fe")] = {"Protocol": "ETH Strategy"}
+    rows[VaultSpec(42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004")] = {"Protocol": "D2 Finance"}
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}

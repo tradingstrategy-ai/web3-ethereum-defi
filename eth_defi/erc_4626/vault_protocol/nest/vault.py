@@ -26,6 +26,7 @@ from eth_defi.erc_4626.vault_protocol.nest.offchain_metadata import NEST_ARC_CHA
 from eth_defi.erc_4626.vault_protocol.nest.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalReader, normalise_vault_description, normalise_vault_short_description
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
@@ -80,24 +81,30 @@ class NestVault(ERC4626Vault):
 
     @property
     def description(self) -> str | None:
-        """Return Nest's full first-party product description as single-line text.
+        """Return reviewed copy or Nest's full first-party product description.
 
-        Normalise at access time so existing CMS cache entries are also safe.
+        Reviewed chain/address overrides take precedence without fetching CMS
+        metadata. Normalise either source while retaining Markdown paragraphs.
 
         :return:
-            Description without line breaks or literal newline escapes, or ``None``.
+            Markdown description with normalised whitespace, or ``None``.
         """
+        if metadata := get_handwritten_vault_metadata(self.chain_id, self.vault_address):
+            return normalise_vault_description(metadata.description)
         return normalise_vault_description(self.nest_metadata.get("description")) if self.nest_metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return the first sentence of Nest's product summary as single-line text.
+        """Return a reviewed summary or the first sentence of Nest's summary.
 
-        Normalise at access time so existing CMS cache entries are also safe.
+        Reviewed chain/address overrides take precedence without fetching CMS
+        metadata. Normalise at access time so existing cache entries are safe.
 
         :return:
             Summary without line breaks or literal newline escapes, or ``None``.
         """
+        if metadata := get_handwritten_vault_metadata(self.chain_id, self.vault_address):
+            return normalise_vault_short_description(metadata.short_description)
         return normalise_vault_short_description(self.nest_metadata.get("short_description")) if self.nest_metadata else None
 
     @property

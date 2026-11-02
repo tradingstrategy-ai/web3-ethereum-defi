@@ -1,5 +1,7 @@
 """Test D2 Finance vault notes."""
 
+import pytest
+
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.scan import _normalise_scan_note
 from eth_defi.erc_4626.vault_protocol.d2.vault import (
@@ -9,7 +11,7 @@ from eth_defi.erc_4626.vault_protocol.d2.vault import (
     D2Vault,
 )
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.flag import SUBVAULT, VaultFlag, get_vault_special_flags, is_flagged_vault
+from eth_defi.vault.flag import BAD_FLAGS, SUBVAULT, VAULT_FLAGS_AND_NOTES, VaultFlag, get_vault_special_flags, is_flagged_vault
 
 
 def make_d2_vault(address: str) -> D2Vault:
@@ -35,10 +37,14 @@ def test_d2_protocol_vault_note_is_not_bad_flag() -> None:
     assert note is not None
     assert "D2 Finance strategy vault" in note
     assert "**Summary:**" in note
+    assert "**Deposits and withdrawals are closed during the trading phase.**" in note
+    assert "https://docs.d2.finance/docs/vault-design" in note
+    assert "not a guaranteed withdrawal deadline" in note
     assert "[D2 strategy page](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
     assert "[D2 strategy article](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9)" in note
-    assert get_vault_special_flags(address) == set()
-    assert not is_flagged_vault(address)
+    assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.withdrawal_restrictions}
+    assert VaultFlag.withdrawal_restrictions not in BAD_FLAGS
+    assert not is_flagged_vault(address, "D2 Finance")
 
 
 def test_d2_vault_note_handles_checksum_address() -> None:
@@ -66,11 +72,13 @@ def test_d2_unknown_protocol_vault_gets_generic_note() -> None:
     vault = make_d2_vault(address)
     note = vault.get_notes()
 
+    assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.withdrawal_restrictions}
+    assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert address not in D2_VAULT_ADDRESSES
     assert note is not None
     assert "D2 Finance strategy vault" in note
     assert "[D2 strategy page](https://d2.finance/strategies/0x000000000000000000000000000000000000d2d2)" in note
-    assert not is_flagged_vault(address)
+    assert not is_flagged_vault(address, "D2 Finance")
 
 
 def test_d2_texas_hedge_vault_note_is_not_bad_flag() -> None:
@@ -81,6 +89,9 @@ def test_d2_texas_hedge_vault_note_is_not_bad_flag() -> None:
     assert note is not None
     assert "D2 Finance texasHedge (TXHEDGE)" in note
     assert "**Summary:**" in note
+    assert "**Deposits and withdrawals are closed during the trading phase.**" in note
+    assert "https://docs.d2.finance/docs/vault-design" in note
+    assert "not a guaranteed withdrawal deadline" in note
     assert "HyperEVM USDC tactical strategy vault" in note
     assert "[Texas Hedge Epoch 2 blog post](https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3)" in note
     assert "[D2 strategy page](https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6)" in note
@@ -97,9 +108,12 @@ def test_d2_api_only_vault_note_is_not_bad_flag() -> None:
     assert address in D2_VAULT_ADDRESSES
     assert note is not None
     assert "**Summary:**" in note
+    assert "**Deposits and withdrawals are closed during the trading phase.**" in note
+    assert "https://docs.d2.finance/docs/vault-design" in note
+    assert "not a guaranteed withdrawal deadline" in note
     assert "[D2 strategy page](https://d2.finance/strategies/0xf650ba4303ce164e1f6b215d4cbb5e212d307056)" in note
     assert "[D2 strategy article](https://medium.com/@D2.Finance/hypereuler-x-pol-pol-is-here-is-time-to-supercharge-your-bera-4dfaa8805d23)" in note
-    assert not is_flagged_vault(address)
+    assert not is_flagged_vault(address, "D2 Finance")
 
 
 def test_trading_strategy_only_d2_vault_note_is_not_bad_flag() -> None:
@@ -111,9 +125,12 @@ def test_trading_strategy_only_d2_vault_note_is_not_bad_flag() -> None:
     assert address in D2_VAULT_ADDRESSES
     assert note is not None
     assert "**Summary:**" in note
+    assert "**Deposits and withdrawals are closed during the trading phase.**" in note
+    assert "https://docs.d2.finance/docs/vault-design" in note
+    assert "not a guaranteed withdrawal deadline" in note
     assert "[D2 strategy page](https://d2.finance/strategies/0x4ada76cc8755f62508a2df65d7fafa4fd26e76c6)" in note
     assert "D2 strategy article" not in note
-    assert not is_flagged_vault(address)
+    assert not is_flagged_vault(address, "D2 Finance")
 
 
 def test_d2_vault_note_does_not_override_bad_manual_flag() -> None:
@@ -123,7 +140,7 @@ def test_d2_vault_note_does_not_override_bad_manual_flag() -> None:
     note = vault.get_notes()
 
     assert address in D2_VAULT_ADDRESSES
-    assert get_vault_special_flags(address) == {VaultFlag.subvault}
+    assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.subvault, VaultFlag.withdrawal_restrictions}
     assert is_flagged_vault(address)
     assert note == SUBVAULT
 
@@ -141,3 +158,18 @@ def test_scan_note_normalisation_drops_duplicate_descriptions() -> None:
     assert _normalise_scan_note(r"Protocol supplied\nvault description", None, description) is None
     distinct_multiline_note = "Risk warning.\n\n[Source](https://example.com)."
     assert _normalise_scan_note(distinct_multiline_note, description, None) == distinct_multiline_note
+
+
+def test_d2_incident_note_keeps_priority(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preserve manual incident warnings alongside the descriptive exit flag.
+
+    An incident-specific note must not be replaced by the generic epoch note.
+
+    :param monkeypatch: Isolated manual warning table.
+    :return: ``None`` after verifying note and flag precedence.
+    """
+    address = "0x000000000000000000000000000000000000d2d2"
+    monkeypatch.setitem(VAULT_FLAGS_AND_NOTES, address, (VaultFlag.illiquid, "Manual incident warning"))
+    vault = make_d2_vault(address)
+    assert vault.get_notes() == "Manual incident warning"
+    assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.illiquid, VaultFlag.withdrawal_restrictions}

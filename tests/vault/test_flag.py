@@ -95,9 +95,11 @@ def test_eth_strategy_long_duration_flag_is_not_bad_flag() -> None:
     address = "0xb250c9e0f7be4cff13f94374c993ac445a1385fe"
 
     assert VaultFlag.long_duration not in BAD_FLAGS
-    assert get_vault_special_flags(address) == {VaultFlag.long_duration}
+    assert get_vault_special_flags(address) == {VaultFlag.long_duration, VaultFlag.withdrawal_restrictions}
     assert "long-dated ETH call option" in get_notes(address)
-    assert "They do not have a redemption queue in place" in get_notes(address)
+    assert "redemption queue" in get_notes(address)
+    assert "superseded by EARN" in get_notes(address)
+    assert "They do not have a redemption queue in place" not in get_notes(address)
     assert get_vault_risk("ETH Strategy", address) == VaultTechnicalRisk.low
 
 

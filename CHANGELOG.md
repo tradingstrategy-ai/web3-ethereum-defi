@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add researched manual descriptions for Nest AXI Vault, a targeted metadata refresh and clearer public writing guidance (2026-11-02).
 - feat: `LoggingRetry(max_retry_duration=...)` keeps retrying with exponential backoff until a time budget runs out, and `create_lighter_session(max_retry_duration=...)` passes it through, so a live executor can wait out a Lighter API outage instead of failing a valuation after about 15 seconds (2026-11-02, [#1710](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1710)).
 - feat: Support guarded Upshift deposits and queued withdrawals, classify account admission per deployment and repair cached metadata without changing price history (2026-10-31).
 - feat: Add historical price backfills to numbered migrations with a shared address-scoped helper, a preview-only block limit for local checks and a migration guide section, and backfill the early price history of the Neutral Trade Autopilot vaults on Ethereum and Monad (2026-10-30, [#1704](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1704)).
