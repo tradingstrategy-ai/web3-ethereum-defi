@@ -55,7 +55,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in ALPHAPING_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "IPOR Fusion" if (chain, address) in ALPHAPING_IPOR_VAULT_METADATA else "Morpho", "_notes": "Keep warning"}
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
-        rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution"}
+        rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[VaultSpec(1, "0xa6f6887ed116f3c41497a837a0319264a2eef3fa")] = {"Protocol": "Silo Finance"}

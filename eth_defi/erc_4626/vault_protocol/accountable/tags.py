@@ -6,6 +6,21 @@ from eth_defi.vault.strategy_tag import StrategyTag
 MONAD_CHAIN_ID = 143
 
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Saturn PT-USDat Loop Vault, Monad (143).
+    #: Added: 2026-11-02.
+    #: Decision material: Current local vault-metadata-db.pickle row inspected
+    #: on this date describes recursive USDC borrowing against PT-USDat,
+    #: earning the fixed-yield/variable-borrow-cost spread and selling PT on
+    #: Pendle's AMM. This supports looping, carry and AMM venue tags, not
+    #: liquidity provision or lending interest earned from supplying USDC.
+    #: Sources:
+    #: - https://yield.accountable.capital/vaults/0x593784188369E5e5f484025A1940cf437620C3Fe
+    #: - docs/protocol-research/saturn-pt-usdat-description.md
+    "0x1a5b77cef5e4b6f806aeac6f6ea9213a617dc7e3": {
+        StrategyTag.lending_looping,
+        StrategyTag.carry_trade,
+        StrategyTag.amm,
+    },
     #: Vault: Glasgow Cosmic by Ryllo, Monad (143).
     #: Added: 2026-10-22.
     #: Decision material: The vault finances the cricket team's working capital

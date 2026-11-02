@@ -30,8 +30,32 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   rather than whole sentences or paragraphs. Emphasise an entire sentence only
   when its full wording is essential to understanding a material warning.
   Keep source links visually selective too, as described below.
-- Explain a necessary financial term on first use. Prefer “loans funding grain
+- Explain necessary financial and technical terms in a few familiar words on
+  first use, especially when describing vaults and strategies. For example,
+  “collateral, assets pledged to secure a loan” and “liquidation, a forced sale
+  to repay lenders”. Explain named products and tokens too; do not assume a
+  reader knows Pendle, principal tokens or USDat.
+- Link the first useful mention of a specialist term to its frontend
+  [glossary](https://tradingstrategy.ai/glossary) page using
+  `https://tradingstrategy.ai/glossary/<slug>`. Keep the brief explanation in
+  the description: readers should not need to follow a link to understand it.
+  Reuse existing terms; add missing definitions to the documentation repository's
+  `source/glossary.rst` and publish them before linking newly introduced pages.
+  Check the actual frontend slug rather than guessing an abbreviation or using
+  a Sphinx anchor. Put longer explanations and hypothetical worked examples in
+  the glossary. Glossary links do not replace sources for product-specific claims.
+- Describe business activity directly. Prefer “loans funding grain
   purchases and transport” to “short-cycle working-capital credit exposure”.
+- Do not explain familiar assets such as USDC, USDT, ether or bitcoin. Reserve
+  first-use definitions and glossary links for specialist terms and less familiar
+  products or tokens that readers need to understand the strategy.
+- Do not repeat the vault's curator, hosting protocol or blockchain name in its
+  description; the page already displays them in dedicated boxes. Start with
+  what the money funds. Name other products or venues only when needed to explain
+  an investment mechanism, cost, risk or withdrawal condition.
+- Do not add research-status phrases such as “As checked on”, “As of our review”
+  or “At the time of writing”. Keep verification dates in research notes or
+  source comments, outside the public description.
 - Keep token names when they identify an actual deposit asset or investment,
   but avoid strings of unexplained acronyms.
 - Use British English, spell “onchain” without a hyphen, and use sentence case
@@ -120,8 +144,9 @@ provider's general investment approach into a claim about every vault it runs.
 State a material evidence gap plainly and omit unsupported details rather than
 filling them with plausible generic copy.
 
-Date changing facts such as fees, funding totals and historical returns, and
-verify them before adding or updating them. Do not present a past rate as a
+Verify changing facts such as fees and funding totals before adding or updating
+them. Include dates when they describe an actual event, effective date or
+performance period, not when the author checked a source. Do not present a past rate as a
 current offer or a historical result as a promise of future returns.
 
 Use month–year dates in public descriptions by default, for example “April
