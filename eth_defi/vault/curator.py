@@ -407,6 +407,9 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    # PassivBot is freely reusable software. Only its documented reference
+    # vault is attributed to the project, not independently operated copies.
+    "passivbot",
     "apex-quants",
     "waterline-rusd",
     "presto",
@@ -449,6 +452,14 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Passivbot Canon on Hypercore (9999), reviewed 2026-11-01.
+    #: The project's README identifies this exact address as its reference
+    #: long-only configuration. The public vaultDetails response confirms
+    #: the reference-vault name and unaltered template configuration claim.
+    #: https://github.com/enarjord/passivbot
+    #: https://tradingstrategy.ai/vaults/passivbot-canon
+    #: https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
+    (9999, "0x490af7d4a048a81db0f677517ed6373565b42349"): "passivbot",
     #: Agent RockSteady on Hypercore (9999), reviewed 2026-10-30.
     #: NuWealth.ai publishes this vault and its leader wallet. Hyperliquid's
     #: vaultDetails confirms both addresses and links the nuwealth_ai account.

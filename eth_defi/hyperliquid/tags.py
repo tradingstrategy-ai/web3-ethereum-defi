@@ -24,6 +24,30 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Passivbot Canon on Hypercore (9999).
+    #: Added: 2026-11-01.
+    #: Decision material: The project README links this exact reference vault
+    #: as running its long-only configuration. Its contrarian limit-order
+    #: market making, grid/trailing entries and exits, and averaging into price
+    #: falls support algorithmic, directional, mean-reversion, grid and
+    #: orderbook market-making tags. The maintainer explicitly requested the
+    #: high-frequency, high-win-rate classification; no measured win rate or
+    #: latency-based HFT capability is asserted.
+    #: Sources:
+    #: - https://github.com/enarjord/passivbot
+    #: - https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md
+    #: - https://tradingstrategy.ai/vaults/passivbot-canon
+    #: - https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
+    #: - https://api.hyperliquid.xyz/info
+    "0x490af7d4a048a81db0f677517ed6373565b42349": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.directional_trading,
+        StrategyTag.mean_reversion,
+        StrategyTag.grid_trading,
+        StrategyTag.market_making,
+        StrategyTag.market_making_clob,
+    },
     #: Vault: Agent RockSteady.
     #: Added: 2026-10-30.
     #: Decision material: NuWealth.ai identifies this vault and states that
