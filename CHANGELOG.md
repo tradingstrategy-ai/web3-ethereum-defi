@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Parse Lighter pool `entry_timestamp` as Unix milliseconds and end withdrawal history on an empty page, as observed on a funded mainnet pool round trip (2026-11-03).
 - feat: Add the `inventory_financing` strategy tag, classify the 3Jane USD3 and sUSD3 vaults with a targeted numbered migration, and rewrite the 3Jane curator, protocol and stablecoin descriptions around the November 2026 Settle forward-flow agreement (2026-11-03).
 - feat: Preserve monthly vault report editorial text, add empty news sections and record the November 2026 report exclusions (2026-11-02).
 - feat: Add researched manual descriptions for Nest AXI Vault, a targeted metadata refresh and clearer public writing guidance (2026-11-02).
