@@ -655,23 +655,11 @@ ABNORMAL_VOLATILITY = "Annualised volatility is unrealistically high, likely a l
 
 HYPERCORE_VAULT_NOTE = "Profit and loss (PnL) results here differ from the method used on the Hyperliquid website. Instead of raw account PnL, the data is cleaned from deposit/redeem flow and reflects better the actual profitability of the underlying trading activity."
 
-#: Agent RockSteady research history supplied by NuWealth on 2026-10-30.
+#: Agent RockSteady live-execution copy supplied by NuWealth on 2026-11-03.
 #:
-#: These are operator-reported simulations, not independently verified live
-#: performance. The current public disclosures confirm that research can use
-#: AI tools while live execution follows fixed rules.
-ROCKSTEADY_VAULT_NOTE = (
-    "#### Research and testing\n\n"
-    "NuWealth reports testing more than 30 versions of RockSteady's rules on five years of one-minute market data, from 2021 to 2025, before freezing the rules for launch. "
-    "The operator reports a **23.7% maximum drawdown in testing**: a hypothetical fall from a simulated peak, not the vault's live maximum drawdown or a limit on future losses. "
-    "Its [risk disclosure](https://nuwealth.ai/risk) explains that testing uses historical data with hindsight and may miss real trading costs, delays and price gaps.\n\n"
-    "#### Live execution and identity\n\n"
-    "AI tools help research and test the strategy; **no AI makes live trading decisions**. "
-    "NuWealth's [address and withdrawal checks](https://nuwealth.ai/check) explain that the vault's original launch description mentioning Claude cannot be edited, and identify the vault and leader wallet. "
-    "The operator is NuWealth.ai, separate from the NuWealth Morpho business at nuwealth.io; its [live record](https://nuwealth.ai/record) is separate from the testing figures.\n\n"
-    "#### Performance methodology\n\n"
-    f"{HYPERCORE_VAULT_NOTE}"
-)
+#: The operator requested removal of the historical research section and test
+#: figures, retaining identity checks, live-record links and PnL methodology.
+ROCKSTEADY_VAULT_NOTE = f"#### Live execution and identity\n\nAI tools help research and test the strategy; **no AI makes live trading decisions**. The vault's original Hyperliquid description, which mentions Claude, was written at launch and cannot be edited. [nuwealth.ai/check](https://nuwealth.ai/check) lists the official vault and leader addresses. NuWealth.ai is separate from NuWealth at nuwealth.io, a Morpho lending business. Live figures are on [nuwealth.ai/record](https://nuwealth.ai/record).\n\n#### Performance methodology\n\n{HYPERCORE_VAULT_NOTE}"
 
 #: Agent RockSteady, Hyperliquid on Hypercore (9999), added 2026-10-31.
 #: The requester reported missing strategy copy. This is descriptive metadata

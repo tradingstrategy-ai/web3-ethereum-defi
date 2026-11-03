@@ -125,6 +125,8 @@ PASSIVBOT_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]]
 #: in the NuWealth.ai curator request on 2026-10-30. The official check and
 #: record pages corroborate the vault identity, fixed-rule execution, launch
 #: date, fees and withdrawal timing. Keep this override scoped to Hypercore.
+#: On 2026-11-03 the operator supplied 4 February 2026 as the public live-record
+#: start date; this display correction does not change discovery timestamps.
 #: https://tradingstrategy.ai/vaults/agent-rocksteady
 #: https://nuwealth.ai/check
 #: https://nuwealth.ai/record
@@ -134,7 +136,7 @@ ROCKSTEADY_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]
     (9999, "0xd321ad79041bdad719ba5ff42fe950e1977df439"): HandwrittenVaultMetadata(
         name="Agent RockSteady",
         short_description="Automated crypto futures strategy that mostly buys sharp dips and takes profit on rebounds.",
-        description=("Agent RockSteady accepts USDC for a mean-reversion strategy run by [NuWealth.ai](https://nuwealth.ai/). It trades perpetual futures on Hyperliquid, contracts that follow cryptocurrency prices, using fixed rules rather than live AI decisions.\n\nNuWealth describes trading across **30 markets**, mostly buying sharp dips and taking profit when prices rebound, with occasional short positions that benefit from falling prices. Trades usually last hours, and the strategy aims for many small winning trades rather than a few large moves.\n\nThe vault has traded live since **3 February 2026**. Its [published vault details](https://nuwealth.ai/check) specify a **10% profit share** for the leader, with no management fee.\n\nEach deposit locks the depositor's whole vault position for **24 hours** before withdrawals are available. The leader must retain at least **5% of the vault's capital**; depositors can use Hyperliquid directly to withdraw without the NuWealth app."),
+        description=("Agent RockSteady accepts USDC for a mean-reversion strategy run by [NuWealth.ai](https://nuwealth.ai/). It trades perpetual futures on Hyperliquid, contracts that follow cryptocurrency prices, using fixed rules rather than live AI decisions.\n\nNuWealth describes trading across **30 markets**, mostly buying sharp dips and taking profit when prices rebound, with occasional short positions that benefit from falling prices. Trades usually last hours, and the strategy aims for many small winning trades rather than a few large moves.\n\nThe vault has traded live since **4 February 2026**. Its [published vault details](https://nuwealth.ai/check) specify a **10% profit share** for the leader, with no management fee.\n\nEach deposit locks the depositor's whole vault position for **24 hours** before withdrawals are available. The leader must retain at least **5% of the vault's capital**; depositors can use Hyperliquid directly to withdraw without the NuWealth app."),
         link="https://tradingstrategy.ai/vaults/agent-rocksteady",
     ),
 }
