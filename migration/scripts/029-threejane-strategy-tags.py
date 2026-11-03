@@ -6,7 +6,7 @@ agreement.
 Scope: Only _strategy_tags for the USD3 and sUSD3 vaults on Ethereum (1).
 Branch: find-vaults-3jane-announcement
 PR title: feat: add inventory financing strategy tag and rewrite 3Jane descriptions
-PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/NUMBER
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1720
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most two existing rows and two changed fields; report absent rows.
 No network reads or historical scanning are required.
