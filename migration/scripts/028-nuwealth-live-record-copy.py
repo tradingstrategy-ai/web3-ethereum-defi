@@ -5,7 +5,7 @@ Purpose: Remove historical test figures and use the operator-supplied public liv
 Scope: Only _description and _notes for Hypercore 9999:0xd321ad79041bdad719ba5ff42fe950e1977df439.
 Branch: notes/nuwealth-live-record-copy
 PR title: notes: update NuWealth.ai to live-record-only copy
-PR: Not opened; local branch implementation.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1718
 Preserves: Summary, names, links, discovery timestamps, fees, flags, risk, strategy tags, unrelated rows, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and two changed fields; absent/current targets are reported without rewriting metadata.
 
