@@ -204,6 +204,14 @@ cp -r ~/.foundry/cache/rpc/mainnet/25598869 eth_defi/testing/rpc_cache_seed/main
 git add eth_defi/testing/rpc_cache_seed/ && git commit -m "test: refresh fork RPC cache seed"
 ```
 
+Per-test `evm_snapshot_revert` also reverts the remote reads Anvil cached
+during the test, so a seed captured from an isolated mutating fork group can
+hold almost no storage. For such a fixed-block group, run one warm-up pass with
+the module's snapshot fixture temporarily yielding without a revert, ignore the
+resulting cross-test failures, restore the fixture and rerun the group from an
+empty live cache to confirm the seed. The Atoma `arbitrum/520900000` seed went
+from 4 to 2,139 storage slots this way.
+
 Network directory names are Foundry's own (`mainnet`, `arbitrum`, `base`, `bsc`,
 `avalanche`, `plasma`, `hyperliquid`, `sonic`, `berachain`, `polygon`, …) — copy
 whatever `~/.foundry/cache/rpc` created so the paths match on every runner.

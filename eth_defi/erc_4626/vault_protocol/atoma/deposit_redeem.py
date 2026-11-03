@@ -290,8 +290,9 @@ class AtomaDepositManager(ERC4626DepositManager):
             self.vault.fetch_receipt_contract(block)
         except ValueError:
             reconcile = True
-        # Reviewed implementations share the request and claim path, so a
-        # request preflighted before an upgrade between them needs no recovery.
+        # Reviewed implementations share the request path and have compatible
+        # claim accounting, so a request preflighted before an upgrade between
+        # them needs no recovery.
         reconcile |= preflight is not None and preflight != implementation and not (self.vault.is_execution_implementation(preflight) and self.vault.is_execution_implementation(implementation))
         owner = Web3.to_checksum_address(args["user"])
         part = AtomaRequestPart(HexBytes(receipt["transactionHash"]), block, HexBytes(receipt["blockHash"]), int(event["logIndex"]), int(args["shares"]))
