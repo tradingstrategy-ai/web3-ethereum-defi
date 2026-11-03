@@ -290,7 +290,9 @@ class AtomaDepositManager(ERC4626DepositManager):
             self.vault.fetch_receipt_contract(block)
         except ValueError:
             reconcile = True
-        reconcile |= preflight is not None and preflight != implementation
+        # Reviewed implementations share the request and claim path, so a
+        # request preflighted before an upgrade between them needs no recovery.
+        reconcile |= preflight is not None and preflight != implementation and not (self.vault.is_execution_implementation(preflight) and self.vault.is_execution_implementation(implementation))
         owner = Web3.to_checksum_address(args["user"])
         part = AtomaRequestPart(HexBytes(receipt["transactionHash"]), block, HexBytes(receipt["blockHash"]), int(event["logIndex"]), int(args["shares"]))
         return AtomaRedemptionTicket(vault_address=self.vault.address, owner=owner, to=owner, raw_shares=part.raw_shares, tx_hash=part.tx_hash, chain_id=self.vault.chain_id, request_epoch=int(args["requestEpoch"]), settlement_epoch=int(args["settlementEpoch"]), implementation=implementation, preflight_implementation=preflight or implementation, parts=(part,), reconciliation_required=reconcile)
@@ -448,7 +450,7 @@ class AtomaDepositManager(ERC4626DepositManager):
         # Pre-request estimate includes the current settlement performance fee;
         # future NAV, haircuts and liquidity remain unknown.
         block = self.web3.eth.block_number if block_identifier == "latest" else block_identifier
-        self.vault.check_execution_version(block)
+        implementation = self.vault.check_execution_version(block)
         f = self.vault.vault_contract.functions
         raw = self.vault.share_token.convert_to_raw(shares)
         precision = f.NAV_PRECISION().call(block_identifier=block)
@@ -459,13 +461,15 @@ class AtomaDepositManager(ERC4626DepositManager):
         hwm = f.highWaterMark().call(block_identifier=block)
         nav -= max(0, nav - hwm) * f.PERFORMANCE_FEE_BPS().call(block_identifier=block) // 10_000
         gross = raw * nav // precision
-        fee = gross * f.WITHDRAWAL_FEE_BPS().call(block_identifier=block) // 10_000
+        fee_bps = self.vault.fetch_withdrawal_fee_bps(owner, implementation, block) if owner else f.WITHDRAWAL_FEE_BPS().call(block_identifier=block)
+        fee = gross * fee_bps // 10_000
         return self.vault.denomination_token.convert_to_decimals(gross - fee)
 
     def fetch_claim_amounts(self, ticket: AtomaRedemptionTicket, block_identifier: BlockIdentifier = "latest") -> tuple[int, int, int]:
         """Quote the current gross, exit fee and net claim with Solidity rounding.
 
         A settled claim can be haircut later; only a mined receipt is realised.
+        The fee follows the claimant's fee-account exemption, if any.
 
         :param ticket: Owner/epoch claim.
         :param block_identifier: State snapshot.
@@ -473,7 +477,7 @@ class AtomaDepositManager(ERC4626DepositManager):
         """
         self._validate_ticket(ticket, canonical=True)
         block = self.web3.eth.block_number if block_identifier == "latest" else block_identifier
-        self.vault.check_execution_version(block)
+        implementation = self.vault.check_execution_version(block)
         f = self.vault.vault_contract.functions
         _, nav, settled = f.getEpoch(ticket.settlement_epoch).call(block_identifier=block)
         if not settled:
@@ -487,7 +491,7 @@ class AtomaDepositManager(ERC4626DepositManager):
         now = f.shortfallIndexWad().call(block_identifier=block)
         if now < before:
             gross = gross * now // before
-        fee = gross * f.WITHDRAWAL_FEE_BPS().call(block_identifier=block) // 10_000
+        fee = gross * self.vault.fetch_withdrawal_fee_bps(ticket.owner, implementation, block) // 10_000
         return gross, fee, gross - fee
 
     def _failure(self, tx_hash: HexBytes, reason: str, direction: str, status: int) -> DepositRedeemEventFailure:
@@ -656,12 +660,13 @@ class AtomaDepositManager(ERC4626DepositManager):
         if request_ids != {part.identity for part in ticket.parts}:
             raise ValueError("All Atoma request contributions must be acknowledged")
         block = self.web3.eth.block_number
-        implementation = self.vault.check_execution_version(block)
-        if ticket.preflight_implementation != ticket.implementation or ticket.implementation != implementation:
+        self.vault.check_execution_version(block)
+        reviewed = self.vault.is_execution_implementation
+        if not reviewed(ticket.preflight_implementation) or not reviewed(ticket.implementation):
             raise self._unavailable("implementation_reconciliation_required", ticket.owner, "reconciliation")
         for part in ticket.parts:
             _, observed = self.vault.fetch_receipt_contract(part.block_number)
-            if observed != implementation:
+            if not reviewed(observed):
                 raise self._unavailable("implementation_reconciliation_required", ticket.owner, "reconciliation")
         if self.vault.vault_contract.functions.userEpochShares(ticket.settlement_epoch, ticket.owner).call(block_identifier=block) != ticket.raw_shares:
             raise self._unavailable("request_history_mismatch", ticket.owner, "reconciliation")

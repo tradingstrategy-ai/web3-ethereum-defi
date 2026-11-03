@@ -28,15 +28,27 @@ source .local-test.env && PYTHONPATH="$PWD" timeout 600 poetry run pytest \
 make guard safe-integration
 ```
 
-The current lifecycle requires block **519150162**. The canonical Arbitrum
-block **487039644** predates that implementation; generic Guard rejection tests
+The current lifecycle requires block **520900000**, after both proxies were
+upgraded to the fee-split implementation at block **519510080**. The previous
+reviewed implementation was used at block **519150162** for the evidence below
+and is still accepted. The canonical Arbitrum block **487039644** predates
+both implementations; generic Guard rejection tests
 and legacy reader tests use the canonical block. Neither test forks at latest
 or changes the global chain constant. Both use the shared Anvil pool and
 matching xdist groups. The repository includes a warmed current-block cache
-with 37 accounts and 2,084 storage slots. Custody deployment is shared across
+with 43 accounts and 2,139 storage slots. Custody deployment is shared across
 the session and protocol changes are reverted between tests.
 
 ## Recorded evidence
+
+On **2026-11-03**, after the fee-split upgrade, the focused commands above passed
+123 cases locally with the same redacted providers and Anvil 1.8.6. At block
+**520900000**, Index minted **89,827,696,991,978** raw shares and RWA
+**91,621,124,359,142**; both paid **99,500,000** raw USDC with a **500,000** exit
+fee. A request made under `0x9161be11…` was settled and claimed under
+`0x153b9775…`, and a fee-split recipient claimed without the exit fee. Live RPC
+reads confirmed both reviewed implementations and the ambiguous upgrade block
+**519510080**. The earlier evidence below is for block 519150162.
 
 Manual local runs on **2026-10-28** used the supplied authenticated Arbitrum
 archive RPC configuration (Goldsky with dRPC and Alchemy fallbacks),
@@ -100,8 +112,8 @@ Guard/module replaced, before relying on the narrow Atoma policy. No share
 transfer/approval, direct redemption, settlement or administrative permission
 is added by this whitelist.
 
-Only the two documented implementations are recognised for receipt decoding,
-and only the current one is permitted for execution. Other historical
+Only the three documented implementations are recognised for receipt decoding,
+and only the two reviewed current ones are permitted for execution. Other historical
 implementations exist, including `0xfe1630da561e82fefb56e37796faee917331215f`.
 Their requests retain evidence with reconciliation required; their flow
 receipts are returned as structured failures rather than assigned accounting

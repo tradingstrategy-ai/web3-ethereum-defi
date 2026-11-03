@@ -1,7 +1,8 @@
 """Current Atoma implementation through real Guard and Safe custody.
 
-The canonical Arbitrum block predates the reviewed upgrade. This explicit pool
-key pins its replacement at 519150162; Anvil's persistent RPC cache warms on the
+The canonical Arbitrum block predates the reviewed upgrades. This explicit pool
+key pins block 520900000, after both proxies were upgraded to the fee-split
+implementation at block 519510080; Anvil's persistent RPC cache warms on the
 first run. We do not change the shared chain constant or fork at latest.
 Funding is a real USDC transfer on the fork. Settlement impersonates the real
 operator and affects all requests in the chosen epoch, without changing NAV,
@@ -29,7 +30,7 @@ from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626 import deposit_probe
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem import AtomaFlowAnalysis
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_ADDRESSES, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_FEE_SPLIT_IMPLEMENTATION, ATOMA_IMPLEMENTATION, ATOMA_VAULT_ADDRESSES, AtomaVault
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import deploy_safe_trading_strategy_module, setup_guard
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, make_anvil_custom_rpc_request, mine
@@ -44,8 +45,8 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnav
 
 logger = logging.getLogger(__name__)
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-ATOMA_CURRENT_BLOCK = 519_150_162
-pytestmark = [pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM required"), pytest.mark.xdist_group("fork:arbitrum:atoma:519150162")]
+ATOMA_CURRENT_BLOCK = 520_900_000
+pytestmark = [pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM required"), pytest.mark.xdist_group("fork:arbitrum:atoma:520900000")]
 
 
 @dataclass(slots=True)
@@ -194,9 +195,9 @@ def test_atoma_guarded_lifecycle(atoma_web3: Web3, custodies: dict[str, Custody]
     assert result.status_after is AsyncVaultRequestStatus.claimable
     gross, fee, net = manager.fetch_claim_amounts(ticket)
     if address.startswith("0x1c"):
-        assert (shares, gross, fee, net) == (92_043_718_995_111, 99_999_999, 499_999, 99_500_000)
+        assert (shares, gross, fee, net) == (91_621_124_359_142, 100_000_000, 500_000, 99_500_000)
     else:
-        assert (shares, gross, fee, net) == (90_183_127_089_591, 100_000_000, 500_000, 99_500_000)
+        assert (shares, gross, fee, net) == (89_827_696_991_978, 100_000_000, 500_000, 99_500_000)
     assert f.settledUnclaimedAssets().call() == reserved_before + gross
     assert manager.can_finish_redeem(ticket)
     fees_before = f.accruedWithdrawalFees().call()
@@ -236,6 +237,66 @@ def privileged(vault: AtomaVault, role: str, func: ContractFunction) -> HexBytes
         return HexBytes(tx)
     finally:
         make_anvil_custom_rpc_request(w, "anvil_stopImpersonatingAccount", [actor])
+
+
+def test_atoma_request_across_upgrade(atoma_web3: Web3, custodies: dict[str, Custody]) -> None:
+    """A request made under the previous reviewed implementation is claimed after the fee-split upgrade.
+
+    1. Restore the previous implementation through the real owner, then deposit and request.
+    2. Repeat the production upgrade, then settle, quote and claim under the fee-split implementation.
+    """
+    c = custodies["safe"]
+    v = AtomaVault(atoma_web3, VaultSpec(42161, sorted(ATOMA_VAULT_ADDRESSES)[0]))
+    m = v.get_deposit_manager()
+    f = v.vault_contract.functions
+    # 1. Restore the previous implementation through the real owner, then deposit and request.
+    privileged(v, "owner", f.upgradeToAndCall(Web3.to_checksum_address(ATOMA_IMPLEMENTATION), b""))
+    shares = deposit(v, c)
+    unlock(v, c.address)
+    req = m.create_redemption_request(c.address, raw_shares=shares)
+    assert req.implementation == ATOMA_IMPLEMENTATION
+    ticket = req.parse_redeem_transaction([c.transact(atoma_web3, req.funcs[0])])
+    assert ticket.implementation == ATOMA_IMPLEMENTATION
+    assert not ticket.reconciliation_required
+    # 2. Repeat the production upgrade, then settle, quote and claim under the fee-split implementation.
+    privileged(v, "owner", f.upgradeToAndCall(Web3.to_checksum_address(ATOMA_FEE_SPLIT_IMPLEMENTATION), b""))
+    assert v.check_execution_version(atoma_web3.eth.block_number) == ATOMA_FEE_SPLIT_IMPLEMENTATION
+    assert m.get_redemption_request_status(ticket) is AsyncVaultRequestStatus.pending
+    m.force_settle(ticket)
+    gross, fee, net = m.fetch_claim_amounts(ticket)
+    assert fee == gross * 50 // 10_000
+    claim = c.transact(atoma_web3, m.finish_redemption(ticket))
+    analysis = m.analyse_redemption(claim, ticket)
+    assert isinstance(analysis, AtomaFlowAnalysis)
+    assert analysis.implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION
+    assert analysis.denomination_amount == v.denomination_token.convert_to_decimals(net)
+    assert analysis.withdrawal_fee == v.denomination_token.convert_to_decimals(fee)
+
+
+def test_atoma_fee_account_claim(atoma_web3: Web3, custodies: dict[str, Custody]) -> None:
+    """A fee-split recipient claims without the withdrawal fee, and the quote matches."""
+    c = custodies["simple"]
+    v = AtomaVault(atoma_web3, VaultSpec(42161, sorted(ATOMA_VAULT_ADDRESSES)[0]))
+    m = v.get_deposit_manager()
+    f = v.vault_contract.functions
+    shares = deposit(v, c)
+    unlock(v, c.address)
+    req = m.create_redemption_request(c.address, raw_shares=shares)
+    ticket = req.parse_redeem_transaction([c.transact(atoma_web3, req.funcs[0])])
+    m.force_settle(ticket)
+    standard = m.fetch_claim_amounts(ticket)
+    assert standard[1] > 0
+    recipients, bps = f.feeSplit().call()
+    privileged(v, "owner", f.setFeeSplit([*recipients[:-1], c.address], bps))
+    gross, fee, net = m.fetch_claim_amounts(ticket)
+    assert (gross, fee, net) == (standard[0], 0, standard[0])
+    fees_before = f.accruedWithdrawalFees().call()
+    claim = c.transact(atoma_web3, m.finish_redemption(ticket))
+    analysis = m.analyse_redemption(claim, ticket)
+    assert isinstance(analysis, AtomaFlowAnalysis)
+    assert analysis.withdrawal_fee == 0
+    assert analysis.denomination_amount == v.denomination_token.convert_to_decimals(gross)
+    assert f.accruedWithdrawalFees().call() == fees_before
 
 
 def test_atoma_partial_locks_paused_exits_and_aggregation(atoma_web3: Web3, custodies: dict[str, Custody]) -> None:
@@ -314,9 +375,11 @@ def test_atoma_insufficient_idle(atoma_web3: Web3, custodies: dict[str, Custody]
     amount = idle - f.settledUnclaimedAssets().call() - f.accruedWithdrawalFees().call()
     privileged(v, "owner", f.capitalWithdraw(dest, amount))
     # Existing reserved assets can still cover a 100 USDC claim. Request a
-    # controlled NAV increase before settlement, using the paused owner API.
+    # controlled NAV increase before settlement, using the paused owner API,
+    # so that the claim net of the settlement performance fee exceeds idle USDC.
     privileged(v, "operator", f.pause())
-    privileged(v, "owner", f.resyncTotalAssets(f.totalAssets().call() * 10))
+    idle = v.denomination_token.fetch_raw_balance_of(v.address)
+    privileged(v, "owner", f.resyncTotalAssets(f.totalAssets().call() * (2 * idle // 100_000_000 + 2)))
     req = m.create_redemption_request(c.address, raw_shares=shares)
     ticket = req.parse_redeem_transaction([c.transact(atoma_web3, req.funcs[0])])
     m.force_settle(ticket)
@@ -372,6 +435,6 @@ def test_atoma_deposit_probe_route(atoma_web3: Web3, monkeypatch: pytest.MonkeyP
     result = deposit_probe.probe_candidate(atoma_web3, candidate, Decimal(100), ATOMA_CURRENT_BLOCK)
     assert result["outcome"] == "success"
     assert result["redemption_status_detail"] == "flow_unavailable"
-    assert result["minted_share_amount_raw"] == "92043718995111"
+    assert result["minted_share_amount_raw"] == "91621124359142"
     assert broadcasts.count("whitelistAtoma") == 1
     assert "whitelistERC4626" not in broadcasts
