@@ -2,7 +2,7 @@ feeder-id: nuwealth-ai
 name: NuWealth.ai
 role: curator
 website: https://nuwealth.ai/
-short_description: NuWealth.ai runs rules-based crypto trading strategies as public Hyperliquid vaults.
+short_description: NuWealth.ai runs automated crypto trading strategies as public Hyperliquid vaults. Deposit USDC through a web app; the fee is charged only on gains.
 long_description: |
   NuWealth runs rules-based crypto trading strategies as public Hyperliquid vaults, through a web app at [nuwealth.ai](https://nuwealth.ai) where people deposit USDC.
 
