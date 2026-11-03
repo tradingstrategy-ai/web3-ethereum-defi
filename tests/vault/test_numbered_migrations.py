@@ -32,6 +32,8 @@ WRAPPED = VaultSpec(999, "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5")
 ARCADIA = VaultSpec(4663, "0xa5e1e1f92a244f192943899eb5810e2bab372ea4")
 #: Gearbox deployment required by migration 025.
 EDGE_ULTRAYIELD = VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751")
+#: 3Jane tranche deployments reviewed by migration 029.
+THREEJANE_TRANCHES = (VaultSpec(1, "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc"), VaultSpec(1, "0xf689555121e529ff0463e191f9bd9d1e496164a7"))
 
 
 def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection:
@@ -58,6 +60,8 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    for tranche in THREEJANE_TRANCHES:
+        rows[tranche] = {"Protocol": "3Jane", "_detection_data": detection(tranche, ERC4626Feature.threejane_like), "_strategy_tags": None}
     rows[VaultSpec(1, "0xa6f6887ed116f3c41497a837a0319264a2eef3fa")] = {"Protocol": "Silo Finance"}
     rows[VaultSpec(1, "0xff5b00730ba463994fe0dbf574c538da258bc2ca")] = {"Protocol": "Euler"}
     rows[VaultSpec(146, "0x17271da949bbd4713c7c599759e2bf30604fc8da")] = {"Protocol": "Euler"}
@@ -130,6 +134,8 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[EDGE_ULTRAYIELD]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[EDGE_ULTRAYIELD]["_notes"] == "EDGE UltraYield USDC is illiquid."
+    for tranche in THREEJANE_TRANCHES:
+        assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()
     for spec, row in database.rows.items():
         if row.get("_description"):

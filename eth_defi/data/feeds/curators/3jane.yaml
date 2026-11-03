@@ -9,20 +9,53 @@
 #   that feeder to avoid scanning the account twice.
 # - Official site: https://www.3jane.xyz/ ; docs: https://docs.3jane.xyz/
 #
-# Description sources:
+# Description sources (checked 2026-11-03):
 # - https://docs.3jane.xyz/resources/faq
-# - https://www.3jane.xyz/
+# - https://docs.3jane.xyz/usd3-susd3/suppliers
+# - https://docs.3jane.xyz/resources/audits
+# - https://www.3jane.xyz/ (backers)
+# - https://x.com/3janexyz/status/2117624841050411120 (Settle agreement)
+# - https://www.settle.com/ (Settle company facts)
 feeder-id: 3jane
 name: 3Jane
 role: curator
 canonical-feeder-id: 3jane
-short_description: 3Jane is a decentralised credit-based money market that issues ERC-4626 stablecoin vaults backed by uncollateralised lending to crypto-native borrowers and fintech credit conduits.
+short_description: 3Jane runs the credit money market behind the USD3 and sUSD3 vaults, lending depositors' USDC to crypto-native borrowers and U.S. fintech lenders, including inventory financing for consumer goods brands through Settle.
 long_description: |
-  3Jane is a decentralised, credit-based money market on Ethereum that facilitates
-  uncollateralised stablecoin lending. Depositors supply USDC and receive the protocol's
-  ERC-4626 vault tokens — USD3 (the senior tranche) or, by staking USD3, sUSD3 (the junior
-  tranche) — while the pooled capital is lent across two credit sleeves: uncollateralised
-  USDC credit lines to crypto-native borrowers and funding conduits to U.S. fintech lenders.
-  As the protocol operates its own vaults and sets their risk parameters, 3Jane acts as the
-  curator of every vault it issues; the senior/junior waterfall determines how pool yield and
-  losses are distributed between USD3 and sUSD3 holders.
+  3Jane runs a credit money market on Ethereum. Depositors supply USDC and receive
+  **USD3**, the senior tranche, meaning the class of deposits repaid first, or stake USD3
+  for **sUSD3**, the junior tranche that absorbs losses first in return for a larger share
+  of the interest. 3Jane operates both vaults and sets their lending rules itself, so it
+  is their curator; there is no outside risk manager.
+
+  The pooled USDC is lent in two ways. **Crypto credit lines** are loans without
+  collateral to crypto-native borrowers, sized against their [credit scores and verified
+  onchain, exchange and bank balances](https://docs.3jane.xyz/resources/faq). **Fintech
+  credit facilities** fund U.S. fintech lenders that make short-term consumer and
+  small-business loans, either by lending against the loans they have made, buying a share
+  of them, or buying them outright as they are made. Each facility lends to a separate
+  company set up to hold the loans, and [idle USDC is held in Aave](https://docs.3jane.xyz/usd3-susd3/suppliers)
+  until it is lent out.
+
+  In November 2026, 3Jane announced a [$100 million forward-flow agreement with
+  Settle](https://x.com/3janexyz/status/2117624841050411120), a standing commitment to buy
+  the loans Settle makes, under which USD3 funds loans to over 100 brands.
+  [Settle](https://www.settle.com/), founded in New York in 2019, lends inventory
+  financing, money to buy stock before it is sold, to U.S. consumer goods brands and has
+  provided more than $4 billion of funding since 2019.
+
+  Losses on crypto credit lines are absorbed first by a $1 million insurance fund, then by
+  sUSD3 and only then by USD3. Fintech facilities add the originating lender's own
+  first-loss capital, excess collateral and reserves ahead of sUSD3. Defaulted credit lines
+  are auctioned to licensed U.S. collection agencies. 3Jane charges no deposit, withdrawal
+  or redemption fee: depositors receive the net interest through a rising token price, and
+  a share of the senior tranche's interest passes to sUSD3 as the price of its first-loss
+  protection. sUSD3 has a **one-month lock**, followed by a cooldown and a withdrawal window.
+  Both tranches also earn locked JANE token rewards on top of interest.
+
+  [Paradigm, Wintermute Ventures and Coinbase Ventures back 3Jane](https://www.3jane.xyz/).
+  Its core contracts were [audited by Veridise, Sherlock and Electisec](https://docs.3jane.xyz/resources/audits)
+  between August 2025 and May 2026.
+other-links:
+  - title: 3Jane announcement - $100 million forward-flow agreement with Settle (November 2026)
+    url: https://x.com/3janexyz/status/2117624841050411120

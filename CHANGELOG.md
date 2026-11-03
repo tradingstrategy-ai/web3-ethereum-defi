@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add the `inventory_financing` strategy tag, classify the 3Jane USD3 and sUSD3 vaults with a targeted numbered migration, and rewrite the 3Jane curator, protocol and stablecoin descriptions around the November 2026 Settle forward-flow agreement (2026-11-03).
 - feat: Preserve monthly vault report editorial text, add empty news sections and record the November 2026 report exclusions (2026-11-02).
 - feat: Add researched manual descriptions for Nest AXI Vault, a targeted metadata refresh and clearer public writing guidance (2026-11-02).
 - feat: `LoggingRetry(max_retry_duration=...)` keeps retrying with exponential backoff until a time budget runs out, and `create_lighter_session(max_retry_duration=...)` passes it through, so a live executor can wait out a Lighter API outage instead of failing a valuation after about 15 seconds (2026-11-02, [#1710](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1710)).

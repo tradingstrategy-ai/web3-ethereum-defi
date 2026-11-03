@@ -3,43 +3,42 @@ name: 3Jane USD3
 slug: usd3
 category: wrapped
 short_description: |
-  USD3 is the yield-bearing ERC-4626 senior-tranche token of the 3Jane credit
-  protocol. Users deposit USDC to mint USD3, whose value appreciates against USDC
-  as the protocol earns interest from uncollateralised crypto credit lines and
-  fintech credit conduits. As the senior tranche it is credit-enhanced and the
-  last to be impaired in the loss waterfall.
+  USD3 is the senior deposit token of the 3Jane credit money market: holders deposit
+  USDC, which 3Jane lends to crypto-native borrowers and U.S. fintech lenders, and
+  each USD3 redeems for more USDC as the interest comes in. If loans go bad, the
+  junior sUSD3 tranche takes the loss before USD3.
 long_description: |
-  USD3 is a yield-bearing ERC-4626 token issued by [3Jane](https://www.3jane.xyz/),
-  a decentralised credit-based money market on Ethereum (with a Base deployment) that
-  facilitates uncollateralised stablecoin loans. When a user deposits USDC they receive
-  USD3 shares at the current exchange rate, which starts at 1:1 with USDC and rises
-  continuously as the lending pool accrues interest — holders do not claim rebasing
-  rewards; instead each USD3 redeems for progressively more USDC over time.
+  USD3 is the senior deposit token of [3Jane](https://www.3jane.xyz/), a credit money
+  market on Ethereum. A depositor supplies USDC and receives USD3 at the current exchange
+  rate, which started at one USDC and rises as the lending pool earns interest. Interest is
+  not paid out separately: each USD3 redeems for more USDC over time.
 
   ## Mechanism
 
-  Deposited USDC is allocated across two credit sleeves:
-
-  - **Crypto Credit Lines** — uncollateralised USDC lines to crypto-native borrowers.
-  - **Fintech Credit Conduits** — funding to U.S. fintech lenders backed by eligible
-    receivables and verified on-chain, CEX and bank assets.
-
-  Idle USDC is parked in [Aave](https://aave.com/) while awaiting deployment. Borrowers
-  pay interest, and that interest flows back to depositors as USD3 appreciation.
+  The pooled USDC is lent in two ways. **Crypto credit lines** are loans without
+  collateral to crypto-native borrowers, sized against their [credit scores and verified
+  onchain, exchange and bank balances](https://docs.3jane.xyz/resources/faq). **Fintech
+  credit facilities** fund U.S. fintech lenders that make short-term consumer and
+  small-business loans, either by lending against the loans they have made, buying a share
+  of them, or buying them outright as they are made. Since November 2026 this includes a [$100 million
+  forward-flow agreement with Settle](https://x.com/3janexyz/status/2117624841050411120),
+  which lends inventory financing, money to buy stock before it is sold, to U.S. consumer
+  goods brands. [Idle USDC is held in Aave](https://docs.3jane.xyz/usd3-susd3/suppliers)
+  until it is lent out.
 
   ## Tranche structure
 
-  3Jane runs a two-tier deposit structure. USD3 is the **senior tranche**: it earns a
-  variable share of pool yield, is credit-enhanced, and is the last to be impaired in
-  the waterfall. The **junior tranche** (sUSD3) absorbs losses before USD3 and carries
-  a one-month lock in exchange for higher yield. Both tranches take a fixed proportion
-  of whatever the backing generates, and additional $JANE token emissions can layer on
-  top of the native yield.
+  USD3 is the **senior tranche**, the class of deposits repaid first. Losses on crypto
+  credit lines are absorbed first by a $1 million insurance fund, then by the junior
+  sUSD3 tranche and only then by USD3; fintech facilities add the originating lender's own
+  first-loss capital and reserves ahead of sUSD3. In return, a share of USD3's interest
+  passes to sUSD3. Both tranches earn a floating proportion of what the loans pay, plus
+  locked JANE token rewards. USD3 has no lock and can be redeemed for USDC with **no fee**
+  as long as the junior tranche still covers its required share of the pool's loans, known
+  as the tranche ratio.
 
   ## Sources
 
-  - [3Jane documentation — FAQ](https://docs.3jane.xyz/resources/faq)
-  - [3Jane homepage](https://www.3jane.xyz/)
   - [USD3 on Etherscan](https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc)
 links:
   homepage: https://www.3jane.xyz/

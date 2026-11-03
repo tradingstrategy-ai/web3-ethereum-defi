@@ -47,6 +47,7 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.tags import STRATEGY_TAGS as 
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS as PLUTUS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.threejane.tags import STRATEGY_TAGS as THREEJANE_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
@@ -238,6 +239,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.ostium_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
     ERC4626Feature.atoma_like: partial(lookup_strategy_tags, ATOMA_STRATEGY_TAGS),
     ERC4626Feature.liquid_royalty_like: partial(lookup_strategy_tags, LIQUID_ROYALTY_STRATEGY_TAGS),
+    ERC4626Feature.threejane_like: partial(lookup_strategy_tags, THREEJANE_STRATEGY_TAGS),
     ERC4626Feature.aave_like: get_aave_strategy_tags,
     ERC4626Feature.upshift_like: partial(lookup_strategy_tags, UPSHIFT_STRATEGY_TAGS),
     ERC4626Feature.centrifuge_like: partial(lookup_strategy_tags, CENTRIFUGE_STRATEGY_TAGS),
@@ -258,6 +260,7 @@ REVIEWED_ADDRESS_STRATEGY_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.plutus_like,
         ERC4626Feature.gmx_gm,
         ERC4626Feature.gmx_glv,
+        ERC4626Feature.threejane_like,
     }
 )
 

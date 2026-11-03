@@ -346,6 +346,30 @@ def test_migrate_vault_strategy_tags_resolves_liquid_royalty_rows() -> None:
 
 
 @pytest.mark.parametrize(
+    "address",
+    (
+        "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc",
+        "0xf689555121e529ff0463e191f9bd9d1e496164a7",
+    ),
+)
+def test_migrate_vault_strategy_tags_resolves_threejane_rows(address: str) -> None:
+    """3Jane tranche rows use their maintained real-world lending mapping."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(1, address)
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.threejane_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing},
+        "3Jane tag resolver",
+    )
+
+
+@pytest.mark.parametrize(
     ("chain_id", "address", "feature", "expected_tags"),
     (
         (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx}),
@@ -528,3 +552,13 @@ def test_new_strategy_resolvers_preserve_unreviewed_rows(tmp_path: Path) -> None
     VaultDatabase(rows={spec: {"Protocol": "Fluid", "_detection_data": create_detection(spec, {ERC4626Feature.fluid_like}), "_strategy_tags": {StrategyTag.carry_trade}}}).write(path)
     assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
     assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] == {StrategyTag.carry_trade}
+
+
+def test_unmapped_threejane_row_keeps_existing_tags(tmp_path: Path) -> None:
+    """An unreviewed 3Jane address keeps its persisted tags during a database-wide refresh."""
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x000000000000000000000000000000000000f00d")
+    path = tmp_path / "metadata.pickle"
+    VaultDatabase(rows={spec: {"Protocol": "3Jane", "_detection_data": create_detection(spec, {ERC4626Feature.threejane_like}), "_strategy_tags": {StrategyTag.lending}}}).write(path)
+    assert migration.migrate_vault_strategy_tags(path, dry_run=False).updated_rows == 0
+    assert VaultDatabase.read(path).rows[spec]["_strategy_tags"] == {StrategyTag.lending}

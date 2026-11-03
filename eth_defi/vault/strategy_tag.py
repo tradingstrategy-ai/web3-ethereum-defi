@@ -166,6 +166,11 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: ALAR SailOut Royalty (Liquid Royalty).
     rwa_royalties = "rwa_royalties"
 
+    #: Funds loans that pay for a business's stock before it is sold,
+    #: repaid from the sale proceeds. Normally paired with :attr:`rwa`.
+    #: Example vault: USD3 (3Jane).
+    inventory_financing = "inventory_financing"
+
     #: Invests in money-market instruments.
     #: Example vault: Spiko EU T-Bills Money Market Fund (Spiko).
     money_market_fund = "money_market_fund"
@@ -349,6 +354,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.rwa_royalties: {
         "label": "RWA royalties",
         "description": "Buys rights to income from music, media or other royalty streams.",
+    },
+    StrategyTag.inventory_financing: {
+        "label": "Inventory financing",
+        "description": "Funds loans that pay for a business's stock before it is sold, repaid from the sale proceeds.",
     },
     StrategyTag.money_market_fund: {
         "label": "Money-market fund",
