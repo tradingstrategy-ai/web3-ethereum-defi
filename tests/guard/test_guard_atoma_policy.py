@@ -54,10 +54,10 @@ def policy_guard(atoma_web3: Web3) -> Contract:
 def test_atoma_guard_policy(atoma_web3: Web3, policy_guard: Contract) -> None:
     """Guard rejects malformed, redirected, administrative and generic routes."""
     c = SimpleNamespace(guard=policy_guard, manager=atoma_web3.eth.accounts[1], address=atoma_web3.eth.accounts[2])
-    v = get_deployed_contract(atoma_web3, "atoma/AtomaVault.json", Web3.to_checksum_address(sorted(ATOMA_VAULT_ADDRESSES)[0]))
+    v = get_deployed_contract(atoma_web3, "atoma/AtomaVaultFeeSplit.json", Web3.to_checksum_address(sorted(ATOMA_VAULT_ADDRESSES)[0]))
     f = v.functions
     outsider = atoma_web3.eth.accounts[8]
-    forbidden = [f.redeem(1, c.address, c.address), f.withdraw(1, c.address, c.address), f.approve(outsider, 1), f.transfer(outsider, 1), f.settleEpoch(1), f.collectWithdrawalFees(), f.capitalWithdraw(outsider, 1), f.upgradeToAndCall(outsider, b""), f.deposit(100_000_000, outsider), get_deployed_contract(atoma_web3, "ERC20MockDecimals.json", f.asset().call()).functions.approve(outsider, 1)]
+    forbidden = [f.redeem(1, c.address, c.address), f.withdraw(1, c.address, c.address), f.approve(outsider, 1), f.transfer(outsider, 1), f.settleEpoch(1), f.collectWithdrawalFees(), f.capitalWithdraw(outsider, 1), f.upgradeToAndCall(outsider, b""), f.deposit(100_000_000, outsider), f.depositWithReferral(100_000_000, c.address, b"\x00" * 32), f.setFeeSplit([outsider], [10_000]), get_deployed_contract(atoma_web3, "ERC20MockDecimals.json", f.asset().call()).functions.approve(outsider, 1)]
     for func in forbidden:
         target, data = encode_simple_vault_transaction(func)
         with pytest.raises(ValueError, match="not allowed|not whitelisted"):

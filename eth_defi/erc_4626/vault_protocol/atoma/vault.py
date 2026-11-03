@@ -12,13 +12,15 @@ The verified AtomaVault implementation exposes fixed fee constants:
 
 The performance fee is internalised through share minting when NAV exceeds the
 high-water mark. The withdrawal fee is externalised and deducted from the USDC
-payout in ``claimWithdrawal()``.
+payout in ``claimWithdrawal()``. Since the fee-split upgrade, fees can be
+divided between several recipients, and those fee accounts claim without the
+withdrawal fee.
 
 - App: https://app.atoma.fi/
 - AVS proxy: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-- AVS implementation: https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code
 - AVS2 proxy: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
-- AVS2 implementation: https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code
+- Current implementation of both proxies: https://arbiscan.io/address/0x153b97751f8979deea74506ea6b0be3c59dbd527#code
+- Previous reviewed implementation: https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code
 """
 
 import datetime
@@ -43,10 +45,25 @@ from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
-#: Reviewed execution implementation at Arbitrum block 519150162.
+#: Reviewed fee-split execution implementation, live on both proxies from Arbitrum block 519510080.
+ATOMA_FEE_SPLIT_IMPLEMENTATION = "0x153b97751f8979deea74506ea6b0be3c59dbd527"
+#: Reviewed execution implementation, live from Arbitrum block 518873875 until the fee-split upgrade.
 ATOMA_IMPLEMENTATION = "0x9161be115867c347adfb4c88a80e759920de86dc"
 #: Historical decoding implementation at the shared July fork block.
 ATOMA_LEGACY_IMPLEMENTATION = "0x9521b08303ae010e85e24fc15d5334a0e506641e"
+#: Implementations reviewed for execution.
+#:
+#: Their deposit, withdrawal-request, settlement and NAV paths are identical and
+#: their claim accounting is compatible, so a request made under one can be
+#: followed up and claimed under the other. Only the claimant's withdrawal fee
+#: depends on the implementation, see :py:meth:`AtomaVault.fetch_withdrawal_fee_bps`.
+ATOMA_EXECUTION_IMPLEMENTATIONS: frozenset[str] = frozenset((ATOMA_IMPLEMENTATION, ATOMA_FEE_SPLIT_IMPLEMENTATION))
+#: Verified ABI used to decode receipts mined under each recognised implementation.
+ATOMA_RECEIPT_INTERFACES: Final[dict[str, str]] = {
+    ATOMA_FEE_SPLIT_IMPLEMENTATION: "atoma/AtomaVaultFeeSplit.json",
+    ATOMA_IMPLEMENTATION: "atoma/AtomaVault.json",
+    ATOMA_LEGACY_IMPLEMENTATION: "atoma/AtomaVaultLegacy.json",
+}
 #: ERC-1967 implementation storage slot.
 IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
 
@@ -143,12 +160,13 @@ class AtomaVault(ERC4626Vault):
     def vault_contract(self) -> Contract:
         """Bind the current verified interface at the proxy address.
 
-        Execution methods independently verify the implementation; a binding
-        alone does not certify a future proxy upgrade.
+        The fee-split interface is a superset of the previous reviewed
+        interface. Execution methods independently verify the implementation;
+        a binding alone does not certify a future proxy upgrade.
 
         :return: Bound Atoma contract.
         """
-        return get_deployed_contract(self.web3, "atoma/AtomaVault.json", self.vault_address)
+        return get_deployed_contract(self.web3, ATOMA_RECEIPT_INTERFACES[ATOMA_FEE_SPLIT_IMPLEMENTATION], self.vault_address)
 
     def fetch_implementation(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Read the proxy implementation at a specified block.
@@ -161,18 +179,31 @@ class AtomaVault(ERC4626Vault):
         value = self.web3.eth.get_storage_at(self.address, IMPLEMENTATION_SLOT, block_identifier=block_identifier)
         return HexAddress("0x" + bytes(value[-20:]).hex())
 
+    @staticmethod
+    def is_execution_implementation(implementation: HexAddress | str) -> bool:
+        """Check whether an implementation has been reviewed for execution.
+
+        See :py:data:`ATOMA_EXECUTION_IMPLEMENTATIONS`.
+
+        :param implementation: Implementation address.
+        :return: True for a reviewed execution implementation.
+        """
+        return implementation.lower() in ATOMA_EXECUTION_IMPLEMENTATIONS
+
     def check_execution_version(self, block_identifier: BlockIdentifier) -> HexAddress:
-        """Reject execution outside the reviewed deployments and version.
+        """Reject execution outside the reviewed deployments and versions.
 
         Static capability is separate from this current-state check.
 
         :param block_identifier: Pinned operation block.
-        :return: Reviewed implementation address.
+        :return: Reviewed implementation address at the block.
         :raises VaultFlowUnavailable: Unsupported deployment or upgrade.
         """
-        if self.chain_id != 42161 or self.web3.eth.chain_id != self.chain_id or self.address.lower() not in ATOMA_VAULT_ADDRESSES or self.fetch_implementation(block_identifier) != ATOMA_IMPLEMENTATION:
+        reviewed_deployment = self.chain_id == 42161 and self.web3.eth.chain_id == self.chain_id and self.address.lower() in ATOMA_VAULT_ADDRESSES
+        implementation = self.fetch_implementation(block_identifier) if reviewed_deployment else None
+        if implementation is None or not self.is_execution_implementation(implementation):
             raise VaultFlowUnavailable("Unreviewed Atoma deployment or implementation", protocol="Atoma", vault_address=self.address, phase="preflight", preflight_result="unsupported_implementation")
-        return HexAddress(ATOMA_IMPLEMENTATION)
+        return implementation
 
     def fetch_receipt_contract(self, block_number: int) -> tuple[Contract, HexAddress]:
         """Select a historical receipt decoder without guessing across upgrades.
@@ -185,10 +216,9 @@ class AtomaVault(ERC4626Vault):
         :raises ValueError: Unknown implementation or an upgrade in this block.
         """
         implementation = self.fetch_implementation(block_number)
-        interfaces = {ATOMA_IMPLEMENTATION: "atoma/AtomaVault.json", ATOMA_LEGACY_IMPLEMENTATION: "atoma/AtomaVaultLegacy.json"}
-        if implementation not in interfaces or self.fetch_implementation(block_number - 1) != implementation:
+        if implementation not in ATOMA_RECEIPT_INTERFACES or self.fetch_implementation(block_number - 1) != implementation:
             raise ValueError("Atoma receipt implementation is unknown or changed within its block; reconcile the mined receipt")
-        return get_deployed_contract(self.web3, interfaces[implementation], self.address), implementation
+        return get_deployed_contract(self.web3, ATOMA_RECEIPT_INTERFACES[implementation], self.address), implementation
 
     def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch the denomination-token deposit minimum.
@@ -245,10 +275,30 @@ class AtomaVault(ERC4626Vault):
         """
         return self.vault_contract.functions.userEpochShares(epoch, owner).call(block_identifier=block_identifier)
 
+    def fetch_withdrawal_fee_bps(self, claimant: HexAddress, implementation: HexAddress, block_identifier: BlockIdentifier) -> int:
+        """Read the withdrawal fee rate that ``claimWithdrawal()`` charges a claimant.
+
+        The fee-split implementation exempts the fee recipient and fee-split
+        recipients from the withdrawal fee. Other claimants, and every claimant
+        under earlier implementations, pay ``WITHDRAWAL_FEE_BPS``.
+
+        :param claimant: Account calling ``claimWithdrawal()``.
+        :param implementation: Reviewed implementation at the block, from :py:meth:`check_execution_version`.
+        :param block_identifier: State snapshot.
+        :return: Withdrawal fee in basis points.
+        """
+        f = self.vault_contract.functions
+        if implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION:
+            recipients, _ = f.feeSplit().call(block_identifier=block_identifier)
+            fee_accounts = {f.feeRecipient().call(block_identifier=block_identifier).lower(), *(r.lower() for r in recipients)}
+            if claimant.lower() in fee_accounts:
+                return 0
+        return f.WITHDRAWAL_FEE_BPS().call(block_identifier=block_identifier)
+
     def fetch_accrued_withdrawal_fees(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Read retained exit fees, separately from claimable assets.
 
-        This getter is specific to the reviewed current implementation.
+        This getter exists only in the reviewed execution implementations.
 
         :param block_identifier: State snapshot.
         :return: Uncollected USDC fees in human-readable units.

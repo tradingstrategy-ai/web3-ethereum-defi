@@ -18,7 +18,7 @@ Links
 - `App <https://app.atoma.fi/>`__
 - `Twitter <https://x.com/atoma_fi>`__
 - `Proxy vault <https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c>`__
-- `Verified implementation <https://arbiscan.io/address/0x9161be115867c347adfb4c88a80e759920de86dc#code>`__
+- `Verified implementation <https://arbiscan.io/address/0x153b97751f8979deea74506ea6b0be3c59dbd527#code>`__
 
 .. autosummary::
    :toctree: _autosummary_atoma
@@ -30,10 +30,21 @@ Links
 Execution and accounting
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The adapter supports Atoma Index and Atoma RWA on Arbitrum with implementation
-``0x9161be115867c347adfb4c88a80e759920de86dc``. Every transaction builder checks
-the proxy version. An unreviewed upgrade disables execution. The historical
-interface remains available for receipt decoding.
+The adapter supports Atoma Index and Atoma RWA on Arbitrum with the reviewed
+implementations ``0x9161be115867c347adfb4c88a80e759920de86dc`` and
+``0x153b97751f8979deea74506ea6b0be3c59dbd527``. Both proxies were upgraded to
+the second, fee-split implementation at Arbitrum block 519510080. The two
+implementations share the deposit, request, claim and NAV paths, so a request
+made under the first can be claimed under the second. Every transaction builder
+checks the proxy version. An unreviewed upgrade disables execution, including
+exits from held positions, until the new implementation is reviewed. The
+historical interfaces remain available for receipt decoding.
+
+The fee-split implementation can divide performance-fee shares and withdrawal
+fees between several recipients. The fee recipient and fee-split recipients
+claim without the withdrawal fee; claim quotes account for this exemption.
+``depositWithReferral()`` only adds a referral event to ``deposit()``; the Guard
+does not allow it, because the adapter deposits through ``deposit()``.
 
 Deposits require at least 100 native USDC and mint shares synchronously. The
 receipt gives the actual shares after performance-fee accrual; the native
@@ -99,8 +110,10 @@ impersonates the actual operator, funds native gas and settles the whole epoch.
 It does not alter protocol storage, NAV or vault liquidity. Other users' pending
 requests in that epoch are settled too.
 
-The real guarded lifecycle tests use the shared fork pool at block 519150162
-for both deployments and both SimpleVault and Safe custody. The normal Arbitrum
+The real guarded lifecycle tests use the shared fork pool at block 520900000,
+after the fee-split upgrade, for both deployments and both SimpleVault and Safe
+custody. A separate test restores the previous implementation through the real
+owner, requests a withdrawal, repeats the upgrade, then settles and claims. The normal Arbitrum
 fork block 487039644 predates this implementation and is used for historical
 readers. Owner-wide progress diagnosis scans every possible epoch in bounded
 Multicall batches; use ticket-specific status calls for routine polling.

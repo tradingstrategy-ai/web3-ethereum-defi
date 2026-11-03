@@ -8,7 +8,7 @@ from eth_typing import HexAddress
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem import AtomaFlowAnalysis
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_IMPLEMENTATION, ATOMA_LEGACY_IMPLEMENTATION, ATOMA_VAULT_ADDRESSES, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_FEE_SPLIT_IMPLEMENTATION, ATOMA_IMPLEMENTATION, ATOMA_LEGACY_IMPLEMENTATION, ATOMA_VAULT_ADDRESSES, AtomaVault
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
@@ -36,16 +36,23 @@ def test_atoma_legacy_readers(anvil_fork_pool: AnvilForkPool, address: HexAddres
 
 
 @pytest.mark.parametrize("address", sorted(ATOMA_VAULT_ADDRESSES))
-def test_atoma_live_rpc(address: HexAddress) -> None:
-    """Real authenticated archive RPC validates the pinned current implementation."""
+@pytest.mark.parametrize("block,implementation", [(519_150_162, ATOMA_IMPLEMENTATION), (519_510_080, ATOMA_FEE_SPLIT_IMPLEMENTATION), (520_900_000, ATOMA_FEE_SPLIT_IMPLEMENTATION)])
+def test_atoma_live_rpc(address: HexAddress, block: int, implementation: str) -> None:
+    """Real authenticated archive RPC validates both reviewed implementations and the upgrade block."""
     w = create_multi_provider_web3(JSON_RPC_ARBITRUM)
     vault = AtomaVault(w, VaultSpec(42161, address))
-    block = 519_150_162
     assert w.eth.chain_id == 42161
-    assert vault.fetch_implementation(block) == ATOMA_IMPLEMENTATION
+    assert vault.fetch_implementation(block) == implementation
+    assert vault.check_execution_version(block) == implementation
     assert vault.fetch_minimum_deposit(block) == Decimal(100)
     assert vault.vault_contract.functions.epochDuration().call(block_identifier=block) == 259_200
     assert vault.vault_contract.functions.maxRedeem(vault.address).call(block_identifier=block) == 0
+    if block == 519_510_080:
+        # The production upgrade block itself is ambiguous for receipt decoding.
+        with pytest.raises(ValueError, match="changed within its block"):
+            vault.fetch_receipt_contract(block)
+    else:
+        assert vault.fetch_receipt_contract(block)[1] == implementation
 
 
 @pytest.mark.skipif(not os.environ.get("HYPERSYNC_API_KEY"), reason="HYPERSYNC_API_KEY required for real indexed requests")

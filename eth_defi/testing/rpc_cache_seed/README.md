@@ -180,11 +180,14 @@ The observed Foundry-version failures, the successful `v1.3.2` combination,
 and representative tracebacks are documented in
 [`PR #1589`](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589).
 
-`arbitrum/519150162/` is the Atoma current-implementation lifecycle exception.
+`arbitrum/520900000/` is the Atoma current-implementation lifecycle exception.
 The canonical Arbitrum block has older implementations and cannot exercise
-partial share locks, retained exit fees or settled-claim haircuts. Captured on
-2026-10-28 with Anvil 1.8.6 after real SimpleVault/Safe lifecycles and a separate
-read-only warm-up; it contains 37 accounts and 2,084 storage slots. The read-only
-pass preserves the remote reads across lifecycle snapshot/revert isolation.
+partial share locks, retained exit fees, settled-claim haircuts or the
+fee-split upgrade. It replaced `arbitrum/519150162/` after the 2026-10-29
+upgrade. Captured on 2026-11-03 with Anvil 1.8.6 after a warm-up pass of the
+Atoma fork tests with per-test snapshots disabled, because a snapshot revert
+also discards the remote reads cached during the test. It contains 43 accounts
+and 2,139 storage slots; from an empty live cache, the fork group took 11
+seconds with the seed and 47 seconds without it.
 Generic Atoma Guard policy tests remain on the canonical Arbitrum fork. See
 `docs/README-atoma-execution.md` for the scope and commands.

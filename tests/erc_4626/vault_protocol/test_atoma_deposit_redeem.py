@@ -23,7 +23,7 @@ from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault_protocol.atoma.deposit_redeem import INSUFFICIENT_IDLE, AtomaDepositManager, AtomaFlowAnalysis, AtomaRedemptionRequest, AtomaRedemptionTicket, AtomaRequestPart
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_IMPLEMENTATION, ATOMA_LEGACY_IMPLEMENTATION, ATOMA_VAULT_ADDRESS, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_FEE_SPLIT_IMPLEMENTATION, ATOMA_IMPLEMENTATION, ATOMA_LEGACY_IMPLEMENTATION, ATOMA_VAULT_ADDRESS, AtomaVault
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType
 from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventFailure, VaultFlowUnavailable, VaultRequestInvariantViolation
@@ -169,6 +169,53 @@ def test_claim_quote_requires_attribution(manager: AtomaDepositManager, ticket: 
     assert not isinstance(consumed.value, VaultRequestInvariantViolation)
 
 
+@pytest.mark.parametrize("implementation", [ATOMA_IMPLEMENTATION, ATOMA_FEE_SPLIT_IMPLEMENTATION])
+def test_reviewed_implementations(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch, implementation: str) -> None:
+    """Both reviewed implementations pass preflight and report the live one."""
+    monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: implementation)
+    assert manager.vault.check_execution_version(10) == implementation
+    monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: ATOMA_LEGACY_IMPLEMENTATION)
+    with pytest.raises(VaultFlowUnavailable, match="Unreviewed"):
+        manager.vault.check_execution_version(10)
+
+
+@pytest.mark.parametrize("claimant,fee_bps", [(OWNER, 0), (OTHER, 50)])
+def test_fee_split_claim_quote(manager: AtomaDepositManager, ticket: AtomaRedemptionTicket, monkeypatch: pytest.MonkeyPatch, claimant: str, fee_bps: int) -> None:
+    """The fee-split implementation exempts fee accounts from the withdrawal fee."""
+    contract = Mock()
+    f = contract.functions
+    f.getEpoch.return_value.call.return_value = (0, 10**6, True)
+    f.userEpochShares.return_value.call.return_value = ticket.raw_shares
+    f.NAV_PRECISION.return_value.call.return_value = 10**4
+    f.epochIndexAtSettle.return_value.call.return_value = 1
+    f.shortfallIndexWad.return_value.call.return_value = 1
+    f.WITHDRAWAL_FEE_BPS.return_value.call.return_value = 50
+    f.feeRecipient.return_value.call.return_value = USDC
+    f.feeSplit.return_value.call.return_value = ([USDC, claimant], [5_000, 5_000])
+    monkeypatch.setattr(manager.vault, "vault_contract", contract)
+    monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: ATOMA_FEE_SPLIT_IMPLEMENTATION)
+    monkeypatch.setattr(manager, "_validate_ticket", lambda *args, **kwargs: None)
+    gross = ticket.raw_shares * 10**6 // 10**4
+    fee = gross * (0 if claimant == OWNER else fee_bps) // 10_000
+    assert manager.fetch_claim_amounts(ticket, block_identifier=10) == (gross, fee, gross - fee)
+
+
+def test_request_across_reviewed_upgrade(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A request preflighted before the fee-split upgrade and mined after it stays claimable."""
+    receipt = request_receipt(manager)
+    monkeypatch.setattr(manager.web3.eth, "get_transaction_receipt", lambda tx: receipt)
+    monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: ATOMA_FEE_SPLIT_IMPLEMENTATION)
+    contract = Mock()
+    contract.functions.userEpochShares.return_value.call.return_value = 10**12
+    monkeypatch.setitem(manager.vault.__dict__, "vault_contract", contract)
+    contract.events.WithdrawalRequested = get_deployed_contract(manager.web3, "atoma/AtomaVaultFeeSplit.json", manager.vault.address).events.WithdrawalRequested
+    request = AtomaRedemptionRequest(vault=manager.vault, owner=OWNER, to=OWNER, raw_shares=10**12, shares=Decimal(1), funcs=[], implementation=ATOMA_IMPLEMENTATION)
+    recovered = request.parse_redeem_transaction([TX])
+    assert recovered.implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION
+    assert recovered.preflight_implementation == ATOMA_IMPLEMENTATION
+    assert not recovered.reconciliation_required
+
+
 def test_unknown_implementation(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:
     """An upgrade cannot silently fall back to ERC-4626 execution."""
     monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: OTHER)
@@ -204,7 +251,7 @@ def test_canonical_and_attribution_checks(manager: AtomaDepositManager, ticket: 
         manager._validate_ticket(ticket, canonical=True)
 
 
-@pytest.mark.parametrize("net,fee,implementation", [(99_500_000, 500_000, ATOMA_IMPLEMENTATION), (0, 0, ATOMA_IMPLEMENTATION), (1, 0, ATOMA_IMPLEMENTATION), (99_500_000, 500_000, ATOMA_LEGACY_IMPLEMENTATION)])
+@pytest.mark.parametrize("net,fee,implementation", [(99_500_000, 500_000, ATOMA_IMPLEMENTATION), (0, 0, ATOMA_IMPLEMENTATION), (1, 0, ATOMA_IMPLEMENTATION), (99_500_000, 500_000, ATOMA_LEGACY_IMPLEMENTATION), (99_500_000, 500_000, ATOMA_FEE_SPLIT_IMPLEMENTATION), (100_000_000, 0, ATOMA_FEE_SPLIT_IMPLEMENTATION)])
 def test_actual_net_receipt(manager: AtomaDepositManager, ticket: AtomaRedemptionTicket, monkeypatch: pytest.MonkeyPatch, net: int, fee: int, implementation: str) -> None:
     """Current and legacy claim events report net payout, including total losses."""
     claim_tx = HexBytes("0x" + "dd" * 32)
@@ -262,6 +309,15 @@ def test_reconciliation_coverage(manager: AtomaDepositManager, ticket: AtomaRede
     acknowledged = manager.acknowledge_redemption_reconciliation(aggregate, {p.identity for p in aggregate.parts})
     assert not acknowledged.reconciliation_required
     assert len(acknowledged.parts) == 2
+    # Contributions mined under both reviewed implementations are accepted
+    # after the fee-split upgrade; an unreviewed contribution is not.
+    monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: ATOMA_FEE_SPLIT_IMPLEMENTATION)
+    observed = iter([ATOMA_IMPLEMENTATION, ATOMA_FEE_SPLIT_IMPLEMENTATION])
+    monkeypatch.setattr(manager.vault, "fetch_receipt_contract", lambda b: (contract, next(observed)))
+    assert not manager.acknowledge_redemption_reconciliation(aggregate, {p.identity for p in aggregate.parts}).reconciliation_required
+    monkeypatch.setattr(manager.vault, "fetch_receipt_contract", lambda b: (contract, ATOMA_LEGACY_IMPLEMENTATION))
+    with pytest.raises(VaultFlowUnavailable, match="implementation_reconciliation"):
+        manager.acknowledge_redemption_reconciliation(aggregate, {p.identity for p in aggregate.parts})
 
 
 @pytest.mark.parametrize("minimum,capacity,balance,raw,reason", [(100_000_000, 10**9, 10**9, 99_999_999, "below_minimum"), (100_000_000, 0, 10**9, 100_000_000, "deposit_capacity"), (100_000_000, 10**9, 0, 100_000_000, "insufficient_assets")])
