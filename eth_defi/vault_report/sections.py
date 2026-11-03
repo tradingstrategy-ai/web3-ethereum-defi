@@ -98,7 +98,7 @@ LENDING_STRATEGY_TAGS = frozenset(tag.value for tag in (StrategyTag.lending, Str
 #: RWA lending vaults are RWA vaults, not lending vaults: their risk is the
 #: real-world borrowers and collateral. Tokenised funds and perp DEX vaults
 #: financing real-world credit keep their own groups.
-RWA_STRATEGY_TAGS = frozenset(tag.value for tag in (StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending, StrategyTag.rwa_royalties))
+RWA_STRATEGY_TAGS = frozenset(tag.value for tag in (StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending, StrategyTag.rwa_royalties, StrategyTag.inventory_financing))
 
 #: Protocols whose vaults are lending vaults even without a strategy tag.
 #:

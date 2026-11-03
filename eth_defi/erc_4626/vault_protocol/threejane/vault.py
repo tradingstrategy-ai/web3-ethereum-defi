@@ -5,14 +5,17 @@ on Ethereum that facilitates uncollateralised stablecoin lending. Depositors
 supply USDC and receive the protocol's ERC-4626 vault tokens — ``USD3`` (the
 senior tranche) or, by staking ``USD3``, ``sUSD3`` (the junior tranche). The
 pooled capital is lent across uncollateralised USDC credit lines to
-crypto-native borrowers and funding conduits to U.S. fintech lenders.
+crypto-native borrowers and funding facilities for U.S. fintech lenders. Since
+November 2026 that includes a forward-flow agreement with Settle, under which
+USD3 buys the inventory financing loans Settle makes to U.S. consumer goods
+brands.
 
 Yield is internalised in the ERC-4626 share price: ``USD3`` appreciates against
 USDC as interest accrues, and ``sUSD3`` captures a higher proportion of pool
 yield in exchange for absorbing losses first in the senior/junior waterfall.
 
 The vaults are Yearn V3 TokenizedStrategy contracts (``apiVersion`` 3.0.4), so
-the senior/junior yield split is implemented through the strategy's on-chain
+the senior/junior yield split is implemented through the strategy's onchain
 ``performanceFee()`` (basis points out of 10000): ``USD3`` reads ``1000`` (10%)
 whose ``performanceFeeRecipient`` is the ``sUSD3`` vault itself, i.e. it is the
 ``TRANCHE_SHARE_VARIANT`` waterfall routing senior yield to the junior tranche,
@@ -20,12 +23,14 @@ whose ``performanceFeeRecipient`` is the ``sUSD3`` vault itself, i.e. it is the
 
 3Jane is a single-protocol issuer of its own vaults, so the vaults are detected
 via :py:data:`eth_defi.erc_4626.classification.HARDCODED_PROTOCOLS` rather than
-an on-chain probe call.
+an onchain probe call. Strategy tags are maintained in
+:py:mod:`eth_defi.erc_4626.vault_protocol.threejane.tags`.
 
 - Homepage: https://www.3jane.xyz/
 - Docs: https://docs.3jane.xyz/
 - USD3 (senior): https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
 - sUSD3 (junior): https://etherscan.io/address/0xf689555121e529Ff0463e191F9Bd9d1E496164a7
+- Settle forward-flow announcement: https://x.com/3janexyz/status/2117624841050411120
 """
 
 import datetime
@@ -34,7 +39,9 @@ import logging
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.threejane.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +73,7 @@ class ThreeJaneVault(ERC4626Vault):
     share price.
 
     3Jane charges no explicit management, deposit, withdrawal or redemption fee —
-    suppliers receive the net pool interest. The on-chain ``performanceFee()`` is
+    suppliers receive the net pool interest. The onchain ``performanceFee()`` is
     **not** a 3Jane protocol fee: on the ``USD3`` senior tranche it is the
     ``TRANCHE_SHARE_VARIANT`` waterfall (its ``performanceFeeRecipient`` is the
     ``sUSD3`` vault), so the 10% it reads is the senior→junior yield share. We
@@ -122,6 +129,17 @@ class ThreeJaneVault(ERC4626Vault):
         """
         period = self.get_estimated_lock_up()
         return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this 3Jane tranche.
+
+        Both tranches draw on the same lending pool, so they share the
+        classification in :py:data:`eth_defi.erc_4626.vault_protocol.threejane.tags.STRATEGY_TAGS`.
+
+        :return:
+            A copy of the maintained tags, or ``None`` for an unmapped address.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def get_link(self, referral: str | None = None) -> str:
         return "https://www.3jane.xyz/"

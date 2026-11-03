@@ -27,7 +27,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | AMM pool | The `amm_pool_like` vault feature (`ERC4626Feature.amm_pool_like`), which the scanner sets for GMX GM and GLV pools and the Curve-based YieldBasis LTs. Strategy tags are not used: vaults tagged `amm`, such as Gains Network gTrade and KiloEx, stay in their other groups |
 | Perpetual futures DEX | Flagged `perp_dex_trading_vault`: Hyperliquid, GRVT, Lighter, Hibachi, ApeX |
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
-| Real-world assets (RWA) | An RWA strategy tag (`RWA_STRATEGY_TAGS`: `rwa`, `rwa_credit`, `rwa_lending`, `rwa_royalties`), e.g. private credit, trade finance and royalty vaults. RWA lending vaults count as RWA, not lending |
+| Real-world assets (RWA) | An RWA strategy tag (`RWA_STRATEGY_TAGS`: `rwa`, `rwa_credit`, `rwa_lending`, `rwa_royalties`, `inventory_financing`), e.g. private credit, trade finance and royalty vaults. RWA lending vaults count as RWA, not lending |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
 | Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. No section of its own |
 

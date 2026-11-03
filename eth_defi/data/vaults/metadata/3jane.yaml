@@ -1,32 +1,43 @@
 name: 3Jane
 slug: 3jane
 short_description: |
-  Decentralised credit-based money market issuing the USD3 and sUSD3 stablecoin tranche vaults.
+  Credit money market whose USD3 and sUSD3 vaults lend USDC to crypto-native borrowers and U.S. fintech lenders, including inventory financing for consumer goods brands.
 long_description: |
-  3Jane is a decentralised, credit-based money market on Ethereum that facilitates
-  uncollateralised stablecoin lending. Depositors supply USDC and receive the protocol's
-  ERC-4626 vault tokens — USD3 (the senior tranche) or, by staking USD3, sUSD3 (the junior
-  tranche). The pooled capital is lent across two credit sleeves: uncollateralised USDC credit
-  lines to crypto-native borrowers and funding conduits to U.S. fintech lenders.
+  3Jane is a credit money market on Ethereum. Depositors supply USDC and receive
+  **USD3**, the senior tranche, meaning the class of deposits repaid first, or stake USD3
+  for **sUSD3**, the junior tranche that absorbs losses first in return for a larger share
+  of the interest. Interest is not paid out separately: each token redeems for more USDC
+  over time as borrowers pay.
 
-  Yield is internalised in the share price: USD3 appreciates against USDC as interest accrues,
-  while sUSD3 captures a higher proportion of pool yield in exchange for absorbing losses first
-  in the senior/junior waterfall. As the protocol operates its own vaults, 3Jane acts as their
+  The pooled USDC is lent in two ways. **Crypto credit lines** are loans without
+  collateral to crypto-native borrowers, sized against their [credit scores and verified
+  onchain, exchange and bank balances](https://docs.3jane.xyz/resources/faq). **Fintech
+  credit facilities** fund U.S. fintech lenders that make short-term consumer and
+  small-business loans, either by lending against the loans they have made, buying a share
+  of them, or buying them outright as they are made. Since November 2026 this includes a [$100 million
+  forward-flow agreement with Settle](https://x.com/3janexyz/status/2117624841050411120),
+  which lends inventory financing, money to buy stock before it is sold, to U.S. consumer
+  goods brands. [Idle USDC is held in Aave](https://docs.3jane.xyz/usd3-susd3/suppliers)
+  until it is lent out.
+
+  Losses on crypto credit lines are absorbed first by a $1 million insurance fund, then by
+  sUSD3 and only then by USD3. Fintech facilities add the originating lender's own
+  first-loss capital, excess collateral and reserves ahead of sUSD3. USD3 has no lock and can be
+  redeemed as long as the junior tranche still covers its required share of the pool's
+  loans, known as the tranche ratio; sUSD3 has a **one-month lock**, followed by a
+  cooldown and a withdrawal window. 3Jane operates both vaults itself, so it is also their
   curator.
 fee_description: |
-  3Jane charges no explicit management, deposit, withdrawal or redemption fee — USD3 and
-  sUSD3 redemptions are documented as "No fee", and suppliers earn the net pool interest,
-  distributed through share-price appreciation. The vaults are Yearn V3 TokenizedStrategy
-  contracts, and the senior/junior split is implemented via the strategy's on-chain
-  performanceFee() (basis points out of 10000): USD3 (senior) reads 1000 = 10%, whose
-  performanceFeeRecipient is the sUSD3 vault itself — i.e. the TRANCHE_SHARE_VARIANT
-  waterfall routing senior yield to the junior tranche, not a 3Jane protocol fee. sUSD3
-  (junior) reads 0; in Phase 1 it receives 100% of net interest in return for first-loss
-  risk, and carries a one-month lock before redemption via a cooldown window.
-  See https://docs.3jane.xyz/usd3-susd3/suppliers and https://docs.3jane.xyz/resources/faq.
+  3Jane charges no deposit, withdrawal or redemption fee; [USD3 redemptions are documented
+  as having no fee](https://docs.3jane.xyz/resources/faq). Depositors receive the pool's net
+  interest through a rising token price rather than a separate payout, and returns from
+  fintech facilities are net of the originating lender's servicing costs and expected losses.
 
-  Note: no management-fee percentage is published (no accessor, no docs figure); the
-  performance fee is read live from the on-chain performanceFee() rather than assumed.
+  In November 2026 the [USD3 contract](https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc#readContract)
+  passed **10%** of the senior tranche's interest to the sUSD3 junior tranche. This is the
+  senior-to-junior interest allocation that pays for sUSD3's first-loss protection; it goes
+  to junior depositors, not to 3Jane, and sUSD3 has no such allocation. No management fee is
+  published. See the [supplier documentation](https://docs.3jane.xyz/usd3-susd3/suppliers).
 links:
   homepage: https://www.3jane.xyz/
   app: https://www.3jane.xyz/
