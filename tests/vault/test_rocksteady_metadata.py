@@ -17,6 +17,9 @@ from eth_defi.vault_protocols import migration as runner
 TARGET = VaultSpec(HYPERCORE_CHAIN_ID, "0xd321ad79041bdad719ba5ff42fe950e1977df439")
 SCRIPT_NAME = "017-rocksteady-strategy-copy.py"
 
+#: Later copy correction must run after the successful original migration.
+LIVE_RECORD_SCRIPT_NAME = "028-nuwealth-live-record-copy.py"
+
 
 def test_rocksteady_native_description_and_notes() -> None:
     """Replace launch copy on native exports while preserving protocol fields.
@@ -39,8 +42,12 @@ def test_rocksteady_native_description_and_notes() -> None:
         assert "\n" not in row["_short_description"]
         assert "800 agents" not in row["_short_description"]
         assert row["_notes"] == ROCKSTEADY_VAULT_NOTE
-        assert "23.7% maximum drawdown in testing" in row["_notes"]
-        assert "not the vault's live maximum drawdown" in row["_notes"]
+        assert "4 February 2026" in row["_description"]
+        assert "Research and testing" not in row["_notes"]
+        assert "23.7%" not in row["_notes"]
+        assert "testing figures" not in row["_notes"]
+        assert "[nuwealth.ai/check](https://nuwealth.ai/check)" in row["_notes"]
+        assert "[nuwealth.ai/record](https://nuwealth.ai/record)" in row["_notes"]
         assert row["_notes"].count(HYPERCORE_VAULT_NOTE) == 1
         assert row["Name"] == "Renamed RockSteady"
         assert row["Link"] == f"https://app.hyperliquid.xyz/vaults/{TARGET.vault_address}"
@@ -172,3 +179,106 @@ def test_rocksteady_copy_target_states(rocksteady_copy_migration: tuple[Path, Pa
         assert entry["other_data"]["missing_specs"] == ([TARGET.as_string_id()] if state == "missing" else [])
     assert path.read_bytes() == before
     assert not list(data_dir.glob("*.bak*"))
+
+
+@pytest.fixture
+def live_record_copy_migration(rocksteady_copy_migration: tuple[Path, Path]) -> tuple[Path, Path]:
+    """Simulate cached legacy copy after the original migration succeeded.
+
+    Use the real runner to record migration 017, then seed the pre-correction
+    description and test figures. Add the later migration to the same resource
+    directory so a run must skip 017 and apply only the new correction.
+
+    :param rocksteady_copy_migration: Isolated metadata and original resources.
+    :return: Pipeline and resource directories containing both migrations.
+    """
+    data_dir, scripts_dir = rocksteady_copy_migration
+    runner.run_pending_migrations(data_dir=data_dir, scripts_dir=scripts_dir, dry_run=False, provenance={"in_docker": False})
+    path = data_dir / "vault-metadata-db.pickle"
+    database = VaultDatabase.read(path)
+    database.rows[TARGET]["_description"] = database.rows[TARGET]["_description"].replace("4 February 2026", "3 February 2026")
+    database.rows[TARGET]["_notes"] = "#### Research and testing\n\n2021 to 2025; 23.7% maximum drawdown in testing."
+    database.rows[TARGET]["_short_description"] = "Keep the previously stored summary."
+    database.write(path)
+    script = next(spec for spec in runner.discover_migrations() if spec.name == LIVE_RECORD_SCRIPT_NAME)
+    (scripts_dir / script.name).write_bytes(script.source)
+    return data_dir, scripts_dir
+
+
+def test_live_record_copy_preview_apply_and_retry(live_record_copy_migration: tuple[Path, Path]) -> None:
+    """Apply the later correction without rerunning the original migration.
+
+    Preserve preview bytes and every field except description and notes. Check
+    that the journal retains 017's successful entry and the new script is safe
+    to repeat without another write.
+
+    :param live_record_copy_migration: Isolated pipeline and both resources.
+    :return: ``None`` after checking preview, apply, backups and repeat execution.
+    """
+    data_dir, scripts_dir = live_record_copy_migration
+    path = data_dir / "vault-metadata-db.pickle"
+    original = {file.name: file.read_bytes() for file in data_dir.iterdir()}
+    before = VaultDatabase.read(path)
+    prior_entry = runner.load_state(data_dir / "migration.json")[SCRIPT_NAME]
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+    preview = runner.run_pending_migrations(dry_run=True, **options)
+    assert len(preview) == 1
+    assert {file.name: file.read_bytes() for file in data_dir.iterdir()} == original
+    assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
+    after = VaultDatabase.read(path)
+    _, fresh = create_hyperliquid_vault_row(HexAddress(TARGET.vault_address), "Keep name", None, 1_000, None)
+    for field in ("_description", "_notes"):
+        assert after.rows[TARGET][field] == fresh[field]
+        before.rows[TARGET][field] = fresh[field]
+    assert after == before
+    assert after.rows[TARGET]["_short_description"] == "Keep the previously stored summary."
+    state = runner.load_state(data_dir / "migration.json")
+    assert state[SCRIPT_NAME] == prior_entry
+    entry = state[LIVE_RECORD_SCRIPT_NAME]["other_data"]
+    assert entry["inspected_rows"] == 1
+    assert entry["updated_fields"] == 2  # noqa: PLR2004 - Full description and notes only.
+    assert Path(entry["backup_paths"][0]).read_bytes() == original[path.name]
+    assert all((data_dir / name).read_bytes() == value for name, value in original.items() if name not in {path.name, "migration.json"})
+    applied = {file.name: file.read_bytes() for file in data_dir.iterdir()}
+    assert runner.run_pending_migrations(dry_run=False, **options) == []
+    assert {file.name: file.read_bytes() for file in data_dir.iterdir()} == applied
+
+
+@pytest.mark.parametrize("target_state", ["missing", "current", "wrong_protocol", "missing_detection"])
+def test_live_record_copy_target_states(live_record_copy_migration: tuple[Path, Path], target_state: str) -> None:
+    """Report no-op targets and reject conflicting classifications before writes.
+
+    An absent vault must not be created, and unchanged descriptions must not
+    trigger a metadata backup or rewrite. Invalid protocol evidence fails closed.
+
+    :param live_record_copy_migration: Isolated pipeline and both resources.
+    :param target_state: Target condition to exercise before applying the repair.
+    :return: ``None`` after checking bytes, backups and scope reporting.
+    """
+    data_dir, scripts_dir = live_record_copy_migration
+    path = data_dir / "vault-metadata-db.pickle"
+    database = VaultDatabase.read(path)
+    if target_state == "missing":
+        del database.rows[TARGET]
+    elif target_state == "current":
+        _, fresh = create_hyperliquid_vault_row(HexAddress(TARGET.vault_address), "Keep name", None, 1_000, None)
+        for field in ("_description", "_notes"):
+            database.rows[TARGET][field] = fresh[field]
+    elif target_state == "wrong_protocol":
+        database.rows[TARGET]["Protocol"] = "Other"
+    else:
+        del database.rows[TARGET]["_detection_data"]
+    database.write(path)
+    before = path.read_bytes()
+    backups = set(data_dir.glob("*.bak*"))
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "dry_run": False, "provenance": {"in_docker": False}}
+    if target_state in {"wrong_protocol", "missing_detection"}:
+        with pytest.raises(ValueError, match="not classified as a Hyperliquid native vault"):
+            runner.run_pending_migrations(**options)
+    else:
+        runner.run_pending_migrations(**options)
+        entry = runner.load_state(data_dir / "migration.json")[LIVE_RECORD_SCRIPT_NAME]["other_data"]
+        assert entry["updated_fields"] == 0
+        assert entry["missing_specs"] == ([TARGET.as_string_id()] if target_state == "missing" else [])
+    assert path.read_bytes() == before
+    assert set(data_dir.glob("*.bak*")) == backups
