@@ -21,8 +21,14 @@ positions through the integrated API: those trading-account endpoints require
 authentication. The exported position status is therefore
 `authentication_required`; exposure, open-position count and concentration
 remain null rather than zero. Margin-account fields and trader credentials are
-intentionally out of scope. This was verified against the public and
-authenticated endpoint split on 2026-07-24; see the [GRVT API documentation](https://help.grvt.io/).
+intentionally out of scope. An API key can read only the account to which GRVT
+issued it; it is not a credential for every discoverable vault. API-key login
+returns the authoritative `X-Grvt-Account-Id` header and, for a trading-account
+key, its `sub_account_id` in the response body. The scanner must not substitute
+an independently configured account ID. This was verified against the public
+and authenticated endpoint split on 2026-08-21; see the [GRVT authentication
+documentation](https://help.grvt.io/en/articles/14117414-how-to-troubleshoot-authentication-errors-when-using-the-grvt-api)
+and [trading API](https://api-docs.grvt.io/trading_api/).
 
 See [perp DEX vault account metrics](../../docs/source/vaults/perp-dex-account-metrics.rst)
 for the common DuckDB, Parquet and JSON data flow.
