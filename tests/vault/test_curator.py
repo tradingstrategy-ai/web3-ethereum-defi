@@ -5,12 +5,12 @@ from pathlib import Path
 from PIL import Image
 
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_CHAIN_ID, ANTARCTIC_DEPLOYMENTS
-from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_CHAIN_ID, AVANTIS_VAULT_ADDRESS
-from eth_defi.erc_4626.vault_protocol.avantis.vault import AvantisVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT, INFINIT_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.infinit.tags import get_strategy_tags as get_infinit_strategy_tags
 from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.tags import get_strategy_tags
 from eth_defi.midas.registry import iter_midas_registry_products
@@ -1784,7 +1784,7 @@ def test_identify_axis_from_upshift_strategist() -> None:
     )
 
 
-def test_identify_avantis_protocol_curator() -> None:
+def test_identify_veranta_protocol_curator() -> None:
     """Attribute the unified pool by protocol identity, independent of branding.
 
     The protocol operates its own liquidity pool. Naming another protocol's
@@ -1792,17 +1792,19 @@ def test_identify_avantis_protocol_curator() -> None:
 
     :return: None; matching and strategy tags cover the reviewed deployment.
     """
-    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Avantis USDC Vault", AVANTIS_VAULT_ADDRESS, "avantis") == "avantis"
-    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Veranta LP Vault", AVANTIS_VAULT_ADDRESS, "avantis") == "avantis"
-    assert is_protocol_curator("avantis")
-    assert get_curator_name("avantis") == "Avantis"
-    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Avantis USDC Wrapper", "0x" + "11" * 20, "morpho") is None
-    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Unbranded Wrapper", "0x" + "11" * 20, "morpho", manager_name="Avantis") is None
-    vault = AvantisVault(None, VaultSpec(AVANTIS_CHAIN_ID, AVANTIS_VAULT_ADDRESS))
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Avantis USDC Vault", VERANTA_VAULT_ADDRESS, "veranta") == "veranta"
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Veranta LP Vault", VERANTA_VAULT_ADDRESS, "veranta") == "veranta"
+    assert is_protocol_curator("veranta")
+    assert get_curator_name("veranta") == "Veranta"
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Avantis USDC Wrapper", "0x" + "11" * 20, "morpho") is None
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Unbranded Wrapper", "0x" + "11" * 20, "morpho", manager_name="Avantis") is None
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Veranta USDC Wrapper", "0x" + "11" * 20, "morpho") is None
+    assert identify_curator(VERANTA_CHAIN_ID, "avUSDC", "Unbranded Wrapper", "0x" + "11" * 20, "morpho", manager_name="Veranta") is None
+    vault = VerantaVault(None, VaultSpec(VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS))
     assert vault.get_strategy_tags() == {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.perpetual_futures}
 
 
-def test_avantis_curator_metadata_reuses_protocol_sources_and_artwork() -> None:
+def test_veranta_curator_metadata_reuses_protocol_sources_and_artwork() -> None:
     """Export an organisation profile through the canonical protocol alias.
 
     The alias keeps its curator-specific descriptions while inheriting the
@@ -1810,12 +1812,13 @@ def test_avantis_curator_metadata_reuses_protocol_sources_and_artwork() -> None:
 
     :return: None; frontend metadata uses the shared curator identity and logos.
     """
-    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/avantis.yaml"), public_url="https://example.invalid")
-    assert metadata["name"] == "Avantis"
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/veranta.yaml"), public_url="https://example.invalid")
+    assert metadata["name"] == "Veranta"
+    assert "formerly known as Avantis" in metadata["long_description"]
     assert metadata["protocol_curator"] is True
-    assert metadata["canonical_feeder_id"] == "avantis"
+    assert metadata["canonical_feeder_id"] == "veranta"
     assert metadata["short_description"] and metadata["long_description"]
     assert metadata["website"] == "https://www.veranta.xyz/"
     assert metadata["twitter"] == "https://x.com/verantaxyz"
-    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/avantis/light.png"
-    assert metadata["logos"]["dark"] == "https://example.invalid/curator-metadata/avantis/dark.png"
+    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/veranta/light.png"
+    assert metadata["logos"]["dark"] == "https://example.invalid/curator-metadata/veranta/dark.png"

@@ -1,9 +1,9 @@
-# Avantis unified avUSDC vault
+# Veranta unified avUSDC vault
 
 - Chain: Base (8453).
 - Address: `0x944766f715b51967e56afde5f0aa76ceacc9e7f9`.
 - Explorer: [verified proxy](https://basescan.org/address/0x944766f715b51967e56afde5f0aa76ceacc9e7f9).
-- Protocol identity: Avantis, retained for this existing avUSDC integration. The protocol [renamed itself Veranta in September 2026](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/README.md).
+- Protocol identity: Veranta, formerly known as Avantis. The protocol [renamed itself Veranta in September 2026](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/README.md).
 - Homepage and app: [Avantis](https://www.avantisfi.com/), [Earn](https://www.avantisfi.com/earn); current brand homepage is [Veranta](https://www.veranta.xyz/).
 - Official GitHub organisation: [Avantis-Labs](https://github.com/Avantis-Labs). The historic `avantis-contracts` repository is no longer publicly accessible; use the verified implementation sources rather than claiming a current public contracts repository.
 - Documentation: [avUSDC](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc), [withdrawal rules](https://docs.veranta.xyz/liquidity-providers/risk-management).
@@ -108,7 +108,7 @@ necessary for identity, fee and admission metadata. No production state was chan
 
 ## Run after merge
 
-The implementation does not run production maintenance. Migration `030-avantis-vault-metadata.py` requires one existing Base metadata row and ordinary `JSON_RPC_BASE` configuration. It changes protocol identity, fees, admission, synchronous capability, strategy tags and withdrawal timing. It preserves manual notes, descriptions and all historical files. No price backfill is required because this existing vault already has history.
+The implementation does not run production maintenance. Migration `030-veranta-vault-metadata.py` requires one existing Base metadata row and ordinary `JSON_RPC_BASE` configuration. It changes protocol identity, fees, admission, synchronous capability, strategy tags and withdrawal timing. It preserves manual notes, descriptions and all historical files. No price backfill is required because this existing vault already has history.
 
 From `~/vault-scanner/web3-ethereum-defi`, inspect `docker-compose.yml`, update to the merged revision and build the stamped image with `scripts/build-container.sh`. Preserve the existing persistent mounts. Stop persistent and competing writers before both preview and apply:
 
@@ -124,14 +124,14 @@ These commands operate on the entire pending numbered batch. Review that invento
 
 Expected for migration 030: one inspected row, only the declared metadata fields changed, no historical files or scan boundaries changed. A missing target, conflicting identity or unknown admission is a hard failure. Repeated transformation is idempotent and successful numbered migrations are skipped.
 
-After restart, verify the running image's `GIT_VERSION_HASH.txt` matches the journal's commit. Normal scanner cleaning, exports and uploads publish the change; migration success alone does not. Check the public vault page shows Avantis, Avantis as protocol curator, Severe technical risk, the three strategy tags, permissionless admission, dynamic fees and synchronous deposit/redemption capability. The risk registry matches the Avantis protocol identity, so migration 030 or a normal rescan must establish that identity before export can publish the label. Verify the existing historical price range remains intact.
+After restart, verify the running image's `GIT_VERSION_HASH.txt` matches the journal's commit. Normal scanner cleaning, exports and uploads publish the change; migration success alone does not. Check the public vault page shows Veranta, Veranta as protocol curator, Severe technical risk, the three strategy tags, permissionless admission, dynamic fees and synchronous deposit/redemption capability. The risk registry matches the Veranta protocol identity, so migration 030 or a normal rescan must establish that identity before export can publish the label. Verify the existing historical price range remains intact.
 
 ## Verification record
 
 The guarded real-provider test command is:
 
 ```shell
-source .local-test.env && timeout 180s poetry run pytest tests/erc_4626/vault_protocol/test_avantis.py -q --log-cli-level=info
+source .local-test.env && timeout 180s poetry run pytest tests/erc_4626/vault_protocol/test_veranta.py -q --log-cli-level=info
 ```
 
 Local manual run on 2026-11-04: passed all four cases against Base archive forks at blocks 49,030,926 and 53,496,246, using the supplied Goldsky/dRPC fallback configuration. This was a local run, not CI. No credentials were printed and no remote transactions were sent; all transaction mutations occurred on Anvil. The tests prove public factory selection, nominal fee scaling, guarded approval/deposit/full redemption, receipt analysis, net payout, zero remaining shares, guard redirection refusals, preflight capacity refusal and reconstruction of mined redemption analysis. The post-upgrade fixed fork is necessary because the current implementation does not exist at the canonical block; generic guard rejection checks remain on the canonical fork.
@@ -149,8 +149,8 @@ Risk/fee follow-up verification on 2026-11-04: 37 focused tests passed in 12.86 
 
 ## Protocol curator attribution
 
-Avantis is registered as a protocol curator with slug `avantis`. Its curator
-profile aliases `protocols/avantis.yaml`, reusing the existing social feed and
+Veranta is registered as a protocol curator with slug `veranta`. Its curator
+profile aliases `protocols/veranta.yaml`, reusing the existing social feed and
 original/formatted protocol artwork. Public copy describes the organisation
 and its own USDC liquidity pool, with primary documentation links and the
 Veranta rename context.
@@ -158,10 +158,10 @@ Veranta rename context.
 The reviewed pool is Base `0x944766f715b51967e56afde5f0aa76ceacc9e7f9`.
 Its existing `liquidity_provider`, `market_making` and `perpetual_futures` tags
 were rechecked and retained. The legacy senior contract is not newly classified
-or added to adapter support by this curator change. The Avantis protocol
+or added to adapter support by this curator change. The Veranta protocol
 classification remains scoped to the unified pool.
 
-The shared curator resolver now treats Avantis as protocol-managed and excludes
+The shared curator resolver now treats Veranta as protocol-managed and excludes
 its name from cross-protocol fuzzy matching. Wrappers branded after Avantis or
 avUSDC do not establish protocol curatorship. Curator attribution is computed
 at export through `identify_curator()`, so no additional metadata migration is
@@ -184,7 +184,7 @@ selective emphasis, inline sources and level-four headings where several topics
 are covered. The protocol copy explains avUSDC shares, the reserve and payout
 risk in plain language; the curator copy describes the organisation and the
 absence of a disclosed independent curator. Homepage and documentation links
-now use the current Veranta domain while the requested Avantis identity remains.
+now use the current Veranta domain with Veranta as the public protocol and curator name.
 
 The official LP and risk-management Markdown pages were fetched again. The
 withdrawal schedule remains 0% to 2.5%; unconfirmed management and performance
@@ -245,3 +245,104 @@ PR opened on 2026-11-04: [#1725](https://github.com/tradingstrategy-ai/web3-ethe
 The migration header and changelog now record this provenance before any
 production preview image is built. Earlier references to no PR describe the
 local implementation and cleanup stage.
+
+## Canonical Veranta identifiers
+
+The user superseded both the Avantis display-name and stable-slug decisions on
+2026-11-04. Protocol and curator names use Veranta, with “formerly known as
+Avantis” in both public profiles. The canonical slug is `veranta`, including
+feed IDs, metadata and logo directories, ABI storage, adapter modules/classes,
+feature flags, repair helpers, tests, documentation and public URLs. Older
+Avantis protocol-name input resolves to the current slug, fee mode and risk.
+The public vault slug is `veranta-usdc-vault`; fresh exports generate it from
+the current protocol identity while preserving the actual onchain token name.
+Migration 030 refreshes protocol identity for the existing row; each normal
+export then derives the vault slug. The export-only vault slug must not be
+persisted by the repair because the shared exporter treats pre-slugged rows
+as an already processed collection.
+Verified ABI contents, original image bytes, source repository URLs and onchain
+token names retain their factual original values. The existing PR branch remains
+unchanged.
+
+Migration `030-veranta-vault-metadata.py` is still pending initial onboarding
+and has not run in production. Its repair writes Veranta and the `veranta`
+slug, accepting both legacy and current display names on idempotent reruns.
+Renaming this unshipped initial migration needs no additional production
+migration or historical backfill. Earlier review records describe prior local
+stages and are superseded by this naming decision.
+
+Identifier-rename verification: the renamed focused suite passed 131 tests
+with one optional skip in 74.91 seconds, including both real guarded fork
+generations, feed/curator exports, migration discovery and history preservation.
+The public-vault slug and repair follow-up passed 18 tests. After removing an
+unsafe attempt to persist the export-only vault slug and strengthening the
+current-brand curator exclusion cases, all 20 affected checks passed in 2.72
+seconds. The verified ABI, SVG and both PNGs are byte-identical to their
+pre-rename versions. Ruff formatting, targeted import/error checks and
+`git diff --check` passed. Public description wording retains its earlier
+writing-guide review.
+
+The website must handle redirects from the previously published
+`avantis-usdc-vault` URL and old protocol/curator URLs during publication. That
+website route configuration is outside this repository; no production routes
+or storage were changed here. No pre-rename branch image has been used to
+write production metadata, so no persisted `avantis_like` enum needs repair.
+
+Claude Opus 5.5 approved the identifier-rename follow-up with no remaining code
+or test defects. Its requested old-URL rollout limitation is recorded above and
+must accompany the next PR-description update before publication.
+
+## Public description source links
+
+On 2026-11-04, the long description gained inline canonical links for
+[position sizing](https://docs.veranta.xyz/trading/getting-started/collateral-and-position-sizing),
+[trading limits](https://docs.veranta.xyz/trading/limitations-and-safeguards) and
+[withdrawal charges](https://docs.veranta.xyz/liquidity-providers/risk-management).
+The existing [avUSDC documentation](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc)
+explains the pool's trading counterparty role, reserve and fee income.
+
+The [11 March 2026 fee allocation announcement](https://www.veranta.xyz/blog/systematic-avnt-buybacks-and-burns)
+and the vault documentation's allocation table agree: LPs receive 70% of
+opening, closing and win fees, and 100% of margin fees. The remaining 30% of
+opening, closing and win fees funds AVNT buybacks and burns. The documentation's
+introductory claim of 100% of all trading fees conflicts with its own table;
+the public description uses the table and dated announcement instead.
+
+The [14 September 2026 rename announcement](https://www.veranta.xyz/blog/introducing-veranta)
+replaces the SDK README in the protocol long description as the direct source
+for the name change. Both official
+announcement pages and the four documentation Markdown endpoints returned
+HTTP 200. These source and copy updates do not change persisted accessors or
+require another migration; normal metadata export publishes the description.
+
+This supersedes the earlier decision to omit individual trading-fee categories
+from the public profile. The description now makes the reduction from 100% to
+70% explicit and distinguishes the announced conditional proposal for a larger
+buyback allocation from the implemented split. Percentages apply to fees
+actually collected; the copy does not claim every market charges every fee.
+
+The description passed the writing-guide check and focused metadata-export
+test. Independent Claude Opus 5.5 review approved it with recommended edits;
+the fee-share history, conditional proposal and research-scope clarifications
+above address those recommendations. `git diff --check` passed. No Python
+files changed in this copy update, and no PR or production state was updated.
+
+The user's subsequent writing-guide correction on 2026-11-04 supersedes the
+historical framing above: public copy now lists current fee allocations in
+bullets, with depositors first and the announcement linked inline. Superseded
+rates and the conditional buyback roadmap remain research context rather than
+public description content. The former name remains linked in the opening
+sentence without a separate historical section. The guide now makes this
+current-terms-first approach explicit while retaining material loss history
+and scheduled changes when relevant to depositor decisions.
+
+For research context, LPs received 100% of trading fees excluding liquidation
+fees from the October 2025 launch until 11 March 2026. The announcement's
+conditional, unscheduled Milestone 2 targets a buyback allocation of 50% or
+more; it is not the current allocation.
+
+Claude Opus 5.5 approved the current-terms rewrite with no blocking defects.
+Its recommended terminology correction was applied consistently to both the
+guide and description: use fees on profitable trades rather than claiming a
+profit-based calculation. The metadata-export test and `git diff --check`
+passed. This review supersedes the earlier copy review for the revised text.

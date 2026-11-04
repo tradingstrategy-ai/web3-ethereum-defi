@@ -102,7 +102,7 @@ short patterns are registered in :py:data:`CURATOR_NAME_PATTERNS`.
 
 Protocol-curated vaults are identified before name matching:
 
-- **Avantis** — the unified avUSDC pool is operated by the protocol
+- **Veranta (formerly Avantis)** — the unified avUSDC pool is operated by the protocol
 - **Ostium** — vaults are protocol-curated (no external curator)
 - **Gains Network** — exact verified deployments are protocol-curated;
   compatible forks can have independent operators, including Nova Markets
@@ -192,9 +192,9 @@ CURATORS_DATA_DIR: Path = Path(__file__).parent.parent / "data" / "feeds" / "cur
 #: itself operates every vault. Values use the canonical curator slug after
 #: applying :py:data:`PROTOCOL_CURATOR_SLUG_ALIASES`.
 PROTOCOL_CURATED_SLUGS: set[str] = {
-    # Avantis operates its unified avUSDC counterparty-liquidity pool.
+    # Veranta, formerly Avantis, operates its unified avUSDC liquidity pool.
     # https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc
-    "avantis",
+    "veranta",
     # Native strUSD is operated by Tori, distinct from Upshift's etrUSD vault.
     # https://docs.tori.finance/products/strusd
     "tori",
@@ -251,7 +251,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
-    "avantis": "Avantis",
+    "veranta": "Veranta",
     "tori": "Tori Finance",
     "auto-finance": "AUTO Finance",
     "40acres": "40acres",
@@ -400,8 +400,8 @@ SPONSOR_CURATOR_SLUGS: set[str] = {
 #: name containing FRAX or frxUSD establishes its denomination or strategy,
 #: not that Frax operates the vault.
 PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
-    # A wrapper holding avUSDC does not establish Avantis as its curator.
-    "avantis",
+    # A wrapper holding avUSDC does not establish Veranta as its curator.
+    "veranta",
     "frax-finance",
     "gains-network",
 }

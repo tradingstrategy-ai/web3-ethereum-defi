@@ -58,6 +58,34 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Use British English, spell “onchain” without a hyphen, and use sentence case
   for headings.
 
+## Describe current terms first
+
+Focus descriptions on how the product works now: what depositors fund, what
+they receive, what they pay and how they can withdraw. Explain current fee
+allocations directly instead of narrating when they changed or comparing them
+with superseded rates. A dated announcement can support current terms without
+putting its publication month or year in the description; link the relevant
+claim inline.
+
+Use a short bullet-point breakdown for fee allocations or other parallel
+terms. Put vault depositors first, followed by allocations to token buybacks,
+the operator or other recipients. Preserve the fee categories and calculation
+bases: do not simplify a share of selected trading fees into a share of all fees.
+For example:
+
+- Vault depositors receive **70% of fees collected on opening, closing and
+  profitable trades**, linked to the announcement supporting that allocation.
+- Vault depositors also receive **100% of margin fees**, which traders pay for
+  using the pool's capital.
+- The remaining **30% of fees on opening, closing and profitable trades** buys the
+  protocol's token and permanently removes it from circulation.
+
+Keep superseded fee schedules and speculative roadmap changes in research
+notes. Include history in public descriptions only when it helps readers
+understand the current product, identify a former name or assess a material
+track record or loss. Include a scheduled future change when it affects a
+depositor's decision, clearly distinguishing it from current terms.
+
 ## Cover the facts that matter
 
 Select the following details according to the subject and available evidence.
@@ -73,9 +101,10 @@ A short note does not need to become a full product profile.
   from lenders to a vault, service providers and commercial partners. A logo
   or integration does not establish financial backing or a repayment guarantee.
 - **Milestones and track record:** include significant launches, funding rounds,
-  acquisitions, operating history and documented performance when known.
+  acquisitions, operating history and documented performance when relevant to
+  understanding the current product or assessing its track record.
   Include material losses, defaults, closures or strategy changes where they
-  help explain the history. Give dates and the period covered by performance
+  help assess the current product. Give dates and the period covered by performance
   figures; distinguish live results from backtests and company history from
   the history of a particular vault.
 - **Fees, funding and business model:** where applicable, explain how the

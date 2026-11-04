@@ -1,4 +1,4 @@
-"""Guarded Avantis lifecycle and metadata for both reviewed Base implementations."""
+"""Guarded Veranta lifecycle and metadata for both reviewed Base implementations."""
 
 import datetime
 import os
@@ -18,9 +18,9 @@ from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import fetch_deposit_permission
-from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_VAULT_ADDRESS
-from eth_defi.erc_4626.vault_protocol.avantis.deposit_redeem import AvantisDepositManager
-from eth_defi.erc_4626.vault_protocol.avantis.vault import AvantisVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.deposit_redeem import VerantaDepositManager
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil, set_balance
 from eth_defi.provider.fallback import ExtraValueError
@@ -35,7 +35,7 @@ from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.vault_protocols.repairs.avantis import refresh_avantis_metadata
+from eth_defi.vault_protocols.repairs.veranta import refresh_veranta_metadata
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 pytestmark = [pytest.mark.skipif(not JSON_RPC_BASE, reason="JSON_RPC_BASE required")]
@@ -43,14 +43,14 @@ pytestmark = [pytest.mark.skipif(not JSON_RPC_BASE, reason="JSON_RPC_BASE requir
 #: The current implementation is not deployed at the canonical fork block.
 #: Keep one additional fixed pooled fork to prove the live generation's cap
 #: and complete lifecycle; generic Guard rejection checks stay canonical.
-AVANTIS_CURRENT_IMPLEMENTATION_BLOCK = 53_496_246
+VERANTA_CURRENT_IMPLEMENTATION_BLOCK = 53_496_246
 
 
 @pytest.fixture(
     scope="module",
     params=[
         pytest.param(BASE_MIDNIGHT_BLOCK, marks=pytest.mark.xdist_group("fork:base:midnight"), id="canonical"),
-        pytest.param(AVANTIS_CURRENT_IMPLEMENTATION_BLOCK, marks=pytest.mark.xdist_group("fork:base:avantis-current"), id="current-implementation"),
+        pytest.param(VERANTA_CURRENT_IMPLEMENTATION_BLOCK, marks=pytest.mark.xdist_group("fork:base:veranta-current"), id="current-implementation"),
     ],
 )
 def fork_block(request: pytest.FixtureRequest) -> int:
@@ -122,26 +122,26 @@ def snapshot(anvil_fork: AnvilLaunch) -> Iterator[None]:
 
 
 @pytest.fixture
-def vault(web3: Web3) -> AvantisVault:
-    """Require the public factory to select the Avantis adapter.
+def vault(web3: Web3) -> VerantaVault:
+    """Require the public factory to select the Veranta adapter.
 
     :param web3: Fixed-block fork.
-    :return: Autodetected Avantis vault.
+    :return: Autodetected Veranta vault.
     """
-    result = create_vault_instance_autodetect(web3, AVANTIS_VAULT_ADDRESS)
-    assert isinstance(result, AvantisVault)
+    result = create_vault_instance_autodetect(web3, VERANTA_VAULT_ADDRESS)
+    assert isinstance(result, VerantaVault)
     return result
 
 
-def test_avantis_metadata(vault: AvantisVault, fork_block: int) -> None:
+def test_veranta_metadata(vault: VerantaVault, fork_block: int) -> None:
     """Check fixed-block fee scaling, admission and protocol identity.
 
     :param vault: Publicly constructed adapter.
     :param fork_block: Selected implementation generation.
     :return: None; assertions check the verified deployment.
     """
-    assert vault.features == {ERC4626Feature.avantis_like, ERC4626Feature.gains_tranche_like}
-    assert vault.get_protocol_name() == "Avantis"
+    assert vault.features == {ERC4626Feature.veranta_like, ERC4626Feature.gains_tranche_like}
+    assert vault.get_protocol_name() == "Veranta"
     assert vault.get_risk() is VaultTechnicalRisk.severe
     assert vault.name == "Avantis USDC Vault"
     assert vault.symbol == "avUSDC"
@@ -163,7 +163,7 @@ def test_avantis_metadata(vault: AvantisVault, fork_block: int) -> None:
     }
 
 
-def test_avantis_metadata_repair(web3: Web3, fork_block: int) -> None:
+def test_veranta_metadata_repair(web3: Web3, fork_block: int) -> None:
     """Exercise the production repair against each real contract generation.
 
     Offline runner tests cover persistence; this test proves that the repair's
@@ -173,20 +173,20 @@ def test_avantis_metadata_repair(web3: Web3, fork_block: int) -> None:
     :param fork_block: Selected implementation generation.
     :return: None; the real repair refreshes an isolated catalogue row.
     """
-    spec = VaultSpec(8453, AVANTIS_VAULT_ADDRESS)
+    spec = VaultSpec(8453, VERANTA_VAULT_ADDRESS)
     timestamp = datetime.datetime(2026, 1, 1)
-    detection = ERC4262VaultDetection(8453, AVANTIS_VAULT_ADDRESS, 1, timestamp, {ERC4626Feature.gains_tranche_like}, timestamp, 1, 1)
+    detection = ERC4262VaultDetection(8453, VERANTA_VAULT_ADDRESS, 1, timestamp, {ERC4626Feature.gains_tranche_like}, timestamp, 1, 1)
     database = VaultDatabase(rows={spec: {"Protocol": "<protocol not yet identified>", "_detection_data": detection}})
-    report = refresh_avantis_metadata(database, web3)
+    report = refresh_veranta_metadata(database, web3)
     assert report["changed_rows"] == 1
     assert report["read_block"] == fork_block
-    assert database.rows[spec]["Protocol"] == "Avantis"
+    assert database.rows[spec]["Protocol"] == "Veranta"
     assert database.rows[spec]["Withdraw fee"] == pytest.approx(0.005 if fork_block == BASE_MIDNIGHT_BLOCK else 0.015)
     assert database.rows[spec]["_deposit_permission"] == "permissionless"
-    assert refresh_avantis_metadata(database, web3)["changed_rows"] == 0
+    assert refresh_veranta_metadata(database, web3)["changed_rows"] == 0
 
 
-def test_avantis_guarded_lifecycle(web3: Web3, vault: AvantisVault, fork_block: int) -> None:
+def test_veranta_guarded_lifecycle(web3: Web3, vault: VerantaVault, fork_block: int) -> None:
     """Prove guarded approval, deposit and full fee-adjusted redemption.
 
     Includes receiver, owner and approval redirection refusals and preflight
@@ -204,9 +204,9 @@ def test_avantis_guarded_lifecycle(web3: Web3, vault: AvantisVault, fork_block: 
     custody = deploy_contract(web3, "guard/SimpleVaultV0.json", governance, manager_wallet.address, libraries=GUARD_LIBRARIES)
     broadcast(web3, governance, custody.functions.initialiseOwnership(governance.address))
     guard = get_deployed_contract(web3, "guard/GuardV0.json", custody.functions.guard().call())
-    broadcast(web3, governance, guard.functions.whitelistERC4626(vault.address, "Avantis"))
+    broadcast(web3, governance, guard.functions.whitelistERC4626(vault.address, "Veranta"))
     manager = vault.get_deposit_manager()
-    assert isinstance(manager, AvantisDepositManager)
+    assert isinstance(manager, VerantaDepositManager)
     raw_amount = vault.denomination_token.convert_to_raw(Decimal(10))
     fund_erc20_on_anvil(web3, vault.denomination_token.address, custody.address, raw_amount)
     expected_shares = vault.vault_contract.functions.previewDeposit(raw_amount).call()

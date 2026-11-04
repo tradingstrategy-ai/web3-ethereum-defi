@@ -1,19 +1,20 @@
-Avantis
+Veranta
 =======
 
-`Avantis <https://www.veranta.xyz/>`__ supplies leveraged markets on Base.
+`Veranta <https://www.veranta.xyz/>`__, formerly known as Avantis, supplies leveraged markets on Base.
 The unified avUSDC vault pools USDC as counterparty liquidity, earns trading
 fees and bears trader-payout risk after the protocol buffer. See the
 `vault documentation <https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc>`__.
-The protocol renamed itself Veranta in September 2026; this adapter retains
-Avantis as the name of the existing avUSDC deployment.
+The protocol changed its name in September 2026. Public protocol and curator
+names and integration identifiers use Veranta; the onchain avUSDC token retains
+its historical Avantis name.
 
 Supported deployment
 --------------------
 
 Only Base ``0x944766f715b51967e56afde5f0aa76ceacc9e7f9`` is classified.
 Legacy tranche deployments are excluded. The verified implementation ABI
-and provenance are maintained under ``eth_defi/abi/avantis/``.
+and provenance are maintained under ``eth_defi/abi/veranta/``.
 
 Deposits and redemptions are synchronous ERC-4626 transactions. Withdrawal
 fees depend on collateral health and are deducted from the payout. There is
@@ -30,11 +31,11 @@ classification. This is separate from deposit caps and withdrawal capacity.
 Curator attribution
 -------------------
 
-Avantis is the protocol curator of the reviewed avUSDC pool. The curator profile
-shares the protocol's feed sources and artwork under the ``avantis`` slug.
+Veranta is the protocol curator of the reviewed avUSDC pool. The curator profile
+shares the protocol's feed sources and artwork under the ``veranta`` slug.
 Attribution follows the identified protocol; an independently operated wrapper
-is not attributed to Avantis merely because its name mentions Avantis or avUSDC.
-Once migration 030 or a normal rescan identifies the protocol as Avantis,
+is not attributed to Veranta merely because its name mentions Veranta, Avantis or avUSDC.
+Once migration 030 or a normal rescan identifies the protocol as Veranta,
 metrics export resolves the curator. No additional curator migration is needed.
 
 Technical risk and fee assessment
@@ -72,7 +73,7 @@ onboarding migration 030 is still required for protocol identity and fee data.
 Execution evidence
 ------------------
 
-``tests/erc_4626/vault_protocol/test_avantis.py`` exercises the public factory
+``tests/erc_4626/vault_protocol/test_veranta.py`` exercises the public factory
 and the full lifecycle at ``BASE_MIDNIGHT_BLOCK`` and fixed post-upgrade block
 53,496,246 through SimpleVaultV0 with a separate, guarded asset manager.
 The additional pooled fork covers the current implementation, which is absent
@@ -106,4 +107,4 @@ The historical audits do not establish coverage of every later upgrade.
 .. toctree::
    :maxdepth: 1
 
-   ../../api/avantis/index
+   ../../api/veranta/index

@@ -1,4 +1,4 @@
-"""Offline Avantis identity, fees, admission and exact-call preflight checks."""
+"""Offline Veranta identity, fees, admission and exact-call preflight checks."""
 
 import datetime
 from decimal import Decimal
@@ -12,8 +12,9 @@ from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, c
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.scan import fetch_deposit_permission
-from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_VAULT_ADDRESS, IMPLEMENTATION_SLOT
-from eth_defi.erc_4626.vault_protocol.avantis.vault import AvantisVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
+from eth_defi.research.vault_metrics import slugify_protocol, slugify_vaults
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission, VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
@@ -24,7 +25,7 @@ from eth_defi.vault_protocols.repairs.strategy_tags import resolve_strategy_tags
 
 
 @pytest.fixture
-def adapter() -> AvantisVault:
+def adapter() -> VerantaVault:
     """Bind real adapter behaviour to deterministic contract replies.
 
     :return: Adapter with mocked provider and fee accessors, never a live RPC.
@@ -32,7 +33,7 @@ def adapter() -> AvantisVault:
     web3 = Mock()
     web3.eth.chain_id = 8453
     web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "c3769e440e3515ba374372837f76aafdc4fba26d")
-    vault = AvantisVault(web3, VaultSpec(8453, AVANTIS_VAULT_ADDRESS), features={ERC4626Feature.avantis_like}, default_block_identifier=123)
+    vault = VerantaVault(web3, VaultSpec(8453, VERANTA_VAULT_ADDRESS), features={ERC4626Feature.veranta_like}, default_block_identifier=123)
     contract = Mock()
     contract.functions.feesOn.return_value.call.return_value = True
     contract.functions.balancingFee.return_value.call.return_value = 0
@@ -41,24 +42,44 @@ def adapter() -> AvantisVault:
     return vault
 
 
-def test_avantis_chain_scoped_classification() -> None:
+def test_veranta_chain_scoped_classification() -> None:
     """A known address establishes identity only on the reviewed chain.
 
     :return: None; wrong and unspecified chains remain unclassified.
     """
-    flags = {ERC4626Feature.avantis_like, ERC4626Feature.gains_tranche_like}
-    assert _get_hardcoded_protocol_features(AVANTIS_VAULT_ADDRESS.upper(), 8453) == flags
-    assert _get_hardcoded_protocol_features(AVANTIS_VAULT_ADDRESS, 1) is None
-    assert _get_hardcoded_protocol_features(AVANTIS_VAULT_ADDRESS) is None
+    flags = {ERC4626Feature.veranta_like, ERC4626Feature.gains_tranche_like}
+    assert _get_hardcoded_protocol_features(VERANTA_VAULT_ADDRESS.upper(), 8453) == flags
+    assert _get_hardcoded_protocol_features(VERANTA_VAULT_ADDRESS, 1) is None
+    assert _get_hardcoded_protocol_features(VERANTA_VAULT_ADDRESS) is None
     web3 = Mock()
     web3.eth.chain_id = 8453
-    vault = create_vault_instance(web3, AVANTIS_VAULT_ADDRESS, features=flags)
-    assert isinstance(vault, AvantisVault)
-    assert vault.get_protocol_name() == "Avantis"
+    vault = create_vault_instance(web3, VERANTA_VAULT_ADDRESS, features=flags)
+    assert isinstance(vault, VerantaVault)
+    assert vault.get_protocol_name() == "Veranta"
+    assert slugify_protocol(vault.get_protocol_name()) == "veranta"
+    assert slugify_protocol("Avantis") == "veranta"
     assert vault.get_deposit_manager_capability().can_redeem is True
 
 
-def test_avantis_tags(adapter: AvantisVault) -> None:
+def test_veranta_public_vault_slug() -> None:
+    """Use current branding for URLs while preserving the onchain token name.
+
+    Exports derive the slug from the current protocol identity established by
+    the one-vault metadata repair without persisting an export-only field.
+
+    :return: None; public slugs use Veranta and the raw token name stays intact.
+    """
+    timestamp = datetime.datetime(2026, 1, 1)
+    spec = VaultSpec(8453, VERANTA_VAULT_ADDRESS)
+    detection = ERC4262VaultDetection(8453, VERANTA_VAULT_ADDRESS, 1, timestamp, {ERC4626Feature.veranta_like}, timestamp, 1, 1)
+    row = {"Name": "Avantis USDC Vault", "Share token": "avUSDC", "Address": VERANTA_VAULT_ADDRESS, "Protocol": "Veranta", "_detection_data": detection}
+    slugify_vaults({spec: row})
+    assert row["vault_slug"] == "veranta-usdc-vault"
+    assert row["protocol_slug"] == "veranta"
+    assert row["Name"] == "Avantis USDC Vault"
+
+
+def test_veranta_tags(adapter: VerantaVault) -> None:
     """Keep maintained tags immutable through callers and unknown addresses.
 
     :param adapter: Offline adapter.
@@ -68,12 +89,12 @@ def test_avantis_tags(adapter: AvantisVault) -> None:
     assert adapter.get_strategy_tags() == tags
     adapter.get_strategy_tags().clear()
     assert adapter.get_strategy_tags() == tags
-    other = AvantisVault(None, VaultSpec(8453, "0x" + "11" * 20))
+    other = VerantaVault(None, VaultSpec(8453, "0x" + "11" * 20))
     assert other.get_strategy_tags() is None
-    assert AvantisVault(None, VaultSpec(1, AVANTIS_VAULT_ADDRESS)).get_strategy_tags() is None
+    assert VerantaVault(None, VaultSpec(1, VERANTA_VAULT_ADDRESS)).get_strategy_tags() is None
 
 
-def test_avantis_pinned_fees_and_disabled_switch(adapter: AvantisVault) -> None:
+def test_veranta_pinned_fees_and_disabled_switch(adapter: VerantaVault) -> None:
     """Read all fee inputs at one block and honour the master switch.
 
     :param adapter: Offline adapter.
@@ -93,7 +114,7 @@ def test_avantis_pinned_fees_and_disabled_switch(adapter: AvantisVault) -> None:
     functions.collateralHealthFee.return_value.call.assert_not_called()
 
 
-def test_avantis_permission_unknown_upgrade_and_read_failure(adapter: AvantisVault) -> None:
+def test_veranta_permission_unknown_upgrade_and_read_failure(adapter: VerantaVault) -> None:
     """Do not turn an unreadable or unreviewed policy into public admission.
 
     :param adapter: Offline source-reviewed deployment.
@@ -107,7 +128,7 @@ def test_avantis_permission_unknown_upgrade_and_read_failure(adapter: AvantisVau
     assert fetch_deposit_permission(adapter) is VaultDepositPermission.unknown
 
 
-def test_avantis_exact_redemption_revert_and_transport(adapter: AvantisVault) -> None:
+def test_veranta_exact_redemption_revert_and_transport(adapter: VerantaVault) -> None:
     """Distinguish post-capacity EVM refusal from a provider failure.
 
     :param adapter: Offline adapter with a positive advertised maximum.
@@ -145,18 +166,19 @@ def test_avantis_exact_redemption_revert_and_transport(adapter: AvantisVault) ->
     assert failure.value.requested_raw_amount == 10
 
 
-def test_avantis_metadata_export() -> None:
+def test_veranta_metadata_export() -> None:
     """Check public metadata and required listing assets together.
 
     :return: None; the real exporter discovers the protocol and logos.
     """
-    metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/avantis.yaml"), "https://example.invalid")
-    assert metadata["name"] == "Avantis"
+    metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/veranta.yaml"), "https://example.invalid")
+    assert metadata["name"] == "Veranta"
+    assert "formerly known as Avantis" in metadata["long_description"]
     assert metadata["logos"]
-    assert Path("eth_defi/data/vaults/formatted_logos/avantis/light.png").is_file()
+    assert Path("eth_defi/data/vaults/formatted_logos/veranta/light.png").is_file()
 
 
-def test_avantis_legacy_cap_and_wrong_chain_tags(adapter: AvantisVault) -> None:
+def test_veranta_legacy_cap_and_wrong_chain_tags(adapter: VerantaVault) -> None:
     """Do not accept the legacy unlimited quote or misattribute another chain.
 
     :param adapter: Reviewed adapter backed by deterministic contract replies.
@@ -170,12 +192,12 @@ def test_avantis_legacy_cap_and_wrong_chain_tags(adapter: AvantisVault) -> None:
     functions.totalAssets.return_value.call.return_value = 1000
     assert adapter.get_deposit_manager().fetch_depositable_raw_assets(adapter.address) == 0
     now = datetime.datetime(2026, 11, 4)
-    detection = ERC4262VaultDetection(1, AVANTIS_VAULT_ADDRESS, 1, now, {ERC4626Feature.avantis_like}, now, 0, 0)
-    assert resolve_strategy_tags(VaultSpec(1, AVANTIS_VAULT_ADDRESS), {"_detection_data": detection}) is None
+    detection = ERC4262VaultDetection(1, VERANTA_VAULT_ADDRESS, 1, now, {ERC4626Feature.veranta_like}, now, 0, 0)
+    assert resolve_strategy_tags(VaultSpec(1, VERANTA_VAULT_ADDRESS), {"_detection_data": detection}) is None
 
 
 @pytest.mark.parametrize("fails", [False, True])
-def test_avantis_failed_quote_does_not_use_gross_price(adapter: AvantisVault, fails: bool) -> None:
+def test_veranta_failed_quote_does_not_use_gross_price(adapter: VerantaVault, fails: bool) -> None:
     """Never replace a zero or reverted net preview with an optimistic quote.
 
     :param adapter: Offline adapter using the real shared estimator.
@@ -198,19 +220,21 @@ def test_avantis_failed_quote_does_not_use_gross_price(adapter: AvantisVault, fa
         gross_quote.assert_not_called()
 
 
-def test_avantis_assessed_risk_and_fee_mode(adapter: AvantisVault) -> None:
+def test_veranta_assessed_risk_and_fee_mode(adapter: VerantaVault) -> None:
     """Expose the reviewed technical rating and investor-facing fee mode.
 
     Risk resolves from maintained configuration without rewriting manual
     database overrides. Revenue-sharing percentages must not become investor
     management or performance fee rates.
 
-    :param adapter: Reviewed Avantis adapter with deterministic fee replies.
+    :param adapter: Reviewed Veranta adapter with deterministic fee replies.
     :return: None; registry and adapter agree while unverified fees stay unknown.
     """
-    assert get_vault_risk("Avantis", AVANTIS_VAULT_ADDRESS) is VaultTechnicalRisk.severe
+    assert get_vault_risk("Veranta", VERANTA_VAULT_ADDRESS) is VaultTechnicalRisk.severe
+    assert get_vault_risk("Avantis", VERANTA_VAULT_ADDRESS) is VaultTechnicalRisk.severe
     assert adapter.get_risk() is VaultTechnicalRisk.severe
-    assert get_vault_fee_mode("Avantis", AVANTIS_VAULT_ADDRESS) is VaultFeeMode.externalised
+    assert get_vault_fee_mode("Veranta", VERANTA_VAULT_ADDRESS) is VaultFeeMode.externalised
+    assert get_vault_fee_mode("Avantis", VERANTA_VAULT_ADDRESS) is VaultFeeMode.externalised
     assert adapter.get_fee_mode() is VaultFeeMode.externalised
     fees = adapter.get_fee_data(123)
     assert fees.fee_mode is VaultFeeMode.externalised

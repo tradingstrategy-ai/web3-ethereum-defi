@@ -1,4 +1,4 @@
-"""Avantis unified avUSDC vault support.
+"""Veranta unified avUSDC vault support.
 
 The verified ``Tranche`` implementation uses synchronous ERC-4626 entry
 points with a collateral-health withdrawal fee and post-withdrawal utilisation
@@ -17,15 +17,15 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_CHAIN_ID, AVANTIS_FEE_DENOMINATOR, AVANTIS_PUBLIC_IMPLEMENTATIONS, AVANTIS_VAULT_ADDRESS, IMPLEMENTATION_SLOT
-from eth_defi.erc_4626.vault_protocol.avantis.deposit_redeem import AvantisDepositManager
-from eth_defi.erc_4626.vault_protocol.avantis.tags import STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_CHAIN_ID, VERANTA_FEE_DENOMINATOR, VERANTA_PUBLIC_IMPLEMENTATIONS, VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.deposit_redeem import VerantaDepositManager
+from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
-class AvantisVault(ERC4626Vault):
+class VerantaVault(ERC4626Vault):
     """Unified USDC counterparty-liquidity vault on Base.
 
     Only the reviewed unified deployment is supported. Account admission is
@@ -38,9 +38,9 @@ class AvantisVault(ERC4626Vault):
     def vault_contract(self) -> Contract:
         """Bind the verified implementation interface to the proxy.
 
-        :return: ERC-4626 methods and Avantis fee/configuration accessors.
+        :return: ERC-4626 methods and Veranta fee/configuration accessors.
         """
-        return get_deployed_contract(self.web3, "avantis/Tranche.json", self.address)
+        return get_deployed_contract(self.web3, "veranta/Tranche.json", self.address)
 
     def is_whitelisted_deposit(self) -> bool:
         """Classify the reviewed implementation's public account admission.
@@ -52,19 +52,19 @@ class AvantisVault(ERC4626Vault):
         :return: ``False`` for the reviewed deployment and implementations.
         :raise NotImplementedError: If the deployment or implementation is unreviewed.
         """
-        if self.chain_id != AVANTIS_CHAIN_ID or self.address.lower() != AVANTIS_VAULT_ADDRESS:
-            raise NotImplementedError("Unreviewed Avantis deployment")
+        if self.chain_id != VERANTA_CHAIN_ID or self.address.lower() != VERANTA_VAULT_ADDRESS:
+            raise NotImplementedError("Unreviewed Veranta deployment")
         implementation = self.web3.eth.get_storage_at(self.address, IMPLEMENTATION_SLOT, block_identifier=self.default_block_identifier)
-        if "0x" + implementation[-20:].hex() not in AVANTIS_PUBLIC_IMPLEMENTATIONS:
-            raise NotImplementedError("Unreviewed Avantis implementation")
+        if "0x" + implementation[-20:].hex() not in VERANTA_PUBLIC_IMPLEMENTATIONS:
+            raise NotImplementedError("Unreviewed Veranta implementation")
         return False
 
-    def get_deposit_manager(self) -> AvantisDepositManager:
+    def get_deposit_manager(self) -> VerantaDepositManager:
         """Return synchronous execution with exact redemption preflight.
 
         :return: Manager emitting standard approval, deposit and redeem calls.
         """
-        return AvantisDepositManager(self)
+        return VerantaDepositManager(self)
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Describe the guarded, synchronous two-way lifecycle.
@@ -100,7 +100,7 @@ class AvantisVault(ERC4626Vault):
         """
         if not self.vault_contract.functions.feesOn().call(block_identifier=block_identifier):
             return 0.0
-        return self.vault_contract.functions.balancingFee(0, True).call(block_identifier=block_identifier) / AVANTIS_FEE_DENOMINATOR
+        return self.vault_contract.functions.balancingFee(0, True).call(block_identifier=block_identifier) / VERANTA_FEE_DENOMINATOR
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the collateral-health charge without rounding transaction amounts.
@@ -115,7 +115,7 @@ class AvantisVault(ERC4626Vault):
         if not functions.feesOn().call(block_identifier=block_identifier):
             return 0.0
         rate = functions.balancingFee(0, False).call(block_identifier=block_identifier) + functions.collateralHealthFee().call(block_identifier=block_identifier)
-        return rate / AVANTIS_FEE_DENOMINATOR
+        return rate / VERANTA_FEE_DENOMINATOR
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Return the absence of a scheduled redemption delay.
@@ -131,7 +131,7 @@ class AvantisVault(ERC4626Vault):
 
         :return: Independent tag set, or ``None`` for an unmapped deployment.
         """
-        if self.chain_id != AVANTIS_CHAIN_ID:
+        if self.chain_id != VERANTA_CHAIN_ID:
             return None
         return lookup_strategy_tags(STRATEGY_TAGS, self.address)
 

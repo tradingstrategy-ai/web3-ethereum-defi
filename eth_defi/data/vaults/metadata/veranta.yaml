@@ -1,26 +1,33 @@
-name: Avantis
-slug: avantis
+name: Veranta
+slug: veranta
 short_description: A shared USDC pool that earns fees from cryptocurrency, currency and commodity trading.
 long_description: |
   #### Trading and income
 
-  [Avantis](https://www.veranta.xyz/) operates a trading platform on Base where
-  traders can take positions larger than their own deposits. Depositors in its
+  [Veranta](https://www.veranta.xyz/), [formerly known as Avantis](https://www.veranta.xyz/blog/introducing-veranta), operates a trading platform on Base where
+  traders can take [positions larger than the money they put up](https://docs.veranta.xyz/trading/getting-started/collateral-and-position-sizing). Depositors in its
   [avUSDC vault](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc)
   supply USDC to back trading positions and earn **a share of trading fees**. They
   receive avUSDC tokens representing their share of the pool.
+
+  - Vault depositors receive **70% of fees collected on opening, closing and
+    profitable trades** under the protocol's [fee allocation](https://www.veranta.xyz/blog/systematic-avnt-buybacks-and-burns).
+  - Vault depositors also receive **100% of margin fees**, which traders pay for
+    using the pool's capital.
+  - The remaining **30% of fees on opening, closing and profitable trades** buys the
+    protocol's AVNT token and permanently removes it from circulation.
 
   #### Payouts and withdrawals
 
   Trader losses build a reserve that pays trader profits before drawing on
   deposited capital, so **deposits can lose value** if that reserve runs out.
-  Withdrawals depend on money being available in the pool and can incur a
-  charge when the reserve is low.
+  [Limits on trading positions and payouts](https://docs.veranta.xyz/trading/limitations-and-safeguards)
+  aim to contain the pool's exposure to trader profits.
 
-  #### Name change
+  Withdrawals depend on money being available in the pool.
+  [Withdrawal charges](https://docs.veranta.xyz/liquidity-providers/risk-management)
+  can reduce the amount returned when the reserve is low.
 
-  Avantis [renamed the protocol Veranta in September 2026](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/README.md).
-  The avUSDC share token retains its Avantis name.
 fee_description: |
   The [withdrawal charge](https://docs.veranta.xyz/liquidity-providers/risk-management)
   ranges from **0% to 2.5%**, depending on the reserve available to cover trader
@@ -35,7 +42,7 @@ links:
   defillama: https://defillama.com/protocol/veranta
   audits: https://docs.veranta.xyz/security/audits
   fees: https://docs.veranta.xyz/liquidity-providers/risk-management
-  trading_strategy: https://tradingstrategy.ai/vaults/protocols/avantis
-  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/avantis/index.html
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/veranta
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/veranta/index.html
 example_smart_contracts:
   - https://basescan.org/address/0x944766f715b51967e56afde5f0aa76ceacc9e7f9

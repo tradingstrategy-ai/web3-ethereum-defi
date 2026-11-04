@@ -1,4 +1,4 @@
-"""Maintained strategy classifications for Avantis."""
+"""Maintained strategy classifications for Veranta."""
 
 from eth_defi.vault.strategy_tag import StrategyTag
 

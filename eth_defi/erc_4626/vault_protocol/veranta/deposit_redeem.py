@@ -1,4 +1,4 @@
-"""Synchronous Avantis execution with preflight for post-withdrawal limits."""
+"""Synchronous Veranta execution with preflight for post-withdrawal limits."""
 
 from decimal import Decimal
 
@@ -10,10 +10,10 @@ from eth_defi.erc_4626.estimate import estimate_4626_redeem
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, extract_revert_data
 
 
-class AvantisDepositManager(ERC4626DepositManager):
+class VerantaDepositManager(ERC4626DepositManager):
     """Keep standard ERC-4626 calls and simulate exact redemptions.
 
-    Avantis checks utilisation after transferring both payout and fee. Its
+    Veranta checks utilisation after transferring both payout and fee. Its
     ``maxRedeem`` estimate cannot prove that the final check will pass.
     Simulation catches predictable reverts without changing custody, guard
     policy or requested share amounts.
@@ -63,8 +63,8 @@ class AvantisDepositManager(ERC4626DepositManager):
         """
         if check_max_redeem and self.vault.vault_contract.functions.maxRedeem(owner).call() == 0:
             raise VaultFlowUnavailable(
-                "Avantis owner has no redeemable shares at current capacity",
-                protocol="Avantis",
+                "Veranta owner has no redeemable shares at current capacity",
+                protocol="Veranta",
                 vault_address=self.vault.address,
                 caller=owner,
                 direction="redeem",
@@ -88,8 +88,8 @@ class AvantisDepositManager(ERC4626DepositManager):
             if isinstance(error, ValueError) and revert_data is None:
                 raise
             raise VaultFlowUnavailable(
-                "Avantis exact redemption reverted; liquidity or withdrawal limits prevent this exit",
-                protocol="Avantis",
+                "Veranta exact redemption reverted; liquidity or withdrawal limits prevent this exit",
+                protocol="Veranta",
                 vault_address=self.vault.address,
                 caller=owner,
                 direction="redeem",
@@ -101,8 +101,8 @@ class AvantisDepositManager(ERC4626DepositManager):
             ) from error
         if payout <= 0:
             raise VaultFlowUnavailable(
-                "Avantis redemption would return no assets",
-                protocol="Avantis",
+                "Veranta redemption would return no assets",
+                protocol="Veranta",
                 vault_address=self.vault.address,
                 caller=owner,
                 direction="redeem",

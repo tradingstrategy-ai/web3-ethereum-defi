@@ -1,4 +1,4 @@
-"""Verify the numbered Avantis migration on isolated persistent state."""
+"""Verify the numbered Veranta migration on isolated persistent state."""
 
 import copy
 import dataclasses
@@ -9,17 +9,17 @@ from unittest.mock import Mock
 import pytest
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_VAULT_ADDRESS
-from eth_defi.erc_4626.vault_protocol.avantis.vault import AvantisVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import avantis
+from eth_defi.vault_protocols.repairs import veranta
 
-TARGET = VaultSpec(8453, AVANTIS_VAULT_ADDRESS)
-OTHER = VaultSpec(1, AVANTIS_VAULT_ADDRESS)
-SCRIPT_NAME = "030-avantis-vault-metadata.py"
+TARGET = VaultSpec(8453, VERANTA_VAULT_ADDRESS)
+OTHER = VaultSpec(1, VERANTA_VAULT_ADDRESS)
+SCRIPT_NAME = "030-veranta-vault-metadata.py"
 
 
 @pytest.fixture
@@ -30,10 +30,10 @@ def database() -> VaultDatabase:
     """
     timestamp = datetime.datetime(2026, 1, 1)
     flags = {ERC4626Feature.gains_tranche_like}
-    detection = ERC4262VaultDetection(8453, AVANTIS_VAULT_ADDRESS, 1, timestamp, flags, timestamp, 10, 20)
+    detection = ERC4262VaultDetection(8453, VERANTA_VAULT_ADDRESS, 1, timestamp, flags, timestamp, 10, 20)
     return VaultDatabase(
         rows={
-            TARGET: {"Protocol": "<protocol not yet identified>", "Address": AVANTIS_VAULT_ADDRESS, "_detection_data": detection, "_notes": "Preserve operator warning", "NAV": 999, "_flags": {"manual sentinel"}, "_description": "Maintained description"},
+            TARGET: {"Protocol": "<protocol not yet identified>", "Address": VERANTA_VAULT_ADDRESS, "_detection_data": detection, "_notes": "Preserve operator warning", "NAV": 999, "_flags": {"manual sentinel"}, "_description": "Maintained description"},
             OTHER: {"Protocol": "Unrelated", "manual": 7},
         },
         last_scanned_block={8453: 123},
@@ -57,22 +57,25 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> Mock:
     contract.functions.balancingFee.return_value.call.return_value = 0
     contract.functions.collateralHealthFee.return_value.call.return_value = 500
     web3.eth.contract.return_value = contract
-    monkeypatch.setattr(avantis, "read_json_rpc_url", lambda _: "unused")
-    monkeypatch.setattr(avantis, "create_multi_provider_web3", lambda _: web3)
+    monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
+    monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: web3)
     # Keep real adapter methods; only replace the ABI binding in this offline test.
-    monkeypatch.setattr(AvantisVault, "vault_contract", property(lambda _: contract))
+    monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))
     return web3
 
 
-def test_avantis_numbered_preview_apply_and_preservation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, database: VaultDatabase, provider: Mock) -> None:
+@pytest.mark.parametrize("protocol", ["<protocol not yet identified>", "Avantis", "Veranta"])
+def test_veranta_numbered_preview_apply_and_preservation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, database: VaultDatabase, provider: Mock, protocol: str) -> None:
     """Exercise runner preview, atomic apply, journal skip and history preservation.
 
     :param tmp_path: Isolated persistent directory.
     :param monkeypatch: Environment isolation.
     :param database: Existing metadata with control row.
     :param provider: Offline Base replies for actual adapter reads.
+    :param protocol: Generic, legacy or current public protocol name.
     :return: None; byte and field comparisons prove the bounded repair.
     """
+    database.rows[TARGET]["Protocol"] = protocol
     for name in ("VAULT_DB", "VAULT_DB_PATH"):
         monkeypatch.delenv(name, raising=False)
     data_dir = tmp_path / "data"
@@ -93,7 +96,9 @@ def test_avantis_numbered_preview_apply_and_preservation(tmp_path: Path, monkeyp
     assert runner.run_pending_migrations(dry_run=False, **options) == [SCRIPT_NAME]
     result = VaultDatabase.read(path)
     row = result.rows[TARGET]
-    assert row["Protocol"] == "Avantis"
+    assert row["Protocol"] == "Veranta"
+    assert row["protocol_slug"] == "veranta"
+    assert "vault_slug" not in row
     assert row["_deposit_permission"] == "permissionless"
     assert row["_deposit_manager"]["can_redeem"] is True
     assert row["Withdraw fee"] == pytest.approx(0.005)
@@ -107,10 +112,10 @@ def test_avantis_numbered_preview_apply_and_preservation(tmp_path: Path, monkeyp
     for name in sentinel_names:
         assert (data_dir / name).read_bytes() == original[name]
     assert runner.run_pending_migrations(dry_run=False, **options) == []
-    assert avantis.refresh_avantis_metadata(result, provider)["changed_rows"] == 0
+    assert veranta.refresh_veranta_metadata(result, provider)["changed_rows"] == 0
 
 
-def test_avantis_unknown_admission_leaves_database_unchanged(database: VaultDatabase, provider: Mock) -> None:
+def test_veranta_unknown_admission_leaves_database_unchanged(database: VaultDatabase, provider: Mock) -> None:
     """A read failure must abort before staging any row changes.
 
     :param database: Stale target and control row.
@@ -120,12 +125,12 @@ def test_avantis_unknown_admission_leaves_database_unchanged(database: VaultData
     original = copy.deepcopy(database.rows)
     provider.eth.get_storage_at.return_value = bytes(32)
     with pytest.raises(ValueError, match="admission could not be established"):
-        avantis.refresh_avantis_metadata(database, provider)
+        veranta.refresh_veranta_metadata(database, provider)
     assert database.rows == original
 
 
 @pytest.mark.parametrize("conflict", ["missing", "protocol", "detection"])
-def test_avantis_conflicting_target(database: VaultDatabase, conflict: str) -> None:
+def test_veranta_conflicting_target(database: VaultDatabase, conflict: str) -> None:
     """Refuse absent or conflicting targets before contacting Base.
 
     :param database: Isolated existing catalogue.
@@ -139,4 +144,4 @@ def test_avantis_conflicting_target(database: VaultDatabase, conflict: str) -> N
     else:
         database.rows[TARGET]["_detection_data"] = dataclasses.replace(database.rows[TARGET]["_detection_data"], features={ERC4626Feature.gains_like})
     with pytest.raises(ValueError):
-        avantis.refresh_avantis_metadata(database)
+        veranta.refresh_veranta_metadata(database)

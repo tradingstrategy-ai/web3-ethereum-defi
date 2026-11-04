@@ -1,4 +1,4 @@
-# Avantis verified interface
+# Veranta verified interface
 
 - Chain: Base (8453).
 - Unified avUSDC proxy: [0x944766f715b51967e56afde5f0aa76ceacc9e7f9](https://basescan.org/address/0x944766f715b51967e56afde5f0aa76ceacc9e7f9).
