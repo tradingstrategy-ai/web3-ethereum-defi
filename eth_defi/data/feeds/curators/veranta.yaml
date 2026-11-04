@@ -1,0 +1,21 @@
+# Veranta, formerly Avantis, operates its own unified avUSDC pool on Base.
+# Feed collection and logos are shared with protocols/veranta.yaml.
+feeder-id: veranta
+name: Veranta
+role: curator
+canonical-feeder-id: veranta
+short_description: Veranta, formerly known as Avantis, operates a trading platform and its shared USDC pool on Base.
+long_description: |
+  [Veranta](https://www.veranta.xyz/), [formerly known as Avantis](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/README.md), operates a trading
+  platform on Base and its shared USDC pool.
+  **No separate third-party curator is disclosed** for the pool.
+
+  Depositors in the [avUSDC vault](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc)
+  supply USDC to back trading positions and earn a share of trading fees. Trader profits
+  draw on a reserve built from trader losses before using depositors' money,
+  and withdrawals depend on money being available in the pool.
+other-links:
+  - title: Veranta - unified avUSDC liquidity provider vault and trader payout buffer
+    url: https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc
+  - title: Official Avantis SDK - protocol renamed Veranta with the same contracts
+    url: https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/README.md

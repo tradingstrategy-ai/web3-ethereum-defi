@@ -729,6 +729,10 @@ def slugify_protocol(protocol: str) -> str:
     if protocol == "Tori Finance":
         return "tori"
 
+    # Resolve older cached protocol names to the current canonical slug.
+    if protocol == "Avantis":
+        return "veranta"
+
     return slugify(protocol)
 
 
@@ -1417,6 +1421,10 @@ def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
             return
 
         name = vault_metadata.get("Name")
+        # The onchain receipt token retains its former brand. Use the current
+        # protocol brand for the public vault URL without changing token data.
+        if vault_metadata["Protocol"] == "Veranta" and name == "Avantis USDC Vault":
+            name = "Veranta USDC Vault"
         share_token = vault_metadata.get("Share token")
         vault_address = vault_metadata["Address"]
 

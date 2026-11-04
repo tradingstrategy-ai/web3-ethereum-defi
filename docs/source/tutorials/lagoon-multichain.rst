@@ -102,7 +102,7 @@ Supported chains
      - ERC-4626 vaults (Centrifuge, Euler, USDD), CowSwap, CCTP V2
    * - Base
      - Satellite
-     - ERC-4626 vaults (Morpho, Avantis), CCTP V2
+     - ERC-4626 vaults (Morpho, Veranta), CCTP V2
    * - HyperEVM
      - Satellite
      - ERC-4626 vaults (Morpho Felix), Hypercore vaults (HLP)

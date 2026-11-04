@@ -204,6 +204,7 @@ Supported protocols
    inverse_finance/index
    ipor/index
    kiln/index
+   veranta/index
    kiloex/index
    kinexys/index
    barker/index

@@ -35,6 +35,7 @@ from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -406,6 +407,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address == VERANTA_VAULT_ADDRESS:
+        return {ERC4626Feature.veranta_like, ERC4626Feature.gains_tranche_like} if chain_id == VERANTA_CHAIN_ID else None
     if normalised_address == TORI_VAULT_ADDRESS:
         return {ERC4626Feature.tori_like} if chain_id == TORI_CHAIN_ID else None
     if normalised_address in NOVA_MARKETS_HARDCODED_PROTOCOLS:
@@ -2472,6 +2475,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
         return GainsVault(web3, spec, **kwargs)
+    elif ERC4626Feature.veranta_like in features:
+        from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
+
+        return VerantaVault(web3, spec, **kwargs)
     elif ERC4626Feature.ostium_like in features:
         # Ostium instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault

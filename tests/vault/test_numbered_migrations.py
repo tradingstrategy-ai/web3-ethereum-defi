@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -18,13 +19,15 @@ from eth_defi.erc_4626.vault_protocol.gains.metadata import REVIEWED_GAINS_VAULT
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import VaultFlag, get_notes
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill
+from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, veranta
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -77,6 +80,8 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[VaultSpec(1868, "0x2ba3fc5bdbbe7be2630fb71e759739625246bcd9")] = {"Protocol": "Asseto"}
     rows[VaultSpec(1, "0xb250c9e0f7be4cff13f94374c993ac445a1385fe")] = {"Protocol": "ETH Strategy"}
     rows[VaultSpec(42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004")] = {"Protocol": "D2 Finance"}
+    veranta_spec = VaultSpec(8453, VERANTA_VAULT_ADDRESS)
+    rows[veranta_spec] = {"Protocol": "<protocol not yet identified>", "_detection_data": detection(veranta_spec, ERC4626Feature.gains_tranche_like)}
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}
@@ -97,6 +102,17 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     # Price backfills need archive RPC access; their helper has dedicated tests.
     backfilled = []
     monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets, **_kwargs: backfilled.extend(targets))
+    # Veranta live reads are separately fork-tested; the batch checks composition.
+    provider = Mock()
+    provider.eth.chain_id = 8453
+    provider.eth.block_number = 123
+    provider.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
+    contract = Mock()
+    contract.functions.asset.return_value.call.return_value = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+    contract.functions.feesOn.return_value.call.return_value = False
+    monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
+    monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: provider)
+    monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))
     path = batch_database / "vault-metadata-db.pickle"
     # Migration 018 validates the price file even when no reviewed vault has rows.
     # Keep real unrelated Parquet data so the complete batch exercises that path.

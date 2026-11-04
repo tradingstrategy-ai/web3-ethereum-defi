@@ -50,6 +50,8 @@ from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYM
 from eth_defi.erc_4626.vault_protocol.threejane.tags import STRATEGY_TAGS as THREEJANE_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID
+from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS as VERANTA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
 from eth_defi.gmx.tags import STRATEGY_TAGS as GMX_STRATEGY_TAGS
 from eth_defi.grvt.tags import get_strategy_tags as get_grvt_strategy_tags
@@ -127,6 +129,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.kiln_metavault_like,
     ERC4626Feature.nova_markets_like,
     ERC4626Feature.gains_like,
+    ERC4626Feature.veranta_like,
     ERC4626Feature.ostium_like,
     ERC4626Feature.umami_like,
     ERC4626Feature.plutus_like,
@@ -214,6 +217,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
 )
 
 EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
+    ERC4626Feature.veranta_like: partial(lookup_strategy_tags, VERANTA_STRATEGY_TAGS),
     ERC4626Feature.tori_like: partial(lookup_strategy_tags, TORI_STRATEGY_TAGS),
     ERC4626Feature.autopool_like: partial(lookup_strategy_tags, AUTOPOOL_STRATEGY_TAGS),
     ERC4626Feature.ember_like: partial(lookup_strategy_tags, EMBER_STRATEGY_TAGS),
@@ -253,6 +257,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
 #: Newly supported address-only mappings must preserve other persisted rows.
 REVIEWED_ADDRESS_STRATEGY_FEATURES: frozenset[ERC4626Feature] = frozenset(
     {
+        ERC4626Feature.veranta_like,
         ERC4626Feature.autopool_like,
         ERC4626Feature.ember_like,
         ERC4626Feature.fluid_like,
@@ -445,6 +450,8 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
 
     if evm_feature in {ERC4626Feature.gains_like, ERC4626Feature.ostium_like, ERC4626Feature.domination_finance_like}:
         adapter_tags = get_gains_strategy_tags(spec.chain_id, spec.vault_address)
+    elif evm_feature == ERC4626Feature.veranta_like:
+        adapter_tags = evm_resolver(spec.vault_address) if spec.chain_id == VERANTA_CHAIN_ID else None
     elif evm_feature == ERC4626Feature.nova_markets_like:
         adapter_tags = evm_resolver(spec.vault_address) if spec.chain_id == NOVA_MARKETS_CHAIN_ID else None
     else:

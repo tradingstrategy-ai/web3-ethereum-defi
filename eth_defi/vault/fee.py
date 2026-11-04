@@ -50,6 +50,11 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    # Withdrawal charges reduce the payout rather than the quoted share price.
+    # https://docs.veranta.xyz/liquidity-providers/risk-management
+    "Veranta": VaultFeeMode.externalised,
+    # Compatibility for cached metadata written under the former name.
+    "Avantis": VaultFeeMode.externalised,
     # Verified contracts have no strategy-fee accounting. Operator settlement
     # and published API prices do not establish fee internalisation; see
     # eth_defi/abi/infinit/README.md.
