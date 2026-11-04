@@ -168,6 +168,9 @@ class VaultInfo:
     leader_commission: float | None = None
     #: Parent vault address if this is a child vault
     parent: HexAddress | None = None
+    #: Queried user's equity from ``followerState``, independent of the capped
+    #: public follower list. Absent for metadata-only reads or no investment.
+    follower_equity: Decimal | None = None
 
 
 #: Reject new deposits when an observed leader share is below 5.5%.
@@ -463,6 +466,7 @@ class HyperliquidVault:
             leader_fraction=data.get("leaderFraction"),
             leader_commission=data.get("leaderCommission"),
             parent=parent,
+            follower_equity=Decimal(str(data["followerState"]["vaultEquity"])) if data.get("followerState") is not None else None,
         )
 
     def fetch_info(self, user: HexAddress | None = None) -> VaultInfo:

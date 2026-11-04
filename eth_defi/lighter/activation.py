@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import secrets
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
@@ -24,7 +25,7 @@ from eth_defi.lighter.api_key import generate_lighter_api_key
 from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT, LIGHTER_USDC_ETHEREUM
 from eth_defi.lighter.lagoon import broadcast_tx, deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX, build_change_pubkey_safe_tx
-from eth_defi.lighter.session import create_lighter_session
+from eth_defi.lighter.session import LighterSession, create_lighter_session
 from eth_defi.token import fetch_erc20_details
 
 if TYPE_CHECKING:
@@ -77,6 +78,7 @@ def activate_lighter_safe(
     api_key_index: int = MIN_API_KEY_INDEX,
     report_path: Path | None = None,
     progress: Callable[..., None] | None = None,
+    session: LighterSession | None = None,
 ) -> "LighterAccountSetup":
     """Deposit one accounted USDC and register a backed-up API key.
 
@@ -90,6 +92,7 @@ def activate_lighter_safe(
     :param api_key_index: Unoccupied user slot, default four.
     :param report_path: New private report if no deployment progress callback is supplied.
     :param progress: Existing private deployment recorder, including key backup.
+    :param session: Optional caller-owned API transport, including local simulation.
     :return: Verified account setup, with the secret excluded from ``repr``.
     """
     # Deployment imports the recorder above; load its result type after initialisation.
@@ -117,10 +120,10 @@ def activate_lighter_safe(
     progress("lighter_deposit_started", safe_address=safe.safe_address, nonce=wallet.current_nonce)
     deposit_hash = deposit_usdc_from_lagoon_safe_into_lighter(web3, wallet, vault=safe, usdc=usdc, deposit_usdc=LIGHTER_MIN_MAINNET_USDC, tx_observer=observe)
     progress("lighter_deposit_confirmed", tx_hash=deposit_hash)
-    with create_lighter_session() as session:
-        account_index = wait_for_lighter_account(session, safe.safe_address)
-        collateral = wait_for_lighter_collateral(session, account_index, LIGHTER_MIN_MAINNET_USDC)
-        occupied = fetch_lighter_api_key(session, account_index, api_key_index)
+    with nullcontext(session) if session is not None else create_lighter_session() as api_session:
+        account_index = wait_for_lighter_account(api_session, safe.safe_address)
+        collateral = wait_for_lighter_collateral(api_session, account_index, LIGHTER_MIN_MAINNET_USDC)
+        occupied = fetch_lighter_api_key(api_session, account_index, api_key_index)
         if occupied is not None:
             public_key = occupied.get("public_key", occupied.get("publicKey"))
             assert isinstance(public_key, str) and bytes.fromhex(public_key.removeprefix("0x")) == bytes(40), "Refusing to overwrite an occupied or malformed API-key slot"
@@ -131,5 +134,5 @@ def activate_lighter_safe(
         safe_tx.sign(wallet.private_key.hex())
         change_hash = broadcast_tx(web3, wallet, safe_tx.w3_tx, "Register Lighter API key through Safe owner", gas_limit=2_000_000, tx_observer=observe)
         progress("lighter_key_registration_confirmed", tx_hash=change_hash)
-        wait_for_lighter_api_key(session, account_index, api_key_index, key.public_key, timeout=900)
+        wait_for_lighter_api_key(api_session, account_index, api_key_index, key.public_key, timeout=900)
     return LighterAccountSetup(account_index, api_key_index, key.private_key, key.public_key, LIGHTER_MIN_MAINNET_USDC, deposit_hash, change_hash, collateral)

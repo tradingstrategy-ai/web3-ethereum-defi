@@ -9,7 +9,8 @@ token transfers and swaps across multiple EVM chains. It aggregates liquidity fr
 various bridges and DEXes to find optimal routes for cross-chain transfers.
 
 ``eth_defi`` provides LI.FI integration for cross-chain gas feeding — automatically
-topping up native gas token balances on multiple chains from a single source chain.
+topping up native gas token balances on multiple chains from a single source chain,
+with an opt-in native-USDC transfer to Ethereum for deployer prefunding.
 
 For a complete working example, see the :ref:`lifi-feed-crosschain` tutorial.
 

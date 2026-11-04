@@ -41,3 +41,8 @@ provided by :py:mod:`eth_defi.testing.evm_snapshot_fixture`.
    eth_defi.testing.evm_snapshot_fixture
    eth_defi.testing.gmx_lagoon
    eth_defi.testing.slow_tests
+
+.. toctree::
+   :maxdepth: 1
+
+   lagoon_roundtrip

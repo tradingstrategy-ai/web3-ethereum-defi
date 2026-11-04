@@ -161,6 +161,20 @@ Hyperliquid silently rejects `vaultTransfer` deposits below **5 USDC** (`MINIMUM
 
 ## Withdrawal flow
 
+For a full exit, use `vaultTransfer(vault, false, 0)`: zero requests the entire
+investment at execution-time value, matching the **Max** withdrawal in the
+[official vault interface](https://app.hyperliquid.xyz/vaults). A positive amount
+requests a partial exit. Quoting the whole position as a positive amount can
+race trading PnL; a withdrawal leaving a small remaining investment can also be
+rejected with `Vault deposits must be at least $5.` These behaviours were
+observed during the mainnet manual test on 2026-10-28.
+
+For a full exit, confirm the vault withdrawal and read the actual perp credit
+before preparing the perp-to-spot and EVM-return amounts. The three-chain
+`scripts/lagoon/lagoon-multichain-core-roundtrip.py` tutorial uses these separate
+confirmed stages. The fixed-amount batching helper below cannot infer proceeds
+from a zero-amount full withdrawal.
+
 ### Overview
 
 ```
@@ -247,6 +261,16 @@ This means the deposit flow can partially fail. For example, USDC could be bridg
 later HyperCore state. A successful EVM receipt proves submission, not final
 HyperCore execution. The executor separately proves bridge arrival and the
 spot-to-perp balance changes before submitting a vault deposit.
+
+For the three-chain tutorial, a verified rejected withdrawal needs an explicit
+recovery entry. Stop the script and preserve a protected state backup. Under
+`lock_run()`, use `load_state()` and `save_state()` to add the matching Core
+execution record to `state.steps["core_exit"]["rejection"]` (or the relevant
+`core_exit_<n>` step). Keep its Core hash, error, user, vault, amount and timestamp,
+and verify these identify the original EVM submission's executed action. An
+enqueue record with no error is not its execution result. Preserve the original
+transaction hash and amount. The next unwind creates a new withdrawal identity;
+never add this entry merely because polling timed out or a balance was unchanged.
 
 ### Final deposit equity observation
 

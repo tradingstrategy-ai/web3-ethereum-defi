@@ -2,7 +2,6 @@
 
 import importlib.util
 import sys
-from decimal import Decimal
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import Mock
@@ -23,11 +22,11 @@ def tutorial() -> ModuleType:
 
 def test_routine_settings_have_defaults(tutorial: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     """Credentials and RPCs are the only necessary deployment inputs."""
-    for name in ("CHAINS", "CCTP_MAX_FEE_USDC", "SALT_NONCE", "LIGHTER_API_KEY_INDEX", "LIGHTER_DEPLOYMENT_REPORT"):
+    for name in ("CHAINS", "SALT_NONCE", "LIGHTER_API_KEY_INDEX", "LIGHTER_DEPLOYMENT_REPORT"):
         monkeypatch.delenv(name, raising=False)
     settings = tutorial.Settings.from_env()
     assert settings.chains == ("hyperliquid", "ethereum")
-    assert settings.max_fee == Decimal("0.01") and settings.api_key_index == tutorial.MIN_API_KEY_INDEX
+    assert settings.api_key_index == tutorial.MIN_API_KEY_INDEX
     assert settings.report.suffix == ".jsonl"
 
 
@@ -41,7 +40,7 @@ def test_reject_invalid_topology(tutorial: ModuleType, monkeypatch: pytest.Monke
 
 def test_read_only_mode_calls_shared_preflight(tutorial: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Preflight sends no transactions and needs no custom script orchestration."""
-    settings = tutorial.Settings(("hyperliquid", "ethereum"), Decimal("0.01"), 123, 4, tmp_path / "report.jsonl")
+    settings = tutorial.Settings(("hyperliquid", "ethereum"), 123, 4, tmp_path / "report.jsonl")
     monkeypatch.setattr(tutorial, "build_configs", lambda *_: {})
     preflight = Mock()
     deploy = Mock()

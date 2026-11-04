@@ -1,5 +1,12 @@
 # Lighter Core vault support for multichain strategies
 
+> Deployment update (2026-10-27): the implementation now activates the Ethereum
+> satellite from 1 prefunded USDC in the deployer's Ethereum wallet. It records
+> a contribution, mints no Lagoon shares and performs no hub subscription or
+> activation bridge. The hub-subscription/CCTP activation design below is
+> superseded; see `docs/README-lighter-core-execution.md` for the current flow.
+
+
 Date: 2026-10-27. Status: implementation is in the workspace following user authorisation. The [implementation guide](../../README-lighter-core-execution.md) records the supported APIs and manual commands; funded lifecycle and production NAV verification remain open. Earlier [Opus feedback](2026-10-27-lighter-core-vault-guard-review.md) and the [Fable 5.1 re-review](2026-10-27-lighter-core-vault-guard-fable-review.md) remain preserved; the user directed implementation of this plan without applying the latest review suggestions.
 
 ## Summary and confirmed decisions
