@@ -307,6 +307,18 @@ def fetch_pool_holdings(session: LighterSession, account_index: int) -> Iterator
         yield _parse_pool_holding(row, state)
 
 
+def _parse_entry_timestamp(value: int) -> datetime.datetime:
+    """Convert Lighter's ``entry_timestamp`` to naive UTC.
+
+    The API reports Unix milliseconds, observed on a funded mainnet pool
+    holding on 2026-11-03 (``1793716249698`` for a mint at 14:30:49 UTC).
+
+    :param value: Raw ``entry_timestamp`` from an investor share row.
+    :return: Entry time as a naive UTC datetime.
+    """
+    return datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=int(value))
+
+
 def _parse_pool_holding(row: dict[str, Any], pool: LighterPoolState) -> LighterPoolHolding:
     """Value one validated investor row using its own current pool observation.
 
@@ -317,7 +329,7 @@ def _parse_pool_holding(row: dict[str, Any], pool: LighterPoolState) -> LighterP
     shares = int(row["shares_amount"])
     principal = _required_decimal(row, "principal_amount")
     gross = shares * pool.share_value
-    return LighterPoolHolding(pool.pool_index, shares, _required_decimal(row, "entry_usdc"), principal, datetime.datetime.fromtimestamp(int(row["entry_timestamp"]), datetime.UTC).replace(tzinfo=None), gross, max(gross - principal, Decimal(0)) * pool.operator_fee, pool.observed_at)
+    return LighterPoolHolding(pool.pool_index, shares, _required_decimal(row, "entry_usdc"), principal, _parse_entry_timestamp(row["entry_timestamp"]), gross, max(gross - principal, Decimal(0)) * pool.operator_fee, pool.observed_at)
 
 
 def prepare_pool_amount(
@@ -590,7 +602,12 @@ def fetch_withdrawals(session: LighterSession, account_index: int, auth_token: s
     """Iterate the complete withdrawal history, including older pending requests.
 
     Following every cursor prevents first-page snapshots from mistaking an old
-    withdrawal for a newly submitted one. Repeated cursors fail explicitly.
+    withdrawal for a newly submitted one. The API never returns an empty
+    cursor: past the last row it repeats an end cursor
+    (``{"index":-1,"index2":-1}`` in base64) with an empty page, observed on
+    mainnet on 2026-11-03. An empty page that repeats the cursor it was
+    requested with therefore ends the history. An empty page with a new cursor
+    continues, and any other repeated cursor fails explicitly.
 
     :param session: Ethereum session.
     :param account_index: Safe-owned account.
@@ -602,11 +619,12 @@ def fetch_withdrawals(session: LighterSession, account_index: int, auth_token: s
     while True:
         data = fetch_withdrawal_history(session, account_index, auth_token, cursor)
         yield from data["withdraws"]
-        cursor = data.get("cursor")
-        if not cursor:
+        next_cursor = data.get("cursor")
+        if not next_cursor or (next_cursor == cursor and not data["withdraws"]):
             return
-        assert cursor not in seen, "Withdrawal history pagination loop"
-        seen.add(cursor)
+        assert next_cursor not in seen, "Withdrawal history pagination loop"
+        seen.add(next_cursor)
+        cursor = next_cursor
 
 
 def fetch_matching_withdrawal(session: LighterSession, account_index: int, withdrawal_id: str, auth_token: str) -> dict[str, Any] | None:

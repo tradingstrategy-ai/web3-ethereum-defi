@@ -53,7 +53,7 @@ For bootstrap with no pool exposure, conservation is `subscription = all Safe US
 
 ## Protocol assumptions to verify
 
-Before production use, observe real investor holdings and receipts to confirm `entry_timestamp` units, share sizing, fee estimates and the supported transaction-status mapping. LLP sizing currently treats `accountLimits.max_llp_amount` as a total monetary allocation cap and subtracts current holdings; confirm that interpretation and any percentage limit against a funded account. Unknown transaction statuses retain the original pending operation and never authorise a replay. These checks are not replaced by fixture-only tests.
+A funded mainnet pool round trip on 2026-11-03 (5.999515 USDC, pmalt, account 766589) showed that `entry_timestamp` is in Unix milliseconds and that withdrawal history ends with an empty page repeating an end cursor; the secure withdrawal took 44 minutes. Before production use, confirm fee estimates and the supported transaction-status mapping on a profitable exit. LLP sizing currently treats `accountLimits.max_llp_amount` as a total monetary allocation cap and subtracts current holdings; confirm that interpretation and any percentage limit against a funded account. Unknown transaction statuses retain the original pending operation and never authorise a replay. These checks are not replaced by fixture-only tests.
 
 ## Real lifecycle verification
 
