@@ -240,3 +240,8 @@ in 55.39 seconds, including both new real-contract repair cases. Claude Opus
 documentation timing correction was applied: record PR provenance before
 building the preview image. Ruff formatting, targeted syntax/import checks and
 `git diff --check` passed. No Sphinx build or production maintenance was run.
+
+PR opened on 2026-11-04: [#1725](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1725).
+The migration header and changelog now record this provenance before any
+production preview image is built. Earlier references to no PR describe the
+local implementation and cleanup stage.

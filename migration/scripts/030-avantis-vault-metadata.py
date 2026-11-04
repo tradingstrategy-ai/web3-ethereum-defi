@@ -4,7 +4,7 @@ Purpose: Publish protocol identity, fee, admission, capability and strategy meta
 Scope: Base 0x944766f715b51967e56afde5f0aa76ceacc9e7f9 only; one required existing row.
 Branch: identify-avantis-usdc-vault-protocol
 PR title: feat: add Avantis unified avUSDC vault support
-PR: Not opened. Record the review URL before building the production preview image.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1725
 Preserves: Unrelated metadata, manual notes, all leads, price history, reader state and timestamp caches.
 Expected: One inspected row; changed fields reported; retries are idempotent.
 
