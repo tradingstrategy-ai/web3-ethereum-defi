@@ -72,6 +72,8 @@ from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.retry import GMXAPIUnavailable
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
+from eth_defi.gmx.collateral_routing import assign_usdc_routed_symbols, get_usdc_route_for_market_tokens, is_zero_open_interest_cap
+from eth_defi.gmx.market_guards import filter_zero_open_interest_cap_markets
 from eth_defi.gmx.ticker_validation import get_min_expected_tickers, validate_tickers_payload
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.verification import verify_gmx_order_execution
@@ -886,6 +888,15 @@ class GMX(Exchange):
                         )
                         continue
 
+                    # Skip retired pools: GMX sets both open-interest caps to 0, every
+                    # open is then keeper-cancelled with MaxOpenInterestExceeded(0).
+                    if is_zero_open_interest_cap(market_info.get("maxOpenInterestLong"), market_info.get("maxOpenInterestShort")):
+                        logger.warning(
+                            "GraphQL: skipping market %s with maxOpenInterest 0 on both sides (retired pool)",
+                            market_token_addr,
+                        )
+                        continue
+
                     # Special case for the wstETH market — its index token is WETH,
                     # but it must be labelled wstETH so it does not collide with the
                     # real ETH market. Mirrors the sync loader (exchange.py).
@@ -930,8 +941,10 @@ class GMX(Exchange):
                     symbol_name = SYMBOL_NORMALISE.get(raw_symbol, raw_symbol)
                     was_remapped = raw_symbol != symbol_name
 
-                    # Skip excluded symbols
-                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                    # Skip excluded symbols. USDC-routed single-token markets (USDG) are
+                    # named by assign_usdc_routed_symbols() after the loop instead.
+                    usdc_route = get_usdc_route_for_market_tokens(self.chain, long_token_addr, short_token_addr)
+                    if symbol_name in self.EXCLUDED_SYMBOLS and usdc_route is None:
                         continue
 
                     # Use Freqtrade futures format (consistent with regular load_markets)
@@ -1016,6 +1029,7 @@ class GMX(Exchange):
 
             self.markets = markets_dict
             self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.markets = assign_usdc_routed_symbols(self.markets, self.chain, self.EXCLUDED_SYMBOLS)
             self.symbols = list(self.markets.keys())
 
             logger.info("Loaded %s markets from GraphQL", len(self.markets))
@@ -1094,6 +1108,7 @@ class GMX(Exchange):
                             _tok = remapped[_sym].get("info", {}).get("market_token", "?")
                             logger.info("Disk cache market_token for %s = %s", _sym, _tok)
                     self.markets = self._filter_datastore_disabled_markets(remapped)
+                    self.markets = assign_usdc_routed_symbols(self.markets, self.chain, self.EXCLUDED_SYMBOLS)
                     self.symbols = list(self.markets.keys())
                     return self.markets
             except Exception as e:
@@ -1239,8 +1254,10 @@ class GMX(Exchange):
                     # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
                     symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
-                    # Skip excluded symbols (drops synthetic BTC2/ETH2/… pools).
-                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                    # Skip excluded symbols (drops synthetic BTC2/ETH2/… pools). USDC-routed
+                    # single-token markets (USDG) are named by assign_usdc_routed_symbols().
+                    usdc_route = get_usdc_route_for_market_tokens(self.chain, long_token, short_token)
+                    if symbol_name in self.EXCLUDED_SYMBOLS and usdc_route is None:
                         logger.debug("Skipping excluded symbol: %s", symbol_name)
                         continue
 
@@ -1312,6 +1329,7 @@ class GMX(Exchange):
 
             self.markets = markets_dict
             self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.markets = assign_usdc_routed_symbols(self.markets, self.chain, self.EXCLUDED_SYMBOLS)
             self.symbols = list(self.markets.keys())
 
             # Save to disk cache
@@ -1423,7 +1441,12 @@ class GMX(Exchange):
             # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
             symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
-            if symbol_name in self.EXCLUDED_SYMBOLS:
+            _usdc_route = get_usdc_route_for_market_tokens(
+                self.chain,
+                market_data.get("long_token_address"),
+                market_data.get("short_token_address"),
+            )
+            if symbol_name in self.EXCLUDED_SYMBOLS and _usdc_route is None:
                 logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
@@ -1490,6 +1513,7 @@ class GMX(Exchange):
 
         # Update symbols list (CCXT compatibility)
         self.markets = self._filter_datastore_disabled_markets(self.markets)
+        self.markets = assign_usdc_routed_symbols(self.markets, self.chain, self.EXCLUDED_SYMBOLS)
         self.symbols = list(self.markets.keys())
 
         return self.markets
@@ -1575,7 +1599,9 @@ class GMX(Exchange):
                 len(batch),
                 removed,
             )
-            return filtered
+            # Retired pools stay listed and enabled but have both open-interest
+            # caps at 0; drop them on every loading path, not just GraphQL.
+            return filter_zero_open_interest_cap_markets(w3, chain, filtered)
         except Exception as e:
             logger.warning(
                 "_filter_datastore_disabled_markets failed, returning unfiltered markets: %s",

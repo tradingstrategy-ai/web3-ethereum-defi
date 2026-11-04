@@ -279,6 +279,8 @@ class SLTPOrder(BaseOrder):
         *,
         decrease_position_swap_type: int = DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
         should_unwrap_native_token: bool = False,
+        decrease_swap_path: list[str] | None = None,
+        initial_collateral_address: ChecksumAddress | None = None,
     ):
         """Initialize SL/TP order with position identification.
 
@@ -289,6 +291,8 @@ class SLTPOrder(BaseOrder):
         :param is_long: True for long position, False for short
         :param decrease_position_swap_type: How GMX should convert the PnL token when a SL/TP order closes. Defaults to swapping PnL token to collateral token, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default. See ``DECREASE_POSITION_SWAP_TYPES`` in :mod:`eth_defi.gmx.constants`.
         :param should_unwrap_native_token: Whether a native-token payout on a SL/TP close should be unwrapped to the chain's native currency. Defaults to ``False``, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default.
+        :param decrease_swap_path: ``swapPath`` for the SL/TP decrease legs: GMX swaps the payout along it (e.g. USDG -> USDC for USDC-routed markets). ``initialCollateralToken`` stays ``collateral_address``, the position collateral. Defaults to no swap.
+        :param initial_collateral_address: Token the bundled main increase leg sends, when it differs from the position collateral because the main leg has a swap path (e.g. USDC sent, USDG collateral). Defaults to ``collateral_address``.
         """
         super().__init__(config)
         self.market_key = to_checksum_address(market_key)
@@ -297,6 +301,8 @@ class SLTPOrder(BaseOrder):
         self.is_long = is_long
         self.decrease_position_swap_type = decrease_position_swap_type
         self.should_unwrap_native_token = should_unwrap_native_token
+        self.decrease_swap_path = [to_checksum_address(a) for a in (decrease_swap_path or [])]
+        self.initial_collateral_address = to_checksum_address(initial_collateral_address) if initial_collateral_address else self.collateral_address
 
         logger.debug(
             "Initialized SLTPOrder for market %s, %s position",
@@ -360,8 +366,17 @@ class SLTPOrder(BaseOrder):
         # and avoids over-estimating execution fees by 100x.
         gas_price = self.web3.eth.gas_price
 
+        # Each payout swap hop adds singleSwapGasLimit and one more oracle price
+        # to GMX's minimum execution fee.
+        gas_limits = self._gas_limits
+        if order_type == "decrease_order" and self.decrease_swap_path:
+            hops = len(self.decrease_swap_path)
+            gas_limits = dict(gas_limits)
+            gas_limits[order_type] = gas_limits.get(order_type, 2000000) + hops * gas_limits.get("single_swap", 1000000)
+            oracle_price_count += hops
+
         execution_fee = calculate_execution_fee(
-            gas_limits=self._gas_limits,
+            gas_limits=gas_limits,
             gas_price=gas_price,
             order_type=order_type,
             oracle_price_count=oracle_price_count,
@@ -465,8 +480,8 @@ class SLTPOrder(BaseOrder):
                 ETH_ZERO_ADDRESS,  # callbackContract
                 ETH_ZERO_ADDRESS,  # uiFeeReceiver
                 market_checksum,  # market
-                collateral_checksum,  # initialCollateralToken
-                [],  # swapPath (empty for decrease)
+                collateral_checksum,  # initialCollateralToken (position collateral)
+                list(self.decrease_swap_path),  # swapPath for the payout (empty = no swap)
             ),
             (
                 size_delta_usd,  # sizeDeltaUsd (30 decimals)
@@ -671,6 +686,7 @@ class SLTPOrder(BaseOrder):
         execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
         auto_cancel: bool = False,
         data_list: list[str] | None = None,
+        min_output_amount: int = 0,
     ) -> SLTPOrderResult:
         """Open position + SL + TP in single atomic transaction.
 
@@ -687,6 +703,7 @@ class SLTPOrder(BaseOrder):
         :param execution_buffer: Multiplier for execution fees
         :param auto_cancel: Auto-cancel main order if can't execute
         :param data_list: Additional data for order
+        :param min_output_amount: Floor for the main leg's swap, in collateral-token units
         :return: SLTPOrderResult with bundled transaction
         """
         if swap_path is None:
@@ -706,10 +723,11 @@ class SLTPOrder(BaseOrder):
         # Use Decimal to avoid floating point precision errors
         size_delta_scaled = int(Decimal(str(size_delta_usd)) * Decimal(10**PRECISION))
 
-        # Get main order parameters
+        # Get main order parameters. The main leg sends initial_collateral_address
+        # (differs from the position collateral only when swap_path converts it).
         params = OrderParams(
             market_key=self.market_key,
-            collateral_address=self.collateral_address,
+            collateral_address=self.initial_collateral_address,
             index_token_address=self.index_token_address,
             is_long=self.is_long,
             size_delta=size_delta_scaled,
@@ -719,6 +737,7 @@ class SLTPOrder(BaseOrder):
             execution_buffer=execution_buffer,
             auto_cancel=auto_cancel,
             data_list=data_list,
+            min_output_amount=min_output_amount,
         )
 
         # Build main order result to get price info
@@ -747,7 +766,7 @@ class SLTPOrder(BaseOrder):
         else:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
-        is_native = self.collateral_address.lower() == native_token_address.lower()
+        is_native = self.initial_collateral_address.lower() == native_token_address.lower()
 
         # Calculate SL/TP fees
         sl_fee = 0
@@ -801,7 +820,7 @@ class SLTPOrder(BaseOrder):
         # 2. Send tokens if ERC20 collateral
         if not is_native:
             multicall_args.append(
-                self._send_tokens(self.collateral_address, collateral_amount),
+                self._send_tokens(self.initial_collateral_address, collateral_amount),
             )
 
         # 3. Main increase order
