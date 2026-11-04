@@ -13,15 +13,22 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3
 from eth_defi.provider.fallback import FallbackProvider
 
 
-# Use the Alchemy RPC URL provided, combined with public endpoint for fallback
-ALCHEMY_RPC = "https://arb-mainnet.g.alchemy.com/v2/sQkYwBCUdfNfC0AabiD7E"
+# Primary RPC comes from the environment (the CI secret) instead of a key
+# committed to the repo: the previously hard-coded Alchemy URL now answers
+# HTTP 403, which failed every test below on any PR that triggers the GMX job.
+# Without the variable, fall back to a second public endpoint so the tests
+# still run locally. PUBLIC_RPC stays distinct so two-provider tests get two.
 PUBLIC_RPC = "https://arb1.arbitrum.io/rpc"
+FALLBACK_PUBLIC_RPC = "https://arbitrum-one-rpc.publicnode.com"
+PRIMARY_RPC = (os.environ.get("JSON_RPC_ARBITRUM") or FALLBACK_PUBLIC_RPC).split()[0]
+if PRIMARY_RPC == PUBLIC_RPC:
+    PRIMARY_RPC = FALLBACK_PUBLIC_RPC
 
 
 def test_create_gmx_config_with_fallback_single_provider():
     """Test the factory function creates proper config with single provider."""
     config = create_gmx_config_with_fallback(
-        rpc_configuration=ALCHEMY_RPC,
+        rpc_configuration=PRIMARY_RPC,
         user_wallet_address="0x1234567890123456789012345678901234567890",
     )
 
@@ -33,7 +40,7 @@ def test_create_gmx_config_with_fallback_single_provider():
 
 def test_create_gmx_config_with_fallback_multiple_providers():
     """Test the factory function with multiple providers."""
-    rpc_config = f"{ALCHEMY_RPC} {PUBLIC_RPC}"
+    rpc_config = f"{PRIMARY_RPC} {PUBLIC_RPC}"
 
     config = create_gmx_config_with_fallback(
         rpc_configuration=rpc_config,
@@ -51,7 +58,7 @@ def test_create_gmx_config_with_fallback_multiple_providers():
 
 def test_get_fallback_provider_from_gmx_config():
     """Test extracting FallbackProvider from config."""
-    config = create_gmx_config_with_fallback(ALCHEMY_RPC)
+    config = create_gmx_config_with_fallback(PRIMARY_RPC)
 
     fallback = get_fallback_provider_from_gmx_config(config)
 
@@ -63,14 +70,14 @@ def test_create_gmx_config_require_multiple_raises():
     """Test that require_multiple_providers raises with single provider."""
     with pytest.raises(ValueError, match="at least 2 providers"):
         create_gmx_config_with_fallback(
-            rpc_configuration=ALCHEMY_RPC,
+            rpc_configuration=PRIMARY_RPC,
             require_multiple_providers=True,
         )
 
 
 def test_gmx_config_can_fetch_block_number():
     """Test that the config can actually make RPC calls."""
-    config = create_gmx_config_with_fallback(ALCHEMY_RPC)
+    config = create_gmx_config_with_fallback(PRIMARY_RPC)
 
     block_number = config.web3.eth.block_number
     assert block_number > 0
@@ -80,7 +87,7 @@ def test_ccxt_gmx_with_require_multiple_providers():
     """Test CCXT GMX exchange with requireMultipleProviders parameter."""
     from eth_defi.gmx.ccxt.exchange import GMX
 
-    rpc_config = f"{ALCHEMY_RPC} {PUBLIC_RPC}"
+    rpc_config = f"{PRIMARY_RPC} {PUBLIC_RPC}"
 
     gmx = GMX(
         params={
@@ -105,7 +112,7 @@ def test_ccxt_gmx_require_multiple_providers_raises():
     with pytest.raises(ValueError, match="at least 2 providers"):
         GMX(
             params={
-                "rpcUrl": ALCHEMY_RPC,
+                "rpcUrl": PRIMARY_RPC,
                 "requireMultipleProviders": True,
             }
         )
