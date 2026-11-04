@@ -5,6 +5,8 @@ from pathlib import Path
 from PIL import Image
 
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_CHAIN_ID, ANTARCTIC_DEPLOYMENTS
+from eth_defi.erc_4626.vault_protocol.avantis.constants import AVANTIS_CHAIN_ID, AVANTIS_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.avantis.vault import AvantisVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT, INFINIT_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.infinit.tags import get_strategy_tags as get_infinit_strategy_tags
@@ -17,6 +19,7 @@ from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
 from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
 
@@ -1779,3 +1782,40 @@ def test_identify_axis_from_upshift_strategist() -> None:
         )
         == "axis"
     )
+
+
+def test_identify_avantis_protocol_curator() -> None:
+    """Attribute the unified pool by protocol identity, independent of branding.
+
+    The protocol operates its own liquidity pool. Naming another protocol's
+    wrapper after Avantis or its receipt token is not curator evidence.
+
+    :return: None; matching and strategy tags cover the reviewed deployment.
+    """
+    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Avantis USDC Vault", AVANTIS_VAULT_ADDRESS, "avantis") == "avantis"
+    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Veranta LP Vault", AVANTIS_VAULT_ADDRESS, "avantis") == "avantis"
+    assert is_protocol_curator("avantis")
+    assert get_curator_name("avantis") == "Avantis"
+    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Avantis USDC Wrapper", "0x" + "11" * 20, "morpho") is None
+    assert identify_curator(AVANTIS_CHAIN_ID, "avUSDC", "Unbranded Wrapper", "0x" + "11" * 20, "morpho", manager_name="Avantis") is None
+    vault = AvantisVault(None, VaultSpec(AVANTIS_CHAIN_ID, AVANTIS_VAULT_ADDRESS))
+    assert vault.get_strategy_tags() == {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.perpetual_futures}
+
+
+def test_avantis_curator_metadata_reuses_protocol_sources_and_artwork() -> None:
+    """Export an organisation profile through the canonical protocol alias.
+
+    The alias keeps its curator-specific descriptions while inheriting the
+    existing website, social account and logo assets from the protocol feeder.
+
+    :return: None; frontend metadata uses the shared curator identity and logos.
+    """
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/avantis.yaml"), public_url="https://example.invalid")
+    assert metadata["name"] == "Avantis"
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "avantis"
+    assert metadata["short_description"] and metadata["long_description"]
+    assert metadata["website"] == "https://www.veranta.xyz/"
+    assert metadata["twitter"] == "https://x.com/verantaxyz"
+    assert metadata["logos"]["light"] == "https://example.invalid/curator-metadata/avantis/light.png"
+    assert metadata["logos"]["dark"] == "https://example.invalid/curator-metadata/avantis/dark.png"

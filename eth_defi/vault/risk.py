@@ -86,6 +86,11 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
+    # Verified upgradeable vault/manager and published audits, but no maintained
+    # public core-contract development repository. The public SDK and audit
+    # reports do not establish ongoing contract-development transparency.
+    # See docs/protocol-research/avantis-0x944766f715b51967e56afde5f0aa76ceacc9e7f9.md.
+    "Avantis": VaultTechnicalRisk.severe,
     "Infinit": VaultTechnicalRisk.dangerous,
     # Flying Tulip's reviewed sftUSD vault, wrapper and circuit breaker are
     # upgradeable and no public report-level audit covering these deployments

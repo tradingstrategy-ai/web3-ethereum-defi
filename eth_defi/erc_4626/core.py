@@ -298,6 +298,10 @@ class ERC4626Feature(enum.Enum):
     #: https://domination.finance/
     domination_finance_like = "domination_finance_like"
 
+    #: Avantis unified USDC liquidity vault on Base.
+    #: https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc
+    avantis_like = "avantis_like"
+
     #: Gains tranche?
     #: https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
     gains_tranche_like = "gains_tranche_like"
@@ -1275,6 +1279,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Yearn"
     elif ERC4626Feature.gains_like in features:
         return "gTrade"
+    elif ERC4626Feature.avantis_like in features:
+        return "Avantis"
     elif ERC4626Feature.ostium_like in features:
         return "Ostium"
     elif ERC4626Feature.umami_like in features:
