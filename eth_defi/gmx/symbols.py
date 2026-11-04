@@ -47,5 +47,20 @@ DEPRECATED_MARKET_TOKENS: frozenset[str] = frozenset(
     {
         # XAUT deprecated pool — superseded by XAUT.v2 (0xeb28aD1a2e497f4acc5d9b87e7b496623c93061e)
         "0xabdb2530e24f0736dfbf6da2600b52bd6455acdd",
+        # Retired pools with maxOpenInterestLong == maxOpenInterestShort == 0
+        # (Subsquid marketInfos, 2026-11-04). The replacements are single-token
+        # USDG-collateral markets, loaded as ZEC2/HYPE2/XRP2/NEAR2, so without
+        # these entries ZEC/USDC:USDC etc. resolved to the retired pool and every
+        # open was keeper-cancelled with MaxOpenInterestExceeded(maxAllowed: 0).
+        # Listing them removes the unusable USDC pairs instead of paying for
+        # orders that cannot fill.
+        # ZEC — replacement 0x2CeEafcA180B07C9d1d2f1086f8f59AAFd282832 (USDG)
+        "0x587759c237acca739bce3911647bacf56c876e60",
+        # HYPE — replacement 0x162C091263fBb3dfAf1D55DCC979533EB341DA5f (USDG)
+        "0xbcb8fe13d02b023e8f94f6881cc0192fd918a5c0",
+        # XRP — replacement 0xc9ED746D613eEfC0F196658f6030e90482593004 (USDG)
+        "0x0ccb4faa6f1f1b30911619f1184082ab4e25813c",
+        # NEAR — replacement 0x54bc430A788DFFD4ae35e751E10899489f5a953f (USDG)
+        "0x63dc80ee90f26363b3fcd609007cc9e14c8991be",
     }
 )
