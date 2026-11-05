@@ -32,6 +32,7 @@ from types import ModuleType
 from typing import Any, TypeVar
 
 from eth_defi.lighter.constants import LIGHTER_API_URL
+from eth_defi.lighter.session import LIGHTER_SDK_DEFAULT_POLICY, LighterSDKRetryPolicy, LighterSDKSession
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,42 @@ def import_lighter_sdk() -> ModuleType:
         raise LighterSDKNotInstalled(message) from error
 
 
+def create_lighter_api_client(
+    api_url: str = LIGHTER_API_URL,
+    retry_policy: LighterSDKRetryPolicy = LIGHTER_SDK_DEFAULT_POLICY,
+) -> Any:
+    """Create an official SDK API client protected by :py:class:`LighterSDKSession`.
+
+    Use this for unauthenticated SDK reads. Create it inside a running asyncio
+    event loop and close it with ``await client.close()``.
+
+    :param api_url:
+        Lighter API base URL.
+    :param retry_policy:
+        Backoff settings.
+    :return:
+        A ``lighter.ApiClient`` instance.
+    """
+    lighter = import_lighter_sdk()
+    client = lighter.ApiClient(configuration=lighter.Configuration(host=api_url))
+    client.rest_client = LighterSDKSession(client.rest_client, retry_policy)
+    return client
+
+
 def create_lighter_signer_client(
     account_index: int,
     api_key_index: int,
     api_private_key: str,
     api_url: str = LIGHTER_API_URL,
+    retry_policy: LighterSDKRetryPolicy = LIGHTER_SDK_DEFAULT_POLICY,
 ) -> Any:
     """Create an official SDK signer bound to one Lighter account and API key.
+
+    All the client's Python HTTP traffic goes through
+    :py:class:`~eth_defi.lighter.session.LighterSDKSession`. Do not pass
+    ``api_key_index`` to its transaction methods or call ``check_client()``: both
+    use the native signer's own HTTP client, which has no backoff. The client holds
+    one key, so its nonce manager picks that key without being told.
 
     The SDK client opens an ``aiohttp`` session in its constructor, so call
     this inside a running asyncio event loop, for example at the start of the
@@ -101,15 +131,19 @@ def create_lighter_signer_client(
         Private key registered at ``api_key_index``.
     :param api_url:
         Lighter API base URL. The SDK derives the Lighter chain id from it.
+    :param retry_policy:
+        Backoff settings.
     :return:
         A ``lighter.SignerClient`` instance.
     """
     lighter = import_lighter_sdk()
-    return lighter.SignerClient(
+    client = lighter.SignerClient(
         url=api_url,
         account_index=account_index,
         api_private_keys={api_key_index: api_private_key},
     )
+    client.api_client.rest_client = LighterSDKSession(client.api_client.rest_client, retry_policy)
+    return client
 
 
 def is_lighter_tx_accepted(response: Any, error: Any) -> bool:

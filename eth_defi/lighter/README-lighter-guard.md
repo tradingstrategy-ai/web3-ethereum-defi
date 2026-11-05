@@ -354,14 +354,54 @@ Lighter SDK, which stays an optional dependency imported on use. Its
 inside a running asyncio event loop
 (`eth_defi.lighter.sdk.create_lighter_signer_client()`).
 
-Known limitation: the deployment returns the generated master and
-sub-account API private keys in its result object only, and the caller
-writes them out after the whole deployment returns. A failure after Lighter
-activation therefore loses the generated keys; recover by registering new
-keys with a Safe-owner `changePubKey`.
+Lighter allows 2 `L2CreateSubAccount` requests per minute per L1 address, so
+sub-account creation waits for the limit rather than failing. Four sub-accounts
+take at least a minute. A mainnet deployment stopped on the third creation on
+2026-11-04, before this backoff existed. The function is still not idempotent,
+so check `fetch_lighter_accounts()` before retrying after a failure.
+
+The deployment returns the generated master and sub-account API private keys in
+its result object, and the caller writes them out after the whole deployment
+returns. Pass `lighter_api_key_callback` to save each key before it is registered.
+Without it, a failure after Lighter activation loses the generated keys; recover
+by registering new keys with a Safe-owner `changePubKey`.
 
 On an Anvil fork, `eth_defi.lighter.testing.credit_lighter_pending_balance_on_anvil()`
 forges the proof-backed pending balance so the real claim can be exercised.
+
+## API sessions and rate limits
+
+Every Lighter API call needs exponential backoff, because
+[Lighter's limits](https://docs.lighter.xyz/developers/reference/rate-limits.md)
+are low and executors on one host share an IP budget. As read on 2026-11-05:
+
+| Limit | Value |
+|-------|-------|
+| `L2CreateSubAccount`, `L2CreatePublicPool` | 2 requests per minute |
+| `L2Withdraw` | 2 per minute and 3 per 2 hours, per L1 address |
+| Standard accounts | 60 requests per rolling minute, per IP and L1 address |
+| Firewall cooldown | 60 seconds, static |
+
+Lighter answers with HTTP 429 or HTTP 405, and documents no `Retry-After` header.
+Use the classes in `eth_defi/lighter/session.py`:
+
+| Call | Use | Retried on |
+|------|-----|------------|
+| `requests` reads | `create_lighter_session()` | 405, 429, 500, 502, 503, 504 |
+| SDK reads | `create_lighter_api_client()` or `create_lighter_signer_client()` | The same, plus connection, timeout and body-read errors |
+| SDK `sendTx` | `create_lighter_signer_client()` | 405 and 429 only, for up to 30 seconds |
+| Persisted pre-signed `sendTx` | `create_lighter_submission_session()` | 405 and 429 only, with no attempt after 15 seconds |
+| Any other SDK mutation | `create_lighter_signer_client()` | Never |
+
+A 5xx or a timeout on a transaction leaves its outcome unknown, so it is never
+replayed. Rate-limit retries resend the same signed bytes, which keeps the nonce
+and hash. Deadlines stay short for transactions because a signed transaction may
+be sized from market data; only sub-account creation has a longer one.
+
+Do not construct `SignerClient` or `ApiClient` directly. Do not pass
+`api_key_index` to an SDK transaction method or call `check_client()`: both use the
+native signer's own HTTP client, which has no backoff. The client holds one key,
+so its nonce manager picks that key without being told.
 
 ## Operator setup (Python)
 

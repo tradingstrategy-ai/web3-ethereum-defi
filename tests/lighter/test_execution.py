@@ -164,7 +164,7 @@ def test_acceptance_waits_for_execution(monkeypatch: pytest.MonkeyPatch, executo
     client.__enter__ = Mock(return_value=client)
     client.__exit__ = Mock(return_value=False)
     client.post.return_value = response
-    monkeypatch.setattr(ex.requests, "Session", lambda: client)
+    monkeypatch.setattr(ex, "create_lighter_submission_session", lambda *_args: client)
     executor.submit(op)
     assert client.post.call_args.kwargs["allow_redirects"] is False
     assert op.stage == ex.LighterOperationStage.submitted
@@ -186,7 +186,7 @@ def test_submission_failure_is_not_retried(monkeypatch: pytest.MonkeyPatch, exec
     client.post.return_value.status_code = 200
     if failure == "transport":
         client.post.side_effect = requests.Timeout("uncertain")
-    monkeypatch.setattr(ex.requests, "Session", lambda: client)
+    monkeypatch.setattr(ex, "create_lighter_submission_session", lambda *_args: client)
     with pytest.raises((requests.Timeout, AssertionError, ValueError)):
         executor.submit(op)
     assert client.post.call_count == 1
@@ -209,7 +209,7 @@ def test_restart_reconciliation_and_timeout(monkeypatch: pytest.MonkeyPatch, exe
     assert saved.stage == ex.LighterOperationStage.confirmed
 
 
-@pytest.mark.parametrize("http_status", [400, 500])
+@pytest.mark.parametrize("http_status", [400, 429, 500])
 def test_http_rejection_differs_from_uncertain_server_failure(monkeypatch: pytest.MonkeyPatch, executor: ex.LighterPoolExecutor, http_status: int) -> None:
     """Explicit HTTP 400 rejection unblocks the key; a server failure does not."""
     op = executor.prepare("mint_shares", 4, 42)
@@ -220,7 +220,7 @@ def test_http_rejection_differs_from_uncertain_server_failure(monkeypatch: pytes
     client.__enter__ = Mock(return_value=client)
     client.__exit__ = Mock(return_value=False)
     client.post.return_value = response
-    monkeypatch.setattr(ex.requests, "Session", lambda: client)
+    monkeypatch.setattr(ex, "create_lighter_submission_session", lambda *_args: client)
     with pytest.raises((ValueError, requests.HTTPError)):
         executor.submit(op)
     assert client.post.call_count == 1
@@ -253,7 +253,7 @@ def test_malformed_submission_response_keeps_original_pending(monkeypatch: pytes
     client.__enter__ = Mock(return_value=client)
     client.__exit__ = Mock(return_value=False)
     client.post.return_value = response
-    monkeypatch.setattr(ex.requests, "Session", lambda: client)
+    monkeypatch.setattr(ex, "create_lighter_submission_session", lambda *_args: client)
     with pytest.raises(AssertionError, match="Malformed"):
         executor.submit(op)
     assert op.stage == ex.LighterOperationStage.unknown

@@ -178,7 +178,6 @@ async def request_lighter_transfer(
     to_account_index: int,
     amount: Decimal,
     fee: Decimal,
-    api_key_index: int,
 ) -> str:
     """Submit one same-owner USDC transfer from the client's account.
 
@@ -188,6 +187,8 @@ async def request_lighter_transfer(
 
     The submission is not idempotent: do not retry it blindly. Persist the
     returned hash first, then confirm it with :py:func:`wait_for_lighter_transfer`.
+    The client's HTTP session resends the same signed transfer only if Lighter
+    refuses it with a rate limit.
 
     :param client:
         ``lighter.SignerClient`` bound to the source account.
@@ -198,8 +199,6 @@ async def request_lighter_transfer(
     :param fee:
         Exact fee from :py:func:`fetch_lighter_transfer_fee`. A negative fee
         is rejected.
-    :param api_key_index:
-        API-key slot that signs the transfer.
     :return:
         L2 transaction hash.
     """
@@ -214,7 +213,6 @@ async def request_lighter_transfer(
         amount=get_sdk_float_amount(amount),
         fee=fee_raw,
         memo=LIGHTER_EMPTY_TRANSFER_MEMO,
-        api_key_index=api_key_index,
     )
     if not is_lighter_tx_accepted(response, error):
         raise LighterTransferError("Lighter transfer was rejected")

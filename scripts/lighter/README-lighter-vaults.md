@@ -569,7 +569,7 @@ two-deployment scan.
 | `eth_defi/lighter/vault.py` | Public API client (pool listing, pool detail, share price history) |
 | `eth_defi/lighter/daily_metrics.py` | DuckDB storage, daily price pipeline, parallel scanning |
 | `eth_defi/lighter/vault_data_export.py` | Bridge to ERC-4626 pipeline (VaultRow builder, Parquet/pickle merge) |
-| `eth_defi/lighter/session.py` | Rate-limited HTTP session with retry logic |
+| `eth_defi/lighter/session.py` | Rate-limited HTTP sessions with exponential backoff, for `requests` and for the official SDK |
 | `eth_defi/lighter/constants.py` | Chain ID, API URL, fee constants, lockup period |
 
 ## Running the full pipeline (Lighter only)

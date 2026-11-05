@@ -100,10 +100,11 @@ from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, wait_for_lighter_collateral
-from eth_defi.lighter.constants import LIGHTER_API_URL, LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID, LIGHTER_USDC_ETHEREUM
+from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID, LIGHTER_USDC_ETHEREUM
 from eth_defi.lighter.deployment import LighterDeployment
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MIN_API_KEY_INDEX
+from eth_defi.lighter.sdk import create_lighter_api_client, create_lighter_signer_client
 from eth_defi.lighter.session import LighterSession, create_lighter_session
 from eth_defi.lighter.valuation import fetch_lighter_account_by_index, fetch_lighter_total_equity
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -275,7 +276,7 @@ async def fetch_eth_trade_plan(
     :return:
         Resolved trade plan.
     """
-    api_client = lighter.ApiClient(configuration=lighter.Configuration(host=LIGHTER_API_URL))
+    api_client = create_lighter_api_client()
     try:
         details = await lighter.OrderApi(api_client).order_book_details(market_id=LIGHTER_ETH_PERP_MARKET_INDEX)
         markets = details.order_book_details
@@ -448,7 +449,6 @@ async def wait_for_eth_position(
 
 
 async def trade_eth_roundtrip(
-    lighter: ModuleType,
     session: LighterSession,
     setup: LighterAccountSetup,
     plan: EthTradePlan,
@@ -460,8 +460,6 @@ async def trade_eth_roundtrip(
     close is ``reduce_only`` and uses the position size observed after the IOC
     open order, so a partial fill cannot accidentally create a short.
 
-    :param lighter:
-        Official Lighter SDK module.
     :param session:
         Public REST session used to observe fills.
     :param setup:
@@ -479,16 +477,8 @@ async def trade_eth_roundtrip(
     if not Decimal(0) < max_slippage < Decimal(1):
         raise ValueError(f"LIGHTER_MAX_SLIPPAGE must be between 0 and 1, got {max_slippage}")
 
-    client = lighter.SignerClient(
-        url=LIGHTER_API_URL,
-        account_index=setup.account_index,
-        api_private_keys={setup.api_key_index: setup.private_key},
-    )
+    client = create_lighter_signer_client(setup.account_index, setup.api_key_index, setup.private_key)
     try:
-        error = client.check_client()
-        if error is not None:
-            raise RuntimeError(f"Lighter SDK rejected the deployment API key: {error}")
-
         client_order_index = int(time.time() * 1_000)
         logger.info("Opening %s ETH long on Lighter with API key slot %d", plan.base_size, setup.api_key_index)
         open_order, open_response, error = await client.create_market_order_limited_slippage(
@@ -497,7 +487,6 @@ async def trade_eth_roundtrip(
             base_amount=plan.base_amount,
             max_slippage=float(max_slippage),
             is_ask=False,
-            api_key_index=setup.api_key_index,
         )
         if error is not None:
             raise RuntimeError(f"Opening the ETH perpetual failed: {error}")
@@ -513,7 +502,6 @@ async def trade_eth_roundtrip(
             max_slippage=float(max_slippage),
             is_ask=True,
             reduce_only=True,
-            api_key_index=setup.api_key_index,
         )
         if error is not None:
             raise RuntimeError(f"Closing the ETH perpetual failed: {error}")
@@ -581,7 +569,7 @@ async def main() -> None:
 
     session = create_lighter_session()
     try:
-        await trade_eth_roundtrip(lighter, session, setup, plan, max_slippage)
+        await trade_eth_roundtrip(session, setup, plan, max_slippage)
         equity = fetch_lighter_total_equity(session, setup.account_index)
     finally:
         session.close()
