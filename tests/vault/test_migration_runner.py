@@ -1,6 +1,7 @@
 """Numbered migrations preserve data, reject active daemons and recover crashes."""
 
 import json
+import re
 import subprocess
 import sys
 from contextlib import AbstractContextManager
@@ -291,7 +292,9 @@ def test_cli_list_works_while_guarded_and_invalid_boolean_fails(storage: Path, m
     monkeypatch.setattr(sys, "argv", ["vault-migrate", "list"])
     with acquire_scanner_lifecycle_guard(storage):
         runner.main()
-    assert "009-normalise" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "009-normalise" in output
+    assert "Migration summary" not in output
     monkeypatch.setattr(sys, "argv", ["vault-migrate", "run"])
     monkeypatch.setenv("DRY_RUN", "treu")
     with pytest.raises(SystemExit) as exc:
@@ -404,3 +407,221 @@ def test_metadata_preserves_old_discovery_records(storage: Path, scripts: Path, 
     else:
         assert restored.rows[SPEC]["Name"] == "after"
         assert runner.load_state(storage / "migration.json")[script.name]["other_data"]["changed_database_fields"] == []
+
+
+def summary_rows(output: str) -> dict[str, list[str]]:
+    """Extract rendered migration rows while ignoring table alignment.
+
+    Assert semantic cells rather than terminal-width padding or the table's
+    separator line. Script names contain no whitespace.
+
+    :param output: Captured stdout from one runner invocation.
+    :return: Script-name keys with result, changed-row and changed-field cells.
+    """
+    return {cells[0]: cells[1:] for line in output.splitlines() if line[:1].isdigit() for cells in [re.split(r"\s{2,}", line.strip())]}
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_run_summary_reports_changed_unchanged_and_unknown_counts(storage: Path, scripts: Path, dry_run: bool, capsys: pytest.CaptureFixture[str]) -> None:
+    """Keep real zero counts distinct from missing reports in both modes.
+
+    The table reads invocation reports without adding journal writes in
+    preview or persisting any new reporting schema during apply.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private migration inventory.
+    :param dry_run: Preview versus persistent apply.
+    :param capsys: Capture the final stdout table.
+    :return: None after checking outcomes, counts and preview preservation.
+    """
+    first = write_script(scripts, "001-change.py", '    next(iter(context.metadata().rows.values()))["Name"] = "after"\n    context.commit_metadata()')
+    second = write_script(scripts, "002-unchanged.py", "    context.commit_metadata()")
+    third = write_script(scripts, "003-other-work.py", "    context.report(checked=True)")
+    before = {p.name: p.read_bytes() for p in storage.iterdir()}
+    assert run(storage, scripts, dry_run=dry_run) == [first.name, second.name, third.name]
+    output = capsys.readouterr().out
+    assert output.count("Migration summary (") == 1
+    assert f"Migration summary ({'preview' if dry_run else 'apply'})" in output
+    status = "Previewed" if dry_run else "Applied"
+    assert summary_rows(output) == {first.name: [status, "1", "1"], second.name: [status, "0", "0"], third.name: [status, "—", "—"]}
+    if dry_run:
+        assert {p.name: p.read_bytes() for p in storage.iterdir()} == before
+    else:
+        state = runner.load_state(storage / "migration.json")
+        assert state[first.name]["success"]
+        assert "result" not in state[first.name]["other_data"]
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_run_summary_includes_skipped_migrations_without_old_counts(storage: Path, scripts: Path, dry_run: bool, capsys: pytest.CaptureFixture[str]) -> None:
+    """Show skipped migrations without implying their historic changes ran again.
+
+    A mixed batch includes already applied work and new work. The all-skipped
+    batch still prints the table and an explicit no-pending-work message.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private migration inventory.
+    :param dry_run: Mode for the mixed and all-skipped invocations.
+    :param capsys: Capture and clear prior invocation output.
+    :return: None after checking skipped outcomes and current counts.
+    """
+    first = write_script(scripts, "001-applied.py", '    next(iter(context.metadata().rows.values()))["Name"] = "after"\n    context.commit_metadata()')
+    assert run(storage, scripts) == [first.name]
+    second = write_script(scripts, "002-pending.py", "    context.commit_metadata()")
+    capsys.readouterr()
+    assert run(storage, scripts, dry_run=dry_run) == [second.name]
+    output = capsys.readouterr().out
+    assert summary_rows(output) == {first.name: ["Skipped (already applied)", "—", "—"], second.name: ["Previewed" if dry_run else "Applied", "0", "0"]}
+    assert "No migrations pending." not in output
+    if dry_run:
+        run(storage, scripts)
+    capsys.readouterr()
+    before = {p.name: p.read_bytes() for p in storage.iterdir()}
+    assert run(storage, scripts, dry_run=dry_run) == []
+    output = capsys.readouterr().out
+    assert output.count("Migration summary (") == 1
+    assert "No migrations pending." in output
+    assert all(cells == ["Skipped (already applied)", "—", "—"] for cells in summary_rows(output).values())
+    assert {p.name: p.read_bytes() for p in storage.iterdir()} == before
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_run_summary_empty_inventory(storage: Path, scripts: Path, dry_run: bool, capsys: pytest.CaptureFixture[str]) -> None:
+    """An empty inventory still produces a labelled table and no-work message.
+
+    Neither execution mode should confuse an empty validated inventory with a
+    failed preflight.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Empty private migration inventory.
+    :param dry_run: Preview versus persistent apply.
+    :param capsys: Capture the stdout summary.
+    :return: None after checking the empty summary and unchanged storage.
+    """
+    before = {p.name: p.read_bytes() for p in storage.iterdir()}
+    assert run(storage, scripts, dry_run=dry_run) == []
+    output = capsys.readouterr().out
+    assert "Changed rows" in output and "Changed fields" in output
+    assert "No migrations pending." in output
+    assert "did not start" not in output
+    assert summary_rows(output) == {}
+    assert {p.name: p.read_bytes() for p in storage.iterdir()} == before
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+@pytest.mark.parametrize("failure", ["ValueError", "KeyboardInterrupt", "SystemExit"])
+def test_run_summary_failure_retains_exception_and_stops_batch(storage: Path, scripts: Path, dry_run: bool, failure: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """Show completed, failed and unattempted work without swallowing failures.
+
+    A failed migration may already have committed metadata. Its counts remain
+    unavailable in the table rather than implying a completed or rolled-back
+    operation; the journal retains the existing partial-progress evidence.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Three-script inventory with an injected middle failure.
+    :param dry_run: Preview versus persistent apply.
+    :param failure: Ordinary error, interrupt or script-requested exit.
+    :param capsys: Capture the final table emitted during exception unwinding.
+    :return: None after checking output, failure identity and preserved state.
+    """
+    first = write_script(scripts, "001-good.py", '    next(iter(context.metadata().rows.values()))["Name"] = "after"\n    context.commit_metadata()')
+    second = write_script(scripts, "002-failure.py", '    next(iter(context.metadata().rows.values()))["_description"] = "partly changed"\n    context.commit_metadata()\n    raise ' + failure + '("injected failure")')
+    third = write_script(scripts, "003-later.py", '    raise AssertionError("must not execute")')
+    error_type = {"ValueError": ValueError, "KeyboardInterrupt": KeyboardInterrupt, "SystemExit": SystemExit}[failure]
+    before = {p.name: p.read_bytes() for p in storage.iterdir()}
+    with pytest.raises(error_type, match="injected failure"):
+        run(storage, scripts, dry_run=dry_run)
+    output = capsys.readouterr().out
+    assert output.count("Migration summary (") == 1
+    assert summary_rows(output) == {first.name: ["Previewed" if dry_run else "Applied", "1", "1"], second.name: ["Failed", "—", "—"], third.name: ["Not run", "—", "—"]}
+    if dry_run:
+        assert {p.name: p.read_bytes() for p in storage.iterdir()} == before
+    else:
+        state = runner.load_state(storage / "migration.json")
+        assert state[first.name]["success"]
+        assert state[second.name]["other_data"]["status"] == "failed"
+        assert state[second.name]["other_data"]["backup_paths"]
+        assert third.name not in state
+
+
+def test_run_summary_preflight_failure_does_not_claim_no_pending_work(storage: Path, scripts: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A guarded invocation cannot infer an empty inventory from blocked reads.
+
+    The runner must retain its lifecycle-before-discovery rule and explain why
+    no per-migration outcomes are available.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private inventory that must not be read while blocked.
+    :param capsys: Capture the preflight-failure summary.
+    :return: None after checking the guard exception and accurate message.
+    """
+    with acquire_scanner_lifecycle_guard(storage), pytest.raises(ScannerDaemonRunning):
+        run(storage, scripts)
+    output = capsys.readouterr().out
+    assert "Migration batch did not start." in output
+    assert "No migrations pending." not in output
+
+
+@pytest.mark.parametrize("fail_migration", [True, False])
+def test_run_summary_output_failure_preserves_result(storage: Path, scripts: Path, monkeypatch: pytest.MonkeyPatch, fail_migration: bool) -> None:
+    """A broken output stream must not change success or the original failure.
+
+    Reporting runs during exception unwinding and can encounter a closed
+    terminal or pipe independently of the migration's error.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private migration inventory for success and failure cases.
+    :param monkeypatch: Simulate an output stream refusing summary writes.
+    :param fail_migration: Whether the migration fails before summary output.
+    :return: None after checking the return value or original failure.
+    """
+    script = write_script(scripts, "001-work.py", '    raise ValueError("original failure")' if fail_migration else "    context.report(ok=True)")
+
+    def fail_output(*args: object, **kwargs: object) -> None:
+        raise BrokenPipeError("closed output")
+
+    monkeypatch.setattr(runner, "_print_run_summary", fail_output)
+    if fail_migration:
+        with pytest.raises(ValueError, match="original failure"):
+            run(storage, scripts)
+    else:
+        assert run(storage, scripts) == [script.name]
+        assert runner.load_state(storage / "migration.json")[script.name]["success"]
+
+
+@pytest.mark.parametrize("count", [True, -1, "3"])
+def test_run_summary_non_count_reports_remain_unknown(storage: Path, scripts: Path, capsys: pytest.CaptureFixture[str], count: bool | int | str) -> None:
+    """Do not display malformed reporting values as known change counts.
+
+    Script reports are extensible JSON data, not a schema for numeric counts.
+    Booleans, negative numbers and text must not look like valid quantities.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private migration inventory.
+    :param capsys: Capture the final table.
+    :param count: Non-count value supplied by a script's custom report.
+    :return: None after checking both quantities remain unavailable.
+    """
+    script = write_script(scripts, "001-report.py", f"    context.report(changed_rows={count!r}, changed_fields={count!r})")
+    assert run(storage, scripts) == [script.name]
+    assert summary_rows(capsys.readouterr().out)[script.name] == ["Applied", "—", "—"]
+
+
+def test_run_summary_retry_does_not_reuse_failed_attempt_counts(storage: Path, scripts: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Use only the current successful attempt's reports after a retry.
+
+    A failed migration can leave reported counts in its journal. Retrying a
+    corrected script without counts must not revive those historic values.
+
+    :param storage: Isolated pipeline directory.
+    :param scripts: Private retryable migration inventory.
+    :param capsys: Clear failed-attempt output and capture the retry.
+    :return: None after checking the corrected script's counts are unknown.
+    """
+    script = write_script(scripts, "001-retry.py", '    context.report(changed_rows=8, changed_fields=9)\n    raise ValueError("retry me")')
+    with pytest.raises(ValueError, match="retry me"):
+        run(storage, scripts)
+    capsys.readouterr()
+    write_script(scripts, script.name, "    context.report(recovered=True)")
+    assert run(storage, scripts) == [script.name]
+    assert summary_rows(capsys.readouterr().out)[script.name] == ["Applied", "—", "—"]

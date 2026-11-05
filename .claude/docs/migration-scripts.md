@@ -48,6 +48,27 @@ Scripts run in numeric order, stop at the first failure, and skip successful
 entries. There is no force/selection option. Exit codes are 0 for success or
 nothing pending, 1 for validation/execution failure, and 2 for CLI usage errors.
 
+Each runner invocation prints a final `tabulate` summary labelled **preview**
+or **apply**, with columns **Migration**, **Result**, **Changed rows** and
+**Changed fields**.
+Results distinguish **Previewed**, **Applied**, **Skipped (already applied)**,
+**Failed** and **Not run** after an earlier failure. Counts come from the
+current successful attempt's change report, with `—` for unavailable values;
+zero means no vault row changes were reported for that column. Other storage
+and database-level changes remain in the detailed logs and journal. Skipped
+scripts do not repeat their historical counts. Preview counts describe
+proposed changes, not writes.
+
+All-skipped and empty inventories explicitly report **No migrations pending**.
+Runner preflight failures report that the batch did not start, without implying
+an empty inventory. CLI usage and configuration errors rejected before the
+runner starts, such as an invalid `DRY_RUN`, have no summary. A failure still
+stops the batch and propagates normally; the table is not a rollback report.
+A failed script may have committed some changes, so inspect its journal and
+backups for recovery. Native process termination cannot print a final summary.
+A summary output error is logged as
+a warning and does not change the migration result or exception.
+
 Scripts live in `migration/scripts/001-name.py` onwards. State defaults to
 `~/.tradingstrategy/vaults/migration.json`. The runner resolves metadata and
 state together through `get_pipeline_data_dir()`; `PIPELINE_DATA_DIR` supports
