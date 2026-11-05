@@ -140,7 +140,8 @@ from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.order.cancel_order import BatchCancelOrderResult, CancelOrder, CancelOrderResult
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.increase_order import IncreaseOrder
-from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
+from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser, _get_token_metadata_dict
+from eth_defi.gmx.collateral_routing import calculate_swap_min_output, get_usdc_route
 from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPOrderResult, SLTPParams
 from eth_defi.gmx.order.swap_order import SwapOrder
@@ -150,6 +151,86 @@ if TYPE_CHECKING:
     from eth_defi.hotwallet import HotWallet
 
 logger = logging.getLogger(__name__)
+
+
+def _token_decimals(tokens: dict, address: str) -> int | None:
+    """Case-insensitive decimals lookup in a GMX token metadata dict."""
+    meta = tokens.get(address)
+    if meta is None:
+        lower = address.lower()
+        meta = next((value for key, value in tokens.items() if key.lower() == lower), None)
+    return None if meta is None else int(meta["decimals"])
+
+
+def resolve_increase_funding(
+    order_parameters: dict,
+    chain: str,
+    token_decimals: dict[str, int] | None = None,
+    min_output_amount: int | None = None,
+) -> tuple[str, list[str], int]:
+    """Work out what an increase order sends, its swap path and the swap-leg floor.
+
+    GMX's ``initialCollateralToken`` is the token the order *sends*; ``swapPath``
+    converts it into the position collateral before the increase.  When a swap
+    path is present the token sent is therefore the parser's
+    ``start_token_address``, not its ``collateral_address`` (the position
+    collateral).  Passing the collateral here would make the order send a token
+    the wallet does not hold.
+
+    For a USDC-routed collateral (see :mod:`eth_defi.gmx.collateral_routing`) the
+    swap-leg ``minOutputAmount`` defaults to the stablecoin input minus the
+    order's slippage, in collateral-token units.  For any other swap path the
+    caller's ``min_output_amount`` is used as-is (default 0, unchanged behaviour).
+
+    :param order_parameters: Output of :meth:`OrderArgumentParser.process_parameters_dictionary`.
+    :param chain: Chain name.
+    :param token_decimals: ``{address: decimals}`` for the start and collateral tokens
+        (any address case); required to compute a USDC-route floor.
+    :param min_output_amount: Explicit floor from the caller, wins when given.
+    :return: ``(initial_collateral_address, swap_path, min_output_amount)``.
+    """
+    swap_path = list(order_parameters.get("swap_path") or [])
+    collateral = order_parameters["collateral_address"]
+    start = order_parameters.get("start_token_address") or collateral
+    if not swap_path or start.lower() == collateral.lower():
+        return collateral, swap_path, int(min_output_amount or 0)
+
+    if min_output_amount is not None:
+        return start, swap_path, int(min_output_amount)
+
+    route = get_usdc_route(chain, collateral)
+    if route is None or route.pay_token.lower() != start.lower() or [p.lower() for p in route.swap_path] != [p.lower() for p in swap_path]:
+        return start, swap_path, 0
+
+    decimals = {k.lower(): v for k, v in (token_decimals or {}).items()}
+    if start.lower() not in decimals or collateral.lower() not in decimals:
+        raise ValueError(f"Token decimals for {start} and {collateral} are required to price the USDC swap leg")
+    floor = calculate_swap_min_output(
+        int(order_parameters["initial_collateral_delta"]),
+        decimals[start.lower()],
+        decimals[collateral.lower()],
+        float(order_parameters.get("slippage_percent") or 0.0),
+    )
+    return start, swap_path, floor
+
+
+def _increase_funding_for(config: GMXConfig, order_parameters: dict, kwargs: dict) -> tuple[str, list[str], int]:
+    """Resolve increase funding, fetching token decimals only for swap-routed orders.
+
+    Pops ``min_output_amount`` from ``kwargs`` so it is passed exactly once.
+    """
+    explicit_min = kwargs.pop("min_output_amount", None)
+    chain = config.get_chain()
+    swap_path = order_parameters.get("swap_path") or []
+    start = order_parameters.get("start_token_address") or order_parameters["collateral_address"]
+    decimals: dict[str, int] = {}
+    if swap_path and start.lower() != order_parameters["collateral_address"].lower() and explicit_min is None:
+        tokens = _get_token_metadata_dict(config.web3, chain)
+        for address in (start, order_parameters["collateral_address"]):
+            value = _token_decimals(tokens, address)
+            if value is not None:
+                decimals[address] = value
+    return resolve_increase_funding(order_parameters, chain, decimals, explicit_min)
 
 
 class GMXTrading:
@@ -543,6 +624,7 @@ class GMXTrading:
         slippage_percent: Optional[float] = 0.003,
         market_key: str | None = None,
         index_token_address: str | None = None,
+        swap_path: list[str] | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -682,6 +764,10 @@ class GMXTrading:
             parameters["market_key"] = market_key
         if index_token_address:
             parameters["index_token_address"] = index_token_address
+        # An explicit swap path (e.g. the USDC/USDG leg for USDC-routed markets)
+        # skips the parser's route discovery, which cannot find swap-only pools.
+        if swap_path is not None:
+            parameters["swap_path"] = list(swap_path)
 
         # Debug logging for collateral token flow
         logger.info(
@@ -759,11 +845,15 @@ class GMXTrading:
                     leverage,
                 )
 
+        # initialCollateralToken is the token the order sends: the start token
+        # when a swap path converts it into the position collateral.
+        initial_collateral_address, increase_swap_path, swap_min_output = _increase_funding_for(self.config, order_parameters, kwargs)
+
         # Create order instance with position identification (order classes need GMXConfig)
         order = IncreaseOrder(
             config=self.config,
             market_key=order_parameters["market_key"],
-            collateral_address=order_parameters["collateral_address"],
+            collateral_address=initial_collateral_address,
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
         )
@@ -773,7 +863,8 @@ class GMXTrading:
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
-            swap_path=order_parameters["swap_path"],
+            swap_path=increase_swap_path,
+            min_output_amount=swap_min_output,
             **kwargs,
         )
 
@@ -793,6 +884,7 @@ class GMXTrading:
         slippage_percent: Optional[float] = 0.003,
         market_key: str | None = None,
         index_token_address: str | None = None,
+        swap_path: list[str] | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -915,6 +1007,11 @@ class GMXTrading:
             parameters["market_key"] = market_key
         if index_token_address:
             parameters["index_token_address"] = index_token_address
+        # Payout swap leg, e.g. USDG -> USDC for USDC-routed markets. The decrease
+        # keeps the position collateral as initialCollateralToken (it is part of
+        # the position key); GMX swaps the payout along this path.
+        if swap_path:
+            parameters["swap_path"] = list(swap_path)
 
         # SAFETY CAP: For MarketDecrease, sizeDeltaUsd must NEVER exceed sizeInUsd
         # or GMX reverts with InvalidDecreaseOrderSize.  Mirrors exchange.py behaviour.
@@ -924,7 +1021,13 @@ class GMXTrading:
             if wallet_address:
                 open_positions = GetOpenPositions(self.config).get_data(wallet_address)
                 for pos in open_positions.values():
-                    if pos.get("market_symbol") == market_symbol and pos.get("is_long") == is_long:
+                    # Match on the pool address when known: position tiers name
+                    # single-token pools differently (REST "ZEC" vs RPC "ZEC2").
+                    if market_key and pos.get("market"):
+                        same_market = pos["market"].lower() == market_key.lower()
+                    else:
+                        same_market = pos.get("market_symbol") == market_symbol
+                    if same_market and pos.get("is_long") == is_long:
                         position_size_raw = pos.get("position_size_usd_raw", 0)
                         if position_size_raw > 0:
                             size_delta_usd = cap_size_delta_to_position(
@@ -1171,6 +1274,7 @@ class GMXTrading:
         auto_cancel: bool = True,
         market_key: str | None = None,
         index_token_address: str | None = None,
+        swap_path: list[str] | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1281,15 +1385,20 @@ class GMXTrading:
             parameters["market_key"] = market_key
         if index_token_address:
             parameters["index_token_address"] = index_token_address
+        if swap_path is not None:
+            parameters["swap_path"] = list(swap_path)
 
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+
+        # initialCollateralToken is the token the order sends (see open_position).
+        initial_collateral_address, increase_swap_path, swap_min_output = _increase_funding_for(self.config, order_parameters, kwargs)
 
         # Create order instance with position identification
         order = IncreaseOrder(
             config=self.config,
             market_key=order_parameters["market_key"],
-            collateral_address=order_parameters["collateral_address"],
+            collateral_address=initial_collateral_address,
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
         )
@@ -1300,7 +1409,8 @@ class GMXTrading:
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
-            swap_path=order_parameters["swap_path"],
+            swap_path=increase_swap_path,
+            min_output_amount=swap_min_output,
             auto_cancel=auto_cancel,
             **kwargs,
         )
@@ -1460,6 +1570,7 @@ class GMXTrading:
         execution_buffer: float = 2.5,
         market_key: str | None = None,
         index_token_address: str | None = None,
+        swap_path: list[str] | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1534,6 +1645,7 @@ class GMXTrading:
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+            decrease_swap_path=swap_path,
         )
 
         entry = SLTPEntry(
@@ -1569,6 +1681,7 @@ class GMXTrading:
         execution_buffer: float = 2.5,
         market_key: str | None = None,
         index_token_address: str | None = None,
+        swap_path: list[str] | None = None,
         **kwargs,
     ) -> OrderResult:
         """
@@ -1644,6 +1757,7 @@ class GMXTrading:
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+            decrease_swap_path=swap_path,
         )
 
         entry = SLTPEntry(

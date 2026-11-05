@@ -146,9 +146,10 @@ class GetOpenPositions(GetData):
             return {}
 
         processed_positions: dict[str, Any] = {}
+        token_symbols = self._fetch_collateral_symbols(chain_name)
         for pos in raw_positions:
             try:
-                processed = self._process_rest_api_position(pos)
+                processed = self._process_rest_api_position(pos, token_symbols)
                 direction = "long" if processed["is_long"] else "short"
                 key = f"{processed['market_symbol']}_{direction}"
                 processed_positions[key] = processed
@@ -168,7 +169,20 @@ class GetOpenPositions(GetData):
         )
         return processed_positions
 
-    def _process_rest_api_position(self, pos: dict) -> dict[str, Any]:
+    @staticmethod
+    def _fetch_collateral_symbols(chain_name: str) -> dict[str, str]:
+        """Lowercase token address -> symbol, for REST position collateral.
+
+        A lookup failure returns an empty dict; positions then keep the legacy
+        ``"USDC"`` label but still carry ``collateral_token_address``.
+        """
+        try:
+            return {address.lower(): meta["symbol"] for address, meta in get_tokens_metadata_dict(chain_name).items()}
+        except Exception as e:  # noqa: BLE001 - labels only; the address is authoritative
+            logger.warning("Could not fetch token metadata for REST position collateral labels: %s", e)
+            return {}
+
+    def _process_rest_api_position(self, pos: dict, token_symbols: dict[str, str] | None = None) -> dict[str, Any]:
         """Convert a REST API v2 position to the internal format.
 
         The REST API returns all values as strings in 30-decimal raw
@@ -240,11 +254,20 @@ class GetOpenPositions(GetData):
             percent_profit,
         )
 
+        # The v2 response carries the real collateral token. Hard-coding "USDC"
+        # mislabelled non-USDC positions (e.g. USDG-collateral positions on the
+        # single-token pools GMX migrated ZEC/HYPE/XRP/NEAR to), and the close
+        # path then built the decrease with the wrong initialCollateralToken,
+        # which is not the position key.
+        collateral_token_address = pos.get("collateralTokenAddress") or ""
+        collateral_symbol = (token_symbols or {}).get(collateral_token_address.lower(), "USDC") if collateral_token_address else "USDC"
+
         return {
             "account": pos.get("account", ""),
             "market": pos.get("marketAddress", ""),
             "market_symbol": market_symbol,
-            "collateral_token": "USDC",  # GMX v2 uses USDC as collateral
+            "collateral_token": collateral_symbol,
+            "collateral_token_address": to_checksum_address(collateral_token_address) if collateral_token_address else None,
             "position_size": position_size_usd,
             "position_size_usd_raw": size_in_usd_raw,
             "size_in_tokens": size_in_tokens,
@@ -507,6 +530,7 @@ class GetOpenPositions(GetData):
             "market": market_address,
             "market_symbol": market_info["market_symbol"],
             "collateral_token": collateral_token_info["symbol"],
+            "collateral_token_address": collateral_token,
             "position_size": position_size_usd,
             "position_size_usd_raw": int(pos["sizeInUsd"]),
             "size_in_tokens": size_in_tokens,
@@ -826,6 +850,7 @@ class GetOpenPositions(GetData):
             "market": raw_position[0][1],
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
+            "collateral_token_address": collateral_token_address,
             "position_size": raw_position[1][0] / 10**PRECISION,
             "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
             "size_in_tokens": raw_position[1][1],

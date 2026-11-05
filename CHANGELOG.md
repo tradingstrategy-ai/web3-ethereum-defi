@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
 - feat: Print a final migration batch summary for preview and apply, showing completed, skipped, failed and unattempted migrations with reported row and field counts (2026-11-05).
 - fix: Recognise Lighter withdrawals paid by its relayer with `wait_for_lighter_withdrawal()`, `is_lighter_withdrawal_paid()` and `fetch_lighter_claimed_usdc()`, return `completed` rows from `wait_for_claimable_withdrawal()`, explain that an empty master gets `21129 too many sub accounts`, and document Lighter's sub-account limits (2026-11-05).
 - fix: Give every Lighter API call exponential backoff with `LighterSDKSession` for the official SDK and `create_lighter_submission_session()` for persisted transactions, treat HTTP 405 as a rate limit, let sub-account creation wait out the 2-per-minute limit that stopped a four-sub-account deployment, and remove the unused `api_url` argument of `create_lighter_sub_accounts()` and `api_key_index` of `request_lighter_transfer()` (2026-11-05).
