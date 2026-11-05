@@ -12,11 +12,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from eth_defi.gmx.freqtrade.sensitive_filter import patch_logging
-
-patch_logging()
-
-# Install log redaction before any import that can emit Freqtrade/SDK output.
+# Do not call patch_logging() at import time: it is global, so it rewrote the URLs in log
+# lines for every other test collected in the same worker and broke the oracle failover
+# log assertions. tests/gmx/conftest.py scopes it per test instead.
+pytest.importorskip("freqtrade.enums", reason="freqtrade.enums required for the Freqtrade GMX exchange")
 
 from eth_defi.gmx.ccxt.exchange import GMX  # noqa: E402
 from eth_defi.gmx.constants import _GAS_CRITICAL_MAX_RETRIES  # noqa: PLC2701, E402
