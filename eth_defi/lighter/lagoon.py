@@ -414,6 +414,7 @@ def fetch_lighter_claimed_usdc(
     head = web3.eth.block_number
     last_block = head if to_block is None else min(to_block, head)
     paid_raw = 0
+    # TODO: Switch to Hypersync.
     for start in range(from_block, last_block + 1, LIGHTER_LOG_CHUNK_BLOCKS):
         logs = web3.eth.get_logs(
             {
