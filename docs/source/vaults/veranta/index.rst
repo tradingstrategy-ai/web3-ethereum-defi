@@ -70,6 +70,21 @@ additional database migration is needed for this risk-only assessment, and
 existing manual ``_risk`` overrides remain untouched. The original numbered
 onboarding migration 030 is still required for protocol identity and fee data.
 
+Individual vault descriptions
+-----------------------------
+
+The reviewed Base deployment exposes maintained Markdown and a one-sentence
+summary through the ordinary vault accessors. The scanner persists them as
+``_description`` and ``_short_description``; individual vault exports publish
+``description`` and ``short_description`` for the website. Protocol YAML and
+curator profiles do not fill these fields.
+
+Migration ``031-veranta-vault-description.py`` repairs only these two fields
+on the existing row. It needs no RPC reads or price backfill and leaves
+successful onboarding migration 030 unchanged. Follow the production reminder
+in ``docs/README-vault-description-formatting.md`` for preview, apply and normal
+export/publication. Text accessors do not establish current withdrawal liquidity.
+
 Execution evidence
 ------------------
 

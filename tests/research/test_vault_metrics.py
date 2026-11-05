@@ -10,6 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 from types import MappingProxyType
 from typing import Literal
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -18,10 +19,13 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.erc_4626 import scan as scan_module
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
@@ -55,6 +59,7 @@ from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_pric
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, SUMMER_FI_ILLIQUID, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
+from eth_defi.vault.handwritten_metadata import VERANTA_VAULT_METADATA
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -2855,3 +2860,53 @@ def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault
     metrics = calculate_lifetime_metrics(prices, metadata)
 
     assert metrics["id"].tolist() == [healthy_id]
+
+
+def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Carry real adapter copy through the scanner, metrics and public JSON.
+
+    Keep contract reads deterministic while exercising the production text
+    path. This catches the original gap where only protocol metadata had copy.
+    Historical price fixture rows supply id, chain, timestamp, share_price and
+    total_assets inputs for the metrics calculation.
+
+    :param vault_db: Existing sample detection and catalogue metadata.
+    :param price_df: Historical price DataFrame with the scanner price schema.
+    :param monkeypatch: Replace network reads without replacing text accessors.
+    :return: None after checking both website-facing description fields.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    source = VaultSpec.parse_string(source_id)
+    spec = VaultSpec(8453, VERANTA_VAULT_ADDRESS)
+    detection = replace(vault_db.rows[source]["_detection_data"], chain=8453, address=spec.vault_address, features={ERC4626Feature.veranta_like})
+    web3 = Mock()
+    web3.eth.chain_id = 8453
+    web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
+    vault = VerantaVault(web3, spec, features=detection.features)
+    contract = Mock()
+    contract.functions.feesOn.return_value.call.return_value = False
+    vault.__dict__["vault_contract"] = contract
+    for key, symbol, name in (("share_token", "avUSDC", "Avantis USDC Vault"), ("denomination_token", "USDC", "USD Coin")):
+        token = Mock(symbol=symbol)
+        token.name = name
+        token.export.return_value = {"symbol": symbol, "name": name, "address": spec.vault_address, "decimals": 6, "chain_id": 8453}
+        vault.__dict__[key] = token
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *args, **kwargs: vault)
+    monkeypatch.setattr(vault, "fetch_total_assets", lambda *args: Decimal(100))
+    monkeypatch.setattr(vault, "fetch_total_supply", lambda *args: Decimal(100))
+    monkeypatch.setattr(vault, "fetch_deposit_open", lambda: None)
+    monkeypatch.setattr(vault, "get_flags", lambda: set())
+    row = scan_module.create_vault_scan_record(web3, detection, 123, token_cache=None)
+    metadata = VERANTA_VAULT_METADATA[8453, VERANTA_VAULT_ADDRESS]
+    assert row["_description"] == metadata.description
+    assert row["_short_description"] == metadata.short_description
+    assert row["Name"] == "Avantis USDC Vault"
+    prices = price_df.loc[price_df["id"] == source_id].copy()
+    prices["id"] = spec.as_string_id()
+    prices["chain"] = 8453
+    metrics = calculate_lifetime_metrics(prices, {spec: row})
+    exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0])))
+    assert exported["description"] == metadata.description
+    assert exported["short_description"] == metadata.short_description
+    assert "\n\n#### Payouts and withdrawals\n\n" in exported["description"]
+    assert exported["vault_slug"] == "veranta-usdc-vault"

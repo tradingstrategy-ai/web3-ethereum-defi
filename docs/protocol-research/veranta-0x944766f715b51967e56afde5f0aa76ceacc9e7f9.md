@@ -346,3 +346,55 @@ Its recommended terminology correction was applied consistently to both the
 guide and description: use fees on profitable trades rather than claiming a
 profit-based calculation. The metadata-export test and `git diff --check`
 passed. This review supersedes the earlier copy review for the revised text.
+
+## Individual vault description repair, 5 November 2026
+
+The merged PR's long description was published as protocol metadata. The
+protocol page and public protocol JSON contained the reviewed copy, but the
+individual vault had no "About the vault" because `VerantaVault` inherited
+empty description accessors. The original export test covered protocol YAML
+and artwork rather than the individual vault's scanner-to-JSON text path.
+
+The adapter now uses handwritten copy scoped to the confirmed Base address.
+The short summary is plain text; the full description explains current fee
+income, reserve-first payouts, capital losses and withdrawal limits. It omits
+the protocol introduction and historical fee comparison. The official LP
+documentation and withdrawal-rules Markdown endpoints returned HTTP 200 on
+2026-11-05; their fee table still gives 70% of opening, closing and win fees
+and 100% of margin fees to depositors, and withdrawal charges of 0% to 2.5%.
+The LP page's contradictory introductory 100% claim is not used. Current exit
+availability is not established by the copy or this metadata-only repair.
+
+Migration 031 changes at most two fields on one existing row and performs no
+RPC reads, backfill or history reset. Migration 030 is unchanged. The production
+preview/apply and publication reminder is in
+`docs/README-vault-description-formatting.md#veranta-individual-vault-description`.
+No production changes are part of this local implementation.
+
+The LP documentation also permits routing idle capital into other investments;
+it does not establish current allocations. The vault copy discloses that
+possibility and the remaining uncertainty instead of assuming all assets are
+used solely for trading. No current routing or asset allocation is asserted.
+The full fee breakdown includes liquidation fees retained by the treasury.
+
+Independent Claude Opus 5.5 review found no code or migration-safety defect.
+Its requested disclosure of possible external investments and correction of
+PR provenance timing were applied: insert the PR URL on the feature branch
+before merge, not afterwards during the production build. Known market types,
+plain-language withdrawal wording and migration reporting assertions were also
+clarified. The existing production source and independent branding descriptions
+remain unchanged.
+
+Final local verification on 2026-11-05 passed 49 tests with one optional skip:
+Veranta unit coverage, both numbered Veranta repairs, migration batch coverage,
+shared scanner fields and the scanner-to-individual-vault JSON regression.
+All six changed Python files passed Ruff formatting and targeted syntax/import
+checks; `git diff --check` passed. The writing-guide check and independent
+Claude Opus 5.5 follow-up approved the revised copy with no blocking issues.
+The future PR URL must still replace migration 031's placeholder before merge.
+No push, PR creation, Sphinx build or production maintenance was performed.
+
+PR [#1728](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728)
+was subsequently opened at the user's request. Migration 031 records that URL
+on the feature branch before merge. Earlier no-PR statements describe the
+local implementation stage. Production maintenance remains a separate step.
