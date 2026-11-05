@@ -45,7 +45,7 @@ class FakeSignerClient:
     async def create_market_order_limited_slippage(self, **kwargs: Any) -> tuple[SimpleNamespace, SimpleNamespace, None]:
         """Record one signed market order."""
         self.orders.append(kwargs)
-        return SimpleNamespace(order="signed"), SimpleNamespace(tx_hash="0x1234"), None
+        return SimpleNamespace(order="signed"), SimpleNamespace(code=200, tx_hash="0x1234"), None
 
     async def close(self) -> None:
         """Record SDK client cleanup."""

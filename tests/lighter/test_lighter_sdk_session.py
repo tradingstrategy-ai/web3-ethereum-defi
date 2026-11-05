@@ -38,16 +38,10 @@ REPOSITORY_ROOT = Path(__file__).parents[2]
 class ScriptedResponse:
     """The parts of the SDK's ``RESTResponse`` the session uses."""
 
-    def __init__(self, status: int, retry_after: str | None = None, read_error: Exception | None = None):
+    def __init__(self, status: int, read_error: Exception | None = None):
         self.status = status
-        self.retry_after = retry_after
         self.read_error = read_error
         self.data = None
-
-    def getheader(self, name: str) -> str | None:
-        """Return the scripted ``Retry-After`` header."""
-        assert name == "Retry-After"
-        return self.retry_after
 
     async def read(self) -> bytes:
         """Read the body, or fail like a dropped connection."""
@@ -175,24 +169,14 @@ def test_reads_survive_outage_and_truncated_body(caplog: pytest.LogCaptureFixtur
 
 
 @pytest.mark.timeout(30)
-def test_backoff_caps_and_honours_retry_after() -> None:
-    """Waits double to the cap, and ``Retry-After`` raises a wait but never lowers it."""
+def test_backoff_doubles_to_the_cap() -> None:
+    """Waits double, and jitter cannot take them past the cap."""
     policy = LighterSDKRetryPolicy(initial_delay=10.0, max_delay=20.0, read_deadline=10_000.0)
-    rest_client = ScriptedRESTClient(
-        ScriptedResponse(429),
-        ScriptedResponse(429),
-        ScriptedResponse(429),
-        ScriptedResponse(429, retry_after="90"),
-        ScriptedResponse(429, retry_after="1"),
-        ScriptedResponse(429, retry_after="Wed, 21 Oct 2026 07:28:00 GMT"),
-        ScriptedResponse(200),
-    )
+    rest_client = ScriptedRESTClient(ScriptedResponse(429), ScriptedResponse(429), ScriptedResponse(429), ScriptedResponse(200))
     session, waits = create_session(rest_client, policy)
     asyncio.run(session.request("GET", READ_URL))
     assert 10.0 <= waits[0] <= 12.5
-    assert waits[1:3] == [20.0, 20.0]
-    assert waits[3] == 90.0
-    assert waits[4:6] == [20.0, 20.0]
+    assert waits[1:] == [20.0, 20.0]
 
 
 @pytest.mark.timeout(30)

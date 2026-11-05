@@ -104,7 +104,7 @@ from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID, LIG
 from eth_defi.lighter.deployment import LighterDeployment
 from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
 from eth_defi.lighter.pubkey import MIN_API_KEY_INDEX
-from eth_defi.lighter.sdk import create_lighter_api_client, create_lighter_signer_client
+from eth_defi.lighter.sdk import create_lighter_api_client, create_lighter_signer_client, is_lighter_tx_accepted
 from eth_defi.lighter.session import LighterSession, create_lighter_session
 from eth_defi.lighter.valuation import fetch_lighter_account_by_index, fetch_lighter_total_equity
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -488,7 +488,7 @@ async def trade_eth_roundtrip(
             max_slippage=float(max_slippage),
             is_ask=False,
         )
-        if error is not None:
+        if not is_lighter_tx_accepted(open_response, error):
             raise RuntimeError(f"Opening the ETH perpetual failed: {error}")
         logger.info("ETH open order accepted: order=%s response=%s", open_order, open_response)
 
@@ -503,7 +503,7 @@ async def trade_eth_roundtrip(
             is_ask=True,
             reduce_only=True,
         )
-        if error is not None:
+        if not is_lighter_tx_accepted(close_response, error):
             raise RuntimeError(f"Closing the ETH perpetual failed: {error}")
         logger.info("ETH close order accepted: order=%s response=%s", close_order, close_response)
         await wait_for_eth_position(session, setup.account_index, open_position=False)

@@ -33,7 +33,6 @@ import logging
 from eth_typing import HexAddress
 
 from eth_defi.lighter.api import fetch_lighter_accounts, wait_for_lighter_sub_accounts
-from eth_defi.lighter.constants import LIGHTER_API_URL
 from eth_defi.lighter.sdk import create_lighter_signer_client, is_lighter_tx_accepted
 from eth_defi.lighter.session import LIGHTER_SDK_SLOW_TRANSACTION_POLICY, LighterSession
 
@@ -101,7 +100,6 @@ def create_lighter_sub_accounts(
     api_private_key: str,
     count: int,
     timeout: int = 300,
-    api_url: str = LIGHTER_API_URL,
 ) -> list[int]:
     """Create sub-accounts under a master account and return their indices.
 
@@ -112,7 +110,7 @@ def create_lighter_sub_accounts(
     before retrying after a failure.
 
     :param session:
-        Public Lighter HTTP session.
+        Public Lighter HTTP session. Its API URL also receives the transactions.
     :param l1_address:
         L1 address, normally a Lagoon Safe, owning the master account.
     :param master_account_index:
@@ -125,8 +123,6 @@ def create_lighter_sub_accounts(
         Number of sub-accounts to create.
     :param timeout:
         Maximum seconds to wait for the sub-accounts to become visible.
-    :param api_url:
-        Lighter API base URL.
     :return:
         New sub-account indices in creation order.
     """
@@ -138,7 +134,7 @@ def create_lighter_sub_accounts(
         raise LighterSubAccountError(f"L1 address {l1_address} does not own Lighter master account {master_account_index}")
     existing_indices = set(existing.sub_account_indices)
 
-    asyncio.run(_submit_sub_account_creations(master_account_index, api_key_index, api_private_key, count, api_url))
+    asyncio.run(_submit_sub_account_creations(master_account_index, api_key_index, api_private_key, count, session.api_url))
 
     accounts = wait_for_lighter_sub_accounts(session, l1_address, len(existing_indices) + count, timeout=timeout)
     new_indices = [index for index in accounts.sub_account_indices if index not in existing_indices]

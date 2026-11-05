@@ -64,8 +64,7 @@ DEFAULT_RETRIES: int = 8
 #: Default backoff factor for retries (seconds)
 DEFAULT_BACKOFF_FACTOR: float = 0.5
 
-#: Statuses Lighter documents as rate limiting. A request refused with one of
-#: these was not processed.
+#: Statuses Lighter documents for an exceeded rate limit.
 LIGHTER_RATE_LIMIT_STATUSES: frozenset[int] = frozenset({405, 429})
 
 #: Statuses retried for a read.
@@ -167,9 +166,9 @@ class LighterSDKSession:
     - ``GET`` and ``HEAD``: :py:data:`LIGHTER_RETRYABLE_READ_STATUSES`, and
       connection, timeout or body-read errors.
     - ``POST`` to :py:data:`LIGHTER_SEND_TX_PATH`:
-      :py:data:`LIGHTER_RATE_LIMIT_STATUSES` only. Lighter refused the request, so
-      it cannot execute twice. A 5xx or a timeout leaves the outcome unknown and
-      is never retried.
+      :py:data:`LIGHTER_RATE_LIMIT_STATUSES` only. The resend carries the same
+      nonce, so the sequencer cannot execute it twice. A 5xx or a timeout leaves
+      the outcome unknown and is never retried.
     - Anything else: never.
 
     The SDK holds its per-key nonce lock during a wait. That keeps transactions in
@@ -183,6 +182,9 @@ class LighterSDKSession:
     ``nonce``, and by ``SignerClient.check_client()``. Do not call them that way:
     omit ``api_key_index`` and the Python nonce manager fetches the nonce through
     this class.
+
+    See `Lighter's rate limits <https://docs.lighter.xyz/developers/reference/rate-limits.md>`__
+    and the `SDK's REST client <https://github.com/elliottech/lighter-python/blob/main/lighter/rest.py>`__.
     """
 
     #: The SDK's ``RESTClientObject``.
@@ -200,38 +202,6 @@ class LighterSDKSession:
     async def close(self) -> None:
         """Close the wrapped SDK client."""
         await self.rest_client.close()
-
-    def _get_delay(self, attempt: int, retry_after: float | None) -> float:
-        """Return the wait before the next attempt.
-
-        Jitter stops executors that share an IP address from retrying together.
-
-        :param attempt:
-            Number of attempts made so far.
-        :param retry_after:
-            ``Retry-After`` seconds, if the response had a usable value.
-        :return:
-            Seconds to wait.
-        """
-        delay = min(self.policy.initial_delay * 2 ** (attempt - 1) * random.uniform(1.0, 1.25), self.policy.max_delay)
-        if retry_after is not None:
-            delay = max(delay, retry_after)
-        return delay
-
-    @staticmethod
-    def _read_retry_after(response: Any) -> float | None:
-        """Read a numeric ``Retry-After`` header, ignoring any other form.
-
-        :param response:
-            SDK ``RESTResponse``.
-        :return:
-            Seconds, or ``None``.
-        """
-        value = response.getheader("Retry-After")
-        try:
-            return max(float(value), 0.0) if value is not None else None
-        except ValueError:
-            return None
 
     async def request(
         self,
@@ -266,22 +236,17 @@ class LighterSDKSession:
         method = method.upper()
         path = urlsplit(url).path
         is_read = method in {"GET", "HEAD"}
-        is_send_tx = method == "POST" and path == LIGHTER_SEND_TX_PATH
         if is_read:
-            statuses = LIGHTER_RETRYABLE_READ_STATUSES
-            deadline = self.policy.read_deadline
-        elif is_send_tx:
-            statuses = LIGHTER_RATE_LIMIT_STATUSES
-            deadline = self.policy.transaction_deadline
+            statuses, deadline = LIGHTER_RETRYABLE_READ_STATUSES, self.policy.read_deadline
+        elif method == "POST" and path == LIGHTER_SEND_TX_PATH:
+            statuses, deadline = LIGHTER_RATE_LIMIT_STATUSES, self.policy.transaction_deadline
         else:
-            statuses = frozenset()
-            deadline = 0.0
+            statuses, deadline = frozenset(), 0.0
 
         started_at = self.clock()
         attempt = 0
         while True:
             attempt += 1
-            response = None
             failure: Exception | None = None
             try:
                 # The SDK mutates headers, so each attempt gets its own copy.
@@ -294,22 +259,22 @@ class LighterSDKSession:
                     _request_timeout=_request_timeout or self.policy.request_timeout,
                 )
                 await response.read()
-            except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+                if response.status not in statuses:
+                    return response
+                reason = f"HTTP {response.status}"
+            except (aiohttp.ClientError, TimeoutError) as error:
                 if not is_read:
                     raise
                 failure = error
+                reason = type(error).__name__
 
-            if response is not None and failure is None and response.status not in statuses:
-                return response
-
-            retry_after = self._read_retry_after(response) if response is not None and failure is None else None
-            delay = self._get_delay(attempt, retry_after)
+            # Jitter stops executors that share an IP address from retrying together.
+            delay = min(self.policy.initial_delay * 2 ** (attempt - 1) * random.uniform(1.0, 1.25), self.policy.max_delay)
             if self.clock() - started_at + delay > deadline:
                 if failure is not None:
                     raise failure
                 return response
 
-            reason = type(failure).__name__ if failure is not None else f"HTTP {response.status}"
             logger.warning("Lighter SDK %s %s got %s on attempt %d, retrying in %.1f seconds", method, path, reason, attempt, delay)
             await self.sleep(delay)
 
@@ -331,7 +296,12 @@ class LighterSubmissionSession(LighterSession):
     says.
 
     This session has no client-side limiter: a submission is a single request.
+
+    See the `sendTx API reference <https://apidocs.lighter.xyz/reference/sendtx>`__.
     """
+
+    #: Seconds after which :py:meth:`post` starts no further attempt.
+    deadline: float
 
     def __init__(
         self,
@@ -339,8 +309,16 @@ class LighterSubmissionSession(LighterSession):
         deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
         deadline: float = LIGHTER_SUBMISSION_DEADLINE,
     ):
+        """Create the session without retry adapters.
+
+        :param api_url:
+            Optional Lighter API base URL override.
+        :param deployment:
+            Deployment whose API this session accesses.
+        :param deadline:
+            Seconds after which :py:meth:`post` starts no further attempt.
+        """
         super().__init__(api_url=api_url, deployment=deployment)
-        #: Seconds after which :py:meth:`post` starts no further attempt.
         self.deadline = deadline
 
     def post(self, url: str, data: Any = None, **kwargs: Any) -> Response:
