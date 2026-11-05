@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from eth_typing import HexAddress
 from web3.exceptions import ContractLogicError
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
@@ -18,6 +19,7 @@ from eth_defi.research.vault_metrics import slugify_protocol, slugify_vaults
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission, VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
+from eth_defi.vault.handwritten_metadata import VERANTA_VAULT_METADATA, get_handwritten_vault_metadata
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -176,6 +178,42 @@ def test_veranta_metadata_export() -> None:
     assert "formerly known as Avantis" in metadata["long_description"]
     assert metadata["logos"]
     assert Path("eth_defi/data/vaults/formatted_logos/veranta/light.png").is_file()
+
+
+@pytest.mark.parametrize("address", [VERANTA_VAULT_ADDRESS, VERANTA_VAULT_ADDRESS.upper()])
+def test_veranta_handwritten_descriptions(address: HexAddress) -> None:
+    """Resolve maintained copy independently of protocol metadata and RPC.
+
+    The individual vault needs its own adapter fields; protocol YAML does not
+    populate them. Address casing must not change the reviewed deployment.
+
+    :param address: Lowercase or uppercase address supplied to the adapter.
+    :return: None after checking Markdown, summary and exact maintained text.
+    """
+    vault = VerantaVault(None, VaultSpec(8453, address))
+    metadata = VERANTA_VAULT_METADATA[8453, VERANTA_VAULT_ADDRESS]
+    assert get_handwritten_vault_metadata(8453, address) == metadata
+    assert vault.description == metadata.description
+    assert "\n\n#### Trading income\n\n- " in vault.description
+    assert "\n- Vault depositors also receive **100%" in vault.description
+    assert vault.short_description == "USDC supplied to back trading positions and earn a share of trading fees."
+    assert all(char not in vault.short_description for char in ("\n", "\r", "\\n", "\\r", "*", "["))
+
+
+@pytest.mark.parametrize("chain_id,address", [(1, VERANTA_VAULT_ADDRESS), (8453, "0x" + "11" * 20), (98866, "0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0")])
+def test_veranta_descriptions_exclude_other_deployments(chain_id: int, address: HexAddress) -> None:
+    """Do not attach this copy to another chain, address or known product.
+
+    The shared handwritten catalogue includes other protocols. A misconstructed
+    Veranta adapter must not inherit another product's maintained text.
+
+    :param chain_id: Unreviewed chain or another handwritten product's chain.
+    :param address: Unreviewed address or another handwritten product's address.
+    :return: None after checking both accessors remain unknown.
+    """
+    vault = VerantaVault(None, VaultSpec(chain_id, address))
+    assert vault.description is None
+    assert vault.short_description is None
 
 
 def test_veranta_legacy_cap_and_wrong_chain_tags(adapter: VerantaVault) -> None:

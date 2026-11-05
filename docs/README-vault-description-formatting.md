@@ -95,6 +95,46 @@ runbook. After their normal export and upload cycle, check both published AXI
 descriptions against the maintained copy. Migration success alone does not
 publish the change.
 
+## Veranta individual vault description
+
+The unified avUSDC vault on Base
+(`8453:0x944766f715b51967e56afde5f0aa76ceacc9e7f9`) uses address-scoped
+handwritten copy through `VerantaVault.description` and `short_description`.
+Its protocol YAML is separate: publishing that file alone shows the text on
+the protocol page, not the individual vault's "About the vault" section.
+Scanner and individual vault JSON export tests cover that distinction.
+
+**Run after merge:** migration `031-veranta-vault-description.py` refreshes only
+`_description` and `_short_description` for at most one existing Veranta row.
+It reports a missing target without creation and rejects conflicting protocol
+attribution. Successful migration 030 is unchanged and must not be rerun.
+There is no price backfill, discovery or blockchain read. Notes, fees, names,
+flags, unrelated metadata, reader state, prices and timestamp caches survive.
+
+Record the eventual PR URL in migration 031 on the feature branch before
+merging the PR. Follow the [production runbook](../.claude/docs/migration-scripts.md#production-runbook):
+inspect `docker-compose.yml` and persistent mounts, update to the merged
+revision, build the stamped image, and quiesce all competing writers. From
+`~/vault-scanner/web3-ethereum-defi`, use the same image for the entire operation:
+
+```shell
+source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
+source ../vault-rpc.env && docker compose run --rm --no-deps --entrypoint vault-migrate vault-scanner-oneshot list
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
+```
+
+Both preview and apply require stopped writers. Review the entire pending
+numbered batch before apply; expected for 031 is at most one row and two fields.
+The runner acquires its lifetime guard before the writer lock. After normal
+scanner export and publication, inspect the individual vault JSON's
+`description` and `short_description`, then the
+[vault page](https://tradingstrategy.ai/vaults/veranta-usdc-vault).
+Verify paragraphs, fee bullets and source links render, and that existing
+price history remains intact. A successful migration does not publish data
+by itself.
+
 ## Apply the repair
 
 Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for local previews and production

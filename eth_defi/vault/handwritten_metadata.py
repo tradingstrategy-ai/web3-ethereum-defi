@@ -591,6 +591,45 @@ ALPHAPING_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMet
 }
 
 
+#: Unified avUSDC vault on Base, reviewed on 2026-11-05.
+#:
+#: The fee-allocation table and announcement agree on the 70% LP share;
+#: the documentation's introductory 100% claim conflicts with its own table.
+#: Liquidity limits are established by the reviewed implementations, not a
+#: promise of current exit availability. Protocol and curator copy is separate.
+#: https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc
+#: https://docs.veranta.xyz/liquidity-providers/risk-management
+#: https://www.veranta.xyz/blog/systematic-avnt-buybacks-and-burns
+#: docs/protocol-research/veranta-0x944766f715b51967e56afde5f0aa76ceacc9e7f9.md
+VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (8453, HexAddress("0x944766f715b51967e56afde5f0aa76ceacc9e7f9")): HandwrittenVaultMetadata(
+        name="Avantis USDC Vault",
+        short_description="USDC supplied to back trading positions and earn a share of trading fees.",
+        description=(
+            "Deposited USDC backs traders' positions in cryptocurrency, currency, commodity and index markets. "
+            "Depositors receive avUSDC tokens representing their share of the [pool](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc), "
+            "and earn a share of the fees paid by traders.\n\n"
+            "Idle USDC may also be placed in other investments to earn income. "
+            "The current investments, if any, have not been confirmed.\n\n"
+            "#### Trading income\n\n"
+            "- Vault depositors receive **70% of fees collected on opening, closing and profitable trades** under the "
+            "protocol's [fee allocation](https://www.veranta.xyz/blog/systematic-avnt-buybacks-and-burns).\n"
+            "- Vault depositors also receive **100% of margin fees**, which traders pay for using the pool's capital.\n"
+            "- The remaining **30% of fees on opening, closing and profitable trades** buys the protocol's AVNT token "
+            "and permanently removes it from circulation.\n"
+            "- Fees from forced closures of underfunded trading positions go to the protocol treasury to fund operations.\n\n"
+            "#### Payouts and withdrawals\n\n"
+            "Trader losses build a reserve used to pay trader profits before drawing on deposited capital. "
+            "Depositors earn trading fees rather than receiving those losses directly, and **deposits can lose value** if the reserve runs out.\n\n"
+            "Withdrawals depend on money being available in the pool and limits on how much capital can be removed while backing trading positions. "
+            "[Withdrawal charges](https://docs.veranta.xyz/liquidity-providers/risk-management) range from **0% to 2.5%**, "
+            "depending on the reserve available to cover trader profits, and reduce the USDC returned to depositors."
+        ),
+        link="https://www.avantisfi.com/earn",
+    ),
+}
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -607,7 +646,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key)
+    return NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

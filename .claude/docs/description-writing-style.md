@@ -58,6 +58,22 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Use British English, spell “onchain” without a hyphen, and use sentence case
   for headings.
 
+## Describe each vault in small protocols
+
+For protocols with **1–9 known supported vaults**, provide researched,
+handwritten short and full descriptions for every covered vault. Count the
+known supported vault inventory across chains, not just the example deployment.
+This is an onboarding and maintained-content requirement, not a runtime rule
+that removes descriptions when a protocol grows.
+
+Protocol and curator descriptions do not populate the individual vault's
+"About the vault" section. Wire the handwritten copy through the vault adapter's
+`description` and `short_description` accessors and verify the scanner record
+and individual vault JSON export, separately from protocol metadata export.
+Use the existing address-scoped handwritten metadata workflow where available.
+Research each vault's actual strategy; leave undisclosed details explicitly
+unknown rather than applying generic protocol copy to every vault.
+
 ## Describe current terms first
 
 Focus descriptions on how the product works now: what depositors fund, what

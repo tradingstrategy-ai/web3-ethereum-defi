@@ -21,7 +21,9 @@ from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SL
 from eth_defi.erc_4626.vault_protocol.veranta.deposit_redeem import VerantaDepositManager
 from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
+from eth_defi.vault.base import normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
@@ -33,6 +35,34 @@ class VerantaVault(ERC4626Vault):
     Deposit caps and withdrawal liquidity are availability restrictions, not
     account approval requirements.
     """
+
+    @property
+    def description(self) -> str | None:
+        """Expose reviewed copy for the individual vault page.
+
+        Protocol metadata is published separately and does not populate the
+        scanner's vault description. Only the reviewed deployment has copy.
+
+        :return: Normalised Markdown, or ``None`` for an unreviewed deployment.
+        """
+        if self.chain_id != VERANTA_CHAIN_ID or self.address.lower() != VERANTA_VAULT_ADDRESS:
+            return None
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return normalise_vault_description(metadata.description) if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Expose the reviewed one-sentence listing summary.
+
+        Use the same address-scoped source as the full description so scanner
+        refreshes and metadata repairs publish consistent text.
+
+        :return: Plain-text summary, or ``None`` for an unreviewed deployment.
+        """
+        if self.chain_id != VERANTA_CHAIN_ID or self.address.lower() != VERANTA_VAULT_ADDRESS:
+            return None
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return normalise_vault_short_description(metadata.short_description) if metadata else None
 
     @cached_property
     def vault_contract(self) -> Contract:
