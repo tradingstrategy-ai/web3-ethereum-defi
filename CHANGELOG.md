@@ -1,6 +1,6 @@
 # 1.2
 
-- fix: Publish handwritten Veranta vault descriptions through the vault adapter and a targeted metadata migration; require per-vault handwritten copy for protocols with fewer than 10 supported vaults (2026-11-05).
+- fix: Publish handwritten Veranta vault descriptions through the vault adapter and a targeted metadata migration; require per-vault handwritten copy for protocols with fewer than 10 supported vaults (2026-11-05, [#1728](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728)).
 - feat: Add Veranta (formerly Avantis) avUSDC classification, guarded deposits and redemptions, protocol curator attribution, fee and admission metadata, a Severe technical risk assessment, artwork and a targeted metadata migration (2026-11-04, [#1725](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1725)).
 - fix: Parse Lighter pool `entry_timestamp` as Unix milliseconds and end withdrawal history on an empty page, as observed on a funded mainnet pool round trip (2026-11-03).
 - feat: Add the `inventory_financing` strategy tag, classify the 3Jane USD3 and sUSD3 vaults with a targeted numbered migration, and rewrite the 3Jane curator, protocol and stablecoin descriptions around the November 2026 Settle forward-flow agreement (2026-11-03).

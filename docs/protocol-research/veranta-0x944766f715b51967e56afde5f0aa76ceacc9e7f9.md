@@ -393,3 +393,8 @@ checks; `git diff --check` passed. The writing-guide check and independent
 Claude Opus 5.5 follow-up approved the revised copy with no blocking issues.
 The future PR URL must still replace migration 031's placeholder before merge.
 No push, PR creation, Sphinx build or production maintenance was performed.
+
+PR [#1728](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728)
+was subsequently opened at the user's request. Migration 031 records that URL
+on the feature branch before merge. Earlier no-PR statements describe the
+local implementation stage. Production maintenance remains a separate step.

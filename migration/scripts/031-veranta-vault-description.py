@@ -5,7 +5,7 @@ Purpose: Publish reviewed vault copy independently of protocol metadata.
 Scope: Only _description and _short_description for Base 8453:0x944766f715b51967e56afde5f0aa76ceacc9e7f9.
 Branch: fix/veranta-vault-description
 PR title: fix: publish Veranta vault descriptions
-PR: Not yet opened; record the PR URL in this branch before merge.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728
 Preserves: Names, links, fees, flags, notes, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and two changed fields; missing target reported without creation. Idempotent transformation.
 
