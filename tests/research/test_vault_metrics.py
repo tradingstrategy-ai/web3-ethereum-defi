@@ -1918,9 +1918,9 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
 
     lifetime_row = metrics.iloc[0]
     note = lifetime_row["notes"]
-    assert "D2 Finance strategy vault" in note
-    assert "**Summary:**" in note
-    assert f"[D2 strategy page](https://d2.finance/strategies/{address})" in note
+    assert "#### Withdrawal restrictions" in note
+    assert "**Summary:**" not in note
+    assert f"[investment strategy](https://d2.finance/strategies/{address})" in note
 
     assert lifetime_row["curator_slug"] == "d2-finance"
     assert lifetime_row["curator_name"] == "D2 Finance"

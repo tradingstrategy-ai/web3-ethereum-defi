@@ -35,13 +35,13 @@ def test_d2_protocol_vault_note_is_not_bad_flag() -> None:
     note = vault.get_notes()
 
     assert note is not None
-    assert "D2 Finance strategy vault" in note
-    assert "**Summary:**" in note
+    assert "#### Withdrawal restrictions" in note
+    assert "**Summary:**" not in note
     assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert "https://docs.d2.finance/docs/vault-design" in note
     assert "not a guaranteed withdrawal deadline" in note
-    assert "[D2 strategy page](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
-    assert "[D2 strategy article](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9)" in note
+    assert "[investment strategy](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
+    assert "[strategy background](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9)" in note
     assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.withdrawal_restrictions}
     assert VaultFlag.withdrawal_restrictions not in BAD_FLAGS
     assert not is_flagged_vault(address, "D2 Finance")
@@ -53,7 +53,7 @@ def test_d2_vault_note_handles_checksum_address() -> None:
     note = vault.get_notes()
 
     assert note is not None
-    assert "[D2 strategy page](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
+    assert "[investment strategy](https://d2.finance/strategies/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004)" in note
 
 
 def test_d2_vault_link_matrix_covers_every_known_vault() -> None:
@@ -76,8 +76,8 @@ def test_d2_unknown_protocol_vault_gets_generic_note() -> None:
     assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert address not in D2_VAULT_ADDRESSES
     assert note is not None
-    assert "D2 Finance strategy vault" in note
-    assert "[D2 strategy page](https://d2.finance/strategies/0x000000000000000000000000000000000000d2d2)" in note
+    assert "#### Withdrawal restrictions" in note
+    assert "[investment strategy](https://d2.finance/strategies/0x000000000000000000000000000000000000d2d2)" in note
     assert not is_flagged_vault(address, "D2 Finance")
 
 
@@ -87,15 +87,16 @@ def test_d2_texas_hedge_vault_note_is_not_bad_flag() -> None:
     note = vault.get_notes()
 
     assert note is not None
-    assert "D2 Finance texasHedge (TXHEDGE)" in note
-    assert "**Summary:**" in note
+    assert "USDC funds actively managed bets" in note
+    assert "**Summary:**" not in note
     assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert "https://docs.d2.finance/docs/vault-design" in note
     assert "not a guaranteed withdrawal deadline" in note
-    assert "HyperEVM USDC tactical strategy vault" in note
-    assert "[Texas Hedge Epoch 2 blog post](https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3)" in note
-    assert "[D2 strategy page](https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6)" in note
-    assert "not a market-neutral yield product" in note
+    assert "#### Historical strategy" in note
+    assert "does not establish the vault's current holdings" in note
+    assert "[June 2026 trading cycle](https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3)" in note
+    assert "[investment strategy](https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6)" in note
+    assert "**The entire deposit can be lost.**" in note
     assert not is_flagged_vault(D2_TEXAS_HEDGE_ADDRESS)
 
 
@@ -107,12 +108,12 @@ def test_d2_api_only_vault_note_is_not_bad_flag() -> None:
 
     assert address in D2_VAULT_ADDRESSES
     assert note is not None
-    assert "**Summary:**" in note
+    assert "**Summary:**" not in note
     assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert "https://docs.d2.finance/docs/vault-design" in note
     assert "not a guaranteed withdrawal deadline" in note
-    assert "[D2 strategy page](https://d2.finance/strategies/0xf650ba4303ce164e1f6b215d4cbb5e212d307056)" in note
-    assert "[D2 strategy article](https://medium.com/@D2.Finance/hypereuler-x-pol-pol-is-here-is-time-to-supercharge-your-bera-4dfaa8805d23)" in note
+    assert "[investment strategy](https://d2.finance/strategies/0xf650ba4303ce164e1f6b215d4cbb5e212d307056)" in note
+    assert "[strategy background](https://medium.com/@D2.Finance/hypereuler-x-pol-pol-is-here-is-time-to-supercharge-your-bera-4dfaa8805d23)" in note
     assert not is_flagged_vault(address, "D2 Finance")
 
 
@@ -124,12 +125,12 @@ def test_trading_strategy_only_d2_vault_note_is_not_bad_flag() -> None:
 
     assert address in D2_VAULT_ADDRESSES
     assert note is not None
-    assert "**Summary:**" in note
+    assert "**Summary:**" not in note
     assert "**Deposits and withdrawals are closed during the trading phase.**" in note
     assert "https://docs.d2.finance/docs/vault-design" in note
     assert "not a guaranteed withdrawal deadline" in note
-    assert "[D2 strategy page](https://d2.finance/strategies/0x4ada76cc8755f62508a2df65d7fafa4fd26e76c6)" in note
-    assert "D2 strategy article" not in note
+    assert "[investment strategy](https://d2.finance/strategies/0x4ada76cc8755f62508a2df65d7fafa4fd26e76c6)" in note
+    assert "strategy background" not in note
     assert not is_flagged_vault(address, "D2 Finance")
 
 

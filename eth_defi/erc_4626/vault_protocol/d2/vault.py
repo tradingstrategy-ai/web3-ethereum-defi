@@ -27,6 +27,7 @@ from eth_defi.vault.base import (
     VaultHistoricalReader,
     WithdrawalDelayType,
     WithdrawalPeriod,
+    normalise_vault_description,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired
 
@@ -307,6 +308,38 @@ D2_STRATEGY_URL_TEMPLATE = "https://d2.finance/strategies/{address}"
 D2_TEXAS_HEDGE_ADDRESS = "0x208f63a7f60c319597c05fa5ec67fde41839bad6"
 D2_TEXAS_HEDGE_BLOG_URL = "https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3"
 
+#: GlobalMacro on Robinhood Chain, reviewed on 2026-11-05.
+#: https://tradingstrategy.ai/vaults/globalmacro
+#: https://robinhoodchain.blockscout.com/address/0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8
+D2_GLOBAL_MACRO_CHAIN_ID = 4663
+D2_GLOBAL_MACRO_ADDRESS = HexAddress("0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8")
+D2_GLOBAL_MACRO_BLOG_URL = "https://medium.com/@D2.Finance/globalmacro-gm-vault-on-robinhood-take-from-the-markets-that-sleep-give-to-the-one-that-never-a66b2c62f300"
+#: Official post; text checked through the mirror below because X refused access.
+#: https://instalker.org/D2_Finance/status/2117815338616152350
+D2_GLOBAL_MACRO_UPDATE_URL = "https://x.com/D2_Finance/status/2117815338616152350"
+
+#: Maintained Markdown for this deployment only; historical claims are dated.
+D2_GLOBAL_MACRO_DESCRIPTION = f"""Deposited USDG, a US dollar stablecoin, funds short-term bets on rising or falling equity indices, commodities and currencies. The [launch design]({D2_GLOBAL_MACRO_BLOG_URL}) combines options with [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that track prices without an expiry date. The trading signals come from HYPE++, a separate investment strategy whose performance history does not belong to this vault.
+
+#### Lending and trading
+
+At launch in August 2026, the principal was allocated to a USDG lending vault managed by Steakhouse on Morpho, a lending platform. A smaller allocation supported trades on Hyperliquid, a derivatives exchange. Lending income supplements trading results but introduces borrower and smart contract risks; the launch economics excluded unagreed Robinhood incentives.
+
+#### Risk and withdrawals
+
+The strategy uses **leverage**, taking positions larger than the money backing them, which magnifies gains and losses. Its **10% loss-limit policy per trading cycle**, called an epoch, is not guaranteed protection or a limit on losses measured from an earlier peak. Lending income may offset only part of a trading loss.
+
+**Deposits and withdrawals close during trading.** Under the [vault design](https://docs.d2.finance/docs/vault-design), the trader may take custody of funds, which must be returned before withdrawals reopen. An announced epoch-end date does not guarantee withdrawal availability.
+
+#### First epoch and announced changes
+
+The first epoch, during August–November 2026, ran with $100,000 as a test and generated a **manager-reported 6% net return**. The [November 2026 update]({D2_GLOBAL_MACRO_UPDATE_URL}) put gross trading gains above 16% and funding paid above 10%, consuming more than half the trading gains. [Funding payments](https://tradingstrategy.ai/glossary/funding-rate) pass periodically between traders on opposite sides of perpetual futures; the vault paid them on balance.
+
+The reported gains peaked around 17–18% in September before repeated stop-loss exits took the result slightly negative; trading recovered in October. Trades lasted roughly 30 minutes to 72 hours with higher leverage than the manager's other strategies. These are historical results reported by the manager.
+
+A further cycle was announced for **5 to 20 November 2026**, capped at **100,000 USDG**, with up to 30 days of additional tactical trading envisaged. Future plans included Pendle Boros, a market for trading funding rates, and a possible split into GM 2.0 and Overnight Edge, two proposed strategy variants. These were plans, not confirmed changes to this vault's investments or mandate.
+"""
+
 #: Optional D2-authored strategy articles from the D2 vault API.
 D2_VAULT_ARTICLE_URLS: dict[str, str] = {
     "0x195eb4d088f222c982282b5dd495e76dba4bc7d1": "https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9",
@@ -432,15 +465,15 @@ def format_d2_strategy_url(address: HexAddress | str) -> str:
 #: https://docs.d2.finance/docs/vault-design
 D2_WITHDRAWAL_NOTE = """#### Withdrawal restrictions
 
-**Deposits and withdrawals are closed during the trading phase.** D2's [vault design documentation](https://docs.d2.finance/docs/vault-design), reviewed on 2 November 2026, explains that each trading cycle, called an epoch, has separate funding, trading and withdrawal phases. During trading, the trader may take custody of the vault's funds.
+**Deposits and withdrawals are closed during the trading phase.** Each [trading cycle](https://docs.d2.finance/docs/vault-design), called an epoch, has separate funding, trading and withdrawal phases. During trading, the trader may take custody of the vault's funds.
 
-Withdrawals reopen after the trader returns the funds and the epoch ends. A displayed epoch-end time is an estimate, not a guaranteed withdrawal deadline: the funds must also be back in the vault before withdrawals can proceed."""
+Withdrawals reopen after the trader returns the funds and the epoch ends. A displayed epoch-end time is an estimate, not a guaranteed withdrawal deadline."""
 
 
 def format_d2_vault_note(address: HexAddress | str) -> str:
     """Format a generic D2 Finance vault note.
 
-    D2 vaults are managed strategy vaults with proprietary off-chain trading
+    D2 vaults are managed strategy vaults with proprietary offchain trading
     logic. The authoritative source for the per-vault setup is the D2 strategy
     page, so link to it for every D2 vault.
 
@@ -454,15 +487,11 @@ def format_d2_vault_note(address: HexAddress | str) -> str:
     address = str(address).lower()
     strategy_url = format_d2_strategy_url(address)
     article_url = D2_VAULT_ARTICLE_URLS.get(address)
-    article_note = f"\n\nD2 also describes this strategy in its [D2 strategy article]({article_url})." if article_url else ""
+    article_note = f" and [strategy background]({article_url})" if article_url else ""
 
-    return f"""D2 Finance strategy vault.
+    return f"""{D2_WITHDRAWAL_NOTE}
 
-**Summary:** This vault is a D2 Finance managed strategy vault. D2 strategies are tokenised derivative strategies executed onchain with proprietary offchain trading logic and epoch-based funding, trading and withdrawal phases.
-
-The authoritative D2 source for this vault is the [D2 strategy page]({strategy_url}).{article_note}
-
-{D2_WITHDRAWAL_NOTE}
+See the [investment strategy]({strategy_url}){article_note} for product-specific information.
 """
 
 
@@ -476,13 +505,15 @@ def format_d2_texas_hedge_note() -> str:
         Markdown vault note.
     """
 
-    return f"""D2 Finance texasHedge (TXHEDGE) is a HyperEVM USDC tactical strategy vault.
+    # The June article explicitly calls the internal funding borrowing: a
+    # credit line from HYPE++ charged at ten percent, drawn as needed.
+    return f"""USDC funds actively managed bets on asset prices. **The entire deposit can be lost.** The [investment strategy]({format_d2_strategy_url(D2_TEXAS_HEDGE_ADDRESS)}) changes between trading cycles.
 
-**Summary:** The vault is a high-risk, multi-leg directional strategy around SpaceX pre-IPO exposure and related market flows. It combines a financed SpaceX perpetual position with long S&P downside convexity and long Tesla/Mag-7 upside convexity, funded by selling DRAM upside convexity. D2 describes the strategy in its [Texas Hedge Epoch 2 blog post]({D2_TEXAS_HEDGE_BLOG_URL}).
+#### Historical strategy
 
-The authoritative D2 source for this vault is the [D2 strategy page]({format_d2_strategy_url(D2_TEXAS_HEDGE_ADDRESS)}).
+The [June 2026 trading cycle]({D2_TEXAS_HEDGE_BLOG_URL}) combined a position funded with borrowed money that tracked SpaceX before its stock-market listing with [options](https://tradingstrategy.ai/glossary/options), contracts granting the right to buy or sell at an agreed price before a deadline. Some options benefited from falls in the S&P 500 stock index; others benefited from rises in Tesla and a group of large US technology stocks.
 
-This is not a market-neutral yield product; D2 categorises it as a degen/tactical strategy where investors can lose the full vault stake.
+Selling options on DRAM, a fund investing in memory-chip companies, helped pay for the purchased options. The sold options could lose money if memory-chip stocks rose, with losses compounded if SpaceX also fell. This historical setup does not establish the vault's current holdings.
 
 {D2_WITHDRAWAL_NOTE}
 """
@@ -584,7 +615,7 @@ class D2HistoricalReader(ERC4626HistoricalReader):
         )
 
 
-class D2Vault(ERC4626Vault):
+class D2Vault(ERC4626Vault):  # noqa: PLR0904 - Implements the shared vault interface, including display metadata.
     """D2 Finance vaults.
 
     - Most vault logic is offchain, proprietary
@@ -695,6 +726,19 @@ class D2Vault(ERC4626Vault):
         if not self.is_whitelisted_deposit():
             raise NotImplementedError("Public D2 asset-balance eligibility is not KYC membership")
         return bool(self.vault_contract.functions.whitelisted(address).call())
+
+    @property
+    def description(self) -> str | None:
+        """Expose the researched GlobalMacro strategy explanation.
+
+        Scope the maintained copy to the reviewed Robinhood deployment so
+        unrelated D2 vaults retain their inherited metadata behaviour.
+
+        :return: Normalised Markdown for GlobalMacro, or the inherited description.
+        """
+        if self.chain_id == D2_GLOBAL_MACRO_CHAIN_ID and self.address.lower() == D2_GLOBAL_MACRO_ADDRESS:
+            return normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
+        return super().description
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.
