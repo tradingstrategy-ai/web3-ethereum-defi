@@ -38,10 +38,16 @@ REPOSITORY_ROOT = Path(__file__).parents[2]
 class ScriptedResponse:
     """The parts of the SDK's ``RESTResponse`` the session uses."""
 
-    def __init__(self, status: int, read_error: Exception | None = None):
+    def __init__(self, status: int, retry_after: str | None = None, read_error: Exception | None = None):
         self.status = status
+        self.retry_after = retry_after
         self.read_error = read_error
         self.data = None
+
+    def getheader(self, name: str) -> str | None:
+        """Return the scripted ``Retry-After`` header."""
+        assert name == "Retry-After"
+        return self.retry_after
 
     async def read(self) -> bytes:
         """Read the body, or fail like a dropped connection."""
@@ -180,6 +186,37 @@ def test_backoff_doubles_to_the_cap() -> None:
 
 
 @pytest.mark.timeout(30)
+def test_retry_after_raises_a_wait_within_the_deadline() -> None:
+    """``Retry-After`` wins over a shorter wait, and bad values change nothing.
+
+    1. A long value raises the wait past the backoff cap.
+    2. A short value, an HTTP date in the past and a malformed value keep the backoff.
+    3. A value past the deadline ends the retries at once.
+    """
+    # 1. A long value raises the wait past the backoff cap.
+    policy = LighterSDKRetryPolicy(initial_delay=10.0, max_delay=20.0, read_deadline=1_000.0)
+    rest_client = ScriptedRESTClient(
+        ScriptedResponse(429, retry_after="90"),
+        ScriptedResponse(429, retry_after="1"),
+        ScriptedResponse(429, retry_after="Wed, 21 Oct 2015 07:28:00 GMT"),
+        ScriptedResponse(429, retry_after="soon"),
+        ScriptedResponse(200),
+    )
+    session, waits = create_session(rest_client, policy)
+    asyncio.run(session.request("GET", READ_URL))
+    assert waits[0] == 90.0
+
+    # 2. Other values keep the backoff.
+    assert waits[1:] == [20.0, 20.0, 20.0]
+
+    # 3. A value past the deadline ends the retries at once.
+    rest_client = ScriptedRESTClient(ScriptedResponse(429, retry_after="3600"), ScriptedResponse(200))
+    session, waits = create_session(rest_client)
+    assert asyncio.run(session.request("POST", SEND_TX_URL)).status == 429
+    assert waits == []
+
+
+@pytest.mark.timeout(30)
 def test_deadlines_end_retries() -> None:
     """Live transactions give up in 30 seconds, and sub-account creation outlasts the firewall.
 
@@ -279,6 +316,7 @@ def test_submission_session_retries_only_rate_limits(submission_server: str) -> 
     2. A 503 with ``Retry-After`` is returned after one attempt.
     3. A dropped connection raises after one attempt.
     4. A rate limit that outlasts the deadline returns the final 429.
+    5. ``Retry-After`` raises the wait, and a value past the deadline stops the retries.
     """
     # 1. Rate limits.
     SubmissionHandler.script = [(429, {}), (405, {}), (200, {})]
@@ -304,6 +342,17 @@ def test_submission_session_retries_only_rate_limits(submission_server: str) -> 
     SubmissionHandler.script = [(429, {}) for _ in range(10)]
     assert post_submission(submission_server, deadline=2.0).status_code == 429
     assert len(SubmissionHandler.received) == 2
+
+    # 5. Retry-After raises the wait, and a value past the deadline stops the retries.
+    SubmissionHandler.received.clear()
+    SubmissionHandler.script = [(429, {"Retry-After": "2"}), (200, {})]
+    started_at = time.monotonic()
+    assert post_submission(submission_server).status_code == 200
+    assert time.monotonic() - started_at >= 2.0
+    SubmissionHandler.received.clear()
+    SubmissionHandler.script = [(429, {"Retry-After": "60"}), (200, {})]
+    assert post_submission(submission_server).status_code == 429
+    assert len(SubmissionHandler.received) == 1
 
 
 @pytest.mark.timeout(60)

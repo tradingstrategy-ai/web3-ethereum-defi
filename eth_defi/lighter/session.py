@@ -22,8 +22,11 @@ Limits published in Lighter's `rate limit documentation
 - ``L2Withdraw``: 2 requests per minute and 3 per 2 hours, per L1 address.
 - Standard accounts: 60 requests per rolling minute, per IP and L1 address.
 - Exceeding a limit returns HTTP 429 or HTTP 405.
-- The firewall cooldown is a static 60 seconds. No ``Retry-After`` header is
-  documented.
+- The firewall cooldown is a static 60 seconds.
+
+Lighter documents no ``Retry-After`` header, and the 429 for the sub-account limit
+carried none on 2026-11-04. Responses pass through CloudFront, though, so another
+layer can send one. Both retrying classes honour it when it is present.
 
 Executors on one host share the IP budget, so a limit can be reached without
 the current process being busy.
@@ -43,6 +46,8 @@ import aiohttp
 from pyrate_limiter import SQLiteBucket
 from requests import Response, Session
 from requests_ratelimiter import LimiterAdapter
+from urllib3 import Retry
+from urllib3.exceptions import InvalidHeader
 
 from eth_defi.lighter.constants import LIGHTER_DEFAULT_REQUESTS_PER_SECOND, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.logging_retry import LoggingRetry
@@ -80,6 +85,27 @@ LIGHTER_SEND_TX_PATH: str = "/api/v1/sendTx"
 LIGHTER_SUBMISSION_DEADLINE: float = 15.0
 
 
+def parse_lighter_retry_after(value: str | None) -> float:
+    """Read a ``Retry-After`` header without trusting its format.
+
+    Lighter does not document this header, so an unusable value must not turn a
+    rate limit into a crash. urllib3's parser covers both forms the header allows,
+    seconds and an HTTP date. See `RFC 9110
+    <https://www.rfc-editor.org/rfc/rfc9110#field.retry-after>`__.
+
+    :param value:
+        Header value, or ``None`` if the response had none.
+    :return:
+        Seconds to wait, or 0 if the header is missing or unusable.
+    """
+    if value is None:
+        return 0.0
+    try:
+        return float(Retry().parse_retry_after(value))
+    except InvalidHeader:
+        return 0.0
+
+
 @dataclass(slots=True, frozen=True)
 class LighterSDKRetryPolicy:
     """Backoff settings for :py:class:`LighterSDKSession`.
@@ -91,8 +117,8 @@ class LighterSDKRetryPolicy:
     #: Wait before the first retry, in seconds. Doubles for each retry.
     initial_delay: float = 1.0
 
-    #: Longest wait between attempts, in seconds, including jitter. Longer than
-    #: the firewall cooldown.
+    #: Longest computed wait between attempts, in seconds, including jitter. Longer
+    #: than the firewall cooldown. A larger ``Retry-After`` takes precedence.
     max_delay: float = 64.0
 
     #: Deadline for a read, in seconds.
@@ -248,6 +274,7 @@ class LighterSDKSession:
         while True:
             attempt += 1
             failure: Exception | None = None
+            retry_after = 0.0
             try:
                 # The SDK mutates headers, so each attempt gets its own copy.
                 response = await self.rest_client.request(
@@ -262,6 +289,7 @@ class LighterSDKSession:
                 if response.status not in statuses:
                     return response
                 reason = f"HTTP {response.status}"
+                retry_after = parse_lighter_retry_after(response.getheader("Retry-After"))
             except (aiohttp.ClientError, TimeoutError) as error:
                 if not is_read:
                     raise
@@ -269,7 +297,7 @@ class LighterSDKSession:
                 reason = type(error).__name__
 
             # Jitter stops executors that share an IP address from retrying together.
-            delay = min(self.policy.initial_delay * 2 ** (attempt - 1) * random.uniform(1.0, 1.25), self.policy.max_delay)
+            delay = max(min(self.policy.initial_delay * 2 ** (attempt - 1) * random.uniform(1.0, 1.25), self.policy.max_delay), retry_after)
             if self.clock() - started_at + delay > deadline:
                 if failure is not None:
                     raise failure
@@ -343,7 +371,7 @@ class LighterSubmissionSession(LighterSession):
             response = super().post(url, data=data, **kwargs)
             if response.status_code not in LIGHTER_RATE_LIMIT_STATUSES:
                 return response
-            delay = 2.0 ** (attempt - 1)
+            delay = max(2.0 ** (attempt - 1), parse_lighter_retry_after(response.headers.get("Retry-After")))
             if time.monotonic() + delay >= expires_at:
                 return response
             logger.warning("Lighter sendTx got HTTP %d on attempt %d, retrying in %.1f seconds", response.status_code, attempt, delay)

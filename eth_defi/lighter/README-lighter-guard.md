@@ -382,7 +382,9 @@ are low and executors on one host share an IP budget. As read on 2026-11-05:
 | Standard accounts | 60 requests per rolling minute, per IP and L1 address |
 | Firewall cooldown | 60 seconds, static |
 
-Lighter answers with HTTP 429 or HTTP 405, and documents no `Retry-After` header.
+Lighter answers with HTTP 429 or HTTP 405. It documents no `Retry-After` header, and
+the 429 for the sub-account limit carried none on 2026-11-04. The sessions honour
+the header if another layer sends one, within their deadlines.
 Use the classes in `eth_defi/lighter/session.py`:
 
 | Call | Use | Retried on |
