@@ -5,7 +5,7 @@ Purpose: Refresh stored flags and notes so exports exclude the reviewed vault.
 Scope: Base 8453:0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1; only _flags and _notes.
 Branch: notes/peapods-usdc-65-illiquid
 PR title: notes: mark Peapods USDC-65 as illiquid
-PR: Pending creation from notes/peapods-usdc-65-illiquid.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1731
 Preserves: Unrelated flags, metadata, prices, leads, reader state and timestamp caches.
 Expected: At most one existing row and two changed fields; missing targets are
 reported without creation. Idempotent transformation.
