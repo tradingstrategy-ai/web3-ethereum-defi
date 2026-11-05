@@ -26,7 +26,7 @@ def test_globalmacro_description(address: str) -> None:
     """Resolve Markdown without network access for either address casing.
 
     The long description must preserve source links and paragraph structure
-    without changing summaries or existing withdrawal notes.
+    while retaining announcement links and existing withdrawal notes.
 
     :param address: Lowercase or checksummed deployment address.
     :return: ``None`` after checking the display fields.
@@ -35,10 +35,13 @@ def test_globalmacro_description(address: str) -> None:
     description = vault.description
     assert description == normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
     assert "\n\n#### " in description
-    assert "**manager-reported 6% net return**" in description
+    assert "**10% loss-limit policy per trading cycle**" in description
+    assert "6% net" not in description
+    assert "100,000" not in description
+    assert "5 to 20 November" not in description
     assert D2_GLOBAL_MACRO_BLOG_URL in description
     assert D2_GLOBAL_MACRO_UPDATE_URL in description
-    assert vault.short_description is None
+    assert vault.short_description == "Trades equity indices, commodities and currencies alongside income from USDG lending."
     assert "**Deposits and withdrawals are closed during the trading phase.**" in vault.get_notes()
 
 
@@ -147,3 +150,21 @@ def test_globalmacro_target_states(globalmacro_migration: tuple[Path, Path], sta
         assert entry["other_data"]["updated_fields"] == 0
     assert path.read_bytes() == before
     assert not list(data_dir.glob("*.bak*"))
+
+
+@pytest.mark.parametrize("chain_id,expected", [(8453, "seven US stocks"), (10, "Korean stock-market")])
+def test_d2_same_address_different_products(chain_id: int, expected: str) -> None:
+    """Keep Hot7 and Kimchi Premium distinct despite their shared address.
+
+    A checksum spelling must resolve the same reviewed strategy, while an
+    unknown chain must not inherit either investment mandate.
+
+    :param chain_id: Reviewed deployment chain.
+    :param expected: Distinguishing words in the strategy summary.
+    :return: ``None`` after checking chain isolation and casing.
+    """
+    address = "0xafd240a8e564ad34663b6c42475027ed083088a2"
+    vault = D2Vault(None, VaultSpec(chain_id, Web3.to_checksum_address(address)), features={ERC4626Feature.d2_like})
+    assert expected in vault.short_description
+    unknown = D2Vault(None, VaultSpec(1, address), features={ERC4626Feature.d2_like})
+    assert unknown.short_description == "Strategy details are unavailable for this vault."

@@ -96,11 +96,27 @@ For example:
 - The remaining **30% of fees on opening, closing and profitable trades** buys the
   protocol's token and permanently removes it from circulation.
 
-Keep superseded fee schedules and speculative roadmap changes in research
+Keep superseded fee schedules and detailed roadmap speculation in research
 notes. Include history in public descriptions only when it helps readers
 understand the current product, identify a former name or assess a material
 track record or loss. Include a scheduled future change when it affects a
 depositor's decision, clearly distinguishing it from current terms.
+
+## Do not repeat charts and metrics
+
+Do not narrate routine returns, performance paths, deposited amounts, capacity
+limits or trading-cycle dates already shown in the page's charts and metrics.
+For example, omit “The first epoch ran with $100,000 and generated a
+manager-reported 6% net return” and “A further cycle was announced for
+5 to 20 November, capped at 100,000 USDG”. Explain the investment, costs and
+risks instead. Retain material loss events or restrictions that need context,
+and risk policies such as a manager's loss limit; these are not chart summaries.
+
+Keep all relevant announcement links, each with a short sentence explaining
+what it introduced or changed. An update about performance can instead explain
+the costs or proposed strategy changes it discusses. Label proposals as plans,
+without presenting them as current investments. Do not preserve redundant
+figures merely to justify retaining their source link.
 
 ## Cover the facts that matter
 

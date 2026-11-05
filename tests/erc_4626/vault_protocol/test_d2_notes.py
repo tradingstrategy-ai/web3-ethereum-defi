@@ -174,3 +174,18 @@ def test_d2_incident_note_keeps_priority(monkeypatch: pytest.MonkeyPatch) -> Non
     vault = make_d2_vault(address)
     assert vault.get_notes() == "Manual incident warning"
     assert get_vault_special_flags(address, "D2 Finance") == {VaultFlag.illiquid, VaultFlag.withdrawal_restrictions}
+
+
+@pytest.mark.parametrize("chain_id,article", [(1, "hype-strategy-faq-654bc8d0efc9"), (8453, "hype-base-institutional-grade-defi-bdce160e66b6")])
+def test_d2_shared_address_article(chain_id: int, article: str) -> None:
+    """Select the deployment's announcement when an address is shared.
+
+    Ethereum HYPE++ Ethena and Base Alpha Strategies have different source
+    articles even though their contract addresses are identical.
+
+    :param chain_id: Reviewed deployment chain.
+    :param article: Expected Medium article slug.
+    :return: ``None`` after checking the adapter's note.
+    """
+    vault = D2Vault(None, VaultSpec(chain_id, "0x2406aacbdF8463176DeB285AdAa81768415B6c7E"), features={ERC4626Feature.d2_like})
+    assert f"https://medium.com/@D2.Finance/{article}" in vault.get_notes()

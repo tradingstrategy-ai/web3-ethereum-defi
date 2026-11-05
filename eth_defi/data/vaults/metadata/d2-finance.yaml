@@ -1,24 +1,22 @@
 name: D2 Finance
 slug: d2-finance
 short_description: |
-  Tokenised, actively managed derivatives strategies executed on-chain.
+  Actively managed vaults trading cryptoassets and traditional financial markets.
 long_description: |
-  D2 Finance is a multi-strategy platform for tokenised derivatives strategies executed on-chain.
-  The protocol combines DeFi-native trading infrastructure with TradFi-style risk controls to
-  offer actively managed stablecoin, BTC, ETH, RWA and tactical strategy vaults.
+  Deposits fund [trading strategies](https://d2.finance/strategies) across cryptoassets,
+  equities, commodities and currencies. Strategies can trade contracts tied to asset
+  prices, lend assets or supply money to trading pools.
+  The investments and risks differ between vaults.
 
-  D2 strategy vaults are ERC-4626-compatible user-facing vaults. Strategies run in epochs with
-  funding, trading and withdrawal phases. During the trading phase, the trading engine may take
-  custody of funds to execute the strategy mandate through D2's trader/OMS infrastructure.
+  Trading runs in cycles called [epochs](https://docs.d2.finance/docs/vault-design).
+  **Deposits and withdrawals close during trading**, when the trader may take custody
+  of the funds. Withdrawals reopen after the funds return and the cycle ends.
 
-  D2's own documentation states that d2.finance is not an investment firm, but a software platform
-  hosting vaults where the trading engine is provided by an external party. These vaults are
-  actively managed, derivative-heavy products and should be treated as high-risk strategy vaults,
-  not passive lending vaults.
+  The platform hosts vaults traded by an external trading team.
+  Trading losses, failures in underlying investments or contract bugs can result in
+  [loss of the entire deposit](https://docs.d2.finance/docs/disclaimer-and-restrictions).
 fee_description: |
-  D2 strategy fees are not exposed through standard on-chain ERC-4626 fee methods. D2 documentation
-  says vault fees are shown on the frontend fee tab; examples include 20% performance fees and
-  2% management fees. In this integration D2 share price is treated as fee-inclusive.
+  Fees depend on the vault and its strategy. The vault's strategy page lists its fee terms.
 links:
   homepage: https://d2.finance/
   app: https://d2.finance/strategies
