@@ -166,7 +166,7 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
     # 1. Create two sub-accounts for a master that already owns one.
     existing = LIGHTER_SUB_ACCOUNT_INDEX_START + 10
     client = FakeSignerClient(MASTER_INDEX)
-    mocker.patch.object(sub_account_module, "create_lighter_signer_client", side_effect=lambda *_args, **_kwargs: _require_event_loop(client))
+    factory = mocker.patch.object(sub_account_module, "create_lighter_signer_client", side_effect=lambda *_args, **_kwargs: _require_event_loop(client))
     session = FakeSession([_accounts_payload(existing), _accounts_payload(existing, SUB_1, SUB_2)])
     indices = create_lighter_sub_accounts(session=session, l1_address=OWNER, master_account_index=MASTER_INDEX, api_key_index=4, api_private_key="0x" + "22" * 40, count=2, timeout=1)  # type: ignore[arg-type]
 
@@ -174,6 +174,7 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
     assert indices == [SUB_1, SUB_2]
     assert client.created == 2
     assert client.closed
+    assert factory.call_args.kwargs["retry_policy"] is sub_account_module.LIGHTER_SDK_SLOW_TRANSACTION_POLICY
 
     # 3. Raise a public error when Lighter rejects a creation.
     rejecting_client = FakeSignerClient(MASTER_INDEX, reject=True)
@@ -217,12 +218,13 @@ def test_lighter_transfer_helpers_use_exact_amounts(mocker: MockerFixture) -> No
 
     # 1. Quote the transfer fee and submit a transfer with an amount that a naive float conversion truncates.
     fee = asyncio.run(fetch_lighter_transfer_fee(client, auth, to_account_index=SUB_1))
-    tx_hash = asyncio.run(request_lighter_transfer(client, to_account_index=SUB_1, amount=Decimal("1.005"), fee=fee, api_key_index=4))
+    tx_hash = asyncio.run(request_lighter_transfer(client, to_account_index=SUB_1, amount=Decimal("1.005"), fee=fee))
     sent = client.transfers[0]
     assert fee == Decimal(0)
     assert tx_hash == "0xtransfer"
     assert int(sent["amount"] * 10**6) == 1_005_000
-    assert (sent["fee"], sent["memo"], sent["to_account_index"], sent["api_key_index"]) == (0, LIGHTER_EMPTY_TRANSFER_MEMO, SUB_1, 4)
+    assert (sent["fee"], sent["memo"], sent["to_account_index"]) == (0, LIGHTER_EMPTY_TRANSFER_MEMO, SUB_1)
+    assert "api_key_index" not in sent
 
     # 2. Confirm the transfer from transfer history.
     record = asyncio.run(wait_for_lighter_transfer(client, auth, account_index=MASTER_INDEX, tx_hash=tx_hash, timeout=1))

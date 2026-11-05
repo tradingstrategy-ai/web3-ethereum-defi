@@ -75,7 +75,7 @@ from eth_defi.lighter.execution import (
     wait_for_pool_shares,
 )
 from eth_defi.lighter.lagoon import claim_usdc_to_lagoon_safe_from_lighter
-from eth_defi.lighter.sdk import import_lighter_sdk
+from eth_defi.lighter.sdk import create_lighter_signer_client
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
@@ -117,8 +117,8 @@ async def run_roundtrip() -> None:  # noqa: PLR0914
     create_activation_report(report)
     safe = LagoonSatelliteVault(web3, safe_address=deployment["safe_address"], trading_strategy_module_address=deployment["trading_strategy_module_address"])
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[1])
-    sdk = import_lighter_sdk()
-    signer = sdk.SignerClient(url="https://mainnet.zklighter.elliot.ai", account_index=key["account_index"], api_private_keys={key["api_key_index"]: key["private_key"]}, nonce_management_type=sdk.nonce_manager.NonceManagerType.NONE)
+    # The client only signs here, with nonces from the executor's protected reads.
+    signer = create_lighter_signer_client(key["account_index"], key["api_key_index"], key["private_key"])
     assert signer.chain_id == LIGHTER_SIGNING_CHAIN_ID, "Unexpected SDK signing network"
     logger.info("Funded pool lifecycle report: %s", report)
 

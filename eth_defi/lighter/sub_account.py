@@ -14,10 +14,17 @@ master account and the sequencer checks that the sub-account belongs to it.
 The number of sub-accounts depends on the master account's tier: Standard
 allows 4, Plus 16 and Premium 64.
 
+Lighter allows 2 ``L2CreateSubAccount`` requests per minute per L1 address, so
+creating more than two takes at least a minute for each further pair. The signer
+client's :py:data:`~eth_defi.lighter.session.LIGHTER_SDK_SLOW_TRANSACTION_POLICY`
+waits for the limit rather than failing: a 2026-11-04 mainnet deployment of four
+sub-accounts stopped on the third before this existed.
+
 Authoritative Lighter documentation:
 
 - Sub-accounts: https://docs.lighter.xyz/developers/integration-guides/create-accounts-programmatically.md
 - Account types and limits: https://docs.lighter.xyz/developers/reference/account-types.md
+- Rate limits: https://docs.lighter.xyz/developers/reference/rate-limits.md
 """
 
 import asyncio
@@ -26,9 +33,8 @@ import logging
 from eth_typing import HexAddress
 
 from eth_defi.lighter.api import fetch_lighter_accounts, wait_for_lighter_sub_accounts
-from eth_defi.lighter.constants import LIGHTER_API_URL
 from eth_defi.lighter.sdk import create_lighter_signer_client, is_lighter_tx_accepted
-from eth_defi.lighter.session import LighterSession
+from eth_defi.lighter.session import LIGHTER_SDK_SLOW_TRANSACTION_POLICY, LighterSession
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +69,20 @@ async def _submit_sub_account_creations(
     :param api_url:
         Lighter API base URL.
     """
-    client = create_lighter_signer_client(master_account_index, api_key_index, api_private_key, api_url=api_url)
+    client = create_lighter_signer_client(
+        master_account_index,
+        api_key_index,
+        api_private_key,
+        api_url=api_url,
+        retry_policy=LIGHTER_SDK_SLOW_TRANSACTION_POLICY,
+    )
     try:
         for number in range(1, count + 1):
             # Do not pass api_key_index: the SDK's nonce manager then assigns
-            # consecutive nonces locally. With an explicit key slot the signer
-            # fetches the next nonce from the API for every transaction, which
-            # can repeat a nonce while the previous creation is still queued.
+            # consecutive nonces locally. With an explicit key slot the native
+            # signer fetches the next nonce from the API for every transaction,
+            # which can repeat a nonce while the previous creation is still
+            # queued, and bypasses the retrying HTTP session.
             _tx_info, response, error = await client.create_sub_account()
             if not is_lighter_tx_accepted(response, error):
                 raise LighterSubAccountError(f"Lighter rejected sub-account creation {number} of {count}")
@@ -87,7 +100,6 @@ def create_lighter_sub_accounts(
     api_private_key: str,
     count: int,
     timeout: int = 300,
-    api_url: str = LIGHTER_API_URL,
 ) -> list[int]:
     """Create sub-accounts under a master account and return their indices.
 
@@ -98,7 +110,7 @@ def create_lighter_sub_accounts(
     before retrying after a failure.
 
     :param session:
-        Public Lighter HTTP session.
+        Public Lighter HTTP session. Its API URL also receives the transactions.
     :param l1_address:
         L1 address, normally a Lagoon Safe, owning the master account.
     :param master_account_index:
@@ -111,8 +123,6 @@ def create_lighter_sub_accounts(
         Number of sub-accounts to create.
     :param timeout:
         Maximum seconds to wait for the sub-accounts to become visible.
-    :param api_url:
-        Lighter API base URL.
     :return:
         New sub-account indices in creation order.
     """
@@ -124,7 +134,7 @@ def create_lighter_sub_accounts(
         raise LighterSubAccountError(f"L1 address {l1_address} does not own Lighter master account {master_account_index}")
     existing_indices = set(existing.sub_account_indices)
 
-    asyncio.run(_submit_sub_account_creations(master_account_index, api_key_index, api_private_key, count, api_url))
+    asyncio.run(_submit_sub_account_creations(master_account_index, api_key_index, api_private_key, count, session.api_url))
 
     accounts = wait_for_lighter_sub_accounts(session, l1_address, len(existing_indices) + count, timeout=timeout)
     new_indices = [index for index in accounts.sub_account_indices if index not in existing_indices]

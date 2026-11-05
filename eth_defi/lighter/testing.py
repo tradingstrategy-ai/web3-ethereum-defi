@@ -8,7 +8,9 @@ See ``eth_defi/lighter/README-lighter-guard.md`` and
 ``tests/guard/test_guard_lighter_lagoon.py``.
 """
 
+import ast
 import logging
+from pathlib import Path
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -20,6 +22,21 @@ from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
+
+#: SDK methods that fetch a nonce over the native signer's HTTP client when given
+#: ``api_key_index`` without ``nonce``.
+LIGHTER_SDK_TRANSACTION_METHODS = frozenset(
+    {
+        "cancel_order",
+        "create_market_order",
+        "create_market_order_limited_slippage",
+        "create_order",
+        "create_sub_account",
+        "transfer",
+        "transfer_same_master_account",
+        "withdraw",
+    }
+)
 
 #: Storage slot of ``ZkLighter.addressToAccountIndex`` (``mapping(address => uint48)``).
 #:
@@ -171,3 +188,40 @@ def credit_lighter_pending_balance_on_anvil(
     )
     assert zk.functions.getPendingBalance(owner, asset_index).call() == new_balance, "Failed to forge Lighter pending balance"
     return new_balance
+
+
+def find_lighter_session_bypasses(paths: list[Path]) -> list[str]:
+    """Find Lighter calls that skip the retrying sessions.
+
+    The official SDK's clients have no backoff, and neither does the native signer
+    behind ``check_client()`` or behind a transaction method called with
+    ``api_key_index`` but no ``nonce``. Downstream repositories run this in a test,
+    so a new caller fails CI rather than a deployment. It reads the syntax tree, so
+    docstrings do not match and a call's line layout does not matter.
+
+    :param paths:
+        Python files to inspect.
+    :return:
+        One ``path:line: reason`` entry per bypass.
+    """
+    findings = []
+    for path in paths:
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            function = node.func
+            name = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", None)
+            owner = getattr(getattr(function, "value", None), "id", None)
+            keywords = {keyword.arg for keyword in node.keywords}
+            if name in {"SignerClient", "ApiClient"}:
+                reason = f"constructs {name} without a factory"
+            elif name == "check_client":
+                reason = "uses the native signer's HTTP client"
+            elif owner == "requests" and name in {"get", "post", "request", "Session"}:
+                reason = f"calls requests.{name}"
+            elif name in LIGHTER_SDK_TRANSACTION_METHODS and "api_key_index" in keywords and "nonce" not in keywords:
+                reason = f"{name} fetches its nonce over the native signer's HTTP client"
+            else:
+                continue
+            findings.append(f"{path}:{node.lineno}: {reason}")
+    return findings

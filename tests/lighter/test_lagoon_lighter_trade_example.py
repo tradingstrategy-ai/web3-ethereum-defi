@@ -36,21 +36,16 @@ class FakeSignerClient:
 
     instance = None
 
-    def __init__(self, **kwargs: Any) -> None:
-        self.constructor_kwargs = kwargs
+    def __init__(self, *args: Any) -> None:
+        self.constructor_args = args
         self.orders: list[dict] = []
         self.closed = False
         type(self).instance = self
 
-    @staticmethod
-    def check_client() -> None:
-        """Accept the registered mock API key."""
-        return None
-
     async def create_market_order_limited_slippage(self, **kwargs: Any) -> tuple[SimpleNamespace, SimpleNamespace, None]:
         """Record one signed market order."""
         self.orders.append(kwargs)
-        return SimpleNamespace(order="signed"), SimpleNamespace(tx_hash="0x1234"), None
+        return SimpleNamespace(order="signed"), SimpleNamespace(code=200, tx_hash="0x1234"), None
 
     async def close(self) -> None:
         """Record SDK client cleanup."""
@@ -157,7 +152,7 @@ async def test_trade_eth_roundtrip_uses_deployment_api_key_and_closes_fill(monke
         return next(positions)
 
     monkeypatch.setattr(tutorial, "wait_for_eth_position", fake_wait_for_eth_position)
-    lighter = SimpleNamespace(SignerClient=FakeSignerClient)
+    monkeypatch.setattr(tutorial, "create_lighter_signer_client", FakeSignerClient)
     setup = LighterAccountSetup(
         account_index=123,
         api_key_index=API_KEY_INDEX,
@@ -178,19 +173,15 @@ async def test_trade_eth_roundtrip_uses_deployment_api_key_and_closes_fill(monke
         min_base_amount=Decimal("0.0050"),
     )
 
-    await tutorial.trade_eth_roundtrip(lighter, object(), setup, plan, Decimal("0.02"))
+    await tutorial.trade_eth_roundtrip(object(), setup, plan, Decimal("0.02"))
 
     client = FakeSignerClient.instance
-    assert client.constructor_kwargs == {
-        "url": tutorial.LIGHTER_API_URL,
-        "account_index": 123,
-        "api_private_keys": {API_KEY_INDEX: setup.private_key},
-    }
+    assert client.constructor_args == (123, API_KEY_INDEX, setup.private_key)
     assert client.orders[0]["base_amount"] == OPEN_BASE_AMOUNT
     assert client.orders[0]["is_ask"] is False
-    assert client.orders[0]["api_key_index"] == API_KEY_INDEX
+    assert "api_key_index" not in client.orders[0]
     assert client.orders[1]["base_amount"] == FILLED_BASE_AMOUNT
     assert client.orders[1]["is_ask"] is True
     assert client.orders[1]["reduce_only"] is True
-    assert client.orders[1]["api_key_index"] == API_KEY_INDEX
+    assert "api_key_index" not in client.orders[1]
     assert client.closed is True

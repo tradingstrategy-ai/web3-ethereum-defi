@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Give every Lighter API call exponential backoff with `LighterSDKSession` for the official SDK and `create_lighter_submission_session()` for persisted transactions, treat HTTP 405 as a rate limit, let sub-account creation wait out the 2-per-minute limit that stopped a four-sub-account deployment, and remove the unused `api_url` argument of `create_lighter_sub_accounts()` and `api_key_index` of `request_lighter_transfer()` (2026-11-05).
 - fix: Publish handwritten Veranta vault descriptions through the vault adapter and a targeted metadata migration; require per-vault handwritten copy for protocols with fewer than 10 supported vaults (2026-11-05, [#1728](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728)).
 - feat: Add Veranta (formerly Avantis) avUSDC classification, guarded deposits and redemptions, protocol curator attribution, fee and admission metadata, a Severe technical risk assessment, artwork and a targeted metadata migration (2026-11-04, [#1725](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1725)).
 - fix: Parse Lighter pool `entry_timestamp` as Unix milliseconds and end withdrawal history on an empty page, as observed on a funded mainnet pool round trip (2026-11-03).

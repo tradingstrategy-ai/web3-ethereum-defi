@@ -23,13 +23,12 @@ from dataclasses import asdict, dataclass, field
 from decimal import ROUND_DOWN, Decimal
 from typing import Any, Callable, Protocol
 
-import requests
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.lighter.api import LIGHTER_COLLATERAL_TOLERANCE, LIGHTER_MIN_MAINNET_USDC
 from eth_defi.lighter.constants import LIGHTER_API_URL, LIGHTER_CHAIN_ID, LIGHTER_ETHEREUM, LIGHTER_USDC_ETHEREUM
 from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX
-from eth_defi.lighter.session import LighterSession
+from eth_defi.lighter.session import LighterSession, create_lighter_submission_session
 from eth_defi.lighter.valuation import LighterEquity, _parse_decimal, fetch_lighter_account_by_index, parse_lighter_account_equity
 from eth_defi.lighter.vault import fetch_system_config
 from eth_defi.token import TokenDetails
@@ -500,7 +499,8 @@ class LighterPoolExecutor:
         """Submit once; acceptance never marks execution as confirmed.
 
         Any uncertain transport outcome remains blocked for reconciliation.
-        A fresh HTTP session with no retry adapter prevents automatic POST replay.
+        The submission session resends these signed bytes only when Lighter
+        refuses them with a rate limit, so an uncertain outcome is never replayed.
 
         :param operation: This executor's prepared and persisted transaction.
         """
@@ -508,9 +508,8 @@ class LighterPoolExecutor:
             assert operation is self._pending and operation.stage == LighterOperationStage.prepared
             operation.stage = LighterOperationStage.unknown
             self.persist(operation)
-            # A plain requests session prevents custom read retry adapters from replaying mutations.
-            with requests.Session() as submission:
-                response = submission.post(f"{self.session.api_url}/api/v1/sendTx", data={"tx_type": operation.tx_type, "tx_info": operation.tx_info}, timeout=30, allow_redirects=False)
+            with create_lighter_submission_session(self.session.api_url, self.session.deployment) as submission:
+                response = submission.post(f"{self.session.api_url}/api/v1/sendTx", data={"tx_type": operation.tx_type, "tx_info": operation.tx_info}, allow_redirects=False)
             # The API uses HTTP 400 for explicit transaction rejections.
             # Other HTTP failures leave the outcome uncertain.
             if response.status_code != 400:  # noqa: PLR2004
