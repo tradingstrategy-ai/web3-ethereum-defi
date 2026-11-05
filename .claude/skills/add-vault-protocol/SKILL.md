@@ -36,6 +36,22 @@ and retain its ending punctuation; never copy several sentences into a summary.
 Preserve the wording within that sentence. Protocol-level Markdown fields
 below follow the same paragraph rules as full vault descriptions.
 
+For protocols with **1–9 known supported vaults across all chains**, add
+researched, handwritten short and full descriptions for **every covered vault**,
+not just the example deployment. Use the existing address-scoped handwritten
+metadata workflow and expose the copy through the adapter's `description` and
+`short_description` accessors. Protocol or curator descriptions do not satisfy
+this requirement: they do not populate an individual vault's "About the vault".
+Leave undisclosed strategy details explicitly unknown rather than substituting
+generic protocol claims. This is a maintained-content requirement, not a
+runtime threshold that removes copy when the protocol grows.
+
+Check the actual scanner record and individual vault JSON export for both
+description fields, including Markdown and a single-line plain-text summary.
+A successful protocol metadata/logo export test alone is insufficient. Add a
+new numbered migration when existing persisted vault descriptions need repair;
+do not edit or rerun a previously successful migration.
+
 Protocol metadata YAML is public website copy for a general audience. The
 `short_description`, `long_description` and `fee_description` fields must
 explain the product, not this repository's integration.
@@ -86,6 +102,9 @@ A new vault protocol integration is not complete unless it includes:
 - Deposit manager and public deposit/redemption flow capability, backed by a guarded fork transaction test
 - Risk and fee matrix entries
 - Protocol metadata YAML under `eth_defi/data/vaults/metadata/`
+- Handwritten short and full vault descriptions for each covered deployment
+  when the protocol has fewer than 10 known supported vaults, with scanner and
+  individual vault export coverage separate from protocol metadata tests
 - Original and post-processed protocol logos
 - A post-processed `light.png`: a light-coloured logo that remains legible on
   the frontend's dark backgrounds
