@@ -159,13 +159,42 @@ USDC and credits the Safe's Lighter account.
 
 Funds are released onchain directly to the Safe address.
 
+### Lighter's relayer may claim for you
+
+`withdrawPendingBalance(owner, ...)` is permissionless and always pays `owner`.
+Lighter runs a relayer that claims for many owners in one transaction, so step 2
+may happen without us. On 2026-11-05 two mainnet withdrawals reached a Safe about
+26 and 31 minutes after their requests, in relayer transactions, while another that
+day waited for our claim. We don't know when the relayer chooses to act. Three
+things follow:
+
+- **The pending balance may never be seen.** Waiting for it alone can time out with
+  the money already in the Safe.
+- **Our claim can revert.** If the relayer goes first, `withdrawPendingBalance`
+  reverts with `ZkLighter_InvalidWithdrawAmount`. That is not a lost withdrawal.
+- **A withdrawal history row can go straight to `completed`.** It may never be seen
+  as `claimable`.
+
+The reliable evidence is the `WithdrawPending(owner, assetIndex, amount)` event,
+which every claim emits. The Safe's USDC balance is not, because Lagoon settlement
+moves it too. Record the pending balance and the block just before the request, then
+use `wait_for_lighter_withdrawal()`, which returns `True` if the money has already
+been paid and `False` if it is waiting for a claim. After a reverted claim, check
+`is_lighter_withdrawal_paid()`. `fetch_lighter_claimed_usdc()` reads the event in
+chunks, because a mainnet provider refused 1000-block `eth_getLogs` ranges.
+
+The event names the owner, not the withdrawal, so this assumes one withdrawal at a
+time per owner. The executor runs them sequentially, but a sub-account trader
+withdrawing with their own key at the same moment could be mistaken for ours.
+
 ### Secure withdrawal delay and Safe limitation
 
 The secure-withdrawal delay is dynamic. Query
 `eth_defi.lighter.api.fetch_lighter_withdrawal_delay()` immediately before
 requesting a withdrawal to obtain Lighter's current value in seconds. It is an
 operator estimate, not a settlement guarantee: a claim is valid only once the
-matching `withdraw_history` entry reports `claimable`.
+matching `withdraw_history` entry reports `claimable`, and it can then still lose
+the race with Lighter's relayer.
 
 Lighter also offers a fast USDC withdrawal. It requires the L1 account's
 Ethereum EOA private key. A Lagoon owner is a Safe contract, not an EOA, and
@@ -285,6 +314,48 @@ Safe) back it.
 
 ## Sub-accounts
 
+### Limits
+
+Limits for Lighter on Ethereum, from the
+[account types page](https://docs.lighter.xyz/developers/reference/account-types.md)
+and
+[Lighter's frontend](https://github.com/elliottech/lighter-ts/blob/main/src/utils/getMaxSubAccountCount.ts),
+read on 2026-11-05:
+
+| Tier | Sub-accounts |
+|------|--------------|
+| Standard, the default | 4 |
+| Plus | 16 |
+| Premium and Advanced | 64 |
+
+- Sub-accounts and public pools both count towards the limit. The master does not.
+  Only the frontend states this, in a comment saying it mirrors the backend config.
+- Sub-accounts share the tier of the owner's L1 address.
+- Lighter documents no way to delete a sub-account, so assume a slot stays used.
+- Creation is limited to 2 `L2CreateSubAccount` requests per minute per L1 address,
+  and a rejected request counts too.
+- Lighter on Robinhood Chain has different limits.
+
+**A master holding no funds was refused with slots free.** Lighter returned
+`21129 too many sub accounts` for a third sub-account, and doesn't document this.
+Measured on one Safe-owned Standard master on 2026-11-05, with empty sub-accounts:
+
+| Master balance | Existing sub-accounts | Result |
+|----------------|-----------------------|--------|
+| 0 USDC | 2 | `21129` |
+| 10 USDC | 2 | Accepted |
+| 1 USDC | 3 | Accepted |
+| 1 USDC | 4 | `21129` |
+
+So `21129` can mean the account is full or that the master holds no funds. The
+sub-accounts themselves need no funds or API keys. Three things were not measured:
+the smallest balance that works, whether an empty master can create any sub-account,
+and whether this applies to every owner type. A Lagoon deployment keeps its
+activation deposit on the master while it creates sub-accounts, so it isn't affected.
+Fund the master before adding a sub-account later.
+
+### Creating and funding
+
 A Safe-owned master account can own sub-accounts, each with its own
 balances, positions and API-key slots. This lets one vault give each external
 trading strategy its own isolated account and key. No guard change is needed.
@@ -338,7 +409,7 @@ Helpers:
 - `eth_defi.lighter.transfer` quotes, submits and confirms same-owner
   transfers
 - `eth_defi.lighter.lagoon.request_usdc_withdrawal_from_lighter_account()`
-  and `wait_for_lighter_pending_balance()` run the key-free withdrawal
+  and `wait_for_lighter_withdrawal()` run the key-free withdrawal
 - `deploy_automated_lagoon_vault(..., lighter_sub_account_count=N)` creates
   and keys N sub-accounts during activation; the sub-account private keys are
   never written to deployment reports, see

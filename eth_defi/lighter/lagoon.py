@@ -16,6 +16,22 @@ permits the L1 claim. Secure withdrawals and direct Ethereum deposits have a
 1 USDC minimum. Fast withdrawals (4 USDC minimum) require the L1 account's EOA
 private key and are not available to a contract-owned Safe.
 
+``withdrawPendingBalance(owner, ...)`` is permissionless and always pays
+``owner``, and Lighter runs a relayer that claims in batches for many owners. A
+withdrawal can therefore reach the Safe with no claim from us, and never appear
+as a pending balance for long. On 2026-11-05 two mainnet withdrawals were paid
+this way about 26 and 31 minutes after their requests, while another that day
+waited for our claim. When the relayer wins, our own claim reverts with
+``ZkLighter_InvalidWithdrawAmount``, although the money has arrived. Do not treat
+a missing pending balance or a reverted claim as a lost withdrawal: use
+:py:func:`wait_for_lighter_withdrawal` and :py:func:`is_lighter_withdrawal_paid`,
+which read the ``WithdrawPending`` event that every claim emits. The Safe's USDC
+balance is not evidence, because Lagoon settlement moves it too.
+
+The event names the owner, not the withdrawal, so these functions assume one
+withdrawal at a time per owner. The executor runs them sequentially. A sub-account
+trader withdrawing with their own key at the same moment could be mistaken for ours.
+
 Authoritative Lighter deposit and withdrawal documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
@@ -42,6 +58,16 @@ logger = logging.getLogger(__name__)
 
 #: Gas limit for an L1 ``withdraw`` priority request wrapped by the Lagoon module.
 LIGHTER_L1_WITHDRAW_GAS_LIMIT = 500_000
+
+#: Topic of ``ZkLighter.WithdrawPending(address indexed owner, uint16 assetIndex, uint128 amount)``.
+#:
+#: Our ABI file omits events, so the log is decoded by hand. Every
+#: ``withdrawPendingBalance`` call emits it, whoever sends the transaction.
+LIGHTER_WITHDRAW_PENDING_TOPIC = Web3.keccak(text="WithdrawPending(address,uint16,uint128)").to_0x_hex()
+
+#: Blocks in one ``eth_getLogs`` request. A mainnet provider refused 1000 and
+#: accepted 500 blocks on 2026-11-05.
+LIGHTER_LOG_CHUNK_BLOCKS = 250
 
 
 def broadcast_tx(
@@ -317,6 +343,195 @@ def request_usdc_withdrawal_from_lighter_account(
     )
 
 
+def fetch_lighter_withdrawal_baseline(
+    web3: Web3,
+    *,
+    owner: HexAddress | str,
+    usdc: TokenDetails,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> tuple[int, Decimal]:
+    """Record where a withdrawal starts, just before requesting it.
+
+    :py:func:`wait_for_lighter_withdrawal` needs both values from one block.
+    Otherwise a relayer claim landing between two reads would go uncounted, and
+    the wait could run out.
+
+    :param web3:
+        Ethereum connection.
+    :param owner:
+        L1 owner, normally the Lagoon Safe.
+    :param usdc:
+        Native Ethereum USDC token details.
+    :param zk_lighter:
+        ZkLighter L1 contract address.
+    :return:
+        First block to read claims from, and the pending balance before it.
+    """
+    block = web3.eth.block_number
+    return block + 1, fetch_lighter_pending_balance(web3, owner=owner, usdc=usdc, zk_lighter=zk_lighter, block_identifier=block)
+
+
+def fetch_lighter_claimed_usdc(
+    web3: Web3,
+    *,
+    owner: HexAddress | str,
+    usdc: TokenDetails,
+    from_block: int,
+    to_block: int | None = None,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> Decimal:
+    """Read how much USDC Lighter has paid to an owner since a block.
+
+    Counts every ``withdrawPendingBalance`` paying ``owner``, sent by us or by
+    Lighter's relayer. The log is the only evidence that names the payout: the
+    owner's USDC balance also moves with deposits and Lagoon settlement. The range
+    is read in chunks, because providers limit ``eth_getLogs``, and stops at the
+    chain head, which they refuse to pass.
+
+    This is a bounded live read of one owner's recent blocks, not event discovery,
+    so it uses the executor's JSON-RPC connection. Hypersync would add a dependency
+    and an API key to a step that real withdrawals wait on.
+
+    :param web3:
+        Ethereum connection.
+    :param owner:
+        L1 owner, normally the Lagoon Safe.
+    :param usdc:
+        Native Ethereum USDC token details.
+    :param from_block:
+        First block to include.
+    :param to_block:
+        Last block to include, capped at the current head. Defaults to the head.
+    :param zk_lighter:
+        ZkLighter L1 contract address.
+    :return:
+        USDC paid to ``owner`` in the range.
+    """
+    zk_lighter = Web3.to_checksum_address(zk_lighter)
+    zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
+    asset_index = zk.functions.USDC_ASSET_INDEX().call()
+    owner_topic = "0x" + bytes.fromhex(Web3.to_checksum_address(owner)[2:]).rjust(32, b"\0").hex()
+    head = web3.eth.block_number
+    last_block = head if to_block is None else min(to_block, head)
+    paid_raw = 0
+    # TODO: Switch to Hypersync.
+    for start in range(from_block, last_block + 1, LIGHTER_LOG_CHUNK_BLOCKS):
+        logs = web3.eth.get_logs(
+            {
+                "address": zk_lighter,
+                "topics": [LIGHTER_WITHDRAW_PENDING_TOPIC, owner_topic],
+                "fromBlock": start,
+                "toBlock": min(start + LIGHTER_LOG_CHUNK_BLOCKS - 1, last_block),
+            }
+        )
+        for log in logs:
+            data = bytes(log["data"])
+            if int.from_bytes(data[:32], "big") == asset_index:
+                paid_raw += int.from_bytes(data[32:64], "big")
+    return usdc.convert_to_decimals(paid_raw)
+
+
+def is_lighter_withdrawal_paid(
+    web3: Web3,
+    *,
+    owner: HexAddress | str,
+    usdc: TokenDetails,
+    amount: Decimal,
+    pending_before: Decimal,
+    from_block: int,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> bool:
+    """Check whether a withdrawal has reached the owner without our claim.
+
+    Use this before claiming, and after a claim reverts, because Lighter's relayer
+    may have claimed first. Take both baseline values from
+    :py:func:`fetch_lighter_withdrawal_baseline`. Any balance that was already
+    pending is paid first, so it has to be covered too.
+
+    :param web3:
+        Ethereum connection.
+    :param owner:
+        L1 owner, normally the Lagoon Safe.
+    :param usdc:
+        Native Ethereum USDC token details.
+    :param amount:
+        Requested withdrawal.
+    :param pending_before:
+        Pending balance read just before the request.
+    :param from_block:
+        First block after that read.
+    :param zk_lighter:
+        ZkLighter L1 contract address.
+    :return:
+        ``True`` if claims since ``from_block`` cover the withdrawal.
+    """
+    claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter)
+    return claimed >= pending_before + amount
+
+
+def wait_for_lighter_withdrawal(
+    web3: Web3,
+    *,
+    owner: HexAddress | str,
+    usdc: TokenDetails,
+    amount: Decimal,
+    pending_before: Decimal,
+    from_block: int,
+    timeout: float,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    poll_seconds: float = LIGHTER_STATE_POLL_SECONDS,
+) -> bool:
+    """Wait until a withdrawal is claimable or has already been paid.
+
+    Waiting for the pending balance alone can run forever, because Lighter's
+    relayer may empty it between two polls. This also counts what was claimed since
+    the request. Claims are read before the balance: a claim landing between the
+    two reads then delays the result by one poll instead of counting twice.
+
+    :param web3:
+        Ethereum connection.
+    :param owner:
+        L1 owner, normally the Lagoon Safe.
+    :param usdc:
+        Native Ethereum USDC token details.
+    :param amount:
+        Requested withdrawal.
+    :param pending_before:
+        Pending balance read just before the request.
+    :param from_block:
+        First block after that read.
+    :param timeout:
+        Maximum seconds to wait.
+    :param zk_lighter:
+        ZkLighter L1 contract address.
+    :param poll_seconds:
+        Seconds between reads.
+    :return:
+        ``True`` if the withdrawal has already been paid and must not be claimed,
+        ``False`` if it is waiting for a claim.
+    :raises TimeoutError:
+        If neither happens in time, which includes a withdrawal left partly claimed.
+        The withdrawal may still arrive later.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter)
+        if claimed >= pending_before + amount:
+            logger.info("Lighter withdrawal of %s USDC to %s was paid without our claim", amount, owner)
+            return True
+        pending = fetch_lighter_pending_balance(web3, owner=owner, usdc=usdc, zk_lighter=zk_lighter)
+        # What remains of the older balance, plus all of this withdrawal. A partly
+        # claimed withdrawal does not qualify: claiming it in full would revert.
+        if pending >= max(pending_before - claimed, Decimal(0)) + amount:
+            logger.info("Lighter withdrawal of %s USDC to %s is claimable", amount, owner)
+            return False
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Lighter withdrawal of {amount} USDC to {owner} did not arrive within {timeout} seconds")
+        logger.info("Waiting for Lighter withdrawal of %s USDC, claimed %s, pending %s, %.0f seconds remaining", amount, claimed, pending, remaining)
+        time.sleep(min(poll_seconds, remaining))
+
+
 def wait_for_lighter_pending_balance(
     web3: Web3,
     *,
@@ -333,6 +548,10 @@ def wait_for_lighter_pending_balance(
     batch containing it, after its dynamic secure-withdrawal delay; about 29
     minutes for a mainnet sub-account withdrawal on 2026-10-26. This polls the
     contract only, so it needs no API key.
+
+    Lighter's relayer can claim first, in which case this times out with the money
+    already paid. Use it only where nothing else can claim, such as on a fork.
+    Otherwise use :py:func:`wait_for_lighter_withdrawal`.
 
     :param web3:
         Ethereum connection.

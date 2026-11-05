@@ -33,6 +33,8 @@ Missing required equity or holdings fields raises an error on this execution pat
 
 After confirmed pool redemption, wait for available collateral. `prepare_secure_withdrawal()` validates the available monetary amount and signs the secure USDC request. Submit/reconcile it separately. Fetch authenticated withdrawal history and identify the matching history ID from execution evidence; do not select a withdrawal merely because its amount or timestamp looks similar. `wait_for_claimable_withdrawal()` uses the exact ID, bounded logged polling and a refreshable read-only token callback. Claim the returned actual `amount` through `claim_usdc_to_lagoon_safe_from_lighter()`; fees/precision may make it differ from the request.
 
+Lighter's relayer can claim a withdrawal before we do, so a history row may go to `completed` without being seen as `claimable`, and our claim can revert. See [the guard guide](../eth_defi/lighter/README-lighter-guard.md#lighters-relayer-may-claim-for-you).
+
 `request_usdc_withdrawal_from_lighter_account()` sends the existing guarded L1 recovery request; `fetch_lighter_pending_balance()` reads the owner’s settled claimable balance. It still requires separate settlement and claim. Neither route uses fast withdrawals, which require an L1 EOA key unavailable to a Safe. The delay estimate is dynamic, as described in [Lighter's withdrawal documentation](https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals).
 
 ## Protected progress and manual recovery

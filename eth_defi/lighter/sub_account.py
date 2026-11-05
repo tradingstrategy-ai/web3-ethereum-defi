@@ -12,13 +12,37 @@ After creation, register an API key on each sub-account with the L1
 master account and the sequencer checks that the sub-account belongs to it.
 
 The number of sub-accounts depends on the master account's tier: Standard
-allows 4, Plus 16 and Premium 64.
+allows 4, Plus 16 and Premium 64. Sub-accounts and public pools both count towards
+it and the master does not, according to the ``MaxSubAccountCount`` comment in
+`Lighter's frontend
+<https://github.com/elliottech/lighter-ts/blob/main/src/utils/getMaxSubAccountCount.ts>`__.
+Lighter documents no way to delete a sub-account, so assume a failed deployment's
+sub-accounts keep their slots on that master.
 
-Lighter allows 2 ``L2CreateSubAccount`` requests per minute per L1 address, so
-creating more than two takes at least a minute for each further pair. The signer
-client's :py:data:`~eth_defi.lighter.session.LIGHTER_SDK_SLOW_TRANSACTION_POLICY`
-waits for the limit rather than failing: a 2026-11-04 mainnet deployment of four
-sub-accounts stopped on the third before this existed.
+A Safe-owned Standard master holding no funds was refused a third sub-account with
+``21129 too many sub accounts``, which Lighter does not document. Measured on one
+master on 2026-11-05 with empty sub-accounts:
+
+=============== ===================== ==================
+Master balance  Existing sub-accounts Result
+=============== ===================== ==================
+0 USDC          2                     ``21129``
+10 USDC         2                     Accepted
+1 USDC          3                     Accepted
+1 USDC          4                     ``21129``
+=============== ===================== ==================
+
+So keep at least 1 USDC on the master while creating sub-accounts. The sub-accounts
+themselves need no funds or API keys first. A Lagoon deployment does this by keeping
+its activation deposit on the master. The smallest balance that works, and whether
+an empty master can create any sub-account at all, were not measured.
+
+Lighter allows 2 ``L2CreateSubAccount`` requests per minute per L1 address, and a
+rejected request counts too, so creating more than two takes at least a minute for
+each further pair. The signer client's
+:py:data:`~eth_defi.lighter.session.LIGHTER_SDK_SLOW_TRANSACTION_POLICY` waits for
+the limit rather than failing: a 2026-11-04 mainnet deployment of four sub-accounts
+stopped on the third before this existed.
 
 Authoritative Lighter documentation:
 
@@ -40,6 +64,10 @@ logger = logging.getLogger(__name__)
 
 #: Highest sub-account count any Lighter account tier allows.
 LIGHTER_MAX_SUB_ACCOUNTS = 64
+
+
+#: Lighter's ``AppErrTooManySubAccounts``, which a master holding no funds also received.
+LIGHTER_TOO_MANY_SUB_ACCOUNTS_ERROR = "21129"
 
 
 class LighterSubAccountError(RuntimeError):
@@ -85,7 +113,10 @@ async def _submit_sub_account_creations(
             # queued, and bypasses the retrying HTTP session.
             _tx_info, response, error = await client.create_sub_account()
             if not is_lighter_tx_accepted(response, error):
-                raise LighterSubAccountError(f"Lighter rejected sub-account creation {number} of {count}")
+                # The reason arrives in either place, and holds no key material.
+                reason = str(error) if error is not None else f"code={getattr(response, 'code', None)} message={getattr(response, 'message', None)}"
+                hint = " A master holding no funds also got this error." if LIGHTER_TOO_MANY_SUB_ACCOUNTS_ERROR in reason else ""
+                raise LighterSubAccountError(f"Lighter rejected sub-account creation {number} of {count}: {reason}.{hint}")
             logger.info("Lighter sub-account creation %d of %d accepted, tx %s", number, count, response.tx_hash)
     finally:
         await client.close()

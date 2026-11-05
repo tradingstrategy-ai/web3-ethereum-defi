@@ -197,6 +197,11 @@ async def run_roundtrip() -> None:  # noqa: PLR0914
                 time.sleep(5)
             row = wait_for_claimable_withdrawal(session, identity.account_index, withdrawal_id, auth, timeout=max(3600, delay + 1800))
             claimable = Decimal(row["amount"])
+            if row["status"] == "completed":
+                # Lighter's relayer claimed first, so a claim of our own would revert.
+                record_activation(report, "complete", claimed_usdc=str(claimable), paid_by_relayer=True)
+                logger.info("Lifecycle complete: minted/burned %d raw shares, Lighter paid %s USDC to Safe", mint.amount, claimable)
+                return
             before = usdc.fetch_balance_of(safe.safe_address)
             record_activation(report, "claim_started", withdrawal_id=withdrawal_id, claimable_usdc=str(claimable), nonce=wallet.current_nonce)
             claim_hash = claim_usdc_to_lagoon_safe_from_lighter(web3, wallet, vault=safe, usdc=usdc, claimable_usdc=claimable, tx_observer=lambda tx_hash, nonce, description: record_activation(report, "claim_signed", tx_hash=tx_hash, nonce=nonce, description=description))
