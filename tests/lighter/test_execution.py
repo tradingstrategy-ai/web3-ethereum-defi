@@ -283,6 +283,9 @@ def test_wait_claimable_uses_actual_amount(monkeypatch: pytest.MonkeyPatch, sess
     """Claimable proceeds can differ from the originally requested collateral."""
     monkeypatch.setattr(ex, "fetch_matching_withdrawal", lambda *_: {"status": "claimable", "amount": "0.998"})
     assert ex.wait_for_claimable_withdrawal(session, 123, "id", lambda: "secret")["amount"] == "0.998"
+    # Lighter's relayer can claim first, so the row is returned for the caller to skip the claim.
+    monkeypatch.setattr(ex, "fetch_matching_withdrawal", lambda *_: {"status": "completed", "amount": "0.998"})
+    assert ex.wait_for_claimable_withdrawal(session, 123, "id", lambda: "secret")["status"] == "completed"
     monkeypatch.setattr(ex, "fetch_matching_withdrawal", lambda *_: {"status": "pending", "amount": "1"})
     with pytest.raises(TimeoutError):
         ex.wait_for_claimable_withdrawal(session, 123, "id", lambda: "secret", timeout=0)
@@ -304,7 +307,7 @@ def test_withdrawal_snapshot_includes_older_pending_requests(monkeypatch: pytest
     assert [row["id"] for row in ex.fetch_withdrawals(session, 123, "secret")] == ["old"]
 
 
-@pytest.mark.parametrize("status", ["failed", "refunded", "completed"])
+@pytest.mark.parametrize("status", ["failed", "refunded"])
 def test_wait_claimable_stops_on_terminal_status(monkeypatch: pytest.MonkeyPatch, session: Mock, status: str) -> None:
     """A terminal history record needs reconciliation instead of more polling."""
     monkeypatch.setattr(ex, "fetch_matching_withdrawal", lambda *_: {"status": status, "amount": "1"})

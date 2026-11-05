@@ -183,6 +183,28 @@ def test_create_lighter_sub_accounts_signs_with_master_key(mocker: MockerFixture
         create_lighter_sub_accounts(session=FakeSession([_accounts_payload()]), l1_address=OWNER, master_account_index=MASTER_INDEX, api_key_index=4, api_private_key="0x" + "22" * 40, count=1, timeout=1)  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    ("response", "error"),
+    [
+        (None, "HTTP response body: code=21129 message='too many sub accounts'"),
+        (SimpleNamespace(code=21129, message="too many sub accounts"), None),
+    ],
+)
+def test_rejected_creation_explains_the_empty_master_case(mocker: MockerFixture, response: Any, error: str | None) -> None:
+    """The rejection keeps Lighter's reason, wherever the SDK puts it, and hints at funding."""
+
+    async def create_sub_account() -> tuple[None, Any, str | None]:
+        return None, response, error
+
+    async def close() -> None:
+        return None
+
+    client = SimpleNamespace(create_sub_account=create_sub_account, close=close)
+    mocker.patch.object(sub_account_module, "create_lighter_signer_client", return_value=client)
+    with pytest.raises(LighterSubAccountError, match="21129.*holding no funds"):
+        asyncio.run(sub_account_module._submit_sub_account_creations(MASTER_INDEX, 4, "0x" + "22" * 40, 1, "https://lighter.example"))
+
+
 def test_lighter_transfer_helpers_use_exact_amounts(mocker: MockerFixture) -> None:
     """Quote, submit and confirm a master-to-sub-account USDC transfer.
 

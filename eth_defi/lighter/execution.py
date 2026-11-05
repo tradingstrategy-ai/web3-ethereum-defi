@@ -689,16 +689,18 @@ def wait_for_claimable_withdrawal(
     :param fetch_auth_token: Refreshable read-only token provider.
     :param timeout: Overall bound, including protocol delay.
     :param poll_interval: Logged polling interval.
-    :return: Matching claimable row; caller claims its ``amount`` through the guard.
+    :return: Matching row. With status ``claimable`` the caller claims its ``amount``
+        through the guard. With ``completed`` Lighter's relayer has already paid it,
+        see :py:mod:`eth_defi.lighter.lagoon`, and a claim would revert.
     """
     deadline = time.monotonic() + timeout
     while True:
         row = fetch_matching_withdrawal(session, account_index, withdrawal_id, fetch_auth_token())
         if row is not None:
-            if row["status"] == "claimable":
+            if row["status"] in {"claimable", "completed"}:
                 assert _required_decimal(row, "amount") > 0
                 return row
-            assert row["status"] not in {"failed", "refunded", "completed"}, "Secure withdrawal failed, was refunded or already completed; reconcile the original request and L1 claim"
+            assert row["status"] not in {"failed", "refunded"}, "Secure withdrawal failed or was refunded; reconcile"
         if time.monotonic() >= deadline:
             raise TimeoutError(f"Secure withdrawal {withdrawal_id} is not yet claimable; reconcile the existing request")
         logger.info("Waiting for secure withdrawal %s; status %s", withdrawal_id, row["status"] if row else "not indexed")
