@@ -21,7 +21,7 @@ from plotly.graph_objects import Figure
 
 from eth_defi.erc_4626 import scan as scan_module
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, D2Vault, format_d2_vault_note
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
@@ -1894,22 +1894,38 @@ def test_calculate_lifetime_metrics_nullifies_period_net_returns_when_fee_mode_u
     assert all(period["cagr_net"] is None for period in exported["period_results"])
 
 
+@pytest.mark.parametrize("spec", [VaultSpec(42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"), VaultSpec(4663, "0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8")])
 def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
+    spec: VaultSpec,
 ) -> None:
-    """D2 notes scanned from the vault adapter are included in lifetime metric exports."""
+    """Preserve D2 summaries, Markdown and notes through individual JSON export.
+
+    Reuse sample price history under the actual D2 deployment identity, with
+    display fields obtained from the adapter as they are during scanning.
+
+    :param vault_db: Sample scanner metadata database.
+    :param price_df: Sample prices remapped to the reviewed D2 deployment.
+    :param spec: Alpha Strategies or GlobalMacro deployment.
+    :return: ``None`` after checking public display fields and attribution.
+    """
     vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
-    address = "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"
-    spec = VaultSpec.parse_string(vault_id)
-    vault_row = dict(vault_db.rows[spec])
+    address = spec.vault_address
+    vault = D2Vault(None, spec, features={ERC4626Feature.d2_like})
+    vault_row = dict(vault_db.rows[VaultSpec.parse_string(vault_id)])
     vault_row["Protocol"] = D2_PROTOCOL_NAME
     vault_row["protocol_slug"] = "d2-finance"
     vault_row["Address"] = address
     vault_row["_risk"] = VaultTechnicalRisk.negligible
     vault_row["_flags"] = set()
     vault_row["_notes"] = format_d2_vault_note(address)
-    vault_prices = price_df.loc[price_df["id"] == vault_id]
+    vault_row["_short_description"] = vault.short_description
+    vault_row["_description"] = vault.description
+    vault_row["_detection_data"] = replace(vault_row["_detection_data"], chain=spec.chain_id, address=address, features={ERC4626Feature.d2_like})
+    vault_prices = price_df.loc[price_df["id"] == vault_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = spec.chain_id
 
     metrics = calculate_lifetime_metrics(
         vault_prices,
@@ -1918,9 +1934,9 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
 
     lifetime_row = metrics.iloc[0]
     note = lifetime_row["notes"]
-    assert "D2 Finance strategy vault" in note
-    assert "**Summary:**" in note
-    assert f"[D2 strategy page](https://d2.finance/strategies/{address})" in note
+    assert "#### Withdrawal restrictions" in note
+    assert "**Summary:**" not in note
+    assert f"[investment strategy](https://d2.finance/strategies/{address})" in note
 
     assert lifetime_row["curator_slug"] == "d2-finance"
     assert lifetime_row["curator_name"] == "D2 Finance"
@@ -1932,6 +1948,9 @@ def test_calculate_lifetime_metrics_uses_scanned_d2_notes(
     assert exported["curator_slug"] == "d2-finance"
     assert exported["curator_name"] == "D2 Finance"
     assert exported["protocol_curator"] is True
+
+    assert exported["short_description"] == vault.short_description
+    assert exported["description"] == vault.description
 
 
 @pytest.mark.parametrize("manual_note_source", [None, "flag", "address", "chain", "protocol", "default"])

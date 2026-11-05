@@ -27,6 +27,7 @@ from eth_defi.vault.base import (
     VaultHistoricalReader,
     WithdrawalDelayType,
     WithdrawalPeriod,
+    normalise_vault_description,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired
 
@@ -307,6 +308,140 @@ D2_STRATEGY_URL_TEMPLATE = "https://d2.finance/strategies/{address}"
 D2_TEXAS_HEDGE_ADDRESS = "0x208f63a7f60c319597c05fa5ec67fde41839bad6"
 D2_TEXAS_HEDGE_BLOG_URL = "https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3"
 
+#: GlobalMacro on Robinhood Chain, reviewed on 2026-11-05.
+#: https://tradingstrategy.ai/vaults/globalmacro
+#: https://robinhoodchain.blockscout.com/address/0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8
+D2_GLOBAL_MACRO_CHAIN_ID = 4663
+D2_GLOBAL_MACRO_ADDRESS = HexAddress("0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8")
+D2_GLOBAL_MACRO_BLOG_URL = "https://medium.com/@D2.Finance/globalmacro-gm-vault-on-robinhood-take-from-the-markets-that-sleep-give-to-the-one-that-never-a66b2c62f300"
+#: Official post; text checked through the mirror below because X refused access.
+#: https://instalker.org/D2_Finance/status/2117815338616152350
+D2_GLOBAL_MACRO_UPDATE_URL = "https://x.com/D2_Finance/status/2117815338616152350"
+
+#: Maintained Markdown for this deployment only; historical claims are dated.
+D2_GLOBAL_MACRO_DESCRIPTION = f"""Deposited USDG, a US dollar stablecoin, funds short-term bets on rising or falling equity indices, commodities and currencies. The [launch design]({D2_GLOBAL_MACRO_BLOG_URL}) combines options, contracts giving the right to buy or sell at an agreed price, with [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that track prices without an expiry date. The trading signals come from HYPE++, a separate investment strategy whose performance history does not belong to this vault.
+
+#### Lending and trading
+
+At launch in August 2026, the principal was allocated to a USDG lending vault managed by Steakhouse on Morpho, a lending platform. A smaller allocation supported trades on Hyperliquid, a derivatives exchange. Lending income supplements trading results but introduces borrower and smart contract risks.
+
+#### Risk and withdrawals
+
+The strategy uses **leverage**, taking positions larger than the money backing them, which magnifies gains and losses. The manager's **10% loss-limit policy per trading cycle**, called an epoch, is not guaranteed protection or a limit on losses measured from an earlier peak. Lending income may offset only part of a trading loss.
+
+**Deposits and withdrawals close during trading.** Under the [vault design](https://docs.d2.finance/docs/vault-design), the trader may take custody of funds, which must be returned before withdrawals reopen. An announced epoch-end date does not guarantee withdrawal availability.
+
+#### Announced changes
+
+The [November 2026 update]({D2_GLOBAL_MACRO_UPDATE_URL}) reviewed substantial funding costs, announced another trading cycle and proposed changes to the strategy. [Funding payments](https://tradingstrategy.ai/glossary/funding-rate) pass periodically between traders on opposite sides of perpetual futures and can reduce trading returns.
+
+Plans included Pendle Boros, a market for trading funding rates, and a possible split into GM 2.0 and Overnight Edge, two proposed strategy variants. These were proposals, not confirmed changes to the vault's investments.
+"""
+
+#: Reviewed against the official catalogue on 2026-11-05, including hidden entries.
+#: Sources and evidence gaps: docs/protocol-research/d2-vault-descriptions.md.
+#: Chain/address keys distinguish different products deployed at the same address.
+D2_VAULT_SHORT_DESCRIPTIONS: dict[tuple[int, str], str] = {
+    # DRV++
+    (1, "0x07dff4087b43c4a759f4fc69511c26d51929daf4"): "Combines lending income with trading contracts whose value follows other assets.",
+    # ftUSDC
+    (1, "0x09dfcf4731149582d163a763e7dd553ebc18852d"): "Lends USDC at a fixed rate to finance the HYPE++ trading strategy.",
+    # Debasement++
+    (1, "0x1f7bae0549f9f0baf15d0d637900056bb9434c36"): "Combines gold and bitcoin exposure with options income and bets against shares in Strategy, a bitcoin-holding company.",
+    # HYPE++ Ethena
+    (1, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "Trades major cryptoasset contracts to profit from differences in prices, payments between traders and expected price fluctuations.",
+    # Kimchi Corridor
+    (10, "0x20833f2e96ab236d66d18a0064e1e8171b70e22e"): "Bets that Korean share price swings will shrink relative to bitcoin's.",
+    # Kimchi Premium
+    (10, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "Earns income when Korean stock-market price fluctuations are smaller than the level agreed in its contracts.",
+    # HGB
+    (999, "0x0f00008223b4d4c2c466b4456df1d483743cbd60"): "Borrows against HYPE tokens to invest in gold and bitcoin.",
+    # dgnHYPE++
+    (999, "0x140e81f8c033c0705036e55be2f2fbce43e4595c"): "Borrows against HYPE tokens to buy fixed-maturity investments linked to the HYPE++ trading strategy.",
+    # Alpha Strategies
+    (999, "0x195eb4d088f222c982282b5dd495e76dba4bc7d1"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    # texasHedge
+    (999, "0x208f63a7f60c319597c05fa5ec67fde41839bad6"): "Makes concentrated bets across asset markets using options and borrowed money.",
+    # d2HYPE
+    (999, "0x3ebb11ba6a5b61c04d1a703ea10728d519945440"): "Earns income by selling rights to future HYPE price gains, alongside lending and offsetting trades.",
+    # hKRAKEN
+    (999, "0x4de611ed46aaf54a6850f97542ce7a58e7c8d0fe"): "Sells rights to future Kraken share price gains against claims on shares held before a public listing.",
+    # dgnVengeance
+    (999, "0x6bf9345b5d6b27b5cbf2e463dc5e0b2afcedc21c"): "Uses ether as backing for options that increase exposure to ether price rises.",
+    # USDT0 hRWA
+    (999, "0x7410e69958a8ece2a51c231c8528513d4d668c7a"): "Combines contracts tied to traditional financial markets with cryptoasset lending and trading income.",
+    # hSOL
+    (999, "0x8ef30c5ce9a460bfae82f1f039f7c5e5427d7018"): "Earns income from selling SOL options alongside other trading income.",
+    # USDT0 Hyperliquid-RWA Strategies
+    (999, "0xade27c7dec9211973278876f3819aedc28cd50ca"): "Combines contracts tied to traditional financial markets with cryptoasset lending and trading income.",
+    # hXXI BTC
+    (999, "0xf44f49e6577b3934f981c6f0629d15154d2606e6"): "Earns income from bitcoin options and price differences while using offsetting trades to manage risk.",
+    # CoreSolvBTC Covered Call
+    (1116, "0xa6c99234ebcda225ef32cefb8472363e09a51aea"): "Earns income by selling rights to future bitcoin price gains against bitcoin-backed SolvBTC holdings.",
+    # Global Macro
+    (4663, "0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8"): "Trades equity indices, commodities and currencies alongside income from USDG lending.",
+    # Alpha Strategies
+    (8453, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    # dgnBTC v2
+    (8453, "0x6c05a7d2c24b48fc3c615d294fec2eb068548897"): "Uses options to increase exposure to bitcoin price rises.",
+    # Hot7
+    (8453, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "Trades a basket of seven US stocks with options income and protection against some price falls.",
+    # HyperBera.weETH
+    (42161, "0x0178b56fea3d7b5b9f9e0cdad486522de948730f"): "Combines ether price exposure with trading income and liquidity rewards.",
+    # dgnETH v2
+    (42161, "0x0f76de33a3679a6065d14780618b54584a3907d4"): "Uses options to increase exposure to ether price rises.",
+    # GTxD2
+    (42161, "0x1176c3760af6a1dbaa5bbd0cc6cda8a2ed6b785e"): "Executes large trades gradually to spread purchases and sales over time.",
+    # d2ETH
+    (42161, "0x195a9e0f29f96d4ab2139ee1272380a4aa352890"): "Borrows USDC against ether to invest partly in the ETH++ trading strategy while retaining ether price exposure.",
+    # ETH++
+    (42161, "0x27d22eb71f00495eccc89bb02c2b68e6988c6a42"): "Trades ether and other major cryptoassets to profit from differences in price fluctuations and payments between traders.",
+    # ARB++
+    (42161, "0x291344fbaac4fe14632061e4c336fe3b94c52320"): "Seeks income while retaining partial exposure to ARB price movements.",
+    # Dewhales v2
+    (42161, "0x34f0fdd80a51dfd8ba42343c20f89217280d760e"): "Allocates investments to suit an institutional investor.",
+    # PlsDAO++ v2
+    (42161, "0x36b1939adf539a4ac94b57dbad32faecd5bcf4d0"): "Allocates investments to suit an institutional investor.",
+    # Alpha Strategies
+    (42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    # wHLP
+    (42161, "0x907a9f69061736ad82811cccd6add9dc4a2352a9"): "Uses borrowed money to increase investment in Hyperliquid's trading liquidity pool.",
+    # xD2e
+    (42161, "0x999a57ae7694298126a5db2e44f778ca486b14fc"): "Holds a transferable form of xD2 tokens for participation in protocol rewards.",
+    # GMX++
+    (42161, "0xab2743a3a2e06d457368e901f5f927f271fa1374"): "Borrows against GMX tokens to fund other investments while retaining exposure to GMX prices.",
+    # wHYPE
+    (42161, "0xac75f0c46723432a2303f2a7c7769535a179ed56"): "Holds wrapped HYPE tokens, a transferable form of the Hyperliquid exchange token.",
+    # iARB
+    (42161, "0xb0730aa7d6e880f901b5d71a971096db56895a0f"): "Seeks income while retaining partial exposure to ARB price movements.",
+    # HyperBera
+    (42161, "0xc027ec28f76d92d4124fcbffcf6b25137a84968c"): "Combines bitcoin price exposure with trading income and liquidity rewards.",
+    # d2USDC v2
+    (42161, "0xd1d64daeed7504ef3eb056aa2d973bd064843a84"): "Uses USDC to earn investment rewards and profit from price fluctuations and differences in payments between traders.",
+    # HyperTRUMP
+    (42161, "0xfddd73ecd0d0d75e902a567811a70e167a262fab"): "Trades TRUMP tokens and related contracts to profit from price swings and payments between traders.",
+    # Kodiak++
+    (80094, "0x2b8d0420996a2753ef21c25c94eae9fc0c0aed1e"): "Uses borrowed money to supply trading liquidity on Kodiak and earn rewards, with options to manage risk.",
+    # HyperBERA.USDC
+    (80094, "0x36b933554782b108bb9962ac00c498acbceb706d"): "Seeks income from investment rewards, options trading and differences in payments between traders.",
+    # hBERA
+    (80094, "0xace42f7e3f4672607897bf1951468031f0214359"): "Holds BERA while betting against other blockchain tokens to offset some market risk.",
+    # dgnBeraland
+    (80094, "0xbe75c8a7e58c7901d2e128dc8d3b6de2481f1f79"): "Uses options to increase exposure to BERA price rises.",
+    # dgnUpside
+    (80094, "0xbf075980792f8cc89dfb74b553acf6750a7e941b"): "Uses options to increase exposure to bitcoin, ether and BERA prices alongside liquidity rewards.",
+    # dgnOOGA
+    (80094, "0xc4fee8c68293a63241b64e5a2ef07fcf89005dd3"): "Moves BERA investments between lending and trading platforms to earn fees and rewards.",
+    # 2xBERA
+    (80094, "0xcd18006cc69c6d5fa4fd4eaf99910b58464fa3ae"): "Uses borrowed money to increase exposure to BERA prices and earn rewards.",
+    # HyperEuler
+    (80094, "0xf650ba4303ce164e1f6b215d4cbb5e212d307056"): "Uses borrowed money to earn lending and trading liquidity rewards and trade differences in payments between traders.",
+}
+
+#: Do not guess strategies for test, retired or undocumented deployments.
+D2_UNDISCLOSED_SHORT_DESCRIPTION = "Strategy details are unavailable for this vault."
+
+
 #: Optional D2-authored strategy articles from the D2 vault API.
 D2_VAULT_ARTICLE_URLS: dict[str, str] = {
     "0x195eb4d088f222c982282b5dd495e76dba4bc7d1": "https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9",
@@ -323,6 +458,12 @@ D2_VAULT_ARTICLE_URLS: dict[str, str] = {
     "0xcd18006cc69c6d5fa4fd4eaf99910b58464fa3ae": "https://medium.com/@D2.Finance/infrared-origami-d2-2xbera-df7e7129df9a",
     "0xf44f49e6577b3934f981c6f0629d15154d2606e6": "https://medium.com/@D2.Finance/introducing-hyperliquid-xxi-hxxi-the-future-of-bitcoin-accumulation-on-chain-499c488e67ca",
     "0xf650ba4303ce164e1f6b215d4cbb5e212d307056": "https://medium.com/@D2.Finance/hypereuler-x-pol-pol-is-here-is-time-to-supercharge-your-bera-4dfaa8805d23",
+}
+
+#: The same address hosts HYPE++ Ethena on Ethereum and Alpha Strategies on Base.
+#: Keep the legacy address table unchanged for migration 034's old-note recognition.
+D2_VAULT_ARTICLE_OVERRIDES: dict[tuple[int, str], str] = {
+    (1, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9",
 }
 
 #: D2 vault addresses checked from the D2 Finance API and the Trading Strategy
@@ -432,37 +573,35 @@ def format_d2_strategy_url(address: HexAddress | str) -> str:
 #: https://docs.d2.finance/docs/vault-design
 D2_WITHDRAWAL_NOTE = """#### Withdrawal restrictions
 
-**Deposits and withdrawals are closed during the trading phase.** D2's [vault design documentation](https://docs.d2.finance/docs/vault-design), reviewed on 2 November 2026, explains that each trading cycle, called an epoch, has separate funding, trading and withdrawal phases. During trading, the trader may take custody of the vault's funds.
+**Deposits and withdrawals are closed during the trading phase.** Each [trading cycle](https://docs.d2.finance/docs/vault-design), called an epoch, has separate funding, trading and withdrawal phases. During trading, the trader may take custody of the vault's funds.
 
-Withdrawals reopen after the trader returns the funds and the epoch ends. A displayed epoch-end time is an estimate, not a guaranteed withdrawal deadline: the funds must also be back in the vault before withdrawals can proceed."""
+Withdrawals reopen after the trader returns the funds and the epoch ends. A displayed epoch-end time is an estimate, not a guaranteed withdrawal deadline."""
 
 
-def format_d2_vault_note(address: HexAddress | str) -> str:
+def format_d2_vault_note(address: HexAddress | str, chain_id: int | None = None) -> str:
     """Format a generic D2 Finance vault note.
 
-    D2 vaults are managed strategy vaults with proprietary off-chain trading
+    D2 vaults are managed strategy vaults with proprietary offchain trading
     logic. The authoritative source for the per-vault setup is the D2 strategy
-    page, so link to it for every D2 vault.
+    page, so link to it for every D2 vault. Chain-specific corrections take
+    precedence; omitting the chain retains legacy rendering for migrations.
 
     :param address:
         Vault address.
-
+    :param chain_id:
+        Deployment chain, or ``None`` for legacy address-only rendering.
     :return:
         Markdown vault note.
     """
 
     address = str(address).lower()
     strategy_url = format_d2_strategy_url(address)
-    article_url = D2_VAULT_ARTICLE_URLS.get(address)
-    article_note = f"\n\nD2 also describes this strategy in its [D2 strategy article]({article_url})." if article_url else ""
+    article_url = D2_VAULT_ARTICLE_OVERRIDES.get((chain_id, address), D2_VAULT_ARTICLE_URLS.get(address))
+    article_note = f" and [strategy background]({article_url})" if article_url else ""
 
-    return f"""D2 Finance strategy vault.
+    return f"""{D2_WITHDRAWAL_NOTE}
 
-**Summary:** This vault is a D2 Finance managed strategy vault. D2 strategies are tokenised derivative strategies executed onchain with proprietary offchain trading logic and epoch-based funding, trading and withdrawal phases.
-
-The authoritative D2 source for this vault is the [D2 strategy page]({strategy_url}).{article_note}
-
-{D2_WITHDRAWAL_NOTE}
+See the [investment strategy]({strategy_url}){article_note} for product-specific information.
 """
 
 
@@ -476,13 +615,15 @@ def format_d2_texas_hedge_note() -> str:
         Markdown vault note.
     """
 
-    return f"""D2 Finance texasHedge (TXHEDGE) is a HyperEVM USDC tactical strategy vault.
+    # The June article explicitly calls the internal funding borrowing: a
+    # credit line from HYPE++ charged at ten percent, drawn as needed.
+    return f"""USDC funds actively managed bets on asset prices. **The entire deposit can be lost.** The [investment strategy]({format_d2_strategy_url(D2_TEXAS_HEDGE_ADDRESS)}) changes between trading cycles.
 
-**Summary:** The vault is a high-risk, multi-leg directional strategy around SpaceX pre-IPO exposure and related market flows. It combines a financed SpaceX perpetual position with long S&P downside convexity and long Tesla/Mag-7 upside convexity, funded by selling DRAM upside convexity. D2 describes the strategy in its [Texas Hedge Epoch 2 blog post]({D2_TEXAS_HEDGE_BLOG_URL}).
+#### Historical strategy
 
-The authoritative D2 source for this vault is the [D2 strategy page]({format_d2_strategy_url(D2_TEXAS_HEDGE_ADDRESS)}).
+The [June 2026 trading cycle]({D2_TEXAS_HEDGE_BLOG_URL}) combined a position funded with borrowed money that tracked SpaceX before its stock-market listing with [options](https://tradingstrategy.ai/glossary/options), contracts granting the right to buy or sell at an agreed price before a deadline. Some options benefited from falls in the S&P 500 stock index; others benefited from rises in Tesla and a group of large US technology stocks.
 
-This is not a market-neutral yield product; D2 categorises it as a degen/tactical strategy where investors can lose the full vault stake.
+Selling options on DRAM, a fund investing in memory-chip companies, helped pay for the purchased options. The sold options could lose money if memory-chip stocks rose, with losses compounded if SpaceX also fell. This historical setup does not establish the vault's current holdings.
 
 {D2_WITHDRAWAL_NOTE}
 """
@@ -584,7 +725,7 @@ class D2HistoricalReader(ERC4626HistoricalReader):
         )
 
 
-class D2Vault(ERC4626Vault):
+class D2Vault(ERC4626Vault):  # noqa: PLR0904 - Implements the shared vault interface, including display metadata.
     """D2 Finance vaults.
 
     - Most vault logic is offchain, proprietary
@@ -696,6 +837,30 @@ class D2Vault(ERC4626Vault):
             raise NotImplementedError("Public D2 asset-balance eligibility is not KYC membership")
         return bool(self.vault_contract.functions.whitelisted(address).call())
 
+    @property
+    def short_description(self) -> str:
+        """Summarise the reviewed strategy without inferring it from the name.
+
+        The official catalogue contains historical and undocumented deployments.
+        Use a clear evidence-gap sentence for these and unknown deployments.
+
+        :return: One plain sentence, scoped to chain and case-insensitive address.
+        """
+        return D2_VAULT_SHORT_DESCRIPTIONS.get((self.chain_id, self.address.lower()), D2_UNDISCLOSED_SHORT_DESCRIPTION)
+
+    @property
+    def description(self) -> str | None:
+        """Expose the researched GlobalMacro strategy explanation.
+
+        Scope the maintained copy to the reviewed Robinhood deployment so
+        unrelated D2 vaults retain their inherited metadata behaviour.
+
+        :return: Normalised Markdown for GlobalMacro, or the inherited description.
+        """
+        if self.chain_id == D2_GLOBAL_MACRO_CHAIN_ID and self.address.lower() == D2_GLOBAL_MACRO_ADDRESS:
+            return normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
+        return super().description
+
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.
 
@@ -732,7 +897,7 @@ class D2Vault(ERC4626Vault):
         if address == D2_TEXAS_HEDGE_ADDRESS:
             return format_d2_texas_hedge_note()
 
-        return format_d2_vault_note(address)
+        return format_d2_vault_note(address, chain_id=self.chain_id)
 
     def fetch_current_epoch_id(self) -> int:
         return self.vault_contract.functions.getCurrentEpoch().call()
