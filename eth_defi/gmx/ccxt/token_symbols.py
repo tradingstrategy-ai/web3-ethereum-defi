@@ -21,6 +21,10 @@ def token_symbols_by_address(tokens_payload: dict[str, Any]) -> dict[str, str]:
     :return:
         Lower-cased token address mapped to its GMX token symbol.
     """
+    if not isinstance(tokens_payload, dict):
+        # A degraded or unexpected /tokens payload must not break a price request:
+        # the caller falls back to the market id.
+        return {}
     return {str(entry["address"]).lower(): str(entry["symbol"]) for entry in tokens_payload.get("tokens") or [] if entry.get("address") and entry.get("symbol")}
 
 

@@ -43,6 +43,12 @@ def test_token_symbols_by_address_lowercases_and_skips_incomplete():
     assert len(symbols) == 2
 
 
+def test_token_symbols_by_address_ignores_a_non_dict_payload():
+    """A degraded /tokens payload yields an empty map, so a price request falls back to the market id."""
+    assert token_symbols_by_address([]) == {}
+    assert token_symbols_by_address(None) == {}
+
+
 def test_resolve_synthetic_market_uses_index_token():
     symbols = token_symbols_by_address(TOKENS_PAYLOAD)
 
