@@ -5,7 +5,7 @@ Purpose: Publish the launch design and dated manager-reported follow-up.
 Scope: Only _description for Robinhood 4663:0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8.
 Branch: notes/d2-globalmacro-and-note-style
 PR title: notes: describe GlobalMacro and simplify D2 vault notes
-PR: See the pull request for branch notes/d2-globalmacro-and-note-style.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
 Preserves: Summaries, notes, flags, fees, tags, links, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; missing target reported without creation. Idempotent transformation.
 

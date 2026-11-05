@@ -5,7 +5,7 @@ Purpose: Remove repetitive introductions, research dates and unexplained jargon;
 Scope: Only _notes on D2 Finance rows containing empty or exactly recognised legacy adapter notes.
 Branch: notes/d2-globalmacro-and-note-style
 PR title: notes: describe GlobalMacro and simplify D2 vault notes
-PR: See the pull request for branch notes/d2-globalmacro-and-note-style.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
 Preserves: Descriptions, summaries, manual/custom notes, flags, fees, tags, links, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: One field per eligible existing D2 row; manual/custom notes reported and preserved. Idempotent transformation.
 
