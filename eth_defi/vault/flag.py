@@ -698,6 +698,7 @@ UNKNOWN_ABNORMAL_SHARE_PRICE = "Share price chart has abnormal high returns and 
 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
+#: Shared warning for Peapods vaults reported as illiquid.
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
 USDN_WRAPPER_ILLIQUID = "USDN Wrapper is illiquid"
@@ -1205,6 +1206,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-195
     # https://basescan.org/address/0x2efd686fe4023b683b67fe0b59a0f941ab381d84
     "0x2efd686fe4023b683b67fe0b59a0f941ab381d84": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 65, Peapods on Base (8453).
+    # Added 2026-11-05 following a user report that the vault is illiquid.
+    # Flagged illiquid at the user's request to exclude it from investable vaults;
+    # no independent liquidity measurements were supplied with the report.
+    # Sources:
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-65
+    # https://basescan.org/address/0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1
+    "0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Curve Boosted crvUSD-fxSAVE Lender (Yearn on Ethereum)
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
     # Convex crvUSD-fxSAVE Lender (Yearn on Ethereum)
