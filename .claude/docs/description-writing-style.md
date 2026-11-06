@@ -77,7 +77,8 @@ unknown rather than applying generic protocol copy to every vault.
 ## Describe current terms first
 
 Focus descriptions on how the product works now: what depositors fund, what
-they receive, what they pay and how they can withdraw. Explain current fee
+they receive, and any costs or withdrawal conditions that need explanation
+beyond the displayed metrics. Explain current fee
 allocations directly instead of narrating when they changed or comparing them
 with superseded rates. A dated announcement can support current terms without
 putting its publication month or year in the description; link the relevant
@@ -118,6 +119,13 @@ the costs or proposed strategy changes it discusses. Label proposals as plans,
 without presenting them as current investments. Do not preserve redundant
 figures merely to justify retaining their source link.
 
+Long descriptions do not need to repeat fees or lock-up periods already
+available in the chart and key metrics context. Leave routine fee rates and
+withdrawal timing in those dedicated displays, and use the description for the
+investment strategy and facts that need explanation. Include fee or withdrawal
+details only when they add material context that the displayed metrics do not
+convey, such as a complex charging basis or an exceptional withdrawal restriction.
+
 ## Cover the facts that matter
 
 Select the following details according to the subject and available evidence.
@@ -141,13 +149,15 @@ A short note does not need to become a full product profile.
   the history of a particular vault.
 - **Fees, funding and business model:** where applicable, explain how the
   operator earns money, who provides capital, who receives payments and who
-  bears losses. For vaults, cover material management or performance fees,
-  borrowing costs, withdrawal charges, use of borrowed money and any arrangement
-  under which one party absorbs losses first. Explain what a fee is charged on
-  and how often when those terms are known.
-- **Access and limitations:** include withdrawal restrictions, eligibility and
-  concrete risks when they materially affect how the product works. Tie them
-  to the strategy instead of appending a generic list of risk categories.
+  bears losses. For vaults, include fee details only when they add material
+  context beyond the displayed rates. Cover borrowing costs, withdrawal charges,
+  use of borrowed money and any arrangement under which one party absorbs
+  losses first. When including a fee, explain what it is charged on and how
+  often when those terms are known.
+- **Access and limitations:** include withdrawal restrictions beyond displayed
+  lock-up periods, eligibility and concrete risks when they materially affect
+  how the product works. Tie them to the strategy instead of appending a
+  generic list of risk categories.
 
 ## Remove AI slop and technical clutter
 

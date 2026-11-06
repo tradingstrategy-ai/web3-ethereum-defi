@@ -304,13 +304,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: go long assets with low inflation or unlocks and short assets with high
     #: inflation or unlocks. This explicitly supports grid-trading and
     #: directional long/short classifications.
+    #: Updated: 2026-11-06. User-requested high-frequency, high-win-rate
+    #: classification, with its required algorithmic-trading parent. The
+    #: published description confirms the grid mandate, not a measured win rate.
     #: Sources:
-    #: - http://100.103.237.120:5182/vaults/systemic-strategies-l-s-grids
+    #: - https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids?period=max
     #: - https://app.hyperliquid.xyz/vaults/0x07fd993f0fa3a185f7207adccd29f7a87404689d
     #: - https://api.hyperliquid.xyz/info
     "0x07fd993f0fa3a185f7207adccd29f7a87404689d": {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
     },
     #: Vault: wmm.club | grid-hype-long-2x.
     #: Added: 2026-08-18.

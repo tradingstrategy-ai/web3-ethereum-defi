@@ -142,6 +142,28 @@ ROCKSTEADY_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]
 }
 
 
+#: Systemic Strategies L/S Grids on Hypercore (9999), reviewed on 2026-11-06.
+#:
+#: The live Hyperliquid vaultDetails response confirms the exact address, the
+#: low-inflation long/high-inflation short grid mandate and 10% commission.
+#: The operator's 3 November post describes exposure readjustments across its
+#: vaults, not this vault's numerical risk limits. Do not import HyperGrowth's
+#: HYPE-specific mandate or infer a verified win rate from the maintained tags.
+#: Source access, announcement context and evidence gaps:
+#: .claude/docs/systemic-strategies-vault-research.md
+#: https://api.hyperliquid.xyz/info
+#: https://x.com/SystemicStratHL/status/2117599240150987067
+#: https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids
+SYSTEMIC_STRATEGIES_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d"): HandwrittenVaultMetadata(
+        name="[ Systemic Strategies ] L/S Grids",
+        short_description="Crypto futures grid trading that bets on tokens with low inflation or few unlocks and against tokens with higher inflation or unlocks.",
+        description=("Pools USDC to trade [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that follow cryptocurrency prices without an expiry date. The strategy combines **long positions in tokens with low supply inflation or few unlocks** with **short positions in tokens with higher inflation or unlocks**. Longs benefit from rising prices and shorts from falling prices; supply inflation creates new tokens, while unlocks release previously restricted tokens.\n\n#### How the strategy works\n\nGrid trading places buy and sell orders at different price levels, seeking to capture repeated price moves. The supply-based selection adds a directional view: returns depend on which tokens rise or fall as well as the trades made within each grid.\n\nHolding both longs and shorts does not ensure that their market exposures cancel out. Sustained price moves against open positions can produce large losses, even if many individual grid trades are profitable."),
+        link="https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids",
+    ),
+}
+
+
 #: Morini Capital's canonical public overview of its curated vault strategies.
 MORINI_VAULTS_OVERVIEW_URL: Final[str] = "https://morini.capital/"
 
@@ -688,7 +710,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
+    return BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
