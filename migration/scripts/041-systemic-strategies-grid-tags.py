@@ -5,7 +5,7 @@ and its required algorithmic-trading parent using the maintained resolver's tags
 Scope: Only _strategy_tags for Hypercore 9999:0x07fd993f0fa3a185f7207adccd29f7a87404689d.
 Branch: add-hft-high-win-rate-tags
 PR title: notes: describe Systemic Strategies L/S Grids and classify its trading strategy
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1740
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; report a missing row.
 No network reads or historical price backfill are required.

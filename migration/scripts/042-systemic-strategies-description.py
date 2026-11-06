@@ -4,7 +4,7 @@ Purpose: Replace promotional provider copy with researched strategy descriptions
 Scope: Only _description and _short_description for Hypercore 9999:0x07fd993f0fa3a185f7207adccd29f7a87404689d.
 Branch: add-hft-high-win-rate-tags
 PR title: notes: describe Systemic Strategies L/S Grids and classify its trading strategy
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1740
 Preserves: Names, links, fees, flags, notes, strategy tags, unrelated rows, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and two changed fields; missing target reported without creation. Idempotent transformation.
 
