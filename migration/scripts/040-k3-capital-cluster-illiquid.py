@@ -4,7 +4,7 @@ Purpose: Refresh stored flags and notes to exclude the vault from investable ran
 Scope: Exact Euler deployment on Avalanche below; update only _flags and _notes.
 Branch: notes/k3-capital-cluster-7-illiquid
 PR title: notes: mark K3 Capital Cluster on Avalanche as illiquid
-PR: See the pull request for branch notes/k3-capital-cluster-7-illiquid.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1739
 Preserves: Unrelated flags and metadata, prices, leads, reader state and
 timestamp caches. No historical price backfill is needed.
 Expected: One validated target, at most two updated fields; safe to retry.
