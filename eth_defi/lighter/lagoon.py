@@ -440,9 +440,17 @@ def fetch_lighter_claimed_usdc(
         try:
             client = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key).hypersync_client
             if client is not None:
-                paid_raw, rpc_start = run_vault_flow_log_fetch(_fetch_lighter_claims_hypersync(
-                    client, zk_lighter, owner_topic, asset_index, from_block, last_block, hypersync_timeout,
-                ))
+                paid_raw, rpc_start = run_vault_flow_log_fetch(
+                    _fetch_lighter_claims_hypersync(
+                        client,
+                        zk_lighter,
+                        owner_topic,
+                        asset_index,
+                        from_block,
+                        last_block,
+                        hypersync_timeout,
+                    )
+                )
                 if rpc_start > from_block:
                     logger.info("Lighter payout HyperSync coverage: blocks %d-%d", from_block, rpc_start - 1)
         except Exception as exc:
@@ -500,6 +508,7 @@ async def _fetch_lighter_claims_hypersync(
     :return:
         Raw paid USDC and exclusive indexed coverage boundary.
     """
+
     async def read_prefix() -> tuple[int, int]:
         end = min(to_block, await client.get_height() - 1)
         if end < from_block:
