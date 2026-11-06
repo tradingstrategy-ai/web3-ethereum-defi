@@ -135,6 +135,28 @@ Verify paragraphs, fee bullets and source links render, and that existing
 price history remains intact. A successful migration does not publish data
 by itself.
 
+## Birch Hill individual vault descriptions
+
+Both publicly documented Base deployments have short and full descriptions:
+Groma Ecosystem USDC (`8453:0xb038cf3e233b78225f6d350ac8319bec8457db4a`)
+and RWA USDC Flagship (`8453:0xa5afd3a598ef000a5edd96ed65929ac7a6feea39`).
+Their Morpho V2 and Yearn V3 accessors retain the reviewed copy on future scans.
+The curator YAML supplies a separate organisation profile.
+
+**Run after merge:** migration `038-birch-hill-descriptions.py` updates only
+`_description` and `_short_description` for at most two existing rows and four
+fields. Missing targets are reported without creation. There is no discovery,
+blockchain read or historical price backfill; all other metadata and scanning
+state are preserved. Migration 037 handles admission mapping separately and
+must not be rerun if already successful.
+
+Record the eventual PR URL in migration 038 before merging. Use the stamped
+merged image and the stop, list, preview, apply and restart commands above,
+following the production runbook. Review the entire pending batch before apply;
+both preview and apply require stopped writers, with the lifetime guard acquired
+before the writer lock. After normal export and upload, verify both vaults'
+individual JSON descriptions and rendered paragraphs, headings and source links.
+
 ## Apply the repair
 
 Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for local previews and production

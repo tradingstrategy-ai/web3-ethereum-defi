@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Publish researched Birch Hill curator and individual vault descriptions, classify the Flagship's verified deposit whitelist hook, and require Trading Strategy destinations for public vault links (2026-11-06).
+
 - feat: Read Lighter payouts with HyperSync and an RPC tail, retry failed indexer reads with RPC, and verify Lagoon settlement stream completion with explicit credentials and optional whole-read timeouts (2026-11-06).
 
 - feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
