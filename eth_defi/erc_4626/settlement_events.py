@@ -258,18 +258,28 @@ def fetch_vault_settlement_logs_hypersync_for_addresses(
     """
     if hypersync_api_key is None:
         # Preserve the native SDK retry defaults for existing bulk/library callers.
-        client = hypersync.HypersyncClient(hypersync.ClientConfig(
-            url=get_hypersync_server(web3), api_token=os.environ["HYPERSYNC_API_KEY"],
-        ))
+        client = hypersync.HypersyncClient(
+            hypersync.ClientConfig(
+                url=get_hypersync_server(web3),
+                api_token=os.environ["HYPERSYNC_API_KEY"],
+            )
+        )
     else:
         if configure_hypersync_from_env is None:
             raise RuntimeError("HyperSync package is unavailable")
         client = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key).hypersync_client
         if client is None:
             raise RuntimeError("HyperSync is unavailable for settlement reads")
-    indexed_logs = run_vault_flow_log_fetch(_fetch_complete_settlement_logs(
-        client, addresses, topic0_list, start_block, end_block, hypersync_timeout,
-    ))
+    indexed_logs = run_vault_flow_log_fetch(
+        _fetch_complete_settlement_logs(
+            client,
+            addresses,
+            topic0_list,
+            start_block,
+            end_block,
+            hypersync_timeout,
+        )
+    )
     logger.info(
         "Fetched %d vault settlement logs for %d vaults using Hypersync from blocks %d - %d",
         len(indexed_logs),
@@ -303,6 +313,7 @@ async def _fetch_complete_settlement_logs(client: "ThrottledHypersyncClient | hy
     :return:
         Indexed logs in block/log order after checking reported range completion.
     """
+
     async def read_range() -> list[IndexedVaultFlowLog]:
         if await client.get_height() - 1 < end_block:
             raise RuntimeError("HyperSync has not indexed the settlement range")
