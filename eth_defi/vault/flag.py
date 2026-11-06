@@ -1197,6 +1197,24 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x5eb03d0fcfd3860be03b81a1ab3d46db3315202a": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 6 (Arbitrum)
     "0x3a87cf9af4d21778dad1ce7d0bf053f4b8f2631f": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 65, Peapods on Base (8453).
+    # Added 2026-11-06 following the user's explicit illiquidity report.
+    # Marked illiquid to exclude it from investable rankings. No onchain
+    # liquidity measurement or incident announcement was supplied; the flag
+    # records the user's classification, not a newly measured liquidity level.
+    # Sources (identity):
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-65
+    # https://basescan.org/address/0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1
+    "0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 147, Peapods on Base (8453).
+    # Added 2026-11-06 following the user's explicit illiquidity report.
+    # Marked illiquid to exclude it from investable rankings. No onchain
+    # liquidity measurement or incident announcement was supplied; the flag
+    # records the user's classification, not a newly measured liquidity level.
+    # Sources (identity):
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-147
+    # https://basescan.org/address/0x53ce611b5477997972dad83585a0ad5cb56f433b
+    "0x53ce611b5477997972dad83585a0ad5cb56f433b": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 195, Peapods on Base (8453).
     # Added 2026-10-22 following a user report that the vault is illiquid.
     # Flagged illiquid at the user's request to exclude it from investable vaults;
