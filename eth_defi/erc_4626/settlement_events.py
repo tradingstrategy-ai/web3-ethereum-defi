@@ -283,9 +283,10 @@ def fetch_vault_settlement_logs_hypersync_for_addresses(
 async def _fetch_complete_settlement_logs(client: "ThrottledHypersyncClient | hypersync.HypersyncClient", addresses: list[HexAddress | str], topics: list[str], start_block: int, end_block: int, timeout: float | None) -> list[IndexedVaultFlowLog]:
     """Refuse partial settlement evidence before accounting advances its cursor.
 
-    The conservative height boundary follows existing vault managers. Exclusive
-    stream progress proves coverage even for an empty result, as documented at
-    https://docs.envio.dev/docs/HyperSync/hypersync-query.
+    The conservative height boundary follows existing vault managers. Check
+    advertised stream progress before accepting an empty result, following
+    https://docs.envio.dev/docs/HyperSync/hypersync-query. This detects reported
+    truncation, but still relies on the indexer returning the correct logs.
 
     :param client:
         Native legacy client or configured throttled client.
@@ -300,7 +301,7 @@ async def _fetch_complete_settlement_logs(client: "ThrottledHypersyncClient | hy
     :param timeout:
         Optional total read timeout. None retains the existing per-receive limit.
     :return:
-        Complete indexed logs in block/log order.
+        Indexed logs in block/log order after checking reported range completion.
     """
     async def read_range() -> list[IndexedVaultFlowLog]:
         if await client.get_height() - 1 < end_block:
