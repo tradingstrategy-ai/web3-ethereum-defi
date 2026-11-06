@@ -29,6 +29,8 @@ def fetch_lagoon_settlements(
     end_block: int,
     use_hypersync: bool | None = None,
     chunk_size: int = 50_000,
+    hypersync_api_key: str | None = None,
+    hypersync_timeout: float | None = None,
 ) -> list[VaultSettlement]:
     """Fetch Lagoon settlement transactions for a vault.
 
@@ -46,8 +48,12 @@ def fetch_lagoon_settlements(
     :param use_hypersync:
         Whether to use Hypersync. ``None`` auto-detects based on
         ``HYPERSYNC_API_KEY``.
+    :param hypersync_api_key:
+        Explicit indexer credential; otherwise preserve library defaults.
     :param chunk_size:
         JSON-RPC ``eth_getLogs`` chunk size used by the fallback reader.
+    :param hypersync_timeout:
+        Optional whole-read timeout; None retains legacy per-receive limits.
     :return:
         Generic settlement rows sorted by block and transaction hash.
     """
@@ -60,6 +66,8 @@ def fetch_lagoon_settlements(
         end_block=end_block,
         use_hypersync=use_hypersync,
         chunk_size=chunk_size,
+        hypersync_api_key=hypersync_api_key,
+        hypersync_timeout=hypersync_timeout,
     )
 
     return build_settlement_rows_from_logs(vault, logs, event_by_topic=event_by_topic)

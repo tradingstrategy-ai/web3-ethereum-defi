@@ -36,12 +36,14 @@ Authoritative Lighter deposit and withdrawal documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
 
+import asyncio
 import logging
 import time
 from decimal import Decimal
 from typing import Callable
 
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
@@ -52,7 +54,15 @@ from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, LIGHTER_STATE_POLL_SECONDS
 from eth_defi.lighter.constants import LIGHTER_L1_CONTRACT, LIGHTER_ROUTE_PERP
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.token import TokenDetails
+from eth_defi.vault.flow_events import hypersync, run_vault_flow_log_fetch
+
+try:
+    from eth_defi.hypersync.utils import configure_hypersync_from_env
+    from eth_defi.hypersync.session import ThrottledHypersyncClient, open_hypersync_stream
+except ImportError:
+    configure_hypersync_from_env = None
 
 logger = logging.getLogger(__name__)
 
@@ -379,6 +389,9 @@ def fetch_lighter_claimed_usdc(
     from_block: int,
     to_block: int | None = None,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    hypersync_api_key: str | None = None,
+    use_hypersync: bool = True,
+    hypersync_timeout: float = 10.0,
 ) -> Decimal:
     """Read how much USDC Lighter has paid to an owner since a block.
 
@@ -388,9 +401,9 @@ def fetch_lighter_claimed_usdc(
     is read in chunks, because providers limit ``eth_getLogs``, and stops at the
     chain head, which they refuse to pass.
 
-    This is a bounded live read of one owner's recent blocks, not event discovery,
-    so it uses the executor's JSON-RPC connection. Hypersync would add a dependency
-    and an API key to a step that real withdrawals wait on.
+    With an explicit API key, HyperSync reads the indexed prefix and RPC reads
+    the unindexed tail. Failed or incomplete indexer reads fall back to the
+    whole RPC range without counting partial results twice. Anvil always uses RPC.
 
     :param web3:
         Ethereum connection.
@@ -404,18 +417,42 @@ def fetch_lighter_claimed_usdc(
         Last block to include, capped at the current head. Defaults to the head.
     :param zk_lighter:
         ZkLighter L1 contract address.
+    :param hypersync_api_key:
+        Explicit indexer credential. No key keeps the RPC-only behaviour.
+    :param use_hypersync:
+        Allow indexed reads when a key is supplied.
+    :param hypersync_timeout:
+        Maximum seconds for the complete indexer attempt before RPC fallback.
     :return:
         USDC paid to ``owner`` in the range.
     """
+    head = web3.eth.block_number
+    last_block = head if to_block is None else min(to_block, head)
+    if from_block > last_block:
+        return Decimal(0)
     zk_lighter = Web3.to_checksum_address(zk_lighter)
     zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
     asset_index = zk.functions.USDC_ASSET_INDEX().call()
     owner_topic = "0x" + bytes.fromhex(Web3.to_checksum_address(owner)[2:]).rjust(32, b"\0").hex()
-    head = web3.eth.block_number
-    last_block = head if to_block is None else min(to_block, head)
     paid_raw = 0
-    # TODO: Switch to Hypersync.
-    for start in range(from_block, last_block + 1, LIGHTER_LOG_CHUNK_BLOCKS):
+    rpc_start = from_block
+    if use_hypersync and hypersync_api_key and configure_hypersync_from_env is not None and not is_anvil(web3):
+        try:
+            client = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key).hypersync_client
+            if client is not None:
+                paid_raw, rpc_start = run_vault_flow_log_fetch(_fetch_lighter_claims_hypersync(
+                    client, zk_lighter, owner_topic, asset_index, from_block, last_block, hypersync_timeout,
+                ))
+                if rpc_start > from_block:
+                    logger.info("Lighter payout HyperSync coverage: blocks %d-%d", from_block, rpc_start - 1)
+        except Exception as exc:
+            # Indexer/SDK failures are optional-provider failures: discard the
+            # whole attempt and preserve RPC availability, including for SDK
+            # exceptions not derived from the usual HTTP exception types.
+            # Exception text can contain authenticated request details.
+            logger.warning("Lighter HyperSync payout read failed (%s); retrying with RPC", type(exc).__name__)
+            paid_raw, rpc_start = 0, from_block
+    for start in range(rpc_start, last_block + 1, LIGHTER_LOG_CHUNK_BLOCKS):
         logs = web3.eth.get_logs(
             {
                 "address": zk_lighter,
@@ -431,6 +468,71 @@ def fetch_lighter_claimed_usdc(
     return usdc.convert_to_decimals(paid_raw)
 
 
+async def _fetch_lighter_claims_hypersync(
+    client: "ThrottledHypersyncClient",
+    address: str,
+    owner_topic: str,
+    asset_index: int,
+    from_block: int,
+    to_block: int,
+    timeout: float,
+) -> tuple[int, int]:
+    """Return paid raw USDC and the first block still needing RPC.
+
+    The indexer's height and exclusive stream progress establish coverage even
+    when no matching event exists. Partial streams never establish a payout.
+    See https://docs.envio.dev/docs/HyperSync/hypersync-query.
+
+    :param client:
+        Configured Ethereum HyperSync client.
+    :param address:
+        ZkLighter contract whose payout events are selected.
+    :param owner_topic:
+        ABI-padded recipient address in indexed topic1.
+    :param asset_index:
+        Contract USDC asset index; other assets are excluded.
+    :param from_block:
+        Inclusive first requested block.
+    :param to_block:
+        Inclusive last requested block; any unindexed suffix needs RPC.
+    :param timeout:
+        Whole-attempt bound in seconds, followed by bounded stream cleanup.
+    :return:
+        Raw paid USDC and exclusive indexed coverage boundary.
+    """
+    async def read_prefix() -> tuple[int, int]:
+        end = min(to_block, await client.get_height() - 1)
+        if end < from_block:
+            return 0, from_block
+        query = hypersync.Query(
+            from_block=from_block,
+            to_block=end + 1,
+            logs=[hypersync.LogSelection(address=[address.lower()], topics=[[LIGHTER_WITHDRAW_PENDING_TOPIC], [owner_topic]])],
+            field_selection=hypersync.FieldSelection(log=[hypersync.LogField.DATA]),
+        )
+        receiver = await open_hypersync_stream(client, query)
+        paid_raw = 0
+        next_block = from_block
+        try:
+            while (response := await receiver.recv()) is not None:
+                if not next_block < response.next_block <= end + 1:
+                    raise RuntimeError("Invalid HyperSync payout coverage")
+                next_block = response.next_block
+                for log in response.data.logs or []:
+                    data = HexBytes(log.data)
+                    if len(data) != 64:
+                        raise ValueError("Malformed Lighter payout data")
+                    if int.from_bytes(data[:32], "big") == asset_index:
+                        paid_raw += int.from_bytes(data[32:64], "big")
+            if next_block != end + 1:
+                raise RuntimeError("Incomplete HyperSync payout coverage")
+            return paid_raw, next_block
+        finally:
+            await asyncio.wait_for(receiver.close(), timeout=1.0)
+
+    return await asyncio.wait_for(read_prefix(), timeout=timeout)
+
+
 def is_lighter_withdrawal_paid(
     web3: Web3,
     *,
@@ -440,6 +542,9 @@ def is_lighter_withdrawal_paid(
     pending_before: Decimal,
     from_block: int,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+    hypersync_api_key: str | None = None,
+    use_hypersync: bool = True,
+    hypersync_timeout: float = 10.0,
 ) -> bool:
     """Check whether a withdrawal has reached the owner without our claim.
 
@@ -462,10 +567,16 @@ def is_lighter_withdrawal_paid(
         First block after that read.
     :param zk_lighter:
         ZkLighter L1 contract address.
+    :param hypersync_api_key:
+        Explicit indexer credential; no key keeps RPC reads.
+    :param use_hypersync:
+        Allow indexed reads when a credential is supplied.
+    :param hypersync_timeout:
+        Bound for an indexer attempt before RPC fallback.
     :return:
         ``True`` if claims since ``from_block`` cover the withdrawal.
     """
-    claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter)
+    claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter, hypersync_api_key=hypersync_api_key, use_hypersync=use_hypersync, hypersync_timeout=hypersync_timeout)
     return claimed >= pending_before + amount
 
 
@@ -480,6 +591,9 @@ def wait_for_lighter_withdrawal(
     timeout: float,
     zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
     poll_seconds: float = LIGHTER_STATE_POLL_SECONDS,
+    hypersync_api_key: str | None = None,
+    use_hypersync: bool = True,
+    hypersync_timeout: float = 10.0,
 ) -> bool:
     """Wait until a withdrawal is claimable or has already been paid.
 
@@ -506,6 +620,12 @@ def wait_for_lighter_withdrawal(
         ZkLighter L1 contract address.
     :param poll_seconds:
         Seconds between reads.
+    :param hypersync_api_key:
+        Explicit indexer credential; no key keeps RPC reads.
+    :param use_hypersync:
+        Allow indexed reads when a credential is supplied.
+    :param hypersync_timeout:
+        Bound for an indexer attempt before RPC fallback.
     :return:
         ``True`` if the withdrawal has already been paid and must not be claimed,
         ``False`` if it is waiting for a claim.
@@ -515,7 +635,8 @@ def wait_for_lighter_withdrawal(
     """
     deadline = time.monotonic() + timeout
     while True:
-        claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter)
+        remaining = deadline - time.monotonic()
+        claimed = fetch_lighter_claimed_usdc(web3, owner=owner, usdc=usdc, from_block=from_block, zk_lighter=zk_lighter, hypersync_api_key=hypersync_api_key, use_hypersync=use_hypersync, hypersync_timeout=min(hypersync_timeout, max(0.001, remaining)))
         if claimed >= pending_before + amount:
             logger.info("Lighter withdrawal of %s USDC to %s was paid without our claim", amount, owner)
             return True
