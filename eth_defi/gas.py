@@ -11,6 +11,9 @@ from typing import Optional
 from web3 import Web3
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
+from eth_defi.hyperliquid.block import fetch_big_block_gas_price, fetch_small_block_base_fee, is_hyperevm
+from eth_defi.provider.anvil import is_anvil
+
 #: Safety buffer multiplier applied to ``maxFeePerGas`` in EIP-1559 transactions.
 #:
 #: On L2 chains like Arbitrum, the base fee can fluctuate between the time
@@ -60,6 +63,25 @@ MIN_PRIORITY_FEE_PER_CHAIN: dict[int, int] = {
     1: 1_000_000_000,
     137: 30_000_000_000,
 }
+
+
+class BlockType(enum.Enum):
+    """Which block type, and so which fee market, a transaction targets.
+
+    Some chains produce small and large blocks with independent mempools and
+    base fees. On HyperEVM, a sender's transactions go to one of them according
+    to its account-level ``usingBigBlocks`` flag, see
+    :py:func:`eth_defi.hyperliquid.block.fetch_using_big_blocks`.
+
+    Chains with a single block type have one fee market, so the block type
+    makes no difference there.
+    """
+
+    #: Frequent small blocks, the default for senders.
+    small = "small"
+
+    #: Infrequent large blocks, for heavy transactions like contract deployments.
+    large = "large"
 
 
 class GasPriceMethod(enum.Enum):
@@ -129,6 +151,8 @@ def estimate_gas_price(
     method=None,
     gas_price_buffer_multiplier: float = GAS_PRICE_BUFFER_MULTIPLIER,
     min_priority_fee: int | None = None,
+    chain_id: int | None = None,
+    block_type: BlockType | None = None,
 ) -> GasPriceSuggestion:
     """Get a good gas price for a transaction.
 
@@ -139,6 +163,106 @@ def estimate_gas_price(
     On EIP-1559 chains, the RPC suggested priority fee is floored to a per-chain
     minimum so transactions do not get stuck in the mempool with an effectively
     zero tip. See :py:data:`MIN_PRIORITY_FEE_PER_CHAIN` for details.
+
+    **HyperEVM fee markets**
+
+    HyperEVM interleaves small and large blocks with independent mempools and
+    base fees, in one block number sequence. ``latest`` is therefore sometimes a
+    large block, whose base fee says nothing about the small block fee market.
+    Large blocks sat at 0.1 gwei in every measurement below, while small blocks
+    reached 44.5 gwei on 2026-11-05.
+
+    Small block pricing reads ``baseFeePerGas`` from the latest small block with
+    :py:func:`eth_defi.hyperliquid.block.fetch_small_block_base_fee`. Large block
+    pricing uses ``eth_bigBlockGasPrice``. Anvil forks have one fee market and
+    price from ``latest`` like any other chain, even at chain id 999.
+
+    **Why not eth_gasPrice**
+
+    `Hyperliquid documents <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/json-rpc>`__
+    ``eth_gasPrice`` as the base fee of the next small block. That is true of
+    its own RPC, but the answer depends on the provider, and on Goldsky it
+    follows a large block when one is ``latest``. The measurements below are
+    historical snapshots in gwei: re-measure before relying on a provider's
+    behaviour.
+
+    *Incident, 2026-11-05: pricing from a large block*
+
+    Hyper-AI posted a Lagoon NAV and then settled it 33 seconds later. Both were
+    priced with ``(tip + 2 * base fee) * 1.12`` from ``latest``, before this
+    function handled the two fee markets:
+
+    ========  =====  ========  ==============================================
+    Block     Type   Base fee  Event
+    ========  =====  ========  ==============================================
+    50464938  small  3.0517    ``latest`` at NAV signing, max fee 6.947
+    50464940  small  2.9164    NAV transaction mined
+    50464971  small  2.2029    Last small block before the settlement
+    50464972  large  0.1000    ``latest`` at settlement signing, max fee 0.336
+    50464973  small  2.3021    Next small block after settlement signing
+    50470852  small  0.3302    Settlement mined, 96 minutes after broadcast
+    ========  =====  ========  ==============================================
+
+    The confirmation wait ended after 10 minutes and stopped the executor. The
+    settlement was never repriced: it mined by itself once the small block base
+    fee fell below its 0.336 gwei limit. Large blocks below that limit came and
+    went without including it, which points to the small block mempool.
+
+    *Hyperliquid RPC, 2026-11-06: matches the documentation*
+
+    ``rpc.hyperliquid.xyz`` keeps tracking small blocks across a large block.
+    ``eth_gasPrice`` equalled the base fee of the next small block in 88 of 88
+    samples. At the large block it gave 0.1350, the next block's exact base fee,
+    while the block's own base fee was 0.1000:
+
+    ========  =====  ========  ================  ========================
+    Block     Type   Base fee  ``eth_gasPrice``  ``eth_bigBlockGasPrice``
+    ========  =====  ========  ================  ========================
+    50534510  small  0.1462    0.1406            0.1000
+    50534512  large  0.1000    0.1350            0.1000
+    50534513  small  0.1350    0.1283            0.1000
+    ========  =====  ========  ================  ========================
+
+    *Goldsky, 2026-11-06: latest base fee plus a tip*
+
+    ``edge.goldsky.com`` returned the base fee of its ``latest`` block plus
+    ``eth_maxPriorityFeePerGas``, like a standard node. It equalled the next
+    small block's base fee in 0 of 55 samples. With small blocks as ``latest``
+    this overstates: it read 2.6 to 3.1 times the next base fee in 37 of 37
+    samples, which is harmless. With a large block as ``latest`` the tip is added
+    to the large block's base fee, so the value can fall below the small block
+    fee, as in the last two rows:
+
+    ========  ========  ================  ======  ==========  ==========
+    Block     Base fee  ``eth_gasPrice``  Tip     Prev small  Next small
+    ========  ========  ================  ======  ==========  ==========
+    50545004  0.1000    0.1658            0.0658  0.1398      0.1533
+    50545065  0.1000    0.3500            0.2500  0.1000      0.1000
+    50545126  0.1000    0.1500            0.0500  0.2017      0.1895
+    50545187  0.1000    0.1643            0.0643  0.2782      0.2749
+    ========  ========  ================  ======  ==========  ==========
+
+    The ``2 * base fee`` margin hides this while fees are low, but not under
+    congestion. As a worked estimate, a 0.3 gwei reading with a 0.2 gwei tip at
+    the incident's large block would give a limit of about 0.9 gwei against a
+    2.3 gwei base fee. Reading the latest small block gives about 5.16 gwei with
+    the same tip.
+
+    *dRPC, 2026-11-06: varies between requests*
+
+    ``lb.drpc.live`` is a load balancer and its answers changed between requests.
+    ``eth_gasPrice`` equalled the next small block's base fee in 79 of 148
+    samples and was below it in 3. Two polls at the same large block, 50564280,
+    gave 1.1000 with a 1 gwei tip and 0.1076 with no tip. The next small block's
+    base fee was 0.1076, and ``eth_bigBlockGasPrice`` gave 0.1000 both times.
+
+    *Other sources*
+
+    - ``eth_feeHistory`` mixes both block types in its history. Its final
+      next-block entry was below 0.1 gwei in 32 of 101 samples on the Hyperliquid
+      RPC, and gave 0.0885 at large block 50534512 before a 0.1350 small block.
+    - ``eth_maxPriorityFeePerGas`` also varies: 0 on the Hyperliquid RPC, 0.05 to
+      0.25 on Goldsky, and 0 or 1 on dRPC.
 
     :param web3:
         Web3 instance connected to a node.
@@ -160,6 +284,22 @@ def estimate_gas_price(
         :py:data:`MIN_PRIORITY_FEE_PER_CHAIN` is used, with no floor applied
         for chains not listed there. Set to ``0`` to always use the raw RPC
         suggestion.
+
+    :param chain_id:
+        Chain id, if already known, to save an RPC call.
+
+        Selects the chain's pricing rules without checking the connection, so
+        it must match ``web3``. If ``None``, read from ``web3``.
+
+    :param block_type:
+        Block type the sender's transaction goes to.
+
+        If ``None``, use the small block price. Has no effect on chains with a
+        single block type, Anvil forks, or with the legacy gas method.
+
+        On HyperEVM, pass :py:attr:`BlockType.large` for a sender with the
+        ``usingBigBlocks`` flag set. Reading it needs ``eth_bigBlockGasPrice``,
+        which third-party RPC providers may not implement.
     """
 
     last_block = web3.eth.get_block("latest")
@@ -175,8 +315,21 @@ def estimate_gas_price(
         # London gas strategy
         # see https://github.com/ethereum/web3.py/blob/c70f7fbe1cfa98b1ce8597a08c99e05759a9667b/web3/_utils/transactions.py#L57
         # see https://github.com/ethereum/web3.py/blob/36adb16c68f570c343d01ecc8d0096cbac814172/web3/middleware/gas_price_strategy.py#L57
+        if chain_id is None:
+            chain_id = web3.eth.chain_id
+
         if min_priority_fee is None:
-            min_priority_fee = MIN_PRIORITY_FEE_PER_CHAIN.get(web3.eth.chain_id, 0)
+            min_priority_fee = MIN_PRIORITY_FEE_PER_CHAIN.get(chain_id, 0)
+
+        # A base fee read from a large block does not apply to the small-block
+        # mempool. On 2026-11-05 this priced a Lagoon settlement at 0.336 gwei
+        # against a 2.2 gwei small-block base fee: it stayed unmined for
+        # 96 minutes and the confirmation timeout stopped Hyper-AI.
+        if is_hyperevm(chain_id) and not is_anvil(web3):
+            if block_type == BlockType.large:
+                base_fee = fetch_big_block_gas_price(web3)
+            else:
+                base_fee = fetch_small_block_base_fee(web3, last_block)
 
         # Floor the RPC suggestion: a near-zero tip can leave the transaction
         # unmined for minutes, see MIN_PRIORITY_FEE_PER_CHAIN
