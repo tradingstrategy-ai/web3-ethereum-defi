@@ -6,6 +6,7 @@ fetches logs and converts them to :class:`eth_defi.vault.settlement_data.VaultSe
 rows for the generic DuckDB store.
 """
 
+import asyncio
 import datetime
 import logging
 import os
@@ -18,14 +19,22 @@ from web3.contract.contract import ContractEvent
 from web3.datastructures import AttributeDict
 
 from eth_defi.abi import get_topic_signature_from_event
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.flow_events import (
     IndexedVaultFlowLog,
-    fetch_vault_flow_logs_for_addresses_hypersync,
+    _fetch_vault_flow_logs_for_addresses_hypersync_async,
+    run_vault_flow_log_fetch,
     hypersync,
 )
 from eth_defi.vault.settlement_data import VaultSettlement
+
+try:
+    from eth_defi.hypersync.utils import configure_hypersync_from_env
+    from eth_defi.hypersync.session import ThrottledHypersyncClient
+except ImportError:
+    configure_hypersync_from_env = None
 
 logger = logging.getLogger(__name__)
 
@@ -55,15 +64,17 @@ def normalise_topic(topic: str) -> str:
     return topic
 
 
-def should_use_hypersync() -> bool:
+def should_use_hypersync(hypersync_api_key: str | None = None) -> bool:
     """Check whether Hypersync should be used for event reads.
 
+    :param hypersync_api_key:
+        Explicit credential overriding the legacy environment default.
     :return:
-        ``True`` if the optional package and ``HYPERSYNC_API_KEY`` exist and
+        ``True`` if the optional package and an explicit or environment key exist and
         ``USE_HYPERSYNC`` is not explicitly disabled.
     """
     requested = os.environ.get("USE_HYPERSYNC", "true").lower() not in {"0", "false", "no"}
-    return requested and hypersync is not None and bool(os.environ.get("HYPERSYNC_API_KEY"))
+    return requested and os.environ.get("SCAN_BACKEND", "auto") != "rpc" and hypersync is not None and bool(hypersync_api_key or os.environ.get("HYPERSYNC_API_KEY"))
 
 
 def fetch_vault_settlement_logs(
@@ -75,6 +86,8 @@ def fetch_vault_settlement_logs(
     end_block: int,
     use_hypersync: bool | None = None,
     chunk_size: int = 50_000,
+    hypersync_api_key: str | None = None,
+    hypersync_timeout: float | None = None,
 ) -> list[AttributeDict]:
     """Fetch vault settlement-style logs using Hypersync or JSON-RPC.
 
@@ -90,14 +103,19 @@ def fetch_vault_settlement_logs(
         Inclusive end block.
     :param use_hypersync:
         Whether to use Hypersync. ``None`` auto-detects based on environment.
+    :param hypersync_api_key:
+        Explicit credential overriding the legacy environment default.
     :param chunk_size:
         JSON-RPC ``eth_getLogs`` chunk size used by the fallback reader.
+    :param hypersync_timeout:
+        Optional whole-read timeout; None retains legacy per-receive limits.
     :return:
         Web3-compatible log objects.
     """
     assert start_block <= end_block, f"Bad block range: {start_block:,} - {end_block:,}"
 
     return fetch_vault_settlement_logs_for_addresses(
+        hypersync_api_key=hypersync_api_key,
         web3=web3,
         addresses=[address],
         topic0_list=topic0_list,
@@ -105,6 +123,7 @@ def fetch_vault_settlement_logs(
         end_block=end_block,
         use_hypersync=use_hypersync,
         chunk_size=chunk_size,
+        hypersync_timeout=hypersync_timeout,
     )
 
 
@@ -117,6 +136,8 @@ def fetch_vault_settlement_logs_for_addresses(
     end_block: int,
     use_hypersync: bool | None = None,
     chunk_size: int = 50_000,
+    hypersync_api_key: str | None = None,
+    hypersync_timeout: float | None = None,
 ) -> list[AttributeDict]:
     """Fetch vault settlement-style logs for multiple vaults as one address batch.
 
@@ -132,22 +153,28 @@ def fetch_vault_settlement_logs_for_addresses(
         Inclusive end block.
     :param use_hypersync:
         Whether to use Hypersync. ``None`` auto-detects based on environment.
+    :param hypersync_api_key:
+        Explicit credential overriding the legacy environment default.
     :param chunk_size:
         JSON-RPC ``eth_getLogs`` chunk size used by the fallback reader.
+    :param hypersync_timeout:
+        Optional whole-read timeout; None retains legacy per-receive limits.
     :return:
         Web3-compatible log objects.
     """
     assert start_block <= end_block, f"Bad block range: {start_block:,} - {end_block:,}"
     assert addresses, "Vault address list cannot be empty"
 
-    use_hypersync = should_use_hypersync() if use_hypersync is None else use_hypersync
+    use_hypersync = should_use_hypersync(hypersync_api_key) if use_hypersync is None else use_hypersync
     if use_hypersync:
         return fetch_vault_settlement_logs_hypersync_for_addresses(
+            hypersync_api_key=hypersync_api_key,
             web3=web3,
             addresses=addresses,
             topic0_list=topic0_list,
             start_block=start_block,
             end_block=end_block,
+            hypersync_timeout=hypersync_timeout,
         )
 
     return fetch_vault_settlement_logs_rpc(
@@ -167,6 +194,8 @@ def fetch_vault_settlement_logs_hypersync(
     topic0_list: list[str],
     start_block: int,
     end_block: int,
+    hypersync_api_key: str | None = None,
+    hypersync_timeout: float | None = None,
 ) -> list[AttributeDict]:
     """Fetch vault settlement-style logs using Hypersync.
 
@@ -180,15 +209,21 @@ def fetch_vault_settlement_logs_hypersync(
         Inclusive start block.
     :param end_block:
         Inclusive end block.
+    :param hypersync_api_key:
+        Explicit HyperSync credential; disabled or absent credentials use RPC in executor callers.
+    :param hypersync_timeout:
+        Optional whole-read timeout; None retains legacy per-receive limits.
     :return:
         Web3-compatible log objects.
     """
     return fetch_vault_settlement_logs_hypersync_for_addresses(
+        hypersync_api_key=hypersync_api_key,
         web3=web3,
         addresses=[address],
         topic0_list=topic0_list,
         start_block=start_block,
         end_block=end_block,
+        hypersync_timeout=hypersync_timeout,
     )
 
 
@@ -199,6 +234,8 @@ def fetch_vault_settlement_logs_hypersync_for_addresses(
     topic0_list: list[str],
     start_block: int,
     end_block: int,
+    hypersync_api_key: str | None = None,
+    hypersync_timeout: float | None = None,
 ) -> list[AttributeDict]:
     """Fetch vault settlement-style logs for multiple vaults using Hypersync.
 
@@ -212,24 +249,27 @@ def fetch_vault_settlement_logs_hypersync_for_addresses(
         Inclusive start block.
     :param end_block:
         Inclusive end block.
+    :param hypersync_api_key:
+        Explicit HyperSync credential; disabled or absent credentials use RPC in executor callers.
+    :param hypersync_timeout:
+        Optional whole-read timeout; None retains legacy per-receive limits.
     :return:
         Web3-compatible log objects.
     """
-    import hypersync
-
-    hypersync_client = hypersync.HypersyncClient(
-        hypersync.ClientConfig(
-            url=get_hypersync_server(web3),
-            api_token=os.environ["HYPERSYNC_API_KEY"],
-        )
-    )
-    indexed_logs = fetch_vault_flow_logs_for_addresses_hypersync(
-        hypersync_client=hypersync_client,
-        vault_addresses=addresses,
-        topic0_list=topic0_list,
-        start_block=start_block,
-        end_block=end_block,
-    )
+    if hypersync_api_key is None:
+        # Preserve the native SDK retry defaults for existing bulk/library callers.
+        client = hypersync.HypersyncClient(hypersync.ClientConfig(
+            url=get_hypersync_server(web3), api_token=os.environ["HYPERSYNC_API_KEY"],
+        ))
+    else:
+        if configure_hypersync_from_env is None:
+            raise RuntimeError("HyperSync package is unavailable")
+        client = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key).hypersync_client
+        if client is None:
+            raise RuntimeError("HyperSync is unavailable for settlement reads")
+    indexed_logs = run_vault_flow_log_fetch(_fetch_complete_settlement_logs(
+        client, addresses, topic0_list, start_block, end_block, hypersync_timeout,
+    ))
     logger.info(
         "Fetched %d vault settlement logs for %d vaults using Hypersync from blocks %d - %d",
         len(indexed_logs),
@@ -238,6 +278,44 @@ def fetch_vault_settlement_logs_hypersync_for_addresses(
         end_block,
     )
     return [indexed_log_to_web3_log(log) for log in indexed_logs]
+
+
+async def _fetch_complete_settlement_logs(client: "ThrottledHypersyncClient | hypersync.HypersyncClient", addresses: list[HexAddress | str], topics: list[str], start_block: int, end_block: int, timeout: float | None) -> list[IndexedVaultFlowLog]:
+    """Refuse partial settlement evidence before accounting advances its cursor.
+
+    The conservative height boundary follows existing vault managers. Check
+    advertised stream progress before accepting an empty result, following
+    https://docs.envio.dev/docs/HyperSync/hypersync-query. This detects reported
+    truncation, but still relies on the indexer returning the correct logs.
+
+    :param client:
+        Native legacy client or configured throttled client.
+    :param addresses:
+        Vault contracts selected in one query.
+    :param topics:
+        Settlement event signatures.
+    :param start_block:
+        Inclusive first block.
+    :param end_block:
+        Inclusive final block, which must already be indexed.
+    :param timeout:
+        Optional total read timeout. None retains the existing per-receive limit.
+    :return:
+        Indexed logs in block/log order after checking reported range completion.
+    """
+    async def read_range() -> list[IndexedVaultFlowLog]:
+        if await client.get_height() - 1 < end_block:
+            raise RuntimeError("HyperSync has not indexed the settlement range")
+        return await _fetch_vault_flow_logs_for_addresses_hypersync_async(
+            hypersync_client=client,
+            vault_addresses=addresses,
+            topic0_list=topics,
+            start_block=start_block,
+            end_block=end_block,
+            require_complete=True,
+        )
+
+    return await asyncio.wait_for(read_range(), timeout=timeout)
 
 
 def indexed_log_to_web3_log(log: IndexedVaultFlowLog) -> AttributeDict:
@@ -373,6 +451,10 @@ def build_settlement_rows_from_logs(
 
         block_number = int(log["blockNumber"])
         timestamp = log.get("blockTimestamp")
+        if isinstance(timestamp, str):
+            timestamp = native_datetime_utc_fromtimestamp(int(timestamp, 16))
+        elif isinstance(timestamp, int):
+            timestamp = native_datetime_utc_fromtimestamp(timestamp)
         if timestamp is None:
             assert web3 is not None, "web3 is needed to resolve missing block timestamps"
             timestamp = block_timestamp_cache.get(block_number)

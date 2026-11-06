@@ -180,8 +180,13 @@ which every claim emits. The Safe's USDC balance is not, because Lagoon settleme
 moves it too. Record the pending balance and the block just before the request, then
 use `wait_for_lighter_withdrawal()`, which returns `True` if the money has already
 been paid and `False` if it is waiting for a claim. After a reverted claim, check
-`is_lighter_withdrawal_paid()`. `fetch_lighter_claimed_usdc()` reads the event in
-chunks, because a mainnet provider refused 1000-block `eth_getLogs` ranges.
+`is_lighter_withdrawal_paid()`. Supply `hypersync_api_key` to these helpers to
+read indexed events with HyperSync and the unindexed tail with RPC. Missing
+credentials, disabled use, unsupported chains, Anvil and indexer failures use
+the existing chunked RPC reader. A failed or incomplete indexer stream is
+discarded before a full-range RPC retry, so claims are never counted twice.
+`use_hypersync=False` forces RPC; `hypersync_timeout` bounds the indexer attempt.
+RPC errors still propagate rather than becoming a zero payout.
 
 The event names the owner, not the withdrawal, so this assumes one withdrawal at a
 time per owner. The executor runs them sequentially, but a sub-account trader
