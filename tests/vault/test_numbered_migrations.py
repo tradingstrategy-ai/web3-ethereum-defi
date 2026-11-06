@@ -39,6 +39,10 @@ EDGE_ULTRAYIELD = VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751")
 THREEJANE_TRANCHES = (VaultSpec(1, "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc"), VaultSpec(1, "0xf689555121e529ff0463e191f9bd9d1e496164a7"))
 
 
+#: Peapods deployments required by migration 036.
+PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
+
+
 def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection:
     """Build stable discovery evidence for scanner compatibility assertions.
 
@@ -62,6 +66,8 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    for spec in PEAPODS_USDC:
+        rows[spec] = {"Protocol": "Peapods", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
     for tranche in THREEJANE_TRANCHES:
         rows[tranche] = {"Protocol": "3Jane", "_detection_data": detection(tranche, ERC4626Feature.threejane_like), "_strategy_tags": None}
@@ -150,6 +156,9 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[EDGE_ULTRAYIELD]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[EDGE_ULTRAYIELD]["_notes"] == "EDGE UltraYield USDC is illiquid."
+    for spec in PEAPODS_USDC:
+        assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
+        assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
     for tranche in THREEJANE_TRANCHES:
         assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()
@@ -179,7 +188,7 @@ def test_nova_reader_retains_existing_cursor() -> None:
     assert reader.reader_state.last_block == 518876926
 
 
-@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED)])
+@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), *((36, spec) for spec in PEAPODS_USDC)])
 def test_missing_required_single_target_fails(batch_database: Path, tmp_path: Path, number: int, target: VaultSpec) -> None:
     """Absent reviewed targets remain pending instead of being marked complete."""
     path = batch_database / "vault-metadata-db.pickle"
