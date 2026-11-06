@@ -46,19 +46,21 @@ def test_birch_hill_strategy_tags() -> None:
 
 
 @pytest.mark.parametrize("features", [{ERC4626Feature.yearn_v3_like}, {ERC4626Feature.yearn_v3_like, ERC4626Feature.yearn_registry_excluded, ERC4626Feature.yearn_compounder_like}])
-def test_birch_hill_tag_migration(features: set[ERC4626Feature]) -> None:
+@pytest.mark.parametrize("protocol", ["Yearn", "ERC-4626"])
+def test_birch_hill_tag_migration(features: set[ERC4626Feature], protocol: str) -> None:
     """Persist tags with both protocol labels and preserve all unrelated data.
 
     Repeating the transformation must stage no additional changes.
 
     :param features: Fresh or legacy scanner features.
+    :param protocol: Fresh or legacy stored protocol label.
     """
     path = Path(__file__).resolve().parents[3] / "migration/scripts/039-birch-hill-strategy-tags.py"
     spec = importlib.util.spec_from_file_location("birch_hill_tag_migration", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     detection = ERC4262VaultDetection(chain=8453, address=BIRCH_HILL_RWA_USDC.vault_address, first_seen_at_block=1, first_seen_at=datetime.datetime(2026, 11, 1, tzinfo=datetime.UTC).replace(tzinfo=None), features=features, updated_at=datetime.datetime(2026, 11, 6, tzinfo=datetime.UTC).replace(tzinfo=None), deposit_count=1, redeem_count=1)
-    row = {"Protocol": "ERC-4626", "_detection_data": detection, "_strategy_tags": None, "_description": "Keep me"}
+    row = {"Protocol": protocol, "_detection_data": detection, "_strategy_tags": None, "_description": "Keep me"}
     unrelated = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     database = VaultDatabase(rows={BIRCH_HILL_RWA_USDC: row, unrelated: {"keep": 42}})
     context = MagicMock()
