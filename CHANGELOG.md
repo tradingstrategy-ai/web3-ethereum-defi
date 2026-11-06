@@ -3,6 +3,8 @@
 - feat: Read Lighter payouts with HyperSync and an RPC tail, retry failed indexer reads with RPC, and verify Lagoon settlement stream completion with explicit credentials and optional whole-read timeouts (2026-11-06).
 
 - feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
+- fix: Type GMX preflight gas refusals as a lower-preflight refusal with zero fill and no transaction, so Freqtrade never latches them as a possibly-submitted order and retries the exit normally (2026-11-06).
+- fix: Resolve synthetic GMX market ids (`HYPE2`, `XRP2`, `ZEC2`, `NEAR2`) to their underlying token symbol through the index token address for `/prices/candles` and `/prices/tickers`, which returned HTTP 400 for the market id, and tolerate a degraded `/tokens` payload (2026-11-06).
 - test: Record that the GMX Freqtrade patched entrypoint imports and installs the async GMX bridge on freqtrade 2026.9 and CCXT 4.5.84 (2026-10-01).
 - feat: Print a final migration batch summary for preview and apply, showing completed, skipped, failed and unattempted migrations with reported row and field counts (2026-11-05).
 - fix: Recognise Lighter withdrawals paid by its relayer with `wait_for_lighter_withdrawal()`, `is_lighter_withdrawal_paid()` and `fetch_lighter_claimed_usdc()`, return `completed` rows from `wait_for_claimable_withdrawal()`, explain that an empty master gets `21129 too many sub accounts`, and document Lighter's sub-account limits (2026-11-05).
