@@ -50,6 +50,17 @@ Migration 038 updates only existing rows' two description fields. It reports
 missing targets and does not discover vaults, change attribution or price data.
 Production migration and normal export publication remain operational steps.
 
+Both deployments now have exact curator address overrides. Export-time curator
+resolution prefers those overrides over protocol defaults and stale declarations,
+so no persisted curator repair is required. Both real adapters return `lending`,
+`rwa` and `rwa_lending`. Migration 039 refreshes only the Flagship's persisted
+`_strategy_tags` through the shared resolver. These changes do not discover new
+vaults or reset prices; the Flagship's published series begins in November 2026.
+
+The original official logo and all three 256×256 formatted variants were already
+committed in PR #1644 and are reused from the `birch-hill` logo directories.
+`get_curator_available_logos("birch-hill")` detects generic, dark and light assets.
+
 ## Source checks
 
 All checks below were made on 2026-11-06. The sources support these specific

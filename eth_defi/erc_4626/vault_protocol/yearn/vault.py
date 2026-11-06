@@ -21,9 +21,11 @@ from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
     fetch_yearn_vault_endorsement,
     resolve_yearn_vault_endorsement,
 )
+from eth_defi.erc_4626.vault_protocol.yearn.tags import get_strategy_tags
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 from eth_defi.vault.handwritten_metadata import BIRCH_HILL_VAULT_METADATA
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +218,15 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
     """
 
     whitelist_notes = "Legacy Yearn deployments without deposit_limit_module() use the adapter's permissionless compatibility default; an explicit custom module remains unknown."
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Resolve reviewed Yearn deployments before inherited wrapper metadata.
+
+        Keep the existing fallback for vaults outside the reviewed mapping.
+
+        :return: Maintained strategy tags, or ``None`` when unclassified.
+        """
+        return get_strategy_tags(self.chain_id, self.vault_address) or super().get_strategy_tags()
 
     @cached_property
     def vault_contract(self) -> Contract:

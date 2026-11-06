@@ -150,6 +150,13 @@ blockchain read or historical price backfill; all other metadata and scanning
 state are preserved. Migration 037 handles admission mapping separately and
 must not be rerun if already successful.
 
+Migration `039-birch-hill-strategy-tags.py` separately refreshes the Flagship's
+`_strategy_tags` only: at most one existing row and one field. The shared resolver
+uses its Yearn V3 features even when the public protocol label is `ERC-4626`.
+The exact curator address override also corrects attribution during export;
+it does not need a stored curator-field migration. Existing Birch Hill logo
+variants are reused.
+
 Record the eventual PR URL in migration 038 before merging. Use the stamped
 merged image and the stop, list, preview, apply and restart commands above,
 following the production runbook. Review the entire pending batch before apply;
