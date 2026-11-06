@@ -4,7 +4,7 @@ Purpose: Refresh stored flags and notes so exports exclude the reviewed vaults.
 Scope: Two exact Peapods deployments on Base below; update only _flags and _notes.
 Branch: add-vault-note-peapods-usdc-illiquid
 PR title: notes: mark Peapods USDC 65 and 147 on Base as illiquid
-PR: See the pull request for branch add-vault-note-peapods-usdc-illiquid.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1735
 Preserves: Unrelated flags and metadata, prices, leads, reader state and
 timestamp caches. No historical price backfill is needed.
 Expected: Two validated targets, at most four updated fields; safe to retry.
