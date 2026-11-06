@@ -698,6 +698,9 @@ UNKNOWN_ABNORMAL_SHARE_PRICE = "Share price chart has abnormal high returns and 
 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
+#: User-reported illiquidity of the reviewed K3 Capital Cluster vault.
+K3_CAPITAL_CLUSTER_ILLIQUID = "This vault is illiquid."
+
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
 USDN_WRAPPER_ILLIQUID = "USDN Wrapper is illiquid"
@@ -1031,6 +1034,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xeaf77df5d03306bca4ee8b58b6821e6aca76309d": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Euler Re7
     "0xaba9d2d4b6b93c3dc8976d8eb0690cca56431fe4": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # K3 Capital Cluster, Euler on Avalanche (43114), curated by K3 Capital.
+    # Added 2026-11-06 at the user's explicit request to mark the vault illiquid.
+    # This records the user's liquidity classification and excludes the vault
+    # from investable rankings. No independent liquidity measurement or incident
+    # announcement was supplied; the links below establish the vault's identity.
+    # https://tradingstrategy.ai/vaults/k3-capital-cluster-7
+    # https://snowtrace.io/address/0x6fc9b3a52944a577cd8971fd8fde0819001bc595
+    "0x6fc9b3a52944a577cd8971fd8fde0819001bc595": (VaultFlag.illiquid, K3_CAPITAL_CLUSTER_ILLIQUID),
     # K3
     "0xe1a62fdcc6666847d5ea752634e45e134b2f824b": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Excellion USDC Vault

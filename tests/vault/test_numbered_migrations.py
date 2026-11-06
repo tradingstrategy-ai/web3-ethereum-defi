@@ -43,6 +43,10 @@ THREEJANE_TRANCHES = (VaultSpec(1, "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc")
 PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
 
 
+#: Euler deployment required by migration 040.
+K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
+
+
 def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection:
     """Build stable discovery evidence for scanner compatibility assertions.
 
@@ -68,6 +72,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
     for spec in PEAPODS_USDC:
         rows[spec] = {"Protocol": "Peapods", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    rows[K3_CLUSTER] = {"Protocol": "Euler", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
     for tranche in THREEJANE_TRANCHES:
         rows[tranche] = {"Protocol": "3Jane", "_detection_data": detection(tranche, ERC4626Feature.threejane_like), "_strategy_tags": None}
@@ -156,6 +161,8 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[EDGE_ULTRAYIELD]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[EDGE_ULTRAYIELD]["_notes"] == "EDGE UltraYield USDC is illiquid."
+    assert database.rows[K3_CLUSTER]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
+    assert database.rows[K3_CLUSTER]["_notes"] == "This vault is illiquid."
     for spec in PEAPODS_USDC:
         assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
         assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
@@ -188,7 +195,7 @@ def test_nova_reader_retains_existing_cursor() -> None:
     assert reader.reader_state.last_block == 518876926
 
 
-@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), *((36, spec) for spec in PEAPODS_USDC)])
+@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), *((36, spec) for spec in PEAPODS_USDC)])
 def test_missing_required_single_target_fails(batch_database: Path, tmp_path: Path, number: int, target: VaultSpec) -> None:
     """Absent reviewed targets remain pending instead of being marked complete."""
     path = batch_database / "vault-metadata-db.pickle"
