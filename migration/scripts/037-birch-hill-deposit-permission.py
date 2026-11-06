@@ -5,7 +5,7 @@ Yearn deposit-limit selector with the verified hook-based admission read.
 Scope: Existing Base RWA USDC row only; _deposit_permission and _whitelist_notes.
 Branch: analyse-birch-hill-vault-protocol
 PR title: feat: publish Birch Hill vault descriptions and correct deposit permissions
-PR: Not opened; add the PR URL before merge and production execution.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1738
 Preserves: Other metadata, prices, leads, reader state and timestamp caches.
 Expected: At most one changed row and two changed fields; missing row reported.
 

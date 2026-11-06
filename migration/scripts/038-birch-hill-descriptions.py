@@ -5,7 +5,7 @@ Purpose: Populate individual vault summaries and full Markdown descriptions.
 Scope: Two frozen Base addresses below; _description and _short_description only.
 Branch: analyse-birch-hill-vault-protocol
 PR title: feat: publish Birch Hill vault descriptions and correct deposit permissions
-PR: Not opened; add URL before merge.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1738
 Preserves: All other metadata, prices, leads, reader state and timestamp caches.
 Expected: At most two existing rows and four fields; missing rows reported.
 
