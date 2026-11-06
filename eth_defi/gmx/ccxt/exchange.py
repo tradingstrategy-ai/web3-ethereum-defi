@@ -55,6 +55,15 @@ from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
+from eth_defi.gmx.collateral_routing import (
+    assign_usdc_routed_symbols,
+    calculate_swap_min_output,
+    get_usdc_route,
+    get_usdc_route_for_market_tokens,
+    get_usdc_route_from_market,
+    is_zero_open_interest_cap,
+)
+from eth_defi.gmx.market_guards import filter_zero_open_interest_cap_markets
 from eth_defi.gmx.constants import (
     DECREASE_POSITION_SWAP_TYPES,
     DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
@@ -1051,6 +1060,20 @@ class GMX(ExchangeCompatible):
                         )
                         continue
 
+                    # Skip retired pools: GMX sets both open-interest caps to 0, every
+                    # open is then keeper-cancelled with MaxOpenInterestExceeded(0).
+                    if is_zero_open_interest_cap(market_info.get("maxOpenInterestLong"), market_info.get("maxOpenInterestShort")):
+                        logger.warning(
+                            "GraphQL: skipping market %s with maxOpenInterest 0 on both sides (retired pool)",
+                            market_token_addr,
+                        )
+                        continue
+
+                    # Single-token markets whose collateral is USDC-routed (USDG) bypass
+                    # EXCLUDED_SYMBOLS here; assign_usdc_routed_symbols() names them after
+                    # the loop, once every other market's name is known.
+                    usdc_route = get_usdc_route_for_market_tokens(self.config.get_chain(), long_token_addr, short_token_addr)
+
                     # Special case for wstETH market
                     # This market has WETH as index token but should be treated as wstETH
                     if market_token_addr_lower == _special_wsteth_address:
@@ -1079,7 +1102,7 @@ class GMX(ExchangeCompatible):
                     was_remapped = raw_symbol != symbol_name
 
                     # Skip excluded symbols
-                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                    if symbol_name in self.EXCLUDED_SYMBOLS and usdc_route is None:
                         continue
 
                     # Use Freqtrade futures format (consistent with regular load_markets)
@@ -1162,6 +1185,7 @@ class GMX(ExchangeCompatible):
             self.symbols = list(self.markets.keys())
 
             self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.markets = assign_usdc_routed_symbols(self.markets, self.config.get_chain(), self.EXCLUDED_SYMBOLS)
             self.symbols = list(self.markets.keys())
             logger.info("Loaded %s markets from GraphQL", len(self.markets))
             logger.debug("Market symbols: %s", self.symbols)
@@ -1228,6 +1252,7 @@ class GMX(ExchangeCompatible):
                             _tok = remapped[_sym].get("info", {}).get("market_token", "?")
                             logger.info("Disk cache market_token for %s = %s", _sym, _tok)
                     self.markets = self._filter_datastore_disabled_markets(remapped)
+                    self.markets = assign_usdc_routed_symbols(self.markets, self.config.get_chain(), self.EXCLUDED_SYMBOLS)
                     self.markets_loaded = True
                     self.symbols = list(self.markets.keys())
                     return self.markets
@@ -1325,8 +1350,10 @@ class GMX(ExchangeCompatible):
                     # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
                     symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
-                    # Skip excluded symbols
-                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                    # Skip excluded symbols. USDC-routed single-token markets (USDG) are
+                    # named by assign_usdc_routed_symbols() after the loop instead.
+                    usdc_route = get_usdc_route_for_market_tokens(self.config.get_chain(), long_token_addr, short_token_addr)
+                    if symbol_name in self.EXCLUDED_SYMBOLS and usdc_route is None:
                         logger.debug("Skipping excluded symbol: %s", symbol_name)
                         continue
 
@@ -1437,6 +1464,7 @@ class GMX(ExchangeCompatible):
                     logger.warning("Failed to save markets to cache: %s", e)
 
             self.markets = self._filter_datastore_disabled_markets(self.markets)
+            self.markets = assign_usdc_routed_symbols(self.markets, self.config.get_chain(), self.EXCLUDED_SYMBOLS)
             self.symbols = list(self.markets.keys())
             logger.info(
                 "Loaded %d markets from REST API (%d excluded)",
@@ -1533,7 +1561,9 @@ class GMX(ExchangeCompatible):
                 len(batch),
                 removed,
             )
-            return filtered
+            # Retired pools stay listed and enabled but have both open-interest
+            # caps at 0; drop them on every loading path, not just GraphQL.
+            return filter_zero_open_interest_cap_markets(self.web3, chain, filtered)
         except Exception as e:
             logger.warning(
                 "_filter_datastore_disabled_markets failed, returning unfiltered markets: %s",
@@ -2653,7 +2683,12 @@ class GMX(ExchangeCompatible):
             # Normalise versioned symbols to canonical names (e.g. "XAUT.v2" -> "XAUT").
             symbol_name = SYMBOL_NORMALISE.get(symbol_name, symbol_name)
 
-            if symbol_name in self.EXCLUDED_SYMBOLS:
+            _usdc_route = get_usdc_route_for_market_tokens(
+                self.config.get_chain(),
+                market_data.get("long_token_address"),
+                market_data.get("short_token_address"),
+            )
+            if symbol_name in self.EXCLUDED_SYMBOLS and _usdc_route is None:
                 logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
@@ -2722,6 +2757,7 @@ class GMX(ExchangeCompatible):
 
         # Update symbols list (CCXT compatibility)
         self.markets = self._filter_datastore_disabled_markets(self.markets)
+        self.markets = assign_usdc_routed_symbols(self.markets, self.config.get_chain(), self.EXCLUDED_SYMBOLS)
         self.symbols = list(self.markets.keys())
 
         return self.markets
@@ -5149,8 +5185,7 @@ class GMX(ExchangeCompatible):
         for position_key, position_data in positions.items():
             try:
                 # Find matching market
-                market_symbol = position_data.get("market_symbol", "")
-                unified_symbol = f"{market_symbol}/USDC:USDC"
+                unified_symbol = self._unified_symbol_for_position(position_data)
 
                 # Skip if filtering by symbol
                 if symbol:
@@ -5410,8 +5445,7 @@ class GMX(ExchangeCompatible):
         for position_key, position_data in positions.items():
             try:
                 # Find matching market
-                market_symbol = position_data.get("market_symbol", "")
-                unified_symbol = f"{market_symbol}/USDC:USDC"
+                unified_symbol = self._unified_symbol_for_position(position_data)
 
                 # Skip if filtering by symbols
                 if symbols:
@@ -5911,6 +5945,14 @@ class GMX(ExchangeCompatible):
         # default; an explicit ``collateral_symbol`` wins.
         collateral_symbol = (params.get("collateral_symbol") or "USDC").upper()
         chain = self.config.get_chain() if hasattr(self, "config") and self.config else "arbitrum"
+
+        # A USDC-routed market (single-token USDG pool) accepts USDC through its
+        # swap leg, so it must not be swapped for a sibling pool that accepts USDC
+        # directly — after a GMX migration that sibling is the retired pool.
+        _route = get_usdc_route_from_market({"info": default_info}, chain)
+        if _route is not None and collateral_symbol in (_route.pay_symbol, _route.collateral_symbol):
+            return default_info
+
         if chain == "arbitrum" and collateral_symbol == "BTC":
             collateral_address = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
         else:
@@ -6027,6 +6069,11 @@ class GMX(ExchangeCompatible):
         all_markets = Markets(self.config).get_available_markets()
         pools = []
         for addr, m in all_markets.items():
+            # Never offer a deprecated pool: Markets() does not apply
+            # DEPRECATED_MARKET_TOKENS, and the collateral-aware open path would
+            # otherwise reroute USDC opens to a retired [X-USDC] pool.
+            if addr.lower() in DEPRECATED_MARKET_TOKENS:
+                continue
             match = False
             if index_token_addr:
                 match = m.get("index_token_address", "").lower() == index_token_addr.lower()
@@ -6305,6 +6352,26 @@ class GMX(ExchangeCompatible):
             "_collateral_explicitly_set": _collateral_explicitly_set,  # Whether user chose collateral
         }
 
+        # USDC-routed market (single-token USDG pool): the position's collateral
+        # is USDG, but the wallet funds the open with USDC and GMX swaps it along
+        # swap_path (GMX guidance for the 2026-11 USDG migration). Only applies
+        # when the caller asked for USDC collateral (the default); an explicit
+        # USDG collateral is sent as-is. Closes take collateral and swap path from
+        # the on-chain position in _execute_close_with_position().
+        _chain = self.config.get_chain() if getattr(self, "config", None) else None
+        _usdc_route = get_usdc_route_from_market({"info": _resolved_info}, _chain)
+        if _usdc_route is not None and not reduceOnly and str(collateral_symbol).upper() == _usdc_route.pay_symbol:
+            gmx_params["collateral_symbol"] = _usdc_route.collateral_symbol
+            gmx_params["start_token_symbol"] = _usdc_route.pay_symbol
+            gmx_params["swap_path"] = list(_usdc_route.swap_path)
+            logger.info(
+                "OPEN: %s is USDC-routed — collateral %s funded with %s via swap path %s",
+                symbol,
+                _usdc_route.collateral_symbol,
+                _usdc_route.pay_symbol,
+                list(_usdc_route.swap_path),
+            )
+
         # Inject pre-resolved addresses so OrderArgumentParser skips its internal
         # _handle_missing_market_key / _handle_missing_index_token_address lookups.
         if _market_key:
@@ -6490,23 +6557,36 @@ class GMX(ExchangeCompatible):
             else:
                 collateral_address = _resolved_info.get("short_token") or market["info"].get("short_token")
 
+        # USDC-routed market (USDG single-token pool): _convert_ccxt_to_gmx_params set
+        # swap_path when the order is funded with USDC. The main leg then sends USDC
+        # and swaps it to the USDG collateral; SL/TP legs swap their payout back.
+        sltp_swap_path = list(gmx_params.get("swap_path") or [])
+        _bundled_route = get_usdc_route_from_market({"info": _resolved_info}, chain) if sltp_swap_path else None
+        if _bundled_route is not None:
+            collateral_address = _bundled_route.collateral_token
+            initial_collateral_address = _bundled_route.pay_token
+        else:
+            sltp_swap_path = []
+            initial_collateral_address = collateral_address
+
         index_token_address = _resolved_info.get("index_token") or market["info"].get("index_token")
 
         if not collateral_address or not index_token_address:
             raise ValueError(f"Could not resolve token addresses for {symbol} market")
 
-        # Calculate collateral amount from size and leverage
+        # Calculate collateral amount from size and leverage. The amount is in
+        # units of the token the order sends (initial_collateral_address).
         collateral_usd = size_delta_usd / leverage
-        token_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
+        token_details = fetch_erc20_details(self.web3, initial_collateral_address, chain_id=self.web3.eth.chain_id)
 
         # Get the price of the collateral token to convert USD to token amount
         # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
         oracle = OraclePrices(self.config.chain)
 
         # Get price for token (handles testnet address translation)
-        price_data = oracle.get_price_for_token(collateral_address)
+        price_data = oracle.get_price_for_token(initial_collateral_address)
         if price_data is None:
-            raise ValueError(f"No oracle price available for collateral token {collateral_address}. This may indicate the token is not supported by GMX oracle feeds.")
+            raise ValueError(f"No oracle price available for collateral token {initial_collateral_address}. This may indicate the token is not supported by GMX oracle feeds.")
         raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Convert from 30-decimal precision to USD price
@@ -6542,6 +6622,8 @@ class GMX(ExchangeCompatible):
             is_long=is_long,  # Use actual position direction from gmx_params
             decrease_position_swap_type=decrease_position_swap_type,
             should_unwrap_native_token=should_unwrap_native_token,
+            decrease_swap_path=sltp_swap_path,
+            initial_collateral_address=to_checksum_address(initial_collateral_address),
         )
 
         # Build SLTPParams
@@ -6551,12 +6633,19 @@ class GMX(ExchangeCompatible):
         )
 
         # Create bundled order
+        _main_min_output = 0
+        if sltp_swap_path:
+            _collateral_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
+            _main_min_output = calculate_swap_min_output(collateral_amount, token_details.decimals, _collateral_details.decimals, slippage_percent)
+
         sltp_result = sltp_order.create_increase_order_with_sltp(
             size_delta_usd=size_delta_usd,
             initial_collateral_delta_amount=collateral_amount,
             sltp_params=sltp_params,
             slippage_percent=slippage_percent,
+            swap_path=sltp_swap_path,
             execution_buffer=execution_buffer,
+            min_output_amount=_main_min_output,
         )
 
         logger.info(
@@ -6799,6 +6888,13 @@ class GMX(ExchangeCompatible):
             market_overrides["market_key"] = _market_key
         if _index_token_addr:
             market_overrides["index_token_address"] = _index_token_addr
+
+        # USDC-routed market: the position collateral is USDG and the SL/TP payout
+        # is swapped back to USDC (same as a market close).
+        _sltp_route = get_usdc_route_from_market(market_info, self.config.get_chain())
+        if _sltp_route is not None and collateral_symbol.upper() in (_sltp_route.pay_symbol, _sltp_route.collateral_symbol):
+            collateral_symbol = _sltp_route.collateral_symbol
+            market_overrides["swap_path"] = list(_sltp_route.swap_path)
 
         # Create standalone SL or TP order
         try:
@@ -7325,6 +7421,32 @@ class GMX(ExchangeCompatible):
         # bypasses OrderArgumentParser's _MARKETS_CACHE lookup — which returns
         # the deprecated pool for versioned markets like XAUT.v2.
         _close_collateral_symbol = authoritative_collateral_symbol or gmx_params["collateral_symbol"]
+
+        # USDC-routed collateral (USDG): keep USDG as initialCollateralToken (it is
+        # part of the position key) and swap the payout back to USDC. Decided from
+        # the position's collateral ADDRESS so a mislabelled symbol cannot hide it.
+        # minOutputAmount stays 0: GMX checks it as a USD floor on both the swap
+        # and the swap-failure fallback, so a floor could block the close; with 0
+        # a failed swap pays out USDG instead.
+        _chain = self.config.get_chain() if getattr(self, "config", None) else None
+        _close_route = get_usdc_route(_chain, position_to_close.get("collateral_token_address"))
+        if _close_route is not None:
+            if _close_collateral_symbol != _close_route.collateral_symbol:
+                logger.warning(
+                    "CLOSE: position collateral address %s is %s, overriding label %s",
+                    position_to_close.get("collateral_token_address"),
+                    _close_route.collateral_symbol,
+                    _close_collateral_symbol,
+                )
+            _close_collateral_symbol = _close_route.collateral_symbol
+            logger.info(
+                "CLOSE: %s position collateral %s — payout swapped to %s via %s",
+                symbol,
+                _close_route.collateral_symbol,
+                _close_route.pay_symbol,
+                list(_close_route.swap_path),
+            )
+
         close_kwargs: dict = dict(
             market_symbol=gmx_params["market_symbol"],
             collateral_symbol=_close_collateral_symbol,
@@ -7350,7 +7472,69 @@ class GMX(ExchangeCompatible):
             close_kwargs["decrease_position_swap_type"] = gmx_params["decrease_position_swap_type"]
         if "should_unwrap_native_token" in gmx_params:
             close_kwargs["should_unwrap_native_token"] = gmx_params["should_unwrap_native_token"]
+        if _close_route is not None:
+            close_kwargs["swap_path"] = list(_close_route.swap_path)
         return self.trader.close_position(**close_kwargs)
+
+    def _find_position_for_close(
+        self,
+        positions: dict,
+        market: dict,
+        collateral_symbol: str,
+        is_closing_long: bool,
+    ) -> dict | None:
+        """Pick the on-chain position a reduce-only order closes.
+
+        1. A position in the market's own pool (by address). For a USDC-routed
+           single-token pool any collateral matches (the pool has one); otherwise
+           the collateral symbol must match too, as before.
+        2. The legacy rule: same base symbol and collateral symbol. This also finds
+           a leftover position in a pool that was replaced (e.g. an old ZEC [WBTC-USDC]
+           position after ZEC/USDC:USDC moved to the USDG pool); the close then uses
+           that position's own pool and collateral.
+
+        Matching by address is needed because the position tiers name single-token
+        pools differently (REST ``ZEC``, GraphQL/RPC ``ZEC2``).
+
+        :param positions: ``GetOpenPositions.get_data()`` result.
+        :param market: CCXT market entry being closed.
+        :param collateral_symbol: Collateral symbol the caller expects.
+        :param is_closing_long: True when closing a long.
+        :return: Position dict or ``None``.
+        """
+
+        def _direction_ok(position: dict) -> bool:
+            return bool(position.get("is_long")) if is_closing_long else not position.get("is_long")
+
+        info = market.get("info", {})
+        market_token = (info.get("market_token") or info.get("marketToken") or "").lower()
+        routed = get_usdc_route_from_market(market) is not None
+        if market_token:
+            for position in positions.values():
+                if (position.get("market") or "").lower() != market_token or not _direction_ok(position):
+                    continue
+                if routed or position.get("collateral_token", "") == collateral_symbol:
+                    return position
+
+        base_currency = market.get("base", "")
+        for position in positions.values():
+            if position.get("market_symbol", "") == base_currency and position.get("collateral_token", "") == collateral_symbol and _direction_ok(position):
+                return position
+        return None
+
+    def _unified_symbol_for_position(self, position_data: dict) -> str:
+        """CCXT symbol for an on-chain position, resolved by pool address first.
+
+        Falls back to ``<market_symbol>/USDC:USDC``. Needed because the GraphQL/RPC
+        position tiers name single-token pools ``ZEC2`` while the market is listed as
+        ``ZEC/USDC:USDC`` once it is USDC-routed.
+        """
+        market_address = (position_data.get("market") or "").lower()
+        if market_address and self.markets:
+            for unified, market in self.markets.items():
+                if (market.get("info", {}).get("market_token") or "").lower() == market_address:
+                    return unified
+        return f"{position_data.get('market_symbol', '')}/USDC:USDC"
 
     def create_order(
         self,
@@ -7597,19 +7781,13 @@ class GMX(ExchangeCompatible):
                 positions_manager = GetOpenPositions(self.config)
                 existing_positions = positions_manager.get_data(self.wallet.address)
 
-                # Find matching position: market + collateral + direction
-                for position_key, position_data in existing_positions.items():
-                    position_market = position_data.get("market_symbol", "")
-                    position_is_long = position_data.get("is_long", None)
-                    position_collateral = position_data.get("collateral_token", "")
-
-                    if position_market == base_currency and position_collateral == collateral_symbol:
-                        if is_closing_long and position_is_long:
-                            gmx_position = position_data
-                            break
-                        elif is_closing_short and not position_is_long:
-                            gmx_position = position_data
-                            break
+                # Find matching position: pool address first, then market + collateral.
+                gmx_position = self._find_position_for_close(
+                    existing_positions,
+                    market,
+                    collateral_symbol,
+                    is_closing_long,
+                )
 
                 if gmx_position:
                     logger.info(
@@ -7643,8 +7821,11 @@ class GMX(ExchangeCompatible):
         # Ensure token approval before creating order (opens only —
         # closing/decreasing withdraws collateral, no approval needed)
         if not reduceOnly:
+            # Approve the token the order actually sends: the start token. It
+            # differs from the collateral only for swap-routed opens (USDC sent,
+            # USDG collateral), where approving the collateral would be wrong.
             self._ensure_token_approval(
-                collateral_symbol=gmx_params["collateral_symbol"],
+                collateral_symbol=gmx_params.get("start_token_symbol") or gmx_params["collateral_symbol"],
                 size_delta_usd=gmx_params["size_delta_usd"],
                 leverage=gmx_params["leverage"],
             )
@@ -7800,22 +7981,13 @@ class GMX(ExchangeCompatible):
                     positions_manager = GetOpenPositions(self.config)
                     existing_positions = positions_manager.get_data(self.wallet.address)
 
-                    # Find the matching position for this market + collateral + direction
-                    position_to_close = None
-                    for position_key, position_data in existing_positions.items():
-                        position_market = position_data.get("market_symbol", "")
-                        position_is_long = position_data.get("is_long", None)
-                        position_collateral = position_data.get("collateral_token", "")
-
-                        # Match market and collateral
-                        if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"]:
-                            # Check if position direction matches what we're trying to close
-                            if is_closing_long and position_is_long:
-                                position_to_close = position_data
-                                break
-                            elif is_closing_short and not position_is_long:
-                                position_to_close = position_data
-                                break
+                    # Find the matching position: pool address first, then market + collateral.
+                    position_to_close = self._find_position_for_close(
+                        existing_positions,
+                        market,
+                        gmx_params["collateral_symbol"],
+                        is_closing_long,
+                    )
 
                 if not position_to_close:
                     # Position not found - likely already closed (e.g., by stop-loss)

@@ -385,7 +385,10 @@ class BaseOrder:
 
         # Get execution fee
         gas_price = self.web3.eth.gas_price
-        gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
+        # Increase/decrease orders pay singleSwapGasLimit per swapPath hop on
+        # top of the order gas (GMX GasUtils.estimateExecute*OrderGasLimit).
+        swap_count = 0 if is_swap else len(params.swap_path or [])
+        gas_limits = self._determine_gas_limits(is_open, is_close, is_swap, swap_count=swap_count)
         base_execution_fee = int(gas_limits["total"] * gas_price)
         execution_fee = apply_execution_buffer(base_execution_fee, params.execution_buffer)
 
@@ -493,12 +496,15 @@ class BaseOrder:
             price_sanity_check=sanity_result,
         )
 
-    def _determine_gas_limits(self, is_open: bool, is_close: bool, is_swap: bool) -> dict[str, int]:
+    def _determine_gas_limits(self, is_open: bool, is_close: bool, is_swap: bool, swap_count: int = 0) -> dict[str, int]:
         """Determine gas limits based on operation type.
 
         :param is_open: Whether opening a position
         :param is_close: Whether closing a position
         :param is_swap: Whether performing a swap
+        :param swap_count: Number of ``swapPath`` hops on an increase/decrease order;
+            each adds the DataStore ``single_swap`` gas limit, as GMX does when it
+            validates the execution fee.
         :return: Dictionary with execution and total gas limits
         """
         if is_open:
@@ -509,6 +515,9 @@ class BaseOrder:
             execution_gas = self._gas_limits.get("swap_order", 1500000)
         else:
             execution_gas = self._gas_limits.get("increase_order", 2000000)
+
+        if swap_count > 0:
+            execution_gas += swap_count * self._gas_limits.get("single_swap", 1000000)
 
         return {
             "execution": execution_gas,
