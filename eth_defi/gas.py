@@ -248,18 +248,21 @@ def estimate_gas_price(
     2.3 gwei base fee. Reading the latest small block gives about 5.16 gwei with
     the same tip.
 
-    *dRPC, 2026-11-06: not characterised*
+    *dRPC, 2026-11-06: varies between requests*
 
-    A single ``lb.drpc.live`` reading gave 0.1000 while Goldsky gave 0.1597, four
-    blocks apart. This does not establish how dRPC treats large blocks.
+    ``lb.drpc.live`` is a load balancer and its answers changed between requests.
+    ``eth_gasPrice`` equalled the next small block's base fee in 79 of 148
+    samples and was below it in 3. Two polls at the same large block, 50564280,
+    gave 1.1000 with a 1 gwei tip and 0.1076 with no tip. The next small block's
+    base fee was 0.1076, and ``eth_bigBlockGasPrice`` gave 0.1000 both times.
 
     *Other sources*
 
     - ``eth_feeHistory`` mixes both block types in its history. Its final
       next-block entry was below 0.1 gwei in 32 of 101 samples on the Hyperliquid
       RPC, and gave 0.0885 at large block 50534512 before a 0.1350 small block.
-    - ``eth_maxPriorityFeePerGas`` also varies: 0 on the Hyperliquid RPC, and
-      0.05 to 0.25 on Goldsky.
+    - ``eth_maxPriorityFeePerGas`` also varies: 0 on the Hyperliquid RPC, 0.05 to
+      0.25 on Goldsky, and 0 or 1 on dRPC.
 
     :param web3:
         Web3 instance connected to a node.
