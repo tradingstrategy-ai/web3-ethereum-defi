@@ -57,6 +57,67 @@ def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection
     return ERC4262VaultDetection(spec.chain_id, spec.vault_address, 42, datetime.datetime(2026, 9, 1), {feature}, datetime.datetime(2026, 10, 1), 27, 1)
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_systemic_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Refresh only the reviewed native row and preserve preview isolation.
+
+    Exercise persistence and idempotence without RPC access, including a
+    same-address EVM row outside the synthetic Hypercore chain.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain in memory.
+    :return: ``None`` after checking the staged and persisted rows.
+    """
+    target = VaultSpec(9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d")
+    other_chain = VaultSpec(999, target.vault_address)
+    old_tags = {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.perpetual_futures}
+    original_row = {"Protocol": "Hyperliquid", "_strategy_tags": old_tags, "_notes": "Preserve notes", "_detection_data": detection(target, ERC4626Feature.hypercore_native)}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={target: original_row, other_chain: {"_strategy_tags": old_tags}}).write(path)
+    original_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 41)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}}
+    assert context.metadata().rows[target] == expected_row
+    assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
+    assert context.other_data["changed_rows"] == 1
+    if dry_run:
+        assert path.read_bytes() == original_bytes
+    else:
+        assert VaultDatabase.read(path).rows[target] == expected_row
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_systemic_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> None:
+    """Report an absent target and reject conflicting detection without writes.
+
+    The migration must not invent a missing vault or reclassify an EVM row.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param missing: Whether the target is absent rather than misclassified.
+    :return: ``None`` after checking the report or validation error.
+    """
+    target = VaultSpec(9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d")
+    rows = {} if missing else {target: {"_detection_data": detection(target, ERC4626Feature.threejane_like)}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 41)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    if missing:
+        runner._execute(migration, context)
+        assert context.other_data["missing_specs"] == [target.as_string_id()]
+        assert context.other_data["changed_rows"] == 0
+    else:
+        with pytest.raises(ValueError, match="not a native Hyperliquid vault"):
+            runner._execute(migration, context)
+    assert path.read_bytes() == original
+
+
 @pytest.fixture
 def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create reviewed inventories and unrelated records without real provider calls."""

@@ -14,6 +14,7 @@ import pytest
 
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.version_info import VersionInfo
 
@@ -374,6 +375,33 @@ def test_sticky_export_shortens_fresh_and_stored_summaries(*, use_fallback: bool
     assert result.vaults[0]["description"] == "Full strategy.\n\nKeep every sentence."
     assert result.vaults[0]["short_description"] == "Earn 4.5% in money markets."
     assert result.vaults[0]["notes"] == "Preserved\nnotes."
+
+
+def test_systemic_descriptions_survive_public_export() -> None:
+    """Publish the individual vault's Markdown and one-sentence listing copy.
+
+    Exercise the final export path separately from the native row builder so
+    normal publication cannot truncate the maintained long description.
+
+    :return: ``None`` after checking the JSON serialised vault record.
+    """
+    address = "0x07fd993f0fa3a185f7207adccd29f7a87404689d"
+    metadata = get_handwritten_vault_metadata(9999, address)
+    assert metadata is not None
+    row = make_metrics_row(chain_id=9999, address=address, name=metadata.name)
+    row.update(description=metadata.description, short_description=metadata.short_description)
+    now = datetime.datetime(2026, 11, 6)
+    result = top_vaults_json.apply_sticky_export_state(
+        make_lifetime_df(row),
+        top_vaults_json.make_empty_sticky_export_state(now),
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+    exported = json.loads(json.dumps(result.vaults))[0]
+    assert exported["description"] == metadata.description
+    assert exported["short_description"] == metadata.short_description
+    assert exported["address"].lower() == address
 
 
 def test_sticky_export_first_qualification_creates_state():

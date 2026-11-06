@@ -10,12 +10,12 @@ vault" box. Write it for reading on a vault page:
 - **Paragraphs of two or three sentences**, separated by a blank line. Do not
   write one long block of text.
 - **Bold** only for key words, amounts or short phrases a reader must not miss,
-  such as fees, lock-ups or shared capital. Emphasise a whole sentence only
+  such as material restrictions or shared capital. Emphasise a whole sentence only
   when its complete wording is essential to a material warning.
 - **Inline links** to the sources of material claims, each linked once,
   preferably on first mention.
 - **`####` subheadings** when a description covers several topics, such as how
-  the strategy works, custody, fees and withdrawals, or the company. Do not use
+  the strategy works, custody, material restrictions, or the company. Do not use
   larger heading levels; the page already has its own section headings.
 
 `normalise_vault_description()` keeps this structure. It converts carriage
@@ -163,6 +163,36 @@ following the production runbook. Review the entire pending batch before apply;
 both preview and apply require stopped writers, with the lifetime guard acquired
 before the writer lock. After normal export and upload, verify both vaults'
 individual JSON descriptions and rendered paragraphs, headings and source links.
+
+## Systemic Strategies L/S Grids descriptions
+
+The [L/S Grids vault](https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids)
+on Hypercore (`9999:0x07fd993f0fa3a185f7207adccd29f7a87404689d`) uses
+address-scoped handwritten short and full descriptions through the existing
+native exporter. The copy covers the supply-based long/short grid mandate
+and the risks of directional exposure. Routine fees and
+lock-up timing remain in the page's dedicated metrics.
+Research sources and limitations are recorded in
+[the research note](../.claude/docs/systemic-strategies-vault-research.md).
+The curator profile and HyperGrowth vault are separate from this override.
+
+**Run after merge:** migration `041-systemic-strategies-grid-tags.py` refreshes
+only `_strategy_tags` for at most one row and one field. The later migration
+`042-systemic-strategies-description.py` refreshes only `_description` and
+`_short_description` for at most one row and two fields. Missing targets are
+reported without creation. Neither operation changes prices, reader state,
+notes, fees or unrelated rows; no historical price backfill is needed.
+
+Record the eventual PR URL in both new migrations before merging. Follow the
+production runbook and the stop, list, preview, apply and
+restart commands above. Inspect Compose mounts and build the merged revision
+into the stamped image first. Stop the daemon and competing writers before
+both preview and apply, preserving the lifetime-guard-before-writer-lock order.
+Review the entire pending batch and use the same image throughout maintenance.
+After the restarted scanner's normal export and upload cycle, verify the
+individual vault JSON's descriptions and tags, then check that the page renders
+its paragraphs, subheadings and source links. Migration success alone does not
+publish the changes.
 
 ## Apply the repair
 
