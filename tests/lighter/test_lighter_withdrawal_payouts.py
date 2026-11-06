@@ -146,10 +146,15 @@ def test_hypersync_payout_prefix_and_rpc_tail(chain: SimpleNamespace, mocker: Mo
     configure = mocker.patch.object(lagoon, "configure_hypersync_from_env", return_value=SimpleNamespace(hypersync_client=client))
     anvil = mocker.patch.object(lagoon, "is_anvil", return_value=False)
     receiver = mocker.AsyncMock()
-    page = SimpleNamespace(next_block=9_801, data=SimpleNamespace(logs=[
-        SimpleNamespace(data="0x" + create_log(9_400, 9_000_000)["data"].hex()),
-        SimpleNamespace(data="0x" + create_log(9_500, 5_000_000, OTHER_ASSET_INDEX)["data"].hex()),
-    ]))
+    page = SimpleNamespace(
+        next_block=9_801,
+        data=SimpleNamespace(
+            logs=[
+                SimpleNamespace(data="0x" + create_log(9_400, 9_000_000)["data"].hex()),
+                SimpleNamespace(data="0x" + create_log(9_500, 5_000_000, OTHER_ASSET_INDEX)["data"].hex()),
+            ]
+        ),
+    )
     receiver.recv.side_effect = [page, None]
     stream = mocker.patch.object(lagoon, "open_hypersync_stream", return_value=receiver)
     chain.logs = [create_log(9_400, 9_000_000), create_log(9_990, 1_000_000)]
@@ -191,8 +196,10 @@ def test_hypersync_payout_failure_uses_full_rpc_range(chain: SimpleNamespace, mo
     mocker.patch.object(lagoon, "open_hypersync_stream", return_value=receiver)
     page = SimpleNamespace(next_block=9_801, data=SimpleNamespace(logs=[SimpleNamespace(data="0x" + create_log(9_400, 9_000_000)["data"].hex())]))
     if failure == "timeout":
+
         async def stalled_receive():
             await asyncio.sleep(10)
+
         receiver.recv.side_effect = stalled_receive
     else:
         receiver.recv.side_effect = [page, RuntimeError("stream failed")] if failure == "partial" else [None]
@@ -225,10 +232,17 @@ def test_hypersync_reads_real_relayer_payouts() -> None:
     client = lagoon.configure_hypersync_from_env(web3, hypersync_api_key=HYPERSYNC_API_KEY).hypersync_client
     asset_index = lagoon.get_deployed_contract(web3, "lighter/ZkLighter.json", lagoon.LIGHTER_L1_CONTRACT).functions.USDC_ASSET_INDEX().call()
     # 2. Read the fixed abandoned Lix Safe payout range through HyperSync directly.
-    raw, next_block = lagoon.run_vault_flow_log_fetch(lagoon._fetch_lighter_claims_hypersync(
-        client, lagoon.LIGHTER_L1_CONTRACT, "0x" + SAFE[2:].lower().rjust(64, "0"),
-        asset_index, PAYOUT_FROM_BLOCK, PAYOUT_TO_BLOCK, 30,
-    ))
+    raw, next_block = lagoon.run_vault_flow_log_fetch(
+        lagoon._fetch_lighter_claims_hypersync(
+            client,
+            lagoon.LIGHTER_L1_CONTRACT,
+            "0x" + SAFE[2:].lower().rjust(64, "0"),
+            asset_index,
+            PAYOUT_FROM_BLOCK,
+            PAYOUT_TO_BLOCK,
+            30,
+        )
+    )
     # 3. Compare its complete coverage and amount with the RPC reader.
     assert next_block == PAYOUT_TO_BLOCK + 1
     assert usdc.convert_to_decimals(raw) == Decimal(10)
