@@ -175,6 +175,21 @@ the reader understand access, strategy, costs or a material limitation.
 
 ## Keep claims traceable and current
 
+All vault links must point to the vault's `https://tradingstrategy.ai/vaults/<slug>`
+page unless the user explicitly requests another destination. This includes
+linked vault names, product references and vault detail links in descriptions,
+notes and related-link lists. Apply this rule when adding or editing maintained
+public copy, including its associated vault destination fields such as
+`HandwrittenVaultMetadata.link`. Verify the published page's chain and contract
+address; names and URL slugs can differ after a rename. Do not guess a slug
+or link to a different vault with a similar name. If no page is available,
+leave the vault name unlinked and record the missing page in research notes.
+
+Keep links to supporting documentation, terms, reports and announcements when
+they substantiate a claim. Use link text that identifies the supported claim or
+source, rather than the vault's name alone. These source citations do not replace
+the Trading Strategy destination for links to the vault itself.
+
 Use authoritative sources for factual claims, preferably official product
 documentation, terms, fee schedules, reports and dated announcements. An
 attributable official social post can support an announcement; it does not
@@ -192,7 +207,7 @@ sentences into blocks of linked text. Link a whole sentence only when it is
 short and the full wording is needed to make the source connection clear.
 For example:
 
-> The vault's planned investment is [Axiym AXI payment financing](https://api.nest.credit/v1/vaults/nest-axi-vault).
+> The vault's [investment mandate](https://api.nest.credit/v1/vaults/nest-axi-vault) describes planned financing for payment businesses.
 
 Direct linking does not make an unverified claim a verified fact. Retain
 necessary qualifications in the sentence, such as “targets”, “aims to”

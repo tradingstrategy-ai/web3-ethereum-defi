@@ -32,7 +32,7 @@ class HandwrittenVaultMetadata:
     #: ``docs/README-vault-description-formatting.md``.
     description: str
 
-    #: Canonical vault or manager-maintained product page.
+    #: Public vault page URL; use Trading Strategy unless explicitly requested otherwise.
     link: str
 
 
@@ -630,6 +630,48 @@ VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetad
 }
 
 
+#: Both publicly documented Birch Hill deployments on Base, reviewed 2026-11-06.
+#: Exact identities: each vault book's technical appendix / onchain references.
+#: The platform also shows unnamed coming-soon products without deployment addresses.
+BIRCH_HILL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (8453, HexAddress("0xb038cf3e233b78225f6d350ac8319bec8457db4a")): HandwrittenVaultMetadata(
+        name="Birch Hill Groma Ecosystem USDC",
+        short_description="USDC loans secured by tokenised shares in a residential property portfolio, earning interest from borrowers.",
+        description=(
+            "Deposited USDC funds loans to GromaCorp and verified holders of GRO, a token representing shares in GromaREIT's residential properties in Boston and Providence. "
+            "Borrowers pledge their GRO shares as security and pay interest, which increases the value of depositors' vault shares after fees. "
+            "The [vault book](https://docs.birchhill.io/vault-books/birch-hill-groma-ecosystem-usdc-vault) also describes a smaller allocation to loans secured by cbBTC, Coinbase's bitcoin-backed token, to help meet withdrawals.\n\n"
+            "#### Access and fees\n\n"
+            "**Direct deposits do not require identity verification**; the [October 2026 launch announcement](https://research.birchhill.io/p/introducing-birch-hill-ecosystem) distinguishes this from access through the operator's app, which requires identity checks. "
+            "The vault charges [**10% of investment gains**](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc) as a [performance fee](https://tradingstrategy.ai/glossary/performance-fee) and no management fee.\n\n"
+            "#### Withdrawals and losses\n\n"
+            "Withdrawals depend on USDC being available rather than lent out. "
+            "Most lending is secured by one issuer's property shares, so falling property values or insufficient recoveries from a default can reduce depositors' capital. "
+            "GRO shares have transfer restrictions and limited quarterly redemptions, which can delay recovery when loans are not repaid."
+        ),
+        link="https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc",
+    ),
+    (8453, HexAddress("0xa5afd3a598ef000a5edd96ed65929ac7a6feea39")): HandwrittenVaultMetadata(
+        name="Birch Hill RWA USDC",
+        short_description="USDC allocated to lending vaults backed by tokenised real-world assets, for verified accredited and institutional investors.",
+        description=(
+            "Deposited USDC is allocated to lending vaults that finance asset issuers and token holders. "
+            "The [investment mandate](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/1.-strategy-mandate) combines positions in Birch Hill Ecosystem vaults with uninvested USDC; borrowers' interest flows through those positions into the value of depositors' shares.\n\n"
+            "The [current platform](https://birchhill.io/platforms) identifies this as the Flagship allocation product advised by BH Digital Asset Management. "
+            "Its [Groma Ecosystem investment](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc) lends against GRO, shares in a residential property portfolio, with a smaller allocation to loans secured by cbBTC, Coinbase's bitcoin-backed token.\n\n"
+            "#### Access and fees\n\n"
+            "**Access is restricted to verified accredited and institutional investors.** "
+            "The [access requirements](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/4.-access-and-monitoring) include identity checks, investor eligibility verification and wallet screening, with approval checked before deposits and withdrawals. "
+            "The [published Flagship fee](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/2.-structure-and-loan-flow) is **10% of interest earned**; underlying Ecosystem vaults also publish their own fees, so this figure should not be read as a combined cost.\n\n"
+            "#### Withdrawals and losses\n\n"
+            "Uninvested USDC and the underlying vaults' available funds support withdrawals between borrower repayments; access approval does not guarantee immediate liquidity. "
+            "Losses in the lending vaults reduce the value of this vault's shares, including shortfalls when assets pledged by defaulting borrowers cannot cover their debt."
+        ),
+        link="https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc-2",
+    ),
+}
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -646,7 +688,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
+    return BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

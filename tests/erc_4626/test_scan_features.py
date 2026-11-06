@@ -1,17 +1,23 @@
 """Tests for ERC-4626 scan-record feature persistence."""
 
 import datetime
+import json
 from decimal import Decimal
 
 import pytest
+from eth_typing import HexAddress
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.top_vaults_json import add_exported_vault
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -381,3 +387,35 @@ def test_vault_database_dataframe_falls_back_to_detection_features() -> None:
 
     assert df.iloc[0]["protocol"] == "USDai"
     assert df.iloc[0]["vault_address"] == detection.address
+
+
+@pytest.mark.parametrize("address,yearn", [("0xb038cf3e233b78225f6d350ac8319bec8457db4a", False), ("0xa5afd3a598ef000a5edd96ed65929ac7a6feea39", True)])
+def test_birch_hill_descriptions_scan_and_export(monkeypatch: pytest.MonkeyPatch, address: HexAddress, *, yearn: bool) -> None:
+    """Carry maintained adapter copy into scan rows and individual JSON records.
+
+    Replace unrelated chain reads while using each real adapter's description
+    accessors. The public exporter must preserve paragraphs and plain summaries.
+
+    :param monkeypatch: Replace the scanner's network-bound adapter factory.
+    :param address: Reviewed Base deployment.
+    :param yearn: Select the Flagship adapter rather than Morpho V2.
+    """
+    adapter = YearnV3Vault(None, VaultSpec(8453, address)) if yearn else MorphoV2Vault(None, VaultSpec(8453, address))
+    metadata = get_handwritten_vault_metadata(8453, address)
+    vault = _FakeVault()
+    vault.description = adapter.description
+    vault.short_description = adapter.short_description
+    assert vault.description == metadata.description
+    assert vault.short_description == metadata.short_description
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
+    record = scan_module.create_vault_scan_record(None, _create_detection({ERC4626Feature.yearn_v3_like if yearn else ERC4626Feature.morpho_v2_like}), 1, {})
+    assert record["_description"] == metadata.description
+    assert record["_short_description"] == metadata.short_description
+    exported = {}
+    add_exported_vault(exported, address, 1, {"description": record["_description"], "short_description": record["_short_description"]})
+    decoded = json.loads(json.dumps(exported[address][1]))
+    assert decoded["description"] == metadata.description
+    assert decoded["short_description"] == metadata.short_description
+    assert "\n\n" in decoded["description"]
+    assert all(char not in decoded["short_description"] for char in ("\n", "*", "["))
+    assert get_handwritten_vault_metadata(1, address) is None

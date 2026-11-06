@@ -103,6 +103,13 @@ Persisted accessor corrections follow the
 [numbered migration guide](migration-scripts.md); a documentation-only change
 needs no migration.
 
+Yearn-compatible deployments can replace canonical admission selectors. Birch
+Hill's Base Flagship uses `deposit_hook()` and atomic post-deposit sender checks
+instead of `deposit_limit_module()`. An absent canonical selector does not prove
+public access: inspect the verified implementation ABI and configured hook.
+Keep its classification separate from the permissionless Morpho Ecosystem vault;
+the verified addresses and ABI provenance are in `eth_defi/abi/yearn/README.md`.
+
 ## Use the denomination in both trading directions
 
 Upshift's ordinary manager methods use the withdrawal denomination for deposits,
