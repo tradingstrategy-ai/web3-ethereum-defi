@@ -1,6 +1,7 @@
 """Check Travessia curator attribution and chain-scoped Tauri classifications."""
 
 import datetime
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,7 +19,8 @@ from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
 MIGRATION_NUMBER = 43
-TARGET_COUNT = 7
+TARGET_COUNT = 6
+POLYGON_TAURI = VaultSpec(137, "0x08dd5f2a0b107b8f93c4f524901994353bedfaf7")
 TARGETS = tuple(VaultSpec(chain, address) for chain, addresses in TRAVESSIA_STRATEGY_TAGS.items() for address in addresses)
 EXPECTED = {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
 
@@ -70,8 +72,9 @@ def test_travessia_curator_metadata() -> None:
 def test_travessia_migration(tmp_path: Path, *, dry_run: bool) -> None:
     """Refresh only the reviewed tags with preview isolation and idempotence.
 
-    All seven deployments exercise the shared persisted resolver. Existing notes,
-    discovery evidence and an unrelated row must survive the refresh unchanged.
+    Six Accountable deployments exercise the shared persisted resolver. Polygon
+    retains its actual generic ERC-7540/7575 detection and existing tags; this
+    previously caused migration 043 to abort the entire production batch.
 
     :param tmp_path: Isolated pipeline directory.
     :param dry_run: Whether changes must remain in memory.
@@ -87,6 +90,9 @@ def test_travessia_migration(tmp_path: Path, *, dry_run: bool) -> None:
         }
         for spec in TARGETS
     }
+    rows[POLYGON_TAURI]["Protocol"] = "<unknown ERC-7540>"
+    rows[POLYGON_TAURI]["_detection_data"] = replace(rows[POLYGON_TAURI]["_detection_data"], features={ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like})
+    rows[POLYGON_TAURI]["_strategy_tags"] = {StrategyTag.unknown}
     other = VaultSpec(42, TARGETS[0].vault_address)
     rows[other] = {"_strategy_tags": None}
     path = tmp_path / "vault-metadata-db.pickle"
@@ -96,8 +102,10 @@ def test_travessia_migration(tmp_path: Path, *, dry_run: bool) -> None:
     context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
     runner._execute(migration, context)
     assert context.other_data["changed_rows"] == TARGET_COUNT
+    assert context.other_data["deferred_specs"] == [POLYGON_TAURI.as_string_id()]
     for spec in TARGETS:
-        assert context.metadata().rows[spec] == rows[spec] | {"_strategy_tags": EXPECTED}
+        expected_row = rows[spec] if spec == POLYGON_TAURI else rows[spec] | {"_strategy_tags": EXPECTED}
+        assert context.metadata().rows[spec] == expected_row
     assert context.metadata().rows[other] == rows[other]
     if dry_run:
         assert path.read_bytes() == original
@@ -119,7 +127,8 @@ def test_travessia_migration_guards(tmp_path: Path, *, missing: bool) -> None:
     :param missing: Whether the target is absent instead of misclassified.
     :return: ``None`` after checking reporting or validation failure.
     """
-    rows = {} if missing else {TARGETS[0]: {"_detection_data": None}}
+    target = VaultSpec(1, "0x4c18e2bb9942b12b28e780acf2d9ec2dda126df9")
+    rows = {} if missing else {target: {"_detection_data": None}}
     path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(rows=rows).write(path)
     original = path.read_bytes()
@@ -129,6 +138,7 @@ def test_travessia_migration_guards(tmp_path: Path, *, missing: bool) -> None:
         runner._execute(migration, context)
         assert len(context.other_data["missing_specs"]) == TARGET_COUNT
         assert context.other_data["changed_rows"] == 0
+        assert context.other_data["deferred_specs"] == []
     else:
         with pytest.raises(ValueError, match="not an Accountable vault"):
             runner._execute(migration, context)

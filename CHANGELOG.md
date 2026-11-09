@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Unblock Travessia migration 043 by deferring the Polygon BRZ vault with generic ERC-7540 detection, preserving its metadata while refreshing the six Accountable-classified vaults (2026-11-09).
+
 - feat: Add Vectis Finance curator metadata and logo, attribute UltraX Arb and classify its automated funding-rate arbitrage strategy (2026-11-09).
 
 - feat: Add Travessia Credit curator descriptions and logos, classify seven Tauri vaults as real-world credit and lending, and require specific business details in public descriptions (2026-11-09).
