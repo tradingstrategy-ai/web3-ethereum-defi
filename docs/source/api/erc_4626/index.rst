@@ -49,6 +49,7 @@ More info
    eth_defi.erc_4626.vault_protocol.ember.deposit_redeem
    eth_defi.erc_4626.vault_protocol.ember.settlement
    eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.accountable.tags
    eth_defi.erc_4626.vault_protocol.accountable.settlement
    eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem
    eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem

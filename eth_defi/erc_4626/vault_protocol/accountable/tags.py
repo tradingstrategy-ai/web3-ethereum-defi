@@ -4,9 +4,34 @@ from eth_typing import HexAddress
 
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
-#: Chain containing the reviewed Accountable deployments below.
+#: Chain containing the original Saturn and Glasgow Cosmic classifications.
 MONAD_CHAIN_ID = 143
 
+#: Chain containing the reviewed Vectis UltraX Arb deployment.
+ETHEREUM_CHAIN_ID = 1
+
+#: Reviewed Accountable share vaults deployed on Ethereum.
+ETHEREUM_STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Vectis UltraX Arb, Ethereum (1).
+    #: Added: 2026-11-09.
+    #: Decision material: The current Accountable API maps loan 608280921 to
+    #: this share token and identifies Vectis Finance as manager. Vectis's ETH
+    #: documentation confirms Accountable infrastructure, automated allocation,
+    #: hedged perpetual positions and funding-rate/basis arbitrage across venues.
+    #: Sources:
+    #: - https://yield.accountable.capital/api/loan/608280921
+    #: - https://docs.vectis.finance/vaults/ultrax-arb-vault-v2-eth
+    #: - https://tradingstrategy.ai/vaults/vectis-ultrax-arb
+    "0x05ed3da1deeaaa57c8e09986e95ac271572dcf89": {
+        StrategyTag.arbitrage,
+        StrategyTag.delta_neutral,
+        StrategyTag.funding_rate_arbitrage,
+        StrategyTag.perpetual_futures,
+        StrategyTag.algorithmic_trading,
+    },
+}
+
+#: Reviewed Accountable share vaults deployed on Monad.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Saturn PT-USDat Loop Vault, Monad (143).
     #: Added: 2026-11-02.
@@ -114,7 +139,7 @@ def get_strategy_tags(chain_id: int, address: HexAddress) -> set[StrategyTag] | 
     """Resolve the reviewed Accountable strategy for a chain and share address.
 
     Keep the original Monad-only classifications scoped to Monad while allowing
-    separately researched Tauri deployments on other chains. Lookups return
+    separately researched Tauri and Vectis deployments on other chains. Lookups return
     copies so consumers cannot mutate the maintained tables.
 
     :param chain_id: Chain containing the share token.
@@ -124,6 +149,8 @@ def get_strategy_tags(chain_id: int, address: HexAddress) -> set[StrategyTag] | 
     tags = lookup_strategy_tags(TRAVESSIA_STRATEGY_TAGS.get(chain_id, {}), address)
     if tags is not None:
         return tags
+    if chain_id == ETHEREUM_CHAIN_ID:
+        return lookup_strategy_tags(ETHEREUM_STRATEGY_TAGS, address)
     if chain_id == MONAD_CHAIN_ID:
         return lookup_strategy_tags(STRATEGY_TAGS, address)
     return None

@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add Vectis Finance curator metadata and logo, attribute UltraX Arb and classify its automated funding-rate arbitrage strategy (2026-11-09).
+
 - feat: Add Travessia Credit curator descriptions and logos, classify seven Tauri vaults as real-world credit and lending, and require specific business details in public descriptions (2026-11-09).
 
 - feat: Publish researched Birch Hill curator and individual vault descriptions, attribute and tag the Flagship's real-world lending strategy, classify its verified deposit whitelist hook, and require Trading Strategy destinations for public vault links (2026-11-06).
