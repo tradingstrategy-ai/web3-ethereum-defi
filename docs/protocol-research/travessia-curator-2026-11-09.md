@@ -43,9 +43,10 @@ optional social feed fields are omitted rather than inferred.
 Curator attribution is calculated in `vault_metrics.py` during export, so it
 needs no persisted curator migration. Strategy tags are cached; numbered
 migration `043-travessia-strategy-tags.py` refreshes only `_strategy_tags` for
-these seven deployments, using the same chain-aware resolver as the adapter.
-It reports missing records, rejects mismatched protocol detection and preserves
-all other fields. No production command has been run.
+the six Accountable-classified deployments, using the same chain-aware resolver
+as the adapter. It reports missing records and the deferred Polygon BRZ row,
+rejects mismatched protocol detection for the six targets and preserves all
+other fields. See the failed production attempt and correction below.
 
 The local hourly price file was read with chain/address filters to compare
 first-seen timestamps with the first price row. This is an older local snapshot,
@@ -101,3 +102,29 @@ as the intended repayment source. The official product page's loan terms and
 trade-cycle sections support the lending-terms link and buyer-payment timing;
 its operator overview confirms Brazil. The reviewed seven-address inventory
 supports the plural “Tauri vaults”.
+
+## Migration failure and correction
+
+The production apply on 9 November 2026 stopped at migration 043 because
+Polygon BRZ (`137:0x08dd5f2a0b107b8f93c4f524901994353bedfaf7`) has only
+`erc_7540_like` and `erc_7575_like` in its persisted detection, with protocol
+`<unknown ERC-7540>`. The local October snapshot reproduces that distinction.
+The original tests incorrectly assigned `accountable_like` to all seven rows.
+The published product description establishes a business strategy, but does
+not establish compatibility with the Accountable adapter.
+
+The corrected failed script refreshes the six Accountable-classified vaults
+and reports Polygon as `deferred_specs`, leaving its complete row untouched.
+This agrees with the scope of migration 047. The other six retain their strict
+protocol guards; no feature or adapter classification is forced. Polygon's
+strategy mapping remains available if a future protocol review establishes
+compatibility, but this correction does not publish tags for the generic row.
+
+The reported failure happened before staging or committing any metadata.
+The migration guide permits correcting failed scripts in place; a later script
+alone cannot unblock a batch stopped at 043. Keep the existing journal entry
+and backups. After merging the fix, update the production checkout and rebuild
+with `scripts/build-container.sh`. With the scanner and competing writers
+stopped, run the usual full-batch preview and apply from the migration runbook.
+Do not rerun the old image or delete/reset migration state. The next invocation
+retries failed 043 and skips migrations already recorded as successful.

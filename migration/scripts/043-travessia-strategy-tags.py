@@ -1,13 +1,20 @@
-"""Refresh strategy tags for the seven reviewed Travessia Tauri deployments.
+"""Refresh strategy tags for the six Accountable-classified Travessia Tauri deployments.
 
 Purpose: Persist real-world credit and lending classifications for Tauri vaults.
-Scope: Only _strategy_tags for the seven chain/address pairs in TARGETS below.
+Scope: Only _strategy_tags for the six chain/address pairs in TARGETS below.
 Branch: check-curator-travessia-tauri-vault-3
 PR title: feat: add Travessia Credit curator and Tauri strategy tags
 PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1741
 Preserves: Other metadata, unrelated rows, prices, leads and reader state.
-Expected: At most seven existing rows and seven changed fields; report missing rows.
+Expected: At most six existing rows and six changed fields; report missing rows.
 Curator attribution resolves during export and needs no persisted refresh.
+
+Correction after the failed production attempt on 2026-11-09: Polygon BRZ
+has only generic ERC-7540/7575 detection. Defer it without changing its row,
+matching migration 047, until protocol compatibility has been investigated.
+The failure occurred during validation, before metadata was staged or committed.
+Failed scripts may be corrected and retried; keep the existing journal entry.
+Install the corrected image before preview/apply. Do not reset migration state.
 
 LLM-generated operational migration; changes require human review.
 Stop the scanner and competing writers before preview and apply, following
@@ -29,9 +36,12 @@ TARGETS = (
     VaultSpec(1, "0xf84a37545e313e8177d80039158ed478c7dc9079"),
     VaultSpec(143, "0x8d24b48cb736addb5b7069565f192a052f42ba61"),
     VaultSpec(8453, "0xb37cc5e891d87c5a3ef750e1bdf59c960575593c"),
-    VaultSpec(137, "0x08dd5f2a0b107b8f93c4f524901994353bedfaf7"),
     VaultSpec(43114, "0x9c3da70cd7fedeaef528d060ea99ace133e08fd2"),
 )
+
+
+#: Known generic ERC-7540/7575 deployment awaiting a separate protocol review.
+DEFERRED_POLYGON_TAURI = VaultSpec(137, "0x08dd5f2a0b107b8f93c4f524901994353bedfaf7")
 
 
 def migrate(context: MigrationContext) -> None:
@@ -61,6 +71,7 @@ def migrate(context: MigrationContext) -> None:
         changed_rows=len(updates),
         updated_fields=len(updates),
         legacy_tag_rows=invalid,
+        deferred_specs=[DEFERRED_POLYGON_TAURI.as_string_id()] if DEFERRED_POLYGON_TAURI in database.rows else [],
         missing_specs=[spec.as_string_id() for spec in TARGETS if spec not in rows],
     )
     context.commit_metadata()
