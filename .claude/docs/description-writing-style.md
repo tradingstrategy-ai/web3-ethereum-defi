@@ -17,6 +17,11 @@ Assume the reader wants to understand the investment or business but does not
 know its specialist vocabulary. Lead with what it does, how it uses money and
 where returns come from. Use familiar words, concrete verbs and short paragraphs.
 
+- Write complete sentences with an explicit subject, including in short
+  descriptions and the opening of long descriptions. Do not use fragments
+  such as “Uses algorithmic trend signals”. Write “The vault strategy uses
+  algorithmic trend signals” instead. A heading or nearby vault name does not
+  replace the sentence's subject.
 - Write a short description as one useful sentence about the product or strategy.
 - Make the short description specific whenever the available sources provide
   concrete details. Name the business types funded, their location and what
@@ -29,6 +34,22 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Lead the long description with the same concrete business context, then
   explain how it works and who is responsible. Add relevant supporting facts.
   Do not pad it to reach a sentence or paragraph count.
+- Start every full vault description with `#### Vault's trading strategy`.
+  Explain the current trading strategy and how it generates returns first,
+  before risks, withdrawal conditions or other background.
+- Explain how trading decisions are made: whether they are discretionary,
+  algorithmic or a combination; the rules or inputs used; who makes or approves
+  decisions; and how often positions are reviewed, traded or rebalanced.
+  Distinguish signal generation from human discretion and trade execution.
+  State the actual cadence or triggers; a venue being open 24/7 does not prove
+  that an algorithm runs continuously. Say which details are undisclosed
+  rather than inferring them from labels such as “systematic” or “managed”.
+- Name and link every trading venue, mapping each instrument or strategy leg
+  to its venue. If options are mentioned, identify and link the options venue;
+  a named futures exchange does not establish where options trade. Also name
+  and link lending or other capital-allocation platforms. Verify these for
+  the specific vault. If a venue is undisclosed, state that gap explicitly
+  beside the affected instrument instead of guessing or implying full coverage.
 - Follow the field's output format. Individual vault summaries are one plain
   sentence of single-line text. Full vault descriptions, protocol descriptions
   and source-linked notes are Markdown: split them into paragraphs of two or
@@ -62,8 +83,12 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   description; the page already displays them in dedicated boxes. Start with
   what the money funds. Name other products or venues only when needed to explain
   an investment mechanism, cost, risk or withdrawal condition.
-- Keep token names when they identify an actual deposit asset or investment,
-  but avoid strings of unexplained acronyms.
+  Naming the party responsible for trading decisions and identifying execution
+  venues are necessary strategy details, even when names appear elsewhere.
+- Do not repeat the deposit stablecoin's name or definition in the long
+  description; the denomination and other page context already identify it.
+  Name tokens only when needed to distinguish investments or explain a
+  mechanism, and avoid strings of unexplained acronyms.
 - Use British English, spell “onchain” without a hyphen, and use sentence case
   for headings.
 
@@ -109,8 +134,10 @@ For example:
 Keep superseded fee schedules and detailed roadmap speculation in research
 notes. Include history in public descriptions only when it helps readers
 understand the current product, identify a former name or assess a material
-track record or loss. Include a scheduled future change when it affects a
-depositor's decision, clearly distinguishing it from current terms.
+track record or loss. Do not describe future plans or proposed strategy
+variants in the long description. If a roadmap is relevant, add one short
+sentence linking to it; leave the details at that destination. Keep announced
+deadlines or access changes that affect depositors in a separate dated note.
 
 ## Do not repeat charts and metrics
 
@@ -124,9 +151,9 @@ and risk policies such as a manager's loss limit; these are not chart summaries.
 
 Keep all relevant announcement links, each with a short sentence explaining
 what it introduced or changed. An update about performance can instead explain
-the costs or proposed strategy changes it discusses. Label proposals as plans,
-without presenting them as current investments. Do not preserve redundant
-figures merely to justify retaining their source link.
+the costs it discusses. For future plans, retain only a short sentence linking
+to the roadmap, without listing proposals. Do not preserve redundant figures
+merely to justify retaining their source link.
 
 Long descriptions do not need to repeat fees or lock-up periods already
 available in the chart and key metrics context. Leave routine fee rates and
