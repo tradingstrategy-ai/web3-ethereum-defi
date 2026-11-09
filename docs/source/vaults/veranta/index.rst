@@ -61,9 +61,17 @@ PDFs; complete coverage of the live generation remains unconfirmed.
 Fee mode is **externalised**: the withdrawal charge reduces the investor's
 payout and is not already deducted from the quoted gross share price. The
 reviewed unified implementations charge zero deposit balancing fees. The
-collateral-health withdrawal rate is read dynamically; it was 1.5% at block
-53,497,070. Management, performance and separate protocol fee rates remain
-unknown. The platform's trading-fee revenue split is not an LP performance fee.
+actual collateral-health withdrawal rate is dynamic; it was 1.5% at block
+53,497,070 and 0.5% at block 55,297,428. Published fee metadata and estimated net
+returns use a fixed 0.5% withdrawal reference. Exact
+transaction previews still use the contract's actual fee and fee switch.
+The verified vault and manager fee paths establish zero separate direct LP
+management and performance fees for the
+reviewed implementation pairs. The adapter checks both proxies and manager
+wiring at the requested block before reporting these zeros. Unknown upgrades
+remain unknown, and a separate protocol fee rate remains unverified. The
+platform's trading-fee revenue split is already reflected in pool income and
+is not an additional LP performance fee.
 
 The risk label is resolved from the maintained registry during export. No
 additional database migration is needed for this risk-only assessment, and
@@ -123,3 +131,47 @@ The historical audits do not establish coverage of every later upgrade.
    :maxdepth: 1
 
    ../../api/veranta/index
+
+Fee publication repair
+----------------------
+
+Migration ``055-veranta-fees.py`` refreshes only ``_fees``, ``Mgmt fee``,
+``Perf fee``, ``Deposit fee``, ``Withdraw fee``, ``Protocol fee`` and the
+full maintained long description, including the fee disclosure, for the
+confirmed Base row. It validates identity and the source-reviewed fee snapshot
+before staging updates. Missing metadata is reported without creation;
+unreviewed implementations or failed reads stop the migration. Short
+descriptions, notes, curator identity, risk, flags, capabilities and historical state are
+preserved. Successful migrations 030 and 031 must not be edited or rerun.
+
+**Run after merge:** record the PR URL in migration 055 on the feature branch
+before merge. Follow the `numbered migration runbook <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md#production-runbook>`__.
+Inspect production ``docker-compose.yml`` and persistent mounts,
+build the stamped merged image and stop persistent and competing writers.
+From ``~/vault-scanner/web3-ethereum-defi``, use the same image throughout:
+
+.. code-block:: shell
+
+    source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
+    source ../vault-rpc.env && docker compose run --rm --no-deps --entrypoint vault-migrate vault-scanner-oneshot list
+    source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
+    source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+    source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
+
+Review the entire pending batch before apply. Expected for 055: at most one
+existing row, six fee fields and its long description, a pinned Base source
+block and no price backfill or reader reset. Inspect ``missing_specs`` during preview: a missing
+row is a successful no-op, so investigate an unexpectedly missing target before
+applying and recording the migration as complete. The runner acquires its
+lifecycle guard before the writer lock. After normal export/upload, verify zero
+management and performance fees, a fixed 0.5% published withdrawal fee,
+externalised fee mode and available estimated net return data in the individual
+vault JSON and website. The trading-revenue
+allocation must not be deducted a second time. Preserve the existing price
+history range; migration success alone does not publish the repair.
+
+The source review establishes no separate direct LP management/performance
+rate, not a guarantee about undistributed manager income. Keeper and governance
+roles retain distribution and buffer-withdrawal discretion. Re-review the
+static public fee description whenever either proxy is upgraded, alongside
+the implementation-pair allowlist.

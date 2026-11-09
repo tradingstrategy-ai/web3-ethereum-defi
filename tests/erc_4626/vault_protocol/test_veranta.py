@@ -35,7 +35,7 @@ from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.vault_protocols.repairs.veranta import refresh_veranta_metadata
+from eth_defi.vault_protocols.repairs.veranta import refresh_veranta_fees, refresh_veranta_metadata
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 pytestmark = [pytest.mark.skipif(not JSON_RPC_BASE, reason="JSON_RPC_BASE required")]
@@ -148,10 +148,18 @@ def test_veranta_metadata(vault: VerantaVault, fork_block: int) -> None:
     assert vault.denomination_token.address.lower() == "0x833589fcd6edb6e08f4c7c32d4f71b54bdA02913".lower()
     fees = vault.get_fee_data(fork_block)
     assert fees.fee_mode is VaultFeeMode.externalised
-    assert fees.withdraw == pytest.approx(0.005 if fork_block == BASE_MIDNIGHT_BLOCK else 0.015)
+    assert fees.withdraw == pytest.approx(0.005)
     assert fees.deposit == 0
-    assert fees.management is None
-    assert fees.performance is None
+    assert fees.management == 0.0
+    assert fees.performance == 0.0
+    assert fees.protocol is None
+    assert fees.can_calculate_investor_net_performance()
+    # Actual contract fees stay dynamic even though published metadata is fixed.
+    raw_assets = vault.denomination_token.convert_to_raw(Decimal(1))
+    rate = 500 if fork_block == BASE_MIDNIGHT_BLOCK else 1500
+    assert vault.vault_contract.functions.collateralHealthFee().call(block_identifier=fork_block) == rate
+    assert vault.vault_contract.functions.getWithdrawalFeesRaw(raw_assets).call(block_identifier=fork_block) == (raw_assets * rate + 99_999) // 100_000
+    assert vault.vault_contract.functions.getWithdrawalFeesTotal(raw_assets).call(block_identifier=fork_block) == (raw_assets * rate + 100_000 + rate - 1) // (100_000 + rate)
     assert fetch_deposit_permission(vault) is VaultDepositPermission.permissionless
     assert vault.get_strategy_tags() == {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.perpetual_futures}
     assert vault.get_estimated_lock_up().total_seconds() == 0
@@ -181,9 +189,17 @@ def test_veranta_metadata_repair(web3: Web3, fork_block: int) -> None:
     assert report["changed_rows"] == 1
     assert report["read_block"] == fork_block
     assert database.rows[spec]["Protocol"] == "Veranta"
-    assert database.rows[spec]["Withdraw fee"] == pytest.approx(0.005 if fork_block == BASE_MIDNIGHT_BLOCK else 0.015)
+    assert database.rows[spec]["Withdraw fee"] == pytest.approx(0.005)
     assert database.rows[spec]["_deposit_permission"] == "permissionless"
     assert refresh_veranta_metadata(database, web3)["changed_rows"] == 0
+    database.rows[spec].update({"Mgmt fee": None, "Perf fee": None})
+    fee_report = refresh_veranta_fees(database, web3)
+    assert fee_report["updated_fields"] == 3
+    assert fee_report["read_block"] == fork_block
+    assert database.rows[spec]["_fees"].can_calculate_investor_net_performance()
+    assert database.rows[spec]["Mgmt fee"] == database.rows[spec]["Perf fee"] == 0.0
+    assert "**dynamic**" in database.rows[spec]["_description"]
+    assert refresh_veranta_fees(database, web3)["updated_fields"] == 0
 
 
 def test_veranta_guarded_lifecycle(web3: Web3, vault: VerantaVault, fork_block: int) -> None:
@@ -282,7 +298,9 @@ def test_veranta_guarded_lifecycle(web3: Web3, vault: VerantaVault, fork_block: 
     assert manager.estimate_redeem(custody.address, vault.share_token.convert_to_decimals(raw_shares)) == vault.denomination_token.convert_to_decimals(expected_assets)
     gross_assets = vault.vault_contract.functions.convertToAssets(raw_shares).call()
     assert expected_assets < gross_assets
-    assert gross_assets / expected_assets - 1 == pytest.approx(vault.get_withdraw_fee("latest"), rel=1e-3)
+    # The published 0.5% reference must not drive actual execution quotes.
+    actual_fee = 0.005 if fork_block == BASE_MIDNIGHT_BLOCK else 0.015
+    assert gross_assets / expected_assets - 1 == pytest.approx(actual_fee, rel=1e-3)
     redemption = manager.create_redemption_request(owner=custody.address, raw_shares=raw_shares)
     redeem_hash = perform(web3, custody, manager_wallet, redemption.funcs[0])
     result = manager.analyse_redemption(redeem_hash, redemption.parse_redeem_transaction([redeem_hash]))
