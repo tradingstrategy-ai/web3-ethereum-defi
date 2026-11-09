@@ -216,7 +216,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
         autopilot = database.rows[VaultSpec(chain_id, address)]
         assert autopilot["_description"] == NEUTRAL_AUTOPILOT_VAULT_METADATA[chain_id, address].description
         assert autopilot["_notes"] == NEUTRAL_AUTOPILOT_NOTE
-        assert autopilot["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral}
+        assert autopilot["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral, StrategyTag.arbitrage, StrategyTag.funding_rate_arbitrage, StrategyTag.market_making, StrategyTag.perpetual_futures, StrategyTag.options, StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.trend_following}
         assert autopilot["_manager_name"] == "Existing attribution"
     assert database.rows[WRAPPED]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")

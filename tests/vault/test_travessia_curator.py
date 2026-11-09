@@ -20,7 +20,7 @@ from eth_defi.vault_protocols import migration as runner
 MIGRATION_NUMBER = 43
 TARGET_COUNT = 7
 TARGETS = tuple(VaultSpec(chain, address) for chain, addresses in TRAVESSIA_STRATEGY_TAGS.items() for address in addresses)
-EXPECTED = {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending}
+EXPECTED = {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
 
 
 @pytest.mark.parametrize("spec", TARGETS)
