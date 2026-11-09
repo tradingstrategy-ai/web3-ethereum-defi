@@ -9,6 +9,8 @@ Preserves: Other metadata, unrelated rows, prices, leads and reader state.
 Expected: At most six existing rows and six changed fields; report missing rows.
 Curator attribution resolves during export and needs no persisted refresh.
 
+Correction PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1746
+Correction branch: fix/travessia-migration-polygon-detection
 Correction after the failed production attempt on 2026-11-09: Polygon BRZ
 has only generic ERC-7540/7575 detection. Defer it without changing its row,
 matching migration 047, until protocol compatibility has been investigated.
