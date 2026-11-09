@@ -462,6 +462,16 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: FuturAI Labs on Hypercore, reviewed 2026-11-09. The official website
+    #: publishes both branded vaults; vaultDetails and the full vault inventory
+    #: confirm their shared leader 0x92f33bee92dd86db292e3bc8500ffc5619d50430
+    #: also operates the closed Breaking vault. Exact identities survive renames.
+    #: https://www.futurailabs.xyz/app.js?v=10
+    #: https://api.hyperliquid.xyz/info (vaultDetails)
+    #: https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    (9999, "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003"): "futurai-labs",
+    (9999, "0x53375ca9a649f337d83d0834fec0db97640a2a06"): "futurai-labs",
+    (9999, "0xbefed76a71682b1dc48cca5a10f397cbc492a216"): "futurai-labs",
     #: Passivbot Canon on Hypercore (9999), reviewed 2026-11-01.
     #: The project's README identifies this exact address as its reference
     #: long-only configuration. The public vaultDetails response confirms

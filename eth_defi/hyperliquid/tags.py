@@ -37,6 +37,36 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
     },
+    #: Vaults: FuturAI Labs - High Sharpe, Low Volatility and Medium Volatility.
+    #: Added: 2026-11-09. Both use the official site's automated mean-reversion
+    #: engine. vaultDetails specifies long-only exposure and maximum leverage
+    #: of 1.5x and 2x respectively. Do not transfer Sigma 7's market-neutral
+    #: liquidity provision strategy from the website to these native vaults.
+    #: Sources:
+    #: - https://www.futurailabs.xyz/#strategy
+    #: - https://www.futurailabs.xyz/app.js?v=10
+    #: - https://api.hyperliquid.xyz/info (vaultDetails for each address)
+    "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.mean_reversion,
+        StrategyTag.directional_trading,
+    },
+    "0x53375ca9a649f337d83d0834fec0db97640a2a06": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.mean_reversion,
+        StrategyTag.directional_trading,
+    },
+    #: Vault: Breaking (closed), operated by the same FuturAI Labs leader.
+    #: Added: 2026-11-09. Its vaultDetails describes catching breakouts on daily
+    #: timeframes. This supports directional trend trading, but does not
+    #: establish automation or the branded vaults' mean-reversion strategy.
+    #: Sources:
+    #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    #: - https://api.hyperliquid.xyz/info (vaultDetails)
+    "0xbefed76a71682b1dc48cca5a10f397cbc492a216": {
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault
