@@ -24,6 +24,19 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Titan Vault on Hypercore (9999).
+    #: Added: 2026-11-09.
+    #: Decision material: Maintainer requested the high-frequency, high-win-rate
+    #: classification, paired with its required algorithmic trading tag.
+    #: The current Hyperliquid vaultDetails response confirms this address is
+    #: Titan Vault. No measured win rate or latency-based HFT capability is asserted.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/tradeHistory/0x4b0eab9444a75a03f1ef340c8beac737afa5ab09
+    #: - https://api.hyperliquid.xyz/info
+    "0x4b0eab9444a75a03f1ef340c8beac737afa5ab09": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+    },
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault
