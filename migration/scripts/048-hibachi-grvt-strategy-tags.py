@@ -4,7 +4,7 @@ Purpose: Classify current Fire ID 4 and new strategies, and remove stale tags.
 Scope: Only _strategy_tags for the 33 fixed identities below.
 Branch: mighty-wombat
 PR title: fix: refresh Hibachi and GRVT vault strategy tags
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1745
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most 33 existing rows and changed fields; report missing rows.
 Evidence: docs/research/hibachi-grvt-strategy-review-2026-11-09.md.
