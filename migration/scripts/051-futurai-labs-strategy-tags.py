@@ -4,7 +4,7 @@ Purpose: Persist the maintained address-specific strategy classifications.
 Scope: Only _strategy_tags for the three fixed identities below.
 Branch: add-curator-futurailabs-hyperliquid
 PR title: feat: add FuturAI Labs Hyperliquid curator
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1749
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most three existing rows and changed fields; report missing rows.
 Evidence: docs/protocol-research/futurai-labs-curator.md.
