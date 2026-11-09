@@ -4,7 +4,7 @@ Purpose: Apply Bunny's maintained high-win-rate, algorithmic and Bitcoin-only ta
 Scope: Only _strategy_tags for Bunny on Hypercore (9999).
 Branch: categorise-hyperliquid-vault-high-win-rate
 PR title: feat: add Bitcoin-only strategy category for Bunny and BitRocket
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1751
 Preserves: Other metadata, unrelated rows, prices, leads, reader state and timestamp caches.
 Expected: At most one existing row and changed field; report an absent row without creating it.
 The current resolver includes btc_only. When 054 follows this script, Bunny

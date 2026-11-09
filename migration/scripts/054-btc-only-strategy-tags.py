@@ -4,7 +4,7 @@ Purpose: Persist the maintainer-requested btc_only tag alongside existing strate
 Scope: Only _strategy_tags for the two fixed identities below.
 Branch: categorise-hyperliquid-vault-high-win-rate
 PR title: feat: add Bitcoin-only strategy category for Bunny and BitRocket
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1751
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: Inspect at most two existing rows; report missing rows. After 053,
 Bunny is already current and only BitRocket changes (at most one field).
