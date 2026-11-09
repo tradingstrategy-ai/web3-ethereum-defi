@@ -13,7 +13,7 @@ from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, c
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.scan import fetch_deposit_permission
-from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_VAULT_ADDRESS, VERANTA_VAULT_MANAGER_ADDRESS, VERANTA_ZERO_LP_FEE_IMPLEMENTATIONS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.research.vault_metrics import slugify_protocol, slugify_vaults
 from eth_defi.vault.base import VaultSpec
@@ -34,12 +34,13 @@ def adapter() -> VerantaVault:
     """
     web3 = Mock()
     web3.eth.chain_id = 8453
-    web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "c3769e440e3515ba374372837f76aafdc4fba26d")
+    web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + ("f34e3a38280a7e600cb4aa6d8c2a160d8e16127f" if address.lower() == VERANTA_VAULT_MANAGER_ADDRESS else "c3769e440e3515ba374372837f76aafdc4fba26d"))
     vault = VerantaVault(web3, VaultSpec(8453, VERANTA_VAULT_ADDRESS), features={ERC4626Feature.veranta_like}, default_block_identifier=123)
     contract = Mock()
     contract.functions.feesOn.return_value.call.return_value = True
     contract.functions.balancingFee.return_value.call.return_value = 0
     contract.functions.collateralHealthFee.return_value.call.return_value = 500
+    contract.functions.vaultManager.return_value.call.return_value = VERANTA_VAULT_MANAGER_ADDRESS
     vault.__dict__["vault_contract"] = contract
     return vault
 
@@ -97,7 +98,7 @@ def test_veranta_tags(adapter: VerantaVault) -> None:
 
 
 def test_veranta_pinned_fees_and_disabled_switch(adapter: VerantaVault) -> None:
-    """Read all fee inputs at one block and honour the master switch.
+    """Pin verified fees while keeping the published withdrawal rate fixed.
 
     :param adapter: Offline adapter.
     :return: None; nominal rates retain their 100,000 scale.
@@ -105,14 +106,16 @@ def test_veranta_pinned_fees_and_disabled_switch(adapter: VerantaVault) -> None:
     fees = adapter.get_fee_data(42)
     assert fees.withdraw == pytest.approx(0.005)
     assert fees.deposit == 0
-    assert fees.management is None and fees.performance is None
+    assert fees.management == 0.0 and fees.performance == 0.0
+    assert fees.protocol is None
+    assert fees.can_calculate_investor_net_performance()
     functions = adapter.vault_contract.functions
-    functions.collateralHealthFee.return_value.call.assert_called_once_with(block_identifier=42)
+    functions.collateralHealthFee.return_value.call.assert_not_called()
     for call in functions.feesOn.return_value.call.call_args_list:
         assert call.kwargs == {"block_identifier": 42}
     functions.feesOn.return_value.call.return_value = False
     functions.collateralHealthFee.return_value.call.reset_mock()
-    assert adapter.get_fee_data(43).withdraw == 0
+    assert adapter.get_fee_data(43).withdraw == pytest.approx(0.005)
     functions.collateralHealthFee.return_value.call.assert_not_called()
 
 
@@ -124,6 +127,7 @@ def test_veranta_permission_unknown_upgrade_and_read_failure(adapter: VerantaVau
     """
     assert fetch_deposit_permission(adapter) is VaultDepositPermission.permissionless
     adapter.web3.eth.get_storage_at.assert_called_with(adapter.address, IMPLEMENTATION_SLOT, block_identifier=123)
+    adapter.web3.eth.get_storage_at.side_effect = None
     adapter.web3.eth.get_storage_at.return_value = bytes(32)
     assert fetch_deposit_permission(adapter) is VaultDepositPermission.unknown
     adapter.web3.eth.get_storage_at.side_effect = TimeoutError("RPC unavailable")
@@ -276,6 +280,156 @@ def test_veranta_assessed_risk_and_fee_mode(adapter: VerantaVault) -> None:
     assert adapter.get_fee_mode() is VaultFeeMode.externalised
     fees = adapter.get_fee_data(123)
     assert fees.fee_mode is VaultFeeMode.externalised
-    assert fees.management is None
-    assert fees.performance is None
+    assert fees.management == 0.0
+    assert fees.performance == 0.0
     assert fees.protocol is None
+
+
+@pytest.mark.parametrize("implementations", sorted(VERANTA_ZERO_LP_FEE_IMPLEMENTATIONS))
+def test_veranta_source_reviewed_zero_lp_fee_pairs(adapter: VerantaVault, implementations: tuple[HexAddress, HexAddress]) -> None:
+    """Recognise the exact two independently reviewed source generations.
+
+    Each pair is checked against the actual manager proxy wiring. Upstream
+    reward allocation must not be converted into an investor performance rate.
+
+    :param adapter: Deterministic Base deployment.
+    :param implementations: Reviewed vault and manager implementation addresses.
+    :return: None after verifying standalone accessors and complete fee data.
+    """
+    vault_impl, manager_impl = implementations
+    adapter.web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + (manager_impl if address.lower() == VERANTA_VAULT_MANAGER_ADDRESS else vault_impl)[2:])
+    assert adapter.get_management_fee(42) == 0.0
+    assert adapter.get_performance_fee(42) == 0.0
+    fees = adapter.get_fee_data(42)
+    assert fees.management == fees.performance == 0.0
+    assert fees.fee_mode is VaultFeeMode.externalised
+    assert fees.get_net_fees().performance == 0.0
+    assert fees.can_calculate_investor_net_performance()
+
+
+@pytest.mark.parametrize("change", ["chain", "address", "vault_implementation", "manager_address", "manager_implementation", "mixed_pair"])
+def test_veranta_zero_lp_fees_require_reviewed_wiring(adapter: VerantaVault, change: str) -> None:
+    """Keep zero-fee conclusions scoped to exact reviewed source identities.
+
+    Even individually known implementations are not accepted in an unreviewed
+    combination. Other chains and deployments must not inherit the conclusion.
+
+    :param adapter: Reviewed historical deployment to change.
+    :param change: Identity component that is no longer reviewed.
+    :return: None after confirming both direct fee fields remain unknown.
+    """
+    if change == "chain":
+        adapter = VerantaVault(None, VaultSpec(1, VERANTA_VAULT_ADDRESS))
+    elif change == "address":
+        adapter = VerantaVault(None, VaultSpec(8453, "0x" + "11" * 20))
+    elif change == "manager_address":
+        adapter.vault_contract.functions.vaultManager.return_value.call.return_value = "0x" + "11" * 20
+    else:
+        vault_impl = "c3769e440e3515ba374372837f76aafdc4fba26d"
+        manager_impl = "f34e3a38280a7e600cb4aa6d8c2a160d8e16127f"
+        if change == "vault_implementation":
+            vault_impl = "11" * 20
+        elif change == "manager_implementation":
+            manager_impl = "11" * 20
+        elif change == "mixed_pair":
+            manager_impl = "f0207407beb82902186321e3dd84a7050add275a"
+        adapter.web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + (manager_impl if address.lower() == VERANTA_VAULT_MANAGER_ADDRESS else vault_impl))
+    assert adapter.get_management_fee(42) is None
+    assert adapter.get_performance_fee(42) is None
+    if change not in {"chain", "address"}:
+        assert not adapter.get_fee_data(42).can_calculate_investor_net_performance()
+
+
+@pytest.mark.parametrize("failure", ["vault_storage", "manager_call", "manager_storage"])
+def test_veranta_fee_identity_read_failure_is_not_zero(adapter: VerantaVault, failure: str) -> None:
+    """Propagate failed identity reads instead of inventing zero charges.
+
+    The scanner's existing failure handling owns unknown metadata. Both direct
+    accessors and the aggregated snapshot must preserve the provider failure.
+
+    :param adapter: Reviewed historical deployment to fault.
+    :param failure: RPC operation whose response is unavailable.
+    :return: None after checking the same failure reaches every fee interface.
+    """
+    if failure == "manager_call":
+        adapter.vault_contract.functions.vaultManager.return_value.call.side_effect = TimeoutError("unavailable")
+    else:
+        normal_read = adapter.web3.eth.get_storage_at.side_effect
+
+        def read(address: HexAddress, *args: object, **kwargs: object) -> bytes:
+            """Inject a failure at the selected proxy read.
+
+            Preserve the other read so the test distinguishes a manager read
+            failure from failure to identify the vault itself.
+
+            :param address: Proxy whose implementation slot is queried.
+            :param args: Storage-slot arguments passed through unchanged.
+            :param kwargs: Requested block passed through unchanged.
+            :return: Original implementation bytes for the unaffected proxy.
+            """
+            if (address.lower() == VERANTA_VAULT_MANAGER_ADDRESS) == (failure == "manager_storage"):
+                raise TimeoutError("unavailable")
+            return normal_read(address, *args, **kwargs)
+
+        adapter.web3.eth.get_storage_at.side_effect = read
+    for accessor in (adapter.get_management_fee, adapter.get_performance_fee, adapter.get_fee_data):
+        with pytest.raises(TimeoutError, match="unavailable"):
+            accessor(42)
+
+
+def test_veranta_fee_snapshot_resolves_latest_once(adapter: VerantaVault, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin wiring, implementation checks and rates to a single source block.
+
+    Use a resolver that would advance between calls to expose accidental
+    second resolutions. No fee identity is cached across later snapshots.
+
+    :param adapter: Deterministic reviewed historical deployment.
+    :param monkeypatch: Supply advancing block resolutions without network I/O.
+    :return: None after verifying two coherent, independently read snapshots.
+    """
+    resolver = Mock(side_effect=[42, 43])
+    monkeypatch.setattr(adapter, "_get_block_identifier", resolver)
+    for block in (42, 43):
+        adapter.web3.eth.get_storage_at.reset_mock()
+        adapter.vault_contract.reset_mock()
+        assert adapter.get_fee_data().management == 0.0
+        assert all(call.kwargs["block_identifier"] == block for call in adapter.web3.eth.get_storage_at.call_args_list)
+        functions = adapter.vault_contract.functions
+        for function in (functions.vaultManager, functions.feesOn, functions.balancingFee, functions.collateralHealthFee):
+            assert all(call.kwargs["block_identifier"] == block for call in function.return_value.call.call_args_list)
+    assert resolver.call_count == 2
+
+
+def test_veranta_explicit_latest_default_is_pinned(adapter: VerantaVault) -> None:
+    """Resolve an explicit latest default before taking the fee snapshot.
+
+    A caller can set the adapter's default block to the literal latest tag.
+    That must not make the identity and rate reads follow a moving head.
+
+    :param adapter: Deterministic reviewed deployment with a latest default.
+    :return: None after checking every identity read uses the resolved number.
+    """
+    adapter.default_block_identifier = "latest"
+    adapter.web3.eth.block_number = 77
+    assert adapter.get_fee_data().management == 0.0
+    assert all(call.kwargs["block_identifier"] == 77 for call in adapter.web3.eth.get_storage_at.call_args_list)
+
+
+@pytest.mark.parametrize("actual_rate,fees_on", [(0, False), (0, True), (500, True), (1500, True), (2500, True)])
+def test_veranta_published_withdrawal_reference_is_fixed(adapter: VerantaVault, actual_rate: int, fees_on: bool) -> None:
+    """Publish 0.5% independently of the dynamic execution fee configuration.
+
+    The reference feeds displays and return estimates, including when the
+    contract would charge no fee. Quotes use actual contract previews instead.
+
+    :param adapter: Reviewed deployment with deterministic contract replies.
+    :param actual_rate: Nominal collateral-health fee returned by the contract.
+    :param fees_on: Actual execution-fee switch setting.
+    :return: None after checking metadata remains fixed without rate reads.
+    """
+    functions = adapter.vault_contract.functions
+    functions.collateralHealthFee.return_value.call.return_value = actual_rate
+    functions.feesOn.return_value.call.return_value = fees_on
+    assert adapter.get_withdraw_fee(42) == pytest.approx(0.005)
+    assert adapter.get_fee_data(42).withdraw == pytest.approx(0.005)
+    functions.collateralHealthFee.return_value.call.assert_not_called()

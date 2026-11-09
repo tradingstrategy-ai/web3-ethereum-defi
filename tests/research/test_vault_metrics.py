@@ -24,7 +24,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, D2Vault, format_d2_vault_note
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
-from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS, VERANTA_VAULT_MANAGER_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
@@ -2881,7 +2881,8 @@ def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault
     assert metrics["id"].tolist() == [healthy_id]
 
 
-def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("reviewed", [True, False])
+def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch, reviewed: bool) -> None:
     """Carry real adapter copy through the scanner, metrics and public JSON.
 
     Keep contract reads deterministic while exercising the production text
@@ -2892,6 +2893,7 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     :param vault_db: Existing sample detection and catalogue metadata.
     :param price_df: Historical price DataFrame with the scanner price schema.
     :param monkeypatch: Replace network reads without replacing text accessors.
+    :param reviewed: Whether the manager implementation has verified fee paths.
     :return: None after checking both website-facing description fields.
     """
     source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
@@ -2900,10 +2902,14 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     detection = replace(vault_db.rows[source]["_detection_data"], chain=8453, address=spec.vault_address, features={ERC4626Feature.veranta_like})
     web3 = Mock()
     web3.eth.chain_id = 8453
-    web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
-    vault = VerantaVault(web3, spec, features=detection.features)
+    manager_impl = "f0207407beb82902186321e3dd84a7050add275a" if reviewed else "11" * 20
+    web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + (manager_impl if address.lower() == VERANTA_VAULT_MANAGER_ADDRESS else "e79184763b27fa8bb0eb2d6af1f0123d43af0e89"))
+    vault = VerantaVault(web3, spec, features=detection.features, default_block_identifier=123)
     contract = Mock()
-    contract.functions.feesOn.return_value.call.return_value = False
+    contract.functions.vaultManager.return_value.call.return_value = VERANTA_VAULT_MANAGER_ADDRESS
+    contract.functions.feesOn.return_value.call.return_value = True
+    contract.functions.balancingFee.return_value.call.return_value = 0
+    contract.functions.collateralHealthFee.return_value.call.return_value = 1500
     vault.__dict__["vault_contract"] = contract
     for key, symbol, name in (("share_token", "avUSDC", "Avantis USDC Vault"), ("denomination_token", "USDC", "USD Coin")):
         token = Mock(symbol=symbol)
@@ -2929,3 +2935,13 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     assert exported["short_description"] == metadata.short_description
     assert "\n\n#### Payouts and withdrawals\n\n" in exported["description"]
     assert exported["vault_slug"] == "veranta-usdc-vault"
+    assert exported["fee_mode"] == "externalised"
+    assert exported["gross_fees"]["management"] == (0.0 if reviewed else None)
+    assert exported["gross_fees"]["performance"] == (0.0 if reviewed else None)
+    assert exported["gross_fees"]["withdraw"] == pytest.approx(0.005)
+    if reviewed:
+        assert exported["net_fees"]["performance"] == 0.0
+        # Only the explicit withdrawal charge affects the measured return.
+        assert exported["lifetime_return_net"] == pytest.approx((1 + exported["lifetime_return"]) * (1 - 0.005) - 1)
+    else:
+        assert exported["lifetime_return_net"] is None

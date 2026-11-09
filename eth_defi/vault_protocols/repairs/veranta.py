@@ -86,3 +86,48 @@ def refresh_veranta_metadata(database: VaultDatabase, web3: Web3 | None = None) 
     row.update({key: desired[key] for key in changed})
     logger.info("Veranta %s: changed fields=%s", spec.as_string_id(), ", ".join(changed) or "none")
     return {"inspected_rows": 1, "changed_rows": int(bool(changed)), "changed_fields": changed, "read_block": block}
+
+
+def refresh_veranta_fees(database: VaultDatabase, web3: Web3 | None = None) -> dict[str, object]:
+    """Refresh fee fields and the fee disclosure for the confirmed unified vault.
+
+    Complete identity and source-reviewed fee reads before staging any updates.
+    The numbered runner owns backups and persistence. A missing row is reported
+    without creation; an unreviewed implementation or unreadable fee snapshot
+    aborts rather than publishing an invented zero.
+
+    :param database: Runner-owned staged metadata database.
+    :param web3: Optional Base provider for isolated fixed-fork tests.
+    :return: JSON-safe missing-target, changed-field and source-block report.
+    :raises ValueError: If attribution, chain or the fee snapshot is unverified.
+    """
+    spec = VaultSpec(VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS)
+    row = database.rows.get(spec)
+    if row is None:
+        return {"inspected_rows": 0, "missing_specs": [spec.as_string_id()], "updated_fields": 0}
+    detection = row.get("_detection_data")
+    if not isinstance(detection, ERC4262VaultDetection) or detection.get_spec() != spec or row.get("Address", spec.vault_address).lower() != spec.vault_address:
+        raise ValueError("Veranta fee target has conflicting deployment identity")
+    if row.get("Protocol") not in {"Veranta", "Avantis"} or ERC4626Feature.veranta_like not in detection.features or detection.features - {ERC4626Feature.veranta_like, ERC4626Feature.gains_tranche_like}:
+        raise ValueError("Veranta fee target has conflicting protocol attribution")
+    web3 = web3 if web3 is not None else create_multi_provider_web3(read_json_rpc_url(VERANTA_CHAIN_ID))
+    if web3.eth.chain_id != VERANTA_CHAIN_ID:
+        raise ValueError("Veranta fee refresh requires Base")
+    block = web3.eth.block_number
+    vault = VerantaVault(web3, spec, features=detection.features, default_block_identifier=block)
+    fees = vault.get_fee_data(block)
+    if not fees.can_calculate_investor_net_performance():
+        raise ValueError("Veranta fee snapshot is unverified; migration remains pending")
+    desired = {
+        "_fees": fees,
+        "Mgmt fee": fees.management,
+        "Perf fee": fees.performance,
+        "Deposit fee": fees.deposit,
+        "Withdraw fee": fees.withdraw,
+        "Protocol fee": fees.protocol,
+        "_description": vault.description,
+    }
+    updates = {key: value for key, value in desired.items() if key not in row or row[key] != value}
+    row.update(updates)
+    logger.info("Veranta fee refresh %s at block %d: %s", spec.as_string_id(), block, ", ".join(sorted(updates)) or "unchanged")
+    return {"inspected_rows": 1, "missing_specs": [], "updated_fields": len(updates), "fee_fields": sorted(updates), "read_block": block}

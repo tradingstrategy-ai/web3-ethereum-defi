@@ -258,10 +258,11 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     provider = Mock()
     provider.eth.chain_id = 8453
     provider.eth.block_number = 123
-    provider.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
+    provider.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + ("f0207407beb82902186321e3dd84a7050add275a" if address.lower() == "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd" else "e79184763b27fa8bb0eb2d6af1f0123d43af0e89"))
     contract = Mock()
     contract.functions.asset.return_value.call.return_value = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
     contract.functions.feesOn.return_value.call.return_value = False
+    contract.functions.vaultManager.return_value.call.return_value = "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd"
     monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: provider)
     monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))

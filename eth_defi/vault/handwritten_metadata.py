@@ -628,10 +628,10 @@ VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetad
         name="Avantis USDC Vault",
         short_description="USDC supplied to back trading positions and earn a share of trading fees.",
         description=(
-            "Deposited USDC backs traders' positions in cryptocurrency, currency, commodity and index markets. "
-            "Depositors receive avUSDC tokens representing their share of the [pool](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc), "
-            "and earn a share of the fees paid by traders.\n\n"
-            "Idle USDC may also be placed in other investments to earn income. "
+            "Deposits back traders' positions in cryptocurrency, currency, commodity and index markets. "
+            "Depositors receive avUSDC tokens representing their share of the pool and earn "
+            "[trading fee income](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc).\n\n"
+            "Idle capital may also be placed in other investments to earn income. "
             "The current investments, if any, have not been confirmed.\n\n"
             "#### Trading income\n\n"
             "- Vault depositors receive **70% of fees collected on opening, closing and profitable trades** under the "
@@ -644,10 +644,11 @@ VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetad
             "Trader losses build a reserve used to pay trader profits before drawing on deposited capital. "
             "Depositors earn trading fees rather than receiving those losses directly, and **deposits can lose value** if the reserve runs out.\n\n"
             "Withdrawals depend on money being available in the pool and limits on how much capital can be removed while backing trading positions. "
-            "[Withdrawal charges](https://docs.veranta.xyz/liquidity-providers/risk-management) range from **0% to 2.5%**, "
-            "depending on the reserve available to cover trader profits, and reduce the USDC returned to depositors."
+            "The displayed withdrawal fee is **0.5%**. "
+            "The actual withdrawal fee is **dynamic** and follows the "
+            "[reserve-based fee schedule](https://docs.veranta.xyz/liquidity-providers/risk-management)."
         ),
-        link="https://www.avantisfi.com/earn",
+        link="https://tradingstrategy.ai/vaults/veranta-usdc-vault",
     ),
 }
 
