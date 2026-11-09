@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import runpy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
-from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -45,6 +46,83 @@ PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebc
 
 #: Euler deployment required by migration 040.
 K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
+
+#: Reviewed underlying identities for the fixed valuation-warning migration.
+VALUATION_TARGETS = runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/049-reviewed-vault-valuations.py"))["TARGETS"]
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_reviewed_valuation_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Persist exclusions and non-blacklisting reviews without touching other data.
+
+    Exercise preview isolation, preservation of existing warnings and cached
+    fields, case-insensitive underlying matching and apply idempotence.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain an in-memory preview.
+    :return: ``None`` after verifying staged and persisted classifications.
+    """
+    rows = {spec: {"Protocol": "ERC-4626", "_denomination_token": {"address": asset.upper()}, "_flags": {VaultFlag.deposit}, "_notes": "Old note", "custom": 123} for spec, asset in VALUATION_TARGETS}
+    other = VaultSpec(8453, VALUATION_TARGETS[0][0].vault_address)
+    rows[other] = {"_notes": "Preserve unrelated chain", "custom": 456}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 49)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    updated = context.metadata().rows
+    reviews = {"0x182b06a514c29d07384838883efc02c8f0431b42", "0x7437ac81457fa98ffb2d0c8f9943ecfe4813e2f1"}
+    assert len(VALUATION_TARGETS) == 11
+    for spec, _ in VALUATION_TARGETS:
+        expected = VaultFlag.review_needed if spec.vault_address in reviews else VaultFlag.misleading_valuation
+        assert updated[spec]["_flags"] == {VaultFlag.deposit, expected}
+        assert bool(updated[spec]["_flags"] & BAD_FLAGS) == (spec.vault_address not in reviews)
+        assert updated[spec]["_notes"] == get_notes(spec.vault_address, chain_id=spec.chain_id)
+        assert {key: value for key, value in updated[spec].items() if key not in {"_flags", "_notes"}} == {key: value for key, value in rows[spec].items() if key not in {"_flags", "_notes"}}
+    assert updated[other] == rows[other]
+    assert context.other_data["changed_rows"] == 11
+    assert context.other_data["updated_fields"] == 22
+    if dry_run:
+        assert path.read_bytes() == original
+    else:
+        assert VaultDatabase.read(path).rows == updated
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+        assert repeated.other_data["updated_fields"] == 0
+
+
+@pytest.mark.parametrize("problem", ["missing", "wrong_address", "missing_token", "null_address"])
+def test_reviewed_valuation_refresh_rejects_conflicting_inventory(tmp_path: Path, problem: str) -> None:
+    """Validate the complete inventory before changing any staged row.
+
+    A missing final deployment or conflicting underlying must fail without
+    partially updating earlier targets or their persisted metadata.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param problem: Missing target, conflicting address or malformed token data.
+    :return: ``None`` after verifying validation and unchanged data.
+    """
+    rows = {spec: {"_denomination_token": {"address": asset}} for spec, asset in VALUATION_TARGETS}
+    last = VALUATION_TARGETS[-1][0]
+    if problem == "missing":
+        del rows[last]
+    elif problem == "wrong_address":
+        rows[last]["_denomination_token"]["address"] = "0x0000000000000000000000000000000000000001"
+    elif problem == "missing_token":
+        rows[last]["_denomination_token"] = None
+    else:
+        rows[last]["_denomination_token"]["address"] = None
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 49)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    with pytest.raises(ValueError, match="missing|Unexpected underlying"):
+        runner._execute(migration, context)
+    assert context.metadata().rows == rows
+    assert path.read_bytes() == original
 
 
 def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection:
@@ -124,6 +202,8 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("VAULT_DB", raising=False)
     monkeypatch.delenv("VAULT_DB_PATH", raising=False)
     rows = {VaultSpec(chain, address): {"Protocol": "Gains Network", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.gains_like)} for chain, address in REVIEWED_GAINS_VAULTS}
+    for spec, asset in VALUATION_TARGETS:
+        rows[spec] = {"Protocol": "ERC-4626", "_denomination_token": {"address": asset}}
     rows[NOVA] = {"Protocol": "Gains Network", "_detection_data": detection(NOVA, ERC4626Feature.gains_like), "_manager_name": "Preserve manager", "NAV": 123}
     rows[FT] = {"Protocol": "ERC-4626", "_detection_data": detection(FT, ERC4626Feature.flying_tulip_like), "manual_enrichment": "keep", "_external_reward_token": "stale"}
     for chain, address in ALPHAPING_VAULT_METADATA:
