@@ -4,7 +4,7 @@ Purpose: Apply the maintainer's high-win-rate classification and its required al
 Scope: Only _strategy_tags for Titan Vault on Hypercore (9999).
 Branch: categorise-vault-strategy-high-win-rate
 PR title: fix: classify Titan Vault as high-win-rate trading
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1748
 Preserves: Other metadata, unrelated rows, prices, leads, reader state and timestamp caches.
 Expected: At most one existing row and changed field; report an absent row without creating it.
 No network reads or historical price backfill are required.
