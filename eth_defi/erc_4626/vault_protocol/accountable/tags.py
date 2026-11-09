@@ -1,6 +1,8 @@
-"""Maintained strategy classifications for Accountable vaults on Monad."""
+"""Maintained chain-scoped strategy classifications for Accountable vaults."""
 
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_typing import HexAddress
+
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Chain containing the reviewed Accountable deployments below.
 MONAD_CHAIN_ID = 143
@@ -37,3 +39,91 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.rwa_lending,
     },
 }
+
+
+#: Reviewed Tauri deployments, keyed by chain to avoid cross-chain attribution.
+TRAVESSIA_STRATEGY_TAGS: dict[int, dict[str, set[StrategyTag]]] = {
+    1: {
+        #: Vault: Travessia Tauri Vault, chain 1.
+        #: Added: 2026-11-09.
+        #: Decision material: Stablecoin loans fund Tauri Agricola's grain
+        #: purchases and transport until buyers pay their invoices.
+        #: This is real-world business credit, not commodity-price trading.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/1/tauri/0x4C18E2bb9942b12b28e780acF2D9EC2DDA126df9
+        "0x4c18e2bb9942b12b28e780acf2d9ec2dda126df9": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+        #: Vault: Travessia Tauri Vault - USDC, chain 1.
+        #: Added: 2026-11-09.
+        #: Decision material: Stablecoin loans fund Tauri Agricola's grain
+        #: purchases and transport until buyers pay their invoices.
+        #: This is real-world business credit, not commodity-price trading.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/1/tauri/0xf84A37545e313E8177d80039158ed478C7Dc9079
+        "0xf84a37545e313e8177d80039158ed478c7dc9079": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+        #: Vault: Travessia Tauri Vault - USDT, chain 1.
+        #: Added: 2026-11-09.
+        #: Decision material: Stablecoin loans fund Tauri Agricola's grain
+        #: purchases and transport until buyers pay their invoices.
+        #: This is real-world business credit, not commodity-price trading.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/1/tauri/0xe4EE0fe4B09021FCdF76B165AA1e8eAF7d447c35
+        "0xe4ee0fe4b09021fcdf76b165aa1e8eaf7d447c35": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    },
+    143: {
+        #: Vault: Travessia Tauri Vault, chain 143.
+        #: Added: 2026-11-09.
+        #: Decision material: Stablecoin loans fund Tauri Agricola's grain
+        #: purchases and transport until buyers pay their invoices.
+        #: This is real-world business credit, not commodity-price trading.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/143/tauri/0x8D24B48Cb736addb5B7069565F192A052F42Ba61
+        "0x8d24b48cb736addb5b7069565f192a052f42ba61": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    },
+    43114: {
+        #: Vault: Travessia Tauri Vault, chain 43114.
+        #: Added: 2026-11-09.
+        #: Decision material: Stablecoin loans fund Tauri Agricola's grain
+        #: purchases and transport until buyers pay their invoices.
+        #: This is real-world business credit, not commodity-price trading.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/43114/tauri/0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2
+        "0x9c3da70cd7fedeaef528d060ea99ace133e08fd2": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    },
+    8453: {
+        #: Vault: Travessia Tauri Vault - USDC, chain 8453.
+        #: Added: 2026-11-09.
+        #: Decision material: The current official address-specific page
+        #: describes loans financing Tauri Agricola's Brazilian grain trades.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/8453/tauri/0xb37cc5e891d87c5a3ef750e1bdf59c960575593c
+        "0xb37cc5e891d87c5a3ef750e1bdf59c960575593c": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    },
+    137: {
+        #: Vault: Travessia Tauri Vault - BRZ, chain 137.
+        #: Added: 2026-11-09.
+        #: Decision material: The current official address-specific page
+        #: describes loans financing Tauri Agricola's Brazilian grain trades.
+        #: Sources:
+        #: - https://www.travessiacredit.com/vaults/137/tauri/0x08dd5f2a0b107b8f93c4f524901994353bedfaf7
+        "0x08dd5f2a0b107b8f93c4f524901994353bedfaf7": {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    },
+}
+
+
+def get_strategy_tags(chain_id: int, address: HexAddress) -> set[StrategyTag] | None:
+    """Resolve the reviewed Accountable strategy for a chain and share address.
+
+    Keep the original Monad-only classifications scoped to Monad while allowing
+    separately researched Tauri deployments on other chains. Lookups return
+    copies so consumers cannot mutate the maintained tables.
+
+    :param chain_id: Chain containing the share token.
+    :param address: Share token address, normalised by the lookup helper.
+    :return: Maintained tags or ``None`` for an unreviewed deployment.
+    """
+    tags = lookup_strategy_tags(TRAVESSIA_STRATEGY_TAGS.get(chain_id, {}), address)
+    if tags is not None:
+        return tags
+    if chain_id == MONAD_CHAIN_ID:
+        return lookup_strategy_tags(STRATEGY_TAGS, address)
+    return None

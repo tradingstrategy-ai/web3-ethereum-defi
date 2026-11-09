@@ -292,6 +292,8 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 #: ``"Gamma Strategies"`` not ``"Gamma"`` (which would match
 #: ``"GammaSwap V1"``).
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
+    # Verified Tauri product name omits the organisation's Credit suffix.
+    "travessia-credit": ["Travessia Tauri"],
     # Retain the historical label without claiming every Waterline-branded
     # deployment (for example the unreviewed Avalanche Waterline USDe vault).
     "waterline-rusd": ["Waterline RUSD"],
