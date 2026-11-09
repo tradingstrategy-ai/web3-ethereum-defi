@@ -300,6 +300,7 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
+    "vectis-finance": ["Vectis UltraX"],
     "avantgarde-finance": ["Avantgarde"],
     "fisher8-capital": ["Fisher8"],
     "ignight-capital": ["Ignight"],
