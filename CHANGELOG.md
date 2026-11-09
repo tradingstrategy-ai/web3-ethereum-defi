@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add the Bitcoin-only strategy category for Bunny and BitRocket, and classify Bunny as high-frequency, high-win-rate trading (2026-11-09).
+
 - fix: Classify both FuturAI Labs branded Hyperliquid vaults as high-frequency, high-win-rate trading and refresh their persisted strategy tags (2026-11-09).
 
 - feat: Add FuturAI Labs curator metadata, partner links and logo, attribute its three Hyperliquid vaults and classify their trading strategies (2026-11-09).

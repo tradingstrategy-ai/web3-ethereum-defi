@@ -64,6 +64,10 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Growi HF (Hyperliquid).
     high_frequency_high_win_rate = "high_frequency_high_win_rate"
 
+    #: The strategy trades only Bitcoin.
+    #: Example vaults: Bunny and BitRocket (Hyperliquid).
+    btc_only = "btc_only"
+
     #: Captures price differences between markets or related instruments.
     #: Example vault: Axis Origin (Upshift).
     arbitrage = "arbitrage"
@@ -258,6 +262,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.high_frequency_high_win_rate: {
         "label": "High-frequency, high-win-rate trading",
         "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
+    },
+    StrategyTag.btc_only: {
+        "label": "Bitcoin only",
+        "description": "The strategy trades only Bitcoin",
     },
     StrategyTag.arbitrage: {
         "label": "Arbitrage",
