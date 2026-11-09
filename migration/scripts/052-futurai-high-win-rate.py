@@ -4,7 +4,7 @@ Purpose: Persist the maintainer-requested high-frequency, high-win-rate tag.
 Scope: Only _strategy_tags for the two fixed identities below.
 Branch: add-futurai-high-win-rate
 PR title: fix: classify FuturAI Labs vaults as high-win-rate trading
-PR: Pending follow-up to #1749.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1750
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most two existing rows and changed fields; report missing rows.
 Evidence: docs/protocol-research/futurai-labs-curator.md.
