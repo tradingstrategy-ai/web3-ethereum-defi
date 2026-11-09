@@ -15,7 +15,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
 #: Numbered refresh under test.
-MIGRATION_NUMBER = 45
+MIGRATION_NUMBER = 47
 
 #: Chain of the independently reviewed BIMA deployment.
 BASE_CHAIN_ID = 8453

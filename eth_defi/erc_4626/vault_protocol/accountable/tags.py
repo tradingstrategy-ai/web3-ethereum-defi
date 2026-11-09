@@ -126,7 +126,7 @@ TRAVESSIA_STRATEGY_TAGS: dict[int, dict[str, set[StrategyTag]]] = {
     137: {
         #: Vault: Travessia Tauri Vault - BRZ, chain 137.
         #: The current snapshot detects generic ERC-7540/7575 only, so this
-        #: Accountable mapping is inactive there and excluded from migration 045.
+        #: Accountable mapping is inactive there and excluded from migration 047.
         #: Added: 2026-11-09.
         #: Decision material: The current official address-specific page
         #: describes loans financing grain purchases before resale by Tauri Agricola.

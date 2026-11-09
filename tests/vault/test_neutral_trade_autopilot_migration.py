@@ -96,7 +96,7 @@ def test_autopilot_migration_preview_apply_and_retry(autopilot_migration: tuple[
         assert row["Link"] == vault.get_link()
         assert row["Link"].startswith("https://yield.accountable.capital/vaults/")
         assert row["_notes"] == get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name="Accountable")
-        # Migration 011 predates the address-specific tags added by 045.
+        # Migration 011 predates the address-specific tags added by 047.
         # Preserve its historical contract; current adapters include more tags.
         assert row["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral}
         assert row["_strategy_tags"] <= vault.get_strategy_tags()
