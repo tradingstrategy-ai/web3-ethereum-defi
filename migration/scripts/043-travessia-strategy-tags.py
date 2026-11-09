@@ -3,8 +3,8 @@
 Purpose: Persist real-world credit and lending classifications for Tauri vaults.
 Scope: Only _strategy_tags for the seven chain/address pairs in TARGETS below.
 Branch: check-curator-travessia-tauri-vault-3
-PR title: Add Travessia Credit curator and Tauri strategy classifications
-PR: Not opened.
+PR title: feat: add Travessia Credit curator and Tauri strategy tags
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1741
 Preserves: Other metadata, unrelated rows, prices, leads and reader state.
 Expected: At most seven existing rows and seven changed fields; report missing rows.
 Curator attribution resolves during export and needs no persisted refresh.

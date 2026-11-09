@@ -86,7 +86,7 @@ clearer plural product copy and explicit documentation of the frontend slug.
 Protocol-local tag mappings are retained as required by the invoked
 `add-curator` and `categorise-vault-strategy` skills; the new shared resolver
 keeps the adapter and persisted refresh in agreement without duplicating
-business rules. The PR URL is to be filled when a PR is requested/opened.
+business rules. PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1741.
 
 A further requested writing-guide review simplified the curator descriptions:
 “buy and transport goods” explains the business purpose, borrower reviews are
