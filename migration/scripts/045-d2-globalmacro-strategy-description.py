@@ -6,7 +6,8 @@ The refreshed copy also explains decision rules, names known venues and records 
 Scope: Only _description for Robinhood 4663:0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8.
 Branch: find-d2-vault-description-cleanup
 PR title: notes: simplify GlobalMacro's long description
-PR: Not opened. Continues https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1743
+Continues: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
 Preserves: Summaries, notes, flags, fees, tags, links, unrelated metadata, leads, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; missing target reported without creation. Idempotent transformation.
 

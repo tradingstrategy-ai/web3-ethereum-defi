@@ -6,7 +6,8 @@ Scope: Only _short_description and _description for the 54 reviewed chain/addres
     pairs, including GlobalMacro. No new rows are created.
 Branch: find-d2-vault-description-cleanup
 PR title: notes: rewrite D2 vault descriptions in plain English
-PR: Not opened. Continues https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1743
+Continues: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1732
 Preserves: All notes, flags, fees, links, unrelated metadata, leads, prices,
     reader state and timestamp caches, including descriptions outside the inventory.
 Expected: At most 54 existing rows and 108 changed fields. Missing targets are
