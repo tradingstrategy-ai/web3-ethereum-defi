@@ -14,6 +14,51 @@ summaries. They are research material, not public display copy. Risk ratings,
 performance targets, balances, fees and transient incentives are omitted from
 the summaries. No runtime API dependency is introduced.
 
+## Full catalogue rewrite, 9 November 2026
+
+The official catalogue was fetched again and still contained the same 54
+chain/address pairs. All 47 described entries now have complete-sentence
+summaries and individual long descriptions; seven undocumented entries receive
+an explicit evidence gap. GlobalMacro retains its separately maintained copy.
+The catalogue is not evidence that a historical strategy is still running.
+
+The linked announcements below were read alongside the catalogue's Goal,
+Strategy and Duration fields. Trading-cycle duration is not a trading frequency.
+The public copy distinguishes rule-based entry, manager discretion, execution
+automation and undisclosed details. The shared vault-design documentation assigns
+execution to the investment team; it does not prove that every product uses the
+same investment algorithm. Named individuals, algorithms and venues are not
+inferred from unrelated vaults.
+
+Supplementary findings used in the rewrite:
+
+| Products | Decision and execution evidence |
+|---|---|
+| Alpha Strategies and HYPE++ Ethena | The FAQ establishes one strategy with shared results across access points. Its Base announcement identifies Derive options, Flowdesk and Hyperdelta counterparties, with Aave and ether.fi collateral for Base. The FAQ identifies Hyperliquid futures. Venue balances and the division between human judgement and algorithms remain undisclosed. |
+| dgnBTC v2 | The Base HYPE++ announcement describes a completed dgnBTC cycle using Derive and D2's internal options system. This is historical execution evidence, not confirmation of the current allocation. |
+| d2HYPE | The article describes weekly calls, technical and onchain signals, algorithmic execution, protective options through dealers including Flowdesk, and HypurrFi lending. It does not name every options counterparty or publish signal parameters. |
+| hSOL | The article explicitly identifies HYPE++ as the options counterparty. Hyperliquid is the access platform, not an inferred options exchange. |
+| hKRAKEN | The article's buyer section identifies HYPE++. D2 contracts handle options and collateral; no external options venue is identified. |
+| texasHedge | The June design identifies HYPE++ as the SpaceX lender and buyer of the DRAM calls. Exposure increases after realised gains, with a trailing stop. External execution venues and other options counterparties are not all named. |
+| Kimchi Premium and Corridor | Both contracts are fixed at inception, held to expiry without intra-cycle discretion and crossed with HYPE++ through D2's Central Book. Bloomberg provides pricing inputs, not execution. The described cycle expired in September 2026. The derivative payoff floor excludes operational and counterparty failures. |
+| Hot7 | A monthly ranking determines the seven-stock basket. Hyperliquid carries futures exposure; HYPE++ is the options counterparty through the Central Book. The capital venue is selected at scheduled resets. The catalogue's future HOT plans are not presented as current vault holdings. |
+| dgnOOGA | The article says to take profits after rises and reduce exposure during falls. Kodiak supplies trading liquidity, Infrared stakes liquidity positions, Origami reinvests rewards and Dolomite supplies lending and borrowing. |
+| dgnVengeance | The article describes a final cycle ending 6 November 2026 and a comparison of ether option pricing with historical and technology-share option prices. It does not establish a subsequent mandate. |
+| 2xBERA | The sources describe synthetic options and futures exposure, not a separate loan. Origami and Infrared support the staking allocation; Hyperliquid supports futures. The protective contract's counterparty is not identified. |
+
+Venue homepages were checked on 9 November 2026. The direct ether.fi request
+returned HTTP 429; its official page was checked through the web reader without
+repeating the request burst. No venue was inferred solely from a token or vault
+name. References to underlying D2 products remain unlinked where no exact
+Trading Strategy chain/address destination was verified; article citations
+support their roles without substituting a native deposit link.
+
+Migrations 045 and 046 are pending local work. Migration 046 freezes all 54
+targets and refreshes only their short and long description fields. Notes and
+warnings, unrelated vaults and historical data remain untouched. Both preview
+and apply follow the production reminder in the migration docstrings; neither
+has been run against production.
+
 ## HyperBERA.USDC (80094)
 
 - Address: `0x36b933554782b108bb9962ac00c498acbceb706d`
@@ -414,6 +459,27 @@ Strategy: A bet that the widest Korea-over-Bitcoin vol gap on record snaps back:
 - Announcement: https://medium.com/@D2.Finance/globalmacro-gm-vault-on-robinhood-take-from-the-markets-that-sleep-give-to-the-one-that-never-a66b2c62f300
 
 Goal: The Global Macro Vault is a systematic directional fund focused on generating absolute returns through Systematic Momentum, Volatility-Aware Expression, and Around-the-Clock Cross-Session Positioning in global macro markets. Focused on trading equity indices, major commodities, and FX through options and delta-one instruments, the fund takes conviction-sized directional risk under a hard 10% loss limit per epoch, while principal earns onchain credit yield between signals.
+
+### Decision process and venues
+
+Reviewed 9 November 2026 against the launch announcement above. Its engine
+section identifies an ensemble of simple moving-average signals and mechanical
+entries. Instrument selection depends on option pricing relative to the expected
+move. The announcement discusses the portfolio manager's experience but does not
+define human approval or override rights, signal calculation intervals or a fixed
+rebalance schedule. Round-the-clock execution availability is not evidence of a
+continuously recalculated signal. The [vault design documentation](https://docs.d2.finance/docs/vault-design)
+assigns strategy execution to the investment team and designated traders.
+
+Hyperliquid is explicitly identified for perpetual futures and Morpho for the
+Steakhouse lending allocation in the published design. The announcement does not
+identify an options exchange, broker or counterparty. Do not infer Derive or
+another options venue from unrelated D2 products, or describe Hyperliquid as
+the options venue. The public description retains this evidence gap explicitly.
+Venue homepages checked: https://hyperliquid.xyz/ and https://morpho.org/.
+The official catalogue endpoint above was also fetched on 9 November 2026;
+entry 67 retained the goal quoted here and supplied no decision cadence or
+options venue in its explanation.
 
 ## Debasement++ (1)
 
