@@ -7,7 +7,7 @@ PR title: fix: refresh Hibachi and GRVT vault strategy tags
 PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1745
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most 33 existing rows and changed fields; report missing rows.
-Evidence: docs/research/hibachi-grvt-strategy-review-2026-11-09.md.
+Evidence: docs/protocol-research/hibachi-grvt-strategy-review-2026-11-09.md.
 No network reads or historical price backfill are required.
 
 LLM-generated operational migration; changes require human review.

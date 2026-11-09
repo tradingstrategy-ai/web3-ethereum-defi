@@ -20,7 +20,8 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
         #: Added: 2026-11-09.
         #: Decision material: Both disclosed sleeves now finance real-world
         #: business receivables; no perpetual-futures sleeve is disclosed.
-        #: Sources: https://edge.grvt.io/query
+        #: Sources:
+        #: - https://edge.grvt.io/query
         #: - https://grvt.io/exchange/strategies/744299587
         "vlt:3eexdzmz72tqcinpbu4f4i0dm2z",
     }
@@ -88,12 +89,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/2122856772
     #: - eth_defi/grvt/vault.py
-    #: Reviewed: 2026-11-09. The live category includes Trend Following.
     "vlt:2zrkgkmfjqjlezllk24ledpwqbc": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
         StrategyTag.pair_trading,
-        StrategyTag.trend_following,
     },
     #: Vault: AllDeFi Quant Directional Strategy.
     #: Added: 2026-08-17.
@@ -131,6 +130,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: Silentist.
     #: Added: 2026-08-17.
+    #: Updated: 2026-11-09.
     #: Decision material: The current multi-strategy quant portfolio uses
     #: technical trading, fundamental long/short and trader benchmarking.
     #: Its risk-management text confirms fully automated execution.

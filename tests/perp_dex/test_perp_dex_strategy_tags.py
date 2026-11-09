@@ -230,7 +230,7 @@ def test_growi_vaults_are_mean_reversion() -> None:
     }
 
     assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected
-    assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected | {StrategyTag.directional_trading}
+    assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected
 
 
 def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
@@ -342,7 +342,7 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
         "0x4dec0a851849056e259128464ef28ce78afa27f6": {StrategyTag.pair_trading},
         "lighter-pool-281474976552918": {StrategyTag.pair_trading},
         "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
-        "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.mean_reversion},
+        "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
         "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
         "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},

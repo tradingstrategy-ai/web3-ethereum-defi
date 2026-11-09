@@ -19,11 +19,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://data-api.hibachi.xyz/vault/info?vaultId=2
     #: - https://hibachi.xyz/vaults
     #: - eth_defi/hibachi/README.md
-    #: Reviewed: 2026-11-09. The live description explicitly takes long and
-    #: short positions, supporting directional trading.
     "hibachi-vault-2": {
         StrategyTag.algorithmic_trading,
-        StrategyTag.directional_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },

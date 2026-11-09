@@ -9,7 +9,7 @@ Fire now appears as ID 4 (FLP2); ID 3 is retained as a historical classification
 | [The Crypto Meerkat](https://grvt.io/exchange/strategies/1879036542) | `vlt:2zqosukicgltfcjdet4kpmecvfg` | None | None |
 | [Ampersan Research Limited](https://grvt.io/exchange/strategies/395939919) | `vlt:2zqttakxz5jkdjuyjpbwudibkbw` | None | None |
 | [AI Alpha Strategy](https://grvt.io/exchange/strategies/1997719750) | `vlt:2zrj92gtwomgi8yddq8hntbf2lz` | None | None |
-| [MizerXBT Strategy](https://grvt.io/exchange/strategies/2122856772) | `vlt:2zrkgkmfjqjlezllk24ledpwqbc` | trend_following | None |
+| [MizerXBT Strategy](https://grvt.io/exchange/strategies/2122856772) | `vlt:2zrkgkmfjqjlezllk24ledpwqbc` | None | None |
 | [AllDeFi Quant Directional Strategy](https://grvt.io/exchange/strategies/794368819) | `vlt:2ztqfqdo7iipsg2ki99glseyfmb` | None | None |
 | [Rogue Trader Discretionary](https://grvt.io/exchange/strategies/771186006) | `vlt:2zu1ohpgg3e3bef9h9gwsj8crd9` | None | None |
 | [Silentist](https://grvt.io/exchange/strategies/1123551761) | `vlt:302flw8mveki8wc4e7sf4fwczto` | None | mean_reversion, trend_following |
@@ -35,10 +35,12 @@ Fire now appears as ID 4 (FLP2); ID 3 is retained as a historical classification
 | [LBZ Trading Trend pullback](https://grvt.io/exchange/strategies/365795750) | `vlt:3i8nkgzoo173zwckkhmvo4fdrft` | algorithmic_trading, directional_trading, trend_following | None |
 | [Global Macro Hedge Trading](https://grvt.io/exchange/strategies/1296921658) | `vlt:3l5macfjcmky91ckru4tejdzxpl` | None | None |
 | [High Yield Earn](https://grvt.io/exchange/strategies/1712148808) | `vlt:3lpp5meo1g1pquz8ebwdee8sgpo` | None | None |
-| [Growi Alpha Vault](https://data-api.hibachi.xyz/vault/info) | `hibachi-vault-2` | directional_trading | None |
+| [Growi Alpha Vault](https://data-api.hibachi.xyz/vault/info) | `hibachi-vault-2` | None | None |
 | [Fire Liquidity Provider](https://data-api.hibachi.xyz/vault/info) | `hibachi-vault-4` | liquidity_provider, market_making, market_making_clob | None |
 | [Robonet - Allora Woodpecker](https://data-api.hibachi.xyz/vault/info) | `hibachi-vault-5` | algorithmic_trading, directional_trading | None |
 | Fire Liquidity Provider (historical) | `hibachi-vault-3` | None | None |
+
+MizerXBT retains its pair-trading classification: the detailed hedge and spread-management text does not establish trend following despite its category label. Growi retains its existing mean-reversion classification; long/short execution alone does not establish net directional exposure.
 
 Global Macro Hedge Trading and High Yield Earn lack sufficient vault-specific strategy descriptions for additional tags. The archived test vault retains its earlier explicitly requested discretionary classification; the current description alone would not warrant adding it anew.
 
