@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add Travessia Credit curator descriptions and logos, classify seven Tauri vaults as real-world credit and lending, and require specific business details in public descriptions (2026-11-09).
+
 - feat: Publish researched Birch Hill curator and individual vault descriptions, attribute and tag the Flagship's real-world lending strategy, classify its verified deposit whitelist hook, and require Trading Strategy destinations for public vault links (2026-11-06).
 
 - fix: Price HyperEVM transactions from the latest small block with `fetch_small_block_base_fee()`, because `estimate_gas_price()` could read a big block's 0.1 gwei base fee from `latest`, which left a Lagoon settlement unmined for 96 minutes and stopped a live executor, and document how `eth_gasPrice` differs between RPC providers, and add `chain_id` and `block_type` arguments with `BlockType` and `fetch_big_block_gas_price()` (2026-11-06, [#1737](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1737)).

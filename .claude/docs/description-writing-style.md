@@ -18,7 +18,16 @@ know its specialist vocabulary. Lead with what it does, how it uses money and
 where returns come from. Use familiar words, concrete verbs and short paragraphs.
 
 - Write a short description as one useful sentence about the product or strategy.
-- Use the longer description to explain the fundamentals and add relevant facts.
+- Make the short description specific whenever the available sources provide
+  concrete details. Name the business types funded, their location and what
+  the money pays for when these facts distinguish the product or organisation.
+  Avoid generic wording such as “connects investors with businesses” when we
+  know the actual borrowers or activities. For example, describe Travessia's
+  vaults as lending to Brazilian grain trader Tauri Agrícola for grain purchases
+  and transport. Keep the scope accurate: one verified borrower does not
+  establish lending to an entire industry.
+- Lead the long description with the same concrete business context, then
+  explain how it works and who is responsible. Add relevant supporting facts.
   Do not pad it to reach a sentence or paragraph count.
 - Follow the field's output format. Individual vault summaries are one plain
   sentence of single-line text. Full vault descriptions, protocol descriptions
