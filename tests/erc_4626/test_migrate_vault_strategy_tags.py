@@ -372,7 +372,7 @@ def test_migrate_vault_strategy_tags_resolves_threejane_rows(address: str) -> No
 @pytest.mark.parametrize(
     ("chain_id", "address", "feature", "expected_tags"),
     (
-        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx}),
+        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.market_making, StrategyTag.carry_trade}),
         (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a", ERC4626Feature.midas_like, {StrategyTag.fx}),
         (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326", ERC4626Feature.midas_like, {StrategyTag.fx}),
         (1, "0x810b29d043eb851ba4cf80b1b194ed5177e70958", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
