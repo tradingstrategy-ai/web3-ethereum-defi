@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add FuturAI Labs curator metadata, partner links and logo, attribute its three Hyperliquid vaults and classify their trading strategies (2026-11-09).
+
 - fix: Unblock Travessia migration 043 by deferring the Polygon BRZ vault with generic ERC-7540 detection, preserving its metadata while refreshing the six Accountable-classified vaults (2026-11-09).
 
 - feat: Add Vectis Finance curator metadata and logo, attribute UltraX Arb and classify its automated funding-rate arbitrage strategy (2026-11-09).
