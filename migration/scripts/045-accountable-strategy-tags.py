@@ -4,7 +4,7 @@ Purpose: Fill missing categories and complete existing product classifications.
 Scope: Only _strategy_tags for the 44 chain/share-address pairs below.
 Branch: update-accountable-vault-strategy-tags
 PR title: fix: complete Accountable vault strategy categories
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1744
 Preserves: Other metadata, unrelated rows, prices, leads and reader state.
 Expected: At most 44 existing rows/fields; missing deployments are reported.
 
