@@ -4,7 +4,7 @@ Purpose: Classify the documented automated, hedged perpetual arbitrage strategy.
 Scope: Only _strategy_tags for Ethereum share vault
 0x05ed3da1deeaaa57c8e09986e95ac271572dcf89.
 Branch: add-curator-vectis-ultrax-arb
-PR title: feat: add Vectis Finance curator and classify UltraX Arb
+PR title: feat: add Vectis Finance curator and UltraX Arb strategy tags
 PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1742
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; report absent rows.

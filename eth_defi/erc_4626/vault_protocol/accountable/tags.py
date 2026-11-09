@@ -4,8 +4,11 @@ from eth_typing import HexAddress
 
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
-#: Chain containing the reviewed Accountable deployments below.
+#: Chain containing the original Saturn and Glasgow Cosmic classifications.
 MONAD_CHAIN_ID = 143
+
+#: Chain containing the reviewed Vectis UltraX Arb deployment.
+ETHEREUM_CHAIN_ID = 1
 
 #: Reviewed Accountable share vaults deployed on Ethereum.
 ETHEREUM_STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
@@ -146,7 +149,7 @@ def get_strategy_tags(chain_id: int, address: HexAddress) -> set[StrategyTag] | 
     tags = lookup_strategy_tags(TRAVESSIA_STRATEGY_TAGS.get(chain_id, {}), address)
     if tags is not None:
         return tags
-    if chain_id == 1:
+    if chain_id == ETHEREUM_CHAIN_ID:
         return lookup_strategy_tags(ETHEREUM_STRATEGY_TAGS, address)
     if chain_id == MONAD_CHAIN_ID:
         return lookup_strategy_tags(STRATEGY_TAGS, address)
