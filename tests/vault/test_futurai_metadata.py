@@ -38,7 +38,7 @@ def test_futurai_attribution_and_native_tags(address: str) -> None:
     if address == ADDRESSES[2]:
         expected.add(StrategyTag.trend_following)
     else:
-        expected.update({StrategyTag.algorithmic_trading, StrategyTag.mean_reversion})
+        expected.update({StrategyTag.algorithmic_trading, StrategyTag.mean_reversion, StrategyTag.high_frequency_high_win_rate})
     assert row["_strategy_tags"] == expected
 
 
@@ -58,8 +58,9 @@ def test_futurai_profile() -> None:
     assert profile["long_description"]
 
 
+@pytest.mark.parametrize("script_name", ["051-futurai-labs-strategy-tags.py", "052-futurai-high-win-rate.py"])
 @pytest.mark.parametrize("dry_run", [True, False])
-def test_futurai_tag_migration(tmp_path: Path, *, dry_run: bool) -> None:
+def test_futurai_tag_migration(tmp_path: Path, script_name: str, *, dry_run: bool) -> None:
     """Refresh all reviewed rows without altering unrelated metadata or chains.
 
     Exercise the real context, byte-preserving previews and idempotent applies
@@ -67,6 +68,7 @@ def test_futurai_tag_migration(tmp_path: Path, *, dry_run: bool) -> None:
 
     :param tmp_path: Isolated pipeline directory.
     :param dry_run: Whether persistence is prohibited.
+    :param script_name: Initial tag migration or subsequent high-win-rate refresh.
     :return: ``None`` after checking scope, counts and persistence.
     """
     rows = {}
@@ -75,21 +77,27 @@ def test_futurai_tag_migration(tmp_path: Path, *, dry_run: bool) -> None:
         rows[spec] = row | {"_strategy_tags": {StrategyTag.perpetual_futures}}
     unrelated = VaultSpec(999, ADDRESSES[0])
     rows[unrelated] = {"Name": "Keep unrelated"}
+    breaking = VaultSpec(9999, ADDRESSES[2])
+    if script_name.startswith("052"):
+        rows[breaking] = {"Name": "Keep Breaking", "_strategy_tags": {StrategyTag.perpetual_futures}}
     path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(rows=rows).write(path)
     original = path.read_bytes()
-    migration = next(item for item in runner.discover_migrations() if item.name == "051-futurai-labs-strategy-tags.py")
+    migration = next(item for item in runner.discover_migrations() if item.name == script_name)
     context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
     runner._execute(migration, context)
     assert context.other_data["changed_rows"] == len(ADDRESSES[:2])
-    assert context.other_data["missing_specs"] == [VaultSpec(9999, ADDRESSES[2]).as_string_id()]
+    assert context.other_data["missing_specs"] == ([] if script_name.startswith("052") else [breaking.as_string_id()])
+    if breaking in rows:
+        assert context.metadata().rows[breaking] == rows[breaking]
     assert context.metadata().rows[unrelated] == rows[unrelated]
     for spec, original_row in rows.items():
-        if spec == unrelated:
+        if spec in (unrelated, breaking):
             continue
         actual = context.metadata().rows[spec]
         assert actual | {"_strategy_tags": original_row["_strategy_tags"]} == original_row
         assert StrategyTag.mean_reversion in actual["_strategy_tags"]
+        assert StrategyTag.high_frequency_high_win_rate in actual["_strategy_tags"]
     if dry_run:
         assert path.read_bytes() == original
     else:

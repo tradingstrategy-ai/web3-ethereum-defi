@@ -44,3 +44,8 @@ rows from 9 February; medium volatility has first-seen metadata of 1 April
 recorded creation times; investigate that upstream timestamp discrepancy
 separately rather than treating it as a missing-history gap. Breaking is absent
 from this snapshot. No evidence here justifies a historical price backfill.
+
+On 9 November 2026 the maintainer requested the high-frequency, high-win-rate
+category for both branded vaults. This is a maintained classification, not a
+measured win-rate or latency claim. Migration 052 refreshes their stored tags
+after migration 051; Breaking retains its breakout classification.

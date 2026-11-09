@@ -42,17 +42,21 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: engine. vaultDetails specifies long-only exposure and maximum leverage
     #: of 1.5x and 2x respectively. Do not transfer Sigma 7's market-neutral
     #: liquidity provision strategy from the website to these native vaults.
+    #: Updated: 2026-11-09. The maintainer requested high-frequency, high-win-rate
+    #: classification; no measured win rate or latency-based HFT is asserted.
     #: Sources:
     #: - https://www.futurailabs.xyz/#strategy
     #: - https://www.futurailabs.xyz/app.js?v=10
     #: - https://api.hyperliquid.xyz/info (vaultDetails for each address)
     "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.directional_trading,
     },
     "0x53375ca9a649f337d83d0834fec0db97640a2a06": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.directional_trading,
     },
