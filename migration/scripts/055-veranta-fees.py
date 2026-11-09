@@ -5,7 +5,7 @@ Purpose: Publish reviewed direct LP fees, a fixed 0.5% withdrawal reference and 
 Scope: Only fee fields and _description for Base 8453:0x944766f715b51967e56afde5f0aa76ceacc9e7f9.
 Branch: fix/veranta-fee-data
 PR title: fix: publish reviewed Veranta vault fees
-PR: Not yet opened; record the PR URL on this branch before merge.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1752
 Preserves: Protocol, curator, short description, notes, flags, risk, capability, unrelated metadata, leads, price history, reader state and timestamp caches.
 Expected: At most one existing row, six fee fields and its long description; missing target reported without creation. Idempotent transformation.
 

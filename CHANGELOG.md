@@ -1,6 +1,6 @@
 # 1.2
 
-- fix: Publish reviewed zero management/performance fees and a fixed 0.5% withdrawal reference for Veranta avUSDC, explain that actual withdrawal fees are dynamic, and add a targeted fee and description refresh (2026-11-09).
+- fix: Publish reviewed zero management/performance fees and a fixed 0.5% withdrawal reference for Veranta avUSDC, explain that actual withdrawal fees are dynamic, and add a targeted fee and description refresh (2026-11-09, [#1752](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1752)).
 - feat: Add the Bitcoin-only strategy category for Bunny and BitRocket, and classify Bunny as high-frequency, high-win-rate trading (2026-11-09).
 
 - fix: Classify both FuturAI Labs branded Hyperliquid vaults as high-frequency, high-win-rate trading and refresh their persisted strategy tags (2026-11-09).
