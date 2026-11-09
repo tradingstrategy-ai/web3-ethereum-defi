@@ -272,7 +272,8 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     #: This maintainer-requested category includes a second sentence explaining
     #: the drawdown risk alongside its trading activity.
     short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate]
-    assert all(description.count(".") == 1 for description in short_descriptions)
+    #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
+    assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate)
     assert all(len(description) <= max_description_length for description in short_descriptions)
     descriptions = descriptions_by_tag.values()
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)

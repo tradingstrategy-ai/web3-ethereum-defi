@@ -339,6 +339,7 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
     """
     new_tag = StrategyTag.high_frequency_high_win_rate
     previous_tags = {
+        "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.btc_only},
         "0x4dec0a851849056e259128464ef28ce78afa27f6": {StrategyTag.pair_trading},
         "lighter-pool-281474976552918": {StrategyTag.pair_trading},
         "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},

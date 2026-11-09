@@ -24,6 +24,22 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Bunny on Hypercore (9999).
+    #: Added: 2026-11-09.
+    #: Decision material: Maintainer requested the high-frequency, high-win-rate
+    #: classification, paired with its required algorithmic trading tag.
+    #: The current Hyperliquid vaultDetails response confirms this address is
+    #: Bunny, described as "Bunny finance". No measured win rate or
+    #: latency-based HFT capability is asserted.
+    #: Updated: 2026-11-09. Maintainer assigned Bitcoin-only trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71
+    #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {
+        StrategyTag.btc_only,
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+    },
     #: Vault: Titan Vault on Hypercore (9999).
     #: Added: 2026-11-09.
     #: Decision material: Maintainer requested the high-frequency, high-win-rate
@@ -188,10 +204,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-10-26.
     #: Decision material: Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
+    #: Updated: 2026-11-09. Maintainer assigned Bitcoin-only trading; the
+    #: current Hyperliquid vaultDetails response confirms this vault identity.
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
-    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only},
     #: Vault: Gen Wealth Algo.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
