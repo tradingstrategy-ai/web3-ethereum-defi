@@ -19,8 +19,11 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://data-api.hibachi.xyz/vault/info?vaultId=2
     #: - https://hibachi.xyz/vaults
     #: - eth_defi/hibachi/README.md
+    #: Reviewed: 2026-11-09. The live description explicitly takes long and
+    #: short positions, supporting directional trading.
     "hibachi-vault-2": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
     },
@@ -36,6 +39,27 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.liquidity_provider,
         StrategyTag.market_making,
         StrategyTag.market_making_clob,
+    },
+    #: Vault: Fire Liquidity Provider (FLP2).
+    #: Added: 2026-11-09.
+    #: Decision material: The live inventory identifies Fire as vault 4,
+    #: operated by Kappa Lab, making markets and providing liquidity across
+    #: Hibachi markets. Keep the historical vault 3 classification separately.
+    #: Sources: https://data-api.hibachi.xyz/vault/info
+    "hibachi-vault-4": {
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_making,
+        StrategyTag.market_making_clob,
+    },
+    #: Vault: Robonet - Allora Woodpecker.
+    #: Added: 2026-11-09.
+    #: Decision material: The live description specifies a systematic,
+    #: AI-enhanced long/short perpetual strategy using directional forecasts
+    #: at each rebalance.
+    #: Sources: https://data-api.hibachi.xyz/vault/info
+    "hibachi-vault-5": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
     },
 }
 

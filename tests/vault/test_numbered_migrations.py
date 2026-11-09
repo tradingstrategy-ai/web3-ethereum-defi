@@ -329,3 +329,70 @@ def test_empty_arcadia_inventory_is_noop(tmp_path: Path) -> None:
     assert context.other_data["changed_rows"] == 0
     assert context.other_data["chains"] == []
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_hibachi_grvt_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Refresh only the reviewed native row and preserve preview isolation.
+
+    Exercise persistence and idempotence without RPC access, including a
+    same-address EVM row outside the synthetic Hibachi chain.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain in memory.
+    :return: ``None`` after checking the staged and persisted rows.
+    """
+    target = VaultSpec(9997, "hibachi-vault-4")
+    other_chain = VaultSpec(999, target.vault_address)
+    old_tags = {StrategyTag.perpetual_futures}
+    original_row = {"Protocol": "Hibachi", "_strategy_tags": old_tags, "_notes": "Preserve notes", "_detection_data": detection(target, ERC4626Feature.hibachi_native)}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={target: original_row, other_chain: {"_strategy_tags": old_tags}}).write(path)
+    credit = VaultSpec(325, "vlt:3eexdzmz72tqcinpbu4f4i0dm2z")
+    db = VaultDatabase.read(path)
+    db.rows[credit] = {"_strategy_tags": {StrategyTag.perpetual_futures, StrategyTag.arbitrage}, "_detection_data": detection(credit, ERC4626Feature.grvt_native)}
+    db.write(path)
+    original_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 48)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider}}
+    assert context.metadata().rows[target] == expected_row
+    assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
+    assert context.other_data["changed_rows"] == 2
+    assert len(context.other_data["missing_specs"]) == 31
+    assert context.metadata().rows[credit]["_strategy_tags"] == {StrategyTag.discretionary_trading, StrategyTag.rwa, StrategyTag.rwa_credit}
+    if dry_run:
+        assert path.read_bytes() == original_bytes
+    else:
+        assert VaultDatabase.read(path).rows[target] == expected_row
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_hibachi_grvt_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> None:
+    """Report an absent target and reject conflicting detection without writes.
+
+    The migration must not invent a missing vault or reclassify an EVM row.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param missing: Whether the target is absent rather than misclassified.
+    :return: ``None`` after checking the report or validation error.
+    """
+    target = VaultSpec(9997, "hibachi-vault-4")
+    rows = {} if missing else {target: {"_detection_data": detection(target, ERC4626Feature.threejane_like)}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 48)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    if missing:
+        runner._execute(migration, context)
+        assert len(context.other_data["missing_specs"]) == 33
+        assert context.other_data["changed_rows"] == 0
+    else:
+        with pytest.raises(ValueError, match="not a Hibachi/GRVT vault"):
+            runner._execute(migration, context)
+    assert path.read_bytes() == original

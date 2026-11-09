@@ -16,6 +16,13 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
         #: and RWA credit exposure, not a perpetual-futures strategy.
         #: Sources: https://grvt.io/exchange/strategies/1662126310
         "vlt:3eesf9iphosimfc4szp2ixoqgiw",
+        #: Vault: Opportunistic Bundle.
+        #: Added: 2026-11-09.
+        #: Decision material: Both disclosed sleeves now finance real-world
+        #: business receivables; no perpetual-futures sleeve is disclosed.
+        #: Sources: https://edge.grvt.io/query
+        #: - https://grvt.io/exchange/strategies/744299587
+        "vlt:3eexdzmz72tqcinpbu4f4i0dm2z",
     }
 )
 
@@ -81,10 +88,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/2122856772
     #: - eth_defi/grvt/vault.py
+    #: Reviewed: 2026-11-09. The live category includes Trend Following.
     "vlt:2zrkgkmfjqjlezllk24ledpwqbc": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
         StrategyTag.pair_trading,
+        StrategyTag.trend_following,
     },
     #: Vault: AllDeFi Quant Directional Strategy.
     #: Added: 2026-08-17.
@@ -120,22 +129,22 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.discretionary_trading,
         StrategyTag.mean_reversion,
     },
-    #: Vault: Silentist BALANCE - 50% Reversion / 50% Trend.
+    #: Vault: Silentist.
     #: Added: 2026-08-17.
-    #: Decision material: Silentist describes 10+ sub-algorithms, trend-
-    #: following and mean-reversion signals, and trading that is 100%
-    #: automated with predefined logic, supporting a multistrategy
-    #: algorithmic directional classification.
+    #: Decision material: The current multi-strategy quant portfolio uses
+    #: technical trading, fundamental long/short and trader benchmarking.
+    #: Its risk-management text confirms fully automated execution.
     #: Sources:
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1123551761
     #: - eth_defi/grvt/vault.py
+    #: Reviewed: 2026-11-09. The revised live strategy describes technical,
+    #: fundamental long/short and trader-benchmarking engines; it no longer
+    #: specifies mean reversion or trend following.
     "vlt:302flw8mveki8wc4e7sf4fwczto": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
-        StrategyTag.mean_reversion,
         StrategyTag.multistrategy,
-        StrategyTag.trend_following,
     },
     #: Vault: Ignight Inverse-Trend (INACTIVE).
     #: Added: 2026-08-17.
@@ -149,11 +158,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Updated: 2026-10-28. The live listing retains the Grid Trading category
     #: and automated laddered accumulation. Classify its disclosed historical
     #: grid strategy without changing its hidden/inactive listing status.
+    #: Reviewed: 2026-11-09. The live category explicitly identifies Grid Trading.
     "vlt:328ljdq3lxhyoccqi3mtxhhq5u3": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
+        StrategyTag.grid_trading,
     },
     #: Vault: Ignight Inverse-Trend.
     #: Added: 2026-08-17.
@@ -223,6 +234,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Updated: 2026-10-28. The live philosophy describes continuous two-sided
     #: price-discrepancy capture, inventory rebalancing and fully automated
     #: decisions, supporting the high-frequency, high-win-rate category.
+    #: Reviewed: 2026-11-09. Live two-sided quoting and spread execution
+    #: support liquidity provision and orderbook market making.
     "vlt:35j0gsfvpviwtto6hamblg9rexg": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
@@ -230,6 +243,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_making_clob,
     },
     #: Vault: AI Grid Trading Strategy [INACTIVE].
     #: Added: 2026-08-17.
@@ -277,11 +292,15 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Updated: 2026-10-28. The live philosophy identifies an automated
     #: market-making system using an n-second mean-reversion window, adaptive
     #: spreads and micro-hedging, supporting the high-frequency category.
+    #: Reviewed: 2026-11-09. Live two-sided quoting and spread execution
+    #: support liquidity provision and orderbook market making.
     "vlt:371sgbnors7u71g6wpoo1lrst4p": {
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_making_clob,
     },
     #: Vault: Pharos Market Maker (PMM).
     #: Added: 2026-08-17.
@@ -445,22 +464,33 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: Opportunistic Bundle.
     #: Added: 2026-08-17.
-    #: Decision material: The description identifies a tokenised real-world
-    #: asset-backed fund investing in Brazilian credit-card receivables and a
-    #: market-neutral basis-trade sleeve. It provides no automation claim, so
-    #: the binary tag is discretionary, with RWA credit, delta-neutral, and
-    #: arbitrage tags for the documented exposures. The basis-trade sleeve
-    #: retains the native perpetual-futures default.
+    #: Updated: 2026-11-09.
+    #: Decision material: The current description combines BlackOpal merchant
+    #: receivables with FACTOR invoice and working-capital financing. It no
+    #: longer includes a basis-trade sleeve. Currency hedging of receivables
+    #: does not establish a delta-neutral perpetual strategy.
     #: Sources:
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/744299587
     #: - eth_defi/grvt/vault.py
+    #: Reviewed: 2026-11-09. Retain only the documented fund and credit tags.
     "vlt:3eexdzmz72tqcinpbu4f4i0dm2z": {
-        StrategyTag.arbitrage,
-        StrategyTag.delta_neutral,
         StrategyTag.discretionary_trading,
         StrategyTag.rwa,
         StrategyTag.rwa_credit,
+    },
+    #: Vault: LBZ Trading Trend pullback.
+    #: Added: 2026-11-09.
+    #: Decision material: The live philosophy describes systematic medium-term
+    #: directional trend following, filtered pullback entries, predefined
+    #: stops, dynamic sizing and staged exits.
+    #: Sources:
+    #: - https://edge.grvt.io/query
+    #: - https://grvt.io/exchange/strategies/365795750
+    "vlt:3i8nkgzoo173zwckkhmvo4fdrft": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
     },
 }
 
