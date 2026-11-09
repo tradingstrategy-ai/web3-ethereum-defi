@@ -19,7 +19,7 @@ from eth_defi.lighter import tags as lighter_tags
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
-EXPECTED_GRVT_VAULT_COUNT = 26
+EXPECTED_GRVT_VAULT_COUNT = 27
 EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
@@ -152,11 +152,11 @@ def test_grvt_grid_vaults_are_grid_trading() -> None:
         pytest.param("vlt:38exn6urqqrjk6hnypihgxo2oro", {StrategyTag.arbitrage, StrategyTag.delta_neutral}, id="kangcfa"),
         pytest.param("vlt:2zqttakxz5jkdjuyjpbwudibkbw", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob}, id="ampersan"),
         pytest.param("vlt:2ztqfqdo7iipsg2ki99glseyfmb", {StrategyTag.arbitrage, StrategyTag.directional_trading, StrategyTag.trend_following}, id="alldefi"),
-        pytest.param("vlt:328ljdq3lxhyoccqi3mtxhhq5u3", {StrategyTag.directional_trading, StrategyTag.mean_reversion}, id="ignight-inactive"),
+        pytest.param("vlt:328ljdq3lxhyoccqi3mtxhhq5u3", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight-inactive"),
         pytest.param("vlt:32aef5qkjhkibvf8inqq9oqsyep", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight"),
-        pytest.param("vlt:35j0gsfvpviwtto6hamblg9rexg", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.market_making, StrategyTag.mean_reversion}, id="fisher8"),
+        pytest.param("vlt:35j0gsfvpviwtto6hamblg9rexg", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider, StrategyTag.mean_reversion}, id="fisher8"),
         pytest.param("vlt:35jpjdfrwaeuj0w7he4wi5vboag", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.multistrategy}, id="ai-grid"),
-        pytest.param("vlt:371sgbnors7u71g6wpoo1lrst4p", {StrategyTag.market_making, StrategyTag.mean_reversion}, id="warwolf"),
+        pytest.param("vlt:371sgbnors7u71g6wpoo1lrst4p", {StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider, StrategyTag.mean_reversion}, id="warwolf"),
         pytest.param("vlt:386cnqkc6tb186ix2mtgayhbfrz", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.mean_reversion}, id="pharos"),
         pytest.param("vlt:3b9tvtvisaumciyw14znklwgnq3", {StrategyTag.directional_trading, StrategyTag.multistrategy, StrategyTag.trend_following}, id="btc-maxi-lab"),
     ],
@@ -444,6 +444,9 @@ def test_hlp_and_fire_liquidity_provider_are_market_making() -> None:
 
     assert hyperliquid_tags.get_strategy_tags("0xdfc24b077bc1425ad1dea75bcb6f8158e10df303") == expected
     assert hibachi_tags.get_strategy_tags("hibachi-vault-3") == expected
+    assert hibachi_tags.get_strategy_tags("hibachi-vault-4") == expected
+    _, row = create_hibachi_vault_row(4, "FLP2", "Fire Liquidity Provider", None, 1_000)
+    assert row["_strategy_tags"] == expected
 
 
 def test_native_perp_liquidity_providers_are_market_making_clob() -> None:
@@ -475,3 +478,20 @@ def test_hyperliquid_trend_following_descriptions_are_tagged(vault_address: str,
         expected.add(execution_tag)
 
     assert hyperliquid_tags.get_strategy_tags(vault_address) == expected
+
+
+def test_reviewed_hibachi_grvt_strategies() -> None:
+    """Check new strategies and removal of obsolete published exposures.
+
+    Current public metadata distinguishes systematic trading from the revised
+    credit-only bundle. Undocumented listings must receive no speculative tags.
+
+    :return: ``None`` after checking exact resolver outputs.
+    """
+    systematic = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.directional_trading}
+    assert hibachi_tags.get_strategy_tags("hibachi-vault-5") == systematic
+    assert grvt_tags.get_strategy_tags("vlt:3i8nkgzoo173zwckkhmvo4fdrft") == systematic | {StrategyTag.trend_following}
+    assert grvt_tags.get_strategy_tags("vlt:302flw8mveki8wc4e7sf4fwczto") == systematic | {StrategyTag.multistrategy}
+    assert grvt_tags.get_strategy_tags("vlt:3eexdzmz72tqcinpbu4f4i0dm2z") == {StrategyTag.discretionary_trading, StrategyTag.rwa, StrategyTag.rwa_credit}
+    for address in ("vlt:3l5macfjcmky91ckru4tejdzxpl", "vlt:3lpp5meo1g1pquz8ebwdee8sgpo"):
+        assert grvt_tags.get_strategy_tags(address) == {StrategyTag.perpetual_futures}
