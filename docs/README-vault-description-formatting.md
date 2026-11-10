@@ -36,6 +36,18 @@ retain only its first sentence and ending punctuation.
 sentence. A single line here means no embedded line breaks; the frontend may
 still wrap text to fit a screen.
 
+#### RockawayX Liminal USDC override
+
+The HyperEVM deployment `999:0x83107e84f9c5eaaf31f6d2e2b06e0aa14121370e`
+uses address-scoped copy from `eth_defi/vault/handwritten_metadata.py` through
+the existing Morpho V2 accessors. Its strategy is USDC lending; the collateral's
+trading strategy does not add trading or looping tags to the lending vault.
+
+**Run after merge:** migration `058-rockawayx-liminal-metadata.py` refreshes
+only `_description`, `_short_description` and `_strategy_tags` for this existing
+row. Its module docstring includes the production preview/apply reminder.
+No historical price backfill is required for this copy and tag refresh.
+
 #### History
 
 Nest's [first-party CMS](https://cms.nest.credit/api/vaults?limit=100&depth=2)

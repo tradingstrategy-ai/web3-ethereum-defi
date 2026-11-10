@@ -778,6 +778,50 @@ K3_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
 }
 
 
+#: RockawayX Liminal USDC on HyperEVM (999), reviewed on 2026-11-10.
+#: The live Morpho page identifies USDC lending against limUSD at 86% LLTV.
+#: Borrower leverage and collateral trading do not make this vault a trading
+#: or looping strategy; the Morpho adapter supplies its lending tag.
+#: Sources:
+#: - https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc
+#: - https://x.com/RockawayX/status/2119837798052098499
+#: - https://docs.liminal.money/tokenized/limusd
+#: - https://docs.liminal.money/tokenized/xtokens
+#: - https://docs.liminal.money/tokenized/flows
+#: - https://docs.liminal.money/tokenized/risks
+ROCKAWAYX_LIMINAL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (999, HexAddress("0x83107e84f9c5eaaf31f6d2e2b06e0aa14121370e")): HandwrittenVaultMetadata(
+        name="RockawayX Liminal USDC",
+        short_description="Lends USDC to borrowers who pledge Liminal's yield-bearing limUSD token as security for their loans.",
+        description=(
+            "Deposited USDC funds loans to holders of limUSD, a token representing Liminal's pooled trading and lending investments. "
+            "Borrowers pledge limUSD as [collateral](https://tradingstrategy.ai/glossary/collateral), assets securing their loans, "
+            "so they can borrow USDC without selling their tokens. "
+            "Depositors earn the interest paid by these borrowers through the "
+            "[lending market](https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc).\n\n"
+            "#### Collateral and risks\n\n"
+            "The [limUSD portfolio](https://docs.liminal.money/tokenized/limusd) earns income from lending and trading on Hyperliquid. "
+            "Its [trading strategies](https://docs.liminal.money/tokenized/xtokens) buy assets such as bitcoin or Hyperliquid's HYPE token and open matching short "
+            "[perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that follow the asset's price without an expiry date.\n\n"
+            "The short positions aim to offset losses when asset prices fall. When funding rates are positive, they also collect "
+            "[funding payments](https://tradingstrategy.ai/glossary/funding-rate) from traders holding long positions, which gain when prices rise.\n\n"
+            "Lenders depend on the pledged limUSD retaining enough value to cover the loans, but its value can fall if the investments lose money. "
+            "The [collateral risks](https://docs.liminal.money/tokenized/risks) include trading losses, failures by firms holding the assets and disruption to Hyperliquid, which can reduce that value or delay recovery. "
+            "Selling the pledged tokens to repay a loan may not recover the full amount owed.\n\n"
+            "Exchanging the collateral token itself for USDC follows Liminal's "
+            "[redemption process](https://docs.liminal.money/tokenized/flows). "
+            "Queued limUSD redemptions normally take up to three days, with longer waits possible for large exits. "
+            "Instant limUSD redemption requires available reserves and costs 0.3%; these terms apply to the pledged token rather than to USDC deposits in this vault.\n\n"
+            "#### Vault fees and withdrawals\n\n"
+            "The vault charges a [performance fee](https://tradingstrategy.ai/glossary/performance-fee) of **10% of interest earned**, "
+            "with no [management fee](https://tradingstrategy.ai/glossary/management-fee), a recurring charge for managing deposits. "
+            "USDC available for withdrawal may be limited while funds are lent out to borrowers."
+        ),
+        link="https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc",
+    ),
+}
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -794,7 +838,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
+    return K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
