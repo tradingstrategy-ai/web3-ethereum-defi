@@ -11,7 +11,7 @@ sampled every 7,200 blocks (one day), as the live scanner reads Wildcat
 markets at most daily.
 Branch: index-wildcat-markets-as-vaults
 PR title: feat: index Wildcat lending markets as read-only vaults
-PR: to be added when the pull request is opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1758
 Preserves: Metadata, reader state, all other vaults and any rows at or after
 the cursor.
 Expected: Up to 82 markets gain history from their registry blocks

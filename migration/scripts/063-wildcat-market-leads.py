@@ -9,7 +9,7 @@ WildcatArchController up to block 26,386,736; see
 ``eth_defi.vault_protocols.repairs.wildcat``.
 Branch: index-wildcat-markets-as-vaults
 PR title: feat: index Wildcat lending markets as read-only vaults
-PR: to be added when the pull request is opened
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1758
 Preserves: Existing metadata rows, other leads, the lead cursor, prices,
 reader state and timestamp caches.
 Expected: 82 inserted leads and rows on the first apply. Fails without
