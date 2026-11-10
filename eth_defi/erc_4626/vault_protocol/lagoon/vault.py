@@ -36,7 +36,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import PRIVATE_LAGOON_VAULT_NOTE, LagoonVaultMetadata, fetch_lagoon_vault_metadata, is_lagoon_private_vault_allowlisted
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import PRIVATE_LAGOON_VAULT_NOTE, LagoonMetadataSnapshot, LagoonVaultMetadata, fetch_lagoon_metadata_snapshot, is_lagoon_private_vault_allowlisted
 from eth_defi.erc_4626.vault_protocol.lagoon.tags import lookup_lagoon_strategy_tags
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall
@@ -48,7 +48,7 @@ from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, Withdraw
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import FeeData
-from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
+from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, UNCONFIRMED_PROTOCOL_LISTING, VaultFlag
 from eth_defi.vault.strategy_tag import StrategyTag
 
 if TYPE_CHECKING:
@@ -601,24 +601,57 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """
         return self.fetch_version()
 
-    @cached_property
-    def lagoon_metadata(self) -> LagoonVaultMetadata | None:
-        """Offchain metadata from Lagoon's web app API.
+    def fetch_metadata_snapshot_for_scan(self) -> None:
+        """Freeze one offchain observation for all accessors in a scanner row.
 
-        - Fetched from ``app.lagoon.finance/api/vault`` endpoint
-        - Cached on first access
-        - Returns None if vault is not in Lagoon's app database
+        A later scan replaces this snapshot. Ordinary standalone accesses use
+        the shared expiring cache instead of a permanent cached-property miss.
+
+        :return: None after capturing metadata, membership and provenance.
         """
-        return fetch_lagoon_vault_metadata(self.web3, self.vault_address)
+        self.__dict__["_lagoon_scan_snapshot"] = fetch_lagoon_metadata_snapshot(self.chain_id, self.vault_address)
+
+    @property
+    def lagoon_metadata_snapshot(self) -> LagoonMetadataSnapshot:
+        """Return a coherent observation without equating metadata with approval.
+
+        Row construction pins an observation; standalone reads respect expiry.
+
+        :return: Metadata payload and independent catalogue membership.
+        """
+        snapshot = self.__dict__.get("_lagoon_scan_snapshot")
+        if snapshot is None:
+            snapshot = fetch_lagoon_metadata_snapshot(self.chain_id, self.vault_address)
+        return snapshot
+
+    @property
+    def lagoon_metadata(self) -> LagoonVaultMetadata | None:
+        """Return provider detail independently from public listing status.
+
+        Descriptions can exist for closed or unlisted deployments.
+
+        :return: Latest successful parsed detail or None if unavailable.
+        """
+        return self.lagoon_metadata_snapshot.metadata
+
+    def fetch_scan_record_extra_data(self) -> dict[str, object]:
+        """Carry detail provenance to the persisted-description merge.
+
+        The scanner must preserve existing text after empty or failed reads.
+
+        :return: Private source outcome and last-success timestamp fields.
+        """
+        snapshot = self.lagoon_metadata_snapshot
+        return {"_lagoon_metadata_outcome": snapshot.outcome, "_lagoon_metadata_fetched_at": snapshot.fetched_at}
 
     @property
     def description(self) -> str | None:
-        """Return Lagoon's full strategy description as single-line text.
+        """Return Lagoon's full strategy description as normalised Markdown.
 
         Clean cached metadata on access as well as newly fetched API text.
 
         :return:
-            Full description without line breaks, or ``None`` when unavailable.
+            Full description preserving paragraphs, or ``None`` when unavailable.
         """
         if self.lagoon_metadata:
             return normalise_vault_description(self.lagoon_metadata.get("description"))
@@ -650,7 +683,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from Lagoon's frontend.
 
-        - If the vault has no metadata in Lagoon's API, it is flagged as ``unofficial``
+        - Unlisted or unconfirmed deployments are flagged as ``unofficial``
         - Reviewed private deployments can bypass this dynamic flag through an
           explicit chain-address allowlist
         - Manual flags from :py:data:`~eth_defi.vault.flag.VAULT_FLAGS_AND_NOTES` take precedence
@@ -660,7 +693,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
             return flags
         if is_lagoon_private_vault_allowlisted(self.chain_id, self.vault_address):
             return flags
-        if self.lagoon_metadata is None:
+        if self.lagoon_metadata_snapshot.listed is not True:
             return {VaultFlag.unofficial}
         return flags
 
@@ -668,16 +701,20 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """Get notes for this vault.
 
         - Returns manual notes from the vault flags if set
-        - If vault is missing from Lagoon's frontend, returns the missing note
+        - Reviewed private deployments return their description or private note
+        - Unlisted or unconfirmed catalogue membership receives a distinct note
         - Otherwise falls back to the full description from Lagoon's offchain metadata
         """
         manual_notes = super().get_notes()
         if manual_notes:
             return manual_notes
-        if is_lagoon_private_vault_allowlisted(self.chain_id, self.vault_address) and self.description is None:
-            return PRIVATE_LAGOON_VAULT_NOTE
-        if self.lagoon_metadata is None:
+        if is_lagoon_private_vault_allowlisted(self.chain_id, self.vault_address):
+            return self.description or PRIVATE_LAGOON_VAULT_NOTE
+        membership = self.lagoon_metadata_snapshot.listed
+        if membership is False:
             return MISSING_IN_PROTOCOL_FRONTEND
+        if membership is None:
+            return UNCONFIRMED_PROTOCOL_LISTING
         return self.description
 
     def get_withdrawal_period(self) -> WithdrawalPeriod | None:

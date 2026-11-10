@@ -110,14 +110,15 @@ def test_chain_scoped_classification_does_not_leak_to_other_chain() -> None:
     address = "0x8092ca384d44260ea4feaf7457b629b8dc6f88f0"
 
     assert create_lagoon_vault(8453, address).get_strategy_tags() == CHAIN_STRATEGY_TAGS[8453, address]
-    assert create_lagoon_vault(1, address).get_strategy_tags() is None
+    assert create_lagoon_vault(1, address).get_strategy_tags() == {StrategyTag.delta_neutral, StrategyTag.arbitrage, StrategyTag.carry_trade}
+    assert create_lagoon_vault(10, address).get_strategy_tags() is None
 
 
 @pytest.mark.parametrize(
     ("chain_id", "address"),
     (
+        (999, "0x2b24c04993a6d4e3cfc263f104d18429a0b1421d"),
         (1, "0x22f99228f3ba7cfc7189ddf14366970fe0cef0cb"),
-        (1, "0x23b27310451f2754de34d9c04aa24e8be367124a"),
         (1, "0xba6cfe8a9d199cd7f3e50114c4e4ec66f2d52c87"),
         (1, "0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594"),
         (1, "0xf10801bcc3deaf467fb8b3dbb7430111822e6dab"),

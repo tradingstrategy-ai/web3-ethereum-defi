@@ -5,7 +5,11 @@ import os
 import pytest
 
 from eth_defi.erc_4626.vault_protocol.lagoon import offchain_metadata
+from eth_defi.erc_4626.vault_protocol.lagoon import vault as adapter
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_7540.vault import ERC7540Vault
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.flag import VaultFlag
 
 #: First sentence supplied by Lagoon for Coinshift's leveraged USPC vault.
 COINSHIFT_FIRST_SENTENCE = "Gami's Coinshift Leveraged USPC Vault targets 12%+ net annualized returns by applying fixed-rate leverage across the Coinshift ecosystem, including liquidity pools, yield monetization, and money market supply."
@@ -25,7 +29,7 @@ def test_lagoon_coinshift_cached_summary_uses_first_sentence() -> None:
         "short_description": f"{COINSHIFT_FIRST_SENTENCE}\\n{COINSHIFT_EXTRA_SENTENCE}",
     }
     vault = LagoonVault.__new__(LagoonVault)
-    vault.__dict__["lagoon_metadata"] = metadata
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, True, "success", None)
 
     assert vault.short_description == COINSHIFT_FIRST_SENTENCE
     assert vault.description == "Full strategy.\n\nAdditional strategy details."
@@ -40,7 +44,7 @@ def test_lagoon_missing_descriptions(metadata: dict | None) -> None:
         Incomplete cached Lagoon record.
     """
     vault = LagoonVault.__new__(LagoonVault)
-    vault.__dict__["lagoon_metadata"] = metadata
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, True, "success", None)
     assert vault.description is None
     assert vault.short_description == ("" if metadata else None)
 
@@ -57,6 +61,45 @@ def test_lagoon_coinshift_live_summary_uses_first_sentence() -> None:
     assert raw is not None
     assert raw.get("shortDescription")
     vault = LagoonVault.__new__(LagoonVault)
-    vault.__dict__["lagoon_metadata"] = offchain_metadata._parse_vault_detail(raw)
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(offchain_metadata._parse_vault_detail(raw), True, "success", None)
     assert vault.short_description == COINSHIFT_FIRST_SENTENCE
     assert all(character not in vault.short_description for character in ("\n", "\r", "\\n", "\\r"))
+
+
+@pytest.mark.parametrize("listed", [False, None])
+def test_lagoon_unlisted_detail_keeps_unofficial_flag(listed: bool | None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Detail metadata must not approve an unlisted or unconfirmed deployment.
+
+    Catalogue failures and real omission remain distinct for user-facing notes.
+    """
+
+    vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
+    monkeypatch.setattr(ERC7540Vault, "get_flags", lambda self: set())
+    monkeypatch.setattr(ERC7540Vault, "get_notes", lambda self: None)
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot({"description": "Known strategy.", "short_description": "Summary."}, listed, "success", None)
+    assert vault.description == "Known strategy."
+    assert vault.get_flags() == {VaultFlag.unofficial}
+    assert ("could not be verified" in vault.get_notes()) is (listed is None)
+
+
+def test_lagoon_long_lived_adapter_recovers_and_freezes_each_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Standalone reads expire while a pinned row keeps one consistent snapshot.
+
+    Starting a second row must release a prior miss or observation.
+    """
+
+    vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
+    state = offchain_metadata.LagoonMetadataSnapshot(None, None, "unavailable", None)
+    monkeypatch.setattr(adapter, "fetch_lagoon_metadata_snapshot", lambda *args: state)
+    assert vault.description is None
+    state = offchain_metadata.LagoonMetadataSnapshot({"description": "New strategy."}, False, "success", None)
+    assert vault.description == "New strategy."
+    vault.fetch_metadata_snapshot_for_scan()
+    state = offchain_metadata.LagoonMetadataSnapshot({"description": "Changed strategy."}, True, "success", None)
+    assert vault.description == "New strategy."
+    assert vault.lagoon_metadata_snapshot.listed is False
+    vault.fetch_metadata_snapshot_for_scan()
+    assert vault.description == "Changed strategy."
+    assert vault.lagoon_metadata_snapshot.listed is True

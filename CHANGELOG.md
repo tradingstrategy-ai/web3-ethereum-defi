@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
+- fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).
 - feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
 - feat: Print a final migration batch summary for preview and apply, showing completed, skipped, failed and unattempted migrations with reported row and field counts (2026-11-05).
 - fix: Recognise Lighter withdrawals paid by its relayer with `wait_for_lighter_withdrawal()`, `is_lighter_withdrawal_paid()` and `fetch_lighter_claimed_usdc()`, return `completed` rows from `wait_for_claimable_withdrawal()`, explain that an empty master gets `21129 too many sub accounts`, and document Lighter's sub-account limits (2026-11-05).

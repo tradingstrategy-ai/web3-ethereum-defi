@@ -1,16 +1,24 @@
 """Tests for ERC-4626 scan-record feature persistence."""
 
 import datetime
+import json
 from decimal import Decimal
+from pathlib import Path
 
+import pandas as pd
 import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.lagoon import offchain_metadata
+from eth_defi.erc_4626.vault_protocol.lagoon import vault as lagoon
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.rpc_scan_state import is_metadata_due
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -381,3 +389,45 @@ def test_vault_database_dataframe_falls_back_to_detection_features() -> None:
 
     assert df.iloc[0]["protocol"] == "USDai"
     assert df.iloc[0]["vault_address"] == detection.address
+
+
+def test_existing_unlisted_lagoon_text_reaches_scan_and_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A due metadata read updates an existing vault without approving listing.
+
+    Use real Lagoon snapshot/accessor code through scanner row construction,
+    database merge, lifetime metrics and the JSON serialiser. Only onchain
+    inputs and public provider responses are replaced.
+    """
+
+    detection = _create_detection({ERC4626Feature.lagoon_like})
+    clock = datetime.datetime(2026, 11, 10)
+    raw = {"chain": {"id": 42161}, "address": detection.address, "name": "Unlisted vault", "description": "First paragraph.\n\nSecond paragraph.", "shortDescription": "New summary. Extra sentence.", "curators": [{"id": "example", "name": "Example Manager"}]}
+    monkeypatch.setattr(offchain_metadata, "_fetch_vault_listing_page", lambda *args, **kwargs: {"vaults": [], "hasNextPage": False})
+    monkeypatch.setattr(offchain_metadata, "_fetch_detail_response", lambda *args: offchain_metadata.LagoonDetailResponse(raw, "success"))
+    real_fetch = offchain_metadata.fetch_lagoon_metadata_snapshot
+    monkeypatch.setattr(lagoon, "fetch_lagoon_metadata_snapshot", lambda chain, address: real_fetch(chain, address, clock, tmp_path))
+    monkeypatch.setattr(scan_module, "LagoonVault", _FakeVault)
+    for name in ("fetch_metadata_snapshot_for_scan", "lagoon_metadata_snapshot", "lagoon_metadata", "description", "short_description", "manager_name", "fetch_scan_record_extra_data"):
+        monkeypatch.setattr(_FakeVault, name, lagoon.LagoonVault.__dict__[name], raising=False)
+    monkeypatch.setattr(_FakeVault, "chain_id", 42161, raising=False)
+    monkeypatch.setattr(_FakeVault, "vault_address", detection.address, raising=False)
+    monkeypatch.setattr(_FakeVault, "get_flags", lambda self: {VaultFlag.unofficial})
+    vault = _FakeVault()
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *args, **kwargs: vault)
+    old_row = {"Name": "Existing", "features": detection.features, "_description": None, "_short_description": None}
+    database = VaultDatabase(rows={detection.get_spec(): old_row})
+    assert is_metadata_due({"checked_at": (clock - datetime.timedelta(days=7)).isoformat(), "next_attempt_at": clock.isoformat(), "features": ["lagoon_like"], "classifier_version": "fixed"}, ["lagoon_like"], "fixed", clock)
+    record = scan_module.create_vault_scan_record(None, detection, 1, token_cache={})
+    database._merge_rows({detection.get_spec(): record})
+    assert record["_manager_name"] == "Example Manager"
+    assert record["_flags"] == {VaultFlag.unofficial}
+    prices = pd.DataFrame({"id": detection.get_spec().as_string_id(), "chain": 42161, "address": detection.address, "block_number": [1, 2, 3], "share_price": [1.0, 1.01, 1.02], "total_assets": 100.0, "total_supply": 100.0, "event_count": 1, "returns_1h": [0.0, 0.01, 0.00990099]}, index=pd.date_range("2026-11-01", periods=3, freq="D"))
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, database).iloc[0])
+    parsed = json.loads(json.dumps(exported, allow_nan=False))
+    assert parsed["short_description"] == "New summary."
+    assert parsed["description"] == "First paragraph.\n\nSecond paragraph."
+    assert "unofficial" in parsed["flags"]
+    assert "_lagoon_scan_snapshot" not in vault.__dict__
+    raw["description"] = "Later strategy."
+    clock += datetime.timedelta(days=1)
+    assert vault.description == "Later strategy."

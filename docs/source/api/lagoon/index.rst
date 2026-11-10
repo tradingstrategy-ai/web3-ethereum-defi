@@ -26,6 +26,50 @@ are approved through this mechanism. Their v0.6 contracts report whitelisted
 deposits onchain, and their asynchronous flow history bypasses the generic
 vault-local ``Deposit`` event threshold used to suppress inactive contracts.
 
+Offchain metadata
+~~~~~~~~~~~~~~~~~
+
+Known deployments can fetch descriptions from Lagoon's exact-address API even
+when omitted from its public catalogue. Detail availability never approves a
+private or closed vault for public listing. Public membership and the reviewed
+private allowlist remain independent eligibility inputs.
+
+The versioned cache under ``~/.tradingstrategy/cache/lagoon`` preserves historical
+payloads in ``lagoon_metadata_chain_{id}_v2.json`` and reads legacy
+``lagoon_vaults_chain_{id}.json`` maps without overwriting them. Older releases
+can therefore still read their own format on rollback. Active non-empty
+details expire daily; empty or closed details expire after seven days and refresh
+on demand. A 404 retries after one day; temporary failures use a one-hour delay
+or bounded provider ``Retry-After``. A detail HTTP 429 sets a shared chain
+deadline so other detail requests defer too. Failed reads retain previous payloads.
+Successful empty fields remain visible in the provider cache, but normal metadata
+merges preserve already published descriptions and log the retained fields.
+Successful empty source fields are logged at INFO; retried failures use WARNING.
+A deliberate deletion requires a reviewed address-specific accessor correction
+and a new numbered migration; do not just blank the pickle, because a normal
+scan may restore provider text. Invalid versioned cache files fail with a
+diagnostic instead of discarding history. A zero-byte legacy file is treated
+as absent, matching the previous reader.
+
+Cache expiry does not schedule a scan. Default lead-discovery receipts and
+successful metadata observations each have a seven-day interval. Under healthy
+scheduled chain execution, a conservative upper bound is fourteen days plus the
+next chain tick; chain failures, disabled scanning or operator overrides can
+extend it. The existing force-refresh path bypasses scanner scheduling, not API
+rate-limit deadlines. Price-only cycles do not update these metadata fields.
+
+Migration ``036-lagoon-offchain-metadata.py`` fills only missing descriptions for
+22 reviewed deployments; it does not change flags, curator assignments or price
+history. Use the numbered migration runner and inspect all pending migrations.
+
+A minimal public API check needs no RPC or credentials::
+
+    source .local-test.env && RUN_LAGOON_LIVE=true poetry run pytest tests/lagoon/test_lagoon_unlisted_metadata.py -v
+
+This check uses temporary cache storage and is guarded because Lagoon blocks
+GitHub Actions IPs. A closed product disappearing from the catalogue does not
+mean its available historical strategy text should be discarded.
+
 Tutorials
 ~~~~~~~~~
 
@@ -46,6 +90,7 @@ Tutorials
    eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem
    eth_defi.erc_4626.vault_protocol.lagoon.constants
    eth_defi.erc_4626.vault_protocol.lagoon.funding
+   eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata
    eth_defi.erc_4626.vault_protocol.lagoon.tags
    eth_defi.lagoon.cowswap
    eth_defi.lagoon.config
