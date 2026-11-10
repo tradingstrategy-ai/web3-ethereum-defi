@@ -182,7 +182,14 @@ class LagoonVaultMetadata(TypedDict):
 
 
 def _parse_curator(raw: dict) -> LagoonCuratorMetadata:
-    """Parse a curator object from the Lagoon API response."""
+    """Normalise one curator object from the Lagoon detail API.
+
+    Nullable names become empty strings so display accessors can omit them.
+    Source: https://app.lagoon.finance/api/vault.
+
+    :param raw: One curator object from a validated detail response.
+    :return: Curator fields using the internal metadata names.
+    """
     return LagoonCuratorMetadata(
         id=raw.get("id", ""),
         name=raw.get("name") or "",
@@ -195,12 +202,13 @@ def _parse_curator(raw: dict) -> LagoonCuratorMetadata:
 def _parse_vault_detail(raw: dict) -> LagoonVaultMetadata:
     """Parse vault metadata from the detail API response.
 
-    :param raw:
-        Raw JSON dict from ``/api/vault`` endpoint
-    """
-    curators_raw = raw.get("curators", [])
-    curators = [_parse_curator(c) for c in curators_raw] if curators_raw else []
+    Preserve provider descriptions for normalisation by the adapter. Missing
+    curator collections are represented by an empty list.
+    Source: https://app.lagoon.finance/api/vault.
 
+    :param raw: Validated JSON object from the detail endpoint.
+    :return: Internal vault metadata, without changing listing eligibility.
+    """
     return LagoonVaultMetadata(
         name=raw.get("name") or "",
         description=raw.get("description"),
@@ -208,7 +216,7 @@ def _parse_vault_detail(raw: dict) -> LagoonVaultMetadata:
         logo_url=raw.get("logoUrl"),
         transparency_url=raw.get("transparencyUrl"),
         average_settlement=raw.get("averageSettlement"),
-        curators=curators,
+        curators=[_parse_curator(curator) for curator in (raw.get("curators") or [])],
     )
 
 
@@ -406,13 +414,11 @@ def _read_cache(file: Path, chain_id: int) -> dict:
                 raise ValueError("Invalid legacy address map")
             if len({a.lower() for a in data}) != len(data):
                 raise ValueError("Duplicate legacy address identities")
-            fetched_at = native_datetime_utc_fromtimestamp(stat.st_mtime).isoformat()
+            observed_at = native_datetime_utc_fromtimestamp(stat.st_mtime)
+            fetched_at = observed_at.isoformat()
+            retry_at = (observed_at + DEFAULT_CACHE_DURATION).isoformat()
             listed = [address.lower() for address in data if not is_lagoon_private_vault_allowlisted(chain_id, address)]
-            data = {"schema_version": 2, "listed": listed, "listing_fetched_at": fetched_at, "listing_attempt_at": fetched_at, "listing_retry_at": fetched_at, "legacy": True, "details": {address.lower(): {"metadata": metadata, "fetched_at": fetched_at, "attempt_at": fetched_at, "retry_at": fetched_at, "outcome": "success"} for address, metadata in data.items()}}
-            # A legacy mtime supplied the original common one-day freshness.
-            for record in data["details"].values():
-                record["retry_at"] = (datetime.datetime.fromisoformat(fetched_at) + DEFAULT_CACHE_DURATION).isoformat()
-            data["listing_retry_at"] = (datetime.datetime.fromisoformat(fetched_at) + DEFAULT_CACHE_DURATION).isoformat()
+            data = {"schema_version": 2, "listed": listed, "listing_fetched_at": fetched_at, "listing_attempt_at": fetched_at, "listing_retry_at": retry_at, "legacy": True, "details": {address.lower(): {"metadata": metadata, "fetched_at": fetched_at, "attempt_at": fetched_at, "retry_at": retry_at, "outcome": "success"} for address, metadata in data.items()}}
         if data["schema_version"] != 2 or not isinstance(data["details"], dict) or (data["listed"] is not None and (not isinstance(data["listed"], list) or any(not Web3.is_address(a) for a in data["listed"]))):
             raise ValueError("Unsupported Lagoon cache envelope")
         for field in ("listing_fetched_at", "listing_attempt_at", "listing_retry_at", "provider_retry_at"):
@@ -457,6 +463,7 @@ def _commit_cache(file: Path, chain_id: int, update: Callable[[dict], None]) -> 
     :param file: Chain cache file.
     :param chain_id: Chain identifier.
     :param update: Mutation applied to the latest detached envelope.
+    :return: ``None`` after atomically publishing the merged envelope.
     """
     with wait_other_writers(file):
         data = copy.deepcopy(_read_cache(file, chain_id))
@@ -485,7 +492,9 @@ def _refresh_catalogue(chain_id: int, file: Path, now_: datetime.datetime, api_b
     :param file: Chain cache path.
     :param now_: Current naive UTC time.
     :param api_base_url: Metadata API base URL.
-    :param force: Bypass the previous request deadline.
+    :param force: Refresh successful observations early; failed catalogue
+        attempts retain their retry deadlines.
+    :return: ``None`` after refreshing or deferring this request.
     """
     with _request_lock(file, "catalogue"):
         previous = _read_cache(file, chain_id)
@@ -546,7 +555,9 @@ def _refresh_detail(chain_id: int, address: str, file: Path, now_: datetime.date
     :param file: Chain cache path.
     :param now_: Current naive UTC time.
     :param api_base_url: Provider endpoint.
-    :param force: Bypass the previous request deadline.
+    :param force: Refresh successful observations early; failure and provider
+        backoff deadlines still apply.
+    :return: ``None`` after refreshing or deferring this request.
     """
     with _request_lock(file, address):
         data = _read_cache(file, chain_id)

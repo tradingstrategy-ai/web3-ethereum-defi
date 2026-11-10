@@ -653,8 +653,9 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         :return:
             Full description preserving paragraphs, or ``None`` when unavailable.
         """
-        if self.lagoon_metadata:
-            return normalise_vault_description(self.lagoon_metadata.get("description"))
+        metadata = self.lagoon_metadata
+        if metadata:
+            return normalise_vault_description(metadata.get("description"))
         return None
 
     @property
@@ -667,17 +668,25 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         :return:
             First summary sentence, or ``None`` when unavailable.
         """
-        if self.lagoon_metadata:
-            return normalise_vault_short_description(self.lagoon_metadata.get("short_description"))
+        metadata = self.lagoon_metadata
+        if metadata:
+            return normalise_vault_short_description(metadata.get("short_description"))
         return None
 
     @property
     def manager_name(self) -> str | None:
-        """Lagoon curator names from Lagoon's offchain vault API."""
-        if not self.lagoon_metadata:
+        """Return the curator names supplied for this exact deployment.
+
+        Read one detail snapshot so expiry cannot change the payload halfway
+        through this accessor. Source: https://app.lagoon.finance/api/vault.
+
+        :return: Comma-separated non-empty names, or ``None`` if absent.
+        """
+        metadata = self.lagoon_metadata
+        if not metadata:
             return None
 
-        names = (name for curator in self.lagoon_metadata.get("curators", []) if (name := (curator.get("name") or "").strip()))
+        names = (name for curator in metadata.get("curators", []) if (name := (curator.get("name") or "").strip()))
         return ", ".join(names) or None
 
     def get_flags(self) -> set[VaultFlag]:

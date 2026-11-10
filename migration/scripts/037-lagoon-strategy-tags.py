@@ -19,7 +19,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.tags import lookup_lagoon_strategy_tags
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols.migration import MigrationContext
-from eth_defi.vault_protocols.repairs.strategy_tags import collect_strategy_tag_updates, resolve_strategy_tags
+from eth_defi.vault_protocols.repairs.strategy_tags import EVM_ADAPTER_FEATURE_PRIORITY, NATIVE_STRATEGY_TAG_RESOLVERS, collect_strategy_tag_updates
 
 
 def migrate(context: MigrationContext) -> None:
@@ -40,8 +40,8 @@ def migrate(context: MigrationContext) -> None:
         detection = row.get("_detection_data")
         if not isinstance(detection, ERC4262VaultDetection) or ERC4626Feature.lagoon_like not in detection.features:
             raise ValueError(f"Lagoon target {spec} lacks Lagoon adapter detection")
-        resolved = resolve_strategy_tags(spec, row)
-        if resolved is None or "Lagoon" not in resolved[1] or not resolved[1].endswith("chain-aware tag resolver"):
+        adapter = next((feature for feature in EVM_ADAPTER_FEATURE_PRIORITY if feature in detection.features), None)
+        if adapter != ERC4626Feature.lagoon_like or any(feature in detection.features for feature in NATIVE_STRATEGY_TAG_RESOLVERS):
             raise ValueError(f"Lagoon target {spec} resolves through an incompatible adapter")
 
     updates, skipped, invalid = collect_strategy_tag_updates(VaultDatabase(rows=classified))

@@ -103,3 +103,26 @@ def test_lagoon_long_lived_adapter_recovers_and_freezes_each_scan(monkeypatch: p
     vault.fetch_metadata_snapshot_for_scan()
     assert vault.description == "Changed strategy."
     assert vault.lagoon_metadata_snapshot.listed is True
+
+
+@pytest.mark.parametrize(
+    ("accessor", "expected"),
+    (("description", "Full strategy."), ("short_description", "Summary."), ("manager_name", "Example curator")),
+)
+def test_lagoon_accessor_reads_one_metadata_snapshot(accessor: str, expected: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep one accessor coherent if the next metadata observation differs.
+
+    Standalone accesses use an expiring source, so a second read could lose
+    the payload checked by the first. This test isolates the accessor itself
+    and checks that it reads ``lagoon_metadata`` exactly once.
+
+    :param accessor: Metadata-backed property to exercise.
+    :param expected: Value from the first observation.
+    :param monkeypatch: Replace only the provider-facing metadata property.
+    :return: ``None`` after verifying a single source observation.
+    """
+    observations = iter([{"description": "Full strategy.", "short_description": "Summary.", "curators": [{"name": "Example curator"}]}, None])
+    vault = LagoonVault.__new__(LagoonVault)
+    monkeypatch.setattr(LagoonVault, "lagoon_metadata", property(lambda self: next(observations)))
+    assert getattr(vault, accessor) == expected
+    assert next(observations) is None

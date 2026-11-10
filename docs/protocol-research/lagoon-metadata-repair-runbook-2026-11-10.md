@@ -89,3 +89,33 @@ rationale, cross-chain negative coverage and migration/documentation wording.
 Public description writing review is not applicable to this tag-only change.
 Formatting, selected Ruff F/I checks and `git diff --check` passed.
 Production migrations and uploads must be run separately after merge.
+
+## Follow-up code cleanup
+
+On 10 November 2026, a further local cleanup removed repeated metadata reads
+from the description, summary and curator-name accessors, simplified curator
+parsing and legacy-cache expiry calculation, and replaced migration 037's
+resolver-label check with direct validation of the shared adapter priority.
+Native and higher-priority adapter detections fail before staging tag updates.
+The separate missing-detection error remains available for diagnosis.
+
+Parser, refresh and accessor docstrings now describe arguments, return values
+and source behaviour. The API documentation distinguishes potentially refreshing
+standalone reads from the scanner's pinned row snapshot. Forced catalogue reads
+still respect failed-attempt deadlines; detail reads also respect shared provider
+backoff. No strategy assignments or migration scopes changed, so the pending
+036/037 batch still covers this implementation; no further migration is needed.
+
+The cleanup suite passed **364 tests, 1 existing skip**. After the final review
+corrections, the affected cache, accessor and migration checks passed **56 tests**.
+That final run explicitly reported `test_unlisted_detail_live` as **PASSED**,
+using `RUN_LAGOON_LIVE=true` with `-rA` against the public Lagoon API, without
+credentials or RPC. These runs overlap and must not be added together.
+
+Grounded independent Claude CLI review with `claude-opus-5-5` returned
+**approve, nothing blocking**. Documentation hierarchy, refresh wording,
+accessor-test scope and the migration guard assertions were corrected following
+that review. Ruff formatting, selected F/I checks and whitespace checks passed.
+No Sphinx build was run. No manually maintained public copy changed, so the prior
+writing-style review still applies. No production migration or upload was
+performed during this cleanup.

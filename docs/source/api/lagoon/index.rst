@@ -64,11 +64,21 @@ history. Use the numbered migration runner and inspect all pending migrations.
 
 A minimal public API check needs no RPC or credentials::
 
-    source .local-test.env && RUN_LAGOON_LIVE=true poetry run pytest tests/lagoon/test_lagoon_unlisted_metadata.py -v
+    source .local-test.env && RUN_LAGOON_LIVE=true timeout 180s poetry run pytest tests/lagoon/test_lagoon_unlisted_metadata.py -v -rA
 
 This check uses temporary cache storage and is guarded because Lagoon blocks
 GitHub Actions IPs. A closed product disappearing from the catalogue does not
 mean its available historical strategy text should be discarded.
+
+Each description or curator-name accessor makes at most one metadata read per
+call. Standalone reads may refresh catalogue or detail data over HTTP when due.
+The scanner pins an observation for the whole row, so its accessors share the
+same payload and membership result.
+
+Migration ``037-lagoon-strategy-tags.py`` validates classified rows against the
+shared adapter priority before collecting tag updates. Missing Lagoon detection,
+or detection selecting a native or earlier-priority adapter, fails the batch
+before any metadata is committed. Unmapped vaults retain their persisted tags.
 
 Tutorials
 ~~~~~~~~~

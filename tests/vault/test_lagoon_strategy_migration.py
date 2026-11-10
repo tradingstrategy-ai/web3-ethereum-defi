@@ -88,7 +88,7 @@ def test_lagoon_strategy_preview_apply_and_idempotency(pipeline: dict) -> None:
     assert VaultDatabase.read(path).rows == expected
 
 
-@pytest.mark.parametrize("features", [None, {ERC4626Feature.morpho_like}, {ERC4626Feature.mellow_like, ERC4626Feature.lagoon_like}])
+@pytest.mark.parametrize("features", [None, {ERC4626Feature.morpho_like}, {ERC4626Feature.mellow_like, ERC4626Feature.lagoon_like}, {ERC4626Feature.hypercore_native, ERC4626Feature.lagoon_like}])
 def test_lagoon_strategy_invalid_detection_fails(pipeline: dict, features: set[ERC4626Feature] | None) -> None:
     """A known classification must not silently skip incompatible detection.
 
@@ -107,6 +107,7 @@ def test_lagoon_strategy_invalid_detection_fails(pipeline: dict, features: set[E
         database.rows[TARGET]["_detection_data"] = replace(database.rows[TARGET]["_detection_data"], features=features)
     database.write(path)
     before = path.read_bytes()
-    with pytest.raises(ValueError, match="Lagoon"):
+    expected_error = "incompatible adapter" if features and ERC4626Feature.lagoon_like in features else "lacks Lagoon adapter detection"
+    with pytest.raises(ValueError, match=expected_error):
         runner.run_pending_migrations(dry_run=False, **pipeline)
     assert path.read_bytes() == before
