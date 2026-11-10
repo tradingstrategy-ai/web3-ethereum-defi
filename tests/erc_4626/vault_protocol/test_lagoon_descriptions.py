@@ -29,6 +29,7 @@ def test_lagoon_coinshift_cached_summary_uses_first_sentence() -> None:
         "short_description": f"{COINSHIFT_FIRST_SENTENCE}\\n{COINSHIFT_EXTRA_SENTENCE}",
     }
     vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
     vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, True, "success", None)
 
     assert vault.short_description == COINSHIFT_FIRST_SENTENCE
@@ -44,6 +45,7 @@ def test_lagoon_missing_descriptions(metadata: dict | None) -> None:
         Incomplete cached Lagoon record.
     """
     vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
     vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, True, "success", None)
     assert vault.description is None
     assert vault.short_description == ("" if metadata else None)
@@ -61,13 +63,14 @@ def test_lagoon_coinshift_live_summary_uses_first_sentence() -> None:
     assert raw is not None
     assert raw.get("shortDescription")
     vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = VaultSpec(1, "0x09252d2c4afca9b1479efdd39faa53de9ff23114")
     vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(offchain_metadata._parse_vault_detail(raw), True, "success", None)
     assert vault.short_description == COINSHIFT_FIRST_SENTENCE
     assert all(character not in vault.short_description for character in ("\n", "\r", "\\n", "\\r"))
 
 
 @pytest.mark.parametrize("listed", [False, None])
-def test_lagoon_unlisted_detail_keeps_unofficial_flag(listed: bool | None, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lagoon_unlisted_detail_keeps_unofficial_flag(monkeypatch: pytest.MonkeyPatch, *, listed: bool | None) -> None:
     """Detail metadata must not approve an unlisted or unconfirmed deployment.
 
     Catalogue failures and real omission remain distinct for user-facing notes.
@@ -75,8 +78,8 @@ def test_lagoon_unlisted_detail_keeps_unofficial_flag(listed: bool | None, monke
 
     vault = LagoonVault.__new__(LagoonVault)
     vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
-    monkeypatch.setattr(ERC7540Vault, "get_flags", lambda self: set())
-    monkeypatch.setattr(ERC7540Vault, "get_notes", lambda self: None)
+    monkeypatch.setattr(ERC7540Vault, "get_flags", lambda _self: set())
+    monkeypatch.setattr(ERC7540Vault, "get_notes", lambda _self: None)
     vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot({"description": "Known strategy.", "short_description": "Summary."}, listed, "success", None)
     assert vault.description == "Known strategy."
     assert vault.get_flags() == {VaultFlag.unofficial}
@@ -92,7 +95,7 @@ def test_lagoon_long_lived_adapter_recovers_and_freezes_each_scan(monkeypatch: p
     vault = LagoonVault.__new__(LagoonVault)
     vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
     state = offchain_metadata.LagoonMetadataSnapshot(None, None, "unavailable", None)
-    monkeypatch.setattr(adapter, "fetch_lagoon_metadata_snapshot", lambda *args: state)
+    monkeypatch.setattr(adapter, "fetch_lagoon_metadata_snapshot", lambda *_args: state)
     assert vault.description is None
     state = offchain_metadata.LagoonMetadataSnapshot({"description": "New strategy."}, False, "success", None)
     assert vault.description == "New strategy."
@@ -123,6 +126,7 @@ def test_lagoon_accessor_reads_one_metadata_snapshot(accessor: str, expected: st
     """
     observations = iter([{"description": "Full strategy.", "short_description": "Summary.", "curators": [{"name": "Example curator"}]}, None])
     vault = LagoonVault.__new__(LagoonVault)
-    monkeypatch.setattr(LagoonVault, "lagoon_metadata", property(lambda self: next(observations)))
+    vault.spec = VaultSpec(1, "0x1111111111111111111111111111111111111111")
+    monkeypatch.setattr(LagoonVault, "lagoon_metadata", property(lambda _self: next(observations)))
     assert getattr(vault, accessor) == expected
     assert next(observations) is None

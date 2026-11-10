@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add verified Lagoon curator profiles and logos for Murmurr, VOLTA90, NAVI Protocol and Stake Capital, correct stale vault attribution, and fill verified curator feed sources; add reviewed curator copy and manual descriptions for 34 associated vaults (2026-11-10).
 - fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
 - fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).
 - feat: Add limUSD classification, verified multichain metadata, news feed and artwork, plus researched RockawayX Liminal USDC vault descriptions and a targeted lending-tag refresh (2026-11-10, [#1755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1755)).

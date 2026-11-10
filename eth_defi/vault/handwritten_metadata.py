@@ -822,6 +822,260 @@ ROCKAWAYX_LIMINAL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], Handwritten
 }
 
 
+#: Reviewed vaults of the 13 Lagoon curator profiles maintained in November 2026.
+#: Exact deployment evidence and missing strategy disclosures are recorded in
+#: docs/protocol-research/lagoon-curator-onboarding-2026-11-10.md.
+LAGOON_CURATOR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (1, HexAddress("0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a")): HandwrittenVaultMetadata(
+        name="VOLTA90 MULTI ASSET STRATEGY",
+        short_description="The closed vault has no published investment strategy or explanation of its closure.",
+        description=("#### Vault's trading strategy\n\nThe investment strategy and sources of returns for this deployment are [not disclosed](https://app.lagoon.finance/api/vault?chainId=1&address=0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a). A shared operator does not establish that it held the same investments as another product with the same name.\n\n#### Closed deployment\n\n**This deployment is closed.** Its November 2026 valuation shows no assets and a zero share price despite outstanding shares. No explanation of redemptions, transfers or investor losses is published, so these figures alone do not establish what holders ultimately received."),
+        link="",
+    ),
+    (1, HexAddress("0x2746f31096f23670caf4043f8b30d8d02405a257")): HandwrittenVaultMetadata(
+        name="stETH Redemption Carry",
+        short_description="The vault buys discounted staked ether tokens and redeems them for ether to earn the price difference.",
+        description=("#### Vault's trading strategy\n\nThe vault [buys stETH below its redemption value](https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257) on [Curve](https://curve.finance/) and exchanges it for ether through [Lido's withdrawal queue](https://docs.lido.fi/token-guides/steth/). stETH represents ether deposited in Lido's staking system; the strategy earns the difference between its purchase price and the ether received, after costs.\n\nMoney awaiting a trade is placed in sigmaETH, an interest-earning lending portfolio on [Morpho](https://morpho.org/). The rules for entering trades, human approval requirements and review frequency are not disclosed. A narrowing discount or a long redemption queue can reduce the return and delay access to money."),
+        link="",
+    ),
+    (1, HexAddress("0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8")): HandwrittenVaultMetadata(
+        name="VOLTA90 MULTI ASSET STRATEGY",
+        short_description="The vault trades contracts tracking traditional and crypto markets using human decisions supported by automated screening and risk controls.",
+        description=(
+            "#### Vault's trading strategy\n\n"
+            "The vault takes [positions tied to price movements](https://volta90.trade/) in equities, commodities, indices and crypto markets through "
+            "[Hyperliquid](https://hyperliquid.xyz/). These contracts can gain or lose value as the referenced markets move, rather than paying a "
+            "predictable rate of interest.\n\n"
+            "Automated screeners and alerts identify opportunities continuously, while VOLTA90's human operators choose and approve positions. Execution "
+            "and risk controls are automated; exposures change with market conditions and operator judgement within concentration limits. The detailed "
+            "trading rules and a fixed rebalancing timetable are not disclosed.\n\n"
+            "The strategy uses [leverage](https://tradingstrategy.ai/glossary/leverage), taking positions larger than the capital set aside to support them. "
+            "Total market exposure is capped at twice the portfolio value, with margin limits of three times the capital shared across positions or "
+            "twice the capital reserved for an individual position. Adverse moves can cause [liquidation](https://tradingstrategy.ai/glossary/liquidation), "
+            "the forced closure of positions when their supporting funds become insufficient.\n\n"
+            "**Access is invite-only.** Applicants must request approval before investing.\n\n"
+            "#### Share migration and charging basis\n\n"
+            "The [September 2026 migration](https://volta90.trade/blog/volta90-ethereum-migration) created a new share token and a new performance-fee "
+            "reference price; holders do not inherit the old shares' previous peak value. The reference resets quarterly, so performance charges use this "
+            "product's reset schedule rather than a single permanent high-water mark. A 2% redemption charge is refunded under the product terms when the "
+            "holding period exceeds three months."
+        ),
+        link="https://tradingstrategy.ai/vaults/volta90-multi-asset-strategy-2",
+    ),
+    (1, HexAddress("0x47491305479635357df29fe0cb6f1af10e51d4da")): HandwrittenVaultMetadata(
+        name="USDC High Yield",
+        short_description="The vault aims to offer access to Sui ecosystem yield, but its individual investment strategy is undisclosed.",
+        description=("#### Vault's trading strategy\n\nThe product aims to [offer Sui ecosystem yield](https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da) without requiring depositors to move assets between blockchains themselves or maintain a Sui wallet. The individual vault's investments, source of returns and route used to move money are not disclosed.\n\nThe available product information does not explain who approves allocations, what rules govern them or how often they are reviewed. The operator's separate lending business does not establish that this vault uses the same strategy."),
+        link="https://tradingstrategy.ai/vaults/usdc-high-yield",
+    ),
+    (1, HexAddress("0x4cb280e63251b9ab24a54def74bf5995d82ff398")): HandwrittenVaultMetadata(
+        name="Rho X Liquidity Provider",
+        short_description="The vault supplies trading capital to Rho markets to earn fees and differences between buying and selling prices.",
+        description=("#### Vault's trading strategy\n\nThe vault [supplies trading capital across Rho products](https://app.lagoon.finance/api/vault?chainId=1&address=0x4cb280e63251b9ab24a54def74bf5995d82ff398) through [Rho X](https://rho.trading/). It aims to earn trading fees and the difference between prices at which assets are bought and sold.\n\nAllocations are spread across markets within risk limits. The individual products, numerical limits, role of human approval and rebalancing schedule are not disclosed. Positions can lose money if prices move against the inventory held for traders."),
+        link="https://tradingstrategy.ai/vaults/rho-x-liquidity-provider",
+    ),
+    (1, HexAddress("0x59b7942f7d2afd085691ce65c152e0d38d4eff22")): HandwrittenVaultMetadata(
+        name="Gami lvlUSD",
+        short_description="The vault invests lvlUSD across lending and trading pools and seeks additional token incentives.",
+        description=("#### Vault's trading strategy\n\nThe vault [invests lvlUSD, a US dollar-pegged stablecoin](https://app.lagoon.finance/api/vault?chainId=1&address=0x59b7942f7d2afd085691ce65c152e0d38d4eff22), in lending markets, pools that fund token exchanges and products offering fixed income. Returns can come from borrower interest, trading fees and incentive tokens; reward points have no assured cash value.\n\nGami Capital and Stake Capital jointly curate the strategy. The individual investment platforms, allocation rules, division of decision-making responsibilities and review schedule are not disclosed. Borrowing arrangements are not disclosed."),
+        link="https://tradingstrategy.ai/vaults/gami-capital-lvlusd",
+    ),
+    (1, HexAddress("0x66dcb62da5430d800a1c807822c25be17138fda8")): HandwrittenVaultMetadata(
+        name="Unity Trust",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=1&address=0x66dcb62da5430d800a1c807822c25be17138fda8). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="https://tradingstrategy.ai/vaults/unity-trust",
+    ),
+    (1, HexAddress("0x71652d4898de9a7dd35e472a5fe4577ec69d82f2")): HandwrittenVaultMetadata(
+        name="Trinity Trust",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=1&address=0x71652d4898de9a7dd35e472a5fe4577ec69d82f2). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="https://tradingstrategy.ai/vaults/trinity-trust",
+    ),
+    (1, HexAddress("0x7d798ce99ee2adc183a865d76b112810d5395ea2")): HandwrittenVaultMetadata(
+        name="722 Capital USDC",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=1&address=0x7d798ce99ee2adc183a865d76b112810d5395ea2). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="https://tradingstrategy.ai/vaults/722-capital-usdc",
+    ),
+    (1, HexAddress("0x7d2c2f54792ad72cb834d298f542145b06b703cb")): HandwrittenVaultMetadata(
+        name="Murmurr USDC One",
+        short_description="The vault allocates USDC among Morpho lending portfolios across four blockchains to earn borrower interest.",
+        description=(
+            "#### Vault's trading strategy\n\n"
+            "The vault [allocates money among lending "
+            "portfolios](https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb) on "
+            "[Morpho](https://morpho.org/) across Ethereum, Base, HyperEVM and Monad. Borrowers pay interest and pledge assets that can be sold to repay "
+            "loans; the strategy is restricted to USDC lending.\n\n"
+            "Murmurr's allocator ranks markets using expected yield and the quality of pledged assets, subject to limits on individual assets, portfolios "
+            "and blockchains. Automated checks reject unsuitable markets and trigger exits when liquidity or borrowing levels breach limits. The precise "
+            "review frequency and human approval requirements are not disclosed.\n\n"
+            "Transfers between blockchains use [Circle CCTP](https://developers.circle.com/cctp), which burns tokens on one chain and issues them on "
+            "another. Withdrawals depend on available lending liquidity; selling pledged assets may not recover everything owed. Older records use the "
+            "DeTrade name, but a management-handover date is not disclosed."
+        ),
+        link="https://tradingstrategy.ai/vaults/detrade-morpho-x-chain-usdc",
+    ),
+    (1, HexAddress("0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb")): HandwrittenVaultMetadata(
+        name="Stablecoin Market Making",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=1&address=0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="https://tradingstrategy.ai/vaults/stablecoin-market-making",
+    ),
+    (1, HexAddress("0x9a458370556a68bdc130a80c35b294d0ad947a6a")): HandwrittenVaultMetadata(
+        name="Hub Capital crvUSD Vault",
+        short_description="The vault targets income paid in readily tradeable tokens and excludes points and other illiquid rewards.",
+        description=("#### Vault's trading strategy\n\nThe vault [targets income paid in readily tradeable tokens](https://app.lagoon.finance/api/vault?chainId=1&address=0x9a458370556a68bdc130a80c35b294d0ad947a6a), excluding points and other rewards that cannot readily be sold. The investment platforms and the activities generating that income are not disclosed.\n\nThe published mandate does not explain who approves allocations, the rules used to choose investments or how frequently positions change. Its reference to Aave's lending rate is a performance benchmark, not evidence that deposits are invested on Aave."),
+        link="https://tradingstrategy.ai/vaults/hub-capital-crvusd-vault",
+    ),
+    (1, HexAddress("0xca790385506b790554571cbc9da73f0130cdcfd5")): HandwrittenVaultMetadata(
+        name="Hub Capital USDC vault",
+        short_description="The vault targets income paid in readily tradeable tokens and excludes points and other illiquid rewards.",
+        description=("#### Vault's trading strategy\n\nThe vault [targets income paid in readily tradeable tokens](https://app.lagoon.finance/api/vault?chainId=1&address=0xca790385506b790554571cbc9da73f0130cdcfd5), excluding points and other rewards that cannot readily be sold. The investment platforms and the activities generating that income are not disclosed.\n\nThe published mandate does not explain who approves allocations, the rules used to choose investments or how frequently positions change. Its reference to Aave's lending rate is a performance benchmark, not evidence that deposits are invested on Aave."),
+        link="https://tradingstrategy.ai/vaults/hub-capital-usdc-vault",
+    ),
+    (1, HexAddress("0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89")): HandwrittenVaultMetadata(
+        name="Cross-chain USDC Lending",
+        short_description="The vault lends USDC on Morpho and moves capital between blockchains when expected interest gains cover transfer costs.",
+        description=("#### Vault's trading strategy\n\nThe vault [lends directly into selected markets](https://app.lagoon.finance/api/vault?chainId=1&address=0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89) on [Morpho](https://morpho.org/) across Ethereum, Optimism, Base, Arbitrum, Polygon, Monad and HyperEVM. Borrower interest generates income, while pledged assets provide a source of repayment if borrowers default.\n\nAn automated allocator compares the expected extra interest with the cost of moving funds through [Circle CCTP](https://developers.circle.com/cctp), a system for transferring native stablecoins between chains. Transfers are triggered only when the expected gain over the planned holding period covers the cost; that period and any human approval requirements are undisclosed. Loan defaults, insufficient proceeds from selling pledged assets and transfer delays can reduce returns or delay withdrawals."),
+        link="https://tradingstrategy.ai/vaults/cross-chain-usdc-lending",
+    ),
+    (143, HexAddress("0xe95074a86fead8647edff36af2f3f1dd7e8f7adb")): HandwrittenVaultMetadata(
+        name="DeTrade Core AUSD",
+        short_description="The vault rotates among stablecoin reward programmes and reinvests incentive tokens collected every eight hours.",
+        description=("#### Vault's trading strategy\n\nThe vault [allocates to stablecoin reward programmes](https://app.lagoon.finance/api/vault?chainId=143&address=0xe95074a86fead8647edff36af2f3f1dd7e8f7adb) distributed through [Merkl](https://merkl.xyz/). It can hold several dollar-pegged stablecoins, so deposits also take on the risks of the other tokens used.\n\nRewards are collected every eight hours and reinvested in participating programmes. The individual lending or trading pools, selection rules and human approval requirements are not disclosed; Merkl distributes rewards but does not identify the underlying investment venue by itself. Incentive values can fall and stablecoins can trade below their intended value."),
+        link="https://tradingstrategy.ai/vaults/detrade-core-ausd",
+    ),
+    (999, HexAddress("0x7dd73a986f6188da1baaf68541fd6ebd455abd1d")): HandwrittenVaultMetadata(
+        name="722 Capital Hype",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=999&address=0x7dd73a986f6188da1baaf68541fd6ebd455abd1d). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="",
+    ),
+    (8453, HexAddress("0x0a63471da694fc822f5a0a0b65978dda8c8edbe5")): HandwrittenVaultMetadata(
+        name="DeTrade Applefarm USDC",
+        short_description="The vault supplies USDC and USDT to Curve pools on Etherlink to earn trading fees and token rewards.",
+        description=("#### Vault's trading strategy\n\nThe vault [supplies money to stablecoin trading pools](https://app.lagoon.finance/api/vault?chainId=8453&address=0x0a63471da694fc822f5a0a0b65978dda8c8edbe5) on [Curve](https://curve.finance/) on Etherlink. Returns come from exchange fees and reward programmes distributed through [Merkl](https://merkl.xyz/).\n\nThe portfolio holds both USDC and USDT. The route for moving money to Etherlink, exact pools, allocation rules and review frequency are not disclosed. A stablecoin losing its dollar value or falling rewards can reduce the value returned to depositors."),
+        link="https://tradingstrategy.ai/vaults/detrade-applefarm-usdc-2",
+    ),
+    (8453, HexAddress("0x4efc07dca8697792119484af33549f33ab11bf3c")): HandwrittenVaultMetadata(
+        name="MoneyFi FlowForge Vault",
+        short_description="The vault allocates stablecoins to investment pools across blockchains, including Aptos, using a risk and return scoring model.",
+        description=("#### Vault's trading strategy\n\nThe vault [allocates stablecoins to investment pools across blockchains](https://app.lagoon.finance/api/vault?chainId=8453&address=0x4efc07dca8697792119484af33549f33ab11bf3c), including Aptos. MoneyFi scores opportunities using returns, risk, the amount already invested and the availability of funds for withdrawals.\n\nThe exact platforms and the split of income between lending interest, trading fees and rewards are not disclosed. The allocation model is proprietary, and the role of human approval and review frequency are unspecified. Stablecoin investments can still lose money; a scoring model does not guarantee repayment or preservation of capital."),
+        link="https://tradingstrategy.ai/vaults/moneyfi-flowforge-vault",
+    ),
+    (8453, HexAddress("0x8092ca384d44260ea4feaf7457b629b8dc6f88f0")): HandwrittenVaultMetadata(
+        name="DeTrade Core USDC",
+        short_description="The vault earns stablecoin lending income and rewards, with optional borrowing to increase investments.",
+        description=("#### Vault's trading strategy\n\nThe vault's [Core strategy](https://detrade.fund/) lends through [Morpho](https://morpho.org/) and can use [Aave](https://aave.com/) and [Pendle](https://pendle.finance/), where rights to future yield can be traded. Incentive tokens distributed through [Merkl](https://merkl.xyz/) are reinvested.\n\nThe strategy may borrow and reinvest when expected income exceeds borrowing costs. This creates [leverage](https://tradingstrategy.ai/glossary/leverage), increasing both potential gains and losses. DeTrade actively manages allocations, but the exact decision rules, human approval process and review frequency are not disclosed."),
+        link="https://tradingstrategy.ai/vaults/detrade-core-usdc",
+    ),
+    (8453, HexAddress("0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523")): HandwrittenVaultMetadata(
+        name="DeTrade Core ETH",
+        short_description="The vault uses interest-earning ether tokens to secure borrowing for additional stablecoin investments.",
+        description=("#### Vault's trading strategy\n\nThe vault's [Core strategy](https://detrade.fund/) uses tokens representing staked ether as security for loans on [Morpho](https://morpho.org/) and [Aave](https://aave.com/). These tokens earn rewards for helping secure networks, while borrowed stablecoins fund additional investments, including Core USDC.\n\nIncome combines staking rewards, stablecoin investment returns and reinvested [Merkl](https://merkl.xyz/) incentives, after borrowing costs. Falling ether prices can trigger [liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale of pledged assets to repay loans. DeTrade manages the allocations; borrowing limits, trade approval rules and review frequency are not disclosed."),
+        link="",
+    ),
+    (8453, HexAddress("0xb09f761cb13baca8ec087ac476647361b6314f98")): HandwrittenVaultMetadata(
+        name="722Capital-USDC",
+        short_description="The vault combines offsetting trading positions, price-difference trades and repeated borrowing and reinvestment.",
+        description=("#### Vault's trading strategy\n\nThe [investment mandate](https://app.lagoon.finance/api/vault?chainId=8453&address=0xb09f761cb13baca8ec087ac476647361b6314f98) combines positions intended to offset market price movements, trades on price differences between related instruments and repeated borrowing and reinvestment. It also seeks incentive tokens and early participation rewards from newer investment platforms.\n\nThe individual trading and lending venues, allocation rules, role of human approval and review frequency are undisclosed. Offsetting positions can still lose money when the instruments diverge, and borrowing costs can exceed investment income. Reward points and potential token distributions have no assured cash value."),
+        link="https://tradingstrategy.ai/vaults/722capital-usdc",
+    ),
+    (8453, HexAddress("0xb725f2277f3f62ad017a6dc418433b326a9f6334")): HandwrittenVaultMetadata(
+        name="MSA - Portefeuille Défensif",
+        short_description="The vault concentrates on bitcoin, with ether and selected smaller tokens plus additional income investments.",
+        description=("#### Vault's trading strategy\n\nThe vault [concentrates on bitcoin](https://app.lagoon.finance/api/vault?chainId=8453&address=0xb725f2277f3f62ad017a6dc418433b326a9f6334), alongside ether and selected smaller tokens. MSA chooses the assets; holdings may remain idle or be invested to earn additional income.\n\nPerformance is monitored continuously, and profits can be moved into stablecoin investments while awaiting new opportunities. Scheduled reallocation is part of the mandate, but whether reviews occur twice monthly or every two months is unclear. The trading and income platforms, detailed allocation rules and approval process are not disclosed.\n\nThe portfolio remains exposed to token price declines; a defensive allocation is not a capital guarantee."),
+        link="https://tradingstrategy.ai/vaults/msa-portefeuille-defensif",
+    ),
+    (8453, HexAddress("0xbe7db44f4ce20dac83b578b94fd35087f66e9754")): HandwrittenVaultMetadata(
+        name="TruMarket",
+        short_description="The vault finances agricultural shipments from Latin American exporters to buyers in Europe, the US, Asia and the UAE.",
+        description=("#### Vault's trading strategy\n\nDeposits [finance agricultural trade](https://app.lagoon.finance/api/vault?chainId=8453&address=0xbe7db44f4ce20dac83b578b94fd35087f66e9754) linking exporters in Latin America, including Peru and Chile, with buyers in Europe, the US, Asia and the UAE. Money is provided when goods ship, with repayment after delivery; borrower payments generate investor income.\n\n[TruMarket](https://www.trumarket.tech/) selects and structures deals, checks trade documents and monitors shipments and repayments. The individual borrowers, loan pricing, concentration limits and review schedule are not disclosed. Delayed deliveries or unpaid invoices can delay withdrawals or cause losses."),
+        link="https://tradingstrategy.ai/vaults/trumarket-2",
+    ),
+    (8453, HexAddress("0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550")): HandwrittenVaultMetadata(
+        name="DeTrade Core EURC",
+        short_description="The vault uses euro stablecoins to secure dollar borrowing and invests the proceeds for income above financing costs.",
+        description=("#### Vault's trading strategy\n\nThe vault's [Core strategy](https://detrade.fund/) pledges euro stablecoins on lending platforms such as [Aave](https://aave.com/) to borrow dollar stablecoins. It invests in Core USDC and euro-denominated lending portfolios on [Morpho](https://morpho.org/), aiming to earn more than its financing costs.\n\nBorrowing increases the portfolio's size and its sensitivity to losses. The strategy targets euro exposure, but the currency-hedging method is not disclosed; this should not be read as a guarantee against exchange-rate losses. DeTrade's borrowing limits, allocation rules and review frequency are also undisclosed."),
+        link="https://tradingstrategy.ai/vaults/detrade-core-eurc",
+    ),
+    (8453, HexAddress("0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4")): HandwrittenVaultMetadata(
+        name="GUSDC",
+        short_description="The vault combines stablecoin lending, funding token exchanges and positions intended to offset market price movements.",
+        description=("#### Vault's trading strategy\n\nThe vault [combines lending, funding token exchanges and offsetting trading positions](https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4) across several blockchains. Income can come from borrower interest, exchange fees and the trading positions, although the particular instruments and income split are not disclosed.\n\nThe individual platforms, allocation rules, human approval requirements and review frequency are unspecified. Offsetting positions can reduce exposure to broad price movements but do not prevent losses if positions diverge or borrowers fail to repay."),
+        link="https://tradingstrategy.ai/vaults/gusdc",
+    ),
+    (8453, HexAddress("0xf56bfe07b8d6e6d74258cdb6969a633629b06b08")): HandwrittenVaultMetadata(
+        name="MSA - Portefeuille Dynamique",
+        short_description="The vault holds bitcoin, ether and selected smaller tokens, with additional income investments and active profit-taking.",
+        description=("#### Vault's trading strategy\n\nThe vault [holds bitcoin, ether and smaller sector-specific tokens](https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08), including investments linked to financial applications and AI. MSA selects the assets and seeks additional income by putting holdings into investment platforms where possible.\n\nPerformance is monitored continuously, and profits can be moved into stablecoin investments while awaiting new opportunities. Scheduled reallocation is part of the mandate, but whether reviews occur twice monthly or every two months is unclear. The trading and income platforms, detailed allocation rules and approval process are not disclosed.\n\nThe portfolio remains exposed to token price declines even when holdings also earn income."),
+        link="https://tradingstrategy.ai/vaults/msa-portefeuille-dynamique",
+    ),
+    (8453, HexAddress("0xfce2064b4221c54651b21c868064a23695e78f09")): HandwrittenVaultMetadata(
+        name="722Capital-ETH",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=8453&address=0xfce2064b4221c54651b21c868064a23695e78f09). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="",
+    ),
+    (42161, HexAddress("0x99cd0b8b32b15922f0754fddc21323b5278c5261")): HandwrittenVaultMetadata(
+        name="Yield Algo Trading",
+        short_description="The vault has no published investment mandate explaining how deposits earn returns.",
+        description=("#### Vault's trading strategy\n\nThe vault's investments and sources of returns are [not disclosed in its product information](https://app.lagoon.finance/api/vault?chainId=42161&address=0x99cd0b8b32b15922f0754fddc21323b5278c5261). The available information does not identify trading or lending platforms, explain who approves positions or specify allocation rules and review frequency. Its name and the operator's other products do not establish a strategy for this deployment."),
+        link="https://tradingstrategy.ai/vaults/yield-algo-trading",
+    ),
+    (42161, HexAddress("0x9e6de1f581d63129af453fe1ea7253b280b4dca8")): HandwrittenVaultMetadata(
+        name="Volta90 Multi-asset trading strategy",
+        short_description="The closed vault held a human-managed trading portfolio tracking traditional and crypto markets.",
+        description=(
+            "#### Vault's trading strategy\n\n"
+            "The former portfolio took [positions tied to price movements](https://volta90.trade/) in equities, commodities, indices and crypto markets "
+            "through [Hyperliquid](https://hyperliquid.xyz/). These contracts gained or lost value as the referenced markets moved, rather than paying a "
+            "predictable rate of interest.\n\n"
+            "Automated screeners and alerts supported VOLTA90's human operators in choosing and approving positions. The continued trading book uses "
+            "[leverage](https://tradingstrategy.ai/glossary/leverage), taking positions larger than the capital supporting them, with the risk of forced "
+            "closure if that capital becomes insufficient. Detailed historical trading rules, leverage limits and a fixed rebalancing timetable for "
+            "this closed deployment are not disclosed.\n\n"
+            "#### Closed deployment\n\n"
+            "**This share deployment closed in September 2026.** The [migration announcement](https://volta90.trade/blog/volta90-ethereum-migration) "
+            "identifies a separate Ethereum share token for ongoing subscriptions and redemptions and states that the legacy shares are valueless. The "
+            "trading book continued, but the two share tokens and their price histories are distinct."
+        ),
+        link="https://tradingstrategy.ai/vaults/volta90-multi-asset-trading-strategy",
+    ),
+    (1, HexAddress("0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac")): HandwrittenVaultMetadata(
+        name="Murmurr USDC Blue-Chip",
+        short_description="The vault earns interest on USDC loans backed by established crypto assets.",
+        description=("#### Vault's trading strategy\n\nThe vault lends on [Morpho](https://morpho.org/) to earn interest from borrowers who pledge assets as security. Its [published mandate](https://murmurr.xyz/) focuses on loans backed by established crypto assets.\n\nMurmurr ranks markets using expected interest income and the quality of pledged assets, subject to concentration and available-liquidity limits. The allocator combines automated checks with curator selection; the exact approval requirements and review frequency are undisclosed.\n\nWithdrawals depend on money available in the lending markets. If borrowers fail to repay, selling pledged assets may recover less than the amount owed."),
+        link="",
+    ),
+    (1, HexAddress("0x29ca54dd3ae9e43abb10880f5e08da439bf25f99")): HandwrittenVaultMetadata(
+        name="Murmurr USDC Frontier",
+        short_description="The vault earns interest by lending USDC across selected Morpho markets.",
+        description=("#### Vault's trading strategy\n\nThe vault lends on [Morpho](https://morpho.org/) to earn interest from borrowers who pledge assets as security. Its [published mandate](https://murmurr.xyz/) covers a diversified selection of lending markets; the complete criteria for selecting pledged assets are not disclosed.\n\nMurmurr ranks markets using expected interest income and the quality of pledged assets, subject to concentration and available-liquidity limits. The allocator combines automated checks with curator selection; the exact approval requirements and review frequency are undisclosed.\n\nWithdrawals depend on money available in the lending markets. If borrowers fail to repay, selling pledged assets may recover less than the amount owed."),
+        link="",
+    ),
+    (8453, HexAddress("0xcda5dbf58a016158ecd4a226109752cc3a627ec8")): HandwrittenVaultMetadata(
+        name="Murmurr USDC cbAssets",
+        short_description="The vault earns interest by lending USDC across a diversified selection of Morpho markets.",
+        description=("#### Vault's trading strategy\n\nThe vault lends on [Morpho](https://morpho.org/) to earn interest from borrowers who pledge assets as security. Its [published mandate](https://murmurr.xyz/) covers a diversified selection of lending markets; the complete criteria for selecting pledged assets are not disclosed.\n\nMurmurr ranks markets using expected interest income and the quality of pledged assets, subject to concentration and available-liquidity limits. The allocator combines automated checks with curator selection; the exact approval requirements and review frequency are undisclosed.\n\nWithdrawals depend on money available in the lending markets. If borrowers fail to repay, selling pledged assets may recover less than the amount owed."),
+        link="",
+    ),
+    (143, HexAddress("0x9f209b43559b13b783eaa0a6686921c7b174f269")): HandwrittenVaultMetadata(
+        name="Murmurr USDC aHYPER",
+        short_description="The vault earns interest on USDC loans backed by a single token pledged by borrowers, aHYPER.",
+        description=("#### Vault's trading strategy\n\nThe vault lends on [Morpho](https://morpho.org/) to earn interest from borrowers who pledge assets as security. Its [published mandate](https://murmurr.xyz/) limits the portfolio to one pledged token, aHYPER, whose underlying investments are not explained in this mandate; losses affecting that token therefore concentrate the risk of non-repayment.\n\nMurmurr applies limits on the share of available market liquidity the portfolio can hold. The complete decision rules, human approval requirements and review frequency are undisclosed.\n\nWithdrawals depend on money available in the lending markets. If borrowers fail to repay, selling pledged assets may recover less than the amount owed."),
+        link="",
+    ),
+    (999, HexAddress("0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10")): HandwrittenVaultMetadata(
+        name="Murmurr USDC WHYPE",
+        short_description="The vault earns interest on USDC loans backed by a single token pledged by borrowers, WHYPE.",
+        description=("#### Vault's trading strategy\n\nThe vault lends on [Morpho](https://morpho.org/) to earn interest from borrowers who pledge assets as security. Its [published mandate](https://murmurr.xyz/) limits the portfolio to one pledged token, WHYPE, a transferable version of HYPE; losses affecting that token therefore concentrate the risk of non-repayment.\n\nMurmurr applies limits on the share of available market liquidity the portfolio can hold. The complete decision rules, human approval requirements and review frequency are undisclosed.\n\nWithdrawals depend on money available in the lending markets. If borrowers fail to repay, selling pledged assets may recover less than the amount owed."),
+        link="",
+    ),
+}
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -838,7 +1092,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
+    return LAGOON_CURATOR_VAULT_METADATA.get(key) or K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:

@@ -221,3 +221,24 @@ exports and uploads publish the repaired descriptions. A successful journal
 entry is skipped on subsequent runs; future normalisation changes need a new
 numbered migration. Do not reset reader state or rescan historical prices to
 repair display text.
+
+
+## Lagoon curator vault descriptions
+
+The 13 curator records covered by the [November 2026 review](protocol-research/lagoon-curator-onboarding-2026-11-10.md)
+have manual short and full descriptions for 29 known Lagoon deployments and
+five Murmurr Morpho portfolios. Exact chain/address entries in
+`LAGOON_CURATOR_VAULT_METADATA` take precedence over Lagoon provider text.
+Morpho V1/V2 use the same existing handwritten lookup. Unreviewed Lagoon
+vaults retain their normal provider fallback. Undisclosed strategies remain
+explicit gaps in the copy; adding text does not assign strategy tags or admit
+closed or unofficial vaults.
+
+**Run after merge:** migration `061-lagoon-curator-descriptions.py` refreshes
+only the two stored description fields for at most 34 existing rows (68 fields).
+It performs no network reads or price scanning, reports missing rows and rejects
+conflicting protocol identities before staging changes. Follow the production
+runbook and stop/preview/apply/restart commands above, using the stamped merged
+image and preserving persistent mounts. Record the eventual PR URL in the
+migration before merge. After normal export and upload, check the individual
+vault JSON and rendered Markdown; curator profile publication is separate.

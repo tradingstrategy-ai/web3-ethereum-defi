@@ -49,6 +49,7 @@ from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, UNCONFIRMED_PROTOCOL_LISTING, VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
 
 if TYPE_CHECKING:
@@ -646,13 +647,17 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
 
     @property
     def description(self) -> str | None:
-        """Return Lagoon's full strategy description as normalised Markdown.
+        """Return reviewed copy before Lagoon's normalised strategy description.
 
-        Clean cached metadata on access as well as newly fetched API text.
+        Exact chain/address overrides survive provider changes and outages.
+        Other deployments retain the cached or freshly fetched API text.
 
         :return:
             Full description preserving paragraphs, or ``None`` when unavailable.
         """
+        handwritten = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if handwritten:
+            return normalise_vault_description(handwritten.description)
         metadata = self.lagoon_metadata
         if metadata:
             return normalise_vault_description(metadata.get("description"))
@@ -660,14 +665,17 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
 
     @property
     def short_description(self) -> str | None:
-        """Return only the first sentence of Lagoon's summary on one line.
+        """Return the reviewed or provider summary as one plain sentence.
 
-        Lagoon's summary field may contain several sentences copied from the
-        provider. Clean cached metadata as well as newly fetched API text.
+        Exact chain/address overrides take precedence. Lagoon's fallback may
+        contain several sentences; clean cached and newly fetched text alike.
 
         :return:
             First summary sentence, or ``None`` when unavailable.
         """
+        handwritten = get_handwritten_vault_metadata(self.chain_id, self.address)
+        if handwritten:
+            return normalise_vault_short_description(handwritten.short_description)
         metadata = self.lagoon_metadata
         if metadata:
             return normalise_vault_short_description(metadata.get("short_description"))
