@@ -7,7 +7,7 @@ Preserves: Unrelated fields, notes, flags, prices, leads, reader state and cache
 Expected: Repeated transformations produce identical rows.
 Branch: check-vault-from-k3-capital-post
 PR title: feat: add K3 vault readers and offchain metadata
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1754
 LLM-generated operational migration; changes require human review.
 Run after merge: stop the looped scanner and run the numbered migration runner,
 then export and publish metadata. See .claude/docs/migration-scripts.md.
