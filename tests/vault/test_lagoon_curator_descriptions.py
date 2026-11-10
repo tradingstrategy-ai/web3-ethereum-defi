@@ -31,6 +31,19 @@ SPECS = [VaultSpec(1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"), VaultSpec(1
 #: Morpho products have direct lending descriptions, separate from the Lagoon allocator.
 MORPHO_ADDRESSES = {"0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac", "0x29ca54dd3ae9e43abb10880f5e08da439bf25f99", "0xcda5dbf58a016158ecd4a226109752cc3a627ec8", "0x9f209b43559b13b783eaa0a6686921c7b174f269", "0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10"}
 
+#: Reviewed deployments without substantive individual strategy evidence.
+UNDESCRIBED_SPECS = [
+    VaultSpec(1, "0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a"),
+    VaultSpec(1, "0x47491305479635357df29fe0cb6f1af10e51d4da"),
+    VaultSpec(1, "0x66dcb62da5430d800a1c807822c25be17138fda8"),
+    VaultSpec(1, "0x71652d4898de9a7dd35e472a5fe4577ec69d82f2"),
+    VaultSpec(1, "0x7d798ce99ee2adc183a865d76b112810d5395ea2"),
+    VaultSpec(1, "0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb"),
+    VaultSpec(999, "0x7dd73a986f6188da1baaf68541fd6ebd455abd1d"),
+    VaultSpec(8453, "0xfce2064b4221c54651b21c868064a23695e78f09"),
+    VaultSpec(42161, "0x99cd0b8b32b15922f0754fddc21323b5278c5261"),
+]
+
 
 @pytest.mark.parametrize("key", LAGOON_CURATOR_VAULT_METADATA)
 def test_reviewed_copy_precedes_provider(key: tuple[int, str], monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,7 +84,7 @@ def test_wrong_chain_retains_provider_copy() -> None:
     assert vault.short_description == "Provider summary."
 
 
-@pytest.mark.parametrize("spec", SPECS)
+@pytest.mark.parametrize("spec", [*SPECS, UNDESCRIBED_SPECS[0]])
 def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pytest.MonkeyPatch) -> None:
     """Pass real adapter text through the scanner and individual vault JSON.
 
@@ -94,6 +107,7 @@ def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pyte
         monkeypatch.setattr(cls, "morpho_offchain_data", property(lambda _self: None))
     else:
         monkeypatch.setattr(vault, "fetch_metadata_snapshot_for_scan", Mock())
+        vault.__dict__["_lagoon_scan_snapshot"] = LagoonMetadataSnapshot(None, False, "success", None)
     monkeypatch.setattr(scan, "create_vault_instance", Mock(return_value=vault))
     monkeypatch.setattr(scan, "_fetch_activity_status", Mock(return_value={}))
     monkeypatch.setattr(scan, "_fetch_lending_stats", Mock(return_value={}))
@@ -119,14 +133,16 @@ def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pyte
     first_seen = datetime.datetime(2026, 9, 1)  # noqa: DTZ001 - Repository timestamps are naive UTC.
     detection = ERC4262VaultDetection(chain=spec.chain_id, address=spec.vault_address, first_seen_at_block=1, first_seen_at=first_seen, updated_at=first_seen, features={feature}, deposit_count=10, redeem_count=10)
     record = scan.create_vault_scan_record(web3=None, detection=detection, block_identifier=1, token_cache={})
-    metadata = LAGOON_CURATOR_VAULT_METADATA[spec.chain_id, spec.vault_address]
-    assert record["_description"] == metadata.description
-    assert record["_short_description"] == metadata.short_description
+    metadata = LAGOON_CURATOR_VAULT_METADATA.get((spec.chain_id, spec.vault_address))
+    expected_long = metadata.description if metadata else None
+    expected_short = metadata.short_description if metadata else None
+    assert record["_description"] == expected_long
+    assert record["_short_description"] == expected_short
     prices = pd.DataFrame({"id": spec.as_string_id(), "address": spec.vault_address, "chain": spec.chain_id, "block_number": range(35), "share_price": [1 + i * 0.0001 for i in range(35)], "total_assets": 100_000.0, "total_supply": 100_000.0, "event_count": 20}, index=pd.date_range(first_seen, periods=35, freq="D"))
     metrics = calculate_lifetime_metrics(calculate_hourly_returns_for_all_vaults(prices), {spec: record})
     exported = json.loads(json.dumps(export_lifetime_row(metrics.iloc[0]), allow_nan=False))
-    assert exported["description"] == metadata.description
-    assert exported["short_description"] == metadata.short_description
+    assert exported["description"] == expected_long
+    assert exported["short_description"] == expected_short
     assert exported["name"] == "Original share name"
 
 
@@ -145,6 +161,7 @@ def pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     data = tmp_path / "data"
     data.mkdir()
     rows = {VaultSpec(*key): {"Protocol": "Morpho" if key[1] in MORPHO_ADDRESSES else "Lagoon Finance", "_description": "Old provider text", "_short_description": None, "_notes": "Keep notes", "_flags": {"unofficial"}, "_strategy_tags": None} for key in LAGOON_CURATOR_VAULT_METADATA}
+    rows.update({spec: {"Protocol": "Lagoon Finance", "_description": "Subsequently published provider strategy.", "_short_description": "Subsequently published summary."} for spec in UNDESCRIBED_SPECS})
     rows[VaultSpec(8453, SPECS[0].vault_address)] = {"Protocol": "Other", "_description": "Wrong-chain text"}
     VaultDatabase(rows=rows, last_scanned_block={1: 123}).write(data / "vault-metadata-db.pickle")
     for name in ("vault-prices-1h.parquet", "reader-state.pickle", "timestamps.duckdb"):
@@ -157,7 +174,7 @@ def pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
 
 
 def test_description_preview_apply_and_repeat(pipeline: dict) -> None:
-    """Change only the two description fields in the frozen 34-row scope.
+    """Change only the two description fields in the frozen 25-row scope.
 
     Preview leaves every byte intact; a repeated apply makes no extra changes.
 
@@ -178,8 +195,8 @@ def test_description_preview_apply_and_repeat(pipeline: dict) -> None:
     assert result.rows == expected
     assert result.last_scanned_block == {1: 123}
     report = json.loads((data / "migration.json").read_text())[SCRIPT]["other_data"]
-    assert report["changed_rows"] == 34  # noqa: PLR2004 - Frozen reviewed migration scope.
-    assert report["updated_fields"] == 68  # noqa: PLR2004 - Two fields for each reviewed deployment.
+    assert report["changed_rows"] == 25  # noqa: PLR2004 - Frozen reviewed migration scope.
+    assert report["updated_fields"] == 50  # noqa: PLR2004 - Two fields for each reviewed deployment.
     assert report["missing_specs"] == []
     assert all((data / name).read_bytes() == content for name, content in files.items() if name != path.name)
     assert runner.run_pending_migrations(dry_run=False, **pipeline) == []
@@ -216,3 +233,23 @@ def test_description_missing_or_conflicting_target(pipeline: dict, *, missing: b
         with pytest.raises(ValueError, match="Unexpected protocol"):
             runner.run_pending_migrations(dry_run=False, **pipeline)
         assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("spec", UNDESCRIBED_SPECS)
+@pytest.mark.parametrize("provider_copy", [None, "", "The vault lends stablecoins to earn borrower interest."])
+def test_missing_copy_remains_empty_and_allows_future_provider_text(spec: VaultSpec, provider_copy: str | None) -> None:
+    """Keep missing descriptions empty without suppressing future genuine copy.
+
+    An absent handwritten entry must use normal provider fallback, so a later
+    source update can fill either field without another override change.
+
+    :param spec: Reviewed deployment without substantive source material.
+    :param provider_copy: Missing or subsequently published provider description.
+    :return: None after confirming both accessors reflect source availability.
+    """
+    assert (spec.chain_id, spec.vault_address) not in LAGOON_CURATOR_VAULT_METADATA
+    vault = LagoonVault.__new__(LagoonVault)
+    vault.spec = spec
+    vault.__dict__["_lagoon_scan_snapshot"] = LagoonMetadataSnapshot({"description": provider_copy, "short_description": provider_copy}, False, "success", None)
+    assert vault.description == provider_copy
+    assert vault.short_description == provider_copy

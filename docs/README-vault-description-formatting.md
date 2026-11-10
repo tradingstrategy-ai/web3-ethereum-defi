@@ -5,7 +5,10 @@ Individual vault records have two text fields with different formats.
 #### Full description (`description`, "About the vault")
 
 The website renders the full description as Markdown in the "About the
-vault" box. Write it for reading on a vault page:
+vault" box. Leave it empty when substantive source material is unavailable;
+missing-information placeholders count as descriptions and hide coverage gaps.
+Do not repeat the website's closed-status badge. Write supported copy for reading
+on a vault page:
 
 - **Paragraphs of two or three sentences**, separated by a blank line. Do not
   write one long block of text.
@@ -27,7 +30,9 @@ for an example with subheadings, bold text and inline links.
 
 #### Short description (`short_description`)
 
-Short descriptions are shown verbatim in listings and tables. They must be
+Short descriptions are shown verbatim in listings and tables. Leave them empty
+when no useful, supported summary is available; a closure label or an explanation
+that information is missing is not a summary. Non-empty summaries must be
 one plain sentence of single-line text: no Markdown, newline characters,
 carriage returns or literal `\n` / `\r` escapes. When a description or a
 provider-supplied summary is automatically copied into `short_description`,
@@ -226,20 +231,25 @@ repair display text.
 ## Lagoon curator vault descriptions
 
 The 13 curator records covered by the [November 2026 review](protocol-research/lagoon-curator-onboarding-2026-11-10.md)
-have manual short and full descriptions for 29 known Lagoon deployments and
-five Murmurr Morpho portfolios. Exact chain/address entries in
-`LAGOON_CURATOR_VAULT_METADATA` take precedence over Lagoon provider text.
-Morpho V1/V2 use the same existing handwritten lookup. Unreviewed Lagoon
-vaults retain their normal provider fallback. Undisclosed strategies remain
-explicit gaps in the copy; adding text does not assign strategy tags or admit
-closed or unofficial vaults.
+have 34 reviewed vault deployments: 25 have supported manual short and full
+descriptions (20 Lagoon and five Morpho), while nine retain empty fields because
+individual strategy evidence is insufficient. There are no empty or placeholder
+handwritten overrides; those nine use the normal provider fallback and can gain
+real descriptions when the provider publishes them.
+
+Exact chain/address entries in `LAGOON_CURATOR_VAULT_METADATA` take precedence
+over Lagoon provider text. Morpho V1/V2 use the same existing handwritten lookup.
+Descriptions do not repeat closed-status badges. Material share-migration facts
+remain where they explain holders' positions beyond the badge.
 
 **Run after merge:** migration `061-lagoon-curator-descriptions.py` refreshes
-only the two stored description fields for at most 34 existing rows (68 fields).
-It performs no network reads or price scanning, reports missing rows and rejects
-conflicting protocol identities before staging changes. Follow the production
-runbook and stop/preview/apply/restart commands above, using the stamped merged
-image and preserving persistent mounts. The migration records
+only the two stored description fields for at most 25 existing rows (50 fields).
+The nine undescribed deployments are excluded from this unmerged, unapplied
+migration. Their missing fields are preserved, and no existing provider text is
+erased. It performs no network reads or price scanning, reports missing rows and
+rejects conflicting protocol identities before staging changes. Follow the
+production runbook and stop/preview/apply/restart commands above, using the
+stamped merged image and preserving persistent mounts. The migration records
 [PR #1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757).
-After normal export and upload, check the individual
-vault JSON and rendered Markdown; curator profile publication is separate.
+After normal export and upload, check the individual vault JSON and rendered
+Markdown; curator profile publication is separate.

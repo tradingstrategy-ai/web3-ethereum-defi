@@ -34,7 +34,7 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 - Lead the long description with the same concrete business context, then
   explain how it works and who is responsible. Add relevant supporting facts.
   Do not pad it to reach a sentence or paragraph count.
-- Start every full vault description with `#### Vault's trading strategy`.
+- Start every non-empty full vault description with `#### Vault's trading strategy`.
   Explain the current trading strategy and how it generates returns first,
   before risks, withdrawal conditions or other background.
 - Explain how trading decisions are made: whether they are discretionary,
@@ -42,8 +42,9 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   decisions; and how often positions are reviewed, traded or rebalanced.
   Distinguish signal generation from human discretion and trade execution.
   State the actual cadence or triggers; a venue being open 24/7 does not prove
-  that an algorithm runs continuously. Say which details are undisclosed
-  rather than inferring them from labels such as “systematic” or “managed”.
+  that an algorithm runs continuously. Within an otherwise useful description,
+  identify material missing details rather than inferring them from labels such
+  as “systematic” or “managed”. Do not pad copy with lists of undisclosed details.
 - Name and link every trading venue, mapping each instrument or strategy leg
   to its venue. If options are mentioned, identify and link the options venue;
   a named futures exchange does not establish where options trade. Also name
@@ -95,7 +96,8 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
 ## Describe each vault in small protocols
 
 For protocols with **1–9 known supported vaults**, provide researched,
-handwritten short and full descriptions for every covered vault. Count the
+handwritten short and full descriptions for every covered vault where evidence
+supports useful copy. Leave unsupported fields empty under the rule below. Count the
 known supported vault inventory across chains, not just the example deployment.
 This is an onboarding and maintained-content requirement, not a runtime rule
 that removes descriptions when a protocol grows.
@@ -105,8 +107,32 @@ Protocol and curator descriptions do not populate the individual vault's
 `description` and `short_description` accessors and verify the scanner record
 and individual vault JSON export, separately from protocol metadata export.
 Use the existing address-scoped handwritten metadata workflow where available.
-Research each vault's actual strategy; leave undisclosed details explicitly
-unknown rather than applying generic protocol copy to every vault.
+Research each vault's actual strategy rather than applying generic protocol
+copy to every vault. Record research gaps in internal notes, not as substitute
+descriptions.
+
+## Leave missing descriptions empty
+
+An empty description means that no useful, supported description is available.
+Preserve that distinction so the website and data consumers can identify vaults
+that still need descriptions.
+
+- If there is no substantive source material explaining the particular vault,
+  leave both `short_description` and `description` completely empty, using the
+  existing schema's missing value (`null` or an empty string). Do not fill them with “The investment strategy
+  and sources of returns are not disclosed”, “No information available”, or any
+  equivalent placeholder. Do not leave a heading, whitespace or a source link
+  alone in an otherwise empty field.
+- Evaluate each field separately. A supported short summary does not justify
+  padding a long description; retain only fields that convey useful facts.
+- A vault name, its closed badge or the curator's general business objective
+  does not establish an individual vault description. Keep research gaps and
+  unverified operator associations in internal research notes.
+- A brief evidence limitation is appropriate beside a supported investment
+  mechanism when it materially affects understanding. A description whose only
+  content is missing information must remain empty.
+- Do not create empty manual overrides that suppress future provider content.
+  When no useful copy exists, use the normal missing-description behaviour.
 
 ## Describe current terms first
 
@@ -140,6 +166,13 @@ sentence linking to it; leave the details at that destination. Keep announced
 deadlines or access changes that affect depositors in a separate dated note.
 
 ## Do not repeat charts and metrics
+
+Do not repeat a closed-status badge in either description. Avoid “The closed
+vault…” and standalone statements such as “This vault is closed”; the website
+already displays that status. A known historical strategy can still be described
+in the past tense. Retain a documented migration, loss or redemption restriction
+only when it adds material information beyond the badge, such as explaining what
+happened to an old share token.
 
 Do not narrate routine returns, performance paths, deposited amounts, capacity
 limits or trading-cycle dates already shown in the page's charts and metrics.

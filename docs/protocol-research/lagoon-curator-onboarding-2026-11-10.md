@@ -202,55 +202,54 @@ backfill, PR creation or push were performed during authoring.
 
 ## Description style review and manual vault overrides
 
-The user confirmed that this pass covers the **13 curator records in this
-branch**, rather than the entire 302-record registry. All 13 short and long
-profiles were read against `.claude/docs/description-writing-style.md`.
-Eight older profiles needed substantial plain-language/source corrections;
-newer profiles received smaller wording changes where useful. Unknown company
-websites and team details remain explicitly undisclosed. No feed failure
-markers were cleared.
+The user confirmed scope as the **13 curator records in this branch**, rather
+than the entire 302-record registry. All 13 profiles were reviewed against the
+writing guide. The vault inventory includes **29 Lagoon deployments and five
+Morpho portfolios**. All 29 exact Lagoon API reads succeeded on 10 November
+2026; name-matching the earlier 641-deployment inventory found no further
+associated Lagoon rows. Murmurr's official product book identifies the five
+Morpho portfolios. 722 Capital's headline count does not identify additional
+verifiable contract addresses.
 
-The exact-address Lagoon API was fetched successfully for all **29 associated
-deployments** on 10 November 2026. The inventory includes co-curators and two
-closed VOLTA90 deployments; name-matching the earlier 641-deployment inventory
-found no additional associated Lagoon rows. Murmurr's official product book
-adds **five Morpho lending portfolios**. All 34 lacked handwritten overrides.
-This is the verified deployment inventory, not a claim to cover undiscovered
-contracts; 722 Capital's homepage headline of 21 active vaults does not identify
-21 verifiable addresses.
+### Empty descriptions preserve missing coverage
 
-The existing handwritten registry now supplies one plain-sentence summary and
-Markdown description for each deployment. Lagoon checks that registry before
-provider text; Morpho V1/V2 already do so. Real scanner and lifetime-JSON tests
-cover one Lagoon and one Morpho deployment separately from curator exports.
-No investment tags, admission flags or histories are changed by this pass.
-Manual copy deliberately takes precedence over future API text. Re-review the
-explicit information-gap entries when their operators publish strategies; an
-upstream update will not silently replace the maintained wording.
+The user's later style correction supersedes the earlier placeholder approach:
+**25 vaults receive useful descriptions; nine retain empty short and long fields.**
+A statement that no strategy is disclosed is not a description. Curator-level
+objectives do not establish the individual NAVI vault's strategy. The additional
+VOLTA90 deployment's status and unexplained zero valuation likewise do not
+supply useful investment copy. Those facts remain in this research note.
 
-Seven deployments have no individual strategy evidence, and NAVI only discloses
-a product objective. Their descriptions explicitly state the missing investment
-mechanism rather than extrapolating from names or curator-level business models.
-The third, closed VOLTA90 deployment separately discloses missing closure and
-strategy information. The new text does not assert that a zero valuation proves
-an investor loss. Legacy Arbitrum VOLTA90 closure and worthless legacy shares are
-supported by the operator's migration announcement; its Ethereum successor has
-a different share token and fee reference schedule.
+The nine deployments have no handwritten entry, rather than an empty override
+that would mask genuine future API text. Their current provider fields are empty;
+normal provider fallback remains available. They are excluded from migration 061,
+which has not been merged or applied in production. No previous successful
+migration was edited. This change does not erase existing provider descriptions.
 
-Primary evidence includes the exact-address API responses linked in each
-Markdown description, the current DeTrade Core product cards, Murmurr's exact
-product links and the VOLTA90 migration article. DeTrade's newer homepage gives
-more specific current Core lending/borrowing information than the API's older
-copy. The MSA French word “bi-mensuelle” was not converted to a guessed schedule.
-The earlier 722 product interface at https://app.722.capital/v/722-usdc is retained
-here as research provenance; its public destination now uses the verified
-Trading Strategy page.
+Every remaining long description was reviewed to remove repetitive checklists of
+missing approval rules or cadence. Material gaps beside supported mechanisms
+remain, such as unidentified trading venues or an undisclosed currency hedge.
+The known Arbitrum VOLTA90 strategy remains in the past tense without saying
+“closed vault”. The documented share migration and value of legacy shares remain
+because those facts add information beyond the website's status badge.
 
-Every linked Trading Strategy destination below was matched to the chain and
-contract in the published export and fetched with HTTP 200 and the contract
-address present. Empty destinations remain deliberately unlinked: no public
-slug was guessed for missing pages. The five Morpho pages were absent from the
-Lagoon-only published inventory, so no destination is claimed for them.
+Primary evidence is preserved in the remaining descriptions' inline links,
+the exact-address Lagoon API inventory, the DeTrade product cards, Murmurr's
+product book and the VOLTA90 migration announcement. DeTrade's current product
+cards describe its Core products more specifically than the older API copy.
+MSA's ambiguous French cadence wording is not converted to a guessed schedule.
+The earlier interface https://app.722.capital/v/722-usdc remains research
+provenance; the public destination uses the verified Trading Strategy page.
+
+The first PR comment retains all 34 inventory rows, with genuinely blank cells
+for the nine undescribed vaults. It is generated from the current registry, with
+no missing-information placeholder substituted into an empty field.
+
+### Reviewed inventory
+
+All linked Trading Strategy pages below matched the chain and contract in the
+published export and returned HTTP 200 with the address present. Missing public
+destinations remain unlinked; no slug was guessed.
 
 | Curator | Chain | Address | Vault | Public destination |
 | --- | --- | --- | --- | --- |
@@ -290,63 +289,50 @@ Lagoon-only published inventory, so no destination is claimed for them.
 | Murmurr | 999 | `0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10` | Murmurr USDC WHYPE | Not verified; left unlinked |
 
 
+### Vaults without descriptions
+
+| Curator | Chain | Vault | Address |
+| --- | --- | --- | --- |
+| VOLTA90 | 1 | VOLTA90 MULTI ASSET STRATEGY | `0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a` |
+| NAVI Protocol | 1 | USDC High Yield | `0x47491305479635357df29fe0cb6f1af10e51d4da` |
+| 722 Capital | 1 | Unity Trust | `0x66dcb62da5430d800a1c807822c25be17138fda8` |
+| 722 Capital | 1 | Trinity Trust | `0x71652d4898de9a7dd35e472a5fe4577ec69d82f2` |
+| 722 Capital | 1 | 722 Capital USDC | `0x7d798ce99ee2adc183a865d76b112810d5395ea2` |
+| σ-Labs, Ellen Capital | 1 | Stablecoin Market Making | `0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb` |
+| 722 Capital | 999 | 722 Capital Hype | `0x7dd73a986f6188da1baaf68541fd6ebd455abd1d` |
+| 722 Capital | 8453 | 722Capital-ETH | `0xfce2064b4221c54651b21c868064a23695e78f09` |
+| 722 Capital | 42161 | Yield Algo Trading | `0x99cd0b8b32b15922f0754fddc21323b5278c5261` |
+
+
 ### Publishing the description refresh
 
-**Run migration `061-lagoon-curator-descriptions.py` after merge.** It freezes
-34 chain/address targets and changes only `_description` and
-`_short_description`: at most 34 existing rows and 68 fields. Missing rows are
-reported without creation; conflicting protocol identities abort before changes
-are staged. Later scans retain the same reviewed copy. No network reads occur
-during this migration.
+Run migration `061-lagoon-curator-descriptions.py` after merge: at most **25
+existing rows and 50 fields**, limited to `_description` and `_short_description`.
+It reports missing rows, rejects conflicting protocol labels before staging,
+and performs no network reads, discovery or historical price scanning. The
+nine undescribed rows are untouched. Existing price-gap proposals above remain
+separate; no scan eligibility or historical coverage is added here.
 
-Follow `.claude/docs/migration-scripts.md` and the commands in migration 061:
-inspect Compose mounts, build the stamped merged image, stop the looped scanner,
-post-scanner and competing writers for both preview and apply, review the entire
-pending batch, then restart the same image. The runner acquires the lifetime
-guard before the writer lock. The normal export/upload cycle publishes the
-repaired fields; merging or a successful migration alone does not publish them.
-The earlier price-gap proposals remain separate: copy changes do not add scan
-eligibility, reconstruct historical prices or alter reader state. No production
-maintenance was performed during authoring.
+Follow the migration docstring and `.claude/docs/migration-scripts.md`: inspect
+Compose mounts, build the stamped merged image, stop the scanner and competing
+writers before both preview and apply, review the whole pending batch and restart
+the same image. The lifetime guard precedes the writer lock. Normal exports and
+uploads publish the description changes; this work performs no production writes.
 
+### Checks after the writing-guide correction
 
-The description pass passed **169 focused tests**, including the existing live
-Lagoon API check, and all **302 curator YAML records** loaded through the shared
-schema. Tests cover API fallback on an unmatched chain, provider-independent
-overrides for all 34 deployments, both Morpho adapters, real scan/individual JSON
-export, preview byte preservation, apply counts, repeated application, missing
-rows and conflicting identities. Validation command (manual, 10 November 2026):
+The final focused suite passed **188 tests** on 10 November 2026, including the
+live public Lagoon API check. All 302 curator YAML records load. Coverage now
+includes both `None` and empty-string provider values for all nine undescribed
+vaults, subsequent genuine provider copy, empty scanner/individual JSON fields,
+and preservation of non-empty provider text on excluded migration control rows.
+Ruff formatting and lint checks passed for the changed Python files, together
+with `git diff --check`.
+
+Claude CLI with `claude-opus-5-5` completed the focused independent review with
+**ready, no blockers**. Its suggested test improvements for empty strings and
+non-empty preservation sentinels were added before the final 188-test run.
 
 ```shell
 source .local-test.env && PYTHONPATH="$PWD" timeout 180s poetry run pytest tests/vault/test_lagoon_curator_descriptions.py tests/erc_4626/vault_protocol/test_lagoon_descriptions.py tests/vault/test_lagoon_curator_onboarding.py tests/vault/test_curator.py tests/feed/test_canonical_feeder.py -q --tb=short
 ```
-
-The provider check used Lagoon's unauthenticated public endpoint; no credentials
-were printed. This is a local run, not a CI result. Ruff passed for the registry,
-new migration and tests. The modified Lagoon adapter retains one pre-existing
-Ruff `PLR6201` finding in its unrelated whitelist-value validation.
-
-
-### Independent follow-up review
-
-Claude CLI with `claude-opus-5-5` completed a grounded review of this description
-pass. The code, fixed-scope migration and tests were accepted; factual-copy
-findings were addressed before handoff. The current VOLTA90 description now
-includes the operator's 2× portfolio exposure cap, 3× shared-margin / 2×
-individual-position limits, forced-closure risk and invite-only access. The
-closed deployment is described historically without projecting today's precise
-limits onto its past share history.
-
-Frontier and cbAssets now use the directly supported diversified-lending remit,
-rather than extrapolating collateral categories from token labels. MSA's
-ambiguous reallocation wording is explicit, Dynamique no longer repeats the
-Defensif warning, DeTrade's three advertised Base products are distinguished
-from the broader inventory, and related-link titles match their destinations.
-
-The focused Claude follow-up accepted all factual-copy corrections. Its only
-remaining handoff condition was a fresh Ruff/test result after the final
-VOLTA90 edit. Ruff formatting and lint then passed, and the same focused
-command passed **169 tests in 7.66 seconds** after review. The source timestamp
-was 20:00:16 UTC; the post-review test run completed after 20:01 UTC on
-10 November 2026. That verification condition is satisfied. Changes remain
-local, and migration 061 has not been executed against production.
