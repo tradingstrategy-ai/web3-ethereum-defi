@@ -294,6 +294,7 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
+        StrategyTag.sentiment_trading,
     }
 
 
@@ -353,6 +354,7 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
             StrategyTag.directional_trading,
             StrategyTag.grid_trading,
             StrategyTag.mean_reversion,
+            StrategyTag.sentiment_trading,
         },
     }.get(address, set())
     defaults = set() if address in hyperliquid_tags.NON_PERPETUAL_VAULTS else {StrategyTag.perpetual_futures}

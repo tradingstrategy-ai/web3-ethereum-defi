@@ -405,10 +405,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: mean reversion to accumulate on pullbacks and take profit on reversion.
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
+    #: Updated: 2026-11-10. Maintainer explicitly requested sentiment trading.
+    #: This is a manual classification: the current website and DDQ describe
+    #: purely technical inputs without news-driven or narrative signals, so
+    #: those publications do not substantiate sentiment-based trading.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
     #: - https://x.com/StratwiseAI/status/2090441910762553405
     #: - https://stratwise.ai/
+    #: - https://stratwise.ai/ddq
+    #: - https://stratwise.ai/research
     #: - eth_defi/data/feeds/curators/stratwise.yaml
     "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
         StrategyTag.algorithmic_trading,
@@ -416,6 +422,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
+        StrategyTag.sentiment_trading,
     },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
