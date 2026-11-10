@@ -239,6 +239,7 @@ only the two stored description fields for at most 34 existing rows (68 fields).
 It performs no network reads or price scanning, reports missing rows and rejects
 conflicting protocol identities before staging changes. Follow the production
 runbook and stop/preview/apply/restart commands above, using the stamped merged
-image and preserving persistent mounts. Record the eventual PR URL in the
-migration before merge. After normal export and upload, check the individual
+image and preserving persistent mounts. The migration records
+[PR #1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757).
+After normal export and upload, check the individual
 vault JSON and rendered Markdown; curator profile publication is separate.

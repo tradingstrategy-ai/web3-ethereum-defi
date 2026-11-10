@@ -6,7 +6,7 @@ Purpose: Publish handwritten summaries and full descriptions, including explicit
 Scope: 34 frozen deployments below; _description and _short_description only.
 Branch: add-lagoon-curator-records
 PR title: feat: add Lagoon curator records and reviewed vault descriptions
-PR: Not opened; record the eventual URL before merge.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757
 Preserves: Names, curator attribution, tags, notes, fees, flags, eligibility,
     unrelated rows, prices, leads, reader state and timestamp caches.
 Expected: At most 34 existing rows and 68 changed fields; missing rows reported.
