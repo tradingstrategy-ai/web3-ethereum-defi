@@ -342,7 +342,7 @@ checks, real-provider test, cleanup review and production migration handoff.
 ## Implementation status
 
 Implemented locally on 10 November 2026, with migration
-`036-lagoon-offchain-metadata.py`. Grounded Claude Opus 5.5 review and focused
+`059-lagoon-offchain-metadata.py`. Grounded Claude Opus 5.5 review and focused
 regressions are complete; final verdict had no blocking findings. Review-driven
 adjustments put the v2 envelope in a separate file for rollback compatibility,
 keep legacy maps read-only, accept optional curator identities and defer chain

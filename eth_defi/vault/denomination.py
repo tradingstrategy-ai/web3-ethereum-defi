@@ -107,6 +107,8 @@ DENOMINATION_SYMBOLS: dict[str, tuple[DenominationFamily, str]] = {
     "WBTC": (DenominationFamily.btc, "wrapped"),
     "WBTC.E": (DenominationFamily.btc, "bridged"),
     "CBBTC": (DenominationFamily.btc, "wrapped"),
+    # Circle Wrapped Bitcoin, backed 1:1 by BTC: https://www.circle.com/cirbtc
+    "CIRBTC": (DenominationFamily.btc, "wrapped"),
     "IBTC": (DenominationFamily.btc, "wrapped"),
     "TBTC": (DenominationFamily.btc, "wrapped"),
     "TBTCV2": (DenominationFamily.btc, "wrapped"),

@@ -50,6 +50,7 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    "K3": None,
     # Withdrawal charges reduce the payout rather than the quoted share price.
     # https://docs.veranta.xyz/liquidity-providers/risk-management
     "Veranta": VaultFeeMode.externalised,

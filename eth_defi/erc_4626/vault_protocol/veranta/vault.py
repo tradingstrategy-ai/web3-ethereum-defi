@@ -17,12 +17,13 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_CHAIN_ID, VERANTA_FEE_DENOMINATOR, VERANTA_PUBLIC_IMPLEMENTATIONS, VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import IMPLEMENTATION_SLOT, VERANTA_CHAIN_ID, VERANTA_FEE_DENOMINATOR, VERANTA_PUBLIC_IMPLEMENTATIONS, VERANTA_REPORTED_WITHDRAWAL_FEE, VERANTA_VAULT_ADDRESS, VERANTA_VAULT_MANAGER_ADDRESS, VERANTA_ZERO_LP_FEE_IMPLEMENTATIONS
 from eth_defi.erc_4626.vault_protocol.veranta.deposit_redeem import VerantaDepositManager
 from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
 from eth_defi.vault.base import normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.fee import FeeData
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
@@ -103,21 +104,77 @@ class VerantaVault(ERC4626Vault):
         """
         return self.get_synchronous_deposit_manager_capability()
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Leave unpublished management charges unknown.
+    def _fetch_reviewed_zero_lp_fees(self, block_identifier: BlockIdentifier) -> bool:
+        """Check whether the deployed fee paths establish zero direct LP fees.
 
-        :param block_identifier: Requested fee block.
-        :return: ``None``; trading revenue does not establish a manager fee.
+        Both the vault and its manager can be upgraded. Source review proves
+        the absence of separate management/performance deductions only for
+        the exact reviewed wiring and implementation pairs. Missing ABI
+        accessors alone would not prove zero fees. Provider failures propagate.
+
+        :param block_identifier: Common source block for both proxies and wiring.
+        :return: Whether the exact deployment has source-proven zero LP fees.
         """
-        return None
+        if self.chain_id != VERANTA_CHAIN_ID or self.address.lower() != VERANTA_VAULT_ADDRESS:
+            return False
+        if block_identifier == "latest":
+            block_identifier = self._get_block_identifier()
+            if block_identifier == "latest":
+                block_identifier = self.web3.eth.block_number
+        implementation = "0x" + self.web3.eth.get_storage_at(self.address, IMPLEMENTATION_SLOT, block_identifier=block_identifier)[-20:].hex()
+        if implementation not in VERANTA_PUBLIC_IMPLEMENTATIONS:
+            return False
+        manager = self.vault_contract.functions.vaultManager().call(block_identifier=block_identifier)
+        if manager.lower() != VERANTA_VAULT_MANAGER_ADDRESS:
+            return False
+        manager_implementation = "0x" + self.web3.eth.get_storage_at(manager, IMPLEMENTATION_SLOT, block_identifier=block_identifier)[-20:].hex()
+        return (implementation, manager_implementation) in VERANTA_ZERO_LP_FEE_IMPLEMENTATIONS
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+        """Return zero for the reviewed direct LP management-fee paths.
+
+        The reviewed contracts do not charge an annual management rate. Unknown
+        wiring or upgrades remain unclassified rather than inheriting that zero.
+
+        :param block_identifier: Requested source block.
+        :return: ``0.0`` for reviewed contracts, otherwise ``None``.
+        """
+        return 0.0 if self._fetch_reviewed_zero_lp_fees(block_identifier) else None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Leave unpublished performance charges unknown.
+        """Return zero for the reviewed direct LP performance-fee paths.
 
-        :param block_identifier: Requested fee block.
-        :return: ``None``; no authoritative performance-fee accessor exists.
+        Trading revenue is allocated before reaching the pool; its retained
+        share is not a further charge on the investor's share-price return.
+
+        :param block_identifier: Requested source block.
+        :return: ``0.0`` for reviewed contracts, otherwise ``None``.
         """
-        return None
+        return 0.0 if self._fetch_reviewed_zero_lp_fees(block_identifier) else None
+
+    def get_fee_data(self, block_identifier: BlockIdentifier = "latest") -> FeeData:
+        """Verify direct LP fees and include the fixed published withdrawal rate.
+
+        Resolve latest once so an upgrade between requests cannot combine a
+        historical zero-fee assessment with a different block's deposit rate.
+        The published 0.5% withdrawal reference is used for return estimates;
+        exact transaction previews continue to use the dynamic contract fee.
+
+        :param block_identifier: Requested block, or the adapter's default block.
+        :return: Direct LP fee metadata; a separate protocol rate stays unknown.
+        """
+        if block_identifier == "latest":
+            block_identifier = self._get_block_identifier()
+            if block_identifier == "latest":
+                block_identifier = self.web3.eth.block_number
+        zero_lp_fees = self._fetch_reviewed_zero_lp_fees(block_identifier)
+        return FeeData(
+            fee_mode=self.get_fee_mode(),
+            management=0.0 if zero_lp_fees else None,
+            performance=0.0 if zero_lp_fees else None,
+            deposit=self.get_deposit_fee(block_identifier),
+            withdraw=self.get_withdraw_fee(block_identifier),
+        )
 
     def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the unified vault's deposit fee configuration.
@@ -133,19 +190,17 @@ class VerantaVault(ERC4626Vault):
         return self.vault_contract.functions.balancingFee(0, True).call(block_identifier=block_identifier) / VERANTA_FEE_DENOMINATOR
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
-        """Read the collateral-health charge without rounding transaction amounts.
+        """Return the fixed withdrawal rate used in published fee metadata.
 
-        ``previewRedeem`` accounts for fee-inclusive rounding; this accessor
-        reports the configured nominal rate, not a replacement quote formula.
+        The user requested a stable 0.5% figure for displays and estimated net
+        returns. Actual withdrawals may charge a different fee, including zero
+        when fees are disabled. Execution uses the contract's dynamic previews
+        and amount-dependent rounding, never this reference rate.
 
-        :param block_identifier: Common block for the switch and both rates.
-        :return: Fractional withdrawal charge, zero when fees are disabled.
+        :param block_identifier: Unused; the published rate is block-independent.
+        :return: Fixed fractional reference withdrawal charge, ``0.005``.
         """
-        functions = self.vault_contract.functions
-        if not functions.feesOn().call(block_identifier=block_identifier):
-            return 0.0
-        rate = functions.balancingFee(0, False).call(block_identifier=block_identifier) + functions.collateralHealthFee().call(block_identifier=block_identifier)
-        return rate / VERANTA_FEE_DENOMINATOR
+        return VERANTA_REPORTED_WITHDRAWAL_FEE
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Return the absence of a scheduled redemption delay.

@@ -24,6 +24,69 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: Bunny on Hypercore (9999).
+    #: Added: 2026-11-09.
+    #: Decision material: Maintainer requested the high-frequency, high-win-rate
+    #: classification, paired with its required algorithmic trading tag.
+    #: The current Hyperliquid vaultDetails response confirms this address is
+    #: Bunny, described as "Bunny finance". No measured win rate or
+    #: latency-based HFT capability is asserted.
+    #: Updated: 2026-11-09. Maintainer assigned Bitcoin-only trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71
+    #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {
+        StrategyTag.btc_only,
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+    },
+    #: Vault: Titan Vault on Hypercore (9999).
+    #: Added: 2026-11-09.
+    #: Decision material: Maintainer requested the high-frequency, high-win-rate
+    #: classification, paired with its required algorithmic trading tag.
+    #: The current Hyperliquid vaultDetails response confirms this address is
+    #: Titan Vault. No measured win rate or latency-based HFT capability is asserted.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/tradeHistory/0x4b0eab9444a75a03f1ef340c8beac737afa5ab09
+    #: - https://api.hyperliquid.xyz/info
+    "0x4b0eab9444a75a03f1ef340c8beac737afa5ab09": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+    },
+    #: Vaults: FuturAI Labs - High Sharpe, Low Volatility and Medium Volatility.
+    #: Added: 2026-11-09. Both use the official site's automated mean-reversion
+    #: engine. vaultDetails specifies long-only exposure and maximum leverage
+    #: of 1.5x and 2x respectively. Do not transfer Sigma 7's market-neutral
+    #: liquidity provision strategy from the website to these native vaults.
+    #: Updated: 2026-11-09. The maintainer requested high-frequency, high-win-rate
+    #: classification; no measured win rate or latency-based HFT is asserted.
+    #: Sources:
+    #: - https://www.futurailabs.xyz/#strategy
+    #: - https://www.futurailabs.xyz/app.js?v=10
+    #: - https://api.hyperliquid.xyz/info (vaultDetails for each address)
+    "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.mean_reversion,
+        StrategyTag.directional_trading,
+    },
+    "0x53375ca9a649f337d83d0834fec0db97640a2a06": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.mean_reversion,
+        StrategyTag.directional_trading,
+    },
+    #: Vault: Breaking (closed), operated by the same FuturAI Labs leader.
+    #: Added: 2026-11-09. Its vaultDetails describes catching breakouts on daily
+    #: timeframes. This supports directional trend trading, but does not
+    #: establish automation or the branded vaults' mean-reversion strategy.
+    #: Sources:
+    #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    #: - https://api.hyperliquid.xyz/info (vaultDetails)
+    "0xbefed76a71682b1dc48cca5a10f397cbc492a216": {
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault
@@ -141,10 +204,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-10-26.
     #: Decision material: Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
+    #: Updated: 2026-11-09. Maintainer assigned Bitcoin-only trading; the
+    #: current Hyperliquid vaultDetails response confirms this vault identity.
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
-    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only},
     #: Vault: Gen Wealth Algo.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -304,13 +370,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: go long assets with low inflation or unlocks and short assets with high
     #: inflation or unlocks. This explicitly supports grid-trading and
     #: directional long/short classifications.
+    #: Updated: 2026-11-06. User-requested high-frequency, high-win-rate
+    #: classification, with its required algorithmic-trading parent. The
+    #: published description confirms the grid mandate, not a measured win rate.
     #: Sources:
-    #: - http://100.103.237.120:5182/vaults/systemic-strategies-l-s-grids
+    #: - https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids?period=max
     #: - https://app.hyperliquid.xyz/vaults/0x07fd993f0fa3a185f7207adccd29f7a87404689d
     #: - https://api.hyperliquid.xyz/info
     "0x07fd993f0fa3a185f7207adccd29f7a87404689d": {
+        StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.high_frequency_high_win_rate,
     },
     #: Vault: wmm.club | grid-hype-long-2x.
     #: Added: 2026-08-18.
@@ -334,10 +405,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: mean reversion to accumulate on pullbacks and take profit on reversion.
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
+    #: Updated: 2026-11-10. Maintainer explicitly requested sentiment trading.
+    #: This is a manual classification: the current website and DDQ describe
+    #: purely technical inputs without news-driven or narrative signals, so
+    #: those publications do not substantiate sentiment-based trading.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
     #: - https://x.com/StratwiseAI/status/2090441910762553405
     #: - https://stratwise.ai/
+    #: - https://stratwise.ai/ddq
+    #: - https://stratwise.ai/research
     #: - eth_defi/data/feeds/curators/stratwise.yaml
     "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
         StrategyTag.algorithmic_trading,
@@ -345,6 +422,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
+        StrategyTag.sentiment_trading,
     },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.

@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import runpy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
-from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -39,6 +40,91 @@ EDGE_ULTRAYIELD = VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751")
 THREEJANE_TRANCHES = (VaultSpec(1, "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc"), VaultSpec(1, "0xf689555121e529ff0463e191f9bd9d1e496164a7"))
 
 
+#: Peapods deployments required by migration 036.
+PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
+
+
+#: Euler deployment required by migration 040.
+K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
+
+#: Reviewed underlying identities for the fixed valuation-warning migration.
+VALUATION_TARGETS = runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/049-reviewed-vault-valuations.py"))["TARGETS"]
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_reviewed_valuation_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Persist exclusions and non-blacklisting reviews without touching other data.
+
+    Exercise preview isolation, preservation of existing warnings and cached
+    fields, case-insensitive underlying matching and apply idempotence.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain an in-memory preview.
+    :return: ``None`` after verifying staged and persisted classifications.
+    """
+    rows = {spec: {"Protocol": "ERC-4626", "_denomination_token": {"address": asset.upper()}, "_flags": {VaultFlag.deposit}, "_notes": "Old note", "custom": 123} for spec, asset in VALUATION_TARGETS}
+    other = VaultSpec(8453, VALUATION_TARGETS[0][0].vault_address)
+    rows[other] = {"_notes": "Preserve unrelated chain", "custom": 456}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 49)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    updated = context.metadata().rows
+    reviews = {"0x182b06a514c29d07384838883efc02c8f0431b42", "0x7437ac81457fa98ffb2d0c8f9943ecfe4813e2f1"}
+    assert len(VALUATION_TARGETS) == 11
+    for spec, _ in VALUATION_TARGETS:
+        expected = VaultFlag.review_needed if spec.vault_address in reviews else VaultFlag.misleading_valuation
+        assert updated[spec]["_flags"] == {VaultFlag.deposit, expected}
+        assert bool(updated[spec]["_flags"] & BAD_FLAGS) == (spec.vault_address not in reviews)
+        assert updated[spec]["_notes"] == get_notes(spec.vault_address, chain_id=spec.chain_id)
+        assert {key: value for key, value in updated[spec].items() if key not in {"_flags", "_notes"}} == {key: value for key, value in rows[spec].items() if key not in {"_flags", "_notes"}}
+    assert updated[other] == rows[other]
+    assert context.other_data["changed_rows"] == 11
+    assert context.other_data["updated_fields"] == 22
+    if dry_run:
+        assert path.read_bytes() == original
+    else:
+        assert VaultDatabase.read(path).rows == updated
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+        assert repeated.other_data["updated_fields"] == 0
+
+
+@pytest.mark.parametrize("problem", ["missing", "wrong_address", "missing_token", "null_address"])
+def test_reviewed_valuation_refresh_rejects_conflicting_inventory(tmp_path: Path, problem: str) -> None:
+    """Validate the complete inventory before changing any staged row.
+
+    A missing final deployment or conflicting underlying must fail without
+    partially updating earlier targets or their persisted metadata.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param problem: Missing target, conflicting address or malformed token data.
+    :return: ``None`` after verifying validation and unchanged data.
+    """
+    rows = {spec: {"_denomination_token": {"address": asset}} for spec, asset in VALUATION_TARGETS}
+    last = VALUATION_TARGETS[-1][0]
+    if problem == "missing":
+        del rows[last]
+    elif problem == "wrong_address":
+        rows[last]["_denomination_token"]["address"] = "0x0000000000000000000000000000000000000001"
+    elif problem == "missing_token":
+        rows[last]["_denomination_token"] = None
+    else:
+        rows[last]["_denomination_token"]["address"] = None
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 49)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    with pytest.raises(ValueError, match="missing|Unexpected underlying"):
+        runner._execute(migration, context)
+    assert context.metadata().rows == rows
+    assert path.read_bytes() == original
+
+
 def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection:
     """Build stable discovery evidence for scanner compatibility assertions.
 
@@ -49,12 +135,75 @@ def detection(spec: VaultSpec, feature: ERC4626Feature) -> ERC4262VaultDetection
     return ERC4262VaultDetection(spec.chain_id, spec.vault_address, 42, datetime.datetime(2026, 9, 1), {feature}, datetime.datetime(2026, 10, 1), 27, 1)
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_systemic_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Refresh only the reviewed native row and preserve preview isolation.
+
+    Exercise persistence and idempotence without RPC access, including a
+    same-address EVM row outside the synthetic Hypercore chain.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain in memory.
+    :return: ``None`` after checking the staged and persisted rows.
+    """
+    target = VaultSpec(9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d")
+    other_chain = VaultSpec(999, target.vault_address)
+    old_tags = {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.perpetual_futures}
+    original_row = {"Protocol": "Hyperliquid", "_strategy_tags": old_tags, "_notes": "Preserve notes", "_detection_data": detection(target, ERC4626Feature.hypercore_native)}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={target: original_row, other_chain: {"_strategy_tags": old_tags}}).write(path)
+    original_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 41)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}}
+    assert context.metadata().rows[target] == expected_row
+    assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
+    assert context.other_data["changed_rows"] == 1
+    if dry_run:
+        assert path.read_bytes() == original_bytes
+    else:
+        assert VaultDatabase.read(path).rows[target] == expected_row
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_systemic_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> None:
+    """Report an absent target and reject conflicting detection without writes.
+
+    The migration must not invent a missing vault or reclassify an EVM row.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param missing: Whether the target is absent rather than misclassified.
+    :return: ``None`` after checking the report or validation error.
+    """
+    target = VaultSpec(9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d")
+    rows = {} if missing else {target: {"_detection_data": detection(target, ERC4626Feature.threejane_like)}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 41)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    if missing:
+        runner._execute(migration, context)
+        assert context.other_data["missing_specs"] == [target.as_string_id()]
+        assert context.other_data["changed_rows"] == 0
+    else:
+        with pytest.raises(ValueError, match="not a native Hyperliquid vault"):
+            runner._execute(migration, context)
+    assert path.read_bytes() == original
+
+
 @pytest.fixture
 def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create reviewed inventories and unrelated records without real provider calls."""
     monkeypatch.delenv("VAULT_DB", raising=False)
     monkeypatch.delenv("VAULT_DB_PATH", raising=False)
     rows = {VaultSpec(chain, address): {"Protocol": "Gains Network", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.gains_like)} for chain, address in REVIEWED_GAINS_VAULTS}
+    for spec, asset in VALUATION_TARGETS:
+        rows[spec] = {"Protocol": "ERC-4626", "_denomination_token": {"address": asset}}
     rows[NOVA] = {"Protocol": "Gains Network", "_detection_data": detection(NOVA, ERC4626Feature.gains_like), "_manager_name": "Preserve manager", "NAV": 123}
     rows[FT] = {"Protocol": "ERC-4626", "_detection_data": detection(FT, ERC4626Feature.flying_tulip_like), "manual_enrichment": "keep", "_external_reward_token": "stale"}
     for chain, address in ALPHAPING_VAULT_METADATA:
@@ -62,6 +211,9 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    for spec in PEAPODS_USDC:
+        rows[spec] = {"Protocol": "Peapods", "_flags": {VaultFlag.paused}, "_notes": "old"}
+    rows[K3_CLUSTER] = {"Protocol": "Euler", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
     for tranche in THREEJANE_TRANCHES:
         rows[tranche] = {"Protocol": "3Jane", "_detection_data": detection(tranche, ERC4626Feature.threejane_like), "_strategy_tags": None}
@@ -106,10 +258,11 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     provider = Mock()
     provider.eth.chain_id = 8453
     provider.eth.block_number = 123
-    provider.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
+    provider.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + ("f0207407beb82902186321e3dd84a7050add275a" if address.lower() == "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd" else "e79184763b27fa8bb0eb2d6af1f0123d43af0e89"))
     contract = Mock()
     contract.functions.asset.return_value.call.return_value = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
     contract.functions.feesOn.return_value.call.return_value = False
+    contract.functions.vaultManager.return_value.call.return_value = "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd"
     monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: provider)
     monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))
@@ -144,12 +297,17 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
         autopilot = database.rows[VaultSpec(chain_id, address)]
         assert autopilot["_description"] == NEUTRAL_AUTOPILOT_VAULT_METADATA[chain_id, address].description
         assert autopilot["_notes"] == NEUTRAL_AUTOPILOT_NOTE
-        assert autopilot["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral}
+        assert autopilot["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral, StrategyTag.arbitrage, StrategyTag.funding_rate_arbitrage, StrategyTag.market_making, StrategyTag.perpetual_futures, StrategyTag.options, StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.trend_following}
         assert autopilot["_manager_name"] == "Existing attribution"
     assert database.rows[WRAPPED]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[WRAPPED]["_notes"] == get_notes(WRAPPED.vault_address, chain_id=999, protocol_name="Hyperlend")
     assert database.rows[EDGE_ULTRAYIELD]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
     assert database.rows[EDGE_ULTRAYIELD]["_notes"] == "EDGE UltraYield USDC is illiquid."
+    assert database.rows[K3_CLUSTER]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
+    assert database.rows[K3_CLUSTER]["_notes"] == "This vault is illiquid."
+    for spec in PEAPODS_USDC:
+        assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
+        assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
     for tranche in THREEJANE_TRANCHES:
         assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()
@@ -179,7 +337,7 @@ def test_nova_reader_retains_existing_cursor() -> None:
     assert reader.reader_state.last_block == 518876926
 
 
-@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED)])
+@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), *((36, spec) for spec in PEAPODS_USDC)])
 def test_missing_required_single_target_fails(batch_database: Path, tmp_path: Path, number: int, target: VaultSpec) -> None:
     """Absent reviewed targets remain pending instead of being marked complete."""
     path = batch_database / "vault-metadata-db.pickle"
@@ -252,3 +410,70 @@ def test_empty_arcadia_inventory_is_noop(tmp_path: Path) -> None:
     assert context.other_data["changed_rows"] == 0
     assert context.other_data["chains"] == []
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_hibachi_grvt_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
+    """Refresh only the reviewed native row and preserve preview isolation.
+
+    Exercise persistence and idempotence without RPC access, including a
+    same-address EVM row outside the synthetic Hibachi chain.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the repair must remain in memory.
+    :return: ``None`` after checking the staged and persisted rows.
+    """
+    target = VaultSpec(9997, "hibachi-vault-4")
+    other_chain = VaultSpec(999, target.vault_address)
+    old_tags = {StrategyTag.perpetual_futures}
+    original_row = {"Protocol": "Hibachi", "_strategy_tags": old_tags, "_notes": "Preserve notes", "_detection_data": detection(target, ERC4626Feature.hibachi_native)}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={target: original_row, other_chain: {"_strategy_tags": old_tags}}).write(path)
+    credit = VaultSpec(325, "vlt:3eexdzmz72tqcinpbu4f4i0dm2z")
+    db = VaultDatabase.read(path)
+    db.rows[credit] = {"_strategy_tags": {StrategyTag.perpetual_futures, StrategyTag.arbitrage}, "_detection_data": detection(credit, ERC4626Feature.grvt_native)}
+    db.write(path)
+    original_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 48)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider}}
+    assert context.metadata().rows[target] == expected_row
+    assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
+    assert context.other_data["changed_rows"] == 2
+    assert len(context.other_data["missing_specs"]) == 31
+    assert context.metadata().rows[credit]["_strategy_tags"] == {StrategyTag.discretionary_trading, StrategyTag.rwa, StrategyTag.rwa_credit}
+    if dry_run:
+        assert path.read_bytes() == original_bytes
+    else:
+        assert VaultDatabase.read(path).rows[target] == expected_row
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_hibachi_grvt_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> None:
+    """Report an absent target and reject conflicting detection without writes.
+
+    The migration must not invent a missing vault or reclassify an EVM row.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param missing: Whether the target is absent rather than misclassified.
+    :return: ``None`` after checking the report or validation error.
+    """
+    target = VaultSpec(9997, "hibachi-vault-4")
+    rows = {} if missing else {target: {"_detection_data": detection(target, ERC4626Feature.threejane_like)}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 48)
+    context = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    if missing:
+        runner._execute(migration, context)
+        assert len(context.other_data["missing_specs"]) == 33
+        assert context.other_data["changed_rows"] == 0
+    else:
+        with pytest.raises(ValueError, match="not a Hibachi/GRVT vault"):
+            runner._execute(migration, context)
+    assert path.read_bytes() == original

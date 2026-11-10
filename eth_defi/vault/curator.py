@@ -292,12 +292,15 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 #: ``"Gamma Strategies"`` not ``"Gamma"`` (which would match
 #: ``"GammaSwap V1"``).
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
+    # Verified Tauri product name omits the organisation's Credit suffix.
+    "travessia-credit": ["Travessia Tauri"],
     # Retain the historical label without claiming every Waterline-branded
     # deployment (for example the unreviewed Avalanche Waterline USDe vault).
     "waterline-rusd": ["Waterline RUSD"],
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
+    "vectis-finance": ["Vectis UltraX"],
     "avantgarde-finance": ["Avantgarde"],
     "fisher8-capital": ["Fisher8"],
     "ignight-capital": ["Ignight"],
@@ -459,6 +462,16 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: FuturAI Labs on Hypercore, reviewed 2026-11-09. The official website
+    #: publishes both branded vaults; vaultDetails and the full vault inventory
+    #: confirm their shared leader 0x92f33bee92dd86db292e3bc8500ffc5619d50430
+    #: also operates the closed Breaking vault. Exact identities survive renames.
+    #: https://www.futurailabs.xyz/app.js?v=10
+    #: https://api.hyperliquid.xyz/info (vaultDetails)
+    #: https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    (9999, "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003"): "futurai-labs",
+    (9999, "0x53375ca9a649f337d83d0834fec0db97640a2a06"): "futurai-labs",
+    (9999, "0xbefed76a71682b1dc48cca5a10f397cbc492a216"): "futurai-labs",
     #: Passivbot Canon on Hypercore (9999), reviewed 2026-11-01.
     #: The project's README identifies this exact address as its reference
     #: long-only configuration. The public vaultDetails response confirms
@@ -515,9 +528,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: ARCHITECT Global Value (8453), reviewed 2026-10-21.
     #: https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7
     (8453, "0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7"): "architect",
-    #: Birch Hill RWA USDC (8453), reviewed 2026-10-21.
+    #: Birch Hill Groma Ecosystem USDC (8453), formerly RWA USDC.
     #: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
     (8453, "0xb038cf3e233b78225f6d350ac8319bec8457db4a"): "birch-hill",
+    #: Birch Hill RWA USDC Flagship (8453), reviewed 2026-11-06.
+    #: https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/6.-technical-appendix
+    (8453, "0xa5afd3a598ef000a5edd96ed65929ac7a6feea39"): "birch-hill",
     #: Saturn USDC (143), reviewed 2026-10-21.
     #: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079
     (143, "0x75753e494e5e374c52e1d84fc04eb14b10f2c079"): "hyperithm",

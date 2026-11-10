@@ -23,8 +23,7 @@ from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.tags import lookup_erc4626_strategy_tags
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
-from eth_defi.erc_4626.vault_protocol.accountable.tags import MONAD_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.accountable.tags import STRATEGY_TAGS as ACCOUNTABLE_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.accountable.tags import get_strategy_tags as get_accountable_strategy_tags
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.autopool.tags import STRATEGY_TAGS as AUTOPOOL_STRATEGY_TAGS
@@ -52,6 +51,7 @@ from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STR
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS as VERANTA_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.yearn.tags import get_strategy_tags as get_yearn_strategy_tags
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
 from eth_defi.gmx.tags import STRATEGY_TAGS as GMX_STRATEGY_TAGS
 from eth_defi.grvt.tags import get_strategy_tags as get_grvt_strategy_tags
@@ -430,10 +430,16 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         return (lagoon_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     if evm_feature == ERC4626Feature.accountable_like:
-        accountable_tags = lookup_strategy_tags(ACCOUNTABLE_STRATEGY_TAGS, spec.vault_address) if spec.chain_id == MONAD_CHAIN_ID else None
+        accountable_tags = get_accountable_strategy_tags(spec.chain_id, spec.vault_address)
         if accountable_tags is None and curator_tags is None:
             return None
         return (accountable_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
+
+    if evm_feature == ERC4626Feature.yearn_v3_like:
+        yearn_tags = get_yearn_strategy_tags(spec.chain_id, spec.vault_address) or lookup_erc4626_strategy_tags(spec.chain_id, spec.vault_address)
+        if yearn_tags is None and curator_tags is None:
+            return None
+        return (yearn_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
     if evm_resolver is None:

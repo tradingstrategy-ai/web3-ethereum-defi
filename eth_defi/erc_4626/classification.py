@@ -28,6 +28,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinShare
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_PRODUCTS
+from eth_defi.erc_4626.vault_protocol.k3.constants import K3_VAULTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
@@ -350,6 +351,9 @@ VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_str
 #: the reviewed sFRAX and sfrxUSD deployments are routed by address.
 FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
 
+#: Reviewed current K3 wrappers. Chain matching is enforced before selection.
+K3_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.k3_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like} for chain, address in K3_VAULTS}
+
 #: Axis's reviewed vaults cannot be identified safely from a protocol-specific
 #: accessor. V2 implements ERC-7540 and ERC-7575; Plasma V1 implements neither.
 AXIS_HARDCODED_PROTOCOLS_BY_CHAIN = {
@@ -426,6 +430,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         return set(features) if features is not None else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
+
+    if normalised_address in K3_HARDCODED_PROTOCOLS:
+        return set(K3_HARDCODED_PROTOCOLS[normalised_address]) if (chain_id, normalised_address) in K3_VAULTS else None
 
     if chain_id is not None:
         if normalised_address in ODA_FACT_HARDCODED_PROTOCOLS:
@@ -2841,6 +2848,11 @@ def create_vault_instance(
 
         return FraxlendPairVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.k3_like in features:
+        from eth_defi.erc_4626.vault_protocol.k3.vault import K3Vault
+
+        return K3Vault(web3, spec, **kwargs)
+
     elif ERC4626Feature.axis_like in features:
         from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 
@@ -2940,6 +2952,7 @@ HARDCODED_PROTOCOLS = {
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
+    **K3_HARDCODED_PROTOCOLS,
     **AXIS_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
     **FLYING_TULIP_HARDCODED_PROTOCOLS,

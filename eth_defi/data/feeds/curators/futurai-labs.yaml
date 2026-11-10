@@ -1,0 +1,20 @@
+feeder-id: futurai-labs
+name: FuturAI Labs
+role: curator
+website: https://www.futurailabs.xyz
+short_description: FuturAI Labs operates automated Hyperliquid vaults that buy price dips and sell rebounds.
+long_description: |
+  [FuturAI Labs](https://www.futurailabs.xyz) develops automated crypto trading strategies.
+  Its [low-volatility](https://tradingstrategy.ai/vaults/futurai-labs-high-sharpe-low-volatility)
+  and [medium-volatility](https://tradingstrategy.ai/vaults/futurai-labs-high-sharpe-medium-volatility)
+  vaults on [Hyperliquid](https://hyperliquid.xyz) use the same quantitative engine, buying price dips and selling
+  rebounds as prices move back towards their historical averages.
+
+  FuturAI Labs also collaborates with [Volpex](https://www.volpex.io) and features its
+  [Sigma 7](https://www.sigma7.io) automated trading strategy.
+twitter: FuturAILabs
+other-links:
+  - title: FM - builder of FuturAI Labs and commentary on its trading strategies
+    url: https://x.com/FMChain_
+  - title: FuturAI Labs - official website and published vault addresses
+    url: https://www.futurailabs.xyz

@@ -1,6 +1,6 @@
 ## Run after merge
 
-Migration **036-lagoon-offchain-metadata.py** is a fill-only description repair for 22 exact chain/address pairs. Maximum change: 22 rows / 43 text fields. Strada USDC requires only its summary. Missing metadata rows are reported without creation; existing non-empty text, flags, curators and historical data are preserved. A provider discrepancy or rate limit fails the batch without committing partial results.
+Migration **059-lagoon-offchain-metadata.py** is a fill-only description repair for 22 exact chain/address pairs. Maximum change: 22 rows / 43 text fields. Strada USDC requires only its summary. Missing metadata rows are reported without creation; existing non-empty text, flags, curators and historical data are preserved. A provider discrepancy or rate limit fails the batch without committing partial results.
 
 Inspect `docker-compose.yml`, persistent mounts, the stamped image commit and the full pending migration batch before running. Build the merged image with `scripts/build-container.sh`. Stop the looped scanner and all competing metadata writers for both preview and apply. From `~/vault-scanner/web3-ethereum-defi`:
 
@@ -55,7 +55,7 @@ do not replace reviewing the full pending production migration batch.
 
 ## Strategy refresh in the same pending batch
 
-Migration **037-lagoon-strategy-tags.py** follows 036 and refreshes only
+Migration **060-lagoon-strategy-tags.py** follows 059 and refreshes only
 `_strategy_tags` for existing Lagoon rows with a maintained chain/address
 classification. It uses the shared resolver, including existing curator-level
 tags. Unmapped rows keep their persisted tags; missing or incompatible detection
@@ -68,14 +68,14 @@ coverage is 111/641 overall, 66/160 in the published feed and 58/58 in the curre
 public catalogue. This inventory includes test and historical deployments.
 
 Use the commands above for the **full pending batch**, reviewing the preview
-counts for both 036 and 037 before applying. Do not reuse migration 008 for this
+counts for both 059 and 060 before applying. Do not reuse migration 008 for this
 refresh. Following restart, check the exported strategy tags as well as the
 filled descriptions. No price backfill is required for a tag-only refresh.
 
 Strategy-refresh verification on 10 November 2026: the focused mapping,
 numbered-runner and shared-repair suite passed **224 tests**. A separate run on
 an isolated copy of the complete local metadata database previewed and applied
-037: **639 Lagoon rows inspected, 111 classified, 528 unresolved, 48 rows/fields
+060: **639 Lagoon rows inspected, 111 classified, 528 unresolved, 48 rows/fields
 changed**. Every changed field was `_strategy_tags`; all other row fields and
 scanner block state matched, and the original metadata file remained byte-for-byte
 unchanged. These are local snapshot results, not production counts.
@@ -94,7 +94,7 @@ Production migrations and uploads must be run separately after merge.
 
 On 10 November 2026, a further local cleanup removed repeated metadata reads
 from the description, summary and curator-name accessors, simplified curator
-parsing and legacy-cache expiry calculation, and replaced migration 037's
+parsing and legacy-cache expiry calculation, and replaced migration 060's
 resolver-label check with direct validation of the shared adapter priority.
 Native and higher-priority adapter detections fail before staging tag updates.
 The separate missing-detection error remains available for diagnosis.
@@ -104,7 +104,7 @@ and source behaviour. The API documentation distinguishes potentially refreshing
 standalone reads from the scanner's pinned row snapshot. Forced catalogue reads
 still respect failed-attempt deadlines; detail reads also respect shared provider
 backoff. No strategy assignments or migration scopes changed, so the pending
-036/037 batch still covers this implementation; no further migration is needed.
+059/060 batch still covers this implementation; no further migration is needed.
 
 The cleanup suite passed **364 tests, 1 existing skip**. After the final review
 corrections, the affected cache, accessor and migration checks passed **56 tests**.
@@ -119,3 +119,10 @@ that review. Ruff formatting, selected F/I checks and whitespace checks passed.
 No Sphinx build was run. No manually maintained public copy changed, so the prior
 writing-style review still applies. No production migration or upload was
 performed during this cleanup.
+
+Merge preparation renumbered the pending Lagoon scripts from 036/037 to
+**059/060**, because master already allocated counters through 058. No applied
+migration was renamed or edited. The historical snapshot results above refer
+to the same Lagoon transformations before renumbering. After merging master,
+the focused scanner, cache, strategy and numbered-runner suite passed
+**313 tests, 1 skipped**, including both newly numbered Lagoon migrations.

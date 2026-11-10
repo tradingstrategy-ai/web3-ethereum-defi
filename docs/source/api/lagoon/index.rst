@@ -58,7 +58,7 @@ next chain tick; chain failures, disabled scanning or operator overrides can
 extend it. The existing force-refresh path bypasses scanner scheduling, not API
 rate-limit deadlines. Price-only cycles do not update these metadata fields.
 
-Migration ``036-lagoon-offchain-metadata.py`` fills only missing descriptions for
+Migration ``059-lagoon-offchain-metadata.py`` fills only missing descriptions for
 22 reviewed deployments; it does not change flags, curator assignments or price
 history. Use the numbered migration runner and inspect all pending migrations.
 
@@ -75,7 +75,7 @@ call. Standalone reads may refresh catalogue or detail data over HTTP when due.
 The scanner pins an observation for the whole row, so its accessors share the
 same payload and membership result.
 
-Migration ``037-lagoon-strategy-tags.py`` validates classified rows against the
+Migration ``060-lagoon-strategy-tags.py`` validates classified rows against the
 shared adapter priority before collecting tag updates. Missing Lagoon detection,
 or detection selecting a native or earlier-priority adapter, fails the batch
 before any metadata is committed. Unmapped vaults retain their persisted tags.

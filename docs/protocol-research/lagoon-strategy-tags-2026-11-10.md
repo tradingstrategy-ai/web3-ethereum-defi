@@ -81,9 +81,9 @@ The deployment link opens the exact current API source. Each new/changed mapping
 
 ## Production refresh
 
-New numbered migration `037-lagoon-strategy-tags.py` refreshes only `_strategy_tags` for existing Lagoon rows with a maintained chain/address mapping, using the shared repair resolver (including existing curator tags). Unmapped rows retain their persisted tags. Known classified rows with incompatible/missing adapter detection fail before committing. The migration reports inspected/classified/unresolved rows and changed fields; it performs no network reads or inserts.
+New numbered migration `060-lagoon-strategy-tags.py` refreshes only `_strategy_tags` for existing Lagoon rows with a maintained chain/address mapping, using the shared repair resolver (including existing curator tags). Unmapped rows retain their persisted tags. Known classified rows with incompatible/missing adapter detection fail before committing. The migration reports inspected/classified/unresolved rows and changed fields; it performs no network reads or inserts.
 
-Use the **Run after merge** commands in [the metadata repair runbook](lagoon-metadata-repair-runbook-2026-11-10.md) for the full pending batch, including 036 and 037. Both preview and apply require the scanner and competing writers stopped. No production migration or upload was performed during authoring. The PR includes a Run after merge comment for this pending batch.
+Use the **Run after merge** commands in [the metadata repair runbook](lagoon-metadata-repair-runbook-2026-11-10.md) for the full pending batch, including 059 and 060. Both preview and apply require the scanner and competing writers stopped. No production migration or upload was performed during authoring. The PR includes a Run after merge comment for this pending batch.
 
 Prices, descriptions, flags, curator assignments, reader state and timestamp caches are preserved. Classification does not change eligibility, so no price backfill is needed. Public description writing review: not applicable to this tag-only change; engineering comments/report follow British English.
 

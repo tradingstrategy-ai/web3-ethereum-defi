@@ -16,7 +16,7 @@ from eth_defi.vault_protocols import migration as runner
 TARGET = VaultSpec(1, "0x16b85563902556d205f5c2b4485df3d26b153f96")
 STRADA = VaultSpec(1, "0xcb58582b0d52ce5feecb06ba9ce66598b0d57886")
 OTHER = VaultSpec(8453, TARGET.vault_address)
-SCRIPT = "036-lagoon-offchain-metadata.py"
+SCRIPT = "059-lagoon-offchain-metadata.py"
 
 
 @pytest.fixture

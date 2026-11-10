@@ -2,11 +2,16 @@
 
 import datetime
 import os
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
+from pytest_mock import MockerFixture
+
+import eth_defi.erc_4626.settlement_events as settlement_events
+import eth_defi.vault.flow_events as flow_events
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -133,6 +138,8 @@ def test_lagoon_fetch_settlement_events_from_hypersync_live_1000_blocks() -> Non
         start_block=start_block,
         end_block=end_block,
         use_hypersync=True,
+        hypersync_api_key=HYPERSYNC_API_KEY,
+        hypersync_timeout=90.0,
     )
 
     matching_rows = [row for row in rows if row.block_number == HUB_SETTLEMENT_BLOCK and row.tx_hash == HUB_SETTLEMENT_TX_HASH]
@@ -141,3 +148,54 @@ def test_lagoon_fetch_settlement_events_from_hypersync_live_1000_blocks() -> Non
     assert all(row.address.lower() == HUB_CAPITAL_USDC_VAULT for row in matching_rows)
     assert all(row.chain_id == 1 for row in matching_rows)
     assert all(row.timestamp == datetime.datetime(2026, 2, 2, 23, 21, 11) for row in matching_rows)
+    rpc_rows = fetch_lagoon_settlements(vault=vault, start_block=start_block, end_block=end_block, use_hypersync=False)
+    assert [(row.tx_hash, row.event_name, row.block_number, row.timestamp) for row in rows] == [(row.tx_hash, row.event_name, row.block_number, row.timestamp) for row in rpc_rows]
+
+
+def test_settlement_reader_requires_complete_indexer_coverage(mocker: MockerFixture) -> None:
+    """Accept an indexed empty range, but refuse lag or a truncated stream.
+
+    1. Mock the SDK to control height and exclusive stream progress.
+    2. Verify a complete empty read and explicit credential forwarding.
+    3. Reject partial coverage and an end block beyond indexed height.
+    """
+    # 1. Mock the SDK to control height and exclusive stream progress.
+    client = mocker.Mock()
+    client.get_height = mocker.AsyncMock(return_value=21)
+    configure = mocker.patch.object(settlement_events, "configure_hypersync_from_env", return_value=SimpleNamespace(hypersync_client=client))
+    receiver = mocker.AsyncMock()
+    page = SimpleNamespace(next_block=21, data=SimpleNamespace(logs=[], blocks=[]))
+    receiver.recv.side_effect = [page, None]
+    stream = mocker.patch.object(flow_events, "open_hypersync_stream", return_value=receiver)
+    kwargs = dict(web3=SimpleNamespace(eth=SimpleNamespace(chain_id=1)), address=HUB_CAPITAL_USDC_VAULT, topic0_list=[SETTLE_DEPOSIT_TOPIC], start_block=10, end_block=20, use_hypersync=True, hypersync_api_key="explicit-key")
+
+    # 2. Verify a complete empty read and explicit credential forwarding.
+    assert settlement_events.fetch_vault_settlement_logs(**kwargs) == []
+    assert configure.call_args.kwargs["hypersync_api_key"] == "explicit-key"
+    receiver.close.assert_awaited_once()
+
+    # 3. Reject partial coverage and an end block beyond indexed height.
+    receiver.recv.side_effect = [SimpleNamespace(next_block=15, data=SimpleNamespace(logs=[], blocks=[])), None]
+    with pytest.raises(RuntimeError, match="Incomplete"):
+        settlement_events.fetch_vault_settlement_logs(**kwargs)
+    client.get_height.return_value = 19
+    stream.reset_mock()
+    with pytest.raises(RuntimeError, match="has not indexed"):
+        settlement_events.fetch_vault_settlement_logs(**kwargs)
+    stream.assert_not_called()
+
+    # Library callers retain native retry defaults and no whole-read deadline.
+    client.get_height.return_value = 21
+    receiver.recv.side_effect = [page, None]
+    mocker.patch.dict("os.environ", {"HYPERSYNC_API_KEY": "legacy-test-key"})
+    native = mocker.patch.object(settlement_events.hypersync, "HypersyncClient", return_value=client)
+    configure.reset_mock()
+    assert settlement_events.fetch_vault_settlement_logs(**(kwargs | {"hypersync_api_key": None})) == []
+    assert native.call_args.args[0].max_num_retries is None
+    configure.assert_not_called()
+
+    # Auto-selection respects an existing RPC backend preference.
+    mocker.patch.dict("os.environ", {"SCAN_BACKEND": "rpc"})
+    rpc = mocker.patch.object(settlement_events, "fetch_vault_settlement_logs_rpc", return_value=[])
+    assert settlement_events.fetch_vault_settlement_logs(**(kwargs | {"use_hypersync": None})) == []
+    rpc.assert_called_once()

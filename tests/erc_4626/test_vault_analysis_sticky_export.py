@@ -14,6 +14,7 @@ import pytest
 
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.version_info import VersionInfo
 
@@ -268,10 +269,12 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
-    #: This maintainer-requested category includes a second sentence explaining
-    #: the drawdown risk alongside its trading activity.
-    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate]
-    assert all(description.count(".") == 1 for description in short_descriptions)
+    #: These maintainer-requested categories include fuller risk explanations;
+    #: risk-premium harvesting also links to a concrete vault example.
+    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest}
+    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
+    #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
+    assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
     assert all(len(description) <= max_description_length for description in short_descriptions)
     descriptions = descriptions_by_tag.values()
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
@@ -302,6 +305,28 @@ def test_high_frequency_high_win_rate_category_export(has_vault: bool) -> None:
         "tvl_usd": 100.0 if has_vault else 0.0,
         "one_month_apy": None,
     }
+
+
+@pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
+def test_risk_premium_harvest_category_export(has_vault: bool) -> None:
+    """Preserve the category explanation and linked example in JSON exports.
+
+    The category must be published before a tagged vault qualifies for the
+    export, and its count must reflect participating vaults once present.
+
+    :param has_vault: Whether an eligible record carries the new category.
+    :return: ``None`` after checking serialisation and category aggregation.
+    """
+    tag = StrategyTag("risk_premium_harvest")
+    vaults = [{"strategy_tags": [tag.value], "current_nav": 100.0}] if has_vault else []
+    categories = json.loads(json.dumps(top_vaults_json.build_strategy_categories_for_export(vaults)))
+    category = categories[tag.value]
+    assert category["label"] == "Risk premium harvesting"
+    assert category["description"] == STRATEGY_TAG_METADATA[tag]["description"]
+    assert "https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042" in category["description"]
+    assert category["one_month_apy"] is None
+    assert category["vault_count"] == int(has_vault)
+    assert category["tvl_usd"] == (100.0 if has_vault else 0.0)
 
 
 def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -374,6 +399,33 @@ def test_sticky_export_shortens_fresh_and_stored_summaries(*, use_fallback: bool
     assert result.vaults[0]["description"] == "Full strategy.\n\nKeep every sentence."
     assert result.vaults[0]["short_description"] == "Earn 4.5% in money markets."
     assert result.vaults[0]["notes"] == "Preserved\nnotes."
+
+
+def test_systemic_descriptions_survive_public_export() -> None:
+    """Publish the individual vault's Markdown and one-sentence listing copy.
+
+    Exercise the final export path separately from the native row builder so
+    normal publication cannot truncate the maintained long description.
+
+    :return: ``None`` after checking the JSON serialised vault record.
+    """
+    address = "0x07fd993f0fa3a185f7207adccd29f7a87404689d"
+    metadata = get_handwritten_vault_metadata(9999, address)
+    assert metadata is not None
+    row = make_metrics_row(chain_id=9999, address=address, name=metadata.name)
+    row.update(description=metadata.description, short_description=metadata.short_description)
+    now = datetime.datetime(2026, 11, 6)
+    result = top_vaults_json.apply_sticky_export_state(
+        make_lifetime_df(row),
+        top_vaults_json.make_empty_sticky_export_state(now),
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+    exported = json.loads(json.dumps(result.vaults))[0]
+    assert exported["description"] == metadata.description
+    assert exported["short_description"] == metadata.short_description
+    assert exported["address"].lower() == address
 
 
 def test_sticky_export_first_qualification_creates_state():

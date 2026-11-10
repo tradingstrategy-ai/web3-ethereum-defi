@@ -50,12 +50,13 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> Mock:
     web3 = Mock()
     web3.eth.chain_id = 8453
     web3.eth.block_number = 123
-    web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
+    web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + ("f0207407beb82902186321e3dd84a7050add275a" if address.lower() == "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd" else "e79184763b27fa8bb0eb2d6af1f0123d43af0e89"))
     contract = Mock()
     contract.functions.asset.return_value.call.return_value = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
     contract.functions.feesOn.return_value.call.return_value = True
     contract.functions.balancingFee.return_value.call.return_value = 0
     contract.functions.collateralHealthFee.return_value.call.return_value = 500
+    contract.functions.vaultManager.return_value.call.return_value = "0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd"
     web3.eth.contract.return_value = contract
     monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: web3)
@@ -123,6 +124,7 @@ def test_veranta_unknown_admission_leaves_database_unchanged(database: VaultData
     :return: None; the original database remains equal to its deep copy.
     """
     original = copy.deepcopy(database.rows)
+    provider.eth.get_storage_at.side_effect = None
     provider.eth.get_storage_at.return_value = bytes(32)
     with pytest.raises(ValueError, match="admission could not be established"):
         veranta.refresh_veranta_metadata(database, provider)

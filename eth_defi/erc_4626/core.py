@@ -843,6 +843,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.axis.to/susdx-the-rewards-vault/susdx
     axis_like = "axis_like"
 
+    #: K3 epoch-staged vaults: https://github.com/K3-Capital/k3-vault-contracts
+    k3_like = "k3_like"
+
     #: Hyperdrive (HyperEVM)
     #:
     #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
@@ -1482,6 +1485,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
+
+    elif ERC4626Feature.k3_like in features:
+        return "K3"
 
     elif ERC4626Feature.axis_like in features:
         return "Axis"

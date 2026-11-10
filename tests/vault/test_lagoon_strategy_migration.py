@@ -15,7 +15,7 @@ from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
-SCRIPT = "037-lagoon-strategy-tags.py"
+SCRIPT = "060-lagoon-strategy-tags.py"
 TARGET = VaultSpec(1, "0xbb211be8664128e30c6adcd5998eca9592be272f")
 NEW = VaultSpec(1, "0x5f9efcc03b95609346798596494cf9dbaf176312")
 UNKNOWN = VaultSpec(1, "0x0000000000000000000000000000000000000123")

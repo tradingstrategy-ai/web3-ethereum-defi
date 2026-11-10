@@ -2,7 +2,30 @@
 
 - fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
 - fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).
+- feat: Add limUSD classification, verified multichain metadata, news feed and artwork, plus researched RockawayX Liminal USDC vault descriptions and a targeted lending-tag refresh (2026-11-10, [#1755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1755)).
+- feat: Add K3 vault classification and offchain metadata for five reviewed deployments on Ethereum, Arc, Base and Monad, plus the `risk_premium_harvest` strategy category with K3 cirBTC as a documented example (2026-11-10).
+- fix: Publish reviewed zero management/performance fees and a fixed 0.5% withdrawal reference for Veranta avUSDC, explain that actual withdrawal fees are dynamic, and add a targeted fee and description refresh (2026-11-09, [#1752](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1752)).
+- feat: Add the Bitcoin-only strategy category for Bunny and BitRocket, and classify Bunny as high-frequency, high-win-rate trading (2026-11-09).
+
+- fix: Classify both FuturAI Labs branded Hyperliquid vaults as high-frequency, high-win-rate trading and refresh their persisted strategy tags (2026-11-09).
+
+- feat: Add FuturAI Labs curator metadata, partner links and logo, attribute its three Hyperliquid vaults and classify their trading strategies (2026-11-09).
+
+- fix: Unblock Travessia migration 043 by deferring the Polygon BRZ vault with generic ERC-7540 detection, preserving its metadata while refreshing the six Accountable-classified vaults (2026-11-09).
+
+- feat: Add Vectis Finance curator metadata and logo, attribute UltraX Arb and classify its automated funding-rate arbitrage strategy (2026-11-09).
+
+- feat: Add Travessia Credit curator descriptions and logos, classify seven Tauri vaults as real-world credit and lending, and require specific business details in public descriptions (2026-11-09).
+
+- feat: Publish researched Birch Hill curator and individual vault descriptions, attribute and tag the Flagship's real-world lending strategy, classify its verified deposit whitelist hook, and require Trading Strategy destinations for public vault links (2026-11-06).
+
+- fix: Price HyperEVM transactions from the latest small block with `fetch_small_block_base_fee()`, because `estimate_gas_price()` could read a big block's 0.1 gwei base fee from `latest`, which left a Lagoon settlement unmined for 96 minutes and stopped a live executor, and document how `eth_gasPrice` differs between RPC providers, and add `chain_id` and `block_type` arguments with `BlockType` and `fetch_big_block_gas_price()` (2026-11-06, [#1737](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1737)).
+- feat: Read Lighter payouts with HyperSync and an RPC tail, retry failed indexer reads with RPC, and verify Lagoon settlement stream completion with explicit credentials and optional whole-read timeouts (2026-11-06).
+
 - feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
+- fix: Type GMX preflight gas refusals as a lower-preflight refusal with zero fill and no transaction, so Freqtrade never latches them as a possibly-submitted order and retries the exit normally (2026-11-06).
+- fix: Resolve synthetic GMX market ids (`HYPE2`, `XRP2`, `ZEC2`, `NEAR2`) to their underlying token symbol through the index token address for `/prices/candles` and `/prices/tickers`, which returned HTTP 400 for the market id, and tolerate a degraded `/tokens` payload (2026-11-06).
+- test: Record that the GMX Freqtrade patched entrypoint imports and installs the async GMX bridge on freqtrade 2026.9 and CCXT 4.5.84 (2026-10-01).
 - feat: Print a final migration batch summary for preview and apply, showing completed, skipped, failed and unattempted migrations with reported row and field counts (2026-11-05).
 - fix: Recognise Lighter withdrawals paid by its relayer with `wait_for_lighter_withdrawal()`, `is_lighter_withdrawal_paid()` and `fetch_lighter_claimed_usdc()`, return `completed` rows from `wait_for_claimable_withdrawal()`, explain that an empty master gets `21129 too many sub accounts`, and document Lighter's sub-account limits (2026-11-05).
 - fix: Give every Lighter API call exponential backoff with `LighterSDKSession` for the official SDK and `create_lighter_submission_session()` for persisted transactions, treat HTTP 405 as a rate limit, let sub-account creation wait out the 2-per-minute limit that stopped a four-sub-account deployment, and remove the unused `api_url` argument of `create_lighter_sub_accounts()` and `api_key_index` of `request_lighter_transfer()` (2026-11-05).

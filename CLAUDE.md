@@ -153,6 +153,23 @@ contract state. No provider offers arbitrary-depth historical state; see the
   the current provider cannot reconstruct them. Monad fork and historical tests
   must use current-state or state-relative assertions.
 
+### HyperEVM
+
+HyperEVM (chain IDs 999 and 998) interleaves small and large blocks with
+independent mempools and base fees, see the
+[dual-block architecture documentation](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture).
+The sender's `usingBigBlocks` flag selects the mempool, not the gas limit.
+
+- Check the block type before pricing from `latest`: it can be a large block
+  in a different fee market. Use `estimate_gas_price()`, which takes the block
+  type as `block_type`. web3.py's default fee filler does not make this check.
+- Do not rely on `eth_gasPrice`, as its meaning depends on the provider. See
+  the measurements in `estimate_gas_price()`.
+- Anvil forks keep chain ID 999 but have one fee market, and their blocks can
+  have a 30M gas limit, so do not apply these rules to a fork.
+- Use the block `gasLimit` to tell the two apart: 30M for large blocks. On
+  5 November 2026 small blocks had a 3M limit.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.

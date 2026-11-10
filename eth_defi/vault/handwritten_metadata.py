@@ -32,7 +32,7 @@ class HandwrittenVaultMetadata:
     #: ``docs/README-vault-description-formatting.md``.
     description: str
 
-    #: Canonical vault or manager-maintained product page.
+    #: Public vault page URL; use Trading Strategy unless explicitly requested otherwise.
     link: str
 
 
@@ -138,6 +138,28 @@ ROCKSTEADY_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]
         short_description="Automated crypto futures strategy that mostly buys sharp dips and takes profit on rebounds.",
         description=("Agent RockSteady accepts USDC for a mean-reversion strategy run by [NuWealth.ai](https://nuwealth.ai/). It trades perpetual futures on Hyperliquid, contracts that follow cryptocurrency prices, using fixed rules rather than live AI decisions.\n\nNuWealth describes trading across **30 markets**, mostly buying sharp dips and taking profit when prices rebound, with occasional short positions that benefit from falling prices. Trades usually last hours, and the strategy aims for many small winning trades rather than a few large moves.\n\nThe vault has traded live since **4 February 2026**. Its [published vault details](https://nuwealth.ai/check) specify a **10% profit share** for the leader, with no management fee.\n\nEach deposit locks the depositor's whole vault position for **24 hours** before withdrawals are available. The leader must retain at least **5% of the vault's capital**; depositors can use Hyperliquid directly to withdraw without the NuWealth app."),
         link="https://tradingstrategy.ai/vaults/agent-rocksteady",
+    ),
+}
+
+
+#: Systemic Strategies L/S Grids on Hypercore (9999), reviewed on 2026-11-06.
+#:
+#: The live Hyperliquid vaultDetails response confirms the exact address, the
+#: low-inflation long/high-inflation short grid mandate and 10% commission.
+#: The operator's 3 November post describes exposure readjustments across its
+#: vaults, not this vault's numerical risk limits. Do not import HyperGrowth's
+#: HYPE-specific mandate or infer a verified win rate from the maintained tags.
+#: Source access, announcement context and evidence gaps:
+#: .claude/docs/systemic-strategies-vault-research.md
+#: https://api.hyperliquid.xyz/info
+#: https://x.com/SystemicStratHL/status/2117599240150987067
+#: https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids
+SYSTEMIC_STRATEGIES_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (9999, "0x07fd993f0fa3a185f7207adccd29f7a87404689d"): HandwrittenVaultMetadata(
+        name="[ Systemic Strategies ] L/S Grids",
+        short_description="Crypto futures grid trading that bets on tokens with low inflation or few unlocks and against tokens with higher inflation or unlocks.",
+        description=("Pools USDC to trade [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that follow cryptocurrency prices without an expiry date. The strategy combines **long positions in tokens with low supply inflation or few unlocks** with **short positions in tokens with higher inflation or unlocks**. Longs benefit from rising prices and shorts from falling prices; supply inflation creates new tokens, while unlocks release previously restricted tokens.\n\n#### How the strategy works\n\nGrid trading places buy and sell orders at different price levels, seeking to capture repeated price moves. The supply-based selection adds a directional view: returns depend on which tokens rise or fall as well as the trades made within each grid.\n\nHolding both longs and shorts does not ensure that their market exposures cancel out. Sustained price moves against open positions can produce large losses, even if many individual grid trades are profitable."),
+        link="https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids",
     ),
 }
 
@@ -606,10 +628,10 @@ VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetad
         name="Avantis USDC Vault",
         short_description="USDC supplied to back trading positions and earn a share of trading fees.",
         description=(
-            "Deposited USDC backs traders' positions in cryptocurrency, currency, commodity and index markets. "
-            "Depositors receive avUSDC tokens representing their share of the [pool](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc), "
-            "and earn a share of the fees paid by traders.\n\n"
-            "Idle USDC may also be placed in other investments to earn income. "
+            "Deposits back traders' positions in cryptocurrency, currency, commodity and index markets. "
+            "Depositors receive avUSDC tokens representing their share of the pool and earn "
+            "[trading fee income](https://docs.veranta.xyz/liquidity-providers/veranta-lp-vault-avusdc).\n\n"
+            "Idle capital may also be placed in other investments to earn income. "
             "The current investments, if any, have not been confirmed.\n\n"
             "#### Trading income\n\n"
             "- Vault depositors receive **70% of fees collected on opening, closing and profitable trades** under the "
@@ -622,10 +644,180 @@ VERANTA_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetad
             "Trader losses build a reserve used to pay trader profits before drawing on deposited capital. "
             "Depositors earn trading fees rather than receiving those losses directly, and **deposits can lose value** if the reserve runs out.\n\n"
             "Withdrawals depend on money being available in the pool and limits on how much capital can be removed while backing trading positions. "
-            "[Withdrawal charges](https://docs.veranta.xyz/liquidity-providers/risk-management) range from **0% to 2.5%**, "
-            "depending on the reserve available to cover trader profits, and reduce the USDC returned to depositors."
+            "The displayed withdrawal fee is **0.5%**. "
+            "The actual withdrawal fee is **dynamic** and follows the "
+            "[reserve-based fee schedule](https://docs.veranta.xyz/liquidity-providers/risk-management)."
         ),
-        link="https://www.avantisfi.com/earn",
+        link="https://tradingstrategy.ai/vaults/veranta-usdc-vault",
+    ),
+}
+
+
+#: Both publicly documented Birch Hill deployments on Base, reviewed 2026-11-06.
+#: Exact identities: each vault book's technical appendix / onchain references.
+#: The platform also shows unnamed coming-soon products without deployment addresses.
+BIRCH_HILL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (8453, HexAddress("0xb038cf3e233b78225f6d350ac8319bec8457db4a")): HandwrittenVaultMetadata(
+        name="Birch Hill Groma Ecosystem USDC",
+        short_description="USDC loans secured by tokenised shares in a residential property portfolio, earning interest from borrowers.",
+        description=(
+            "Deposited USDC funds loans to GromaCorp and verified holders of GRO, a token representing shares in GromaREIT's residential properties in Boston and Providence. "
+            "Borrowers pledge their GRO shares as security and pay interest, which increases the value of depositors' vault shares after fees. "
+            "The [vault book](https://docs.birchhill.io/vault-books/birch-hill-groma-ecosystem-usdc-vault) also describes a smaller allocation to loans secured by cbBTC, Coinbase's bitcoin-backed token, to help meet withdrawals.\n\n"
+            "#### Access and fees\n\n"
+            "**Direct deposits do not require identity verification**; the [October 2026 launch announcement](https://research.birchhill.io/p/introducing-birch-hill-ecosystem) distinguishes this from access through the operator's app, which requires identity checks. "
+            "The vault charges [**10% of investment gains**](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc) as a [performance fee](https://tradingstrategy.ai/glossary/performance-fee) and no management fee.\n\n"
+            "#### Withdrawals and losses\n\n"
+            "Withdrawals depend on USDC being available rather than lent out. "
+            "Most lending is secured by one issuer's property shares, so falling property values or insufficient recoveries from a default can reduce depositors' capital. "
+            "GRO shares have transfer restrictions and limited quarterly redemptions, which can delay recovery when loans are not repaid."
+        ),
+        link="https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc",
+    ),
+    (8453, HexAddress("0xa5afd3a598ef000a5edd96ed65929ac7a6feea39")): HandwrittenVaultMetadata(
+        name="Birch Hill RWA USDC",
+        short_description="USDC allocated to lending vaults backed by tokenised real-world assets, for verified accredited and institutional investors.",
+        description=(
+            "Deposited USDC is allocated to lending vaults that finance asset issuers and token holders. "
+            "The [investment mandate](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/1.-strategy-mandate) combines positions in Birch Hill Ecosystem vaults with uninvested USDC; borrowers' interest flows through those positions into the value of depositors' shares.\n\n"
+            "The [current platform](https://birchhill.io/platforms) identifies this as the Flagship allocation product advised by BH Digital Asset Management. "
+            "Its [Groma Ecosystem investment](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc) lends against GRO, shares in a residential property portfolio, with a smaller allocation to loans secured by cbBTC, Coinbase's bitcoin-backed token.\n\n"
+            "#### Access and fees\n\n"
+            "**Access is restricted to verified accredited and institutional investors.** "
+            "The [access requirements](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/4.-access-and-monitoring) include identity checks, investor eligibility verification and wallet screening, with approval checked before deposits and withdrawals. "
+            "The [published Flagship fee](https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/2.-structure-and-loan-flow) is **10% of interest earned**; underlying Ecosystem vaults also publish their own fees, so this figure should not be read as a combined cost.\n\n"
+            "#### Withdrawals and losses\n\n"
+            "Uninvested USDC and the underlying vaults' available funds support withdrawals between borrower repayments; access approval does not guarantee immediate liquidity. "
+            "Losses in the lending vaults reduce the value of this vault's shares, including shortfalls when assets pledged by defaulting borrowers cannot cover their debt."
+        ),
+        link="https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc-2",
+    ),
+}
+
+
+#: K3 wrappers reviewed against the official deployment registry.
+#: https://github.com/K3-Capital/k3-vault-contracts/tree/main/deployments
+K3_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (5042, "0x56fb80282bb565de67c196924dda0138e30323be"): HandwrittenVaultMetadata(
+        name="K3 cirBTC Vault",
+        short_description="Borrows USDC against cirBTC to fund lending and other permitted investments, aiming to earn more than the borrowing cost and pay the difference in cirBTC.",
+        description=(
+            "Deposited [cirBTC](https://www.circle.com/cirbtc), Circle's token backed one-for-one by bitcoin, "
+            "secures USDC loans used to fund income-producing investments. "
+            "It targets [returns paid in cirBTC](https://x.com/k3_capital/status/2119852350034895084) through a "
+            "[delta-neutral](https://tradingstrategy.ai/glossary/delta-neutral) approach, aiming to earn income without an additional bet on market direction. "
+            "**Depositors retain bitcoin price exposure**: both the deposit and any returns can lose dollar value.\n\n"
+            "#### How income is earned\n\n"
+            "The [borrowing strategy](https://x.com/k3_capital/status/2119852361879556335) uses cirBTC as "
+            "[collateral](https://tradingstrategy.ai/glossary/collateral), assets pledged to secure a loan, on Morpho or Aave. "
+            "Borrowed USDC funds investments whose income is intended to exceed the loan interest; the difference is converted into cirBTC. "
+            "The target health factor is **1.3**, a measure of the buffer between the pledged assets and the point at which lenders can sell them to repay debt.\n\n"
+            "The [investment mandate](https://x.com/k3_capital/status/2119852385367740877) permits borrowing only through separate markets, each with its own collateral and loan rules, "
+            "lending to established lending markets, and holding selected "
+            "[principal tokens](https://tradingstrategy.ai/glossary/principal-token), which represent an investment's redemption value at a future date. "
+            "The launch allocation included USDC lending on Aave and Morpho, where borrowers pledge assets to secure their loans. "
+            "Principal tokens may be harder to sell before their redemption date.\n\n"
+            "#### Borrowing risk and withdrawals\n\n"
+            "Borrowing costs above investment income, or losses on the funded investments, can reduce the cirBTC returned to depositors. "
+            "A fall in the value of the pledged cirBTC can trigger "
+            "[liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale to repay lenders.\n\n"
+            "Deposits and withdrawals require **settlement by the manager** before users can claim shares or cirBTC. "
+            "The [settlement terms](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md) "
+            "rely on the manager's investment valuations and do not allow pending requests to be cancelled. "
+            "There is no fixed withdrawal time, and management and performance fee rates are not publicly specified for this vault."
+        ),
+        link="https://app.k3.capital/",
+    ),
+    (1, "0x009c02a73706a68e0ae0209235408206e4f53709"): HandwrittenVaultMetadata(
+        name="K3 cbBTC Vault",
+        short_description="Borrows USDC against cbBTC to fund permitted investments, aiming to earn more than the borrowing cost and convert the difference into cbBTC.",
+        description=(
+            "Deposited [cbBTC](https://www.coinbase.com/cbbtc), a token backed one-for-one by bitcoin held by Coinbase, "
+            "secures USDC loans used to fund income-producing investments. "
+            "The [investment strategy](https://docs.k3.capital/vault-infra/introduction/cbbtc-vault.html) "
+            "aims to earn more than the loan interest and convert the difference into cbBTC, increasing the cbBTC value of each share. "
+            "**Depositors retain bitcoin price exposure**, so a gain in cbBTC terms can still be a loss in dollars.\n\n"
+            "#### How income is earned\n\n"
+            "The manager pledges cbBTC as [collateral](https://tradingstrategy.ai/glossary/collateral), assets securing a loan, "
+            "and selects a permitted lending market based on borrowing costs while targeting a buffer against a forced sale. "
+            "Borrowed USDC can fund fixed-rate investments, stablecoin products and lending through approved venues, "
+            "including Pendle, Morpho and Euler; these are permitted investments rather than a list of current holdings.\n\n"
+            "The strategy aims to earn income by accepting investment risks and collecting incentives paid for supplying capital to eligible markets. "
+            "Borrowing costs above investment income, losses on those investments or a stablecoin losing its dollar value can reduce the cbBTC returned. "
+            "A fall in the pledged cbBTC's value can trigger [liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale to repay lenders.\n\n"
+            "The manager sets investment valuations and monitors compliance with the investment mandate through operating policies. "
+            "The vault contract does not independently verify those valuations or enforce the permitted investment list.\n\n"
+            "#### Fees and withdrawals\n\n"
+            "Published default fees are **0% management and 5% performance**, with vault-specific terms taking precedence. "
+            "There is [no separate protocol-level fee](https://docs.k3.capital/vault-infra/introduction/faq.html), "
+            "but borrowing and other investment costs still reduce returns.\n\n"
+            "Deposits and withdrawals settle in batches using the manager's investment valuations, with a target schedule of **Mondays and Fridays**. "
+            "This is not a guaranteed withdrawal time: settlement cannot proceed unless all withdrawals due in that batch can be fully funded. "
+            "Requests cannot be cancelled once submitted, and users must wait for settlement before claiming shares or cbBTC."
+        ),
+        link="https://app.k3.capital/",
+    ),
+    (1, "0x333333c5def8368c3fcc9c378cedc0f709fa5ecb"): HandwrittenVaultMetadata(
+        name="USDe Enhanced Yield",
+        short_description="Pools USDe in a managed investment account whose allocations and sources of income are not publicly specified.",
+        description=("Deposited [USDe](https://docs.ethena.fi/overview/ethena-overview), Ethena's token designed to track the US dollar, is pooled in a managed investment account. Depositors receive [USDe+ shares](https://github.com/K3-Capital/k3-vault-contracts/blob/main/deployments/1/0x333333c5DEF8368C3fCc9c378cedc0f709Fa5ECB/deployment.json) representing their claim on that account. **How the vault earns income is not publicly specified**, including whether the vault lends, borrows or invests in other products.\n\n[Deposits and withdrawals settle in batches](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md), using investment values reported by the manager. Pending requests cannot be cancelled, and users must wait for settlement before claiming shares or USDe. There is no fixed withdrawal time, and management and performance fee rates are not publicly specified for this vault."),
+        link="https://app.k3.capital/",
+    ),
+    (8453, "0xf508f0096b966f657a6bee55b341e9309d5871fb"): HandwrittenVaultMetadata(
+        name="K3 USDC",
+        short_description="Pools USDC in an underlying investment vault whose allocations and sources of income are not publicly specified.",
+        description=("Deposited USDC buys a claim on a separate investment vault, represented by smvUSDC shares. The [vault terms](https://basescan.org/address/0x8c4f97ce5b2eea713728729aec08e48bce588216#code) make the value of these shares depend on the underlying vault's investments. **The underlying strategy is not publicly specified**, including the assets it holds, whether it borrows and how it earns income.\n\nDeposits and withdrawals require a request followed by a claim after the underlying vault settles. Pending requests may be reduced subject to that vault's rules, and the owner can block individual accounts. Share values reflect the last settlement; withdrawal times and management and performance fee rates are not publicly specified."),
+        link="https://app.k3.capital/",
+    ),
+    (143, "0x37aef9d5b058382024ffb5c08e2f4c9ca4978751"): HandwrittenVaultMetadata(
+        name="K3 AUSD",
+        short_description="Pools AUSD in an underlying investment vault whose allocations and sources of income are not publicly specified.",
+        description=("Deposited [AUSD](https://www.agora.finance/), Agora's dollar stablecoin, buys a claim on a separate investment vault, represented by k3AUSD shares. The [vault terms](https://monadscan.com/address/0x1cca0fc4ce416893fe5e74039c4c81a4d10e6806#code) make the value of these shares depend on the underlying vault's investments. **The underlying strategy is not publicly specified**, including the assets it holds, whether it borrows and how it earns income.\n\nDeposits and withdrawals require a request followed by a claim after the underlying vault settles. Pending requests may be reduced subject to that vault's rules, and the owner can block individual accounts. Share values reflect the last settlement; withdrawal times and management and performance fee rates are not publicly specified."),
+        link="https://app.k3.capital/",
+    ),
+}
+
+
+#: RockawayX Liminal USDC on HyperEVM (999), reviewed on 2026-11-10.
+#: The live Morpho page identifies USDC lending against limUSD at 86% LLTV.
+#: Borrower leverage and collateral trading do not make this vault a trading
+#: or looping strategy; the Morpho adapter supplies its lending tag.
+#: Sources:
+#: - https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc
+#: - https://x.com/RockawayX/status/2119837798052098499
+#: - https://docs.liminal.money/tokenized/limusd
+#: - https://docs.liminal.money/tokenized/xtokens
+#: - https://docs.liminal.money/tokenized/flows
+#: - https://docs.liminal.money/tokenized/risks
+ROCKAWAYX_LIMINAL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (999, HexAddress("0x83107e84f9c5eaaf31f6d2e2b06e0aa14121370e")): HandwrittenVaultMetadata(
+        name="RockawayX Liminal USDC",
+        short_description="Lends USDC to borrowers who pledge Liminal's yield-bearing limUSD token as security for their loans.",
+        description=(
+            "Deposited USDC funds loans to holders of limUSD, a token representing Liminal's pooled trading and lending investments. "
+            "Borrowers pledge limUSD as [collateral](https://tradingstrategy.ai/glossary/collateral), assets securing their loans, "
+            "so they can borrow USDC without selling their tokens. "
+            "Depositors earn the interest paid by these borrowers through the "
+            "[lending market](https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc).\n\n"
+            "#### Collateral and risks\n\n"
+            "The [limUSD portfolio](https://docs.liminal.money/tokenized/limusd) earns income from lending and trading on Hyperliquid. "
+            "Its [trading strategies](https://docs.liminal.money/tokenized/xtokens) buy assets such as bitcoin or Hyperliquid's HYPE token and open matching short "
+            "[perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that follow the asset's price without an expiry date.\n\n"
+            "The short positions aim to offset losses when asset prices fall. When funding rates are positive, they also collect "
+            "[funding payments](https://tradingstrategy.ai/glossary/funding-rate) from traders holding long positions, which gain when prices rise.\n\n"
+            "Lenders depend on the pledged limUSD retaining enough value to cover the loans, but its value can fall if the investments lose money. "
+            "The [collateral risks](https://docs.liminal.money/tokenized/risks) include trading losses, failures by firms holding the assets and disruption to Hyperliquid, which can reduce that value or delay recovery. "
+            "Selling the pledged tokens to repay a loan may not recover the full amount owed.\n\n"
+            "Exchanging the collateral token itself for USDC follows Liminal's "
+            "[redemption process](https://docs.liminal.money/tokenized/flows). "
+            "Queued limUSD redemptions normally take up to three days, with longer waits possible for large exits. "
+            "Instant limUSD redemption requires available reserves and costs 0.3%; these terms apply to the pledged token rather than to USDC deposits in this vault.\n\n"
+            "#### Vault fees and withdrawals\n\n"
+            "The vault charges a [performance fee](https://tradingstrategy.ai/glossary/performance-fee) of **10% of interest earned**, "
+            "with no [management fee](https://tradingstrategy.ai/glossary/management-fee), a recurring charge for managing deposits. "
+            "USDC available for withdrawal may be limited while funds are lent out to borrowers."
+        ),
+        link="https://app.morpho.org/hyperevm/vault/0x83107E84F9C5EAAf31F6D2e2B06e0aa14121370e/rockawayx-liminal-usdc",
     ),
 }
 
@@ -646,7 +838,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
+    return K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
