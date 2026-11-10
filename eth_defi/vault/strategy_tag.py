@@ -300,7 +300,7 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.discretionary_trading: {
         "label": "Discretionary trading",
-        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts investments, including lending markets, yield strategies and credit deals.",
+        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses trades, lending markets, yield strategies and credit deals.",
     },
     StrategyTag.sentiment_trading: {
         "label": "Sentiment trading",
