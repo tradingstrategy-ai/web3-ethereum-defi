@@ -1,37 +1,44 @@
 name: Wildcat
 slug: wildcat
 short_description: |
-  Lending markets where lenders make mostly unsecured loans to a single named borrower at an interest rate the borrower sets.
+  Lenders fund mostly unsecured loans to a single named company and earn the interest rate that borrower sets.
 long_description: |
-  [Wildcat](https://wildcat.finance/) lets companies such as market makers, trading firms and
-  funds borrow stablecoins and other tokens through their own lending markets. Each market has
-  **one borrower**, who sets the interest rate, the size of the loan, how much of the
-  deposited money must stay in reserve and how long lenders wait for withdrawals. The rate does
-  not follow demand, but the borrower can change it: an increase applies at once, while a cut
-  of more than a quarter within two weeks requires the borrower to return extra money to the
-  market so lenders can withdraw first, as the
-  [borrower guide](https://docs.wildcat.finance/using-wildcat/day-to-day-usage/borrowers) explains. Loans are
-  **undercollateralised**: the borrower usually pledges no assets that could be sold to repay
-  lenders, as the [protocol introduction](https://docs.wildcat.finance/overview/introduction)
-  explains.
+  [Wildcat](https://wildcat.finance/) lets companies such as
+  [market makers](https://tradingstrategy.ai/glossary/market-making), trading firms and funds
+  borrow stablecoins and other tokens from lenders through their own lending markets. Each
+  market has **one borrower**, and lenders earn the interest that borrower pays. The loans are
+  [mostly unsecured](https://docs.wildcat.finance/overview/introduction): the borrower usually
+  pledges no [collateral](https://tradingstrategy.ai/glossary/collateral), assets that could be
+  sold to repay lenders if it fails to pay, so repayment depends on the borrower's ability and
+  willingness to pay.
 
-  Borrowers are registered companies that have passed a business identity and sanctions check
-  before they can open a market. The check confirms who the borrower is, not whether it can repay;
-  borrower descriptions, aliases and market descriptions are written by the borrower and are
-  [not verified by Wildcat](https://docs.wildcat.finance/using-wildcat/how-borrowers-are-onboarded).
-  Most markets admit only lenders the borrower has approved.
+  #### How a market works
+
+  The borrower sets the interest rate, the size of the loan, the share of deposits that must
+  stay in the market as a **reserve** for withdrawals, and how long lenders wait for a
+  withdrawal. The rate does not move with demand, but the borrower can change it. An increase
+  applies at once, while a cut of more than a quarter within two weeks forces the borrower to
+  [return extra money to the market](https://docs.wildcat.finance/using-wildcat/day-to-day-usage/borrowers)
+  for two weeks so lenders can leave first.
+
+  #### Who borrows
+
+  Borrowers are registered companies that pass a business identity and sanctions check before
+  they can open a market. The check confirms who the borrower is, not whether it can repay:
+  the legal name is verified, but
+  [descriptions and market copy are written by the borrower](https://docs.wildcat.finance/using-wildcat/how-borrowers-are-onboarded)
+  and are not checked. Most markets accept deposits only from lenders the borrower has approved.
 
   #### Withdrawals and defaults
 
-  Lenders request a withdrawal, which joins a batch that closes when the current withdrawal
-  period ends. Lenders can then claim their share of the reserve and any money the borrower has
-  returned; if that does not cover the batch, the rest waits until the borrower repays more, with
-  **no fixed payment date**. If the market holds less than its required reserve,
-  the borrower is **delinquent**, and after a grace period a **penalty interest rate** is added
-  to the lenders' rate, as set out in the
-  [delinquency rules](https://docs.wildcat.finance/using-wildcat/delinquency). A borrower that
-  does not repay leaves lenders with a claim against the company, so the value of a market
-  depends on the borrower's ability and willingness to pay.
+  A withdrawal request joins a batch that closes when the market's withdrawal period ends.
+  Lenders can then claim their share of whatever the market holds; any shortfall waits until
+  the borrower repays more, with **no fixed payment date**.
+
+  If the market holds less than its required reserve, the borrower is delinquent, and after a
+  grace period a [penalty interest rate](https://docs.wildcat.finance/using-wildcat/delinquency)
+  is added to the lenders' rate. A borrower that never repays leaves lenders with only a claim
+  against the company, so a market is worth what its borrower will pay.
 fee_description: |
   Lenders pay no fees and receive the market's full interest rate. The borrower pays a
   [protocol fee](https://docs.wildcat.finance/using-wildcat/protocol-usage-fees) on top of
