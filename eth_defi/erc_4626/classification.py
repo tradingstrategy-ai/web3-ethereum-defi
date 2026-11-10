@@ -2392,6 +2392,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
         return RyskVault(web3, spec, **kwargs)
+    elif ERC4626Feature.wildcat_like in features:
+        from eth_defi.erc_4626.vault_protocol.wildcat.vault import WildcatMarket
+
+        return WildcatMarket(web3, spec, **kwargs)
     elif ERC4626Feature.ondo_like in features:
         from eth_defi.tokenised_fund.ondo.vault import OndoVault
 

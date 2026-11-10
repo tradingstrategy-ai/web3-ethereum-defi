@@ -208,6 +208,9 @@ separate numbered migration that follows it.
   ordinary scanning. Never rescan a whole chain or reset reader state.
 - **Fast.** Scan only the gap, at the hourly sampling of the raw file, with
   one connection per chain. A backfill of a few vaults should take minutes.
+  For slowly changing products, pass `step=` (blocks between samples) to
+  `run_price_backfill()` to match the protocol's live read cadence; the
+  Wildcat backfill reads daily, 7,200 Ethereum blocks.
 - **No production parameters.** Production runs the normal
   `vault-migrate run` with `DRY_RUN` only. RPC endpoints, Hypersync
   credentials, `MAX_WORKERS` and `TIMESTAMP_CACHE` remain infrastructure
@@ -291,6 +294,15 @@ migration docstring. See
 [`016-neutral-trade-autopilot-price-backfill.py`](../../migration/scripts/016-neutral-trade-autopilot-price-backfill.py)
 for a complete example.
 
+A vault onboarded by the same batch has no collected price row to end at.
+An earlier migration in the batch must build its metadata row, because the
+helper reports a vault without one as `missing_vault`. End its range at the
+chain's price cursor plus one: the highest `last_block` of the chain in
+`vault-reader-state-1h.pickle`, where ordinary scanning starts every vault
+without its own reader state. See
+[`064-wildcat-price-backfill.py`](../../migration/scripts/064-wildcat-price-backfill.py)
+and its helpers in `eth_defi/vault_protocols/repairs/wildcat.py`.
+
 Vaults whose readers need extra context, such as event observations or
 protocol-specific DuckDB tables, must prefill that context first, as the
 legacy GMX, YieldBasis, Rysk and Flying Tulip backfills below do. Then call
@@ -309,7 +321,9 @@ source .local-test.env && PIPELINE_DATA_DIR=/tmp/backfill-snapshot DRY_RUN=true 
 ```
 
 The preview runs every pending migration, so earlier pending scripts may need
-their own credentials. The `price_backfill` report lists, per vault, the
+their own credentials. To preview only selected scripts, copy them into a
+temporary directory and pass it as `scripts_dir` to `run_pending_migrations()`,
+as `scripts/erc-4626/preview-wildcat-migrations.py` does with a copied snapshot. The `price_backfill` report lists, per vault, the
 planned and scanned ranges, replaced, written and preserved row counts, and
 the first and last written timestamps. The helper requires free space of twice
 the raw price file plus the timestamp caches of the chains in scope.

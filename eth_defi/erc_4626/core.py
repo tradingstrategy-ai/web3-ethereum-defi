@@ -99,6 +99,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.antarctic.exchange/lp/amlp
     antarctic_like = "antarctic_like"
 
+    #: Wildcat Finance version 2 lending market.
+    #:
+    #: Not ERC-4626. A single-borrower credit market whose rebasing market
+    #: token is the lender's share, discovered from the ``WildcatArchController``
+    #: registry. https://app.wildcat.finance/lender
+    wildcat_like = "wildcat_like"
+
     #: Infinit managed trading vaults: https://www.infinit.tech/.
     infinit_like = "infinit_like"
 
@@ -1023,6 +1030,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
         ERC4626Feature.forty_acres_like,
+        ERC4626Feature.wildcat_like,
     }
 )
 
@@ -1087,6 +1095,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
             ERC4626Feature.antarctic_like,
+            ERC4626Feature.wildcat_like,
             ERC4626Feature.asseto_royalty_like,
             ERC4626Feature.infinit_like,
             ERC4626Feature.nest_like,
@@ -1202,6 +1211,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Infinit"
     elif ERC4626Feature.rysk_premium_like in features:
         return "Rysk"
+    elif ERC4626Feature.wildcat_like in features:
+        return "Wildcat"
     elif ERC4626Feature.franklin_like in features:
         return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:
