@@ -95,6 +95,7 @@ def test_reused_lagoon_address_has_distinct_chain_classifications() -> None:
         StrategyTag.multistrategy,
     }
     assert base_tags == {
+        StrategyTag.discretionary_trading,
         StrategyTag.arbitrage,
         StrategyTag.delta_neutral,
         StrategyTag.lending,

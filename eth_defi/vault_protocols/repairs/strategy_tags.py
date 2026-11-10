@@ -456,6 +456,8 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
 
     if evm_feature in {ERC4626Feature.gains_like, ERC4626Feature.ostium_like, ERC4626Feature.domination_finance_like}:
         adapter_tags = get_gains_strategy_tags(spec.chain_id, spec.vault_address)
+    elif evm_feature in {ERC4626Feature.morpho_like, ERC4626Feature.morpho_v2_like}:
+        adapter_tags = get_morpho_strategy_tags(spec.vault_address, spec.chain_id)
     elif evm_feature == ERC4626Feature.veranta_like:
         adapter_tags = evm_resolver(spec.vault_address) if spec.chain_id == VERANTA_CHAIN_ID else None
     elif evm_feature == ERC4626Feature.nova_markets_like:

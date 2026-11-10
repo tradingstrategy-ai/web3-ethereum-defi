@@ -511,7 +511,7 @@ def test_nova_strategy_refresh_is_chain_scoped() -> None:
         (8453, "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08", {ERC4626Feature.lagoon_like}, {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy}),
         (1, "0xdcd0f5ab30856f28385f641580bbd85f88349124", {ERC4626Feature.lagoon_like}, {StrategyTag.algorithmic_trading, StrategyTag.lending, StrategyTag.lending_optimisation}),
         (1, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
-        (8453, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
+        (8453, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.discretionary_trading, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
     ),
 )
 def test_migrate_reviewed_curator_strategy_tags(chain_id: int, address: str, features: set[ERC4626Feature], expected: set[StrategyTag], tmp_path: Path) -> None:
