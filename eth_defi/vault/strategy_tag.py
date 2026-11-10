@@ -85,7 +85,9 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Gen Wealth Algo (Hyperliquid).
     trend_following = "trend_following"
 
-    #: Uses trader judgement to select and manage positions.
+    #: Uses human judgement to select, approve or rebalance investments.
+    #: Includes curator-selected yield allocations and credit deals, even
+    #: when execution is automated; a curator identity alone is insufficient.
     #: Example vault: Rogue Trader Discretionary (GRVT).
     discretionary_trading = "discretionary_trading"
 
@@ -298,7 +300,7 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.discretionary_trading: {
         "label": "Discretionary trading",
-        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts positions using judgement and market insight.",
+        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts investments, including lending markets, yield strategies and credit deals.",
     },
     StrategyTag.sentiment_trading: {
         "label": "Sentiment trading",

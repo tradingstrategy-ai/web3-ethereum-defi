@@ -79,7 +79,7 @@ def test_lagoon_co_curator_keeps_gami_primary() -> None:
 @pytest.mark.parametrize(
     ("chain", "address", "expected"),
     [
-        (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb", "algorithmic_trading lending lending_optimisation"),
+        (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb", "algorithmic_trading discretionary_trading lending lending_optimisation"),
         (1, "0x47491305479635357df29fe0cb6f1af10e51d4da", None),
         (1, "0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a", None),
         (1, "0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8", "algorithmic_trading directional_trading discretionary_trading perpetual_futures"),
@@ -116,8 +116,8 @@ def test_new_curator_vault_strategy_coverage(chain: int, address: str, expected:
 def test_murmurr_morpho_sleeve_coverage(chain: int, address: str) -> None:
     """Cover every lending sleeve linked by Murmurr's current product book.
 
-    Both Morpho adapter generations supply lending automatically, so curator
-    onboarding adds no redundant address-specific strategy tags.
+    Both Morpho generations retain automatic lending. The three diversified
+    sleeves also combine curator selection with scored lending allocation.
 
     :param chain: Exact chain from the official product link.
     :param address: Exact linked sleeve contract.
@@ -128,7 +128,10 @@ def test_murmurr_morpho_sleeve_coverage(chain: int, address: str) -> None:
     for adapter in (MorphoV1Vault, MorphoV2Vault):
         vault = object.__new__(adapter)
         vault.spec = VaultSpec(chain, address)
-        assert vault.get_strategy_tags() == {StrategyTag.lending}
+        expected = {StrategyTag.lending}
+        if address in {"0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac", "0x29ca54dd3ae9e43abb10880f5e08da439bf25f99", "0xcda5dbf58a016158ecd4a226109752cc3a627ec8"}:
+            expected |= {StrategyTag.discretionary_trading, StrategyTag.algorithmic_trading, StrategyTag.lending_optimisation}
+        assert vault.get_strategy_tags() == expected
 
 
 def test_unverified_volta_name_does_not_establish_curator() -> None:

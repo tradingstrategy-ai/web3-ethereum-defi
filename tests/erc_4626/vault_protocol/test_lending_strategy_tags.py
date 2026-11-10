@@ -10,6 +10,7 @@ from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 
 TEST_VAULT_ADDRESS = HexAddress("0x000000000000000000000000000000000000f00d")
@@ -19,6 +20,7 @@ def _make_vault(vault_type: type) -> Any:
     """Create an adapter without invoking an RPC-backed constructor."""
     vault = object.__new__(vault_type)
     vault.__dict__["vault_address"] = TEST_VAULT_ADDRESS
+    vault.spec = VaultSpec(1, TEST_VAULT_ADDRESS)
     return vault
 
 

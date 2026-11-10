@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Include curator-selected yield allocations in discretionary strategy tags, review the 34-vault curator inventory, and add a scoped metadata refresh (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
 - feat: Add verified Lagoon curator profiles and logos for Murmurr, VOLTA90, NAVI Protocol and Stake Capital, correct stale vault attribution, and fill verified curator feed sources; add reviewed curator copy and manual descriptions for 25 associated vaults, preserving empty fields for nine without sufficient evidence (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
 - fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
 - fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).

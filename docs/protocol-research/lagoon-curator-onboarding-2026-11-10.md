@@ -69,15 +69,15 @@ claim Murmurr operated the entire historical price series.
 
 | Vault | Chain | Address | Curator outcome | Maintained strategy tags |
 | --- | --- | --- | --- | --- |
-| Murmurr USDC One | 1 | `0x7d2c2f54792ad72cb834d298f542145b06b703cb` | Murmurr | algorithmic_trading, lending, lending_optimisation |
+| Murmurr USDC One | 1 | `0x7d2c2f54792ad72cb834d298f542145b06b703cb` | Murmurr | algorithmic_trading, discretionary_trading, lending, lending_optimisation |
 | USDC High Yield | 1 | `0x47491305479635357df29fe0cb6f1af10e51d4da` | NAVI Protocol | Missing (`None`); no strategy text in the exact vault response |
 | VOLTA90 current shares | 1 | `0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8` | VOLTA90 | algorithmic_trading, directional_trading, discretionary_trading, perpetual_futures |
 | VOLTA90 additional closed Ethereum deployment | 1 | `0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a` | VOLTA90 operator association from shared roles | Missing (`None`); strategy and closure details undisclosed |
 | VOLTA90 closed shares | 42161 | `0x9e6de1f581d63129af453fe1ea7253b280b4dca8` | Historical VOLTA90 | Same supported trading-book classifications; closure remains unchanged |
 | Gami lvlUSD | 1 | `0x59b7942f7d2afd085691ce65c152e0d38d4eff22` | Gami remains primary; Stake Capital gains its own profile | lending, liquidity_provider, multistrategy |
 
-The strategy skill was applied to every newly covered deployment. Existing
-Lagoon mappings already express the supported strategies; no tag sets change.
+The strategy skill was applied to every newly covered deployment. The original onboarding left strategy tags unchanged. The later human-selection
+review below adds the missing discretionary classifications.
 NAVI's broader Sui lending business does not establish the investment mechanism
 of its undocumented Ethereum vault. Stake Capital's addition must not replace
 Gami in the single-primary-curator export. Regime Vault/ark2042 and Fundatio are
@@ -87,10 +87,11 @@ outside these four verified API curator identities and are not onboarded here.
 
 Murmurr's current product book links five exact lending sleeves. All receive
 reviewed chain/address curator attribution, including earlier DeTrade-branded names.
-Morpho V1 and V2 adapters already supply `lending` automatically; the strategy
-review adds no redundant address-specific tag entries or new tag values.
+Morpho V1 and V2 adapters supply `lending` automatically. The original review
+recorded only that default; the later review below adds supported classifications
+for the three diversified sleeves.
 
-| Chain | Address | Existing strategy tags |
+| Chain | Address | Original strategy tags |
 | --- | --- | --- |
 | 1 | `0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac` | lending |
 | 1 | `0x29ca54dd3ae9e43abb10880f5e08da439bf25f99` | lending |
@@ -336,3 +337,130 @@ non-empty preservation sentinels were added before the final 188-test run.
 ```shell
 source .local-test.env && PYTHONPATH="$PWD" timeout 180s poetry run pytest tests/vault/test_lagoon_curator_descriptions.py tests/erc_4626/vault_protocol/test_lagoon_descriptions.py tests/vault/test_lagoon_curator_onboarding.py tests/vault/test_curator.py tests/feed/test_canonical_feeder.py -q --tb=short
 ```
+
+
+## Human investment selection review
+
+All **34 deployments belonging to the 13 reviewed curators** were checked again
+on 10 November 2026. All 29 exact Lagoon API requests succeeded. The change adds
+`discretionary_trading` to nine vaults, retaining their supported income mechanisms.
+The three diversified Morpho sleeves also gain `algorithmic_trading` and
+`lending_optimisation`. The other 25 deployments keep their prior classifications.
+No tags are removed from the reviewed deployments.
+
+The canonical identifier remains `discretionary_trading`. It covers people
+choosing yield investments and credit deals, not only directional trading.
+Automation and discretion can coexist. A curator identity, privileged contract
+role or permissioned deposits does not by itself establish human selection.
+
+The exact lvlUSD API mandate establishes Gami/Stake co-curation, but
+[Gami's team-led curation and rebalancing](https://www.gami.capital/on-chain-strategies/)
+is described only at the curator level. Without a product-specific link to human
+selection, lvlUSD retains its existing tags. The independent review caught this
+evidence boundary before handoff.
+The Core product cards and opportunity-selection policy on DeTrade's current site
+support its three Base products, not a blanket classification of the Monad AUSD
+or Applefarm deployments. 722's Base USDC API mandate describes active positioning;
+[722's current strategy](https://722.capital/) describes conviction-led farm rotation.
+TruMarket's exact API mandate explicitly assigns sourcing, structuring and
+monitoring agricultural deals to its team.
+
+Murmurr's current homepage explicitly retains curator expertise in market
+selection. Its [allocator documentation](https://docs.murmurr.xyz/how-it-works/allocator)
+identifies Blue-Chip, Frontier and cbAssets as diversified sleeves with market
+ranking; the Lagoon product invests through those sleeves. These four products
+therefore combine human selection and algorithmic allocation. The Lagoon product
+also includes fixed-universe mono sleeves; its published history of sleeve targets
+shows changes to the book-level investment policy. The
+[hard rules](https://docs.murmurr.xyz/how-it-works/hard-rules) distinguish the mono
+WHYPE and aHYPER products: their fixed universe and automated emergency controls
+do not establish discretionary investment selection. Their lending default stays.
+
+Empty Lagoon description fields do not automatically invalidate independently
+researched tags: Hub USDC and 722 Hype have composition-based evidence in their
+existing source comments, while 722 ETH has an explicit upstream market-neutral
+classification. None receives a discretionary tag solely from those observations.
+Other unchanged products disclose mechanisms or allocation rules without enough
+evidence of human choices; the review does not infer manual control from silence.
+
+### Complete tag decisions
+
+`D` = `discretionary_trading`; `A` = `algorithmic_trading`;
+`L` = `lending_optimisation`. “Missing” describes an internal research gap, not
+public description text. Existing VOLTA90 and MSA discretionary tags are retained.
+
+| Curator | Vault | Chain:address | Tags added | Decision |
+| --- | --- | --- | --- | --- |
+| VOLTA90 | VOLTA90 MULTI ASSET STRATEGY | `1:0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a` | — | Missing product-specific decision evidence; unchanged |
+| σ-Labs, Ellen Capital | stETH Redemption Carry | `1:0x2746f31096f23670caf4043f8b30d8d02405a257` | — | Mechanism supported; human selection not established |
+| VOLTA90 | VOLTA90 MULTI ASSET STRATEGY | `1:0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8` | — | Already discretionary; retained |
+| NAVI Protocol | USDC High Yield | `1:0x47491305479635357df29fe0cb6f1af10e51d4da` | — | Missing product-specific decision evidence; unchanged |
+| Rho X | Rho X Liquidity Provider | `1:0x4cb280e63251b9ab24a54def74bf5995d82ff398` | — | Mechanism supported; human selection not established |
+| Gami, Stake Capital | Gami lvlUSD | `1:0x59b7942f7d2afd085691ce65c152e0d38d4eff22` | — | Co-curation established; product-specific human selection not established |
+| 722 Capital | Unity Trust | `1:0x66dcb62da5430d800a1c807822c25be17138fda8` | — | Missing product-specific decision evidence; unchanged |
+| 722 Capital | Trinity Trust | `1:0x71652d4898de9a7dd35e472a5fe4577ec69d82f2` | — | Missing product-specific decision evidence; unchanged |
+| 722 Capital | 722 Capital USDC | `1:0x7d798ce99ee2adc183a865d76b112810d5395ea2` | — | Missing product-specific decision evidence; unchanged |
+| Murmurr | Murmurr USDC One | `1:0x7d2c2f54792ad72cb834d298f542145b06b703cb` | D | Curator selection plus scored lending allocation |
+| σ-Labs, Ellen Capital | Stablecoin Market Making | `1:0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb` | — | Missing product-specific decision evidence; unchanged |
+| Hub Capital | Hub Capital crvUSD Vault | `1:0x9a458370556a68bdc130a80c35b294d0ad947a6a` | — | Missing product-specific decision evidence; unchanged |
+| Hub Capital | Hub Capital USDC vault | `1:0xca790385506b790554571cbc9da73f0130cdcfd5` | — | Mechanism supported; human selection not established |
+| σ-Labs, Ellen Capital | Cross-chain USDC Lending | `1:0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89` | — | Automated allocation documented; human selection not established |
+| DeTrade | DeTrade Core AUSD | `143:0xe95074a86fead8647edff36af2f3f1dd7e8f7adb` | — | Automated allocation documented; human selection not established |
+| 722 Capital | 722 Capital Hype | `999:0x7dd73a986f6188da1baaf68541fd6ebd455abd1d` | — | Mechanism supported; human selection not established |
+| DeTrade | DeTrade Applefarm USDC | `8453:0x0a63471da694fc822f5a0a0b65978dda8c8edbe5` | — | Mechanism supported; human selection not established |
+| MoneyFi | MoneyFi FlowForge Vault | `8453:0x4efc07dca8697792119484af33549f33ab11bf3c` | — | Automated allocation documented; human selection not established |
+| DeTrade | DeTrade Core USDC | `8453:0x8092ca384d44260ea4feaf7457b629b8dc6f88f0` | D | Exact Core product linked; team selects protocols and incentive programmes |
+| DeTrade | DeTrade Core ETH | `8453:0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523` | D | Exact Core product linked; team selects protocols and incentive programmes |
+| 722 Capital | 722Capital-USDC | `8453:0xb09f761cb13baca8ec087ac476647361b6314f98` | D | Mandate describes active positioning in selected emerging protocols |
+| MSA, Gami | MSA - Portefeuille Défensif | `8453:0xb725f2277f3f62ad017a6dc418433b326a9f6334` | — | Already discretionary; retained |
+| TruMarket | TruMarket | `8453:0xbe7db44f4ce20dac83b578b94fd35087f66e9754` | D | Team sources and structures agricultural trade-finance deals |
+| DeTrade | DeTrade Core EURC | `8453:0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550` | D | Exact Core product linked; team selects protocols and incentive programmes |
+| Nara Capital | GUSDC | `8453:0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4` | — | Mechanism supported; human selection not established |
+| MSA, Gami | MSA - Portefeuille Dynamique | `8453:0xf56bfe07b8d6e6d74258cdb6969a633629b06b08` | — | Already discretionary; retained |
+| 722 Capital | 722Capital-ETH | `8453:0xfce2064b4221c54651b21c868064a23695e78f09` | — | Mechanism supported; human selection not established |
+| 722 Capital | Yield Algo Trading | `42161:0x99cd0b8b32b15922f0754fddc21323b5278c5261` | — | Missing product-specific decision evidence; unchanged |
+| VOLTA90 | Volta90 Multi-asset trading strategy | `42161:0x9e6de1f581d63129af453fe1ea7253b280b4dca8` | — | Already discretionary; retained |
+| Murmurr | Murmurr USDC Blue-Chip | `1:0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac` | A, D, L | Curator selection plus scored lending allocation |
+| Murmurr | Murmurr USDC Frontier | `1:0x29ca54dd3ae9e43abb10880f5e08da439bf25f99` | A, D, L | Curator selection plus scored lending allocation |
+| Murmurr | Murmurr USDC cbAssets | `8453:0xcda5dbf58a016158ecd4a226109752cc3a627ec8` | A, D, L | Curator selection plus scored lending allocation |
+| Murmurr | Murmurr USDC aHYPER | `143:0x9f209b43559b13b783eaa0a6686921c7b174f269` | — | Fixed universe; no evidenced human investment selection |
+| Murmurr | Murmurr USDC WHYPE | `999:0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10` | — | Fixed universe; no evidenced human investment selection |
+
+### Persistence
+
+Migration `062-curator-discretionary-strategy-tags.py` freezes these nine changed
+deployments and refreshes only `_strategy_tags`, through the shared repair
+resolver. Both Morpho generations now pass the chain ID to that resolver's
+protocol mapping. Same-address deployments on another chain do not inherit the
+new classifications. No successful migration is edited or rerun.
+
+Run 062 after merge in the normal stopped-writer pending batch described in
+migration 061. Preview and apply both require the looped scanner stopped, the
+same inspected image and persistent mounts, and lifetime guard before writer
+lock. At most nine existing rows and nine fields change; missing targets are
+reported without insertion. No production migration or historical scan was run.
+Previously recorded price gaps remain a separate production-state investigation.
+
+### Review checks
+
+The final focused suite passed **294 tests** locally on 10 November 2026:
+
+```shell
+source .local-test.env && PYTHONPATH="$PWD" timeout 180s poetry run pytest tests/vault/test_curator_discretionary_tags.py tests/vault/test_lagoon_curator_onboarding.py tests/erc_4626/vault_protocol/test_lagoon_strategy_review.py tests/erc_4626/vault_protocol/test_lending_strategy_tags.py tests/erc_4626/vault_protocol/test_lagoon_strategy_tags.py tests/erc_4626/test_migrate_vault_strategy_tags.py tests/vault/test_lagoon_strategy_migration.py tests/erc_4626/test_list_vault_strategy_categories.py -q --tb=short
+```
+
+This covers all 34 reviewed tag sets through the real adapter and repair paths,
+both Morpho versions, wrong-chain isolation, migration preview/apply/repeat,
+missing targets and atomic rejection of incompatible detection. The nine-target
+fixture changes exactly nine tag fields and preserves unrelated rows and files.
+The 29 live Lagoon research requests also succeeded; these were manual public
+API reads, not CI integration tests, and required no credentials.
+
+The skill validator, scoped Ruff formatting and `git diff --check` passed.
+Ruff reports 32 pre-existing findings in the older touched modules, with no
+introduced findings against HEAD. The expanded public category description was
+checked against the writing guide; individual vault descriptions were unchanged.
+Claude CLI with exact model `claude-opus-5-5` completed an independent review
+and a focused follow-up after the Gami correction: **approved; no remaining
+material findings**. No changes were pushed or applied to production in this
+follow-up task.
