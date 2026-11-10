@@ -154,6 +154,7 @@ Supported protocols
    arcus/index
    asseto/index
    axis/index
+   k3/index
    flying_tulip/index
    ondo/index
    wisdomtree/index

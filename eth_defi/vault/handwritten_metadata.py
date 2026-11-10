@@ -695,6 +695,89 @@ BIRCH_HILL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMe
 }
 
 
+#: K3 wrappers reviewed against the official deployment registry.
+#: https://github.com/K3-Capital/k3-vault-contracts/tree/main/deployments
+K3_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (5042, "0x56fb80282bb565de67c196924dda0138e30323be"): HandwrittenVaultMetadata(
+        name="K3 cirBTC Vault",
+        short_description="Borrows USDC against cirBTC to fund lending and other permitted investments, aiming to earn more than the borrowing cost and pay the difference in cirBTC.",
+        description=(
+            "Deposited [cirBTC](https://www.circle.com/cirbtc), Circle's token backed one-for-one by bitcoin, "
+            "secures USDC loans used to fund income-producing investments. "
+            "It targets [returns paid in cirBTC](https://x.com/k3_capital/status/2119852350034895084) through a "
+            "[delta-neutral](https://tradingstrategy.ai/glossary/delta-neutral) approach, aiming to earn income without an additional bet on market direction. "
+            "**Depositors retain bitcoin price exposure**: both the deposit and any returns can lose dollar value.\n\n"
+            "#### How income is earned\n\n"
+            "The [borrowing strategy](https://x.com/k3_capital/status/2119852361879556335) uses cirBTC as "
+            "[collateral](https://tradingstrategy.ai/glossary/collateral), assets pledged to secure a loan, on Morpho or Aave. "
+            "Borrowed USDC funds investments whose income is intended to exceed the loan interest; the difference is converted into cirBTC. "
+            "The target health factor is **1.3**, a measure of the buffer between the pledged assets and the point at which lenders can sell them to repay debt.\n\n"
+            "The [investment mandate](https://x.com/k3_capital/status/2119852385367740877) permits borrowing only through separate markets, each with its own collateral and loan rules, "
+            "lending to established lending markets, and holding selected "
+            "[principal tokens](https://tradingstrategy.ai/glossary/principal-token), which represent an investment's redemption value at a future date. "
+            "The launch allocation included USDC lending on Aave and Morpho, where borrowers pledge assets to secure their loans. "
+            "Principal tokens may be harder to sell before their redemption date.\n\n"
+            "#### Borrowing risk and withdrawals\n\n"
+            "Borrowing costs above investment income, or losses on the funded investments, can reduce the cirBTC returned to depositors. "
+            "A fall in the value of the pledged cirBTC can trigger "
+            "[liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale to repay lenders.\n\n"
+            "Deposits and withdrawals require **settlement by the manager** before users can claim shares or cirBTC. "
+            "The [settlement terms](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md) "
+            "rely on the manager's investment valuations and do not allow pending requests to be cancelled. "
+            "There is no fixed withdrawal time, and management and performance fee rates are not publicly specified for this vault."
+        ),
+        link="https://app.k3.capital/",
+    ),
+    (1, "0x009c02a73706a68e0ae0209235408206e4f53709"): HandwrittenVaultMetadata(
+        name="K3 cbBTC Vault",
+        short_description="Borrows USDC against cbBTC to fund permitted investments, aiming to earn more than the borrowing cost and convert the difference into cbBTC.",
+        description=(
+            "Deposited [cbBTC](https://www.coinbase.com/cbbtc), a token backed one-for-one by bitcoin held by Coinbase, "
+            "secures USDC loans used to fund income-producing investments. "
+            "The [investment strategy](https://docs.k3.capital/vault-infra/introduction/cbbtc-vault.html) "
+            "aims to earn more than the loan interest and convert the difference into cbBTC, increasing the cbBTC value of each share. "
+            "**Depositors retain bitcoin price exposure**, so a gain in cbBTC terms can still be a loss in dollars.\n\n"
+            "#### How income is earned\n\n"
+            "The manager pledges cbBTC as [collateral](https://tradingstrategy.ai/glossary/collateral), assets securing a loan, "
+            "and selects a permitted lending market based on borrowing costs while targeting a buffer against a forced sale. "
+            "Borrowed USDC can fund fixed-rate investments, stablecoin products and lending through approved venues, "
+            "including Pendle, Morpho and Euler; these are permitted investments rather than a list of current holdings.\n\n"
+            "The strategy aims to earn income by accepting investment risks and collecting incentives paid for supplying capital to eligible markets. "
+            "Borrowing costs above investment income, losses on those investments or a stablecoin losing its dollar value can reduce the cbBTC returned. "
+            "A fall in the pledged cbBTC's value can trigger [liquidation](https://tradingstrategy.ai/glossary/liquidation), a forced sale to repay lenders.\n\n"
+            "The manager sets investment valuations and monitors compliance with the investment mandate through operating policies. "
+            "The vault contract does not independently verify those valuations or enforce the permitted investment list.\n\n"
+            "#### Fees and withdrawals\n\n"
+            "Published default fees are **0% management and 5% performance**, with vault-specific terms taking precedence. "
+            "There is [no separate protocol-level fee](https://docs.k3.capital/vault-infra/introduction/faq.html), "
+            "but borrowing and other investment costs still reduce returns.\n\n"
+            "Deposits and withdrawals settle in batches using the manager's investment valuations, with a target schedule of **Mondays and Fridays**. "
+            "This is not a guaranteed withdrawal time: settlement cannot proceed unless all withdrawals due in that batch can be fully funded. "
+            "Requests cannot be cancelled once submitted, and users must wait for settlement before claiming shares or cbBTC."
+        ),
+        link="https://app.k3.capital/",
+    ),
+    (1, "0x333333c5def8368c3fcc9c378cedc0f709fa5ecb"): HandwrittenVaultMetadata(
+        name="USDe Enhanced Yield",
+        short_description="Pools USDe in a managed investment account whose allocations and sources of income are not publicly specified.",
+        description=("Deposited [USDe](https://docs.ethena.fi/overview/ethena-overview), Ethena's token designed to track the US dollar, is pooled in a managed investment account. Depositors receive [USDe+ shares](https://github.com/K3-Capital/k3-vault-contracts/blob/main/deployments/1/0x333333c5DEF8368C3fCc9c378cedc0f709Fa5ECB/deployment.json) representing their claim on that account. **How the vault earns income is not publicly specified**, including whether the vault lends, borrows or invests in other products.\n\n[Deposits and withdrawals settle in batches](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md), using investment values reported by the manager. Pending requests cannot be cancelled, and users must wait for settlement before claiming shares or USDe. There is no fixed withdrawal time, and management and performance fee rates are not publicly specified for this vault."),
+        link="https://app.k3.capital/",
+    ),
+    (8453, "0xf508f0096b966f657a6bee55b341e9309d5871fb"): HandwrittenVaultMetadata(
+        name="K3 USDC",
+        short_description="Pools USDC in an underlying investment vault whose allocations and sources of income are not publicly specified.",
+        description=("Deposited USDC buys a claim on a separate investment vault, represented by smvUSDC shares. The [vault terms](https://basescan.org/address/0x8c4f97ce5b2eea713728729aec08e48bce588216#code) make the value of these shares depend on the underlying vault's investments. **The underlying strategy is not publicly specified**, including the assets it holds, whether it borrows and how it earns income.\n\nDeposits and withdrawals require a request followed by a claim after the underlying vault settles. Pending requests may be reduced subject to that vault's rules, and the owner can block individual accounts. Share values reflect the last settlement; withdrawal times and management and performance fee rates are not publicly specified."),
+        link="https://app.k3.capital/",
+    ),
+    (143, "0x37aef9d5b058382024ffb5c08e2f4c9ca4978751"): HandwrittenVaultMetadata(
+        name="K3 AUSD",
+        short_description="Pools AUSD in an underlying investment vault whose allocations and sources of income are not publicly specified.",
+        description=("Deposited [AUSD](https://www.agora.finance/), Agora's dollar stablecoin, buys a claim on a separate investment vault, represented by k3AUSD shares. The [vault terms](https://monadscan.com/address/0x1cca0fc4ce416893fe5e74039c4c81a4d10e6806#code) make the value of these shares depend on the underlying vault's investments. **The underlying strategy is not publicly specified**, including the assets it holds, whether it borrows and how it earns income.\n\nDeposits and withdrawals require a request followed by a claim after the underlying vault settles. Pending requests may be reduced subject to that vault's rules, and the owner can block individual accounts. Share values reflect the last settlement; withdrawal times and management and performance fee rates are not publicly specified."),
+        link="https://app.k3.capital/",
+    ),
+}
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -711,7 +794,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
+    return K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
