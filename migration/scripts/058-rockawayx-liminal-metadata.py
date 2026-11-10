@@ -6,7 +6,7 @@ Scope: Chain 999, 0x83107e84f9c5eaaf31f6d2e2b06e0aa14121370e;
     only _description, _short_description and _strategy_tags.
 Branch: check-stablecoin-vault-coverage-rockawayx
 PR title: feat: add limUSD and describe RockawayX Liminal USDC
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1755
 Preserves: All other metadata, unrelated rows, prices, leads, reader state
     and timestamp caches. No rows are created.
 Expected: At most one existing row and three changed fields; missing rows reported.
