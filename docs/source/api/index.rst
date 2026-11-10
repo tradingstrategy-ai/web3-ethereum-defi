@@ -58,6 +58,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    antarctic/index
    infinit/index
    rysk/index
+   wildcat/index
    barker/index
    bulla/index
    ondo/index

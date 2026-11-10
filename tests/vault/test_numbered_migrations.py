@@ -28,7 +28,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, veranta
+from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, veranta, wildcat
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -254,6 +254,11 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     # Price backfills need archive RPC access; their helper has dedicated tests.
     backfilled = []
     monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets, **_kwargs: backfilled.extend(targets))
+    # Wildcat registry and scanner reads are covered by tests/vault/test_wildcat_migration.py.
+    monkeypatch.setattr(wildcat, "create_ethereum_web3", lambda: None)
+    monkeypatch.setattr(wildcat, "check_registry_coverage", lambda web3, cursor_block: None)
+    monkeypatch.setattr(wildcat, "build_market_rows", lambda web3, candidates, block: {VaultSpec(c.chain, c.address): {"Protocol": "Wildcat", "_detection_data": c} for c in candidates})
+    monkeypatch.setattr(wildcat, "read_price_cursor", lambda data_dir, chain_id: 26_000_000)
     # Veranta live reads are separately fork-tested; the batch checks composition.
     provider = Mock()
     provider.eth.chain_id = 8453
@@ -319,7 +324,9 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert database.rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")]["_description"] == "First.\n\nSecond."
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
+    # No reviewed Wildcat market is registered by the batch's lead cursor at block 12,345
     assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA}
+    assert database.leads == {}
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
     assert path.read_bytes() == applied
     state = runner.load_state(batch_database / "migration.json")

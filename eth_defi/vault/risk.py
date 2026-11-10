@@ -127,6 +127,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # The Rysk contracts and the NAV committee process require separate review.
     "Antarctic": None,
     "Rysk": None,
+    # Wildcat markets are mostly unsecured loans to single borrowers. Credit
+    # risk depends on the borrower and needs human assessment.
+    "Wildcat": None,
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.
     "Franklin Templeton": None,

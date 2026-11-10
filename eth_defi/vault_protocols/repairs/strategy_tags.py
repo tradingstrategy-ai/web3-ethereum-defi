@@ -51,6 +51,7 @@ from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STR
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS as VERANTA_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.wildcat.tags import get_strategy_tags as get_wildcat_strategy_tags
 from eth_defi.erc_4626.vault_protocol.yearn.tags import get_strategy_tags as get_yearn_strategy_tags
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
 from eth_defi.gmx.tags import STRATEGY_TAGS as GMX_STRATEGY_TAGS
@@ -91,6 +92,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.mellow_like,
     ERC4626Feature.enzyme_onyx_like,
     ERC4626Feature.enzyme_blue_like,
+    ERC4626Feature.wildcat_like,
     ERC4626Feature.symbiotic_like,
     ERC4626Feature.securitize_like,
     ERC4626Feature.usyc_like,
@@ -252,6 +254,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
     ERC4626Feature.enzyme_onyx_like: get_enzyme_strategy_tags,
     ERC4626Feature.enzyme_blue_like: get_enzyme_strategy_tags,
+    ERC4626Feature.wildcat_like: get_wildcat_strategy_tags,
 }
 
 #: Newly supported address-only mappings must preserve other persisted rows.

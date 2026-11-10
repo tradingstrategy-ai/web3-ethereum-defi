@@ -222,6 +222,18 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: USD3 (3Jane).
     inventory_financing = "inventory_financing"
 
+    #: Lends without collateral, making the vault's depositors unsecured
+    #: creditors of the borrower.
+    #:
+    #: An unsecured creditor is a lender whose claim is not backed by
+    #: collateral: there are no pledged assets it can seize or sell if the
+    #: borrower fails to pay. Repayment depends on the borrower's ability and
+    #: willingness to pay. In a default or insolvency, unsecured creditors
+    #: rank behind secured creditors and may recover little or nothing.
+    #: Normally paired with :attr:`lending`.
+    #: Example vault: Wintermute Trading USD Coin (Wildcat).
+    unsecured_credit = "unsecured_credit"
+
     #: Invests in money-market instruments.
     #: Example vault: Spiko EU T-Bills Money Market Fund (Spiko).
     money_market_fund = "money_market_fund"
@@ -421,6 +433,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.inventory_financing: {
         "label": "Inventory financing",
         "description": "Funds loans that pay for a business's stock before it is sold, repaid from the sale proceeds.",
+    },
+    StrategyTag.unsecured_credit: {
+        "label": "Unsecured credit",
+        "description": "Lends without collateral, so repayment depends on the borrower's ability and willingness to pay.",
     },
     StrategyTag.money_market_fund: {
         "label": "Money-market fund",

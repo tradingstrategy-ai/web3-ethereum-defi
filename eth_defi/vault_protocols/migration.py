@@ -328,7 +328,10 @@ class MigrationContext:
                     logger.info("%s %s %s: %r -> %r", self.script_name, spec.as_string_id(), key, old.get(key), new.get(key))
         database_fields = [item.name for item in fields(database) if item.name != "rows" and not _equal(getattr(before, item.name), getattr(database, item.name))]
         for name in database_fields:
-            logger.info("%s database field %s: %r -> %r", self.script_name, name, getattr(before, name), getattr(database, name))
+            # Database-level fields, such as leads, can hold thousands of older
+            # pickled records whose repr fails; log their size instead.
+            old_value, new_value = getattr(before, name), getattr(database, name)
+            logger.info("%s database field %s changed: %s -> %s entries", self.script_name, name, len(old_value) if hasattr(old_value, "__len__") else "?", len(new_value) if hasattr(new_value, "__len__") else "?")
         self.report(changed_rows=len(changes), changed_fields=sum(len(c["fields"]) for c in changes), changes=changes[:100], changes_truncated=len(changes) > 100, changed_database_fields=database_fields)
         if payload == self._snapshot:
             return

@@ -232,6 +232,7 @@ Supported protocols
    antarctic/index
    infinit/index
    rysk/index
+   wildcat/index
    sbold/index
    secured_finance/index
    securitize/index

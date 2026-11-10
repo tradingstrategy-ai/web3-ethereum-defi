@@ -172,6 +172,19 @@ class VaultFlag(str, enum.Enum):
     #: affected vaults remain visible in the catalogue and data exports.
     forty_acres_withdrawal_risk = "forty_acres_withdrawal_risk"
 
+    #: The lending market's borrower has defaulted.
+    #:
+    #: For now used only for Wildcat markets whose delinquency has outlasted
+    #: the grace period, so the penalty rate applies. The flag can remain for a
+    #: while after the borrower cures the delinquency, because Wildcat applies
+    #: the penalty until the accumulated delinquent time falls back below the
+    #: grace period. During a default the market's share price keeps rising
+    #: with accrued and penalty interest, so the curve must not be read as
+    #: realised yield. Set by the protocol adapter from onchain state and
+    #: deliberately outside :py:data:`BAD_FLAGS`, so the market stays visible
+    #: with a warning; the monthly vault report leaves it out of its listings.
+    delinquent_markets = "delinquent_markets"
+
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,

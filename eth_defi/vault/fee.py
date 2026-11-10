@@ -104,6 +104,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # performance, deposit or withdrawal fees.
     "Antarctic": None,
     "Rysk": None,
+    # Lenders pay no fees: the borrower pays the protocol fee on top of lender interest.
+    # https://github.com/wildcat-finance/wildcat-docs/blob/main/using-wildcat/protocol-usage-fees.md
+    "Wildcat": VaultFeeMode.feeless,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
     # Product fee schedules are not published by the reviewed CMTAT token contracts.
