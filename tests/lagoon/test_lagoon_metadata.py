@@ -18,7 +18,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import fetch_lagoon_vaults_for_chain
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import _get_cache_file, fetch_lagoon_vaults_for_chain
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -68,7 +68,7 @@ def test_lagoon_metadata_cache(tmp_path: Path):
     assert len(vaults) > 0
 
     # Should have cached the file
-    cache_file = tmp_path / f"lagoon_vaults_chain_{chain_id}.json"
+    cache_file = _get_cache_file(tmp_path, chain_id)
     assert cache_file.exists()
     assert cache_file.stat().st_size > 0
 

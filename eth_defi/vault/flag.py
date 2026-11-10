@@ -688,6 +688,9 @@ ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has ab
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
+#: Public catalogue access failed before any membership observation was available.
+UNCONFIRMED_PROTOCOL_LISTING = "This vault's public listing could not be verified."
+
 NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
 
 NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed in Yearn's authoritative metadata."

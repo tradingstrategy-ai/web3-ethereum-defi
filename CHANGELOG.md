@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
+- fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).
 - feat: Add limUSD classification, verified multichain metadata, news feed and artwork, plus researched RockawayX Liminal USDC vault descriptions and a targeted lending-tag refresh (2026-11-10, [#1755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1755)).
 - feat: Add K3 vault classification and offchain metadata for five reviewed deployments on Ethereum, Arc, Base and Monad, plus the `risk_premium_harvest` strategy category with K3 cirBTC as a documented example (2026-11-10).
 - fix: Publish reviewed zero management/performance fees and a fixed 0.5% withdrawal reference for Veranta avUSDC, explain that actual withdrawal fees are dynamic, and add a targeted fee and description refresh (2026-11-09, [#1752](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1752)).

@@ -6,16 +6,21 @@
 - The listing endpoint ``/api/vaults`` returns paginated vault data without descriptions
 - The detail endpoint ``/api/vault`` returns full vault data including ``description`` and ``shortDescription``
 - We fetch and cache this data locally to avoid repeated API calls
-- Two-level caching: disk (1-day TTL) + an expiring in-process dictionary
+- Separate catalogue and exact-address clocks, with atomic shared disk storage
+- Active descriptions refresh daily; empty/closed detail refreshes weekly on demand
 """
 
+import copy
 import datetime
 import json
 import logging
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from json import JSONDecodeError
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import requests
 from atomicwrites import atomic_write
@@ -96,22 +101,6 @@ def is_lagoon_private_vault_allowlisted(chain_id: int, vault_address: HexAddress
     return (chain_id, HexAddress(vault_address.lower())) in LAGOON_PRIVATE_VAULT_ALLOWLIST
 
 
-@dataclass(slots=True)
-class _LagoonMetadataCache:
-    """One chain's Lagoon metadata held by the long-running scanner.
-
-    The looped scanner stays in one Python process across scan cycles. Its
-    process cache therefore needs an explicit expiry in addition to the JSON
-    file expiry.
-    """
-
-    #: Metadata keyed by checksummed vault address.
-    vaults: dict[HexAddress, "LagoonVaultMetadata"]
-
-    #: Naive UTC time after which Lagoon metadata must be fetched again.
-    expires_at: datetime.datetime
-
-
 def _get_cache_file(cache_path: Path, chain_id: int) -> Path:
     """Resolve one chain's Lagoon cache file.
 
@@ -124,7 +113,7 @@ def _get_cache_file(cache_path: Path, chain_id: int) -> Path:
     :return:
         Absolute path to the chain's JSON cache file.
     """
-    return (cache_path / f"lagoon_vaults_chain_{chain_id}.json").resolve()
+    return (cache_path / f"lagoon_metadata_chain_{chain_id}_v2.json").resolve()
 
 
 class LagoonCuratorMetadata(TypedDict):
@@ -193,7 +182,14 @@ class LagoonVaultMetadata(TypedDict):
 
 
 def _parse_curator(raw: dict) -> LagoonCuratorMetadata:
-    """Parse a curator object from the Lagoon API response."""
+    """Normalise one curator object from the Lagoon detail API.
+
+    Nullable names become empty strings so display accessors can omit them.
+    Source: https://app.lagoon.finance/api/vault.
+
+    :param raw: One curator object from a validated detail response.
+    :return: Curator fields using the internal metadata names.
+    """
     return LagoonCuratorMetadata(
         id=raw.get("id", ""),
         name=raw.get("name") or "",
@@ -206,20 +202,21 @@ def _parse_curator(raw: dict) -> LagoonCuratorMetadata:
 def _parse_vault_detail(raw: dict) -> LagoonVaultMetadata:
     """Parse vault metadata from the detail API response.
 
-    :param raw:
-        Raw JSON dict from ``/api/vault`` endpoint
-    """
-    curators_raw = raw.get("curators", [])
-    curators = [_parse_curator(c) for c in curators_raw] if curators_raw else []
+    Preserve provider descriptions for normalisation by the adapter. Missing
+    curator collections are represented by an empty list.
+    Source: https://app.lagoon.finance/api/vault.
 
+    :param raw: Validated JSON object from the detail endpoint.
+    :return: Internal vault metadata, without changing listing eligibility.
+    """
     return LagoonVaultMetadata(
-        name=raw.get("name", ""),
+        name=raw.get("name") or "",
         description=raw.get("description"),
         short_description=raw.get("shortDescription"),
         logo_url=raw.get("logoUrl"),
         transparency_url=raw.get("transparencyUrl"),
         average_settlement=raw.get("averageSettlement"),
-        curators=curators,
+        curators=[_parse_curator(curator) for curator in (raw.get("curators") or [])],
     )
 
 
@@ -261,269 +258,414 @@ def _fetch_vault_listing_page(
         return None
 
 
-def _fetch_vault_detail(
-    chain_id: int,
-    address: HexAddress,
-    api_base_url: str = DEFAULT_API_BASE_URL,
-) -> dict | None:
-    """Fetch detailed vault metadata from the Lagoon web app API.
+@dataclass(slots=True)
+class LagoonDetailResponse:
+    """One validated exact-address response from Lagoon's public API.
 
-    The official Lagoon web application uses this endpoint at
-    ``https://app.lagoon.finance/api/vault``.
-
-    :param chain_id:
-        EVM chain id
-
-    :param address:
-        Vault contract address
-
-    :param api_base_url:
-        Lagoon API base URL
-
-    :return:
-        Raw JSON response dict, or ``None`` when the request fails or Lagoon
-        does not have a record for the vault.
+    Request failures remain distinct from a successful response with empty
+    descriptions. See https://app.lagoon.finance/api/vault.
     """
-    url = f"{api_base_url}/vault?chainId={chain_id}&address={address}"
-    logger.debug("Fetching Lagoon vault detail from %s", url)
+
+    #: Provider data, populated only after chain/address validation.
+    raw: dict | None = None
+    #: One of success, not_found or unavailable.
+    outcome: Literal["success", "not_found", "unavailable"] = "unavailable"
+    #: Optional bounded provider retry delay in seconds.
+    retry_after: float = 3600
+    #: A provider 429 defers all other detail requests on this chain.
+    rate_limited: bool = False
+
+
+@dataclass(slots=True)
+class LagoonMetadataSnapshot:
+    """Consistent detail and catalogue observations for one scan row.
+
+    Metadata availability does not confer approval to list a deployment.
+    """
+
+    #: Last successful parsed detail, including historical/closed products.
+    metadata: LagoonVaultMetadata | None
+    #: Public catalogue membership, or None before any successful observation.
+    listed: bool | None
+    #: Last detail attempt outcome, independent of retained payload presence.
+    outcome: str
+    #: Naive UTC timestamp of the last successful detail observation.
+    fetched_at: str | None
+    #: Earliest next exact-address attempt, including provider throttling.
+    retry_at: str | None = None
+
+
+def _retry_after_seconds(value: str | None) -> float:
+    """Bound a Retry-After header without sleeping in a scanner worker.
+
+    Both HTTP date and delta-seconds forms are accepted. Invalid values use
+    the normal one-hour retry delay.
+
+    :param value: Optional HTTP Retry-After header.
+    :return: Delay between one second and one day.
+    """
     try:
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except (requests.RequestException, JSONDecodeError) as e:
-        logger.warning("Failed to fetch Lagoon vault detail for %s on chain %d: %s", address, chain_id, e)
-        return None
+        delay = float(value) if value and value.isdecimal() else (parsedate_to_datetime(value).astimezone(datetime.UTC) - datetime.datetime.now(datetime.UTC)).total_seconds()
+    except (TypeError, ValueError, OverflowError):
+        delay = FAILED_REFRESH_RETRY_DELAY.total_seconds()
+    return max(1, min(delay, 86400))
+
+
+def _fetch_detail_response(chain_id: int, address: HexAddress | str, api_base_url: str = DEFAULT_API_BASE_URL) -> LagoonDetailResponse:
+    """Fetch exact-address data, keeping absence separate from provider failure.
+
+    Only a response identifying the requested deployment can supply metadata.
+    The endpoint is https://app.lagoon.finance/api/vault.
+
+    :param chain_id: Requested chain identifier.
+    :param address: Requested contract address.
+    :param api_base_url: Public API base, overridable for tests.
+    :return: Validated raw payload or a retryable/negative result.
+    """
+    try:
+        response = requests.get(f"{api_base_url}/vault", params={"chainId": chain_id, "address": address}, timeout=30)
+        if response.status_code == 404:
+            return LagoonDetailResponse(outcome="not_found", retry_after=86400)
+        if response.status_code == 429:
+            delay = _retry_after_seconds(response.headers.get("Retry-After"))
+            logger.warning("Lagoon detail rate limited for %s on chain %s; retry after %s seconds", address, chain_id, delay)
+            return LagoonDetailResponse(retry_after=delay, rate_limited=True)
+        response.raise_for_status()
+        raw = response.json()
+        if not isinstance(raw, dict) or not isinstance(raw.get("chain"), dict) or int(raw["chain"]["id"]) != chain_id or raw.get("address", "").lower() != address.lower():
+            raise ValueError("Detail response does not identify the requested deployment")
+        if any(raw.get(field) is not None and not isinstance(raw[field], str) for field in ("name", "description", "shortDescription")):
+            raise ValueError("Invalid text fields in detail response")
+        curators = raw.get("curators")
+        if curators is None:
+            curators = []
+        if not isinstance(curators, list) or any(not isinstance(c, dict) or (c.get("name") is not None and not isinstance(c["name"], str)) for c in curators):
+            raise ValueError("Invalid curator fields in detail response")
+        if raw.get("state") is not None and not isinstance(raw["state"], dict):
+            raise ValueError("Invalid state field in detail response")
+        return LagoonDetailResponse(raw=raw, outcome="success")
+    except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as error:
+        logger.warning("Lagoon detail deferred for %s on chain %s: %s", address, chain_id, error)
+        return LagoonDetailResponse()
+
+
+def _fetch_vault_detail(chain_id: int, address: HexAddress, api_base_url: str = DEFAULT_API_BASE_URL) -> dict | None:
+    """Fetch validated raw metadata for backwards-compatible API consumers.
+
+    The cache uses the richer response to preserve absence/failure provenance.
+
+    :param chain_id: Requested chain.
+    :param address: Requested contract.
+    :param api_base_url: Public metadata API base URL.
+    :return: Raw successful detail, or None when unavailable.
+    """
+    return _fetch_detail_response(chain_id, address, api_base_url).raw
+
+
+#: Versioned chain envelopes, keyed by resolved path and atomic file identity.
+_cached_vaults: dict[Path, tuple[tuple[int, int, int], dict]] = {}
+#: Thread locks coalesce each catalogue or exact-address request in a process.
+_request_locks: dict[tuple[Path, str], threading.RLock] = {}
+_locks_guard = threading.Lock()
+
+
+def _request_lock(file: Path, key: str) -> threading.RLock:
+    """Resolve a process-local request lock.
+
+    Disk commits have a separate, short cross-process writer lock.
+
+    :param file: Chain cache path.
+    :param key: Catalogue marker or normalised address.
+    :return: Shared reentrant lock.
+    """
+    with _locks_guard:
+        return _request_locks.setdefault((file, key), threading.RLock())
+
+
+def _read_cache(file: Path, chain_id: int) -> dict:
+    """Read a versioned envelope or losslessly interpret the legacy map.
+
+    Legacy map keys seed the previous eligibility observation only; new detail
+    payloads never confer membership. Corruption must not erase cached text.
+
+    :param file: Cache path.
+    :param chain_id: Chain used to interpret the reviewed private allowlist.
+    :return: Shared read-only envelope. Writers must copy inside the lock.
+    :raises RuntimeError: For invalid or unsupported cache content.
+    """
+    source = file
+    if not source.exists():
+        legacy = file.parent / f"lagoon_vaults_chain_{chain_id}.json"
+        if legacy.exists() and legacy.stat().st_size > 0:
+            source = legacy
+        else:
+            return {"schema_version": 2, "listed": None, "listing_fetched_at": None, "listing_attempt_at": None, "listing_retry_at": None, "details": {}}
+    stat = source.stat()
+    fingerprint = (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+    cached = _cached_vaults.get(file)
+    if cached is not None and cached[0] == fingerprint:
+        return cached[1]
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Expected a JSON object")
+        if "schema_version" not in data:
+            if any(not Web3.is_address(address) or not isinstance(metadata, dict) for address, metadata in data.items()):
+                raise ValueError("Invalid legacy address map")
+            if len({a.lower() for a in data}) != len(data):
+                raise ValueError("Duplicate legacy address identities")
+            observed_at = native_datetime_utc_fromtimestamp(stat.st_mtime)
+            fetched_at = observed_at.isoformat()
+            retry_at = (observed_at + DEFAULT_CACHE_DURATION).isoformat()
+            listed = [address.lower() for address in data if not is_lagoon_private_vault_allowlisted(chain_id, address)]
+            data = {"schema_version": 2, "listed": listed, "listing_fetched_at": fetched_at, "listing_attempt_at": fetched_at, "listing_retry_at": retry_at, "legacy": True, "details": {address.lower(): {"metadata": metadata, "fetched_at": fetched_at, "attempt_at": fetched_at, "retry_at": retry_at, "outcome": "success"} for address, metadata in data.items()}}
+        if data["schema_version"] != 2 or not isinstance(data["details"], dict) or (data["listed"] is not None and (not isinstance(data["listed"], list) or any(not Web3.is_address(a) for a in data["listed"]))):
+            raise ValueError("Unsupported Lagoon cache envelope")
+        for field in ("listing_fetched_at", "listing_attempt_at", "listing_retry_at", "provider_retry_at"):
+            if data.get(field) is not None:
+                if datetime.datetime.fromisoformat(data[field]).tzinfo is not None:
+                    raise ValueError("Cache times must be naive UTC")
+        for address, record in data["details"].items():
+            if not Web3.is_address(address) or address != address.lower():
+                raise ValueError("Invalid cached detail address")
+            if not isinstance(record, dict) or record.get("outcome") not in {"success", "not_found", "unavailable"} or (record.get("metadata") is not None and not isinstance(record["metadata"], dict)):
+                raise ValueError("Invalid detail record")
+            for field in ("attempt_at", "retry_at"):
+                if not isinstance(record.get(field), str):
+                    raise ValueError("Detail record is missing its request clock")
+            for field in ("fetched_at", "attempt_at", "retry_at"):
+                if record.get(field):
+                    if datetime.datetime.fromisoformat(record[field]).tzinfo is not None:
+                        raise ValueError("Cache times must be naive UTC")
+    except (ValueError, KeyError, TypeError, UnicodeDecodeError) as error:
+        raise RuntimeError(f"Could not parse Lagoon vaults file for chain {chain_id} at {file}: {error}") from error
+    _cached_vaults[file] = (fingerprint, data)
+    return data
 
 
 def _load_cached_vaults(file: Path, chain_id: int) -> dict[HexAddress, LagoonVaultMetadata]:
-    """Load one chain's Lagoon metadata JSON cache.
+    """Read detail payloads without making network requests.
 
-    Cache corruption is raised as a hard error because silently replacing the
-    mapping with an empty result would erase metadata during the next vault
-    scan.
+    Kept for existing consumers that need only the address map.
 
-    :param file:
-        JSON cache file to read.
-
-    :param chain_id:
-        EVM chain id used in error messages.
-
-    :return:
-        Metadata keyed by checksummed vault address.
-
-    :raises RuntimeError:
-        If the cache is not valid JSON.
+    :param file: Chain cache JSON file.
+    :param chain_id: Chain identifier.
+    :return: Checksummed address-to-payload map, including historical records.
     """
-    try:
-        with file.open(encoding="utf-8") as cache_input:
-            return json.load(cache_input)
-    except (JSONDecodeError, UnicodeDecodeError) as e:
-        content = file.read_text(encoding="utf-8", errors="replace")
-        raise RuntimeError(f"Could not parse Lagoon vaults file for chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
+    return {Web3.to_checksum_address(address): copy.deepcopy(record["metadata"]) for address, record in _read_cache(file, chain_id)["details"].items() if record.get("metadata") is not None}
 
 
-def fetch_lagoon_vaults_for_chain(
-    chain_id: int,
-    cache_path: Path = DEFAULT_CACHE_PATH,
-    api_base_url: str = DEFAULT_API_BASE_URL,
-    now_: datetime.datetime | None = None,
-    max_cache_duration: datetime.timedelta = DEFAULT_CACHE_DURATION,
-) -> dict[HexAddress, LagoonVaultMetadata]:
-    """Fetch and cache Lagoon offchain vault metadata for a given chain.
+def _commit_cache(file: Path, chain_id: int, update: Callable[[dict], None]) -> None:
+    """Merge into the latest disk state under a short cross-process lock.
 
-    - Enumerates visible vaults using the listing endpoint and adds explicitly
-      reviewed private deployments from the chain-aware allowlist
-    - Fetches each vault's detail, including its description, from the detail
-      endpoint
-    - One JSON cache file per chain
-    - Serialises concurrent readers and writers with a file lock
-    - Retains stale metadata when Lagoon has a transient API failure
+    HTTP requests must complete before entering this function.
 
-    The official Lagoon web application uses these endpoints under
-    ``https://app.lagoon.finance/api``.
-
-    :param chain_id:
-        EVM chain id
-
-    :param cache_path:
-        Directory for cache files (default ``~/.tradingstrategy/cache/lagoon/``)
-
-    :param api_base_url:
-        Lagoon API base URL
-
-    :param now_:
-        Override current time (for testing)
-
-    :param max_cache_duration:
-        How long before refreshing cache (default 1 day)
-
-    :return:
-        Dict mapping checksummed vault address to :py:class:`LagoonVaultMetadata`
+    :param file: Chain cache file.
+    :param chain_id: Chain identifier.
+    :param update: Mutation applied to the latest detached envelope.
+    :return: ``None`` after atomically publishing the merged envelope.
     """
+    with wait_other_writers(file):
+        data = copy.deepcopy(_read_cache(file, chain_id))
+        update(data)
+        with atomic_write(str(file), mode="w", overwrite=True, encoding="utf-8") as output:
+            json.dump(data, output)
 
-    assert type(chain_id) is int, "chain_id must be integer"
-    assert isinstance(cache_path, Path), "cache_path must be Path instance"
 
+def _is_due(retry_at: str | None, now_: datetime.datetime) -> bool:
+    """Compare an independent request deadline with naive UTC time.
+
+    :param retry_at: Serialised deadline, or None for a first attempt.
+    :param now_: Current naive UTC time.
+    :return: Whether another request may be attempted.
+    """
+    return retry_at is None or now_ >= datetime.datetime.fromisoformat(retry_at)
+
+
+def _refresh_catalogue(chain_id: int, file: Path, now_: datetime.datetime, api_base_url: str, force: bool = False) -> None:
+    """Refresh membership independently from exact-address payloads.
+
+    Failed/incomplete listings preserve previous eligibility and defer retry.
+    See https://app.lagoon.finance/api/vaults for the paginated source.
+
+    :param chain_id: Chain whose rows are selected from the global listing.
+    :param file: Chain cache path.
+    :param now_: Current naive UTC time.
+    :param api_base_url: Metadata API base URL.
+    :param force: Refresh successful observations early; failed catalogue
+        attempts retain their retry deadlines.
+    :return: ``None`` after refreshing or deferring this request.
+    """
+    with _request_lock(file, "catalogue"):
+        previous = _read_cache(file, chain_id)
+        if not _is_due(previous["listing_retry_at"], now_):
+            failed_attempt = previous["listing_attempt_at"] != previous["listing_fetched_at"]
+            if not force or failed_attempt:
+                return
+        addresses = []
+        global_count = 0
+        page = 0
+        success = True
+        while True:
+            raw = _fetch_vault_listing_page(chain_id, page_index=page, api_base_url=api_base_url)
+            try:
+                if not isinstance(raw, dict) or not isinstance(raw["vaults"], list) or not isinstance(raw["hasNextPage"], bool):
+                    raise ValueError("Invalid listing shape")
+                global_count += len(raw["vaults"])
+                for vault in raw["vaults"]:
+                    if not Web3.is_address(vault["address"]):
+                        raise ValueError("Invalid listed address")
+                    if int(vault["chain"]["id"]) == chain_id:
+                        addresses.append(vault["address"].lower())
+                if not raw["hasNextPage"]:
+                    break
+                page += 1
+                if page >= 1000:
+                    raise ValueError("Listing pagination did not terminate")
+            except (TypeError, ValueError, KeyError) as error:
+                logger.warning("Lagoon catalogue deferred for chain %s: %s", chain_id, error)
+                success = False
+                break
+        if success and global_count == 0 and previous["listed"]:
+            logger.warning("Lagoon unexpectedly empty catalogue for chain %s; retaining previous membership", chain_id)
+            success = False
+
+        def merge(data: dict) -> None:
+            """Apply only if another process has not published a newer attempt."""
+            if data.get("listing_attempt_at") and data["listing_attempt_at"] > now_.isoformat():
+                return
+            data["listing_attempt_at"] = now_.isoformat()
+            data["listing_retry_at"] = (now_ + (DEFAULT_CACHE_DURATION if success else FAILED_REFRESH_RETRY_DELAY)).isoformat()
+            if success:
+                data["listed"] = sorted(set(addresses))
+                data["listing_fetched_at"] = now_.isoformat()
+                data.pop("legacy", None)
+
+        _commit_cache(file, chain_id, merge)
+
+
+def _refresh_detail(chain_id: int, address: str, file: Path, now_: datetime.datetime, api_base_url: str, force: bool = False) -> None:
+    """Refresh a requested known deployment even when catalogue access fails.
+
+    Success, absence and retryable failure have independent per-address clocks.
+    A failed request never deletes the last successful payload.
+
+    :param chain_id: Requested chain.
+    :param address: Lowercase requested address.
+    :param file: Chain cache path.
+    :param now_: Current naive UTC time.
+    :param api_base_url: Provider endpoint.
+    :param force: Refresh successful observations early; failure and provider
+        backoff deadlines still apply.
+    :return: ``None`` after refreshing or deferring this request.
+    """
+    with _request_lock(file, address):
+        data = _read_cache(file, chain_id)
+        previous = data["details"].get(address, {})
+        if not _is_due(previous.get("retry_at"), now_):
+            if not force or previous.get("outcome") != "success":
+                return
+        if not _is_due(data.get("provider_retry_at"), now_):
+            return
+        response = _fetch_detail_response(chain_id, address, api_base_url)
+        delay = datetime.timedelta(seconds=response.retry_after)
+        if response.outcome == "success":
+            raw = response.raw
+            empty = not any((raw.get(field) or "").strip() for field in ("description", "shortDescription"))
+            delay = datetime.timedelta(days=7) if empty or (raw.get("state") or {}).get("state") == "Closed" else DEFAULT_CACHE_DURATION
+
+        def merge(data: dict) -> None:
+            """Preserve newer results and merge a single exact deployment."""
+            if response.rate_limited:
+                data["provider_retry_at"] = max(data.get("provider_retry_at") or "", (now_ + delay).isoformat())
+            records = data["details"]
+            record = records.get(address, {})
+            if record.get("attempt_at") and record["attempt_at"] > now_.isoformat():
+                return
+            record.update(outcome=response.outcome, attempt_at=now_.isoformat(), retry_at=(now_ + delay).isoformat())
+            if response.outcome == "success":
+                record.update(metadata=_parse_vault_detail(response.raw), fetched_at=now_.isoformat())
+            records[address] = record
+            cutoff = (now_ - datetime.timedelta(days=30)).isoformat()
+            data["details"] = {a: r for a, r in records.items() if r.get("metadata") is not None or r["attempt_at"] >= cutoff}
+
+        _commit_cache(file, chain_id, merge)
+
+
+def fetch_lagoon_metadata_snapshot(chain_id: int, vault_address: HexAddress | str, now_: datetime.datetime | None = None, cache_path: Path = DEFAULT_CACHE_PATH, api_base_url: str = DEFAULT_API_BASE_URL, refresh_listing: bool = True) -> LagoonMetadataSnapshot:
+    """Fetch a coherent metadata and membership observation for one known vault.
+
+    Exact-address detail is independent of catalogue visibility. This does not
+    discover vaults or approve a private deployment for public export.
+    Source: https://app.lagoon.finance/api/vault.
+
+    :param chain_id: Verified chain identifier.
+    :param vault_address: Known deployment, in any address casing.
+    :param now_: Override current naive UTC time for deterministic tests.
+    :param cache_path: Cache root; migrations must use temporary storage.
+    :param api_base_url: Public API URL, overridable for tests.
+    :param refresh_listing: False for an exact-address-only migration.
+    :return: Parsed payload, source outcome and independent listing observation.
+    """
+    assert Web3.is_address(vault_address), f"Invalid Lagoon address: {vault_address}"
+    now_ = now_ or native_datetime_utc_now()
     cache_path.mkdir(parents=True, exist_ok=True)
     file = _get_cache_file(cache_path, chain_id)
-
-    now_ = now_ or native_datetime_utc_now()
-
-    # Multiple scanner threads may discover Lagoon vaults at the same time.
-    # Keep the freshness check and any replacement write under one file lock.
-    with wait_other_writers(file):
-        has_cache = file.exists() and file.stat().st_size > 0
-        cached_vaults = _load_cached_vaults(file, chain_id) if has_cache else {}
-        if has_cache:
-            fetched_at = native_datetime_utc_fromtimestamp(file.stat().st_mtime)
-            if now_ - fetched_at < max_cache_duration:
-                logger.info("Using cached Lagoon vaults file for chain %d from %s, last fetched at %s, ago %s", chain_id, file, fetched_at.isoformat(), now_ - fetched_at)
-                return cached_vaults
-
-        logger.info("Re-fetching Lagoon vaults metadata for chain %d from %s", chain_id, api_base_url)
-
-        # Lagoon ignores chainId on the listing endpoint, so filter every page
-        # by the chain id embedded in each returned vault record.
-        all_vault_addresses: list[HexAddress] = []
-        page_index = 0
-        while True:
-            page_data = _fetch_vault_listing_page(chain_id, page_index=page_index, api_base_url=api_base_url)
-            if page_data is None:
-                logger.warning("Keeping %d stale Lagoon metadata entries for chain %d after a listing request failure", len(cached_vaults), chain_id)
-                return cached_vaults
-
-            for vault in page_data.get("vaults", []):
-                address = vault.get("address")
-                vault_chain_id = vault.get("chain", {}).get("id")
-                if address and vault_chain_id is not None and int(vault_chain_id) == chain_id:
-                    all_vault_addresses.append(HexAddress(address))
-
-            if not page_data.get("hasNextPage", False):
-                break
-            page_index += 1
-
-        visible_vault_count = len(all_vault_addresses)
-        if visible_vault_count == 0 and cached_vaults:
-            # An empty listing can also mean Lagoon changed its response shape.
-            # Check this before adding private addresses so one successful
-            # allowlisted detail cannot replace the complete stale catalogue.
-            logger.warning("Lagoon returned no visible vaults for chain %d; keeping %d stale entries", chain_id, len(cached_vaults))
-            return cached_vaults
-
-        private_vault_addresses = [address for private_chain_id, address in sorted(LAGOON_PRIVATE_VAULT_ALLOWLIST) if private_chain_id == chain_id]
-        all_vault_addresses.extend(private_vault_addresses)
-        all_vault_addresses = list(dict.fromkeys(HexAddress(address.lower()) for address in all_vault_addresses))
-
-        logger.info(
-            "Found %d visible and %d allowlisted private Lagoon vaults on chain %d, fetching %d details",
-            visible_vault_count,
-            len(private_vault_addresses),
-            chain_id,
-            len(all_vault_addresses),
-        )
-
-        result: dict[HexAddress, LagoonVaultMetadata] = {}
-        fresh_detail_count = 0
-        for address in all_vault_addresses:
-            detail = _fetch_vault_detail(chain_id, address, api_base_url=api_base_url)
-            checksummed_address = Web3.to_checksum_address(address)
-            if detail is not None:
-                result[checksummed_address] = _parse_vault_detail(detail)
-                fresh_detail_count += 1
-            elif checksummed_address in cached_vaults:
-                # A single failed detail request must not erase metadata that
-                # the scanner already published for this vault.
-                result[checksummed_address] = cached_vaults[checksummed_address]
-
-        logger.info("Fetched fresh metadata for %d/%d Lagoon vaults on chain %d", fresh_detail_count, len(all_vault_addresses), chain_id)
-
-        if all_vault_addresses and fresh_detail_count == 0:
-            logger.warning("Lagoon API returned no fresh vault details for chain %d; keeping %d stale entries", chain_id, len(cached_vaults))
-            return cached_vaults
-
-        # Atomic replacement prevents a scanner interruption from leaving a
-        # truncated JSON file that blocks every later metadata refresh.
-        with atomic_write(str(file), mode="w", overwrite=True, encoding="utf-8") as cache_output:
-            json.dump(result, cache_output, indent=2)
-
-        logger.info("Wrote Lagoon cache %s", file)
-        assert file.stat().st_size > 0, f"File {file} is empty after writing"
-        return result
+    if refresh_listing:
+        _refresh_catalogue(chain_id, file, now_, api_base_url)
+    address = vault_address.lower()
+    _refresh_detail(chain_id, address, file, now_, api_base_url)
+    data = _read_cache(file, chain_id)
+    record = data["details"].get(address, {})
+    outcome = record.get("outcome", "unavailable")
+    retry_at = record.get("retry_at")
+    if _is_due(retry_at, now_) and not _is_due(data.get("provider_retry_at"), now_):
+        outcome, retry_at = "unavailable", data["provider_retry_at"]
+    return LagoonMetadataSnapshot(copy.deepcopy(record.get("metadata")), address in data["listed"] if data["listed"] is not None else None, outcome, record.get("fetched_at"), retry_at)
 
 
-def _resolve_memory_cache_expiry(cache_path: Path, chain_id: int, now_: datetime.datetime) -> datetime.datetime:
-    """Resolve when one chain's in-memory Lagoon metadata expires.
+def fetch_lagoon_vaults_for_chain(chain_id: int, cache_path: Path = DEFAULT_CACHE_PATH, api_base_url: str = DEFAULT_API_BASE_URL, now_: datetime.datetime | None = None, max_cache_duration: datetime.timedelta = DEFAULT_CACHE_DURATION) -> dict[HexAddress, LagoonVaultMetadata]:
+    """Refresh the public catalogue and reviewed private details, retaining history.
 
-    A successful refresh writes the JSON file, so its modification time anchors
-    the normal one-day expiry. When a failed refresh returns stale data without
-    writing, use a short retry delay instead of retrying once per scanned vault.
+    Historical unlisted payloads are returned but refreshed only on demand.
+    See https://app.lagoon.finance/api/vaults for the source inventory.
 
-    :param cache_path:
-        Directory containing Lagoon metadata cache files.
-
-    :param chain_id:
-        EVM chain id.
-
-    :param now_:
-        Current naive UTC time.
-
-    :return:
-        Naive UTC expiry time for the in-memory entry.
+    :param chain_id: Verified chain identifier.
+    :param cache_path: Root containing per-chain cache envelopes.
+    :param api_base_url: Provider API base.
+    :param now_: Optional naive UTC clock for tests.
+    :param max_cache_duration: Override successful bulk freshness; zero forces
+        successful observations, but never bypasses failure/rate-limit deadlines.
+    :return: Checksummed address-to-payload map, including retained history.
     """
-    cache_file = _get_cache_file(cache_path, chain_id)
-    if not cache_file.exists() or cache_file.stat().st_size == 0:
-        return now_ + FAILED_REFRESH_RETRY_DELAY
-
-    fetched_at = native_datetime_utc_fromtimestamp(cache_file.stat().st_mtime)
-    regular_expiry = fetched_at + DEFAULT_CACHE_DURATION
-    return regular_expiry if regular_expiry > now_ else now_ + FAILED_REFRESH_RETRY_DELAY
-
-
-def fetch_lagoon_vault_metadata(
-    web3: Web3,
-    vault_address: HexAddress,
-    now_: datetime.datetime | None = None,
-    cache_path: Path = DEFAULT_CACHE_PATH,
-) -> LagoonVaultMetadata | None:
-    """Fetch vault metadata from Lagoon's offchain web app API.
-
-    - Use both expiring in-process and disk caches to avoid repeated fetches
-
-    :param web3:
-        Web3 instance (used to get chain_id and checksum address)
-
-    :param vault_address:
-        Vault contract address
-
-    :param now_:
-        Override the current naive UTC time for testing.
-
-    :param cache_path:
-        Directory containing Lagoon metadata cache files.
-
-    :return:
-        Metadata dict or None if the vault is not in Lagoon's app database
-    """
-    chain_id = web3.eth.chain_id
     now_ = now_ or native_datetime_utc_now()
-    cache_file = _get_cache_file(cache_path, chain_id)
-    cached = _cached_vaults.get(cache_file)
+    cache_path.mkdir(parents=True, exist_ok=True)
+    file = _get_cache_file(cache_path, chain_id)
+    force = max_cache_duration <= datetime.timedelta(0)
+    if max_cache_duration != DEFAULT_CACHE_DURATION and not force:
+        existing = _read_cache(file, chain_id)
+        observed = existing["listing_fetched_at"]
+        if observed is not None and now_ < datetime.datetime.fromisoformat(observed) + max_cache_duration:
+            return _load_cached_vaults(file, chain_id)
+        force = True
+    _refresh_catalogue(chain_id, file, now_, api_base_url, force)
+    data = _read_cache(file, chain_id)
+    targets = set(data["listed"] or ()) | {a.lower() for c, a in LAGOON_PRIVATE_VAULT_ALLOWLIST if c == chain_id}
+    for address in sorted(targets):
+        logger.info("Refreshing Lagoon detail %s on chain %s", address, chain_id)
+        _refresh_detail(chain_id, address, file, now_, api_base_url, force)
+    return _load_cached_vaults(file, chain_id)
 
-    # Refresh the process cache as well as the disk cache. The looped scanner
-    # keeps this module loaded across scan cycles, so an unbounded dictionary
-    # would otherwise keep stale descriptions until the container restarts.
-    if cached is None or now_ >= cached.expires_at:
-        vaults = fetch_lagoon_vaults_for_chain(chain_id, cache_path=cache_path, now_=now_)
-        cached = _LagoonMetadataCache(
-            vaults=vaults,
-            expires_at=_resolve_memory_cache_expiry(cache_path, chain_id, now_),
-        )
-        _cached_vaults[cache_file] = cached
 
-    # Extract vault from Lagoon cache
-    vault_address = Web3.to_checksum_address(vault_address)
-    return cached.vaults.get(vault_address)
+def fetch_lagoon_vault_metadata(web3: Web3, vault_address: HexAddress, now_: datetime.datetime | None = None, cache_path: Path = DEFAULT_CACHE_PATH) -> LagoonVaultMetadata | None:
+    """Fetch parsed metadata for a known address without implying public approval.
 
+    Uses per-address expiry even for long-lived scanner processes.
 
-#: Expiring in-process cache keyed by the chain's disk-cache file.
-_cached_vaults: dict[Path, _LagoonMetadataCache] = {}
+    :param web3: Connection providing the verified chain identifier.
+    :param vault_address: Known vault contract.
+    :param now_: Optional naive UTC clock.
+    :param cache_path: Root for shared cache envelopes.
+    :return: Last successful payload, or None if none has ever been fetched.
+    """
+    return fetch_lagoon_metadata_snapshot(web3.eth.chain_id, vault_address, now_, cache_path).metadata

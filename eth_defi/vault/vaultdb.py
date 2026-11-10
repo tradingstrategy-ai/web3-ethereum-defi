@@ -15,6 +15,7 @@ import pandas as pd
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
@@ -177,6 +178,12 @@ class VaultRow(TypedDict):
     #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the
     #: vault name itself does not contain the curator brand.
     _manager_name: str | None
+
+    #: Last Lagoon detail request outcome, independent of retained text.
+    _lagoon_metadata_outcome: NotRequired[str]
+
+    #: Last successful Lagoon detail timestamp, as naive UTC ISO text.
+    _lagoon_metadata_fetched_at: NotRequired[str | None]
 
     #: Reviewed curator identity declared by a vault adapter. A display
     #: partner name alone is not sufficient evidence for this field.
@@ -386,6 +393,24 @@ class VaultDatabase:
             if existing is not None and new_row.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
                 new_row = new_row.copy()
                 new_row["_strategy_tags"] = existing["_strategy_tags"]
+
+            # Missing provider text is not an instruction to delete previously
+            # published Lagoon descriptions, including migration-filled rows.
+            if existing is not None and ERC4626Feature.lagoon_like in new_row.get("features", set()):
+                new_row = new_row.copy()
+                for field in ("_description", "_short_description"):
+                    if not (new_row.get(field) or "").strip() and (existing.get(field) or "").strip():
+                        new_row[field] = existing[field]
+                        observed_at = existing.get("_lagoon_metadata_fetched_at")
+                        age = str(native_datetime_utc_now() - datetime.datetime.fromisoformat(observed_at)) if observed_at else "age unknown"
+                        log = logger.info if new_row.get("_lagoon_metadata_outcome") == "success" else logger.warning
+                        log(
+                            "Retaining Lagoon text for %s field %s after %s/empty response; retained text age unknown; previous detail observation age: %s",
+                            spec,
+                            field,
+                            new_row.get("_lagoon_metadata_outcome", "unavailable"),
+                            age,
+                        )
 
             self.rows[spec] = new_row
 
