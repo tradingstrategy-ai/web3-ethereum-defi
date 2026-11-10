@@ -24,6 +24,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    arcus/index
    arcadia/index
    axis/index
+   k3/index
    flying_tulip/index
    upshift/index
    cowswap/index

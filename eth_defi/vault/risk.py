@@ -86,6 +86,7 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
+    "K3": None,
     # Verified upgradeable vault/manager and published audits, but no maintained
     # public core-contract development repository. The public SDK and audit
     # reports do not establish ongoing contract-development transparency.

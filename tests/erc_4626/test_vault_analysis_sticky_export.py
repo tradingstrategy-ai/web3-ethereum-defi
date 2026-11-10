@@ -269,11 +269,12 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
-    #: This maintainer-requested category includes a second sentence explaining
-    #: the drawdown risk alongside its trading activity.
-    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate]
+    #: These maintainer-requested categories include fuller risk explanations;
+    #: risk-premium harvesting also links to a concrete vault example.
+    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest}
+    short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
     #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
-    assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag != StrategyTag.high_frequency_high_win_rate)
+    assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
     assert all(len(description) <= max_description_length for description in short_descriptions)
     descriptions = descriptions_by_tag.values()
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
@@ -304,6 +305,28 @@ def test_high_frequency_high_win_rate_category_export(has_vault: bool) -> None:
         "tvl_usd": 100.0 if has_vault else 0.0,
         "one_month_apy": None,
     }
+
+
+@pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
+def test_risk_premium_harvest_category_export(has_vault: bool) -> None:
+    """Preserve the category explanation and linked example in JSON exports.
+
+    The category must be published before a tagged vault qualifies for the
+    export, and its count must reflect participating vaults once present.
+
+    :param has_vault: Whether an eligible record carries the new category.
+    :return: ``None`` after checking serialisation and category aggregation.
+    """
+    tag = StrategyTag("risk_premium_harvest")
+    vaults = [{"strategy_tags": [tag.value], "current_nav": 100.0}] if has_vault else []
+    categories = json.loads(json.dumps(top_vaults_json.build_strategy_categories_for_export(vaults)))
+    category = categories[tag.value]
+    assert category["label"] == "Risk premium harvesting"
+    assert category["description"] == STRATEGY_TAG_METADATA[tag]["description"]
+    assert "https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042" in category["description"]
+    assert category["one_month_apy"] is None
+    assert category["vault_count"] == int(has_vault)
+    assert category["tvl_usd"] == (100.0 if has_vault else 0.0)
 
 
 def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:

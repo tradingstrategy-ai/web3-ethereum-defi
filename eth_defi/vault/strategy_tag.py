@@ -5,6 +5,51 @@ EVM addresses, for example ``"0x1234..."``.  Keeping address literals as
 strings avoids noisy ``HexAddress(...)`` constructors while allowing the same
 mapping convention to be used for native protocol identifiers.  The lookup
 helper normalises adapter-supplied addresses before consulting these tables.
+
+Risk premium harvesting
+-----------------------
+
+:attr:`StrategyTag.risk_premium_harvest` identifies a documented strategy that
+seeks income as compensation for accepting investment risks. A risk premium is
+the extra return investors require for bearing uncertainty, such as a borrower
+failing to repay, being unable to sell an investment promptly, or having to pay
+out during adverse market moves. Harvesting means repeatedly taking those
+exposures to collect interest, fees or other payments. It does not mean that
+the premium has been measured or that the compensation will cover losses.
+
+The `K3 cirBTC vault on Arc
+<https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042>`__
+is an example. Its `launch announcement
+<https://x.com/k3_capital/status/2119852350034895084>`__ explicitly describes
+harvesting risk premium across DeFi. The `strategy explanation
+<https://x.com/k3_capital/status/2119852361879556335>`__ describes pledging
+cirBTC, a bitcoin-backed token, to borrow USDC, investing that USDC and
+converting investment income less borrowing costs into cirBTC. Its
+`investment mandate <https://x.com/k3_capital/status/2119852385367740877>`__
+permits lending and selected principal tokens, claims on an investment's
+redemption value at a future date. The launch allocation includes lending on
+Aave and Morpho; permission to hold principal tokens does not establish a
+current holding.
+
+For example, over one hypothetical period, investing 100 USDC of borrowed
+money might earn 6 USDC while borrowing costs 4 USDC, leaving 2 USDC before
+fees and investment losses. A 10 USDC investment loss would turn that into an
+8 USDC loss. These figures are illustrative, not the vault's rates or a return
+on its depositors' capital. Rising borrowing costs, investment losses and a
+forced sale of pledged cirBTC can reduce the amount returned to depositors.
+Depositors also retain bitcoin's dollar-price exposure.
+
+Use this tag only when product-specific evidence establishes both the
+risk-premium mandate and the income-generating mechanism. Generic yield
+marketing, token incentives or the mere presence of smart-contract risk is
+insufficient. Lending alone does not establish this category, and its absence
+does not imply that another vault has no credit or liquidity risk.
+The category does not imply that every risk is compensated,
+that capital is protected, or that the strategy is market-neutral.
+Keep supported instrument and mechanism tags alongside it: ``lending``
+identifies interest earned from borrowers, while ``carry_trade`` identifies
+income from holding or financing positions. K3 cirBTC retains both, together
+with its documented ``delta_neutral`` objective in cirBTC terms.
 """
 
 import enum
@@ -187,6 +232,14 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
 
+    #: Seeks income as compensation for deliberately accepting investment risks.
+    #: Requires a documented risk-premium mandate and an identifiable income
+    #: mechanism; generic yield or exposure to software risk alone is insufficient.
+    #: Complements instrument and mechanism tags such as lending and carry_trade. It neither
+    #: guarantees positive returns nor implies that every risk is compensated.
+    #: Example vault: K3 cirBTC on Arc, linked in the module's detailed explanation.
+    risk_premium_harvest = "risk_premium_harvest"
+
     @classmethod
     def _missing_(cls, value: object) -> "StrategyTag | None":
         """Map retired persisted values to their canonical strategy tags.
@@ -220,8 +273,8 @@ class StrategyTagMetadata(TypedDict):
 
 #: Public presentation labels and summaries for every strategy tag.
 #:
-#: Descriptions are deliberately brief so API consumers can display them in a
-#: summary table without truncating the activity being described.
+#: Descriptions are normally brief. Selected categories include a fuller risk
+#: explanation or linked example; exporters preserve the complete Markdown.
 STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.protocol_equity: {
         "label": "Protocol equity",
@@ -378,6 +431,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.carry_trade: {
         "label": "Carry trade",
         "description": "Earns [recurring income from holding assets or balancing related positions](https://tradingstrategy.ai/glossary/carry-trade).",
+    },
+    StrategyTag.risk_premium_harvest: {
+        "label": "Risk premium harvesting",
+        "description": "Pursues an explicit mandate to earn income for bearing investment risks, such as borrowers failing to repay or difficulty selling assets. For example, [K3 cirBTC](https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042) borrows USDC against cirBTC, a bitcoin-backed token, and lends the USDC, aiming to earn more than the borrowing cost. Losses can exceed the income earned. This describes the investment mandate, not a risk rating.",
     },
 }
 

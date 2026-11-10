@@ -36,6 +36,7 @@ from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_HARDC
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.k3.constants import K3_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HARDCODED_LEADS
@@ -96,6 +97,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Shift", SHIFT_HARDCODED_LEADS),
     ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
     ("Axis", AXIS_HARDCODED_LEADS),
+    ("K3", K3_HARDCODED_LEADS),
     ("Flying Tulip", FLYING_TULIP_HARDCODED_LEADS),
     ("Pallas", PALLAS_HARDCODED_LEADS),
     ("T3tris", T3TRIS_HARDCODED_LEADS),
