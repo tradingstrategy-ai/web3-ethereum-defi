@@ -969,6 +969,45 @@ def test_calculate_vault_rankings_excludes_disabled_gmx_products() -> None:
     assert disabled.ranking_curator is None
 
 
+def test_calculate_vault_rankings_hyperliquid_lower_chain_protocol_threshold() -> None:
+    """Rank Hyperliquid native vaults from $5,000 TVL in chain and protocol cohorts.
+
+    Hyperliquid native vaults are typically small, so their chain and protocol
+    rankings use a $5,000 threshold instead of the default $10,000. Other
+    protocols and the $50,000 overall threshold must stay unchanged.
+
+    1. Build a $6,800 Hyperliquid vault, a $4,999 Hyperliquid vault and a $6,800 Morpho vault
+    2. Calculate rankings
+    3. Check only the $6,800 Hyperliquid vault gets chain and protocol rankings, and no vault gets an overall ranking
+    """
+    # 1. Build a $6,800 Hyperliquid vault, a $4,999 Hyperliquid vault and a $6,800 Morpho vault
+    hyperliquid = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=6_800)
+    hyperliquid_too_small = PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=4_999)
+    morpho = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=6_800)
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Hypercore", "Hypercore", "Ethereum"],
+            "protocol_slug": ["hyperliquid", "hyperliquid", "morpho"],
+            "curator_slug": [None, None, None],
+            "risk": [VaultTechnicalRisk.negligible] * 3,
+            "period_results": [[hyperliquid], [hyperliquid_too_small], [morpho]],
+        },
+    )
+
+    # 2. Calculate rankings
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    # 3. Check only the $6,800 Hyperliquid vault gets chain and protocol rankings, and no vault gets an overall ranking
+    assert hyperliquid.ranking_chain == 1
+    assert hyperliquid.ranking_protocol == 1
+    assert hyperliquid.ranking_overall is None
+    assert hyperliquid_too_small.ranking_chain is None
+    assert hyperliquid_too_small.ranking_protocol is None
+    assert morpho.ranking_chain is None
+    assert morpho.ranking_protocol is None
+    assert morpho.ranking_overall is None
+
+
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
     """Euler vaults may charge the valid 100% performance-fee boundary."""
     start = pd.Timestamp("2026-01-01").to_pydatetime()
