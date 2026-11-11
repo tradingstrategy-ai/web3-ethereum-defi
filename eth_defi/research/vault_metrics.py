@@ -4282,11 +4282,22 @@ def get_period_metrics(period_results: list[PeriodMetrics], period: Period) -> P
     return None
 
 
+#: Protocol-specific minimum TVL for chain and protocol rankings.
+#:
+#: Overrides ``min_tvl_chain_protocol`` in :py:func:`calculate_vault_rankings`.
+#: Hyperliquid native vaults are typically smaller than ERC-4626 vaults, so they
+#: use a lower threshold. The overall ranking threshold is unchanged.
+MIN_TVL_CHAIN_PROTOCOL_BY_PROTOCOL_SLUG: dict[str, USDollarAmount] = {
+    "hyperliquid": 5_000,
+}
+
+
 def calculate_vault_rankings(
     results_df: pd.DataFrame,
     min_tvl_chain_protocol: float = 10_000,
     min_tvl_overall: float = 50_000,
     min_tvl_curator: float = 100,
+    min_tvl_chain_protocol_by_protocol_slug: dict[str, USDollarAmount] | None = None,
 ) -> pd.DataFrame:
     """Calculate rankings for all periods inside PeriodMetrics objects.
 
@@ -4306,6 +4317,11 @@ def calculate_vault_rankings(
     :param min_tvl_chain_protocol:
         Minimum TVL required for chain and protocol rankings (default: $10,000)
 
+    :param min_tvl_chain_protocol_by_protocol_slug:
+        Per-protocol overrides of ``min_tvl_chain_protocol``, keyed by protocol slug.
+        Defaults to :py:data:`MIN_TVL_CHAIN_PROTOCOL_BY_PROTOCOL_SLUG`
+        (Hyperliquid native vaults: $5,000).
+
     :param min_tvl_overall:
         Minimum TVL required for overall rankings (default: $50,000)
 
@@ -4316,6 +4332,9 @@ def calculate_vault_rankings(
         DataFrame with rankings updated in PeriodMetrics objects
     """
     periods: list[Period] = list(LOOKBACK_AND_TOLERANCES.keys())
+
+    if min_tvl_chain_protocol_by_protocol_slug is None:
+        min_tvl_chain_protocol_by_protocol_slug = MIN_TVL_CHAIN_PROTOCOL_BY_PROTOCOL_SLUG
 
     # Extract row-wise inputs once into plain lists: the previous
     # implementation re-fetched every column through ``results_df.loc[idx]``
@@ -4328,6 +4347,7 @@ def calculate_vault_rankings(
     chain_col = results_df["chain"]
     protocol_slug_col = results_df["protocol_slug"]
     curator_slug_col = results_df["curator_slug"]
+    min_tvl_chain_protocol_col = [min_tvl_chain_protocol_by_protocol_slug.get(slug, min_tvl_chain_protocol) for slug in protocol_slug_col.tolist()]
 
     for period in periods:
         # Build Series of CAGR values for this period with different TVL thresholds
@@ -4351,8 +4371,9 @@ def calculate_vault_rankings(
             tvl = pm.tvl_end if pd.notna(pm.tvl_end) else 0
             has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
-            # Chain/protocol rankings use lower TVL threshold
-            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_chain_protocol or has_no_cagr):
+            # Chain/protocol rankings use lower TVL threshold,
+            # with per-protocol overrides (e.g. Hyperliquid native vaults)
+            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_chain_protocol_col[i] or has_no_cagr):
                 cagr_values_chain_protocol[i] = cagr
 
             # Curator rankings include smaller vaults, but still omit unknown
