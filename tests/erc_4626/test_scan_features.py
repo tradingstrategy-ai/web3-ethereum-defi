@@ -4,6 +4,7 @@ import datetime
 import json
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -13,6 +14,7 @@ import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon import offchain_metadata
 from eth_defi.erc_4626.vault_protocol.lagoon import vault as lagoon
+from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultAPIStatus
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
@@ -237,6 +239,26 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_share_price_source"] is PriceSource.smart_contract_state
     assert record["_minimum_deposit"] == Decimal("12.5")
     assert record["_minimum_redemption"] == Decimal(0)
+
+
+def test_morpho_lookup_status_reaches_scan_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a deferred API read distinct from successful empty warnings.
+
+    The merge layer needs the actual result status to preserve old warnings.
+
+    :param monkeypatch: Replace the adapter and network dependencies.
+    """
+    vault = _FakeVault()
+    vault.morpho_api_result = SimpleNamespace(status=MorphoVaultAPIStatus.transient_error)
+    monkeypatch.setattr(scan_module, "MorphoV1Vault", _FakeVault)
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
+    record = scan_module.create_vault_scan_record(web3=None, detection=_create_detection({ERC4626Feature.morpho_like}), block_identifier=1, token_cache={})
+    assert record["_morpho_api_status"] == "transient_error"
+    spec = record["_detection_data"].get_spec()
+    database = VaultDatabase(rows={spec: record})
+    prices = pd.DataFrame({"id": spec.as_string_id(), "chain": 42161, "address": spec.vault_address, "block_number": [1, 2, 3], "share_price": [1.0, 1.01, 1.02], "total_assets": 100.0, "total_supply": 100.0, "event_count": 1, "returns_1h": [0.0, 0.01, 0.00990099]}, index=pd.date_range("2026-11-01", periods=3, freq="D"))
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, database).iloc[0])
+    assert "_morpho_api_status" not in exported
 
 
 def test_create_vault_scan_record_normalises_descriptions(monkeypatch: pytest.MonkeyPatch) -> None:
