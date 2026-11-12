@@ -42,8 +42,17 @@ exposing diagnostic output. The affected tests passed locally both serially
 and with four workers, so this does not identify a failing test or establish
 the cause of the CI stall.
 
-Bound the pytest process itself to ten minutes, with a further 30 seconds
-before forced termination. Keep shell pipe failure propagation so a timeout
+Bound the entire pytest-to-tee pipeline to ten minutes, with a further 30 seconds
+before forced termination. Timing out pytest alone is insufficient: a detached
+child can retain an output pipe and keep tee waiting for EOF after pytest exits.
+A local subprocess reproduction with a 0.3-second deadline and a detached child
+lasting two seconds held the old pipeline open for 2.06 seconds; bounding the
+whole pipeline returned status 124 in 0.30 seconds while retaining its log.
+GNU timeout must retain its default process-group signalling (no `--foreground`):
+the group now includes tee, so the log reader also stops at the deadline.
+Detached processes may survive in their own sessions, but cannot keep this
+pipeline open; runner cleanup remains responsible for any surviving processes.
+Keep shell pipe failure propagation inside the bounded shell so a timeout
 fails the check. Setup took 100 and 95 seconds in the two affected attempts,
 leaving roughly three minutes within the unchanged 15-minute job cap for the
 existing always-run reporting and uploads, including the full pytest log.
