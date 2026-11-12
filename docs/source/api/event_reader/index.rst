@@ -42,3 +42,12 @@ and greylisted isolation remain separate limits.
    eth_defi.event_reader.json_state
    eth_defi.event_reader.lazy_timestamp_reader
    eth_defi.event_reader.timestamp_cache
+
+Timestamp storage maintenance
+-----------------------------
+
+.. automodule:: eth_defi.event_reader.timestamp_storage
+    :members:
+
+.. automodule:: eth_defi.event_reader.timestamp_lock
+    :members:

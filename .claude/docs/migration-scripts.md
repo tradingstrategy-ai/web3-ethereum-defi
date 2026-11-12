@@ -519,3 +519,13 @@ source .local-test.env && PYTHONPATH="$PWD" RUN_MIGRATION_DOCKER_TEST=1 timeout 
 The live check uses supplied `JSON_RPC_ETHEREUM` and the public Arcadia API;
 all state is temporary. Record command, UTC date, result and redacted provider
 in the implementation PR comment. Docker tests mount only temporary test data.
+
+## Timestamp storage compaction
+
+Migration 065 compacts existing timestamp caches with exact validation and
+independent backups. See [block timestamp storage](../../docs/README-block-timestamp-storage.md)
+for the smoke test, writer exclusion, preview isolation, WAL recovery and backup
+retirement. `PIPELINE_DATA_DIR` does not redirect timestamp files: set
+`TIMESTAMP_CACHE` explicitly for isolated snapshots. Retain `storage_recovery`
+when retrying an unsuccessful migration and keep all timestamp users stopped
+until every partial replacement has been reconciled.

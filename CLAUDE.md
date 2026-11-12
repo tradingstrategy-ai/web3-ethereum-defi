@@ -561,6 +561,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | Path | Description |
 |------|-------------|
 | `README.md` | Web3-Ethereum-Defi project overview |
+| `docs/README-block-timestamp-storage.md` | Timestamp layout benchmarks, numbered compaction and recovery |
 | `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
 | `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
@@ -620,3 +621,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
 | `tests/provider/README.md` | Service provider integration tests |
 | `tests/rpc/README.md` | JSON-RPC scenario tests |
+
+For timestamp cache ordering, compaction, WAL recovery and maintenance exclusion,
+read [block timestamp storage](docs/README-block-timestamp-storage.md) before
+changing the cache writer or running numbered migration 065.

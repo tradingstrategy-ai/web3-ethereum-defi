@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Preserve ordered timestamp-cache writes and add validated numbered cache compaction with recoverable backups (2026-11-12).
 - fix: Pace Morpho warning metadata requests across workers and processes, honour persisted provider cooldowns, and retain existing warnings during transient API failures (2026-11-12).
 - feat: Retry blocked Webshare proxies in the looped vault scanner when their shared failure-state file has been untouched for 24 hours (2026-11-12).
 - feat: Index Wildcat version 2 lending markets on Ethereum as read-only vaults, with registry discovery, scale-factor share prices, lending metrics, deposit permission from access hooks, borrower descriptions from the Wildcat app, a `delinquent_markets` flag for defaulted borrowers, a new `unsecured_credit` strategy tag, and numbered migrations that seed the markets and backfill their price history (2026-11-10).
