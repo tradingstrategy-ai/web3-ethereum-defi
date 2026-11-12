@@ -537,6 +537,7 @@ def create_vault_scan_record(
             "_manager_name": vault.manager_name,
             "_share_price_source": share_price_source,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
+            "_morpho_api_status": vault.morpho_api_result.status.value if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,
             "_whitelist_notes": whitelist_notes,

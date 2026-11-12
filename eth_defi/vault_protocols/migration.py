@@ -150,6 +150,9 @@ def load_state(path: Path) -> dict[str, dict[str, Any]]:
             raise ValueError(f"Invalid UTC timestamps: {name}")
         if not SHA256.fullmatch(entry["script_sha256"]) or not all(isinstance(p, str) and Path(p).is_absolute() for p in entry["modified_files"]):
             raise ValueError(f"Invalid checksum or modified files: {name}")
+        recovery = entry["other_data"].get("storage_recovery", {})
+        if not isinstance(recovery, dict) or not all(isinstance(key, str) and Path(key).is_absolute() and isinstance(value, dict) and isinstance(value.get("source_hash"), str) and SHA256.fullmatch(value["source_hash"]) and value.get("phase") in {"pending", "backed_up", "prepared", "published", "unchanged"} for key, value in recovery.items()):
+            raise ValueError(f"Invalid storage recovery state: {name}")
         status = entry["other_data"].get("status")
         if status not in {"running", "succeeded", "failed", "interrupted"} or entry["success"] != (status == "succeeded"):
             raise ValueError(f"Inconsistent migration status: {name}")
@@ -467,6 +470,8 @@ def run_pending_migrations(*, dry_run: bool = True, data_dir: Path | None = None
                     context.script_name = spec.name
                     prior_data = previous.get("other_data", {})
                     context.other_data = {key: list(prior_data.get(key, [])) for key in ("backup_paths", "modified_files_all_attempts")}
+                    if "storage_recovery" in prior_data:
+                        context.other_data["storage_recovery"] = prior_data["storage_recovery"]
                     context.other_data.update(status="running", git_dirty=version.get("git_dirty"))
                     if previous:
                         context.other_data["previous_status"] = "interrupted" if prior_data.get("status") == "running" else prior_data.get("status")

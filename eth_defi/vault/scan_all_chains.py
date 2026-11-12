@@ -93,6 +93,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitH
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
+from eth_defi.event_reader.webshare import refresh_stale_proxy_state
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -4073,6 +4074,8 @@ def _main() -> None:
 
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
+                if looped_mode:
+                    refresh_stale_proxy_state()
                 if not rate_limit_databases_cleared:
                     cleared_databases = clear_sqlite_rate_limit_databases()
                     logger.info("Cleared %d SQLite rate-limit databases before scanning", len(cleared_databases))

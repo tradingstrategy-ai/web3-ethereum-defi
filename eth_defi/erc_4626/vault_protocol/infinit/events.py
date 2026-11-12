@@ -19,6 +19,7 @@ from eth_abi import decode
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_MANAGER_DEPLOYMENT_BLOCK, INFINIT_USDC, InfinitProduct
+from eth_defi.event_reader.timestamp_lock import timestamp_access_lock
 from eth_defi.hypersync.hypersync_timestamp import fetch_exact_block_timestamps_using_hypersync_cached
 from eth_defi.hypersync.session import ThrottledHypersyncClient, open_hypersync_stream
 from eth_defi.vault.flow_events import decode_hypersync_int
@@ -175,12 +176,13 @@ def fetch_infinit_events(client: ThrottledHypersyncClient, product: InfinitProdu
         cache_path = Path(directory)
         existing = timestamp_cache_path / f"{INFINIT_CHAIN_ID}-timestamps.duckdb"
         if existing.exists():
-            con = duckdb.connect(str(existing), read_only=True)
-            try:
-                con.register("requested", pd.DataFrame({"block_number": sorted({e.block_number for e in events.values()})}))
-                headers = con.execute("SELECT b.block_number,b.timestamp FROM block_timestamps b JOIN requested r USING(block_number)").fetchdf()
-            finally:
-                con.close()
+            with timestamp_access_lock(timestamp_cache_path):
+                con = duckdb.connect(str(existing), read_only=True)
+                try:
+                    con.register("requested", pd.DataFrame({"block_number": sorted({e.block_number for e in events.values()})}))
+                    headers = con.execute("SELECT b.block_number,b.timestamp FROM block_timestamps b JOIN requested r USING(block_number)").fetchdf()
+                finally:
+                    con.close()
             target = duckdb.connect(str(cache_path / existing.name))
             try:
                 target.register("headers", headers)

@@ -19,6 +19,14 @@ across multiple yield sources through smart contract adapters. V2 vaults use
 - Timelocked governance with curator/allocator roles
 - Non-custodial exits via ``forceDeallocate``
 
+Metadata requests
+~~~~~~~~~~~~~~~~~
+
+Warning and curator enrichment uses
+:py:mod:`eth_defi.erc_4626.vault_protocol.morpho.session` for a shared request
+budget and persisted provider cooldown. Existing warning data survives a
+transient API failure; a successful refresh can clear obsolete warnings.
+
 Deposit permissions
 ~~~~~~~~~~~~~~~~~~~
 

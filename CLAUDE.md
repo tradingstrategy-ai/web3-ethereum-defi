@@ -562,6 +562,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 |------|-------------|
 | `README.md` | Web3-Ethereum-Defi project overview |
 | `eth_defi/neutral_trade/README-delta-neutral.md` | Neutral Trade read-only API inspection and manual data verification |
+| `docs/README-block-timestamp-storage.md` | Timestamp layout benchmarks, numbered compaction and recovery |
 | `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
 | `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
@@ -590,6 +591,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/enzyme/README-Enzyme-vaults.md` | Enzyme Blue and Onyx architecture, metadata and migration operations |
 | `eth_defi/tokenised_fund/asseto/README-Asseto.md` | Asseto dynamic registry, daily NAV history and operations |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
+| `eth_defi/erc_4626/vault_protocol/morpho/README-morpho-metadata.md` | Morpho metadata request pacing, shared cooldowns, warning preservation and state recovery |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
 | `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
 | `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
@@ -620,3 +622,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
 | `tests/provider/README.md` | Service provider integration tests |
 | `tests/rpc/README.md` | JSON-RPC scenario tests |
+
+For timestamp cache ordering, compaction, WAL recovery and maintenance exclusion,
+read [block timestamp storage](docs/README-block-timestamp-storage.md) before
+changing the cache writer or running numbered migration 065.

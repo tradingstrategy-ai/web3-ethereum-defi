@@ -15,6 +15,7 @@ from eth_defi.erc_4626 import scan
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonMetadataSnapshot
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultAPIResult, MorphoVaultAPIStatus
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
@@ -104,6 +105,7 @@ def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pyte
     vault.__dict__["denomination_token"] = SimpleNamespace(symbol="USDC", export=Mock(return_value={"symbol": "USDC"}))
     monkeypatch.setattr(cls, "manager_name", property(lambda _self: "Previous manager"))
     if morpho:
+        vault.__dict__["morpho_api_result"] = MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
         monkeypatch.setattr(cls, "morpho_offchain_data", property(lambda _self: None))
     else:
         monkeypatch.setattr(vault, "fetch_metadata_snapshot_for_scan", Mock())
