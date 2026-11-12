@@ -339,7 +339,7 @@ def test_live_isolated_collection_and_json(tmp_path: Path) -> None:
     raw = tmp_path / "vault-prices-1h.parquet"
     cleaned = tmp_path / "cleaned-vault-prices-1h.parquet"
     merge_native_protocols(merge_neutral_trade=True, neutral_trade_db_path=source_path, uncleaned_parquet_path=raw)
-    generate_cleaned_vault_datasets(vault_db_path=tmp_path / "vault-metadata-db.pickle", price_df_path=raw, cleaned_price_df_path=cleaned, display=lambda _frame: None, logger=lambda _message: None)
+    generate_cleaned_vault_datasets(vault_db_path=tmp_path / "vault-metadata-db.pickle", price_df_path=raw, cleaned_price_df_path=cleaned, settlement_db_path=tmp_path / "settlements.duckdb", display=lambda _frame: None, logger=lambda _message: None)
     exported = export_json(data_dir=tmp_path, core3_db_path=tmp_path / "absent-core.duckdb", xerberus_db_path=tmp_path / "absent-risk.duckdb", feed_db_path=tmp_path / "absent-feed.duckdb")
     assert len(exported["vaults"]) == 1
     row = exported["vaults"][0]
@@ -401,7 +401,7 @@ def test_quarantine_preserves_raw_archive_and_suppresses_public_clean(tmp_path: 
         merge_into_vault_database(db, metadata)
     merge_native_protocols(merge_neutral_trade=True, neutral_trade_db_path=path, uncleaned_parquet_path=prices)
     assert pq.read_table(prices).num_rows == 1
-    generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=prices, cleaned_price_df_path=cleaned, display=lambda _frame: None, logger=lambda _message: None)
+    generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=prices, cleaned_price_df_path=cleaned, settlement_db_path=tmp_path / "settlements.duckdb", display=lambda _frame: None, logger=lambda _message: None)
     assert pq.read_table(cleaned).num_rows == 0
 
 
@@ -431,7 +431,7 @@ def test_hidden_native_does_not_disable_generic_empty_guard(tmp_path: Path, raw_
     shared.rows[native_spec]["_neutral_trade"]["visible"] = False
     shared.write(metadata)
     with pytest.raises(ValueError, match="zero rows"):
-        generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=prices, cleaned_price_df_path=cleaned, display=lambda _frame: None, logger=lambda _message: None)
+        generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=prices, cleaned_price_df_path=cleaned, settlement_db_path=tmp_path / "settlements.duckdb", display=lambda _frame: None, logger=lambda _message: None)
     assert not cleaned.exists()
 
 
@@ -503,7 +503,7 @@ def test_base_schedule_flows_to_net_json(source: NeutralTradeDatabase, raw_vault
     assert fees.can_calculate_investor_net_performance()
     assert fees.get_net_fees().management == fees.management
     build_raw_prices_dataframe(source).to_parquet(tmp_path / "vault-prices-1h.parquet", index=False)
-    generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=tmp_path / "vault-prices-1h.parquet", cleaned_price_df_path=tmp_path / "cleaned-vault-prices-1h.parquet", display=lambda _frame: None, logger=lambda _message: None)
+    generate_cleaned_vault_datasets(vault_db_path=metadata, price_df_path=tmp_path / "vault-prices-1h.parquet", cleaned_price_df_path=tmp_path / "cleaned-vault-prices-1h.parquet", settlement_db_path=tmp_path / "settlements.duckdb", display=lambda _frame: None, logger=lambda _message: None)
     exported = export_json(data_dir=tmp_path, core3_db_path=tmp_path / "absent-core.duckdb", xerberus_db_path=tmp_path / "absent-risk.duckdb", feed_db_path=tmp_path / "absent-feed.duckdb")
     row = exported["vaults"][0]
     assert row["fee_mode"] == fees.fee_mode.value
