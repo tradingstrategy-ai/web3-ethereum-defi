@@ -16,9 +16,9 @@ on:
 
 jobs:
   test-python:
-    # Reserved multicore instance for running tests
-    runs-on:
-      group: Beefy runners
+    # Use the same hosted environment as the slow suite while diagnosing
+    # organisation runner stalls that prevent test log uploads.
+    runs-on: ubuntu-latest
     # Hard 15-minute cap — do NOT raise it. If a run exceeds 15 min, fix the
     # test runs (warm the fork RPC cache, isolate/repair flaky tests, speed up
     # fixtures), not the timeout. Growing a CI timeout hides the real slowdown
