@@ -34,6 +34,28 @@ explicitly missing capacity. Centrifuge's scan test uses a temporary token
 cache so an operator's cached historical name cannot affect the live check.
 These test-only corrections require no persisted-data migration.
 
+## Neutral Trade test collection and storage isolation (2026-11-12)
+
+Full-suite serial collection exposed three import mismatches introduced by
+Neutral Trade's generic `test_scan.py`, `test_vault_metadata.py` and
+`test_metrics.py` names. Adding `tests/neutral_trade/__init__.py` gives those
+modules package-qualified names without changing pytest's global import mode.
+The same main-suite collection then selected 4,864 tests without errors in
+13.15 seconds. Collection alone does not execute those tests.
+
+A focused eight-worker run also found a cleaning test opening the operator's
+default settlement DuckDB, where another process held its writer lock. All
+four Neutral Trade cleaner calls now use a settlement path under `tmp_path`,
+including the manual authenticated test. Tests must not depend on or contend
+with an operator's persisted pipeline data. These test-only changes require
+no persisted-data migration.
+
+A separate CI smoke run on the Beefy runner group with `-n 2` passed the six
+Forge subprocess tests in 4.63 seconds. It uploaded `runner-preflight` and
+`test-results-test-python-0`, including the pytest log and JUnit XML. Its runner
+reported 16 CPUs and 62 GiB RAM. This establishes that a small selection and
+the upload path work; it does not establish the cause of the stalled full suite.
+
 ## Preserve diagnostics after a stalled main suite (2026-11-12)
 
 The main-suite run for PR #1761 exceeded its 15-minute job limit without
