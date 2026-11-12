@@ -20,6 +20,7 @@ from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID, GMXVaultProduct, f
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import GMX_SINGLE_SIDED_USDC_NOTE
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -607,6 +608,12 @@ def fetch_and_sync_gmx_vault_catalogue(
             # outage.  Reader-derived identity and availability still refresh.
             row["Name"] = existing["Name"]
             row["_description"] = existing.get("_description", row["_description"])
+        handwritten = get_handwritten_vault_metadata(product.chain_id, product.token_address)
+        if handwritten is not None:
+            # Reviewed copy replaces the generated composition summary and
+            # does not depend on the GMX token registry being reachable.
+            row["_short_description"] = handwritten.short_description
+            row["_description"] = handwritten.description
         if existing is not None:
             merged_row = existing.copy()
             if scan_failed:
