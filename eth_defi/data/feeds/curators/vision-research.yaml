@@ -1,0 +1,12 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: vision-research
+name: Vision Research
+role: curator
+short_description: Vision Research builds automated crypto trading systems that predict short-term price moves and place buy and sell orders.
+long_description: |
+  Vision Research runs [automated trading models](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-multi-factor) on [Binance](https://www.binance.com/). They combine predictions of continuing trends or price reversals with [market making](https://tradingstrategy.ai/glossary/market-making), offering buy and sell prices to earn the gap between them and exchange rebates.
+
+  The team develops trading models and the software that executes them for centralised and onchain markets. **Vision Research is a published alias**, and the firm's legal name is not disclosed.
+other-links:
+- title: Neutral Trade — Vision Research strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-multi-factor

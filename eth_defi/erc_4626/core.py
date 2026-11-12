@@ -899,6 +899,9 @@ class ERC4626Feature(enum.Enum):
     #: https://hibachi.xyz/vaults
     hibachi_native = "hibachi_native"
 
+    #: Neutral Trade native Solana vault data from partner REST API.
+    neutral_trade_native = "neutral_trade_native"
+
     #: Derive v3 native vault
     #:
     #: Managed exchange subaccount with native shares and public API pricing.
@@ -1523,6 +1526,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hibachi_native in features:
         return "Hibachi"
+
+    elif ERC4626Feature.neutral_trade_native in features:
+        return "Neutral Trade"
 
     elif ERC4626Feature.derive_v3_native in features:
         return "Derive"

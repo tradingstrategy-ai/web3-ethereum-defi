@@ -1,5 +1,17 @@
 # 1.2
 
+- fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
+
+- fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).
+
+- fix: Share the reserved Solana mainnet dataset ID 9992, accept case-sensitive base58 vault identities through VaultSpec, validate complete native accounts and preserve existing reversible storage keys (2026-11-12).
+
+- fix: Publish reviewed Neutral Trade native curator names and vault descriptions, add sourced curator profiles and strategy classifications, prevent venue-name curator matches and refresh cached metadata through migration 068 (2026-11-12).
+
+- fix: Classify native Neutral Trade risk as High and fees as externalised (feeless for explicit zero schedules), wire base-schedule net estimates into JSON and refresh cached classifications through migration 067 (2026-11-12).
+
+- feat: Collect Neutral Trade native vaults through one resumable REST discovery/backfill/live pipeline, with private DuckDB history, shared native exports, WSOL exclusion, manual verification tables, real API tests and numbered onboarding migration (2026-11-12).
+
 - feat: Add the `amm_stablecoin` strategy category for stablecoin pair market making with minimal volatility risk, tag GLV [USDG-USDG] and eight stablecoin-only GMX swap pools, add a scoped tag migration, and add a researched handwritten description for GLV [USDG-USDG] (2026-11-12, [#1765](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1765)).
 - fix: Preserve ordered timestamp-cache writes and add validated numbered cache compaction with recoverable backups (2026-11-12).
 - fix: Pace Morpho warning metadata requests across workers and processes, honour persisted provider cooldowns, and retain existing warnings during transient API failures (2026-11-12).

@@ -217,6 +217,9 @@ class VaultRow(TypedDict):
     #: Derive v3 curator wallet address, retained for later identity verification.
     _derive_curator: NotRequired[str | None]
 
+    #: Native source identity, provenance and public eligibility decisions.
+    _neutral_trade: NotRequired[dict | None]
+
     #: Source used to produce the vault share-price series.
     #:
     #: Missing in legacy pickles and adapters without a known price source.

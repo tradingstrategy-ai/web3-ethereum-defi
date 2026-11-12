@@ -22,6 +22,9 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_AD
 from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
+from eth_defi.neutral_trade import metrics as neutral_trade_metrics
+from eth_defi.neutral_trade.api import parse_vault
+from eth_defi.vault import post_processing
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
 from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA, ALPHAPING_IPOR_VAULT_METADATA, ALPHAPING_VAULT_METADATA, NEUTRAL_AUTOPILOT_NOTE, NEUTRAL_AUTOPILOT_VAULT_METADATA, TRAVESSIA_TAURI_VAULT_METADATA
@@ -256,6 +259,18 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     # Price backfills need archive RPC access; their helper has dedicated tests.
     backfilled = []
     monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets, **_kwargs: backfilled.extend(targets))
+
+    # Native source reads and Parquet preservation have dedicated integration
+    # tests. Keep this batch composition test independent of partner secrets.
+    def collect_native(db: neutral_trade_metrics.NeutralTradeDatabase, _key: str, *, vault_ids: set[str], **_kwargs: object) -> neutral_trade_metrics.ScanResult:
+        """Populate the requested public inventory without provider reads."""
+        for address in vault_ids:
+            db.save_lead(parse_vault({"bundleKey": address, "chain": "solana", "name": "Fixture", "visible": True, "private": False, "asset": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "symbol": "USDC", "decimals": 6}}))
+        return neutral_trade_metrics.ScanResult(leads=len(vault_ids))
+
+    monkeypatch.setenv("NEUTRAL_TRADE_API_KEY", "synthetic-test-key")
+    monkeypatch.setattr(neutral_trade_metrics, "run_scan", collect_native)
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_kwargs: {"neutral-trade-price-merge": True})
     # Wildcat registry and scanner reads are covered by tests/vault/test_wildcat_migration.py.
     monkeypatch.setattr(wildcat, "create_ethereum_web3", lambda: None)
     monkeypatch.setattr(wildcat, "check_registry_coverage", lambda web3, cursor_block: None)

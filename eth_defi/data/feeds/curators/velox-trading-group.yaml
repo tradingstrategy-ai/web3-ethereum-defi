@@ -1,0 +1,15 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: velox-trading-group
+name: Velox Trading Group
+role: curator
+website: https://www.veloxtrading.ai/
+short_description: Velox Trading Group develops automated trading technology and crypto strategies that seek profits from differences between market prices.
+long_description: |
+  [Velox Trading Group](https://www.veloxtrading.ai/) develops crypto investment strategies and trading technology. Its team includes traders, engineers, mathematicians and data scientists.
+
+  Its [strategy available through Neutral Trade](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/delta-neutral-arbitrage) pairs trades to earn from differences between exchange prices, differences between asset and futures prices, and payments between futures traders. It also offers buy and sell prices on decentralised markets, seeking the gap between them.
+
+  The named venues are [Binance](https://www.binance.com/), [OKX](https://www.okx.com/), [Bybit](https://www.bybit.com/), [Gate](https://www.gate.com/), [Hyperliquid](https://hyperliquid.xyz/) and [Lighter](https://lighter.xyz/). The strategy documentation does not map individual trades to those venues.
+other-links:
+- title: Neutral Trade — Velox Trading Group strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/delta-neutral-arbitrage

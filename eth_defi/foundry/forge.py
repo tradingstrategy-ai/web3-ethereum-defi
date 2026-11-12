@@ -9,10 +9,12 @@
 
 import datetime
 import logging
+import os
+import signal
 import time as _time
 from pathlib import Path
 from shutil import which
-from subprocess import DEVNULL, PIPE
+from subprocess import DEVNULL, PIPE, TimeoutExpired
 from typing import Literal, Tuple
 
 import psutil
@@ -119,33 +121,72 @@ def _try_recover_deployment(
 def _exec_cmd(
     cmd_line: list[str],
     censored_command: str,
-    timeout=DEFAULT_TIMEOUT,
+    timeout: float = DEFAULT_TIMEOUT,
     verbose: bool = False,
     cwd: Path | None = None,
-) -> Tuple[str, str]:
-    """Execute the command line.
+) -> tuple[str, str]:
+    """Execute Forge while draining both diagnostic output pipes.
 
+    Compiler and Git output can exceed pipe capacity before Forge exits.
+    ``communicate()`` drains both streams during execution, avoiding the
+    deadlock caused by waiting before reading. On timeout or interruption, stop the command
+    and its children; diagnostics use only the separately censored command.
+    POSIX process groups include orphaned descendants. Windows cleanup is
+    limited to descendants still attached to the running command.
+
+    :param cmd_line:
+        Actual command arguments, potentially including a private key.
+    :param censored_command:
+        Credential-free command text for errors.
     :param timeout:
-        Timeout in seconds
-
+        Maximum execution time in seconds.
+    :param verbose:
+        Retained for compatibility with deployment callers.
     :param cwd:
         Working directory for the forge process.
         Thread-safe alternative to ``os.chdir()``.
 
     :return:
         Tuple(deployed contract address, tx hash)
+    :raise ForgeFailed:
+        If execution times out, fails or lacks deployment identifiers.
+
+    See https://docs.python.org/3/library/subprocess.html#subprocess.Popen.communicate.
     """
 
     for x in cmd_line:
-        assert type(x) == str, f"Got non-string in command line: {x} in {cmd_line}"
+        assert isinstance(x, str), f"Got non-string argument in command: {censored_command}"
 
-    # out = DEVNULL if sys.platform == "win32" else PIPE
-    out = PIPE  # TODO: Are we set on a failure on Windows
-    proc = psutil.Popen(cmd_line, stdin=DEVNULL, stdout=out, stderr=out, cwd=cwd)
-    result = proc.wait(timeout)
-
+    proc = psutil.Popen(cmd_line, stdin=DEVNULL, stdout=PIPE, stderr=PIPE, cwd=cwd, start_new_session=os.name == "posix")
     try:
-        output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except (TimeoutExpired, KeyboardInterrupt, SystemExit) as error:
+            if os.name == "posix":
+                # Git children may outlive Forge and retain its pipe handles.
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                try:
+                    children = proc.children(recursive=True)
+                except psutil.NoSuchProcess:
+                    children = []
+                for child in [*children, proc]:
+                    try:
+                        child.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+            try:
+                proc.wait(timeout=5)
+            except psutil.TimeoutExpired:
+                logger.warning("Forge process %s did not exit after kill: %s", proc.pid, censored_command)
+            if isinstance(error, TimeoutExpired):
+                raise ForgeFailed(f"Forge timed out after {timeout}s: {censored_command}") from None
+            raise
+        result = proc.returncode
+        output = stdout.decode("utf-8", errors="replace") + stderr.decode("utf-8", errors="replace")
     finally:
         proc.stdout.close()
         proc.stderr.close()
@@ -177,7 +218,7 @@ def _exec_cmd(
             tx_hash = line.split(":")[1].strip()
 
     if not (address and tx_hash):
-        raise ForgeFailed(f"Could not parse forge output:\n{output}\nCommand line was:{' '.join(cmd_line)}")
+        raise ForgeFailed(f"Could not parse forge output:\n{output}\nCommand line was:{censored_command}")
 
     return address, tx_hash
 

@@ -1357,10 +1357,10 @@ def identify_curator(  # noqa: PLR0917
     if protocol_slug == "nest":
         return None
 
-    # Derive publishes the curator wallet, but a vault display name is not
-    # evidence that this wallet belongs to an organisation named in the title.
-    # Attribute it only through a reviewed address override or declaration.
-    if protocol_slug == "derive":
+    # Native directories expose manager wallets, while strategy names can
+    # mention unrelated venues or products (Hyperliquid, Autopilot). Require
+    # reviewed address overrides or declarations for curator attribution.
+    if protocol_slug in {"derive", "neutral-trade"}:
         return None
 
     # 3. Blanket protocol-curated protocols (all vaults are protocol-operated)

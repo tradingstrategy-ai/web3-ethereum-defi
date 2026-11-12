@@ -1,5 +1,57 @@
 # Test suite performance plan
 
+## Forge deployment output deadlock (2026-11-12)
+
+A local run of the main CI selection reached 4,571 passes but did not finish
+within ten minutes. The Forge deployment test blocked in `_exec_cmd()` while
+its Git child waited to write to stderr: 64,591 of the pipe's 65,536 bytes were
+occupied. Waiting for Forge before reading its pipes creates this deadlock.
+A standalone child writing 256 KiB to stderr reproduced the same failure
+without Anvil or any network requests.
+
+Drain both streams with `communicate(timeout=...)` while the command runs.
+On POSIX, give the invocation its own session and kill its process group on
+timeout or interruption, including children that retain pipe handles after Forge exits.
+Windows cleanup is limited to descendants still attached to Forge; terminating
+orphaned descendants there would require a Windows Job Object.
+Keep errors limited to the censored command, since the actual invocation can
+include a private key. Focused subprocess coverage checks large stdout and
+stderr, timeout cleanup and credential-free errors; the existing two real
+Forge-to-Anvil deployment tests passed after the fix.
+
+The same full run stalled in Kaleido chart rendering. The affected chart tests
+passed individually, consecutively and with two workers afterwards. The green
+CI baseline skipped them because Chrome was absent. This does not establish Kaleido
+as the CI timeout cause. Hypersync also returned HTTP 429 responses. Separate
+Hyperliquid and Centrifuge assertion mismatches reproduced on unchanged
+`master`; none of these observations identifies a specific failure in the
+unavailable CI logs.
+
+The assertion fixes preserve production behaviour. Hyperliquid's test now
+checks that a price-only update retains the last coherent policy snapshot and
+its original clocks, while a newer actual response replaces it, including
+explicitly missing capacity. Centrifuge's scan test uses a temporary token
+cache so an operator's cached historical name cannot affect the live check.
+These test-only corrections require no persisted-data migration.
+
+## Preserve diagnostics after a stalled main suite (2026-11-12)
+
+The main-suite run for PR #1761 exceeded its 15-minute job limit without
+uploading logs or test artefacts. Its retry also exceeded that limit without
+exposing diagnostic output. The affected tests passed locally both serially
+and with four workers, so this does not identify a failing test or establish
+the cause of the CI stall.
+
+Bound the pytest process itself to ten minutes, with a further 30 seconds
+before forced termination. Keep shell pipe failure propagation so a timeout
+fails the check. Setup took 100 and 95 seconds in the two affected attempts,
+leaving roughly three minutes within the unchanged 15-minute job cap for the
+existing always-run reporting and uploads, including the full pytest log.
+Slower setup can still exhaust the job budget. JUnit XML and the final durations
+table may be missing after termination; use the captured test names and any
+60-second stall stacks to diagnose the failure before changing tests or their
+scheduling.
+
 ## Anvil 1.8 fork slowdown (2026-10-27)
 
 After CI moved to Foundry/Anvil `v1.8.6`

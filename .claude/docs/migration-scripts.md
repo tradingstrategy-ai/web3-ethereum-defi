@@ -183,6 +183,43 @@ files. Put provider/token caches in `TemporaryDirectory`. Script imports must
 not perform network reads or data writes. Keep long operations observable with
 progress reporting; never include credentials in reports.
 
+## Credentials and Docker configuration
+
+Every new API key must reach the process that consumes it. Wire it through
+`docker-compose.yml` for every relevant service, including
+`vault-scanner-oneshot` for migrations and `vault-scanner-looped` for recurring
+collection. Include other consumers, such as `post-scanner`, only where needed.
+Sourcing the host's private environment does not automatically pass arbitrary
+variables into a container; declare the mapping in the service's `environment`.
+
+Check the complete configuration path: the Python environment reader, script
+entry points, Compose service mappings, any launcher allow-lists or deployment
+templates, and CI secret mappings when CI uses the provider. Document required
+credentials in the integration README and PR's production reminder. Keep actual
+values in the private environment or CI secrets. Do not edit `.local-test.env`.
+
+**Every new Docker environment variable must have a YAML line comment directly
+above its declaration**, in each service where it appears. Explain its purpose,
+default and when it is required. For credentials, also name the provider and
+give the official key-management/sign-up URL or the provider's documented
+contact for obtaining the key. A comment saying only "API key" is insufficient.
+For example:
+
+```yaml
+environment:
+  # Enable Neutral Trade collection; off by default, requires NEUTRAL_TRADE_API_KEY.
+  SCAN_NEUTRAL_TRADE: ${SCAN_NEUTRAL_TRADE:-false}
+  # Partner REST key for Neutral Trade reads and onboarding; obtain from @bayes309:
+  # https://docs.neutral.trade/developers/developers#support
+  # Empty by default; required for collection or API-backed migration preview/apply.
+  NEUTRAL_TRADE_API_KEY: ${NEUTRAL_TRADE_API_KEY:-}
+```
+
+Use safe defaults for optional integrations and fail clearly when an enabled
+operation lacks its required key. Validate Compose syntax and check credential
+presence inside the consuming container without printing its value. A local
+Python test alone does not verify Docker credential propagation.
+
 ## Historical price backfills
 
 #### When a backfill is needed
@@ -507,6 +544,11 @@ and Unrelated CI and test fixes sections. State whether migrations are needed
 or N/A. Include a production reminder comment with numbered filenames, exact
 launcher commands, expected counts, affected files, validation criteria and
 **Run after merge**. Record the result after operation; do not imply merge ran it.
+List new credential names, where operators obtain them, and the consuming
+Compose services. Confirm their environment mappings and line comments are
+included before the migration is handed over.
+Link provider contacts to their actual service in PR text; a bare `@name`
+would instead mention a GitHub account.
 
 Focused local checks:
 

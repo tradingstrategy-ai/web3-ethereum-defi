@@ -59,6 +59,7 @@ from eth_defi.grvt.tags import get_strategy_tags as get_grvt_strategy_tags
 from eth_defi.hibachi.tags import get_strategy_tags as get_hibachi_strategy_tags
 from eth_defi.hyperliquid.tags import get_strategy_tags as get_hyperliquid_strategy_tags
 from eth_defi.lighter.tags import get_strategy_tags as get_lighter_strategy_tags
+from eth_defi.neutral_trade.tags import get_strategy_tags as get_neutral_trade_strategy_tags
 from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS as SECURITIZE_STRATEGY_TAGS
 from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS as SPIKO_STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
@@ -69,16 +70,17 @@ from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultR
 logger = logging.getLogger(__name__)
 
 StrategyTagResolver = Callable[[HexAddress], set[StrategyTag] | None]
-NativeStrategyTagResolver = Callable[[str], set[StrategyTag]]
+NativeStrategyTagResolver = Callable[[str], set[StrategyTag] | None]
 
 # These protocols do not use VaultBase adapters. Their native exporters own
-# the default perpetual-futures tag and address-specific classifications.
+# strategy classifications, including any protocol-specific defaults.
 NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] = {
     ERC4626Feature.apex_native: get_apex_strategy_tags,
     ERC4626Feature.grvt_native: get_grvt_strategy_tags,
     ERC4626Feature.hibachi_native: get_hibachi_strategy_tags,
     ERC4626Feature.hypercore_native: get_hyperliquid_strategy_tags,
     ERC4626Feature.lighter_native: get_lighter_strategy_tags,
+    ERC4626Feature.neutral_trade_native: get_neutral_trade_strategy_tags,
 }
 
 # VaultBase adapters expose the same hook, but some constructors perform
@@ -413,7 +415,9 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
     native_feature = next((feature for feature in NATIVE_STRATEGY_TAG_RESOLVERS if feature in detection.features), None)
     native_resolver = NATIVE_STRATEGY_TAG_RESOLVERS.get(native_feature) if native_feature is not None else None
     if native_resolver is not None:
-        return native_resolver(spec.vault_address) | (curator_tags or set()), f"{protocol_name} native resolver"
+        native_tags = native_resolver(spec.vault_address)
+        tags = native_tags | (curator_tags or set()) if native_tags is not None else curator_tags
+        return tags, f"{protocol_name} native resolver"
 
     evm_feature = next((feature for feature in EVM_ADAPTER_FEATURE_PRIORITY if feature in detection.features), None)
     if evm_feature is None:

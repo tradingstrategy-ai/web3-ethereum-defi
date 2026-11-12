@@ -22,6 +22,7 @@ from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.rpc_failure import classify_rpc_failure
+from eth_defi.solana import SOLANA_CHAIN_ID
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -135,9 +136,10 @@ SEQUENCERS: dict[int, dict[str, str]] = {
     },
 }
 
-#: Manually maintained shorthand names for different EVM chains
+#: Display names for EVM chains and reserved native dataset partitions.
 CHAIN_NAMES = {
     325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
+    SOLANA_CHAIN_ID: "Solana",  # In-house native mainnet dataset, not an EVM chain
     9993: "Derive V3",  # Synthetic dataset ID for native Derive v3 vaults (not an EVM chain)
     9994: "Pacifica",  # Synthetic in-house ID for Pacifica/Solana native vaults (non-EVM)
     9995: "ApeX",  # Synthetic in-house ID for ApeX Omni native vaults (non-EVM)
@@ -238,6 +240,7 @@ def get_foundry_network_name(chain_id: int) -> str | None:
 #: For linking on reports
 CHAIN_HOMEPAGES = {
     325: {"name": "GRVT", "homepage": "https://grvt.io"},
+    SOLANA_CHAIN_ID: {"name": "Solana", "homepage": "https://solana.com"},
     9993: {"name": "Derive V3", "homepage": "https://www.derive.xyz"},
     9995: {"name": "ApeX", "homepage": "https://www.apex.exchange"},  # Synthetic in-house ID, not EVM RPC
     1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
