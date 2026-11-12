@@ -590,6 +590,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/enzyme/README-Enzyme-vaults.md` | Enzyme Blue and Onyx architecture, metadata and migration operations |
 | `eth_defi/tokenised_fund/asseto/README-Asseto.md` | Asseto dynamic registry, daily NAV history and operations |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
+| `eth_defi/erc_4626/vault_protocol/morpho/README-morpho-metadata.md` | Morpho metadata request pacing, shared cooldowns, warning preservation and state recovery |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
 | `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
 | `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |

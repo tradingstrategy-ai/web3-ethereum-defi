@@ -13,6 +13,8 @@ and indexed receipt supply through an address-scoped contextual reader.
 - Write detailed logs
 - Run post-processing after all chains complete
 - Supports looped mode with per-chain/protocol cycle intervals
+- Looped mode retries Webshare proxy blocks when their state file has not
+  been updated for 24 hours, including ticks with no scans due
 
 Usage:
 
