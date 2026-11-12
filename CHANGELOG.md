@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
+
 - fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).
 
 - fix: Share the reserved Solana mainnet dataset ID 9992, accept case-sensitive base58 vault identities through VaultSpec, validate complete native accounts and preserve existing reversible storage keys (2026-11-12).

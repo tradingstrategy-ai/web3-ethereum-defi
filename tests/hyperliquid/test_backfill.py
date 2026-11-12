@@ -32,6 +32,7 @@ from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDat
 from eth_defi.hyperliquid.permission import PermissionObservation, append_permission_observation
 from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
 from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
+from eth_defi.types import Percent
 
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 VAULT_B = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -1136,30 +1137,45 @@ def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
         db.close()
 
 
-def test_low_share_cap_not_carried_into_unobserved_row(tmp_path: Path) -> None:
-    """Do not infer capacity from a forward-filled leader-share snapshot.
+@pytest.mark.parametrize("replacement_fraction", [None, 0.15])
+def test_low_share_cap_uses_latest_coherent_response(tmp_path: Path, replacement_fraction: Percent | None) -> None:
+    """Retain recorded capacity until a newer coherent response supersedes it.
 
-    1. Store an observed low-share day followed by a price-only day.
-    2. Verify the source permission carries but the policy cap does not.
+    A price-only update does not create a new observation or clear the last
+    recorded policy input. A later actual response replaces the whole snapshot,
+    including an explicitly unavailable leader fraction.
+
+    :param tmp_path: Isolated source database directory.
+    :param replacement_fraction: New healthy share or explicitly unknown input.
+    :return: ``None`` after checking capacity and the original observation clocks.
     """
 
-    # 1. The later price has no fresh leader-fraction observation.
     db = HyperliquidDailyMetricsDatabase(tmp_path / "metrics.duckdb")
     try:
         _setup_metrics_db_with_metadata(db, VAULT_A)
         fixture_rows = [
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.05),
             _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2)),
+            _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 3), is_closed=False, allow_deposits=True, leader_fraction=replacement_fraction),
         ]
         _store_daily_permission_fixtures(db, fixture_rows)
         db.upsert_daily_prices(fixture_rows)
         db.save()
 
-        # 2. A stale share cannot become a newly observed zero cap.
         rows = build_raw_prices_dataframe(db).sort_values("timestamp")
-        assert rows["deposits_open"].tolist() == ["true", "true"]
+        assert rows["deposits_open"].tolist() == ["true", "true", "true"]
         assert rows.iloc[0]["max_deposit"] == pytest.approx(0.0)
-        assert pd.isna(rows.iloc[1]["max_deposit"])
+        assert rows.iloc[1]["max_deposit"] == pytest.approx(0.0)
+        assert pd.isna(rows.iloc[2]["max_deposit"])
+        first_clock = pd.Timestamp("2024-01-01")
+        replacement_clock = pd.Timestamp("2024-01-03")
+        assert rows["permission_observed_at"].tolist() == [first_clock, first_clock, replacement_clock]
+        assert rows.iloc[0]["capacity_observed_at"] == first_clock
+        assert rows.iloc[1]["capacity_observed_at"] == first_clock
+        if replacement_fraction is None:
+            assert pd.isna(rows.iloc[2]["capacity_observed_at"])
+        else:
+            assert rows.iloc[2]["capacity_observed_at"] == replacement_clock
     finally:
         db.close()
 
