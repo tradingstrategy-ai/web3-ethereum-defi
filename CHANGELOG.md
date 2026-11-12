@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add the `amm_stablecoin` strategy category for stablecoin pair market making with minimal volatility risk, tag GLV [USDG-USDG] and eight stablecoin-only GMX swap pools, add a scoped tag migration, and add a researched handwritten description for GLV [USDG-USDG] (2026-11-12).
+- feat: Add the `amm_stablecoin` strategy category for stablecoin pair market making with minimal volatility risk, tag GLV [USDG-USDG] and eight stablecoin-only GMX swap pools, add a scoped tag migration, and add a researched handwritten description for GLV [USDG-USDG] (2026-11-12, [#1765](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1765)).
 - fix: Preserve ordered timestamp-cache writes and add validated numbered cache compaction with recoverable backups (2026-11-12).
 - fix: Pace Morpho warning metadata requests across workers and processes, honour persisted provider cooldowns, and retain existing warnings during transient API failures (2026-11-12).
 - feat: Retry blocked Webshare proxies in the looped vault scanner when their shared failure-state file has been untouched for 24 hours (2026-11-12).

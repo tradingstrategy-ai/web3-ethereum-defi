@@ -4,8 +4,8 @@ Purpose: Persist the new stablecoin AMM market-making category for GMX pools
     whose every pool asset is a stablecoin.
 Scope: Nine frozen GMX deployments below; only _strategy_tags changes.
 Branch: add-amm-stablecoin-strategy-tag
-PR title: feat: add the amm_stablecoin strategy category for stablecoin AMM market making
-PR: Not opened.
+PR title: feat: add amm_stablecoin strategy category and GLV [USDG-USDG] description
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1765
 Preserves: Descriptions, flags, fees, features, prices, leads, reader state,
     timestamp caches and every unrelated row.
 Expected: At most nine existing rows and nine changed fields; missing rows reported.
