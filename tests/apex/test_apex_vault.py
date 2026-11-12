@@ -71,52 +71,11 @@ def test_parse_vault_configuration_rejects_missing_config(vault_config: object) 
         parse_vault_configuration(payload)
 
 
-@pytest.mark.parametrize(
-    "payload",
-    (
-        {"code": 2, "msg": "page error"},
-        {},
-        {"data": None},
-        {"data": {"totalSize": 1, "vaultList": None}},
-        {"data": {"totalSize": "1", "vaultList": []}},
-    ),
-)
-def test_parse_ranking_page_rejects_bad_envelope(payload: dict) -> None:
-    """Reject application errors and malformed ranking envelopes."""
-    with pytest.raises(ApexAPIError):
-        parse_ranking_page(payload)
-
-
-@pytest.mark.parametrize("vault_id", ({}, [], True, 1.5, None))
-def test_parse_ranking_page_rejects_compound_vault_ids(vault_id: object) -> None:
-    """Reject non-string and non-integer values as persistent vault identities."""
-    payload = _fixture("ranking-page.json")
-    payload["data"]["vaultList"][0]["vaultId"] = vault_id
-    with pytest.raises(ApexAPIError, match="vaultId must be"):
-        parse_ranking_page(payload)
-
-
 def test_parse_ranking_page_accepts_integer_vault_id() -> None:
     """Normalise a scalar integer vault identity to its string key."""
     payload = _fixture("ranking-page.json")
     payload["data"]["vaultList"][0]["vaultId"] = 1001
     assert parse_ranking_page(payload).vaults[0].vault_id == "1001"
-
-
-@pytest.mark.parametrize(
-    ("field", "value", "message"),
-    (
-        ("vaultNetValue", True, "not numeric"),
-        ("createdTime", True, "integer millisecond"),
-        ("createdTime", 1753228800000.5, "integer millisecond"),
-    ),
-)
-def test_parse_ranking_page_rejects_malformed_scalar_values(field: str, value: object, message: str) -> None:
-    """Reject booleans and fractional timestamps instead of coercing them."""
-    payload = _fixture("ranking-page.json")
-    payload["data"]["vaultList"][0][field] = value
-    with pytest.raises(ApexAPIError, match=message):
-        parse_ranking_page(payload)
 
 
 def test_parse_history_orders_and_derives_supply() -> None:

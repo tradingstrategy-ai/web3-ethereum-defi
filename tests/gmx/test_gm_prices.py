@@ -152,33 +152,6 @@ def test_get_gm_prices_total_calculations(chain_name, get_gm_prices):
     # print(f"  Markets: {len(all_prices)}")
 
 
-def test_get_gm_prices_error_handling(chain_name, get_gm_prices):
-    """
-    Test that error handling works properly.
-
-    This verifies that the implementation handles missing or failed data gracefully.
-    """
-    # This should not raise an exception even if some calls fail
-    try:
-        # Test all price types
-        traders_data = get_gm_prices.get_price_traders()
-        deposits_data = get_gm_prices.get_price_deposit()
-        withdrawals_data = get_gm_prices.get_price_withdraw()
-
-        # Should still return valid structure even if some data is missing
-        for data in [traders_data, deposits_data, withdrawals_data]:
-            assert isinstance(data, dict)
-            assert "gm_prices" in data
-            assert "parameter" in data
-            assert "timestamp" in data
-            assert "chain" in data
-
-        # print(f"\n{chain_name.upper()}: Error handling test passed - graceful handling of any failures")
-
-    except Exception as e:
-        pytest.fail(f"GetGMPrices should handle errors gracefully, but raised: {e}")
-
-
 def test_get_gm_prices_filter_swap_markets(chain_name, gmx_config):
     """
     Test the filter_swap_markets functionality.

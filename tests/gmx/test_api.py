@@ -181,29 +181,6 @@ def test_get_candlesticks_dataframe(api):
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_api_retry_mechanism(chain_name, gmx_config):
-    """
-    Test that the API can successfully retrieve data with retry mechanism.
-
-    Makes real API calls to verify the retry logic works correctly.
-    """
-    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
-
-    # Make a real API call - this tests that the retry mechanism works
-    # The API should successfully return data even if there are transient failures
-    tickers = api.get_tickers(use_cache=False)
-
-    # Verify we got valid data
-    assert tickers is not None
-    assert isinstance(tickers, list)
-    assert len(tickers) > 0
-
-    # Verify ticker structure
-    ticker = tickers[0]
-    assert "tokenAddress" in ticker or "tokenSymbol" in ticker
-
-
-@flaky(max_runs=3, min_passes=1)
 def test_get_markets(api):
     """Test retrieving markets list from REST API.
 

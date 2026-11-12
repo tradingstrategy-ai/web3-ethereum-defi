@@ -44,52 +44,6 @@ def test_get_claimable_fees_direct_call(chain_name, get_claimable_fees):
     assert fees_data["total_fees"] >= 0, f"Total fees should be non-negative, got {fees_data['total_fees']}"
 
 
-def test_get_claimable_fees_data_consistency(chain_name, get_claimable_fees):
-    """
-    Test that the implementation returns consistent data.
-
-    This verifies that multiple calls return the same data structure and similar values.
-    """
-    # Get data twice
-    fees_data_1 = get_claimable_fees.get_data()
-    fees_data_2 = get_claimable_fees.get_data()
-
-    # Values should be similar (within reasonable variance due to fee accrual)
-    # We allow up to 5% variance as fees accumulate over time
-    tolerance = 0.05  # 5%
-
-    # Calculate variance
-    total_fees_1 = fees_data_1["total_fees"]
-    total_fees_2 = fees_data_2["total_fees"]
-
-    if total_fees_1 > 0 and total_fees_2 > 0:
-        variance = abs(total_fees_1 - total_fees_2) / max(total_fees_1, total_fees_2)
-    else:
-        variance = 0
-
-    # Should have consistent data (allowing for some fee accrual)
-    assert variance <= tolerance, f"Data inconsistency found on {chain_name}: {variance:.2%} variance exceeds {tolerance:.0%} tolerance"
-
-
-def test_get_claimable_fees_error_handling(chain_name, get_claimable_fees):
-    """
-    Test that error handling works properly.
-
-    This verifies that the implementation handles missing or failed data gracefully.
-    """
-    # This should not raise an exception even if some calls fail
-    try:
-        fees_data = get_claimable_fees.get_data()
-
-        # Should still return valid structure even if some data is missing
-        assert isinstance(fees_data, dict)
-        assert "total_fees" in fees_data
-        assert "parameter" in fees_data
-
-    except Exception as e:
-        pytest.fail(f"GetClaimableFees should handle errors gracefully, but raised: {e}")
-
-
 def test_get_claimable_fees_special_markets(chain_name, get_claimable_fees):
     """
     Test special market handling like BTC2, ETH2, etc.

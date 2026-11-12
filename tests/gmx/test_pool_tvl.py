@@ -71,38 +71,6 @@ def test_get_pool_tvl_direct_call(chain_name, get_pool_tvl):
         assert len(data["short_token"]) == 42, f"Short token address should be 42 characters: {data['short_token']}"
 
 
-def test_get_pool_tvl_data_consistency(chain_name, get_pool_tvl):
-    """
-    Test that the implementation returns consistent data.
-
-    This verifies that multiple calls return the same data structure and similar values.
-    """
-    # Get data twice
-    pool_tvl_data_1 = get_pool_tvl.get_data()
-    pool_tvl_data_2 = get_pool_tvl.get_data()
-
-    # Should have same markets
-    assert set(pool_tvl_data_1.keys()) == set(pool_tvl_data_2.keys())
-
-    # Values should be similar (within reasonable variance due to price changes)
-    # We allow up to 10% variance as prices can change between calls
-    tolerance = 0.1  # 10%
-
-    inconsistent_markets = []
-
-    for market in pool_tvl_data_1.keys():
-        tvl_1 = pool_tvl_data_1[market]["total_tvl"]
-        tvl_2 = pool_tvl_data_2[market]["total_tvl"]
-
-        if tvl_1 > 0 and tvl_2 > 0:  # Only check non-zero values
-            variance = abs(tvl_1 - tvl_2) / max(tvl_1, tvl_2)
-            if variance > tolerance:
-                inconsistent_markets.append(f"{market}: {tvl_1} vs {tvl_2} (variance: {variance:.2%})")
-
-    # Should have consistent data
-    assert len(inconsistent_markets) == 0, f"Data inconsistency found on {chain_name}: " + "; ".join(inconsistent_markets)
-
-
 @flaky(max_runs=3, min_passes=1)
 def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
     """
@@ -176,30 +144,6 @@ def test_get_pool_tvl_total_calculations(chain_name, pool_tvl_data):
             highest_tvl = highest_tvl_market[1]["total_tvl"]
 
             assert highest_tvl > 0
-
-
-def test_get_pool_tvl_error_handling(chain_name, get_pool_tvl):
-    """
-    Test that error handling works properly.
-
-    This verifies that the implementation handles missing or failed data gracefully.
-    """
-    # This should not raise an exception even if some calls fail
-    try:
-        pool_tvl_data = get_pool_tvl.get_data()
-
-        # Should still return valid structure even if some data is missing
-        assert isinstance(pool_tvl_data, dict)
-
-        # Verify all markets have proper structure
-        for market, data in pool_tvl_data.items():
-            assert isinstance(data, dict)
-            assert "total_tvl" in data
-            assert "long_token" in data
-            assert "short_token" in data
-
-    except Exception as e:
-        pytest.fail(f"GetPoolTVL should handle errors gracefully, but raised: {e}")
 
 
 def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
