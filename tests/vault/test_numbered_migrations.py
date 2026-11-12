@@ -28,7 +28,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, veranta, wildcat
+from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, timestamp_storage, veranta, wildcat
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -247,6 +247,8 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     def rebuild(web3: object, discovery: ERC4262VaultDetection, block: int, cache: object) -> dict:
         return {"Protocol": "Flying Tulip", "Name": "ssftUSD", "Denomination": "ftUSD", "NAV": 1, "_detection_data": discovery, "_description": "Compounded yield.\nSecond sentence."}
 
+    # Timestamp file replacement has dedicated file-backed recovery tests.
+    monkeypatch.setattr(timestamp_storage, "compact_timestamp_caches", lambda context: None)
     monkeypatch.setattr(flying_tulip, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(flying_tulip, "create_multi_provider_web3", lambda _: SimpleNamespace(eth=SimpleNamespace(block_number=123)))
     monkeypatch.setattr(flying_tulip, "create_vault_scan_record", rebuild)
