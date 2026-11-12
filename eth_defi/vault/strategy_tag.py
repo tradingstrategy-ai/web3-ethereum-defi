@@ -176,6 +176,14 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: gTrade (Gains Network USDC).
     market_making_amm = "market_making_amm"
 
+    #: Makes markets between stablecoins through an automated market maker.
+    #: Every pool asset is a stablecoin, so volatility risk should be minimal
+    #: while the pegs hold. Depeg risk remains, and a pool that also backs
+    #: leveraged traders bears their net profit and loss. Normally paired with
+    #: :attr:`market_making_amm`.
+    #: Example vault: GLV [USDG-USDG] (GMX).
+    amm_stablecoin = "amm_stablecoin"
+
     #: Provides liquidity through a central limit order book.
     #: Example vault: Pharos Market Maker (PMM) (GRVT).
     market_making_clob = "market_making_clob"
@@ -389,6 +397,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.market_making_amm: {
         "label": "AMM market making",
         "description": "Supplies assets to automated trading pools and earns a share of trading fees.",
+    },
+    StrategyTag.amm_stablecoin: {
+        "label": "Stablecoin AMM market making",
+        "description": "Makes markets between stablecoins in automated trading pools. With no volatile pool assets, price volatility risk should be minimal while the stablecoins hold their pegs. For example, [GLV USDG-USDG](https://tradingstrategy.ai/vaults/glv-usdg-usdg) holds only USDG and earns fees from leveraged trading and swaps on GMX. A stablecoin losing its peg can cause losses, and pools that back leveraged traders also lose when those traders make net profits.",
     },
     StrategyTag.market_making_clob: {
         "label": "Orderbook market making",

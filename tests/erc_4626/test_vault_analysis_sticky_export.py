@@ -270,8 +270,9 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
     #: These maintainer-requested categories include fuller risk explanations;
-    #: risk-premium harvesting also links to a concrete vault example.
-    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest}
+    #: risk-premium harvesting and stablecoin AMM market making also link to
+    #: a concrete vault example.
+    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin}
     short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
     #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
     assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
@@ -325,6 +326,24 @@ def test_risk_premium_harvest_category_export(has_vault: bool) -> None:
     assert category["description"] == STRATEGY_TAG_METADATA[tag]["description"]
     assert "https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042" in category["description"]
     assert category["one_month_apy"] is None
+    assert category["vault_count"] == int(has_vault)
+    assert category["tvl_usd"] == (100.0 if has_vault else 0.0)
+
+
+@pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
+def test_amm_stablecoin_category_export(has_vault: bool) -> None:
+    """Publish the stablecoin AMM category with its linked GLV example.
+
+    :param has_vault: Whether an eligible record carries the new category.
+    :return: ``None`` after checking serialisation and category aggregation.
+    """
+    tag = StrategyTag("amm_stablecoin")
+    vaults = [{"strategy_tags": [tag.value], "current_nav": 100.0}] if has_vault else []
+    categories = json.loads(json.dumps(top_vaults_json.build_strategy_categories_for_export(vaults)))
+    category = categories[tag.value]
+    assert category["label"] == "Stablecoin AMM market making"
+    assert category["description"] == STRATEGY_TAG_METADATA[tag]["description"]
+    assert "https://tradingstrategy.ai/vaults/glv-usdg-usdg" in category["description"]
     assert category["vault_count"] == int(has_vault)
     assert category["tvl_usd"] == (100.0 if has_vault else 0.0)
 

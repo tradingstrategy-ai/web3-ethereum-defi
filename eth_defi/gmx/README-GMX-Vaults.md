@@ -143,7 +143,10 @@ Different products add different risks:
   liquidity risks; it does not remove the base crypto exposure.
 - A stablecoin-only pool has little ordinary price volatility while its tokens
   hold their pegs, but retains issuer, depeg and, for bridged assets, bridge
-  risk.
+  risk. Stablecoin-only swap pools and the USDG-backed GLV carry the
+  `amm_stablecoin` strategy tag, see `eth_defi/gmx/tags.py`. Single-market GM
+  pools backed only by USDG do not: their value depends on one market's
+  trader profit and loss, which can be volatile.
 
 Deposits and withdrawals also face balance-dependent price impact, execution
 fees, token spreads and possible capacity limits. Reserved liquidity or high

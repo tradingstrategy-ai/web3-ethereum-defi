@@ -695,6 +695,57 @@ BIRCH_HILL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMe
 }
 
 
+#: GLV [USDG-USDG] on Arbitrum (42161), marketed as the GMX Dollar Vault.
+#: Reviewed on 2026-11-12 against GMX's own announcements and documentation.
+#:
+#: The seven-market list and the launch-boost terms are dated because GMX
+#: plans to add markets and publish later boost rates. The GLV holds GM pool
+#: tokens whose pools hold only USDG; depeg and issuer risk are our reading of
+#: that structure, not a GMX statement. The Morpho post says shares can be pledged to borrow USDG in a
+#: Gauntlet-curated market; its 28% looped-yield estimate is omitted.
+#: No migration is needed: each successful GMX catalogue sync, run on every
+#: Arbitrum scan cycle, rewrites the description fields of the products it returns.
+#: https://gmxio.substack.com/p/deposit-dollars-earn-dollars-the
+#: https://x.com/GMX_IO/status/2107456878548570618
+#: https://x.com/GMX_IO/status/2118496905760272473
+#: https://x.com/GMX_IO/status/2120494428213420489
+#: https://docs.gmx.io/docs/providing-liquidity/
+#: https://docs.gmx.io/docs/usdg-launch-boost/
+#: https://tradingstrategy.ai/vaults/glv-usdg-usdg
+GMX_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
+    (42161, "0x4cd5a94a30876320ac65f2e192493ee476f13866"): HandwrittenVaultMetadata(
+        name="GLV [USDG-USDG]",
+        short_description="The vault supplies USDG, a dollar stablecoin, to pools that back leveraged crypto traders across several markets, earning fees and gaining when traders lose but paying out when they win.",
+        description=(
+            "#### Vault's trading strategy\n\n"
+            "Deposits fund the pools that pay winning traders on [GMX](https://gmx.io/), an exchange for [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts with no expiry date that let traders bet on prices using borrowed money. "
+            "The vault owns shares in several of these pools, one for each market, and every pool holds only **USDG**, a dollar stablecoin issued by Paxos. "
+            "Deposits made in USDC are converted to USDG first.\n\n"
+            "The vault takes the [other side of every trade](https://gmxio.substack.com/p/deposit-dollars-earn-dollars-the): it gains when traders lose and pays out when they win. "
+            "In return, its pools keep 63% of the fees traders pay for opening and closing trades, for borrowing and on [liquidations](https://tradingstrategy.ai/glossary/liquidation), forced closures of losing bets. "
+            "The fees are added to the share price instead of being paid out, and the rest goes to the exchange.\n\n"
+            "#### How the money is allocated\n\n"
+            "No manager picks trades. "
+            "The vault, which GMX markets as the Dollar Vault, [opened in October 2026](https://x.com/GMX_IO/status/2107456878548570618) backing Bitcoin, ether and Solana markets, and one deposit was [spread across seven markets by November 2026](https://x.com/GMX_IO/status/2118496905760272473): Bitcoin, ether, Solana, NEAR, XRP, Zcash and HYPE. "
+            "Software [shifts money between the pools automatically](https://docs.gmx.io/docs/providing-liquidity/), following how heavily each market is used, within limits per market that GMX's risk team sets.\n\n"
+            "#### Risks\n\n"
+            "The pools hold dollars instead of crypto assets, but the share price is still **exposed to crypto price moves through traders' winnings**. "
+            "When bets lean heavily one way and the market moves in their favour, the payouts lower the share price.\n\n"
+            "The exchange limits the total size of bets in each market, charges the more crowded side a [funding fee](https://tradingstrategy.ai/glossary/funding-rate) to pull bets back into balance, and can automatically shrink highly profitable positions. "
+            "The vault also depends entirely on USDG keeping its dollar value and on Paxos honouring redemptions.\n\n"
+            "#### Launch boost\n\n"
+            "A **temporary** [launch boost](https://docs.gmx.io/docs/usdg-launch-boost/), funded by Arbitrum's USDG programme together with GMX, is added to the share price on top of trading fees. "
+            "It targets 8% a year or more until the end of November 2026, and rates for later periods had not been published in November 2026. "
+            "Returns during the boost are higher than trading fees alone would produce.\n\n"
+            "#### Borrowing against vault shares\n\n"
+            "Since November 2026, vault shares [can be pledged](https://x.com/GMX_IO/status/2120494428213420489) as [collateral](https://tradingstrategy.ai/glossary/collateral), assets securing a loan, to borrow USDG on the lending platform [Morpho](https://tradingstrategy.ai/glossary/morpho), in a market managed by Gauntlet. "
+            "Borrowing to buy more shares multiplies both the returns and the losses described above."
+        ),
+        link="https://tradingstrategy.ai/vaults/glv-usdg-usdg",
+    ),
+}
+
+
 #: K3 wrappers reviewed against the official deployment registry.
 #: https://github.com/K3-Capital/k3-vault-contracts/tree/main/deployments
 K3_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]] = {
@@ -1030,7 +1081,7 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return LAGOON_CURATOR_VAULT_METADATA.get(key) or K3_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
+    return LAGOON_CURATOR_VAULT_METADATA.get(key) or K3_VAULT_METADATA.get(key) or GMX_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
