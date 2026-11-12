@@ -2,8 +2,11 @@
 feeder-id: c-research
 name: C Research
 role: curator
-short_description: C Research is an Asian quantitative trading team focused on digital-asset strategies.
-long_description: C Research runs a [systematic long-short crypto strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-longshort-alpha) that combines intraday momentum, funding collection and expected price reversals. Its main execution venue is Binance perpetual futures, and the team trades predominantly its own capital. C Research is a published alias; the firm’s legal identity is confidential.
+short_description: C Research is an Asia-based trading team that uses automated models to trade crypto price moves and payments between futures traders.
+long_description: |
+  C Research runs [automated crypto trading strategies](https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-longshort-alpha) that follow price trends within the day, anticipate reversals and collect payments between futures traders. It primarily trades [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that track prices without expiring, on [Binance](https://www.binance.com/); other execution venues are not named.
+
+  The team can intervene manually in exceptional circumstances as a safety measure. It is based in Asia and trades predominantly its own capital. **C Research is a published alias**, and the firm's legal name is not disclosed.
 other-links:
 - title: Neutral Trade — C Research strategy and curator disclosure
   url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-longshort-alpha

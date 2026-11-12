@@ -88,7 +88,11 @@ services:
       SCAN_HIBACHI: ${SCAN_HIBACHI:-false}
       SCAN_APEX: ${SCAN_APEX:-false}
       SCAN_DERIVE_V3: ${SCAN_DERIVE_V3:-true}
+      # Enable Neutral Trade collection; off by default, requires NEUTRAL_TRADE_API_KEY.
       SCAN_NEUTRAL_TRADE: ${SCAN_NEUTRAL_TRADE:-false}
+      # Partner REST key for Neutral Trade reads and onboarding; obtain from @bayes309:
+      # https://docs.neutral.trade/developers/developers#support
+      # Empty by default; required for collection or API-backed migration preview/apply.
       NEUTRAL_TRADE_API_KEY: ${NEUTRAL_TRADE_API_KEY:-}
       SCAN_VAULT_SETTLEMENTS: ${SCAN_VAULT_SETTLEMENTS:-true}
       LEAD_DISCOVERY_STATE_TIMEOUT: ${LEAD_DISCOVERY_STATE_TIMEOUT:-7d}
@@ -285,7 +289,11 @@ services:
       SCAN_HIBACHI: ${SCAN_HIBACHI:-true}
       SCAN_APEX: ${SCAN_APEX:-true}
       SCAN_DERIVE_V3: ${SCAN_DERIVE_V3:-true}
+      # Enable Neutral Trade collection; off by default, requires NEUTRAL_TRADE_API_KEY.
       SCAN_NEUTRAL_TRADE: ${SCAN_NEUTRAL_TRADE:-false}
+      # Partner REST key for Neutral Trade reads and onboarding; obtain from @bayes309:
+      # https://docs.neutral.trade/developers/developers#support
+      # Empty by default; required for collection or API-backed migration preview/apply.
       NEUTRAL_TRADE_API_KEY: ${NEUTRAL_TRADE_API_KEY:-}
       SCAN_VAULT_SETTLEMENTS: ${SCAN_VAULT_SETTLEMENTS:-true}
       LEAD_DISCOVERY_STATE_TIMEOUT: ${LEAD_DISCOVERY_STATE_TIMEOUT:-7d}

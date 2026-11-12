@@ -2,8 +2,11 @@
 feeder-id: adverseguard-alpha
 name: AdverseGuard Alpha
 role: curator
-short_description: AdverseGuard Alpha develops quantitative market-making and directional crypto trading strategies.
-long_description: AdverseGuard Alpha runs [automated market-making strategies](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-market-making) and a [long-short momentum strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-momentum-longshort) on Binance. Its models use order flow, price signals and liquidity conditions to adjust quotes and positions. AdverseGuard Alpha is a published alias; the firm’s legal identity is confidential.
+short_description: AdverseGuard Alpha builds automated crypto strategies that quote buy and sell prices or trade expected market moves.
+long_description: |
+  AdverseGuard Alpha runs [automated buy and sell quoting strategies](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-market-making) and a [price-trend strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-momentum-longshort) on [Binance](https://www.binance.com/). Its models use prices, incoming orders and the availability of buyers and sellers to adjust orders and positions.
+
+  Quoting strategies seek the gap between buy and sell prices and exchange rebates, while the trend strategy takes positions that can benefit from rising or falling prices. **AdverseGuard Alpha is a published alias**, and the firm's legal name is not disclosed.
 other-links:
 - title: Neutral Trade — AdverseGuard Alpha strategy and curator disclosure
   url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-market-making

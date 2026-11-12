@@ -2,8 +2,11 @@
 feeder-id: xanthas
 name: Xanthas
 role: curator
-short_description: Xanthas develops systematic Bitcoin options trading strategies with automated hedging.
-long_description: Xanthas runs an [automated Bitcoin options strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/options-market-making) on OKX, using volatility forecasts to choose trades and perpetual swaps to hedge price exposure. Quantitative research, engineering and trading operations sit within the team. Xanthas is a published alias; the firm’s legal identity is confidential.
+short_description: Xanthas develops automated bitcoin options strategies that sell contracts and offset some of their price risk.
+long_description: |
+  Xanthas runs an [automated bitcoin options strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/options-market-making) on [OKX](https://www.okx.com/). It sells [options](https://tradingstrategy.ai/glossary/options), contracts giving buyers the right to trade at an agreed price, when its forecasts suggest the payments received are attractive relative to expected price swings.
+
+  The team also uses offsetting price contracts to reduce exposure to bitcoin's direction; their venue is not separately identified in the strategy documentation. Research, engineering and trading operations stay within the team. **Xanthas is a published alias**, and the firm's legal name is not disclosed.
 other-links:
 - title: Neutral Trade — Xanthas strategy and curator disclosure
   url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/options-market-making

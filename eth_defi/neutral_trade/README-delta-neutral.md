@@ -66,6 +66,14 @@ strategy documentation. The top-level `curators` dictionary contains the
 curator profiles, including their own short and long descriptions. Published
 aliases remain aliases and are not presented as verified legal names.
 
+The short summaries and full descriptions follow the repository's
+[description writing style guide](../../.claude/docs/description-writing-style.md).
+Full vault descriptions include the strategy heading, explain specialist terms
+and distinguish documented execution venues from missing information. Source
+links remain attached to the strategy claims. Native vault names and the HLP
+allocation remain unlinked where a Trading Strategy page matching the exact
+account has not been verified; provider links are research evidence only.
+
 Stale cached JSON attribution or descriptions force one native metrics refresh,
 so the low-TVL cadence cannot replay the old copy after a metadata update.
 Already-corrected records keep their normal calculation cadence.
@@ -83,6 +91,11 @@ visibility, fee rates, risk and price history. Run it after deployment through
 the preview/apply commands below, without rerunning successful migrations 066
 or 067. New accounts require a separate identity and strategy review before
 receiving this supplemental metadata.
+
+The pre-merge wording review on 2026-11-12 needs no additional migration:
+this integration and migration 068 have not been deployed, and 068 reads the
+current reviewed descriptions. After a successful production application,
+any further persisted metadata repair must use a new numbered migration.
 
 ## Risk and fee classification
 
