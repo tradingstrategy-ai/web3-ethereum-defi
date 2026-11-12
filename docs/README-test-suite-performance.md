@@ -1,5 +1,23 @@
 # Test suite performance plan
 
+## Preserve diagnostics after a stalled main suite (2026-11-12)
+
+The main-suite run for PR #1761 exceeded its 15-minute job limit without
+uploading logs or test artefacts. Its retry also exceeded that limit without
+exposing diagnostic output. The affected tests passed locally both serially
+and with four workers, so this does not identify a failing test or establish
+the cause of the CI stall.
+
+Bound the pytest process itself to ten minutes, with a further 30 seconds
+before forced termination. Keep shell pipe failure propagation so a timeout
+fails the check. Setup took 100 and 95 seconds in the two affected attempts,
+leaving roughly three minutes within the unchanged 15-minute job cap for the
+existing always-run reporting and uploads, including the full pytest log.
+Slower setup can still exhaust the job budget. JUnit XML and the final durations
+table may be missing after termination; use the captured test names and any
+60-second stall stacks to diagnose the failure before changing tests or their
+scheduling.
+
 ## Anvil 1.8 fork slowdown (2026-10-27)
 
 After CI moved to Foundry/Anvil `v1.8.6`
