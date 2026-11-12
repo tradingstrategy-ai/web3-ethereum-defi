@@ -60,9 +60,10 @@ Webshare does not guarantee that every proxy in the pool is usable for every
 target service. Individual proxies may be blocked, rate limited, slow, or fail
 TLS/HTTP negotiation.
 
-The local failure state is conservative. A proxy that fails is skipped for the
-configured grace period, currently 14 days. If every proxy gets marked failed,
-callers fall back to direct connections or return no proxy URLs.
+The local failure state is conservative. A proxy that fails is normally skipped
+for the configured grace period, currently 14 days. The looped all-chain scanner
+can clear stale state sooner, as described below. If every proxy gets marked
+failed, callers fall back to direct connections or return no proxy URLs.
 
 The current Webshare API request reads the first page of up to 100 proxies. If
 the account has more proxies than that, the helper does not currently paginate
@@ -78,6 +79,20 @@ The proxy state file is:
 ```shell
 ~/.tradingstrategy/webshare-proxy-state.json
 ```
+
+In looped mode, `scripts/erc-4626/scan-vaults-all-chains.py` checks the file
+before deciding which scans are due, including ticks with no scans due. If the
+file has not been updated for at least 24 hours, the scanner removes it and
+logs the reset. The next proxy load retries the pool. New failures update the
+file and postpone the next reset until it has been untouched for another day;
+this cadence survives scanner restarts. Single-run scans retain the usual
+14-day grace period unless the state is cleared separately.
+
+This is a local status reset, not a proxy health check or credential refresh.
+All consumers sharing this file benefit on their next proxy load. Existing
+sessions keep their in-memory state and can write old blocks back if they
+record another failure. Filesystem errors produce a warning and are retried
+on the next scanner tick.
 
 When all proxies are blocked, the log includes a warning with reset
 instructions. To inspect the blocked proxies and reset them interactively, run:

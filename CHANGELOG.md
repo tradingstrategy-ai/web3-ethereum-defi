@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Retry blocked Webshare proxies in the looped vault scanner when their shared failure-state file has been untouched for 24 hours (2026-11-12).
 - feat: Index Wildcat version 2 lending markets on Ethereum as read-only vaults, with registry discovery, scale-factor share prices, lending metrics, deposit permission from access hooks, borrower descriptions from the Wildcat app, a `delinquent_markets` flag for defaulted borrowers, a new `unsecured_credit` strategy tag, and numbered migrations that seed the markets and backfill their price history (2026-11-10).
 - fix: Include curator-selected yield allocations in discretionary strategy tags, review the 34-vault curator inventory, and add a scoped metadata refresh (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
 - feat: Add verified Lagoon curator profiles and logos for Murmurr, VOLTA90, NAVI Protocol and Stake Capital, correct stale vault attribution, and fill verified curator feed sources; add reviewed curator copy and manual descriptions for 25 associated vaults, preserving empty fields for nine without sufficient evidence (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
