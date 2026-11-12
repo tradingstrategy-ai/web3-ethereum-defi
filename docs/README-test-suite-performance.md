@@ -34,7 +34,18 @@ explicitly missing capacity. Centrifuge's scan test uses a temporary token
 cache so an operator's cached historical name cannot affect the live check.
 These test-only corrections require no persisted-data migration.
 
-## Neutral Trade test collection and storage isolation (2026-11-12)
+## Neutral Trade test reporting and isolation (2026-11-12)
+
+The oversized-response test passed a 4 MiB bytes fixture directly into pytest
+parametrisation. Its automatically generated ID produced two verbose output
+lines of more than 4.19 million characters each. The original streaming CI jobs
+stalled without final logs; these huge IDs are a likely cause. A diagnostic run
+with pytest output redirected to a file completed both full collection and the focused tests successfully,
+and uploaded snapshots while pytest was running. Those snapshots exposed the
+huge IDs. The cases now use short explicit IDs, retaining the large payload and
+its validation assertions. This also keeps JUnit names and per-worker JSONL
+timing records small.
+The normal streaming CI run must pass before treating this as a confirmed repair.
 
 Full-suite serial collection exposed three import mismatches introduced by
 Neutral Trade's generic `test_scan.py`, `test_vault_metadata.py` and

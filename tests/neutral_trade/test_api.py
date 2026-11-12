@@ -188,7 +188,8 @@ def test_retry_honours_quota_without_sleeping(monkeypatch: pytest.MonkeyPatch) -
     assert len(calls) == 2
 
 
-@pytest.mark.parametrize("content", [b'{"data": []}', b"invalid fixture-secret", b"x" * (4 * 1024 * 1024 + 1)])
+# Keep the oversized body out of pytest node IDs and CI output.
+@pytest.mark.parametrize("content", [b'{"data": []}', b"invalid fixture-secret", b"x" * (4 * 1024 * 1024 + 1)], ids=["invalid-envelope", "invalid-json", "oversized-body"])
 def test_invalid_or_oversized_response(content: bytes, monkeypatch: pytest.MonkeyPatch) -> None:
     """Fail closed on malformed or oversized payloads without leaking the body.
 
