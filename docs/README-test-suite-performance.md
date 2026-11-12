@@ -61,6 +61,28 @@ table may be missing after termination; use the captured test names and any
 60-second stall stacks to diagnose the failure before changing tests or their
 scheduling.
 
+The first complete-pipeline attempt on the organisation runner also remained
+in its test step beyond the ten-minute deadline and 30-second kill grace,
+without uploading artefacts. The wrapper reproduction therefore does not
+explain the observed runner stall. A comparison on `ubuntu-latest`, already used
+by the slow integration workflow, also remained in the test step beyond the
+complete-pipeline deadline and kill grace without uploading artefacts. It used
+the same test selection and deadlines, with `-n auto` following the runner's
+CPU count. Different worker counts make suite duration an indirect comparison;
+the diagnostic failure here is that the step did not end at the deadline.
+The hosted comparison did not establish a repair, so the main workflow retains
+its original organisation runner configuration. Do not repeatedly rerun the
+unchanged suite without obtaining new evidence.
+For new evidence, rerun once with `gh run rerun RUN_ID --debug` and inspect
+`runner-diagnostic-logs` in the downloaded log archive. Repository access that
+permits workflow reruns and log downloads is sufficient; an HTTP 403 from the
+organisation runner inventory does not mean GitHub authentication or
+workflow-log access has failed.
+[GitHub's debug logging guidance](https://docs.github.com/en/actions/how-tos/monitor-workflows/enable-debug-logging)
+describes the runner and worker diagnostic files available for a debug rerun.
+Only investigate host `_diag` and OOM logs directly if the runner is confirmed
+to be self-hosted and host access is available.
+
 ## Anvil 1.8 fork slowdown (2026-10-27)
 
 After CI moved to Foundry/Anvil `v1.8.6`

@@ -16,9 +16,9 @@ on:
 
 jobs:
   test-python:
-    # Use the same hosted environment as the slow suite while diagnosing
-    # organisation runner stalls that prevent test log uploads.
-    runs-on: ubuntu-latest
+    # Reserved multicore instance for running tests
+    runs-on:
+      group: Beefy runners
     # Hard 15-minute cap — do NOT raise it. If a run exceeds 15 min, fix the
     # test runs (warm the fork RPC cache, isolate/repair flaky tests, speed up
     # fixtures), not the timeout. Growing a CI timeout hides the real slowdown
@@ -195,8 +195,8 @@ jobs:
           # (only when vault/shared code changes), so they are excluded here.
           #
           # Output is tee'd to a log so the "Report slowest tests" step can
-          # publish the durations table in the job summary; the inner pipefail keeps the
-          # pytest exit code as the step result.
+          # publish durations in the job summary. The inner pipefail preserves
+          # test failures; timeout supplies the failure status at the deadline.
           export TEST_TIMINGS_FILE=test-timings.jsonl
           export TEST_RESOURCES_DIR=test-resources
           # Bound the whole pipeline: a detached child retaining stdout must
