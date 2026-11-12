@@ -296,6 +296,12 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Hibachi": VaultTechnicalRisk.severe,
     # Native managed exchange subaccounts; a vault-specific risk review is pending.
     "Derive": None,
+    # Transparency dashboards do not remove centralised counterparty, custody
+    # and asset-freeze risks when capital is deployed to external venues.
+    # Execution is not restricted to decentralised exchanges: the documented
+    # venue mix includes centralised exchanges, DEXs and DeFi protocols.
+    # https://docs.neutral.trade/neutral-strategy-vaults/how-they-work
+    "Neutral Trade": VaultTechnicalRisk.high,
     # ApeX - closed-source native perp venue with centrally published metrics
     "ApeX": VaultTechnicalRisk.severe,
     # Inverse Finance - sDOLA savings vault, open source but limited audits

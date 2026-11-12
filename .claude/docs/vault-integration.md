@@ -149,3 +149,21 @@ Live synchronous/queued execution, conservative allocation and backtest delay
 are separate decisions. Reuse the existing funding classification and backtest
 overrides, and document their timing limits rather than adding quote-time
 protocol state.
+
+
+## Native Solana identities
+
+Use `eth_defi.solana.SOLANA_CHAIN_ID` (reserved in-house value 9992) for Solana
+mainnet vault data. This is a native dataset partition, not an EVM network ID.
+Shared helpers own canonical 32-byte base58 validation and reversible
+`solana-vault-` storage keys. Do not put a new provider's identity helper in
+its protocol module or invent another chain reservation for the same network.
+
+`VaultSpec(SOLANA_CHAIN_ID, raw_account)` accepts base58 input and converts it
+before lowercase normalisation. Never lowercase base58 before this boundary;
+letter case changes the account. Use `decode_solana_vault_address()` for native
+API and explorer addresses, and retain native addresses in provider provenance.
+PDAs are valid off-curve accounts: do not require Ed25519 curve membership.
+Existing Neutral Trade storage keys stay unchanged; its old helper imports
+are compatibility exports. No persistent-data migration is needed merely to
+accept the equivalent raw input identity.

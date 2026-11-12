@@ -3670,6 +3670,9 @@ def _calculate_vault_record_from_arrays(
             "ownership_updated_at": vault_metadata.get("_lighter_ownership_updated_at"),
         }
 
+    if protocol == "Neutral Trade":
+        other_data["neutral_trade"] = vault_metadata.get("_neutral_trade")
+
     if protocol == "Derive":
         # Native vault accounting is USD even when the accepted deposit
         # asset is ETH, BTC or another token. Keep the source asset separate
@@ -3902,7 +3905,7 @@ def _calculate_vault_record_from_arrays(
         three_months_cagr_net = three_months_pm.cagr_net if known_fee else None
         three_months_volatility = three_months_pm.volatility
         three_months_sharpe = three_months_pm.sharpe
-        three_months_sharpe_net = three_months_pm.sharpe  # Same as gross for now
+        three_months_sharpe_net = three_months_pm.sharpe if known_fee else None
         three_months_start = three_months_pm.samples_start_at
         three_months_end = three_months_pm.samples_end_at
         three_months_samples = three_months_pm.raw_samples
@@ -4417,7 +4420,7 @@ def calculate_vault_rankings(
 #:
 #: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid, Lighter)
 #: or are hardcoded protocol entries that may lack standard ERC-4626 events.
-SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter", "hibachi", "derive"}
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"neutral-trade", "grvt", "hyperliquid", "lighter", "hibachi", "derive"}
 
 
 def is_special_vault(

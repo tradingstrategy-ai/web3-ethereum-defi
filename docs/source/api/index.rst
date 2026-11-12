@@ -39,6 +39,8 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    grvt/index
    lighter/index
    hibachi/index
+   neutral_trade/index
+   solana/index
    cctp/index
    centrifuge/index
    orderly/index

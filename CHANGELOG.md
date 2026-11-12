@@ -1,5 +1,15 @@
 # 1.2
 
+- fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).
+
+- fix: Share the reserved Solana mainnet dataset ID 9992, accept case-sensitive base58 vault identities through VaultSpec, validate complete native accounts and preserve existing reversible storage keys (2026-11-12).
+
+- fix: Publish reviewed Neutral Trade native curator names and vault descriptions, add sourced curator profiles and strategy classifications, prevent venue-name curator matches and refresh cached metadata through migration 068 (2026-11-12).
+
+- fix: Classify native Neutral Trade risk as High and fees as externalised (feeless for explicit zero schedules), wire base-schedule net estimates into JSON and refresh cached classifications through migration 067 (2026-11-12).
+
+- feat: Collect Neutral Trade native vaults through one resumable REST discovery/backfill/live pipeline, with private DuckDB history, shared native exports, WSOL exclusion, manual verification tables, real API tests and numbered onboarding migration (2026-11-12).
+
 - feat: Index Wildcat version 2 lending markets on Ethereum as read-only vaults, with registry discovery, scale-factor share prices, lending metrics, deposit permission from access hooks, borrower descriptions from the Wildcat app, a `delinquent_markets` flag for defaulted borrowers, a new `unsecured_credit` strategy tag, and numbered migrations that seed the markets and backfill their price history (2026-11-10).
 - fix: Include curator-selected yield allocations in discretionary strategy tags, review the 34-vault curator inventory, and add a scoped metadata refresh (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
 - feat: Add verified Lagoon curator profiles and logos for Murmurr, VOLTA90, NAVI Protocol and Stake Capital, correct stale vault attribution, and fill verified curator feed sources; add reviewed curator copy and manual descriptions for 25 associated vaults, preserving empty fields for nine without sufficient evidence (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).

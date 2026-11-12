@@ -1,0 +1,10 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: velox-trading-group
+name: Velox Trading Group
+role: curator
+website: https://www.veloxtrading.ai/
+short_description: Velox Trading Group develops quantitative digital-asset trading strategies and technology.
+long_description: '[Velox Trading Group](https://www.veloxtrading.ai/) is a digital-asset quantitative investment and technology firm. Its [Neutral Trade strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/delta-neutral-arbitrage) combines exchange arbitrage, funding and futures-price differences, and DeFi market making across centralised and decentralised venues.'
+other-links:
+- title: Neutral Trade — Velox Trading Group strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/delta-neutral-arbitrage

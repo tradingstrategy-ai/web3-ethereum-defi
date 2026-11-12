@@ -1,0 +1,9 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: vision-research
+name: Vision Research
+role: curator
+short_description: Vision Research develops quantitative crypto trading and market-making systems.
+long_description: Vision Research runs a [high-frequency, multi-factor strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-multi-factor) on Binance, combining trading signals with market making. The team develops quantitative models and trading infrastructure for centralised and onchain markets. Vision Research is a published alias; the firm’s legal identity is confidential.
+other-links:
+- title: Neutral Trade — Vision Research strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/market-neutral/hft-multi-factor

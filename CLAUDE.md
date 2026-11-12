@@ -561,6 +561,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | Path | Description |
 |------|-------------|
 | `README.md` | Web3-Ethereum-Defi project overview |
+| `eth_defi/neutral_trade/README-delta-neutral.md` | Neutral Trade read-only API inspection and manual data verification |
 | `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
 | `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |

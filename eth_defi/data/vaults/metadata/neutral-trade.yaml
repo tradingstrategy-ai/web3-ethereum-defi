@@ -1,0 +1,25 @@
+name: Neutral Trade
+slug: neutral-trade
+short_description: |
+  Neutral Trade offers managed vaults for market-neutral, directional and options trading strategies.
+long_description: |
+  [Neutral Trade](https://www.neutral.trade/) distributes vaults managed by trading firms.
+  Its [Curated and Marketplace products](https://www.neutral.trade/faq) have different review requirements.
+  Strategies may trade on centralised exchanges and decentralised venues, so custody,
+  counterparty and trading risks depend on the selected vault.
+fee_description: |
+  Vaults can charge management, performance and withdrawal fees.
+  Performance fees apply to gains above each depositor's [individual high-water mark](https://docs.neutral.trade/additional-info/fees-+-redemption-period),
+  the previous peak used to calculate their fees. Charges and withdrawal
+  terms depend on the vault; a shared price history does not reproduce every depositor's net return.
+links:
+  homepage: https://www.neutral.trade/
+  app: https://www.neutral.trade/strategies
+  twitter: https://x.com/tradeneutral
+  github:
+  documentation: https://docs.neutral.trade/
+  defillama:
+  audits:
+  fees: https://docs.neutral.trade/additional-info/fees-+-redemption-period
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/neutral-trade
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/neutral_trade/index.html

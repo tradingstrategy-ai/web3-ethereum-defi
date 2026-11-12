@@ -1,0 +1,9 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: d-research
+name: D Research
+role: curator
+short_description: D Research manages systematic volatility strategies across equity, fixed-income and digital-asset-related markets.
+long_description: D Research manages a [cross-asset volatility strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/rwa/multi-asset-volatility-arbitrage) distributed through Neutral Trade. It trades listed equity, fixed-income and volatility instruments, including securities linked to digital assets. D Research is a published alias; the firm’s legal identity is confidential.
+other-links:
+- title: Neutral Trade — D Research strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/rwa/multi-asset-volatility-arbitrage

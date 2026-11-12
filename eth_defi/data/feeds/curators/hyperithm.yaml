@@ -24,3 +24,6 @@ linkedin-rss-hub-disabled-at: 2026-06-09
 other-links:
   - title: Saturn USDC on Monad - vault details and attribution
     url: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079
+  # Neutral Trade's exact-account strategy page names Hyperithm, 2026-11-12.
+  - title: Neutral Trade - CTA Systematic Alpha vault by Hyperithm, Solana account Ec6uSz5EsffwfXp43pvpz4rf9ttJRFKES4ZSVX7gVVkQ
+    url: https://www.neutral.trade/strategies/systematic-alpha

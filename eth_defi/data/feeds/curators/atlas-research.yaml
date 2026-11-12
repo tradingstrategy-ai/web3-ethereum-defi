@@ -1,0 +1,9 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: atlas-research
+name: Atlas Research
+role: curator
+short_description: Atlas Research develops systematic directional trading strategies for liquid crypto derivatives.
+long_description: Atlas Research runs an [automated crypto derivatives strategy](https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-adaptive-alpha) that switches between following price trends and trading expected reversals. Its models use price and order-flow signals, with automated entry and exit rules. Atlas Research is a published alias; the firm’s legal identity is confidential.
+other-links:
+- title: Neutral Trade — Atlas Research strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/directional/cta-adaptive-alpha
