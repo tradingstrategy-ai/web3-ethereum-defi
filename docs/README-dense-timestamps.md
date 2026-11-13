@@ -50,9 +50,9 @@ plus 64 MiB. This covers candidate storage, WAL and validation spill without
 assuming the repaired database will compress like a tiny sparse source. Existing
 recovery copies are deducted on resume. Apply refuses insufficient space before
 creating new backups or publishing any chain. The 13 November production snapshot
-requires approximately **200 GiB free** under this conservative allowance; the
-preview report is authoritative for the current inventory. Actual compressed
-files can be much smaller.
+requires approximately **200 GiB plus the source cache sizes** in free space
+under this conservative allowance; the preview report is authoritative for the
+current inventory. Actual compressed files can be much smaller.
 
 Close all consumers of the selected timestamp directory before preview or
 apply. The runner owns pipeline guards; the additional directory lock excludes
@@ -126,12 +126,7 @@ the command above with `HYPERSYNC_RPM=10`. An earlier run was paused after a
 concurrent live check received HTTP 429; retry reused durable candidate progress
 at the lower rate and completed without further provider rate-limit errors.
 
-The focused offline checks passed **147 tests**, with one opt-in large-test
-skip and two live-test deselections. The separate small real Envio check
-`tests/rpc/test_dense_timestamp_migration.py::test_dense_arbitrum_live` passed
-with supplied credentials and an isolated cache. This was a local manual run,
-not CI. Claude CLI Opus 5.5 approved the scoped reader and migration follow-ups.
-Formatting and focused Ruff checks pass; Sphinx was not built.
+Test and review evidence is recorded in the PR.
 
 The production timestamp directory was not repaired by this local run. It
 still requires the normal numbered migration after deployment.
