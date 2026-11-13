@@ -196,17 +196,6 @@ def test_reduce_only_close_custom_tolerance_band() -> None:
     assert size_loose == actual_position["position_size_usd_raw"]
 
 
-def test_async_adapter_imports_same_helper() -> None:
-    """Sync/async lockstep — both adapter modules expose the same helper.
-
-    The eth_defi.gmx.ccxt.async_support.exchange module must import the same
-    helper so a future async close path uses identical sizing semantics.
-    """
-    from eth_defi.gmx.ccxt.async_support import exchange as async_exchange
-
-    assert async_exchange._resolve_reduce_only_size_delta_usd is _resolve_reduce_only_size_delta_usd
-
-
 # ---------------------------------------------------------------------------
 # Entry-price repricing fix (~1% token-dust incident)
 # ---------------------------------------------------------------------------

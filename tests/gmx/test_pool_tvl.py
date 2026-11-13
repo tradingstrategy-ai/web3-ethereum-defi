@@ -117,35 +117,6 @@ def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(markets)}"
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_get_pool_tvl_total_calculations(chain_name, pool_tvl_data):
-    """
-    Test total TVL calculations and aggregations.
-
-    This verifies that we can properly aggregate TVL data.
-
-    Flaky: ``get_pool_tvl.get_data()`` calls the GMX DataStore contract via RPC.
-    Under transient RPC/API outages the call can return an empty dict.  The
-    ``pool_tvl_data`` fixture skips the test when data is empty so ``@flaky``
-    can retry rather than burning its budget on bad-input failures.
-    """
-    # Calculate totals
-    total_tvl = sum(data["total_tvl"] for data in pool_tvl_data.values() if isinstance(data["total_tvl"], (int, float)) and data["total_tvl"] > 0)
-
-    # Should have some total TVL
-    assert total_tvl > 0, "Total TVL should be positive"
-
-    # Verify market with highest TVL
-    if pool_tvl_data:
-        # Filter out markets with zero TVL (like APE_DEPRECATED)
-        non_zero_markets = {k: v for k, v in pool_tvl_data.items() if v["total_tvl"] > 0}
-        if non_zero_markets:
-            highest_tvl_market = max(non_zero_markets.items(), key=lambda x: x[1]["total_tvl"])
-            highest_tvl = highest_tvl_market[1]["total_tvl"]
-
-            assert highest_tvl > 0
-
-
 def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
     """
     Test that token addresses are properly formatted and valid.

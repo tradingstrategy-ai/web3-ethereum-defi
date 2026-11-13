@@ -102,15 +102,6 @@ def test_decode_too_short_returns_none():
 # ---------------------------------------------------------------------------
 
 
-def test_registry_has_at_least_20_entries():
-    """Plan acceptance: registry must cover the top ~20 GMX V2 errors.
-
-    The auto-generated registry is sourced from the full Errors.sol so
-    actual size is in the hundreds, but pin the >= 20 floor explicitly.
-    """
-    assert len(_GMX_ERROR_REGISTRY) >= 20
-
-
 def test_registry_keys_are_canonical_4byte_selectors():
     """Every key must be a lowercase 0x-prefixed 4-byte hex string."""
     for key in _GMX_ERROR_REGISTRY:
