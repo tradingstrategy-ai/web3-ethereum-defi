@@ -25,9 +25,11 @@ sparse tail ending at 523,456,169. It lacked 38,412,000 timestamps. Production
 had a slightly newer sparse tail.
 [PR #1764](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1764)
 compacted the files losslessly; its
-retained backup has the same gaps. Infinit needs dense coverage to match
-application price observations to exact block timestamps, so its history
-refresh was deferred while ordinary sampled scans continued.
+retained backup has the same gaps. Infinit needs dense coverage to map each
+application price observation to the last block at or before its timestamp,
+so its history refresh was deferred while ordinary sampled scans continued.
+Arbitrum can skip a second without a block, so the mapping cannot require an
+exact timestamp match.
 
 ## Numbered repair
 
