@@ -12,32 +12,42 @@ from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_mul
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.event_reader.web3factory import SimpleWeb3Factory
 from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.hypersync.utils import configure_hypersync_from_env
 
-from hypersync import HypersyncClient, ClientConfig
+from hypersync import ClientConfig
 
 from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height, fetch_block_timestamps_using_hypersync_cached
 from eth_defi.hypersync.session import create_throttled_hypersync_client, ThrottledHypersyncClient
 
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
-pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API_KEY environment variable to run this test")
+# 2026-11-13: live CI timestamp reads hit shared-quota 429s; earlier runs passed.
+pytestmark = [pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API_KEY environment variable to run this test"), pytest.mark.hypersync_retry]
 
 
 @pytest.fixture()
-def hypersync_client() -> HypersyncClient:
-    hypersync_url = get_hypersync_server(1)  # Mainnet
-    client = HypersyncClient(ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
+def hypersync_client() -> ThrottledHypersyncClient:
+    """Use the configured Ethereum client so every explicit page is throttled.
+
+    :return: Authenticated client using the shared local quota bucket.
+    """
+    client = configure_hypersync_from_env(1).hypersync_client
+    assert client is not None, "Ethereum timestamp tests require the Hypersync backend"
     return client
 
 
 @pytest.fixture()
-def hypersync_polygon_client() -> HypersyncClient:
-    hypersync_url = get_hypersync_server(137)
-    client = HypersyncClient(ClientConfig(url=hypersync_url, api_token=HYPERSYNC_API_KEY))
+def hypersync_polygon_client() -> ThrottledHypersyncClient:
+    """Use the configured Polygon client with the same quota bucket as Ethereum.
+
+    :return: Authenticated client using the shared local quota bucket.
+    """
+    client = configure_hypersync_from_env(137).hypersync_client
+    assert client is not None, "Polygon timestamp tests require the Hypersync backend"
     return client
 
 
-def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient):
+def test_get_block_timestamps_using_hypersync(hypersync_client: ThrottledHypersyncClient):
     """We get 100 historical blocks from Hypersync.
 
     - Do not use cache
@@ -60,7 +70,7 @@ def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient)
     assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
 
 
-def test_get_block_timestamps_using_hypersync_cached(hypersync_client: HypersyncClient, tmp_path):
+def test_get_block_timestamps_using_hypersync_cached(hypersync_client: ThrottledHypersyncClient, tmp_path):
     """We get 100 historical blocks from Hypersync"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
@@ -112,7 +122,7 @@ def test_get_block_timestamps_using_hypersync_cached(hypersync_client: Hypersync
     blocks.close()
 
 
-def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
+def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client: ThrottledHypersyncClient, hypersync_polygon_client: ThrottledHypersyncClient, tmp_path):
     """We get 100 historical blocks from Hypersync, multiple chains"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
@@ -163,7 +173,7 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
     blocks_polygon.close()
 
 
-def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
+def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: ThrottledHypersyncClient, hypersync_polygon_client: ThrottledHypersyncClient, tmp_path):
     """Get blocks and then get some more blocks"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
@@ -216,7 +226,7 @@ def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: H
     blocks_ethereum_again.close()
 
 
-def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
+def test_timestamp_multi_save(hypersync_client: ThrottledHypersyncClient, hypersync_polygon_client: ThrottledHypersyncClient, tmp_path):
     """Get blocks and then get some more blocks, do several saves"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000

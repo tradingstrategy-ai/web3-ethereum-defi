@@ -724,7 +724,8 @@ def test_midas_lead_detection_lifetime_metrics_json_export(monkeypatch: pytest.M
 
 
 @pytest.mark.skipif(HYPERSYNC_API_KEY is None, reason="HYPERSYNC_API_KEY needed to run this test")
-@flaky.flaky
+# 2026-11-13: live CI timestamp reads hit 429s after passing in earlier runs.
+@pytest.mark.hypersync_retry
 def test_midas_hypersync_mtbill_three_day_share_price_history() -> None:
     """Read a three-day mTBILL share-price snapshot using live HyperSync block headers.
 
