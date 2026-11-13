@@ -459,10 +459,12 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
     chunk_size: int = 100_000,
-) -> BlockTimestampSlicer:
+) -> BlockTimestampSlicer:  # noqa: PLR0914 -- dense paging, gap recovery and durable cache state.
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
     - Uses timestamp-only Hypersync pages and a persistent DuckDB cache.
+    - Fills the union of the cached and requested intervals, including gaps.
+      Price sampling never changes the density of this shared database.
     - Large ranges are split into chunks of *chunk_size* blocks. Each HTTP
       page acquires its own rate-limit slot, including truncated responses.
       Progress is saved after each chunk so a provider failure retains
@@ -481,201 +483,218 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     else:
         timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
 
-    first_read_block, last_read_block = timestamp_db.get_first_and_last_block()
+    try:
+        first_read_block, last_read_block = timestamp_db.get_first_and_last_block()
+        cached_count = timestamp_db.get_count()
 
-    logger.info(
-        "Chain %d: timestamp cache has blocks %s - %s (%s entries), caller wants %s - %s",
-        chain_id,
-        f"{first_read_block:,}" if first_read_block else "None",
-        f"{last_read_block:,}" if last_read_block else "None",
-        f"{timestamp_db.get_count():,}",
-        f"{start_block:,}",
-        f"{end_block:,}",
-    )
+        logger.info(
+            "Chain %d: timestamp cache has blocks %s - %s (%s entries), caller wants %s - %s",
+            chain_id,
+            f"{first_read_block:,}" if first_read_block else "None",
+            f"{last_read_block:,}" if last_read_block else "None",
+            f"{cached_count:,}",
+            f"{start_block:,}",
+            f"{end_block:,}",
+        )
+        if cached_count:
+            start_block = min(start_block, first_read_block)
+            end_block = max(end_block, last_read_block)
 
-    def _build_fetch_ranges(range_end_block: int) -> list[tuple[int, int]]:
-        """Build (start, end) pairs for blocks we need to fetch."""
-        fetch_ranges: list[tuple[int, int]] = []
+        def _build_fetch_ranges(range_end_block: int) -> list[tuple[int, int]]:
+            """Build (start, end) pairs for blocks we need to fetch."""
+            fetch_ranges: list[tuple[int, int]] = []
 
-        if last_read_block:
-            if start_block < first_read_block:
-                head_end_block = min(first_read_block - 1, range_end_block)
-                if start_block <= head_end_block:
-                    fetch_ranges.append((start_block, head_end_block))
-            if range_end_block > last_read_block:
-                fetch_ranges.append((max(start_block, last_read_block + 1), range_end_block))
+            if last_read_block:
+                if start_block < first_read_block:
+                    head_end_block = min(first_read_block - 1, range_end_block)
+                    if start_block <= head_end_block:
+                        fetch_ranges.append((start_block, head_end_block))
+                if range_end_block > last_read_block:
+                    fetch_ranges.append((max(start_block, last_read_block + 1), range_end_block))
 
-            # Detect interior gaps (e.g. from a partial backfill that saved
-            # blocks 1-99 then got a 429, leaving a hole at 100-999).
-            # Clip each gap to the requested range since we only care about
-            # the intersection.
-            for gap_start, gap_end, _count in timestamp_db.find_gaps():
-                clip_start = max(start_block, gap_start + 1)
-                clip_end = min(range_end_block, gap_end - 1)
-                if clip_start <= clip_end:
-                    fetch_ranges.append((clip_start, clip_end))
-        else:
-            fetch_ranges.append((start_block, range_end_block))
-
-        # Reread nearby cached headers together instead of opening hundreds of
-        # streams for tiny holes. Bound each merged request by the chunk size.
-        merged: list[tuple[int, int]] = []
-        for range_start, range_end in sorted(fetch_ranges):
-            if merged and range_end - merged[-1][0] + 1 <= chunk_size:
-                merged[-1] = (merged[-1][0], max(merged[-1][1], range_end))
+                # Detect interior gaps (e.g. from a partial backfill that saved
+                # blocks 1-99 then got a 429, leaving a hole at 100-999).
+                # Clip each gap to the requested range since we only care about
+                # the intersection.
+                gaps = timestamp_db.find_gaps() if cached_count != last_read_block - first_read_block + 1 else ()
+                for gap_start, gap_end, _count in gaps:
+                    clip_start = max(start_block, gap_start + 1)
+                    clip_end = min(range_end_block, gap_end - 1)
+                    if clip_start <= clip_end:
+                        fetch_ranges.append((clip_start, clip_end))
             else:
-                merged.append((range_start, range_end))
-        return merged
+                fetch_ranges.append((start_block, range_end_block))
 
-    fetch_ranges = _build_fetch_ranges(end_block)
+            # Reread nearby cached headers together instead of opening hundreds of
+            # streams for tiny holes. Bound each merged request by the chunk size.
+            merged: list[tuple[int, int]] = []
+            for range_start, range_end in sorted(fetch_ranges):
+                if merged and range_end - merged[-1][0] + 1 <= chunk_size:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], range_end))
+                else:
+                    merged.append((range_start, range_end))
+            return merged
 
-    total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
+        fetch_ranges = _build_fetch_ranges(end_block)
 
-    if not fetch_ranges:
-        logger.info("Chain %d: cache fully covers requested range, nothing to fetch", chain_id)
-        return timestamp_db.get_slicer()
+        total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
 
-    # Validate chain_id once before streaming, and avoid querying beyond
-    # Hypersync's current indexed height. Near-head overreads can surface as
-    # Rust receiver pagination errors instead of clean empty responses.
-    if is_hypersync_client(client):
-        await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
-        hypersync_height = await _fetch_hypersync_block_height_async(client, reason="timestamp-cache-height")
-        if end_block > hypersync_height:
-            logger.warning(
-                "Chain %d: clipping timestamp request end block from %s to Hypersync indexed height %s",
-                chain_id,
-                f"{end_block:,}",
-                f"{hypersync_height:,}",
-            )
-            end_block = hypersync_height
-            if end_block < start_block:
+        if not fetch_ranges:
+            logger.info("Chain %d: cache fully covers requested range, nothing to fetch", chain_id)
+            return timestamp_db.get_slicer()
+
+        # Validate chain_id once before streaming, and avoid querying beyond
+        # Hypersync's current indexed height. Near-head overreads can surface as
+        # Rust receiver pagination errors instead of clean empty responses.
+        if is_hypersync_client(client):
+            await _validate_hypersync_chain_id_async(client, chain_id, reason="timestamp-cache-validate")
+            hypersync_height = await _fetch_hypersync_block_height_async(client, reason="timestamp-cache-height")
+            if end_block > hypersync_height:
                 logger.warning(
-                    "Chain %d: Hypersync indexed height %s is before requested start block %s, nothing to fetch",
+                    "Chain %d: clipping timestamp request end block from %s to Hypersync indexed height %s",
                     chain_id,
+                    f"{end_block:,}",
                     f"{hypersync_height:,}",
-                    f"{start_block:,}",
                 )
-                return timestamp_db.get_slicer()
-            fetch_ranges = _build_fetch_ranges(end_block)
-            total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
-            if not fetch_ranges:
-                logger.info("Chain %d: cache fully covers clipped requested range, nothing to fetch", chain_id)
-                return timestamp_db.get_slicer()
+                end_block = hypersync_height
+                if end_block < start_block:
+                    logger.warning(
+                        "Chain %d: Hypersync indexed height %s is before requested start block %s, nothing to fetch",
+                        chain_id,
+                        f"{hypersync_height:,}",
+                        f"{start_block:,}",
+                    )
+                    return timestamp_db.get_slicer()
+                fetch_ranges = _build_fetch_ranges(end_block)
+                total_to_fetch = sum(e - s + 1 for s, e in fetch_ranges)
+                if not fetch_ranges:
+                    logger.info("Chain %d: cache fully covers clipped requested range, nothing to fetch", chain_id)
+                    return timestamp_db.get_slicer()
 
-    # Split ranges into durable chunks. Pagination acquires a limiter slot
-    # for every HTTP request, and completed chunks are saved immediately.
-    all_chunks: list[tuple[int, int]] = []
-    for range_start, range_end in fetch_ranges:
-        for cs in range(range_start, range_end + 1, chunk_size):
-            all_chunks.append((cs, min(cs + chunk_size - 1, range_end)))
+        # Split ranges into durable chunks. Pagination acquires a limiter slot
+        # for every HTTP request, and completed chunks are saved immediately.
+        all_chunks: list[tuple[int, int]] = []
+        for range_start, range_end in fetch_ranges:
+            for cs in range(range_start, range_end + 1, chunk_size):
+                all_chunks.append((cs, min(cs + chunk_size - 1, range_end)))
 
-    n_chunks = len(all_chunks)
-    logger.info(
-        "Chain %d: fetching %s blocks in %d chunk(s) across %d range(s)",
-        chain_id,
-        f"{total_to_fetch:,}",
-        n_chunks,
-        len(fetch_ranges),
-    )
-
-    empty_chunks = 0
-    for chunk_idx, (chunk_start, chunk_end) in enumerate(all_chunks):
-        index = []
-        values = []
-
-        async for block_header in fetch_timestamp_cache_headers_async(
-            client,
+        n_chunks = len(all_chunks)
+        logger.info(
+            "Chain %d: fetching %s blocks in %d chunk(s) across %d range(s)",
             chain_id,
-            start_block=chunk_start,
-            end_block=chunk_end,
-            display_progress=display_progress,
-            validate_chain_id=False,
-            reason=f"timestamp-cache-fill chunk {chunk_idx + 1}/{n_chunks}",
-        ):
-            index.append(block_header.block_number)
-            values.append(block_header.timestamp)
-
-        # Save after each chunk so progress is durable
-        if index:
-            timestamp_db.import_chain_data(chain_id, pd.Series(data=values, index=index))
-            logger.info(
-                "Chain %d: chunk %d/%d saved %s blocks (%s - %s)",
-                chain_id,
-                chunk_idx + 1,
-                n_chunks,
-                f"{len(index):,}",
-                f"{chunk_start:,}",
-                f"{chunk_end:,}",
-            )
-        else:
-            empty_chunks += 1
-
-    # If Hypersync returned zero rows for any chunk, the blocks are
-    # still missing but find_gaps() cannot detect head/tail gaps
-    # (no boundary blocks to define them). Treat this as a flaky
-    # error so the retry loop re-enters with a fresh cache check.
-    if empty_chunks:
-        raise HypersyncFlaky(f"Chain {chain_id}: Hypersync returned 0 rows for {empty_chunks}/{n_chunks} chunks")
-
-    # Heal gaps left by silently dropped HyperSync batches.
-    # On fast chains like Monad, HyperSync can skip entire ~9,000-block
-    # streaming batches without raising errors.
-    scan_start = min(s for s, _ in fetch_ranges)
-    scan_end = max(e for _, e in fetch_ranges)
-    max_heal_attempts = 3
-
-    for heal_attempt in range(max_heal_attempts):
-        gaps = timestamp_db.find_gaps()
-        # Clip gaps to our scan range — don't heal the full database
-        # gap when we only need a subset.
-        clipped_gaps: list[tuple[int, int]] = []
-        for s, e, _n in gaps:
-            clip_start = max(scan_start, s + 1)
-            clip_end = min(scan_end, e - 1)
-            if clip_start <= clip_end:
-                clipped_gaps.append((clip_start, clip_end))
-        if not clipped_gaps:
-            break
-
-        # Back off before re-heal to let rate limits recover
-        if heal_attempt > 0:
-            heal_backoff = 30 * (2**heal_attempt)
-            logger.info("Chain %d: backing off %ds before gap-heal attempt %d/%d", chain_id, heal_backoff, heal_attempt + 1, max_heal_attempts)
-            await asyncio.sleep(heal_backoff)
-
-        total_missing = sum(e - s + 1 for s, e in clipped_gaps)
-        logger.warning(
-            "Chain %d: %d blocks dropped across %d gaps (heal attempt %d/%d)",
-            chain_id,
-            total_missing,
-            len(clipped_gaps),
-            heal_attempt + 1,
-            max_heal_attempts,
+            f"{total_to_fetch:,}",
+            n_chunks,
+            len(fetch_ranges),
         )
 
-        # Chunk heal ranges the same way as initial fetches
-        for heal_start, heal_end in clipped_gaps:
-            for hs in range(heal_start, heal_end + 1, chunk_size):
-                he = min(hs + chunk_size - 1, heal_end)
-                heal_index = []
-                heal_values = []
-                async for bh in fetch_timestamp_cache_headers_async(
-                    client,
-                    chain_id,
-                    start_block=hs,
-                    end_block=he,
-                    display_progress=False,
-                    validate_chain_id=False,
-                    reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
-                ):
-                    heal_index.append(bh.block_number)
-                    heal_values.append(bh.timestamp)
-                if heal_index:
-                    timestamp_db.import_chain_data(chain_id, pd.Series(data=heal_values, index=heal_index))
-                    logger.info("Chain %d: healed %d-%d (%d blocks)", chain_id, hs, he, len(heal_index))
+        empty_chunks = 0
+        for chunk_idx, (chunk_start, chunk_end) in enumerate(all_chunks):
+            index = []
+            values = []
 
-    return timestamp_db.get_slicer()
+            async for block_header in fetch_timestamp_cache_headers_async(
+                client,
+                chain_id,
+                start_block=chunk_start,
+                end_block=chunk_end,
+                display_progress=display_progress,
+                validate_chain_id=False,
+                reason=f"timestamp-cache-fill chunk {chunk_idx + 1}/{n_chunks}",
+            ):
+                index.append(block_header.block_number)
+                values.append(block_header.timestamp)
+
+            # Save after each chunk so progress is durable
+            if index:
+                timestamp_db.import_chain_data(chain_id, pd.Series(data=values, index=index))
+                logger.info(
+                    "Chain %d: chunk %d/%d saved %s blocks (%s - %s)",
+                    chain_id,
+                    chunk_idx + 1,
+                    n_chunks,
+                    f"{len(index):,}",
+                    f"{chunk_start:,}",
+                    f"{chunk_end:,}",
+                )
+            else:
+                empty_chunks += 1
+
+        # If Hypersync returned zero rows for any chunk, the blocks are
+        # still missing but find_gaps() cannot detect head/tail gaps
+        # (no boundary blocks to define them). Treat this as a flaky
+        # error so the retry loop re-enters with a fresh cache check.
+        if empty_chunks:
+            raise HypersyncFlaky(f"Chain {chain_id}: Hypersync returned 0 rows for {empty_chunks}/{n_chunks} chunks")
+
+        # Heal gaps left by silently dropped HyperSync batches.
+        # On fast chains like Monad, HyperSync can skip entire ~9,000-block
+        # streaming batches without raising errors.
+        scan_start = min(s for s, _ in fetch_ranges)
+        scan_end = max(e for _, e in fetch_ranges)
+        max_heal_attempts = 3
+
+        for heal_attempt in range(max_heal_attempts):
+            if timestamp_db.get_count() == end_block - start_block + 1:
+                break
+            gaps = timestamp_db.find_gaps()
+            # Clip gaps to our scan range — don't heal the full database
+            # gap when we only need a subset.
+            clipped_gaps: list[tuple[int, int]] = []
+            for s, e, _n in gaps:
+                clip_start = max(scan_start, s + 1)
+                clip_end = min(scan_end, e - 1)
+                if clip_start <= clip_end:
+                    clipped_gaps.append((clip_start, clip_end))
+            if not clipped_gaps:
+                break
+
+            # Back off before re-heal to let rate limits recover
+            if heal_attempt > 0:
+                heal_backoff = 30 * (2**heal_attempt)
+                logger.info("Chain %d: backing off %ds before gap-heal attempt %d/%d", chain_id, heal_backoff, heal_attempt + 1, max_heal_attempts)
+                await asyncio.sleep(heal_backoff)
+
+            total_missing = sum(e - s + 1 for s, e in clipped_gaps)
+            logger.warning(
+                "Chain %d: %d blocks dropped across %d gaps (heal attempt %d/%d)",
+                chain_id,
+                total_missing,
+                len(clipped_gaps),
+                heal_attempt + 1,
+                max_heal_attempts,
+            )
+
+            # Chunk heal ranges the same way as initial fetches
+            for heal_start, heal_end in clipped_gaps:
+                for hs in range(heal_start, heal_end + 1, chunk_size):
+                    he = min(hs + chunk_size - 1, heal_end)
+                    heal_index = []
+                    heal_values = []
+                    async for bh in fetch_timestamp_cache_headers_async(
+                        client,
+                        chain_id,
+                        start_block=hs,
+                        end_block=he,
+                        display_progress=False,
+                        validate_chain_id=False,
+                        reason=f"gap-heal-{heal_attempt + 1}/{max_heal_attempts}",
+                    ):
+                        heal_index.append(bh.block_number)
+                        heal_values.append(bh.timestamp)
+                    if heal_index:
+                        timestamp_db.import_chain_data(chain_id, pd.Series(data=heal_values, index=heal_index))
+                        logger.info("Chain %d: healed %d-%d (%d blocks)", chain_id, hs, he, len(heal_index))
+
+        actual = timestamp_db.con.execute(
+            "SELECT count(*) FROM block_timestamps WHERE block_number BETWEEN ?::UBIGINT AND ?::UBIGINT",
+            [start_block, end_block],
+        ).fetchone()[0]
+        if actual != end_block - start_block + 1:
+            raise HypersyncFlaky(f"Chain {chain_id}: dense timestamp coverage incomplete for {start_block}-{end_block}: {actual} rows")
+        return timestamp_db.get_slicer()
+    except BaseException:
+        timestamp_db.close()
+        raise
 
 
 def fetch_block_timestamps_using_hypersync_cached(
@@ -732,110 +751,43 @@ async def fetch_exact_block_timestamps_using_hypersync_cached_async(
     checkpoint_frequency: int = 25,
     max_concurrency: int = 5,
 ) -> BlockTimestampSlicer:
-    """Fetch selected block timestamps through Hypersync and the shared cache.
+    """Fetch event timestamps while keeping the shared cache dense.
 
-    The caller may supply an irregular set of event blocks. The function
-    anti-joins those exact blocks against the persistent DuckDB cache, fetches
-    only misses, and checkpoints them incrementally without filling the gaps
-    between distant events. See Envio's
-    `stream configuration documentation <https://docs.envio.dev/docs/HyperSync/stream-config-tuning>`__.
+    Read all headers between the earliest and latest requested block. The dense
+    collector also bridges any existing cache boundary, so an event-only read
+    cannot introduce a sparse tail. See Envio's
+    `query documentation <https://docs.envio.dev/docs/HyperSync/hypersync-query>`__.
 
-    :param client:
-        Hypersync client for the requested chain.
-    :param chain_id:
-        Expected EVM chain id.
-    :param block_numbers:
-        Exact non-negative EVM blocks whose timestamps are required.
-    :param cache_path:
-        Shared per-chain timestamp cache directory.
-    :param display_progress:
-        Whether to display sampled timestamp progress.
-    :param checkpoint_frequency:
-        Maximum number of new timestamps held before a durable cache write.
-    :param max_concurrency:
-        Maximum one-block streams awaited together. The shared client limiter
-        still governs total request starts across the batch.
-    :return:
-        Cache-backed timestamp slicer containing every indexed requested block.
+    :param client: Configured, rate-limited HyperSync client.
+    :param chain_id: Expected chain ID.
+    :param block_numbers: Exact non-negative event blocks required by the caller.
+    :param cache_path: Persistent per-chain cache directory.
+    :param display_progress: Display dense collection progress.
+    :param checkpoint_frequency: Retained compatibility argument; dense chunks own checkpoints.
+    :param max_concurrency: Retained compatibility argument; client configuration owns concurrency.
+    :return: Cache-backed slicer containing the dense indexed interval.
     """
-
-    assert checkpoint_frequency > 0
-    assert max_concurrency > 0
-
-    requested_blocks = tuple(sorted(set(block_numbers)))
-    if any(block_number < 0 for block_number in requested_blocks):
+    assert checkpoint_frequency > 0 and max_concurrency > 0
+    requested = tuple(sorted(set(block_numbers)))
+    if any(number < 0 for number in requested):
         message = "Exact timestamp block numbers must be non-negative"
         raise ValueError(message)
-    timestamp_db = load_timestamp_cache(chain_id, cache_path) if cache_path.exists() else BlockTimestampDatabase.create(chain_id, cache_path)
-    required_blocks = requested_blocks
-    missing_blocks = timestamp_db.get_missing_block_numbers(required_blocks)
-    if not missing_blocks:
-        logger.info("Chain %d: timestamp cache contains all %d exact blocks", chain_id, len(requested_blocks))
-        return timestamp_db.get_slicer()
-
-    if is_hypersync_client(client):
-        await _validate_hypersync_chain_id_async(client, chain_id, reason="exact-timestamp-cache-validate")
-        hypersync_height = await _fetch_hypersync_block_height_async(client, reason="exact-timestamp-cache-height")
-        required_blocks = tuple(block_number for block_number in requested_blocks if block_number <= hypersync_height)
-        missing_blocks = [block_number for block_number in missing_blocks if block_number <= hypersync_height]
-
-    logger.info(
-        "Chain %d: fetching %d/%d exact block timestamps through Hypersync",
-        chain_id,
-        len(missing_blocks),
-        len(requested_blocks),
+    if not requested:
+        return load_timestamp_cache(chain_id, cache_path).get_slicer()
+    slicer = await fetch_block_timestamps_using_hypersync_cached_async(
+        client=client,
+        chain_id=chain_id,
+        start_block=requested[0],
+        end_block=requested[-1],
+        cache_path=cache_path,
+        display_progress=display_progress,
     )
-    progress_bar = tqdm(total=len(missing_blocks), desc=f"Reading exact timestamps (hypersync) on {chain_id}") if display_progress else None
-    pending_index: list[int] = []
-    pending_values: list[int] = []
-
-    def _checkpoint() -> None:
-        """Persist the current sampled timestamp batch."""
-
-        if pending_index:
-            timestamp_db.import_chain_data(chain_id, pd.Series(data=pending_values, index=pending_index))
-            pending_index.clear()
-            pending_values.clear()
-
-    async def _fetch_sample(sample_idx: int, block_number: int) -> CachedBlockTimestamp:
-        """Fetch and validate one exact sampled block header."""
-
-        headers = [
-            header
-            async for header in fetch_timestamp_cache_headers_async(
-                client,
-                chain_id,
-                start_block=block_number,
-                end_block=block_number,
-                display_progress=False,
-                validate_chain_id=False,
-                reason=f"exact-timestamp {sample_idx}/{len(missing_blocks)}",
-            )
-        ]
-        if len(headers) != 1 or headers[0].block_number != block_number:
-            raise HypersyncFlaky(f"Chain {chain_id}: Hypersync did not return exact block {block_number:,}")
-        return headers[0]
-
-    try:
-        for batch_start in range(0, len(missing_blocks), max_concurrency):
-            batch = missing_blocks[batch_start : batch_start + max_concurrency]
-            headers = await asyncio.gather(*(_fetch_sample(batch_start + batch_offset + 1, block_number) for batch_offset, block_number in enumerate(batch)))
-            pending_index.extend(batch)
-            pending_values.extend(header.timestamp for header in headers)
-            if len(pending_index) >= checkpoint_frequency:
-                _checkpoint()
-            if progress_bar:
-                progress_bar.update(len(batch))
-                progress_bar.set_postfix({"block": f"{batch[-1]:,}"})
-    finally:
-        _checkpoint()
-        if progress_bar:
-            progress_bar.close()
-
-    remaining = timestamp_db.get_missing_block_numbers(required_blocks)
-    if remaining:
-        raise HypersyncFlaky(f"Chain {chain_id}: timestamp cache still lacks {len(remaining)} exact blocks")
-    return timestamp_db.get_slicer()
+    # Event readers must never substitute a nearby cached block if indexing
+    # lags behind an exact request. Range readers may explicitly clip instead.
+    if slicer.timestamp_db.get_missing_block_numbers(requested):
+        slicer.close()
+        raise HypersyncFlaky(f"Chain {chain_id}: requested exact timestamp blocks are not indexed yet")
+    return slicer
 
 
 async def fetch_sparse_block_timestamps_using_hypersync_cached_async(
@@ -849,11 +801,10 @@ async def fetch_sparse_block_timestamps_using_hypersync_cached_async(
     checkpoint_frequency: int = 25,
     max_concurrency: int = 5,
 ) -> BlockTimestampSlicer:
-    """Fetch a regular sparse timestamp sample through the shared cache.
+    """Resolve a historical sampling grid while retaining dense cache coverage.
 
-    Historical state readers may sample one block per hour or day from chains
-    that produce millions of blocks per month. The exact-block implementation
-    prevents the cache warm-up from reading intervening headers.
+    This compatibility entry point keeps its exclusive end bound. The common
+    collector fills intervening headers regardless of the sampling step.
 
     :param client:
         Hypersync client for the requested chain.
@@ -870,9 +821,9 @@ async def fetch_sparse_block_timestamps_using_hypersync_cached_async(
     :param display_progress:
         Whether to display sampled timestamp progress.
     :param checkpoint_frequency:
-        Maximum new timestamps held before a durable cache write.
+        Retained compatibility argument; dense chunks own checkpoints.
     :param max_concurrency:
-        Maximum exact-block streams awaited together.
+        Retained compatibility argument; client configuration owns concurrency.
     :return:
         Cache-backed timestamp slicer containing every indexed sample.
     """
@@ -901,8 +852,8 @@ def fetch_exact_block_timestamps_using_hypersync_cached(
 ) -> BlockTimestampSlicer:
     """Synchronously fetch irregular exact timestamps with retry and backoff.
 
-    Completed cache checkpoints survive retries, so only unresolved event
-    blocks are requested after a transient Hypersync failure.
+    Completed dense-cache chunks survive retries. Event requests fill every
+    intervening header and bridge the existing cache boundary.
 
     :param client:
         Hypersync client for the requested chain.
@@ -957,10 +908,10 @@ def fetch_sparse_block_timestamps_using_hypersync_cached(
     display_progress: bool = True,
     attempts: int = 5,
 ) -> BlockTimestampSlicer:
-    """Synchronously fetch sparse sampled timestamps with retry/backoff.
+    """Synchronously resolve sampled timestamps through the dense cache.
 
-    The regular range is delegated to the exact-block cache collector so
-    intervening headers are never fetched.
+    The historical name is retained for compatibility. Intervening block
+    headers are now cached too, preventing sparse shared databases.
 
     :param attempts:
         Maximum Hypersync attempts; completed checkpoints survive retries.

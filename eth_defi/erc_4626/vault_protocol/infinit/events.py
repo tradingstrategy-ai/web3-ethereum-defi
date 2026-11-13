@@ -1,13 +1,11 @@
 """Indexed Infinit deployment, manager activity and receipt-supply events.
 
-Uses the configured Hypersync stream and cache-aware timestamp API. Verified
+Uses the configured Hypersync stream and prepared shared timestamp cache. Verified
 event definitions: https://arbiscan.io/address/0x0bb4f37f9bd8fe3a72c8acb53509ae95ca5343ab#code.
 """
 
 import asyncio
-import datetime
 import logging
-import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -20,7 +18,6 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_MANAGER_DEPLOYMENT_BLOCK, INFINIT_USDC, InfinitProduct
 from eth_defi.event_reader.timestamp_lock import timestamp_access_lock
-from eth_defi.hypersync.hypersync_timestamp import fetch_exact_block_timestamps_using_hypersync_cached
 from eth_defi.hypersync.session import ThrottledHypersyncClient, open_hypersync_stream
 from eth_defi.vault.flow_events import decode_hypersync_int
 
@@ -153,14 +150,18 @@ async def _fetch_chunk(client: ThrottledHypersyncClient, product: InfinitProduct
 def fetch_infinit_events(client: ThrottledHypersyncClient, product: InfinitProduct, end_block: int, timestamp_cache_path: Path, start_block: int = INFINIT_MANAGER_DEPLOYMENT_BLOCK) -> Iterator[InfinitEvent]:
     """Fetch indexed events with exact cached block timestamps.
 
-    A finite chunk timeout and progress logging bound every source read.
+    The caller must prepare dense timestamp coverage before reading events.
+    Timestamps are read without modifying the shared database; missing coverage
+    raises an error instead of downloading another timestamp cache.
 
     :param client: Configured Hypersync client.
     :param product: Reviewed product.
     :param end_block: Exclusive safe source boundary.
-    :param timestamp_cache_path: Shared per-chain timestamp-cache directory.
+    :param timestamp_cache_path: Prepared shared per-chain timestamp-cache directory.
     :param start_block: Inclusive source boundary.
     :return: Canonically ordered deployment, activity and supply events.
+    :raises FileNotFoundError: The shared timestamp database is absent.
+    :raises ValueError: An event block is missing from the timestamp database.
     """
     events = {}
     with asyncio.Runner() as runner:
@@ -169,30 +170,20 @@ def fetch_infinit_events(client: ThrottledHypersyncClient, product: InfinitProdu
                 events[event.block_number, event.log_index] = event
     if not events:
         return
-    # Snapshot only required cached headers. The standard cache opener can
-    # migrate legacy schemas and write misses, so it must never open the
-    # operator's cache during a read-only maintenance rehearsal.
-    with tempfile.TemporaryDirectory(prefix="infinit-event-timestamps-") as directory:
-        cache_path = Path(directory)
-        existing = timestamp_cache_path / f"{INFINIT_CHAIN_ID}-timestamps.duckdb"
-        if existing.exists():
-            with timestamp_access_lock(timestamp_cache_path):
-                con = duckdb.connect(str(existing), read_only=True)
-                try:
-                    con.register("requested", pd.DataFrame({"block_number": sorted({e.block_number for e in events.values()})}))
-                    headers = con.execute("SELECT b.block_number,b.timestamp FROM block_timestamps b JOIN requested r USING(block_number)").fetchdf()
-                finally:
-                    con.close()
-            target = duckdb.connect(str(cache_path / existing.name))
-            try:
-                target.register("headers", headers)
-                target.execute("CREATE TABLE block_timestamps AS SELECT * FROM headers")
-            finally:
-                target.close()
-        stamps = fetch_exact_block_timestamps_using_hypersync_cached(client=client, chain_id=INFINIT_CHAIN_ID, block_numbers=sorted({e.block_number for e in events.values()}), cache_path=cache_path, display_progress=False)
+    block_numbers = sorted({event.block_number for event in events.values()})
+    existing = timestamp_cache_path / f"{INFINIT_CHAIN_ID}-timestamps.duckdb"
+    if not existing.exists():
+        raise FileNotFoundError(f"Infinit requires the prepared dense timestamp cache at {existing}")
+    # Read the operator's cache without schema migration or persistent writes.
+    with timestamp_access_lock(timestamp_cache_path):
+        con = duckdb.connect(str(existing), read_only=True)
         try:
-            for event in sorted(events.values(), key=lambda e: (e.block_number, e.log_index)):
-                timestamp = int(stamps[event.block_number].replace(tzinfo=datetime.UTC).timestamp())
-                yield replace(event, timestamp=timestamp)
+            con.register("requested", pd.DataFrame({"block_number": block_numbers}))
+            timestamps = dict(con.execute("SELECT b.block_number,b.timestamp FROM block_timestamps b JOIN requested r USING(block_number)").fetchall())
         finally:
-            stamps.close()
+            con.close()
+    missing = [number for number in block_numbers if number not in timestamps]
+    if missing:
+        raise ValueError(f"Infinit timestamp cache {existing} does not cover event block {missing[0]} ({len(missing)} missing); prepare dense coverage before reading events")
+    for event in sorted(events.values(), key=lambda e: (e.block_number, e.log_index)):
+        yield replace(event, timestamp=int(timestamps[event.block_number]))
