@@ -71,38 +71,6 @@ def test_get_pool_tvl_direct_call(chain_name, get_pool_tvl):
         assert len(data["short_token"]) == 42, f"Short token address should be 42 characters: {data['short_token']}"
 
 
-def test_get_pool_tvl_data_consistency(chain_name, get_pool_tvl):
-    """
-    Test that the implementation returns consistent data.
-
-    This verifies that multiple calls return the same data structure and similar values.
-    """
-    # Get data twice
-    pool_tvl_data_1 = get_pool_tvl.get_data()
-    pool_tvl_data_2 = get_pool_tvl.get_data()
-
-    # Should have same markets
-    assert set(pool_tvl_data_1.keys()) == set(pool_tvl_data_2.keys())
-
-    # Values should be similar (within reasonable variance due to price changes)
-    # We allow up to 10% variance as prices can change between calls
-    tolerance = 0.1  # 10%
-
-    inconsistent_markets = []
-
-    for market in pool_tvl_data_1.keys():
-        tvl_1 = pool_tvl_data_1[market]["total_tvl"]
-        tvl_2 = pool_tvl_data_2[market]["total_tvl"]
-
-        if tvl_1 > 0 and tvl_2 > 0:  # Only check non-zero values
-            variance = abs(tvl_1 - tvl_2) / max(tvl_1, tvl_2)
-            if variance > tolerance:
-                inconsistent_markets.append(f"{market}: {tvl_1} vs {tvl_2} (variance: {variance:.2%})")
-
-    # Should have consistent data
-    assert len(inconsistent_markets) == 0, f"Data inconsistency found on {chain_name}: " + "; ".join(inconsistent_markets)
-
-
 @flaky(max_runs=3, min_passes=1)
 def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
     """
@@ -147,59 +115,6 @@ def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
 
     # Should find at least one expected market
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(markets)}"
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_get_pool_tvl_total_calculations(chain_name, pool_tvl_data):
-    """
-    Test total TVL calculations and aggregations.
-
-    This verifies that we can properly aggregate TVL data.
-
-    Flaky: ``get_pool_tvl.get_data()`` calls the GMX DataStore contract via RPC.
-    Under transient RPC/API outages the call can return an empty dict.  The
-    ``pool_tvl_data`` fixture skips the test when data is empty so ``@flaky``
-    can retry rather than burning its budget on bad-input failures.
-    """
-    # Calculate totals
-    total_tvl = sum(data["total_tvl"] for data in pool_tvl_data.values() if isinstance(data["total_tvl"], (int, float)) and data["total_tvl"] > 0)
-
-    # Should have some total TVL
-    assert total_tvl > 0, "Total TVL should be positive"
-
-    # Verify market with highest TVL
-    if pool_tvl_data:
-        # Filter out markets with zero TVL (like APE_DEPRECATED)
-        non_zero_markets = {k: v for k, v in pool_tvl_data.items() if v["total_tvl"] > 0}
-        if non_zero_markets:
-            highest_tvl_market = max(non_zero_markets.items(), key=lambda x: x[1]["total_tvl"])
-            highest_tvl = highest_tvl_market[1]["total_tvl"]
-
-            assert highest_tvl > 0
-
-
-def test_get_pool_tvl_error_handling(chain_name, get_pool_tvl):
-    """
-    Test that error handling works properly.
-
-    This verifies that the implementation handles missing or failed data gracefully.
-    """
-    # This should not raise an exception even if some calls fail
-    try:
-        pool_tvl_data = get_pool_tvl.get_data()
-
-        # Should still return valid structure even if some data is missing
-        assert isinstance(pool_tvl_data, dict)
-
-        # Verify all markets have proper structure
-        for market, data in pool_tvl_data.items():
-            assert isinstance(data, dict)
-            assert "total_tvl" in data
-            assert "long_token" in data
-            assert "short_token" in data
-
-    except Exception as e:
-        pytest.fail(f"GetPoolTVL should handle errors gracefully, but raised: {e}")
 
 
 def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):

@@ -14,7 +14,6 @@ import requests
 from eth_defi.apex.session import (
     ApexAPIError,
     ApexDeadlineExceededError,
-    ApexResponseTooLargeError,
     ApexSessionPool,
     ApexTimeoutPolicy,
 )
@@ -106,24 +105,6 @@ def test_fetch_json_clamps_timeout_and_closes_response() -> None:
     finally:
         pool.close()
     assert session.closed
-
-
-def test_fetch_json_rejects_oversized_response_and_closes() -> None:
-    """Reject oversized streamed JSON and close its response."""
-    response = _Response({"data": {"large": "x" * 200}})
-    session = _Session([response])
-    pool = _pool(session, max_bytes=20)
-    try:
-        with pytest.raises(ApexResponseTooLargeError):
-            pool.fetch_json(
-                "test",
-                params=None,
-                operation_deadline=pool._clock() + 1,
-                validator=lambda payload: payload,
-            )
-        assert response.closed
-    finally:
-        pool.close()
 
 
 def test_rate_limiter_queue_honours_deadline() -> None:

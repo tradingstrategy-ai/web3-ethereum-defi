@@ -200,16 +200,3 @@ def test_missing_size_delta_usd_falls_back_to_requested_amount() -> None:
     )
 
     assert filled == 0.30716623
-
-
-def test_async_adapter_imports_same_helper() -> None:
-    """Sync/async lockstep — both adapter modules expose the same helper.
-
-    Mirrors the lockstep contract from
-    :func:`test_async_adapter_imports_same_helper` in
-    ``test_reduce_only_sizing.py``. Any future async close path will use
-    identical reporting semantics.
-    """
-    from eth_defi.gmx.ccxt.async_support import exchange as async_exchange
-
-    assert async_exchange._resolve_close_order_filled_amount is _resolve_close_order_filled_amount

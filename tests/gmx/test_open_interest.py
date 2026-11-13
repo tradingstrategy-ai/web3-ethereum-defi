@@ -6,43 +6,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.open_interest import GetOpenInterest, OpenInterestInfo
 
 
-def test_initialisation_and_basic_functionality(get_open_interest: GetOpenInterest, gmx_config: GMXConfig) -> None:
-    """Test GetOpenInterest initialisation and basic functionality.
-
-    Check configuration and both explicit filter settings without downloading
-    another live response.
-
-    :param get_open_interest:
-        Open-interest reader constructed from the chain configuration.
-
-    :param gmx_config:
-        Chain-specific GMX configuration supplied by the integration fixtures.
-
-    :return:
-        None; assertions validate the behaviour.
-    """
-    # Test basic initialisation
-    assert get_open_interest.config is not None
-    assert get_open_interest.log is not None
-    assert get_open_interest.filter_swap_markets is True
-
-    # Test initialisation with custom filter setting
-    open_interest_custom = GetOpenInterest(gmx_config, filter_swap_markets=False)
-    assert open_interest_custom.filter_swap_markets is False
-
-    # Test inheritance from GetData
-    assert hasattr(get_open_interest, "get_data")
-    assert callable(get_open_interest.get_data)
-
-    # Test config dependency
-    assert hasattr(get_open_interest.config, "web3")
-    assert hasattr(get_open_interest.config, "chain")
-
-    # Test that markets are properly initialized
-    assert get_open_interest.markets is not None
-    assert hasattr(get_open_interest.markets, "get_available_markets")
-
-
 def test_open_interest_info_dataclass() -> None:
     """Test OpenInterestInfo dataclass structure and initialisation.
 

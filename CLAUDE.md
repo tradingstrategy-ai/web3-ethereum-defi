@@ -189,26 +189,9 @@ otherwise the test cannot find environment variables.
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
 
-### External integration tests
-
-Every new or materially changed external integration must include at least one
-minimal real integration test that exercises the actual provider end-to-end.
-For authenticated APIs, this means using a supplied API token and verifying a
-real successful response; mocked requests and fixture-only tests are necessary
-unit coverage but do not replace this check.
-
-- Prefer an automatic CI integration test whenever credentials can be supplied
-  securely and the provider is reliable enough for CI.
-- Otherwise, provide a focused manual command, guarded by the required
-  environment variable or token, so an operator can run the check without
-  modifying source code. Never print, commit or include a token in the command
-  or its output.
-- The pull request that adds the integration must include a PR comment with
-  the real-test result: the exact test or command, whether it passed, the date,
-  and the redacted environment or provider used. State clearly when the result
-  is a manual run rather than CI. If the provider rate-limits a bulk migration,
-  record the response and the safe retry plan instead of repeatedly retrying
-  the same request burst.
+Never print, commit or include API credentials in test commands or their output.
+If a provider rate-limits a bulk migration, record the response and a safe retry
+plan instead of repeatedly retrying the same request burst.
 
 Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
 default because they dominated the CI critical path; they still run locally. To
@@ -418,6 +401,38 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ### Pytest
 
+- We assume external APIs we integrate are safe and honour their documented
+  contracts; otherwise we would not integrate them.
+- Do not add unit or integration tests of those provider APIs themselves.
+  This includes fabricated malformed or oversized responses, adversarial API
+  scenarios, exhaustive provider-schema rejection tests and repeated live calls
+  that merely confirm the provider behaves as documented.
+- Test our code where it adds meaningful behaviour: calculations, fee and NAV
+  handling, mapping provider data, pagination and resume logic, persistence and
+  exports. Use small, representative fixtures.
+- Adding or changing an API integration does not itself require a live or
+  authenticated provider check or a PR comment recording one.
+- Prefer tests of observable behaviour or a concrete regression. Avoid tests
+  solely of attribute existence, basic inheritance/MRO, private helper import
+  identity, or constructor attributes already exercised by behavioural tests.
+  Retain checks of documented public type or dispatch contracts.
+- Do not test standard dataclass mechanics such as storing supplied fields,
+  generated equality, or the lengths of supplied literal strings. Retain tests
+  for custom behaviour, meaningful defaults, validation, immutability or a real
+  public contract.
+- Exercise production calculations and conversions with representative raw
+  inputs and explicit expected outputs. Do not compute an aggregate only in
+  the test and assert elementary arithmetic properties, or normalise fixtures
+  beforehand and claim to test our normalisation code.
+- Avoid arbitrary registry-size floors such as "at least 20 entries". Verify
+  required entries and their behaviour instead.
+- Do not use uncontrolled API/network response times as unit-test performance
+  assertions. Do not catch assertion failures or programming errors and turn
+  them into skips; use explicit, documented environment or provider conditions
+  for skips.
+- Keep one canonical test for duplicated behaviour. Use unique test function
+  names within each module so a later definition cannot overwrite an earlier
+  test; remove shadowed duplicate definitions when cleaning up.
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`

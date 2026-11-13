@@ -247,23 +247,6 @@ def test_full_integration_flow(chain_name):
         pytest.skip(f"API request failed: {e}")
 
 
-def test_error_handling_malformed_response():
-    """Test handling of malformed API responses."""
-    oracle = OraclePrices("arbitrum")
-
-    # Test missing signedPrices key
-    with pytest.raises(KeyError):
-        oracle._process_output({"data": []})
-
-    # Test None response
-    with pytest.raises((TypeError, AttributeError)):
-        oracle._process_output(None)
-
-    # Test response with wrong data type
-    with pytest.raises((KeyError, TypeError)):
-        oracle._process_output("invalid response")
-
-
 def test_api_consistency_between_chains():
     """Test that both supported chains return consistent data structures."""
     arbitrum_oracle = OraclePrices("arbitrum")

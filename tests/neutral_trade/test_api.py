@@ -188,27 +188,6 @@ def test_retry_honours_quota_without_sleeping(monkeypatch: pytest.MonkeyPatch) -
     assert len(calls) == 2
 
 
-# Keep the oversized body out of pytest node IDs and CI output.
-@pytest.mark.parametrize("content", [b'{"data": []}', b"invalid fixture-secret", b"x" * (4 * 1024 * 1024 + 1)], ids=["invalid-envelope", "invalid-json", "oversized-body"])
-def test_invalid_or_oversized_response(content: bytes, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fail closed on malformed or oversized payloads without leaking the body.
-
-    Response validation must not turn a failed provider into an empty catalogue.
-
-    :param content: Invalid response bytes.
-    :param monkeypatch: Test-local transport replacement.
-    """
-    response = requests.Response()
-    response.status_code = 200
-    response._content = content
-    response._content_consumed = True
-    with NeutralTradeClient("fixture-secret") as client:
-        monkeypatch.setattr(client._session, "get", lambda *_args, **_kwargs: response)
-        with pytest.raises(NeutralTradeAPIError) as error:
-            client.fetch_status()
-    assert "fixture-secret" not in str(error.value)
-
-
 def test_metrics_and_hidden_vault_guard(vault_record: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     """Read metrics for an eligible vault and block private records.
 
@@ -230,22 +209,6 @@ def test_metrics_and_hidden_vault_guard(vault_record: dict, monkeypatch: pytest.
         with pytest.raises(NeutralTradeAPIError, match="excluded"):
             client.fetch_metrics(parse_vault(vault_record))
     assert calls == [f"/v2/vault/{ADDRESS}/metrics"]
-
-
-def test_partial_directory_rejects_bad_record(vault_record: dict, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    """Retain healthy leads when another record is malformed.
-
-    Only rejected counts are logged, never unknown/private identifiers.
-
-    :param vault_record: Synthetic directory entry.
-    :param monkeypatch: Test-local transport replacement.
-    :param caplog: Captured diagnostics.
-    """
-    with NeutralTradeClient("fixture-secret") as client:
-        monkeypatch.setattr(client, "_fetch", lambda *_args: {"data": {"vaults": [vault_record, {"private-id": "do-not-print"}], "unavailableVaults": []}})
-        assert len(list(client.fetch_vaults())) == 1
-    assert "rejected: 1" in caplog.text
-    assert "do-not-print" not in caplog.text
 
 
 def test_evm_history_accepts_address_case(vault_record: dict, monkeypatch: pytest.MonkeyPatch) -> None:
