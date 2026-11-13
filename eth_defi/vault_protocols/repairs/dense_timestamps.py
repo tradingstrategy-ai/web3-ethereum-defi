@@ -24,6 +24,25 @@ from eth_defi.vault_protocols.migration import MigrationContext
 
 logger = logging.getLogger(__name__)
 
+#: Uncompressed integer payload plus per-row storage planning allowance.
+DENSE_TIMESTAMP_ROW_BYTES = 32
+
+
+def estimate_dense_timestamp_space(source_bytes: int, dense_rows: int) -> int:
+    """Budget free space from the dense target rather than sparse file size.
+
+    Allow 32 bytes per row for the two integer columns plus storage overhead.
+    Reserve four target-sized allocations for the candidate, WAL and validation
+    spill, an independent original backup and 64 MiB for small-file overhead.
+    This is a conservative planning allowance, not a compressed-size prediction.
+
+    :param source_bytes: Current canonical file size in bytes.
+    :param dense_rows: Inclusive first-to-last target row count.
+    :return: Additional free bytes to budget before creating recovery files.
+    """
+    target_bytes = max(source_bytes, dense_rows * DENSE_TIMESTAMP_ROW_BYTES)
+    return source_bytes + 4 * target_bytes + 64 * 1024**2
+
 
 def validate_timestamp_extension(source: Path, repaired: Path, scratch: Path) -> int:
     """Prove every original block and timestamp survives an additive repair.
@@ -91,7 +110,9 @@ def repair_dense_timestamp_caches(context: MigrationContext, *, chain_ids: tuple
         paths = [p for p in paths if p in selected]
     records = context.other_data.get("dense_timestamp_recovery", {})
     with timestamp_access_lock(root, exclusive=True), storage_progress("dense timestamp migration"):
-        for path in tqdm(paths, desc="Dense timestamp caches"):
+        inventory: dict[Path, tuple[int, int, int, int]] = {}
+        budgets: dict[str, int] = {}
+        for path in tqdm(paths, desc="Inspect timestamp caches"):
             chain_id = int(path.name.split("-")[0])
             if path.is_symlink() or Path(str(path) + ".wal").exists():
                 raise ValueError(f"Close/checkpoint timestamp cache before maintenance: {path}")
@@ -106,13 +127,30 @@ def repair_dense_timestamp_caches(context: MigrationContext, *, chain_ids: tuple
                 raise ValueError(f"Duplicate timestamp rows in {path}")
             if not missing:
                 continue
+            inventory[path] = (rows, first, last, missing)
+            needed = estimate_dense_timestamp_space(path.stat().st_size, last - first + 1)
+            entry = records.get(str(path))
+            if entry is not None:
+                # Deduct completed backup/candidate/WAL allocations, while
+                # retaining both target-sized validation spill allowances.
+                source_bytes = path.stat().st_size
+                target_bytes = max(source_bytes, (last - first + 1) * DENSE_TIMESTAMP_ROW_BYTES)
+                allocated = [(Path(entry["backup"]), source_bytes), (Path(entry["stage"]), target_bytes), (Path(entry["stage"] + ".wal"), target_bytes)]
+                needed -= sum(min(file.stat().st_size, limit) for file, limit in allocated if file.exists())
+            budgets[str(chain_id)] = needed
+        required = sum(budgets.values())
+        available = shutil.disk_usage(root).free
+        context.report(dense_timestamp_space={"required_free_bytes": required, "available_free_bytes": available, "per_chain_bytes": budgets})
+        logger.info("Dense timestamp repair needs %s free bytes across %s sparse caches; %s available", required, len(inventory), available)
+        if not context.dry_run and available < required:
+            raise OSError(f"Insufficient free space for dense timestamp repair: need {required:,} bytes, have {available:,}")
+        for path, (rows, first, last, missing) in tqdm(inventory.items(), desc="Dense timestamp caches"):
+            chain_id = int(path.name.split("-")[0])
             if context.dry_run:
                 context.report(**{f"dense_{chain_id}": {"first": first, "last": last, "existing_rows": rows, "missing_rows": missing}})
                 continue
             entry = records.get(str(path))
             if entry is None:
-                if shutil.disk_usage(root).free < path.stat().st_size * 4 + 64 * 1024**2:
-                    raise OSError(f"Insufficient space for timestamp backup, candidate and validation: {path}")
                 recovery = root / ".timestamp-recovery"
                 recovery.mkdir(exist_ok=True)
                 if recovery.is_symlink():

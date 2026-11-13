@@ -67,6 +67,41 @@ def test_dense_timestamp_preview_preserves_files(repair: tuple[MigrationContext,
     assert not context.modified_files
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_dense_timestamp_space_preflight_covers_sparse_growth(repair: tuple[MigrationContext, Path], monkeypatch: pytest.MonkeyPatch, *, dry_run: bool) -> None:
+    """Budget the whole dense inventory before changing the first chain.
+
+    A tiny second file spans a million blocks. Disk space sufficient under the
+    old file-size heuristic must be refused before even the small first repair
+    writes a backup or candidate; preview still reports the shortage.
+
+    :param repair: Isolated sparse Arbitrum cache and migration context.
+    :param monkeypatch: Supply a filesystem with limited free space.
+    :param dry_run: Whether to report the plan or refuse application.
+    :return: None after checking both original files and the space report.
+    """
+    context, root = repair
+    context.dry_run = dry_run
+    database = BlockTimestampDatabase.create(8453, root)
+    try:
+        database.import_chain_data(8453, pd.Series({1: 1700000001, 1_000_000: 1701000000}))
+    finally:
+        database.close()
+    original = {path: path.read_bytes() for path in root.glob("*-timestamps.duckdb")}
+    monkeypatch.setattr(dense_timestamps.shutil, "disk_usage", lambda _path: SimpleNamespace(free=128 * 1024**2))
+    if dry_run:
+        dense_timestamps.repair_dense_timestamp_caches(context)
+    else:
+        with pytest.raises(OSError, match="Insufficient free space for dense timestamp repair"):
+            dense_timestamps.repair_dense_timestamp_caches(context)
+    space = context.other_data["dense_timestamp_space"]
+    assert space["required_free_bytes"] > space["available_free_bytes"]
+    assert set(space["per_chain_bytes"]) == {"42161", "8453"}
+    assert {path: path.read_bytes() for path in root.glob("*-timestamps.duckdb")} == original
+    assert not (root / ".timestamp-recovery").exists()
+    assert not context.modified_files
+
+
 def test_dense_timestamp_apply_and_repeat(repair: tuple[MigrationContext, Path]) -> None:
     """Publish complete coverage while retaining original rows and backup bytes.
 

@@ -14,6 +14,10 @@ completed chunks. A successful read must cover its indexed interval completely;
 unresolved provider omissions raise a retryable error rather than returning an
 incomplete cache. Empty event requests do not fetch or extend history.
 
+Infinit event reads use the prepared shared cache directly. The scanner prepares
+coverage first; standalone callers must do the same. Missing coverage raises a
+clear error without downloading a separate timestamp cache.
+
 [PR #1321](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1321)
 introduced sparse timestamp sampling on 18 July 2026. On 13 November,
 the local Arbitrum file contained all blocks through 485,040,756, followed by a
@@ -38,6 +42,17 @@ downloaded chunks there, and preserves that candidate across provider failures.
 Before atomic publication it checks density and compares every original
 block/timestamp pair exactly. A changed original timestamp aborts publication.
 Keep backups; the repair does not retire them automatically.
+
+Before changing any file, preview and apply report a free-space budget for the
+whole selected inventory. For each sparse cache, reserve its original backup
+plus four times the larger of its current size or 32 bytes per dense target row,
+plus 64 MiB. This covers candidate storage, WAL and validation spill without
+assuming the repaired database will compress like a tiny sparse source. Existing
+recovery copies are deducted on resume. Apply refuses insufficient space before
+creating new backups or publishing any chain. The 13 November production snapshot
+requires approximately **200 GiB free** under this conservative allowance; the
+preview report is authoritative for the current inventory. Actual compressed
+files can be much smaller.
 
 Close all consumers of the selected timestamp directory before preview or
 apply. The runner owns pipeline guards; the additional directory lock excludes
@@ -67,8 +82,8 @@ timestamp consumers. Use the normal pending migration batch with
 
 ```shell
 source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true -e HYPERSYNC_RPM=10 --entrypoint vault-migrate vault-scanner-oneshot run
+source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false -e HYPERSYNC_RPM=10 --entrypoint vault-migrate vault-scanner-oneshot run
 ```
 
 Follow the [migration runbook](../.claude/docs/migration-scripts.md#production-runbook)
@@ -77,6 +92,19 @@ supported non-empty cache, require zero gaps and `count = last - first + 1`.
 Confirm the next Arbitrum scan no longer defers Infinit history. The normal
 Infinit scanner replays its retained source history by address; no price or
 reader-state reset is needed for this timestamp-only repair.
+
+At 10 Envio requests/minute, allow **90–120 minutes** for the supported production
+inventory measured on 13 November: 368,431,261 missing timestamps across 22
+chains. This extrapolates one Arbitrum measurement, rather than a fleet benchmark.
+Coalescing nearby gaps can re-read cached headers, and backup, candidate rebuild
+and exact validation time also vary by chain and disk. Treat this as an initial
+maintenance window, with progress retained if it needs to be resumed.
+
+The published change is [PR #1768: fix: keep HyperSync timestamp caches dense and
+repair historical gaps](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1768).
+Migration 070's header was written before the PR was opened. The numbered script
+is kept byte-for-byte unchanged because it has already succeeded in the local
+manual journal; this runbook records the final PR identity instead.
 
 ## Local result on 13 November 2026
 
