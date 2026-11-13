@@ -263,10 +263,11 @@ separate numbered migration that follows it.
   required price work cannot run. Never journal a skipped backfill as success.
 - **Dense timestamp cache first.** The per-chain cache at
   `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb` must exist
-  and should cover the range. Gaps are fetched through Hypersync one sampled
-  block at a time, which is slow under a low rate limit. Check with
-  `DRY_RUN=true TEST_CHAINS=<chains> poetry run python scripts/erc-4626/heal-timestamps-all-chains.py`
-  and heal before a production backfill.
+  and should cover the range. HyperSync-backed readers fill every intervening
+  block, independently of price sampling. Existing sparse files need numbered
+  migration 070; see the [dense timestamp runbook](../../docs/README-dense-timestamps.md)
+  for preview, local per-chain repair and the production run reminder. Do not
+  use the legacy standalone healing script for a new persisted repair.
 
 #### Monad
 

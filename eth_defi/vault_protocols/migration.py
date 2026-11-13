@@ -153,6 +153,9 @@ def load_state(path: Path) -> dict[str, dict[str, Any]]:
         recovery = entry["other_data"].get("storage_recovery", {})
         if not isinstance(recovery, dict) or not all(isinstance(key, str) and Path(key).is_absolute() and isinstance(value, dict) and isinstance(value.get("source_hash"), str) and SHA256.fullmatch(value["source_hash"]) and value.get("phase") in {"pending", "backed_up", "prepared", "published", "unchanged"} for key, value in recovery.items()):
             raise ValueError(f"Invalid storage recovery state: {name}")
+        dense_recovery = entry["other_data"].get("dense_timestamp_recovery", {})
+        if not isinstance(dense_recovery, dict) or not all(isinstance(key, str) and Path(key).is_absolute() and isinstance(value, dict) and isinstance(value.get("source_hash"), str) and SHA256.fullmatch(value["source_hash"]) and all(isinstance(value.get(field), str) and Path(value[field]).is_absolute() for field in ("backup", "stage")) and isinstance(value.get("stage_ready"), bool) for key, value in dense_recovery.items()):
+            raise ValueError(f"Invalid dense timestamp recovery state: {name}")
         status = entry["other_data"].get("status")
         if status not in {"running", "succeeded", "failed", "interrupted"} or entry["success"] != (status == "succeeded"):
             raise ValueError(f"Inconsistent migration status: {name}")
@@ -472,6 +475,8 @@ def run_pending_migrations(*, dry_run: bool = True, data_dir: Path | None = None
                     context.other_data = {key: list(prior_data.get(key, [])) for key in ("backup_paths", "modified_files_all_attempts")}
                     if "storage_recovery" in prior_data:
                         context.other_data["storage_recovery"] = prior_data["storage_recovery"]
+                    if "dense_timestamp_recovery" in prior_data:
+                        context.other_data["dense_timestamp_recovery"] = prior_data["dense_timestamp_recovery"]
                     context.other_data.update(status="running", git_dirty=version.get("git_dirty"))
                     if previous:
                         context.other_data["previous_status"] = "interrupted" if prior_data.get("status") == "running" else prior_data.get("status")
