@@ -78,7 +78,8 @@ def test_timestamp_worker_returns_and_detaches_rpc_stats(monkeypatch: pytest.Mon
     assert web3.rpc_request_stats is None
 
 
-def test_hypersync_timestamp_path_does_not_receive_rpc_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("step", [1, 100, 14_400])
+def test_hypersync_timestamp_path_does_not_receive_rpc_stats(monkeypatch: pytest.MonkeyPatch, step: int) -> None:
     """The HyperSync timestamp backend stays outside JSON-RPC accounting."""
 
     expected = object()
@@ -99,7 +100,7 @@ def test_hypersync_timestamp_path_does_not_receive_rpc_stats(monkeypatch: pytest
         web3factory=lambda: None,
         start_block=100,
         end_block=101,
-        step=1,
+        step=step,
         display_progress=False,
         hypersync_client=object(),
         rpc_request_stats=RPCRequestStats(),
