@@ -232,6 +232,8 @@ jobs:
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+          # Limit each Rust stream's unmetered internal request burst.
+          HYPERSYNC_CONCURRENCY: "1"
 
       # Publish the pytest slowest-durations table in the job summary so slow
       # tests stay visible on every run without trawling the raw log. This is

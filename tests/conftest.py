@@ -31,6 +31,8 @@ from eth_defi.testing.token_cache import (
     merge_into_token_cache_seed,
 )
 
+pytest_plugins = ("eth_defi.testing.hypersync_retry",)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _seed_token_cache(worker_id: str) -> Iterator[None]:

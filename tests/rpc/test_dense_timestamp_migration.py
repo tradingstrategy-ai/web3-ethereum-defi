@@ -274,6 +274,8 @@ def test_dense_timestamp_changed_original_is_rejected(repair: tuple[MigrationCon
 
 
 @pytest.mark.skipif(not os.environ.get("HYPERSYNC_API_KEY"), reason="Requires supplied HyperSync credentials")
+# 2026-11-13: shared CI quota produced 429s; the isolated local read passed.
+@pytest.mark.hypersync_retry
 def test_dense_arbitrum_live(tmp_path: Path) -> None:
     """Check real Envio headers stay dense despite wide price sampling.
 
