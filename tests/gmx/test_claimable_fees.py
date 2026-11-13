@@ -2,21 +2,7 @@
 Tests for GetClaimableFees with parametrised chain testing.
 """
 
-import pytest
 import time
-
-from eth_defi.gmx.core.claimable_fees import GetClaimableFees
-
-
-def test_get_claimable_fees_initialization(gmx_config):
-    """
-    Test that GetClaimableFees initializes correctly with chain-specific config.
-    """
-    get_claimable_fees = GetClaimableFees(gmx_config)
-
-    assert get_claimable_fees.config == gmx_config
-    assert get_claimable_fees.log is not None
-    assert get_claimable_fees.oracle_prices is not None
 
 
 def test_get_claimable_fees_direct_call(chain_name, get_claimable_fees):
@@ -59,33 +45,6 @@ def test_get_claimable_fees_special_markets(chain_name, get_claimable_fees):
 
     for market, fees in btc2_markets + eth2_markets:
         assert fees["short"] == 0, f"Short fees for {market} should be 0, got {fees['short']}"
-
-
-def test_get_claimable_fees_calculation(chain_name, get_claimable_fees):
-    """
-    Test that claimable fee calculations are reasonable.
-
-    This verifies that the calculated fees make sense relative to each other.
-    """
-    # Get per-market claimable fees
-    market_fees = get_claimable_fees.get_per_market_claimable_fees()
-
-    # Skip test if no markets available
-    if not market_fees:
-        pytest.skip("No markets available for testing")
-
-    # Verify ETH/BTC markets have valid fee values
-    eth_markets = [m for m in market_fees.items() if "ETH" in m[0] and "2" not in m[0]]
-    btc_markets = [m for m in market_fees.items() if "BTC" in m[0] and "2" not in m[0]]
-
-    # Check that major markets have fee data
-    if eth_markets:
-        for market, fees in eth_markets:
-            assert fees["total"] is not None, f"ETH market {market} should have total fees"
-
-    if btc_markets:
-        for market, fees in btc_markets:
-            assert fees["total"] is not None, f"BTC market {market} should have total fees"
 
 
 def test_get_claimable_fees_zero_values(chain_name, get_claimable_fees):

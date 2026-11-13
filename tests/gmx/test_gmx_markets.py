@@ -6,141 +6,11 @@ when fetching and processing GMX market information.
 """
 
 import pytest
-import requests
 from flaky import flaky
 from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
+from eth_defi.gmx.contracts import get_tokens_address_dict
 from eth_utils import to_checksum_address
-
-
-def test_oracle_integration_with_markets():
-    """Test that Oracle API works for market-related tokens."""
-    try:
-        chain = "arbitrum"
-        oracle = OraclePrices(chain)
-        prices = oracle.get_recent_prices()
-
-        # Verify we got prices
-        assert isinstance(prices, dict)
-        assert len(prices) > 0
-
-        # Look for common GMX market tokens
-        token_symbols = []
-        for price_data in prices.values():
-            if price_data.get("tokenSymbol"):
-                token_symbols.append(price_data["tokenSymbol"])
-
-        # Should have major tokens that GMX uses for markets on Arbitrum
-        major_tokens = ["ETH", "BTC", "WETH", "WBTC", "ARB", "LINK"]
-
-        found_major_tokens = []
-        for major_token in major_tokens:
-            if any(major_token in symbol.upper() for symbol in token_symbols):
-                found_major_tokens.append(major_token)
-
-        # Should find at least some major tokens
-        assert len(found_major_tokens) > 0, f"No major tokens found for {chain}. Available: {token_symbols[:10]}"
-
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f"Oracle API test failed: {e}")
-
-
-def test_gmx_tokens_api_integration():
-    """Test GMX tokens API integration."""
-    try:
-        chain = "arbitrum"
-        tokens_dict = get_tokens_address_dict(chain)
-
-        # Verify response structure
-        assert isinstance(tokens_dict, dict)
-        assert len(tokens_dict) > 0
-
-        # Check some addresses are valid
-        for symbol, address in list(tokens_dict.items())[:5]:
-            assert isinstance(symbol, str)
-            assert len(symbol) > 0
-            assert address.startswith("0x")
-            assert len(address) == 42
-            # Should be checksummed
-            assert address == to_checksum_address(address)
-
-        # Should have common tokens on Arbitrum
-        symbols = [symbol.upper() for symbol in tokens_dict.keys()]
-        common_tokens = ["ETH", "USDC", "USDT", "WETH", "ARB", "LINK"]
-
-        found_common = [token for token in common_tokens if any(token in symbol for symbol in symbols)]
-        assert len(found_common) > 0, f"No common tokens found for {chain}. Available: {symbols[:10]}"
-
-    except Exception as e:
-        pytest.skip(f"GMX tokens API test failed: {e}")
-
-
-def test_api_urls_configuration():
-    """Test that API URL configuration works correctly."""
-    try:
-        clean_urls = _get_clean_api_urls()
-
-        # Should have Arbitrum
-        assert "arbitrum" in clean_urls
-
-        # URL should be valid
-        chain = "arbitrum"
-        # get request to base URL will return 404 so that's why we are requesting an endpoint
-        url = clean_urls[chain] + "/tokens"
-        assert isinstance(url, str)
-        assert url.startswith("https://")
-        assert chain in url.lower()
-
-        # Test that URL is accessible (quick check)
-        response = requests.head(url, timeout=5)
-        # Should either be 200 (OK) or 405 (Method Not Allowed, but server is responsive)
-        assert response.status_code in [200, 405], f"URL {url} returned {response.status_code}"
-
-    except Exception as e:
-        pytest.skip(f"API URLs test failed: {e}")
-
-
-def test_oracle_prices_market_tokens():
-    """Test oracle prices for tokens commonly used in GMX markets."""
-    try:
-        chain_name = "arbitrum"
-        oracle = OraclePrices(chain_name)
-        prices = oracle.get_recent_prices()
-
-        # Look for tokens that should have prices
-        token_data_by_symbol = {}
-        for address, price_data in prices.items():
-            symbol = price_data.get("tokenSymbol", "")
-            if symbol:
-                token_data_by_symbol[symbol.upper()] = {"address": address, "data": price_data}
-
-        # Test specific tokens for Arbitrum
-        expected_tokens = ["ETH", "WETH"]  # Should have ETH on Arbitrum
-
-        found_tokens = []
-        for expected_token in expected_tokens:
-            if expected_token in token_data_by_symbol:
-                token_info = token_data_by_symbol[expected_token]
-                found_tokens.append(expected_token)
-
-                # Verify price data structure for found tokens
-                assert token_info["address"].startswith("0x")
-                assert len(token_info["address"]) == 42
-
-                price_data = token_info["data"]
-                assert "tokenAddress" in price_data
-                assert price_data["tokenAddress"] == token_info["address"]
-
-                # Price fields exist (may be None but should be present)
-                assert "minPrice" in price_data
-                assert "maxPrice" in price_data
-
-        # Should find at least one expected token
-        assert len(found_tokens) > 0, f"No expected tokens found for {chain_name}. Available: {list(token_data_by_symbol.keys())[:10]}"
-
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f"Oracle prices test failed: {e}")
 
 
 def test_token_address_checksumming():
@@ -176,29 +46,6 @@ def test_token_address_checksumming():
 
     except Exception as e:
         pytest.skip(f"Address checksumming test failed: {e}")
-
-
-def test_api_error_handling():
-    """Test API error handling and recovery."""
-    try:
-        # Test with Arbitrum
-        oracle = OraclePrices("arbitrum")
-        prices = oracle.get_recent_prices()
-        assert len(prices) > 0
-
-        # Test invalid chain handling
-        with pytest.raises(ValueError, match="Unsupported chain"):
-            OraclePrices("ethereum")
-
-        with pytest.raises(ValueError, match="Unsupported chain"):
-            OraclePrices("polygon")
-
-        # Test tokens API error handling
-        tokens = get_tokens_address_dict("arbitrum")
-        assert len(tokens) > 0
-
-    except Exception as e:
-        pytest.skip(f"API error handling test failed: {e}")
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -272,22 +119,6 @@ def test_market_token_addresses(markets):
     assert short_token == to_checksum_address(short_token)
 
 
-def test_market_symbols(markets):
-    """Test getting market symbols."""
-    available_markets = markets.get_available_markets()
-
-    if not available_markets:
-        pytest.skip("No markets available")
-
-    # Test symbols for several markets
-    market_keys = list(available_markets.keys())[:3]  # Test first 3 markets
-
-    for market_key in market_keys:
-        symbol = markets.get_market_symbol(market_key)
-        assert isinstance(symbol, str)
-        assert len(symbol) > 0
-
-
 def test_decimal_factors(markets):
     """Test getting decimal factors for market tokens."""
     available_markets = markets.get_available_markets()
@@ -314,21 +145,6 @@ def test_decimal_factors(markets):
     assert isinstance(short_decimals, int)
     assert short_decimals > 0
     assert short_decimals <= 30
-
-
-def test_is_synthetic(markets):
-    """Test checking if markets are synthetic."""
-    available_markets = markets.get_available_markets()
-
-    if not available_markets:
-        pytest.skip("No markets available")
-
-    # Test synthetic check for several markets
-    market_keys = list(available_markets.keys())[:5]
-
-    for market_key in market_keys:
-        is_synthetic = markets.is_synthetic(market_key)
-        assert isinstance(is_synthetic, bool)
 
 
 def test_get_market_info(markets):
@@ -393,6 +209,7 @@ def test_market_key_validation(markets):
     assert markets.get_long_token_address(invalid_key) is None
     assert markets.get_short_token_address(invalid_key) is None
     assert markets.get_market_symbol(invalid_key) is None
+    assert markets.get_market_info(invalid_key) is None
 
     # Test with invalid key for decimal factor
     with pytest.raises(KeyError):
@@ -487,26 +304,6 @@ def test_markets_address_checksumming(markets):
             assert address == to_checksum_address(address), f"Address {address} not checksummed"
             assert address.startswith("0x")
             assert len(address) == 42
-
-
-def test_markets_error_handling(markets):
-    """Test error handling in Markets class methods."""
-    available_markets = markets.get_available_markets()
-    if available_markets:
-        market_key = next(iter(available_markets.keys()))
-
-        # Test with both long and short flags (should handle gracefully)
-        try:
-            decimals = markets.get_decimal_factor(market_key, long=True, short=True)
-            # Should return one of the valid decimals or handle appropriately
-            assert isinstance(decimals, int)
-            assert decimals > 0
-        except Exception:
-            # Acceptable if method doesn't support both flags
-            pass
-
-    # Test with invalid market key for MarketInfo
-    assert markets.get_market_info("0x0000000000000000000000000000000000000000") is None
 
 
 def test_cached_data_integrity(markets):

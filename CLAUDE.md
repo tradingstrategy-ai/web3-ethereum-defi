@@ -401,6 +401,11 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ### Pytest
 
+The test culling decisions and case inventories are recorded in
+[PR #1767](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1767)
+and [PR #1769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1769).
+Apply the following rules when adding tests or reviewing existing coverage.
+
 - We assume external APIs we integrate are safe and honour their documented
   contracts; otherwise we would not integrate them.
 - Do not add unit or integration tests of those provider APIs themselves.
@@ -433,6 +438,31 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 - Keep one canonical test for duplicated behaviour. Use unique test function
   names within each module so a later definition cannot overwrite an earlier
   test; remove shadowed duplicate definitions when cleaning up.
+- Do not add live endpoint smoke tests whose only assertions are HTTP success,
+  response keys/types, non-empty results or an empty account having no orders
+  or positions. Retain tests of our mapping, filtering, caching, fixed-point
+  conversions and configuration validation with explicit expected results.
+- A test claiming to verify a calculation must check a calculated result;
+  merely asserting that fees, prices or TVL are non-null or positive does not
+  verify arithmetic.
+- Avoid exhaustive address-by-address snapshots of static strategy, curator
+  and flag registries when many entries exercise the same behaviour. Select
+  representative cases for distinct expected outcomes, chain-scoped versus
+  global lookup, overrides, unmapped fallbacks and matching edge cases such as
+  Unicode names. For flags, preserve distinct protocol/flag/note combinations.
+  Keep individual entries when they protect a concrete regression or public
+  contract; reducing snapshots deliberately gives up checks of omitted entries.
+- Do not add tests solely to attest which checkout supplied an imported module.
+  Configure the test environment correctly and test observable behaviour.
+- Assess the assertions before deleting a low-value test: move any unique,
+  meaningful assertion into the canonical retained test. Remove fixtures and
+  constants left unused by deletions, but retain shared fixtures still in use.
+- Do not cull by test count alone. Preserve distinct fee/NAV calculations,
+  liquidation and permission checks, persistence, exports and migration data
+  preservation, even when these require many cases. When reporting reductions,
+  distinguish function definitions from collected parametrised cases and state
+  the collection environment and suite scope; parameter IDs may be renumbered
+  when rows are removed.
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`

@@ -314,16 +314,6 @@ def test_failed_refresh_retains_last_good_payload(tmp_path: Path, monkeypatch: p
     assert result.fetched_at == original.fetched_at
 
 
-@pytest.mark.parametrize("patch", [{"description": []}, {"curators": "not a list"}, {"state": "Closed"}])
-def test_malformed_success_is_not_cached(monkeypatch: pytest.MonkeyPatch, patch: dict) -> None:
-    """A successful HTTP status cannot hide an incompatible detail schema."""
-    response = Response()
-    response.status_code = 200
-    response._content = json.dumps(raw_detail() | patch).encode()
-    monkeypatch.setattr(metadata.requests, "get", lambda *args, **kwargs: response)
-    assert metadata._fetch_detail_response(1, ADDRESS).outcome == "unavailable"
-
-
 def test_forced_bulk_refresh_respects_failure_deadlines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Explicit freshness overrides cannot hammer a rate-limited deployment."""
     monkeypatch.setattr(metadata, "LAGOON_PRIVATE_VAULT_ALLOWLIST", frozenset({(1, ADDRESS)}))

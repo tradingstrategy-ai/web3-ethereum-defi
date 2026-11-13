@@ -153,11 +153,9 @@ def test_grvt_grid_vaults_are_grid_trading() -> None:
         pytest.param("vlt:2zqttakxz5jkdjuyjpbwudibkbw", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob}, id="ampersan"),
         pytest.param("vlt:2ztqfqdo7iipsg2ki99glseyfmb", {StrategyTag.arbitrage, StrategyTag.directional_trading, StrategyTag.trend_following}, id="alldefi"),
         pytest.param("vlt:328ljdq3lxhyoccqi3mtxhhq5u3", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight-inactive"),
-        pytest.param("vlt:32aef5qkjhkibvf8inqq9oqsyep", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight"),
         pytest.param("vlt:35j0gsfvpviwtto6hamblg9rexg", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider, StrategyTag.mean_reversion}, id="fisher8"),
         pytest.param("vlt:35jpjdfrwaeuj0w7he4wi5vboag", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.multistrategy}, id="ai-grid"),
         pytest.param("vlt:371sgbnors7u71g6wpoo1lrst4p", {StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.liquidity_provider, StrategyTag.mean_reversion}, id="warwolf"),
-        pytest.param("vlt:386cnqkc6tb186ix2mtgayhbfrz", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob, StrategyTag.mean_reversion}, id="pharos"),
         pytest.param("vlt:3b9tvtvisaumciyw14znklwgnq3", {StrategyTag.directional_trading, StrategyTag.multistrategy, StrategyTag.trend_following}, id="btc-maxi-lab"),
     ],
 )
@@ -185,10 +183,7 @@ def test_reviewed_grvt_high_frequency_strategy_tags(vault_id: str, previous_spec
     [
         pytest.param("vlt:34dtzyg6lhkgm49je5aabi9tebw", id="glp-execution-unconfirmed"),
         pytest.param("vlt:3eesf9iphosimfc4szp2ixoqgiw", id="balanced-rwa-credit"),
-        pytest.param("vlt:3eexdzmz72tqcinpbu4f4i0dm2z", id="opportunistic-rwa-credit"),
         pytest.param("vlt:2zrj92gtwomgi8yddq8hntbf2lz", id="human-verified-ai-signals"),
-        pytest.param("vlt:38t5xhyuxmzunwkud80clxhitok", id="daily-eth-trend-following"),
-        pytest.param("vlt:3i8nkgzoo173zwckkhmvo4fdrft", id="medium-term-trend-pullback"),
         pytest.param("vlt:3l5macfjcmky91ckru4tejdzxpl", id="global-macro-no-description"),
     ],
 )
@@ -270,12 +265,6 @@ def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
             {StrategyTag.directional_trading, StrategyTag.grid_trading},
         ),
         ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
-        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
-        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.algorithmic_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}),
-        (
-            "0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b",
-            {StrategyTag.algorithmic_trading, StrategyTag.grid_trading},
-        ),
         ("0xa91dc75e17795cf4c0e4e5b4fc29d3f07432b895", {StrategyTag.grid_trading}),
         (
             "0x3dc8751d34ac4e5786e9cd1c52a001d2fe58dc37",
@@ -321,15 +310,9 @@ def test_lighter_grid_description_is_tagged() -> None:
     ("resolve_tags", "address"),
     [
         pytest.param(hyperliquid_tags.get_strategy_tags, "0x1e37a337ed460039d1b15bd3bc489de789768d5e", id="growi-hf"),
-        pytest.param(hyperliquid_tags.get_strategy_tags, "0x9b5b1931fa5838a891973f9877c7648c93ee80cc", id="growi-hf-2"),
         pytest.param(hibachi_tags.get_strategy_tags, "hibachi-vault-2", id="growi-alpha"),
-        pytest.param(hyperliquid_tags.get_strategy_tags, "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11", id="cold-process"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0xd2f03635901956b950737bbf02463dfad9f2e9e1", id="gucky-1coin"),
-        pytest.param(hyperliquid_tags.get_strategy_tags, "0x3a6747c8e913085e243a2c22d188dafa8c6a612a", id="gucky-2coin"),
-        pytest.param(hyperliquid_tags.get_strategy_tags, "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", id="gucky-4coin"),
         pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976552443", id="steady-wealth-builder"),
-        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976620676", id="candle-effect-v1"),
-        pytest.param(lighter_tags.get_strategy_tags, "lighter-pool-281474976543116", id="candle-effect-v2"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0", id="bitrocket"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0x0ff219ac20596b457558341bc410bc7a08a1394c", id="stratwise"),
         pytest.param(hyperliquid_tags.get_strategy_tags, "0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04", id="pf1"),
@@ -339,7 +322,7 @@ def test_lighter_grid_description_is_tagged() -> None:
     ],
 )
 def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[StrategyTag]], address: str) -> None:
-    """Tag every confirmed vault without changing its earlier classifications.
+    """Tag representative confirmed vaults without changing earlier classifications.
 
     The new category supplements the maintained mapping and native defaults,
     including Stratwise's existing spot-only exception. The later
@@ -393,14 +376,9 @@ def test_high_frequency_high_win_rate_requires_algorithmic_trading() -> None:
     ("resolve_tags", "address"),
     [
         pytest.param(hyperliquid_tags.get_strategy_tags, "0x0512943ce80e9ff832c3b4a3b25df9e9ed64d911", id="growi-test"),
-        pytest.param(hyperliquid_tags.get_strategy_tags, "0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66", id="hypertwin"),
         pytest.param(morpho_tags.get_strategy_tags, "0x54e24c904cfc563af7a1ee9dfaf1354d034e44e4", id="growi-lending"),
-        pytest.param(morpho_tags.get_strategy_tags, "0x2c8cb6b6aa7a4c8d68863d4cab8d5967d73d3c9e", id="growi-usdt-lending"),
         pytest.param(morpho_tags.get_strategy_tags, "0x2b9bd297c98f7c199fb5b4a2ee5a851434cb5aea", id="growi-metavault"),
         pytest.param(apex_tags.get_strategy_tags, "apex-vault-1905364278131687424", id="apex-candle-effect"),
-        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1909694993409376256", id="apex-candle-effect-1-0"),
-        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1945398400010813440", id="apex-candle-effect-lightning"),
-        pytest.param(apex_tags.get_strategy_tags, "apex-vault-1947683078407323648", id="apex-candle-effect-fire"),
     ],
 )
 def test_high_frequency_high_win_rate_excludes_other_variants(resolve_tags: Callable[[str], set[StrategyTag]], address: str) -> None:
@@ -478,10 +456,7 @@ def test_native_perp_liquidity_providers_are_market_making_clob() -> None:
     [
         ("0xdda7f4805dfdf145a74cd68992d90780f73cf6c7", StrategyTag.algorithmic_trading),
         ("0xfb7b73ff7c93f5552541de37454ffa0f8b76462a", StrategyTag.discretionary_trading),
-        ("0x1b03878805333a0e13d7eea4abdfa2d97977c448", StrategyTag.algorithmic_trading),
         ("0x6b13de56131bfa2256e2dcd64b67c38272c72318", None),
-        ("0x15a141990fc6591838646467273c41c92999772f", StrategyTag.algorithmic_trading),
-        ("0x5048900eb10b569e77f515efe85f8da5cfd5fb3a", StrategyTag.algorithmic_trading),
     ],
 )
 def test_hyperliquid_trend_following_descriptions_are_tagged(vault_address: str, execution_tag: StrategyTag | None) -> None:

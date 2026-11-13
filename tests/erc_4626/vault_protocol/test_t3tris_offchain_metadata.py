@@ -143,18 +143,3 @@ def test_t3tris_metadata_unlisted_vault_returns_none(monkeypatch, caplog) -> Non
     assert raw is None
     assert calls == ["https://earn.t3tris.finance/api/vaults/42161/0x98e43a491a464f0886bc5e57207c340bbed0d01f"]
     assert not caplog.records
-
-
-#: Gami USDC, a vault listed in the T3tris app on Arbitrum.
-GAMI_USDC_VAULT = "0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f"
-
-
-def test_t3tris_metadata_live_api() -> None:
-    """The live T3tris app API returns a listed vault's page metadata."""
-    raw = offchain_metadata._fetch_vault_detail(42161, GAMI_USDC_VAULT)
-
-    assert raw is not None
-    metadata = offchain_metadata._parse_vault_detail(raw)
-    assert metadata["name"] == "Gami USDC"
-    assert metadata["curator_name"] == "Gami Labs"
-    assert metadata["description"]

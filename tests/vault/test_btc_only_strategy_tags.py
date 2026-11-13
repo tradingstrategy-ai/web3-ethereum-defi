@@ -32,7 +32,7 @@ def test_btc_only_export(address: str) -> None:
     """
     assert StrategyTag("btc_only") is StrategyTag.btc_only
     assert STRATEGY_TAG_METADATA[StrategyTag.btc_only] == {"label": "Bitcoin only", "description": "The strategy trades only Bitcoin"}
-    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only}
+    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only, StrategyTag.martingale_like}
     _, row = create_hyperliquid_vault_row(HexAddress(address.upper()), "Renamed vault", None, 1_000, None)
     assert row["_strategy_tags"] == expected
     assert get_strategy_tags(address.upper()) == expected
@@ -68,7 +68,7 @@ def test_btc_only_migration(tmp_path: Path, *, dry_run: bool) -> None:
     assert context.other_data["changed_rows"] == len(ADDRESSES)
     assert context.other_data["updated_fields"] == len(ADDRESSES)
     assert context.other_data["missing_specs"] == []
-    expected_rows = {spec: row | {"_strategy_tags": old_tags | {StrategyTag.btc_only}} if spec in {VaultSpec(9999, address) for address in ADDRESSES} else row for spec, row in rows.items()}
+    expected_rows = {spec: row | {"_strategy_tags": old_tags | {StrategyTag.btc_only, StrategyTag.martingale_like}} if spec in {VaultSpec(9999, address) for address in ADDRESSES} else row for spec, row in rows.items()}
     assert context.metadata().rows == expected_rows
     if dry_run:
         assert path.read_bytes() == original
