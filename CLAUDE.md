@@ -412,6 +412,27 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
   exports. Use small, representative fixtures.
 - Adding or changing an API integration does not itself require a live or
   authenticated provider check or a PR comment recording one.
+- Prefer tests of observable behaviour or a concrete regression. Avoid tests
+  solely of attribute existence, basic inheritance/MRO, private helper import
+  identity, or constructor attributes already exercised by behavioural tests.
+  Retain checks of documented public type or dispatch contracts.
+- Do not test standard dataclass mechanics such as storing supplied fields,
+  generated equality, or the lengths of supplied literal strings. Retain tests
+  for custom behaviour, meaningful defaults, validation, immutability or a real
+  public contract.
+- Exercise production calculations and conversions with representative raw
+  inputs and explicit expected outputs. Do not compute an aggregate only in
+  the test and assert elementary arithmetic properties, or normalise fixtures
+  beforehand and claim to test our normalisation code.
+- Avoid arbitrary registry-size floors such as "at least 20 entries". Verify
+  required entries and their behaviour instead.
+- Do not use uncontrolled API/network response times as unit-test performance
+  assertions. Do not catch assertion failures or programming errors and turn
+  them into skips; use explicit, documented environment or provider conditions
+  for skips.
+- Keep one canonical test for duplicated behaviour. Use unique test function
+  names within each module so a later definition cannot overwrite an earlier
+  test; remove shadowed duplicate definitions when cleaning up.
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
