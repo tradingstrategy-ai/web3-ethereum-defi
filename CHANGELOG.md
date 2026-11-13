@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add the `martingale_like` strategy tag for limit order ladder based market making strategies with Martingale-like behaviour, apply it to PF1, BitRocket, Bunny, Growi HF, Steady Wealth Builder, FuturAI Labs, Stratwise, Cold Process and Passivbot Canon, add high-frequency, high-win-rate trading to PF1, reclassify both pmalt vaults from high-frequency, high-win-rate to discretionary trading, and refresh their persisted tags with numbered migration 071 (2026-11-13).
 - fix: Keep HyperSync timestamp caches dense regardless of price sampling and add numbered migration 070 to fill existing historical gaps (2026-11-13).
 - fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
 

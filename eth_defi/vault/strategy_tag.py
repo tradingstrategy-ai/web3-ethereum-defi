@@ -135,6 +135,14 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: AI Grid Trading Strategy (GRVT).
     grid_trading = "grid_trading"
 
+    #: Makes markets with a ladder of limit orders that adds to a losing
+    #: position as price moves against it, in a Martingale-like manner.
+    #: Pair with :attr:`high_frequency_high_win_rate`, because these strategies
+    #: produce many small winning trades until a sustained adverse move. Omit it
+    #: only when a vault has been explicitly observed to behave differently.
+    #: Example vault: Passivbot Canon (Hyperliquid).
+    martingale_like = "martingale_like"
+
     #: Trades the relative price of two related assets.
     #: Example vault: pmalt (Hyperliquid).
     pair_trading = "pair_trading"
@@ -361,6 +369,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.grid_trading: {
         "label": "Grid trading",
         "description": "Places staggered buy and sell orders across a price range.",
+    },
+    StrategyTag.martingale_like: {
+        "label": "Martingale-like",
+        "description": "A limit order ladder based market making strategy with Martingale-like behaviour.",
     },
     StrategyTag.pair_trading: {
         "label": "Pair trading",
