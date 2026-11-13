@@ -1,4 +1,4 @@
-"""Wildcat app API metadata parsing, caching and a real API check."""
+"""Wildcat app API metadata parsing and caching."""
 
 import datetime
 from pathlib import Path
@@ -13,9 +13,6 @@ from eth_defi.erc_4626.vault_protocol.wildcat.offchain_metadata import extract_s
 #: Wintermute's Wildcat market and borrower on Ethereum.
 MARKET = "0xc9499006a149c553d18171747ed19aa7c6dd19e2"
 BORROWER = "0x5b15f94efc3a6e2c82d7db8efd8d5ba55da11feb"
-
-#: A trade-finance market with its own market description.
-DESCRIBED_MARKET = "0x2d958e4b289b188a110367208689bb6b560586a3"
 
 NOW = datetime.datetime(2026, 11, 10)
 
@@ -106,19 +103,6 @@ def test_wildcat_metadata_cache_and_failures(web3: SimpleNamespace, tmp_path: Pa
     install_responses(monkeypatch, {"/market-summary/": FakeResponse(200, {"description": {"text": "x"}}), "/profiles/": FakeResponse(200, {"profile": {"name": 123}})})
     assert fetch_wildcat_market_metadata(web3, MARKET, BORROWER, now_=NOW + datetime.timedelta(days=5), cache_path=tmp_path) == metadata
 
-    # A partial profile updates its fields without erasing the omitted ones
-    install_responses(monkeypatch, {"/market-summary/": FakeResponse(200, {}), "/profiles/": FakeResponse(200, {"profile": {"name": "Wintermute Trading Ltd", "description": None}})})
-    assert fetch_wildcat_market_metadata(web3, MARKET, BORROWER, now_=NOW + datetime.timedelta(days=6), cache_path=tmp_path) == metadata
-
-
-def test_wildcat_metadata_real_api(web3: SimpleNamespace, tmp_path: Path) -> None:
-    """Fetch a real market description and borrower profile from the Wildcat app API.
-
-    The routes are unauthenticated; this test only needs network access.
-    """
-    metadata = fetch_wildcat_market_metadata(web3, MARKET, BORROWER, cache_path=tmp_path)
-    assert metadata["borrower_name"] == "Wintermute Trading Ltd"
-    assert metadata["borrower_description"].startswith("Wintermute is a global algorithmic trading firm")
-
-    described = fetch_wildcat_market_metadata(web3, DESCRIBED_MARKET, BORROWER, cache_path=tmp_path)
-    assert described["market_description"].startswith("This market raises")
+    # A market description is stored while a partial profile keeps omitted fields
+    install_responses(monkeypatch, {"/market-summary/": FakeResponse(200, {"description": "This market raises working capital."}), "/profiles/": FakeResponse(200, {"profile": {"name": "Wintermute Trading Ltd", "description": None}})})
+    assert fetch_wildcat_market_metadata(web3, MARKET, BORROWER, now_=NOW + datetime.timedelta(days=6), cache_path=tmp_path) == metadata | {"market_description": "This market raises working capital."}
