@@ -229,6 +229,29 @@ def test_infinit_dense_mapping(tmp_path: Path) -> None:
         map_source_blocks((point,), tmp_path, 10, 14)
 
 
+def test_infinit_mapping_uses_previous_block_for_skipped_second(tmp_path: Path) -> None:
+    """A second without its own Arbitrum block maps to the previous block.
+
+    Mirrors production blocks 517,991,648-517,991,651: Arbitrum produced no
+    block at 2026-10-25 00:15:00 UTC (1792887300).
+    """
+    con = duckdb.connect(str(tmp_path / "42161-timestamps.duckdb"))
+    try:
+        con.execute(
+            """CREATE TABLE block_timestamps (block_number UBIGINT, timestamp UINTEGER);
+            INSERT INTO block_timestamps VALUES
+                (517991648, 1792887298), (517991649, 1792887299), (517991650, 1792887301), (517991651, 1792887301)"""
+        )
+    finally:
+        con.close()
+    skipped = InfinitPricePoint(datetime.datetime(2026, 10, 25, 0, 15), Decimal(1))
+    exact = InfinitPricePoint(datetime.datetime(2026, 10, 25, 0, 15, 1), Decimal(1))
+    mapping = map_source_blocks((skipped, exact), tmp_path, 517991648, 517991652)
+    assert mapping == {skipped.timestamp: 517991649, exact.timestamp: 517991651}
+    with pytest.raises(ValueError, match="precedes"):
+        map_source_blocks((skipped,), tmp_path, 517991650, 517991652)
+
+
 def test_infinit_recurring_timestamp_tail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Recurring scans extend a warm cache but refuse missing historical coverage."""
     product = replace(APEX_PRODUCT, deployment_block=10)
