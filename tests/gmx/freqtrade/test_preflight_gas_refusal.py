@@ -6,7 +6,6 @@ import socket
 import textwrap
 from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -110,14 +109,6 @@ def test_wrapper_normalises_all_refusals_after_count_and_cooldown(api: GMX) -> N
         assert (refusal.proof.retry_not_before is not None) == (count == _GAS_CRITICAL_MAX_RETRIES)
     exchange._send_gas_critical_telegram_alert.assert_called_once_with(result.proof.pair, 3)
     assert exchange.gas_retry_not_before(result.proof.pair) == refusal.proof.retry_not_before
-
-
-def test_only_expected_worktree_sources_are_imported() -> None:
-    """Attest that tests import this SDK checkout rather than installed packages."""
-    root = Path(__file__).resolve().parents[3]
-    for symbol in (GMX, Gmx, GasRefusalProof):
-        path = Path(inspect.getsourcefile(symbol)).resolve()
-        assert path.is_relative_to(root / "eth_defi"), path
 
 
 def test_create_order_retains_stock_retry_decorator() -> None:

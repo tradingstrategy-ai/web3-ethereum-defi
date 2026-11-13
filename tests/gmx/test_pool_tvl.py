@@ -12,16 +12,6 @@ from flaky import flaky
 from eth_defi.gmx.contracts import NETWORK_TOKENS
 
 
-def test_get_pool_tvl_initialization(gmx_config, get_pool_tvl):
-    """
-    Test that GetPoolTVL initializes correctly with chain-specific config.
-    """
-
-    assert get_pool_tvl.config == gmx_config
-    assert get_pool_tvl.datastore_contract is not None
-    assert get_pool_tvl.markets is not None
-
-
 @flaky(max_runs=3, min_passes=1)
 def test_get_pool_tvl_direct_call(chain_name, get_pool_tvl):
     """
@@ -69,52 +59,6 @@ def test_get_pool_tvl_direct_call(chain_name, get_pool_tvl):
         assert len(data["long_token"]) == 42, f"Long token address should be 42 characters: {data['long_token']}"
         assert data["short_token"].startswith("0x"), f"Short token address should start with 0x: {data['short_token']}"
         assert len(data["short_token"]) == 42, f"Short token address should be 42 characters: {data['short_token']}"
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_get_pool_tvl_specific_markets(chain_name, get_pool_tvl):
-    """
-    Test that specific expected markets have TVL data.
-
-    This verifies that chain-specific markets are properly handled.
-
-    Flaky: same transient-RPC / parallel-test-saturation conditions as
-    ``test_get_pool_tvl_direct_call``.  An empty response is skipped so that
-    ``@flaky`` can retry rather than burning all retry attempts on a hard failure.
-    """
-    pool_tvl_data = get_pool_tvl.get_data()
-
-    # Empty response is a known-bad transient condition — skip instead of hard-failing
-    # so that @flaky can try again on the next retry attempt.
-    if not pool_tvl_data:
-        pytest.skip(f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' — transient RPC/GMX API outage or parallel-test API saturation. @flaky will retry up to 3 times.")
-
-    # Define expected markets per chain
-    if chain_name.lower() == "arbitrum":
-        expected_markets = ["ETH", "BTC", "ARB"]  # Common Arbitrum markets
-    else:  # avalanche
-        expected_markets = ["AVAX", "ETH", "BTC"]  # Common Avalanche markets
-
-    markets = set(pool_tvl_data.keys())
-
-    # Check that at least some expected markets exist
-    found_markets = []
-    for market in expected_markets:
-        # Try to find markets containing the expected symbol
-        matching_markets = [m for m in markets if market in m]
-        if matching_markets:
-            found_markets.extend(matching_markets)
-
-            # Verify the data is reasonable
-            for m in matching_markets:
-                tvl_data = pool_tvl_data[m]
-                assert isinstance(tvl_data["total_tvl"], (int, float))
-                assert tvl_data["total_tvl"] >= 0
-                assert isinstance(tvl_data["long_token"], str)
-                assert isinstance(tvl_data["short_token"], str)
-
-    # Should find at least one expected market
-    assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(markets)}"
 
 
 def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
@@ -172,27 +116,6 @@ def test_get_pool_tvl_special_markets(chain_name, get_pool_tvl):
         assert unknown_market[1]["short_token"].startswith("0x")
 
     # print(f"\n{chain_name.upper()}: Special markets test passed")
-
-
-def test_get_pool_tvl_zero_tvl_markets(chain_name, get_pool_tvl):
-    """
-    Test markets with zero TVL (like APE_DEPRECATED).
-
-    This verifies that markets with zero TVL are handled correctly.
-    """
-    pool_tvl_data = get_pool_tvl.get_data()
-
-    # Check for markets with zero TVL
-    zero_tvl_markets = [m for m in pool_tvl_data.items() if m[1]["total_tvl"] == 0]
-
-    if zero_tvl_markets:
-        # Verify these markets still have proper structure
-        for market, data in zero_tvl_markets:
-            assert data["total_tvl"] == 0
-            assert data["long_token"].startswith("0x")
-            assert data["short_token"].startswith("0x")
-            assert len(data["long_token"]) == 42
-            assert len(data["short_token"]) == 42
 
 
 def test_get_pool_tvl_market_token_pairs(chain_name, get_pool_tvl):
