@@ -38,7 +38,7 @@ def test_futurai_attribution_and_native_tags(address: str) -> None:
     if address == ADDRESSES[2]:
         expected.add(StrategyTag.trend_following)
     else:
-        expected.update({StrategyTag.algorithmic_trading, StrategyTag.mean_reversion, StrategyTag.high_frequency_high_win_rate})
+        expected.update({StrategyTag.algorithmic_trading, StrategyTag.mean_reversion, StrategyTag.high_frequency_high_win_rate, StrategyTag.martingale_like})
     assert row["_strategy_tags"] == expected
 
 

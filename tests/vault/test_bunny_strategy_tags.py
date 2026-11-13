@@ -69,7 +69,7 @@ def test_bunny_migration_preview_apply_and_retry(bunny_migration: tuple[Path, Pa
 
     assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
     after = VaultDatabase.read(path)
-    assert after.rows[TARGET]["_strategy_tags"] == {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only}
+    assert after.rows[TARGET]["_strategy_tags"] == {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only, StrategyTag.martingale_like}
     before.rows[TARGET]["_strategy_tags"] = after.rows[TARGET]["_strategy_tags"]
     assert after == before
     assert all((data_dir / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
@@ -101,7 +101,7 @@ def test_bunny_migration_target_states(bunny_migration: tuple[Path, Path], state
     if state == "missing":
         del database.rows[TARGET]
     elif state == "current":
-        database.rows[TARGET]["_strategy_tags"] = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only}
+        database.rows[TARGET]["_strategy_tags"] = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only, StrategyTag.martingale_like}
     elif state == "wrong_protocol":
         database.rows[TARGET]["Protocol"] = "Other"
     elif state == "malformed_detection":
@@ -131,7 +131,7 @@ def test_bunny_export_strategy_tags() -> None:
 
     :return: ``None`` after validating exported and resolved tags.
     """
-    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only}
+    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.btc_only, StrategyTag.martingale_like}
     for address in (TARGET.vault_address, TARGET.vault_address.upper()):
         _, row = create_hyperliquid_vault_row(HexAddress(address), "Bunny", None, 1_000, datetime.datetime(2026, 11, 9))  # noqa: DTZ001 - Repository timestamps use naive UTC.
         assert row["_strategy_tags"] == expected
