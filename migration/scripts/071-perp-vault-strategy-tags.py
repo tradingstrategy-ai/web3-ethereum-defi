@@ -11,7 +11,7 @@ FuturAI Labs vaults, Stratwise Multi-Asset Public, Cold Process,
 Passivbot Canon and both pmalt vaults.
 Branch: add-martingale-like-strategy-tag
 PR title: feat: add Martingale-like strategy tag and reclassify pmalt
-PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/NUMBER
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1770
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most twelve existing rows and twelve changed fields; report absent rows
 without creating them. Idempotent transformation.
