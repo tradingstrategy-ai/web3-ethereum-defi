@@ -1,0 +1,19 @@
+feeder-id: hyperneutral
+name: HyperNeutral
+role: curator
+short_description: HyperNeutral manages a market-neutral trading vault on Hyperliquid.
+long_description: |
+  [HyperNeutral](https://x.com/HyprNeutral) manages the [HyperNeutral #1 vault on Hyperliquid](https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe). The vault follows a market-neutral approach, aiming to reduce the impact of overall market movements.
+twitter: HyprNeutral
+
+# Hyperliquid's live vaultDetails response was checked on 2026-11-14 and
+# explicitly links @HyprNeutral from this exact vault's description.
+# Curator attribution is resolved at export time by identify_curator(), so no
+# curator metadata migration is required. Migration 076 refreshes strategy tags.
+# This is attribution of an already tracked vault, not a newly discovered vault
+# or a change to price collection; no historical backfill is introduced.
+other-links:
+  - title: Hyperliquid - HyperNeutral #1 vault identifying @HyprNeutral as its operator
+    url: https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe
+  - title: Trading Strategy - HyperNeutral #1 vault listing
+    url: https://tradingstrategy.ai/vaults/hyperneutral-1
