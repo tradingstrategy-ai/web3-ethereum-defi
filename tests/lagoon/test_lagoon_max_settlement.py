@@ -130,7 +130,7 @@ def test_lagoon_v05_settlement_window_accumulates_and_resets(
     )
     vault = deployment.vault
     module = deployment.trading_strategy_module
-    assert module.functions.getInternalVersion().call() == LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION
+    assert module.functions.getInternalVersion().call() >= LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION
     assert module.functions.getTradingStrategyModuleVersion().call() == "v0.6"
 
     cap_raw = base_usdc.convert_to_raw(Decimal(5_000))

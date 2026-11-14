@@ -13,35 +13,37 @@ and checked against the published interface documentation.
 | `Multicall.json` | Separate `multicall(bytes[])` fragment used by the same app chunk against vault addresses | The frontend keeps this as a small local ABI fragment instead of including it in `IVaultAbi`. |
 
 The chunk filename is content-hashed and may change after a frontend deploy.
-When updating these files, start from `https://app.t3tris.finance/vaults`, fetch
-the current chunk list, and locate the current export named `IVaultAbi`.
+When updating these files, start from `https://earn.t3tris.finance/vaults` (the
+app moved there from `app.t3tris.finance`), fetch the current chunk list, and
+locate the current export named `IVaultAbi`.
 
 ## Reference links
 
 - T3tris homepage: https://t3tris.finance/
-- T3tris vault app: https://app.t3tris.finance/vaults
-- T3tris GraphQL endpoint: https://api.t3tris.finance/graphql
-- T3tris docs repository: https://github.com/t3tris-finance/mdoc-t3tris
-- Introduction: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/01-introduction.md
-- Vault interface: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/02-vault-interface.md
-- Vault getters: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/03-vault-getters.md
-- Events reference: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/08-events-reference.md
+- T3tris vault app: https://earn.t3tris.finance/vaults
+- Developer documentation: https://docs.t3tris.finance/
+- Onchain reference: https://docs.t3tris.finance/developers/onchain-reference
 
-## Known documentation drift
+## Documentation and the deployed ABI
 
-The Markdown interface documentation is useful, but some signatures differ from
-the ABI used by the live app:
+The developer documentation at `docs.t3tris.finance` describes the T3tris
+TypeScript SDK, not Solidity signatures. Its fields differ from the deployed
+vault: for example, its `requestDeposit` takes `amount`, `controller` and
+`permit2Data`, while the vault has `requestDeposit(address receiver, bool
+unsafe, uint256 assets, bytes permit2Data)`.
 
-- Docs list `requestDeposit(uint256 assets, address receiver, bytes permit2Data)`;
-  the live ABI has `requestDeposit(address receiver, bool unsafe, uint256 assets,
-  bytes permit2Data)`.
-- Docs list `requestRedeem(uint256 shares, address receiver, address owner,
-  address previousClaimReceiver)`; the live ABI has `requestRedeem(address
-  receiver, address owner, address previousClaimReceiver, bool unsafe, uint256
-  shares)`.
-- Docs list `getPerfFee()`; the live ABI has `getPerformanceFee()`.
-- Docs list some request getter arguments as `(uint256 requestId, address user)`;
-  the live ABI uses `(address owner, uint256 requestId)`.
+The earlier Markdown interface docs, in the since-deleted
+`t3tris-finance/mdoc-t3tris` repository, also differed from the deployed ABI:
+
+- `requestDeposit(uint256 assets, address receiver, bytes permit2Data)` against
+  the live `requestDeposit(address receiver, bool unsafe, uint256 assets, bytes
+  permit2Data)`.
+- `requestRedeem(uint256 shares, address receiver, address owner, address
+  previousClaimReceiver)` against the live `requestRedeem(address receiver,
+  address owner, address previousClaimReceiver, bool unsafe, uint256 shares)`.
+- `getPerfFee()` against the live `getPerformanceFee()`.
+- Request getters as `(uint256 requestId, address user)` against the live
+  `(address owner, uint256 requestId)`.
 
 Use `IVault.json` as the implementation source for selector generation unless
 T3tris later publishes verified contracts or canonical JSON ABI artefacts.

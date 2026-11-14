@@ -7,8 +7,8 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 23,816 | 96.9% | 760 |
-| GuardV0 | guard | 21,691 | 88.3% | 2,885 |
+| TradingStrategyModuleV0 | safe-integration | 23,942 | 97.4% | 634 |
+| GuardV0 | guard | 21,978 | 89.4% | 2,598 |
 | GmxLib | guard | 6,153 | 25.0% | 18,423 |
 | HypercoreVaultLib | guard | 3,927 | 16.0% | 20,649 |
 | LagoonLib | guard | 5,125 | 20.9% | 19,451 |
@@ -88,6 +88,7 @@ If additional space is needed in future:
 | Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
 | Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
 | Use `via_ir=false` for GuardV0 and TradingStrategyModuleV0 | Major | Config change; potentially higher runtime gas | Done |
+| Pass `bytes calldata` instead of `bytes memory` to the internal `GuardV0Base` validators, avoiding a calldata-to-memory copy per dispatch branch | ~1,200 bytes | One-word change per validator | Done |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
 

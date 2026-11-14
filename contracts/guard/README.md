@@ -96,6 +96,15 @@ claim and request cancellation. Upshift is deliberately separate because it is m
 and does not use the ERC-4626 deposit ABI: configure every accepted asset with
 ``whitelistUpshift(vault, asset, notes)``. Unknown selectors remain rejected.
 
+T3tris vaults use ``whitelistT3tris(vault, notes)``. It registers only the
+asynchronous ``requestDeposit``, ``claimDeposit``, ``requestRedeem`` and
+``claimRedeem`` calls, and the guard requires every receiver, owner and
+previous-claim receiver to be allowed, ``unsafe`` to be ``false`` and the
+Permit2 payload to be empty. Curator settlement, request decreases, forced
+claims and the unsafe ERC-4626 exits stay unregistered. Do not also call
+``whitelistERC4626()`` for a T3tris vault: it would register the synchronous
+exits and the share token's ``transfer`` and ``approve``.
+
 ### Product deployment restrictions
 
 `anyAsset` is an escape hatch for development and live-network rehearsals. It remains
