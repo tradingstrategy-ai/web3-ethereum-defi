@@ -512,8 +512,8 @@ class T3trisVault(ERC4626Vault):
     def t3tris_metadata(self) -> T3trisVaultMetadata | None:
         """Offchain metadata from T3tris' web app API.
 
-        Fetched from ``api.t3tris.finance/api/v1/vaults`` and cached on
-        disk and in-process to avoid repeated API calls.
+        Fetched from ``earn.t3tris.finance/api/vaults`` and cached on disk and
+        in-process to avoid repeated API calls.
         """
         return fetch_t3tris_vault_metadata(self.web3, self.spec.vault_address)
 
