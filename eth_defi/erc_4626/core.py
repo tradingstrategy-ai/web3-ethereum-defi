@@ -260,6 +260,9 @@ class ERC4626Feature(enum.Enum):
     #: Uses MORPHO() function for identification
     morpho_like = "morpho_like"
 
+    #: VaultMorpho adds a global TVL cap to its Morpho-compatible implementation.
+    vault_morpho_like = "vault_morpho_like"
+
     #: Morpho Vault V2
     #:
     #: Newer version with adapter-based architecture for multi-protocol yield allocation.

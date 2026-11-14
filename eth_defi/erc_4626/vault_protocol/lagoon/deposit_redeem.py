@@ -151,16 +151,16 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         super().__init__(vault)
 
     def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
-        """Leave new-deposit capacity unknown instead of using a pending claim.
+        """Use the verified deposit cap instead of the amount already ready to claim.
 
         Lagoon's ``maxDeposit`` reports assets already available to claim from a
         queued deposit. Using it as the limit for a new deposit would incorrectly
         reject accounts that have no pending claim.
 
-        :param owner: Unused because no new-deposit limit is read for any account.
+        :param owner: Unused because the remaining cap is shared by all depositors.
         :return: Raw deposit limit, or ``None`` when not advertised.
         """
-        return None
+        return self.vault.fetch_deposit_capacity()
 
     def has_synchronous_deposit(self) -> bool:
         """Check whether a new deposit can receive shares immediately.
@@ -191,13 +191,17 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         :param to: Share receiver for immediate deposits; must be unset for queued deposits.
         :param amount: Human-readable deposit amount.
         :param raw_amount: Deposit in the token's smallest integer units, if supplied.
-        :param check_max_deposit: Unused interface option; no new-deposit limit is read here.
+        :param check_max_deposit: Check the version-specific remaining deposit capacity.
         :param check_enough_token: Unused interface option; this builder does not read balances.
         :return: Synchronous or queued request for the current mode.
         """
         self._assert_deposit_request_available(owner)
         receiver = to or owner
         raw = raw_amount if raw_amount is not None else self.vault.denomination_token.convert_to_raw(amount)
+        if check_max_deposit:
+            limit = self.fetch_depositable_raw_assets(owner)
+            if limit is not None and raw > limit:
+                raise VaultFlowUnavailable("Lagoon deposit exceeds remaining maxCap", protocol="Lagoon", vault_address=self.vault.address, caller=owner, direction="deposit", phase="preflight", preflight_result="deposit_closed" if limit == 0 else "deposit_capacity_limited", requested_raw_amount=raw, available_raw_amount=limit)
         if self.has_synchronous_deposit():
             request_class = ERC4626DepositRequest
             func = self.vault.vault_contract.functions.syncDeposit(raw, receiver, ZERO_ADDRESS_STR)
@@ -257,6 +261,10 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             if error.preflight_result != "deposit_closed":
                 raise
         else:
+            if self.vault.fetch_deposit_capacity() == 0:
+                # A verified global cap can authorise the same Anvil-only Guard
+                # check as terminal closure, without submitting a real deposit.
+                return self.create_deposit_request(owner=owner, raw_amount=raw_amount, check_max_deposit=False, check_enough_token=False)
             return super().create_deposit_request_for_guard_validation(owner, raw_amount)
         return GenericERC7540DepositRequest(vault=self.vault, owner=owner, to=owner, amount=self.vault.denomination_token.convert_to_decimals(raw_amount), raw_amount=raw_amount, funcs=[self.vault.vault_contract.functions.requestDeposit(raw_amount, owner, owner)])
 

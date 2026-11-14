@@ -8,6 +8,7 @@ See the `official Vault V2 liquidity and ERC-4626 documentation
 
 from decimal import Decimal
 
+from eth_abi import decode
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
@@ -23,6 +24,10 @@ from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowU
 #: The library is used for the final redemption asset payout:
 #: https://github.com/morpho-org/vault-v2/blob/main/src/libraries/SafeERC20Lib.sol
 MORPHO_V2_TRANSFER_REVERTED_SELECTOR = HexBytes("0xace2a47e")
+
+#: Known exit failures stay separate from insufficient payout liquidity.
+MORPHO_V2_CANNOT_SEND_SHARES_SELECTOR = HexBytes("0x876736d1")
+SOLIDITY_PANIC_SELECTOR = HexBytes("0x4e487b71")
 
 #: Divisor for the Anvil liquidity injection margin: ``10_000`` adds one basis
 #: point of the required payout to cover interest accrued before the retry block.
@@ -85,6 +90,33 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                         continue
                     if not allowed:
                         raise WhitelistingRequired(f"Morpho outer vault {self.vault.address} on chain {self.vault.chain_id}: liquidity adapter depositor {adapter} is denied by inner vault {inner} ({predicate.fn_name})", protocol="Morpho", vault_address=inner, caller=adapter, direction="deposit", phase="preflight", decoded_error=decoded_error)
+            # The market adapter exposes the exact IDs used by VaultV2's cap
+            # checks. A zero absolute cap forbids any allocation, independently
+            # of funding or approval; do not recreate its full capacity model.
+            try:
+                data = contract.functions.liquidityData().call()
+                market_adapter = get_deployed_contract(self.web3, "morpho/MorphoMarketV1AdapterV2.json", adapter)
+                ids = ()
+                if len(data) == 160 and market_adapter.functions.parentVault().call().lower() == self.vault.address.lower():
+                    params = decode(["(address,address,address,address,uint256)"], data)[0]
+                    params = tuple(Web3.to_checksum_address(a) for a in params[:4]) + (params[4],)
+                    ids = market_adapter.functions.ids(params).call()
+            except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+                ids = ()
+            for allocation_id in ids:
+                if contract.functions.absoluteCap(allocation_id).call() == 0:
+                    raise VaultFlowUnavailable(
+                        f"Morpho allocation adapter {adapter} has zero absolute cap for ID {Web3.to_hex(allocation_id)}; a curator must configure an admissible route",
+                        protocol="Morpho",
+                        vault_address=self.vault.address,
+                        caller=owner,
+                        direction="deposit",
+                        phase="preflight",
+                        decoded_error="ZeroAbsoluteCap",
+                        requested_raw_amount=raw_amount if raw_amount is not None else self.vault.denomination_token.convert_to_raw(amount),
+                        available_raw_amount=0,
+                        preflight_result="deposit_unavailable",
+                    )
         return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
 
     def fetch_redemption_liquidity(self) -> tuple[HexAddress, int, int]:
@@ -278,14 +310,23 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                 preflight_result = "redemption_asset_transfer_failed"
             else:
                 preflight_result = "redemption_call_reverted"
+            decoded_error = "TransferReverted" if transfer_failed else None
+            reason = "redemption asset transfer failed" if transfer_failed else "redemption call reverted"
+            if error_selector == MORPHO_V2_CANNOT_SEND_SHARES_SELECTOR:
+                decoded_error = "CannotSendShares"
+                reason = "share-owner exit permission refused"
+                preflight_result = "whitelisting-needed"
+            elif error_selector == SOLIDITY_PANIC_SELECTOR and len(revert_data) == 36 and int.from_bytes(revert_data[4:], "big") == 0x11:
+                decoded_error = "Panic(0x11)"
+                reason = "redemption arithmetic overflow or underflow"
             raise VaultFlowUnavailable(
-                (f"Morpho Vault V2 redemption asset transfer failed for vault {self.vault.address} on chain {self.vault.chain_id}" if transfer_failed else f"Morpho Vault V2 redemption call reverted for vault {self.vault.address} on chain {self.vault.chain_id}"),
+                f"Morpho Vault V2 {reason} for vault {self.vault.address} on chain {self.vault.chain_id}",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
                 caller=owner,
                 direction="redeem",
                 phase="preflight",
-                decoded_error="TransferReverted" if transfer_failed else None,
+                decoded_error=decoded_error,
                 preflight_result=preflight_result,
                 raw_revert_data=revert_data,
                 requested_raw_amount=request.raw_shares,

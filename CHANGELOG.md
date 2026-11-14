@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Enforce legacy Upshift pauses, Lagoon pending-deposit capacity and VaultMorpho TVL caps; decode IPOR stale observations and Morpho exit failures, identify zero-cap allocation routes, and stop Lagoon fork settlement when its valuation guard needs operator input. Refresh reviewed catalogue fields with migration 075 (2026-11-14).
+
 - docs: Explain vault permission, withdrawal and precision decisions in plain language; clarify Lagoon version support and unused options, and record comment-writing guidance (2026-11-14).
 
 - refactor: Use the stored Morpho V2 ABI for owner and nested-vault deposit predicates, preserving typed admission errors; document ABI-backed contract proxies as the default (2026-11-14).

@@ -9,3 +9,4 @@ Morpho vault protocol integration.
 
    eth_defi.morpho.vault
    eth_defi.erc_4626.vault_protocol.morpho.session
+   eth_defi.erc_4626.vault_protocol.morpho.vault_morpho

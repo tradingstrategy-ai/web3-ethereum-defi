@@ -10,3 +10,19 @@
 `eth_defi.vault_report.vault_probes` to read a MetaMorpho vault's withdraw
 queue, its supply positions and each market's collateral, oracle and
 liquidity. See the [Morpho documentation](https://docs.morpho.org/).
+
+`VaultMorpho.json` is the verified Ethereum implementation ABI at
+[`0xf392a5b96d3248440bb4841b4f50f0862060c1a3`](https://etherscan.io/address/0xf392a5b96d3248440bb4841b4f50f0862060c1a3#code),
+used by `0x21ed44c18c926c60092b1b2985e2c999421a5a69`. Source/ABI were
+retrieved on 13 November 2026 and imported on 14 November 2026. Its `tvlCap`
+is an additional global restriction, separate from canonical MetaMorpho limits.
+Detection adds one `tvlCap` probe to the existing multicall on each chain and
+requires a successful `MORPHO` probe before choosing the capped adapter.
+
+`MorphoMarketV1AdapterV2.json` comes from verified Ethereum adapter
+[`0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5`](https://etherscan.io/address/0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5#code),
+retrieved on 14 November 2026. The same verified contract name/interface was
+checked at `0x0854c79ec9600fd1d02caa14ef0527f93bb5e4cc`.
+`IVaultV2.json` additionally imports `liquidityData()` from verified Ethereum
+VaultV2 `0x9480034d908989b006d78bdbbd7bd509c92e8bbc` (source retrieved
+13 November, interface extended 14 November 2026).

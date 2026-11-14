@@ -1391,6 +1391,33 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""
         return False
 
+    def fetch_deposit_capacity(self) -> int | None:
+        """Read v0.6 capacity without confusing a queued claim with a new deposit.
+
+        ERC7540Lib counts both accepted assets and assets waiting in the pending
+        silo against maxCap. Only the verified v0.6 accounting is handled here;
+        older versions retain their existing request checks.
+
+        :return: Remaining raw denomination units, or ``None`` for other versions.
+        """
+        if self.version is not LagoonVersion.v_0_6_0:
+            return None
+        block = self.default_block_identifier if self.default_block_identifier is not None else self.web3.eth.block_number
+        functions = self.vault_contract.functions
+        cap = functions.maxCap().call(block_identifier=block)
+        accepted = functions.totalAssets().call(block_identifier=block)
+        pending = self.denomination_token.contract.functions.balanceOf(self.silo_address).call(block_identifier=block)
+        return max(0, cap - accepted - pending)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Recognise exhausted global capacity while preserving queued-claim semantics.
+
+        :return: Closure reason at zero remaining capacity, otherwise the base assessment.
+        """
+        if self.fetch_deposit_capacity() == 0:
+            return "Lagoon maxCap reached, including pending deposits"
+        return super().fetch_deposit_closed_reason()
+
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002 - Signature follows the shared vault API.
         return f"https://app.lagoon.finance/vault/{self.chain_id}/{self.vault_address}"
 

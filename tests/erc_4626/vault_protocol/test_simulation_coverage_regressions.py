@@ -117,7 +117,7 @@ def test_morpho_nested_gate_predicates() -> None:
         # 3. Optional predicates may be missing on a V1 inner vault; the normal
         # request and onchain validation still decide whether a deposit succeeds.
         for responses in ([encode(["bool"], [True])] * 2, [b"", encode(["uint256"], [2])], [ContractLogicError("missing"), ExtraValueError("missing")]):
-            call.side_effect = prefix + responses
+            call.side_effect = prefix + responses + [encode(["bytes"], [b""])]
             assert manager.create_deposit_request(owner, raw_amount=100) is create_request.return_value
         assert create_request.call_count == 3
 
@@ -132,6 +132,8 @@ def test_lagoon_sync_receipt_keeps_original_mode() -> None:
     # 1. Model only the mode and call shape; real execution is in the fork matrix.
     owner = "0x1111111111111111111111111111111111111111"
     vault = Mock(spec=LagoonVault)
+    # Capacity has separate coverage; this test isolates mode and receipt selection.
+    vault.fetch_deposit_capacity.return_value = None
     vault.version = LagoonVersion.v_0_6_0
     vault.vault_contract.functions.isTotalAssetsValid.return_value.call.return_value = True
     vault.vault_contract.functions.syncMode.return_value.call.return_value = 0
@@ -159,6 +161,8 @@ def test_lagoon_deposit_modes(version, valid, mode, expected) -> None:
     """
     # 1. Pure mode selection needs no provider.
     vault = Mock(spec=LagoonVault)
+    # Capacity has separate coverage; this test isolates mode and receipt selection.
+    vault.fetch_deposit_capacity.return_value = None
     vault.version = version
     vault.vault_contract.functions.isTotalAssetsValid.return_value.call.return_value = valid
     vault.vault_contract.functions.syncMode.return_value.call.return_value = mode
