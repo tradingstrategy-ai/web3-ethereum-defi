@@ -478,3 +478,10 @@ clock and absolute amounts in the auto-claim test. Remaining gaps it listed:
 the outstanding deposit probe rerun, other deployments not fork-tested, and no
 direct tests of the pause, open-mode, end-of-fund and settlement-failure
 branches.
+
+**Simplification and documentation pass, 2026-11-14.** Removed redundant
+manager attributes and unused event-signature overrides, rewrote stale
+T3tris documentation and links after T3tris moved its app to
+`earn.t3tris.finance` and its documentation to `docs.t3tris.finance`, and
+dropped the dead GraphQL and `api/v1` descriptions. Codex CLI `gpt-6.1-sol`
+reviewed the whole branch afterwards: no blocking findings or regressions.
