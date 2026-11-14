@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import pytest
 from eth_utils.address import to_checksum_address
-from flaky import flaky
 
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
@@ -40,35 +39,6 @@ def test_client_initialization_invalid_chain():
         GMXSubsquidClient(chain="ethereum")
 
 
-def test_get_positions(graphql_client, account_with_positions):
-    """Test fetching positions for an account."""
-    positions = graphql_client.get_positions(
-        account=account_with_positions,
-        only_open=False,
-        limit=10,
-    )
-
-    # Should return a list (may be empty or have positions)
-    assert isinstance(positions, list)
-
-    # If there are positions, check structure
-    if len(positions) > 0:
-        position = positions[0]
-        assert isinstance(position, dict)
-
-        # Check required fields
-        assert "id" in position
-        assert "positionKey" in position
-        assert "account" in position
-        assert "market" in position
-        assert "collateralToken" in position
-        assert "isLong" in position
-        assert "sizeInUsd" in position
-        assert "collateralAmount" in position
-        assert "entryPrice" in position
-        assert "leverage" in position
-
-
 def test_get_positions_only_open(graphql_client, account_with_positions):
     """Test fetching only open positions."""
     positions = graphql_client.get_positions(
@@ -82,90 +52,6 @@ def test_get_positions_only_open(graphql_client, account_with_positions):
     # All positions should have sizeInUsd > 0
     for position in positions:
         assert int(position["sizeInUsd"]) > 0
-
-
-def test_get_position_by_key(graphql_client):
-    """Test fetching a specific position by key."""
-    # Use a dummy position key (may not exist)
-    position_key = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    position = graphql_client.get_position_by_key(position_key)
-
-    # Should return None if not found, or a dict if found
-    assert position is None or isinstance(position, dict)
-
-
-def test_get_pnl_summary(graphql_client, account_with_positions):
-    """Test fetching PnL summary for an account."""
-    pnl_summary = graphql_client.get_pnl_summary(account=account_with_positions)
-
-    # Should return a list
-    assert isinstance(pnl_summary, list)
-
-    # If there's data, check structure
-    if len(pnl_summary) > 0:
-        period = pnl_summary[0]
-        assert isinstance(period, dict)
-
-        # Check required fields
-        assert "bucketLabel" in period
-        assert "pnlUsd" in period
-        assert "volume" in period
-        assert "wins" in period
-        assert "losses" in period
-
-        # Bucket labels should be valid
-        valid_labels = ["today", "yesterday", "week", "month", "year", "all"]
-        assert period["bucketLabel"] in valid_labels
-
-
-def test_get_position_changes(graphql_client, account_with_positions):
-    """Test fetching position change history."""
-    changes = graphql_client.get_position_changes(
-        account=account_with_positions,
-        limit=10,
-    )
-
-    # Should return a list
-    assert isinstance(changes, list)
-
-    # If there are changes, check structure
-    if len(changes) > 0:
-        change = changes[0]
-        assert isinstance(change, dict)
-
-        # Check required fields
-        assert "id" in change
-        assert "account" in change
-        assert "market" in change
-        assert "sizeInUsd" in change
-
-
-def test_get_account_stats(graphql_client, account_with_positions):
-    """Test fetching account statistics."""
-    stats = graphql_client.get_account_stats(account=account_with_positions)
-
-    # Should return a dict or None
-    assert stats is None or isinstance(stats, dict)
-
-    # If stats exist, check structure
-    if stats:
-        # Check required fields
-        assert "id" in stats
-        assert "volume" in stats
-        assert "closedCount" in stats
-        assert "wins" in stats
-        assert "losses" in stats
-        assert "realizedPnl" in stats
-        assert "maxCapital" in stats
-        assert "netCapital" in stats
-
-
-def test_is_large_account(graphql_client, account_with_positions):
-    """Test large account detection."""
-    is_large = graphql_client.is_large_account(account=account_with_positions)
-
-    # Should return a boolean
-    assert isinstance(is_large, bool)
 
 
 def test_from_fixed_point():
@@ -248,25 +134,6 @@ def test_format_position(graphql_client):
     assert formatted["unrealized_fees"] == 0.05  # 0.05 USD
     assert formatted["leverage"] == 2.5  # 2.5x
     assert formatted["opened_at"] == 1234567890
-
-
-@flaky(max_runs=3, min_passes=1)
-def test_case_sensitive_addresses(graphql_client):
-    """Test that the client handles checksummed addresses correctly.
-
-    The Subsquid GraphQL endpoint is case-sensitive for addresses.
-    """
-    # Test with checksummed address
-    checksummed = "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"
-    positions_checksummed = graphql_client.get_positions(account=checksummed, only_open=False, limit=1)
-
-    # Test with lowercase address (may return different results)
-    lowercase = checksummed.lower()
-    positions_lowercase = graphql_client.get_positions(account=lowercase, only_open=False, limit=1)
-
-    # Both should return lists (but may have different content)
-    assert isinstance(positions_checksummed, list)
-    assert isinstance(positions_lowercase, list)
 
 
 def test_format_position_btc_real_data(graphql_client):

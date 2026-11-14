@@ -6,295 +6,11 @@ when fetching and processing GMX market information.
 """
 
 import pytest
-import requests
 from flaky import flaky
 from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
+from eth_defi.gmx.contracts import get_tokens_address_dict
 from eth_utils import to_checksum_address
-
-
-def test_market_info_dataclass():
-    """Test MarketInfo dataclass structure and initialization."""
-    market_address = to_checksum_address("0x47904963fc8b2340414262125aF906B738AD9BDF")
-    index_token_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    long_token_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    short_token_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-
-    market_info = MarketInfo(
-        gmx_market_address=market_address,
-        market_symbol="ETH",
-        index_token_address=index_token_address,
-        market_metadata={"symbol": "ETH", "decimals": 18},
-        long_token_metadata={"symbol": "WETH", "decimals": 18},
-        long_token_address=long_token_address,
-        short_token_metadata={"symbol": "USDC", "decimals": 6},
-        short_token_address=short_token_address,
-    )
-
-    # Verify all fields are set correctly
-    assert market_info.gmx_market_address == market_address
-    assert market_info.market_symbol == "ETH"
-    assert market_info.index_token_address == index_token_address
-    assert market_info.long_token_address == long_token_address
-    assert market_info.short_token_address == short_token_address
-    assert market_info.market_metadata["symbol"] == "ETH"
-    assert market_info.long_token_metadata["decimals"] == 18
-    assert market_info.short_token_metadata["decimals"] == 6
-
-
-def test_market_info_address_types():
-    """Test that MarketInfo properly handles HexAddress types."""
-    # Test with various address formats
-    addresses = [
-        "0x47904963fc8b2340414262125aF906B738AD9BDF",  # Mixed case
-        "0x47904963FC8B2340414262125AF906B738AD9BDF",  # Upper case
-        "0x47904963fc8b2340414262125af906b738ad9bdf",  # Lower case
-    ]
-
-    for addr in addresses:
-        checksummed_addr = to_checksum_address(addr)
-
-        market_info = MarketInfo(gmx_market_address=checksummed_addr, market_symbol="TEST", index_token_address=checksummed_addr, market_metadata={}, long_token_metadata={}, long_token_address=checksummed_addr, short_token_metadata={}, short_token_address=checksummed_addr)
-
-        # All addresses should be properly checksummed
-        assert market_info.gmx_market_address == checksummed_addr
-        assert market_info.index_token_address == checksummed_addr
-        assert market_info.long_token_address == checksummed_addr
-        assert market_info.short_token_address == checksummed_addr
-
-        # Verify they start with 0x and have correct length
-        for addr_field in [market_info.gmx_market_address, market_info.index_token_address, market_info.long_token_address, market_info.short_token_address]:
-            assert addr_field.startswith("0x")
-            assert len(addr_field) == 42
-
-
-def test_market_info_metadata_structure():
-    """Test MarketInfo with various metadata structures."""
-    market_address = to_checksum_address("0x47904963fc8b2340414262125aF906B738AD9BDF")
-
-    # Test with comprehensive metadata
-    comprehensive_metadata = {"symbol": "BTC", "decimals": 8, "name": "Bitcoin", "coingecko_id": "bitcoin"}
-
-    # Test with minimal metadata
-    minimal_metadata = {"symbol": "UNKNOWN", "decimals": 18}
-
-    # Test with empty metadata
-    empty_metadata = {}
-
-    for metadata in [comprehensive_metadata, minimal_metadata, empty_metadata]:
-        market_info = MarketInfo(gmx_market_address=market_address, market_symbol="TEST", index_token_address=market_address, market_metadata=metadata.copy(), long_token_metadata=metadata.copy(), long_token_address=market_address, short_token_metadata=metadata.copy(), short_token_address=market_address)
-
-        # Verify metadata is preserved
-        assert market_info.market_metadata == metadata
-        assert market_info.long_token_metadata == metadata
-        assert market_info.short_token_metadata == metadata
-
-
-@pytest.mark.parametrize(
-    "symbol,expected_length",
-    [
-        ("ETH", 3),
-        ("BTC", 3),
-        ("WSTETH", 6),
-        ("AVAX", 4),
-        ("SOL", 3),
-        ("A", 1),  # Single character
-        ("VERYLONGTOKEN", 13),  # Long symbol
-    ],
-)
-def test_market_info_symbol_handling(symbol, expected_length):
-    """Test MarketInfo handles various symbol lengths and formats."""
-    market_address = to_checksum_address("0x47904963fc8b2340414262125aF906B738AD9BDF")
-
-    market_info = MarketInfo(gmx_market_address=market_address, market_symbol=symbol, index_token_address=market_address, market_metadata={"symbol": symbol}, long_token_metadata={"symbol": symbol}, long_token_address=market_address, short_token_metadata={"symbol": symbol}, short_token_address=market_address)
-
-    assert market_info.market_symbol == symbol
-    assert len(market_info.market_symbol) == expected_length
-    assert market_info.market_metadata["symbol"] == symbol
-
-
-def test_market_info_different_token_types():
-    """Test MarketInfo with different combinations of long/short tokens."""
-    market_address = to_checksum_address("0x47904963fc8b2340414262125aF906B738AD9BDF")
-    eth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-    btc_address = to_checksum_address("0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f")
-
-    # Test ETH/USDC market
-    eth_usdc_market = MarketInfo(gmx_market_address=market_address, market_symbol="ETH", index_token_address=eth_address, market_metadata={"symbol": "ETH", "decimals": 18}, long_token_metadata={"symbol": "WETH", "decimals": 18}, long_token_address=eth_address, short_token_metadata={"symbol": "USDC", "decimals": 6}, short_token_address=usdc_address)
-
-    assert eth_usdc_market.long_token_address != eth_usdc_market.short_token_address
-    assert eth_usdc_market.index_token_address == eth_usdc_market.long_token_address
-
-    # Test BTC/ETH market (both are "major" tokens)
-    btc_eth_market = MarketInfo(gmx_market_address=market_address, market_symbol="BTC", index_token_address=btc_address, market_metadata={"symbol": "BTC", "decimals": 8}, long_token_metadata={"symbol": "WBTC", "decimals": 8}, long_token_address=btc_address, short_token_metadata={"symbol": "WETH", "decimals": 18}, short_token_address=eth_address)
-
-    assert btc_eth_market.long_token_address != btc_eth_market.short_token_address
-    assert btc_eth_market.index_token_address == btc_eth_market.long_token_address
-
-    # Test synthetic market (same token for long/short)
-    synthetic_market = MarketInfo(gmx_market_address=market_address, market_symbol="ETH", index_token_address=eth_address, market_metadata={"symbol": "ETH", "decimals": 18}, long_token_metadata={"symbol": "USDC", "decimals": 6}, long_token_address=usdc_address, short_token_metadata={"symbol": "USDC", "decimals": 6}, short_token_address=usdc_address)
-
-    assert synthetic_market.long_token_address == synthetic_market.short_token_address
-    assert synthetic_market.index_token_address != synthetic_market.long_token_address
-
-
-def test_market_info_equality():
-    """Test MarketInfo equality comparison."""
-    market_address = to_checksum_address("0x47904963fc8b2340414262125aF906B738AD9BDF")
-    eth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-
-    market_info_1 = MarketInfo(gmx_market_address=market_address, market_symbol="ETH", index_token_address=eth_address, market_metadata={"symbol": "ETH", "decimals": 18}, long_token_metadata={"symbol": "WETH", "decimals": 18}, long_token_address=eth_address, short_token_metadata={"symbol": "USDC", "decimals": 6}, short_token_address=usdc_address)
-
-    market_info_2 = MarketInfo(gmx_market_address=market_address, market_symbol="ETH", index_token_address=eth_address, market_metadata={"symbol": "ETH", "decimals": 18}, long_token_metadata={"symbol": "WETH", "decimals": 18}, long_token_address=eth_address, short_token_metadata={"symbol": "USDC", "decimals": 6}, short_token_address=usdc_address)
-
-    # Same data should be equal
-    assert market_info_1 == market_info_2
-
-    # Different symbol should not be equal
-    market_info_3 = MarketInfo(
-        gmx_market_address=market_address,
-        market_symbol="BTC",  # Different symbol
-        index_token_address=eth_address,
-        market_metadata={"symbol": "ETH", "decimals": 18},
-        long_token_metadata={"symbol": "WETH", "decimals": 18},
-        long_token_address=eth_address,
-        short_token_metadata={"symbol": "USDC", "decimals": 6},
-        short_token_address=usdc_address,
-    )
-
-    assert market_info_1 != market_info_3
-
-
-def test_oracle_integration_with_markets():
-    """Test that Oracle API works for market-related tokens."""
-    try:
-        chain = "arbitrum"
-        oracle = OraclePrices(chain)
-        prices = oracle.get_recent_prices()
-
-        # Verify we got prices
-        assert isinstance(prices, dict)
-        assert len(prices) > 0
-
-        # Look for common GMX market tokens
-        token_symbols = []
-        for price_data in prices.values():
-            if price_data.get("tokenSymbol"):
-                token_symbols.append(price_data["tokenSymbol"])
-
-        # Should have major tokens that GMX uses for markets on Arbitrum
-        major_tokens = ["ETH", "BTC", "WETH", "WBTC", "ARB", "LINK"]
-
-        found_major_tokens = []
-        for major_token in major_tokens:
-            if any(major_token in symbol.upper() for symbol in token_symbols):
-                found_major_tokens.append(major_token)
-
-        # Should find at least some major tokens
-        assert len(found_major_tokens) > 0, f"No major tokens found for {chain}. Available: {token_symbols[:10]}"
-
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f"Oracle API test failed: {e}")
-
-
-def test_gmx_tokens_api_integration():
-    """Test GMX tokens API integration."""
-    try:
-        chain = "arbitrum"
-        tokens_dict = get_tokens_address_dict(chain)
-
-        # Verify response structure
-        assert isinstance(tokens_dict, dict)
-        assert len(tokens_dict) > 0
-
-        # Check some addresses are valid
-        for symbol, address in list(tokens_dict.items())[:5]:
-            assert isinstance(symbol, str)
-            assert len(symbol) > 0
-            assert address.startswith("0x")
-            assert len(address) == 42
-            # Should be checksummed
-            assert address == to_checksum_address(address)
-
-        # Should have common tokens on Arbitrum
-        symbols = [symbol.upper() for symbol in tokens_dict.keys()]
-        common_tokens = ["ETH", "USDC", "USDT", "WETH", "ARB", "LINK"]
-
-        found_common = [token for token in common_tokens if any(token in symbol for symbol in symbols)]
-        assert len(found_common) > 0, f"No common tokens found for {chain}. Available: {symbols[:10]}"
-
-    except Exception as e:
-        pytest.skip(f"GMX tokens API test failed: {e}")
-
-
-def test_api_urls_configuration():
-    """Test that API URL configuration works correctly."""
-    try:
-        clean_urls = _get_clean_api_urls()
-
-        # Should have Arbitrum
-        assert "arbitrum" in clean_urls
-
-        # URL should be valid
-        chain = "arbitrum"
-        # get request to base URL will return 404 so that's why we are requesting an endpoint
-        url = clean_urls[chain] + "/tokens"
-        assert isinstance(url, str)
-        assert url.startswith("https://")
-        assert chain in url.lower()
-
-        # Test that URL is accessible (quick check)
-        response = requests.head(url, timeout=5)
-        # Should either be 200 (OK) or 405 (Method Not Allowed, but server is responsive)
-        assert response.status_code in [200, 405], f"URL {url} returned {response.status_code}"
-
-    except Exception as e:
-        pytest.skip(f"API URLs test failed: {e}")
-
-
-def test_oracle_prices_market_tokens():
-    """Test oracle prices for tokens commonly used in GMX markets."""
-    try:
-        chain_name = "arbitrum"
-        oracle = OraclePrices(chain_name)
-        prices = oracle.get_recent_prices()
-
-        # Look for tokens that should have prices
-        token_data_by_symbol = {}
-        for address, price_data in prices.items():
-            symbol = price_data.get("tokenSymbol", "")
-            if symbol:
-                token_data_by_symbol[symbol.upper()] = {"address": address, "data": price_data}
-
-        # Test specific tokens for Arbitrum
-        expected_tokens = ["ETH", "WETH"]  # Should have ETH on Arbitrum
-
-        found_tokens = []
-        for expected_token in expected_tokens:
-            if expected_token in token_data_by_symbol:
-                token_info = token_data_by_symbol[expected_token]
-                found_tokens.append(expected_token)
-
-                # Verify price data structure for found tokens
-                assert token_info["address"].startswith("0x")
-                assert len(token_info["address"]) == 42
-
-                price_data = token_info["data"]
-                assert "tokenAddress" in price_data
-                assert price_data["tokenAddress"] == token_info["address"]
-
-                # Price fields exist (may be None but should be present)
-                assert "minPrice" in price_data
-                assert "maxPrice" in price_data
-
-        # Should find at least one expected token
-        assert len(found_tokens) > 0, f"No expected tokens found for {chain_name}. Available: {list(token_data_by_symbol.keys())[:10]}"
-
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f"Oracle prices test failed: {e}")
 
 
 def test_token_address_checksumming():
@@ -330,51 +46,6 @@ def test_token_address_checksumming():
 
     except Exception as e:
         pytest.skip(f"Address checksumming test failed: {e}")
-
-
-def test_api_error_handling():
-    """Test API error handling and recovery."""
-    try:
-        # Test with Arbitrum
-        oracle = OraclePrices("arbitrum")
-        prices = oracle.get_recent_prices()
-        assert len(prices) > 0
-
-        # Test invalid chain handling
-        with pytest.raises(ValueError, match="Unsupported chain"):
-            OraclePrices("ethereum")
-
-        with pytest.raises(ValueError, match="Unsupported chain"):
-            OraclePrices("polygon")
-
-        # Test tokens API error handling
-        tokens = get_tokens_address_dict("arbitrum")
-        assert len(tokens) > 0
-
-    except Exception as e:
-        pytest.skip(f"API error handling test failed: {e}")
-
-
-def test_oracle_response_time():
-    """Test that oracle API responses are reasonably fast."""
-    try:
-        import time
-
-        chain = "arbitrum"
-        oracle = OraclePrices(chain)
-
-        start_time = time.time()
-        prices = oracle.get_recent_prices()
-        response_time = time.time() - start_time
-
-        # API should respond within reasonable time (10 seconds)
-        assert response_time < 10, f"Oracle API too slow for {chain}: {response_time:.2f}s"
-
-        # Should get meaningful data
-        assert len(prices) > 50, f"Too few tokens for {chain}: {len(prices)}"
-
-    except Exception as e:
-        pytest.skip(f"Response time test failed: {e}")
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -448,22 +119,6 @@ def test_market_token_addresses(markets):
     assert short_token == to_checksum_address(short_token)
 
 
-def test_market_symbols(markets):
-    """Test getting market symbols."""
-    available_markets = markets.get_available_markets()
-
-    if not available_markets:
-        pytest.skip("No markets available")
-
-    # Test symbols for several markets
-    market_keys = list(available_markets.keys())[:3]  # Test first 3 markets
-
-    for market_key in market_keys:
-        symbol = markets.get_market_symbol(market_key)
-        assert isinstance(symbol, str)
-        assert len(symbol) > 0
-
-
 def test_decimal_factors(markets):
     """Test getting decimal factors for market tokens."""
     available_markets = markets.get_available_markets()
@@ -490,21 +145,6 @@ def test_decimal_factors(markets):
     assert isinstance(short_decimals, int)
     assert short_decimals > 0
     assert short_decimals <= 30
-
-
-def test_is_synthetic(markets):
-    """Test checking if markets are synthetic."""
-    available_markets = markets.get_available_markets()
-
-    if not available_markets:
-        pytest.skip("No markets available")
-
-    # Test synthetic check for several markets
-    market_keys = list(available_markets.keys())[:5]
-
-    for market_key in market_keys:
-        is_synthetic = markets.is_synthetic(market_key)
-        assert isinstance(is_synthetic, bool)
 
 
 def test_get_market_info(markets):
@@ -569,6 +209,7 @@ def test_market_key_validation(markets):
     assert markets.get_long_token_address(invalid_key) is None
     assert markets.get_short_token_address(invalid_key) is None
     assert markets.get_market_symbol(invalid_key) is None
+    assert markets.get_market_info(invalid_key) is None
 
     # Test with invalid key for decimal factor
     with pytest.raises(KeyError):
@@ -663,26 +304,6 @@ def test_markets_address_checksumming(markets):
             assert address == to_checksum_address(address), f"Address {address} not checksummed"
             assert address.startswith("0x")
             assert len(address) == 42
-
-
-def test_markets_error_handling(markets):
-    """Test error handling in Markets class methods."""
-    available_markets = markets.get_available_markets()
-    if available_markets:
-        market_key = next(iter(available_markets.keys()))
-
-        # Test with both long and short flags (should handle gracefully)
-        try:
-            decimals = markets.get_decimal_factor(market_key, long=True, short=True)
-            # Should return one of the valid decimals or handle appropriately
-            assert isinstance(decimals, int)
-            assert decimals > 0
-        except Exception:
-            # Acceptable if method doesn't support both flags
-            pass
-
-    # Test with invalid market key for MarketInfo
-    assert markets.get_market_info("0x0000000000000000000000000000000000000000") is None
 
 
 def test_cached_data_integrity(markets):

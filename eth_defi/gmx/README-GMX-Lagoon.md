@@ -446,8 +446,8 @@ Call `assert_gmx_router_whitelisted()` at startup so a mismatch fails immediatel
 | createOrder cancellationReceiver | `test_receiver_whitelisted` | via real GMX |
 | createOrder market whitelisted | `test_gmx_market_whitelisted` | via real GMX |
 | createOrder collateral whitelisted | `test_any_asset_allows_non_whitelisted_asset` | via real GMX |
-| createOrder swapPath whitelisted | `test_security_attack_scenario_non_whitelisted_swap_path` | via real GMX |
-| swapPath with anyAsset | `test_any_asset_allows_non_whitelisted_swap_path_market` | - |
+| Market allowlist getter rejects unlisted markets | `test_gmx_market_not_whitelisted` | - |
+| Market allowlist getter honours anyAsset | `test_any_asset_allows_non_whitelisted_market` | - |
 
 ## Referral codes
 

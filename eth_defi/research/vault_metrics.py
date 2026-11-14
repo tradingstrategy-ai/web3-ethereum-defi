@@ -1402,23 +1402,28 @@ def calculate_sharpe_ratio_from_returns(
 def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
     """Create slugs for a set of vaults.
 
-    - Always give the primary slug to the vault that was created first.
-    - Mutates VaultRow data in-place
+    Preserve existing public URLs and fill missing slugs in creation order.
+    Mixed batches can contain previously exported vaults alongside new ones;
+    an existing slug on one row does not establish coverage for the others.
 
     :param vaults:
         The vault metadata entries.
-
+    :return:
+        Rows with missing slugs filled in place, or ``None`` if all are complete.
     """
-    used_slugs: set[str] = set()
+    used_slugs = {row["vault_slug"] for row in vaults.values() if row.get("vault_slug")}
+    if all(row.get("vault_slug") and row.get("protocol_slug") for row in vaults.values()):
+        return None
 
     def _get_creation_date(row: VaultRow) -> datetime.datetime:
-        _detection_data = row.get("_detection_data")
-        return _detection_data.first_seen_at
+        return row["_detection_data"].first_seen_at
 
-    def _slugify(vault_metadata) -> VaultRow:
+    def _slugify(vault_metadata: VaultRow) -> VaultRow:
         existing_slug = vault_metadata.get("vault_slug")
         if existing_slug:
-            return
+            if not vault_metadata.get("protocol_slug"):
+                vault_metadata["protocol_slug"] = slugify_protocol(vault_metadata["Protocol"])
+            return vault_metadata
 
         name = vault_metadata.get("Name")
         # The onchain receipt token retains its former brand. Use the current
@@ -1435,17 +1440,13 @@ def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
             existing_slugs=used_slugs,
         )
 
-        protocol_slug = slugify_protocol(vault_metadata["Protocol"])
+        protocol_slug = vault_metadata.get("protocol_slug") or slugify_protocol(vault_metadata["Protocol"])
 
         vault_metadata["vault_slug"] = vault_slug
         vault_metadata["protocol_slug"] = protocol_slug
 
         used_slugs.add(vault_slug)
         return vault_metadata
-
-    first_vault = next(iter(vaults.values()))
-    if "vault_slug" in first_vault:
-        return None
 
     # Sort vaults by creation date
     # To always slugify in the same order

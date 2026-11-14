@@ -22,6 +22,8 @@ from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_AD
 from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
+from eth_defi.hyperliquid import tags as hyperliquid_tags
+from eth_defi.lighter import tags as lighter_tags
 from eth_defi.neutral_trade import metrics as neutral_trade_metrics
 from eth_defi.neutral_trade.api import parse_vault
 from eth_defi.vault import post_processing
@@ -31,7 +33,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import flying_tulip, price_backfill, timestamp_storage, veranta, wildcat
+from eth_defi.vault_protocols.repairs import dense_timestamps, flying_tulip, price_backfill, timestamp_storage, veranta, wildcat
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -41,6 +43,10 @@ ARCADIA = VaultSpec(4663, "0xa5e1e1f92a244f192943899eb5810e2bab372ea4")
 EDGE_ULTRAYIELD = VaultSpec(143, "0x6b343f7b797f1488aa48c49d540690f2b2c89751")
 #: 3Jane tranche deployments reviewed by migration 029.
 THREEJANE_TRANCHES = (VaultSpec(1, "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc"), VaultSpec(1, "0xf689555121e529ff0463e191f9bd9d1e496164a7"))
+#: Native perp DEX vaults reviewed by migration 071.
+MARTINGALE_HYPERCORE = VaultSpec(9999, "0x490af7d4a048a81db0f677517ed6373565b42349")
+MARTINGALE_LIGHTER = VaultSpec(9998, "lighter-pool-281474976552443")
+PMALT_LIGHTER = VaultSpec(9998, "lighter-pool-281474976552918")
 
 
 #: Peapods deployments required by migration 036.
@@ -220,6 +226,9 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
     for tranche in THREEJANE_TRANCHES:
         rows[tranche] = {"Protocol": "3Jane", "_detection_data": detection(tranche, ERC4626Feature.threejane_like), "_strategy_tags": None}
+    rows[MARTINGALE_HYPERCORE] = {"Protocol": "Hyperliquid", "_detection_data": detection(MARTINGALE_HYPERCORE, ERC4626Feature.hypercore_native), "_strategy_tags": {StrategyTag.perpetual_futures}}
+    rows[MARTINGALE_LIGHTER] = {"Protocol": "Lighter", "_detection_data": detection(MARTINGALE_LIGHTER, ERC4626Feature.lighter_native), "_strategy_tags": {StrategyTag.perpetual_futures}}
+    rows[PMALT_LIGHTER] = {"Protocol": "Lighter", "_detection_data": detection(PMALT_LIGHTER, ERC4626Feature.lighter_native), "_strategy_tags": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.pair_trading, StrategyTag.perpetual_futures}}
     rows[VaultSpec(1, "0xa6f6887ed116f3c41497a837a0319264a2eef3fa")] = {"Protocol": "Silo Finance"}
     rows[VaultSpec(1, "0xff5b00730ba463994fe0dbf574c538da258bc2ca")] = {"Protocol": "Euler"}
     rows[VaultSpec(146, "0x17271da949bbd4713c7c599759e2bf30604fc8da")] = {"Protocol": "Euler"}
@@ -252,6 +261,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
 
     # Timestamp file replacement has dedicated file-backed recovery tests.
     monkeypatch.setattr(timestamp_storage, "compact_timestamp_caches", lambda context: None)
+    monkeypatch.setattr(dense_timestamps, "repair_dense_timestamp_caches", lambda _context: None)
     monkeypatch.setattr(flying_tulip, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(flying_tulip, "create_multi_provider_web3", lambda _: SimpleNamespace(eth=SimpleNamespace(block_number=123)))
     monkeypatch.setattr(flying_tulip, "create_vault_scan_record", rebuild)
@@ -332,6 +342,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
         assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
     for tranche in THREEJANE_TRANCHES:
         assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
+    assert database.rows[MARTINGALE_HYPERCORE]["_strategy_tags"] == hyperliquid_tags.get_strategy_tags(MARTINGALE_HYPERCORE.vault_address)
+    assert database.rows[MARTINGALE_LIGHTER]["_strategy_tags"] == lighter_tags.get_strategy_tags(MARTINGALE_LIGHTER.vault_address)
+    assert StrategyTag.martingale_like in database.rows[MARTINGALE_LIGHTER]["_strategy_tags"]
+    assert database.rows[PMALT_LIGHTER]["_strategy_tags"] == {StrategyTag.algorithmic_trading, StrategyTag.discretionary_trading, StrategyTag.pair_trading, StrategyTag.perpetual_futures}
     assert database.rows[VaultSpec(1, WRAPPED.vault_address)]["_flags"] == set()
     for spec, row in database.rows.items():
         if row.get("_description"):

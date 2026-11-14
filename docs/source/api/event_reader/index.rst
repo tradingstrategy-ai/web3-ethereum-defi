@@ -46,6 +46,11 @@ and greylisted isolation remain separate limits.
 Timestamp storage maintenance
 -----------------------------
 
+HyperSync timestamp caches retain every block across their cached interval,
+independently of hourly or daily price sampling. Event reads extend the same
+dense cache. Numbered migration 070 repairs gaps in existing supported files;
+RPC-only backends retain sampled timestamp reads.
+
 .. automodule:: eth_defi.event_reader.timestamp_storage
     :members:
 

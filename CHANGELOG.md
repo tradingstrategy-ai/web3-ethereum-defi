@@ -6,6 +6,10 @@
 
 - fix: Resolve vault admission through protocol gates, correct MAAT classification, reconstruct Accountable requests after mining, recognise the Atoma fee-split upgrade and Upshift getter variant, and support Lagoon synchronous deposits and versioned fork settlement; refresh affected metadata through migration 072 (2026-11-14).
 
+- fix: Map each Infinit price observation to the last Arbitrum block at or before its timestamp, so a second without its own block no longer defers Infinit history (2026-11-13).
+- fix: Preserve existing vault URLs while filling missing metadata slugs, isolate metrics fixtures and give transient live Hypersync test failures a five-minute retry budget (2026-11-13).
+- feat: Add the `martingale_like` strategy tag for limit order ladder based market making strategies with Martingale-like behaviour, apply it to PF1, BitRocket, Bunny, Growi HF, Steady Wealth Builder, FuturAI Labs, Stratwise, Cold Process and Passivbot Canon, add high-frequency, high-win-rate trading to PF1, reclassify both pmalt vaults from high-frequency, high-win-rate to discretionary trading, and refresh their persisted tags with numbered migration 071 (2026-11-13, [#1770](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1770)).
+- fix: Keep HyperSync timestamp caches dense regardless of price sampling and add numbered migration 070 to fill existing historical gaps (2026-11-13, [#1770](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1770)).
 - fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
 
 - fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).

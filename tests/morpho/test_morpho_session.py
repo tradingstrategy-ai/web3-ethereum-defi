@@ -265,45 +265,48 @@ def test_no_hidden_retries(session: MorphoSession, monkeypatch: pytest.MonkeyPat
 
 
 def test_threads_share_quota(tmp_path: Path) -> None:
-    """Worker-local sessions share the limiter and database.
+    """Worker-local sessions consume a shared two-request quota.
 
-    :param tmp_path: Isolated real-clock state directory.
+    Hold quota time fixed so worker scheduling cannot move requests between
+    windows. Four attempts must produce two acquisitions and two waits.
+
+    :param tmp_path: Isolated quota state directory.
     """
 
-    def send(_index: int) -> float:
+    create_morpho_session(tmp_path)._state.clock = _Clock().read
+
+    def acquire(_index: int) -> float:
         worker = create_morpho_session(tmp_path)
-        worker._http.post = lambda *_args, **_kwargs: _response()
-        assert worker.fetch_response({}) is not None
-        return time.monotonic()
+        return worker._state.acquire(60)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        sent = sorted(pool.map(send, range(4)))
-    assert sent[2] - sent[0] >= 0.9
+        delays = sorted(pool.map(acquire, range(4)))
+    assert delays == pytest.approx([0, 0, 1, 1])
 
 
 def test_processes_share_quota(tmp_path: Path) -> None:
-    """Separate processes coordinate through the mounted lock, not /tmp.
+    """Separate processes consume a shared two-request quota.
+
+    Both children use the same fixed quota clock and start behind a barrier.
+    Checking acquisitions avoids measuring response completion times, which
+    can shift when CI pauses a process after it has acquired quota.
 
     :param tmp_path: State and barrier shared by two child interpreters.
     """
     code = """
 import json, sys, time
 from pathlib import Path
-from requests import Response
 from eth_defi.erc_4626.vault_protocol.morpho.session import create_morpho_session
 root, index = Path(sys.argv[1]), sys.argv[2]
 session = create_morpho_session(root)
-session._http.post = lambda *args, **kwargs: Response()
+session._state.clock = lambda: 1794484800
 (root / ('ready-' + index)).touch()
 deadline = time.monotonic() + 10
 while not (root / 'go').exists():
     assert time.monotonic() < deadline
     time.sleep(0.01)
-sent = []
-for _ in range(2):
-    assert session.fetch_response({}) is not None
-    sent.append(time.time())
-(root / ('sent-' + index)).write_text(json.dumps(sent))
+delays = [session._state.acquire(60) for _ in range(2)]
+(root / ('delays-' + index)).write_text(json.dumps(delays))
 """
     children = [subprocess.Popen([sys.executable, "-c", code, str(tmp_path), str(index)], stdout=subprocess.PIPE, stderr=subprocess.PIPE) for index in range(2)]
     try:
@@ -315,8 +318,8 @@ for _ in range(2):
         for child in children:
             _, error = child.communicate(timeout=15)
             assert child.returncode == 0, error.decode()
-        sent = sorted(value for index in range(2) for value in json.loads((tmp_path / f"sent-{index}").read_text()))
-        assert sent[2] - sent[0] >= 0.9
+        delays = sorted(value for index in range(2) for value in json.loads((tmp_path / f"delays-{index}").read_text()))
+        assert delays == pytest.approx([0, 0, 1, 1])
     finally:
         for child in children:
             if child.poll() is None:

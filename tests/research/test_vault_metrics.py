@@ -1366,7 +1366,7 @@ def test_extend_notes_with_vault_scan_cycle_appends_lower_cycle_note() -> None:
     assert vault_metrics.extend_notes_with_vault_scan_cycle(None, None) is None
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def vault_db() -> VaultDatabase:
     """Load sample vault database for testing.
 
@@ -2907,17 +2907,57 @@ def test_period_metrics_daily_window_starts_at_first_duplicate_day() -> None:
     assert result.daily_samples == 41
 
 
-def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """One vault without any usable share price is skipped, not fatal to the export."""
+@pytest.mark.parametrize("already_slugged", [False, True])
+def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame, *, already_slugged: bool) -> None:
+    """Skip an unusable vault while exporting a healthy one from mixed metadata.
+
+    Exercise both fresh metadata and a batch whose first vault already has a
+    public URL, independently of the order in which other tests have run.
+
+    :param vault_db: Isolated metadata snapshot.
+    :param price_df: Historical observations for the snapshot vaults.
+    :param already_slugged: Whether only the first row has been exported before.
+    :return: None after checking the surviving vault identity.
+    """
     vault_ids = sorted(price_df["id"].unique())[:2]
     broken_id, healthy_id = vault_ids
     prices = price_df.loc[price_df["id"].isin(vault_ids)].copy()
     prices.loc[prices["id"] == broken_id, "share_price"] = np.nan
     metadata = {spec: dict(row) for spec, row in vault_db.rows.items() if spec.as_string_id() in vault_ids}
+    if already_slugged:
+        first_spec = next(iter(metadata))
+        vault_metrics.slugify_vaults({first_spec: metadata[first_spec]})
 
     metrics = calculate_lifetime_metrics(prices, metadata)
 
     assert metrics["id"].tolist() == [healthy_id]
+
+
+def test_slugify_vaults_preserves_existing_urls_and_reserves_their_names(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Fill mixed metadata without renaming public URLs or duplicating slugs.
+
+    An older newly encountered vault may share the name of an already published
+    vault. Keep the published URL and assign the next available suffix.
+
+    :param vault_db: Isolated metadata snapshot.
+    :param price_df: Snapshot identifying two representative vaults.
+    :return: None after checking stable URLs and complete protocol slugs.
+    """
+    specs = [VaultSpec.parse_string(value) for value in sorted(price_df["id"].unique())[:2]]
+    existing, new = (dict(vault_db.rows[spec]) for spec in specs)
+    existing.update({"Name": "Shared vault", "vault_slug": "shared-vault", "protocol_slug": "published-protocol"})
+    new.update({"Name": "Shared vault", "Protocol": "Morpho"})
+    new.pop("vault_slug", None)
+    new.pop("protocol_slug", None)
+    metadata = dict(zip(specs, (existing, new), strict=True))
+
+    vault_metrics.slugify_vaults(metadata)
+
+    assert existing["vault_slug"] == "shared-vault"
+    assert existing["protocol_slug"] == "published-protocol"
+    assert new["vault_slug"] == "shared-vault-2"
+    assert new["protocol_slug"] == "morpho"
+    assert vault_metrics.slugify_vaults(metadata) is None
 
 
 @pytest.mark.parametrize("reviewed", [True, False])

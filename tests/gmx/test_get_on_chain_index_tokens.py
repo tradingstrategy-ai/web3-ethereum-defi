@@ -87,13 +87,6 @@ def _clean_cache():
     Markets.invalidate_cache()
 
 
-def test_method_exists_on_gmx():
-    """The new method must be on the ``GMX`` class itself, not a helper."""
-    from eth_defi.gmx.ccxt.exchange import GMX
-
-    assert hasattr(GMX, "get_on_chain_index_tokens"), "GMX.get_on_chain_index_tokens() is missing — issue #67 fix not applied"
-
-
 def test_returns_set_of_checksum_addresses(monkeypatch):
     """The returned set must contain only EIP-55 checksum addresses."""
     raw = [

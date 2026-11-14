@@ -3,7 +3,6 @@
 import asyncio
 import os
 
-import flaky
 import pytest
 
 from eth_defi.hypersync.utils import configure_hypersync_from_env
@@ -16,7 +15,8 @@ pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API
 
 # First observed 2026-09-30: CI DNS lookup for arc.hypersync.xyz failed
 # temporarily; the test passed locally and in CI attempt 2 of run 36717769129.
-@flaky.flaky(max_runs=3, min_passes=1)
+# 2026-11-13: CI exhausted the shared Envio quota; the focused local test passed.
+@pytest.mark.hypersync_retry
 def test_arc_mainnet_hypersync_endpoint() -> None:
     """Envio's Arc endpoint authenticates and reports its chain identity.
 

@@ -308,36 +308,6 @@ def test_guard_token_in_not_approved(
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
 
-def test_guard_token_in_not_approved(
-    uniswap_v2: UniswapV2Deployment,
-    weth_usdc_pair: PairDetails,
-    owner: str,
-    asset_manager: str,
-    deployer: str,
-    weth: Contract,
-    usdc: Contract,
-    vault: Contract,
-    guard: Contract,
-):
-    """USDC not approved for the swap."""
-    usdc_amount = 10_000 * 10**6
-    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
-
-    path = [usdc.address, weth.address]
-
-    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
-        usdc_amount,
-        0,
-        path,
-        vault.address,
-        FOREVER_DEADLINE,
-    )
-
-    with pytest.raises(TransactionFailed, match="TransferHelper: TRANSFER_FROM_FAILED"):
-        target, call_data = encode_simple_vault_transaction(trade_call)
-        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
-
-
 def test_guard_pair_not_approved(
     uniswap_v2: UniswapV2Deployment,
     owner: str,

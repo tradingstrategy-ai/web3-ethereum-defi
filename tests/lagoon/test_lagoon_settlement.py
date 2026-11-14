@@ -110,6 +110,8 @@ def test_lagoon_settlement_rows_keep_multiple_transactions_in_same_block() -> No
     not HYPERSYNC_API_KEY,
     reason="Set HYPERSYNC_API_KEY environment variable to run this test",
 )
+# 2026-11-13: CI reported Envio remaining=0/100; earlier PR runs passed.
+@pytest.mark.hypersync_retry
 def test_lagoon_fetch_settlement_events_from_hypersync_live_1000_blocks() -> None:
     """Scan a live 1,000 block Lagoon settlement window using Hypersync.
 
