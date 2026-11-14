@@ -9,12 +9,14 @@ vaults around ERC-4626 shares and adds a dual-mode operational model:
   requests, wait for a settlement, and then claim shares or assets.
 
 The public product is at [t3tris.finance](https://t3tris.finance/) and the live
-vault application is at [app.t3tris.finance/vaults](https://app.t3tris.finance/vaults).
-The public developer documentation lives in the
-[t3tris-finance/mdoc-t3tris](https://github.com/t3tris-finance/mdoc-t3tris)
-repository.
+vault application is at [earn.t3tris.finance/vaults](https://earn.t3tris.finance/vaults);
+the older `app.t3tris.finance` links redirect there. The developer
+documentation is at [docs.t3tris.finance](https://docs.t3tris.finance/). It
+documents the T3tris TypeScript SDK (v0.8.2 in November 2026) rather than the
+vault's Solidity ABI. The earlier `t3tris-finance/mdoc-t3tris` repository,
+which the original research used, no longer exists.
 
-T3tris documentation describes the protocol architecture as:
+The earlier T3tris documentation described the protocol architecture as:
 
 - `T3tris`, a factory and registry contract;
 - `Vault`, an ERC-4626, ERC-20, AccessControl and UUPS proxy vault;
@@ -188,243 +190,47 @@ getShareSymbol() returns (string)
 
 ## Offchain data
 
-T3tris exposes a public GraphQL endpoint:
+`offchain_metadata.py` reads the vault page metadata shown in the T3tris app
+from its REST API:
 
 ```text
-https://api.t3tris.finance/graphql
+GET https://earn.t3tris.finance/api/vaults/{chainId}/{vaultAddress}
+GET https://earn.t3tris.finance/api/vaults
 ```
 
-The endpoint is a Ponder-style indexer and currently exposes these query roots:
+The detail response has a `vault` object; the list response has an `items`
+array of vault objects. The adapter uses these vault fields:
 
-```text
-vault
-vaults
-asset
-assets
-position
-positions
-roleAssignment
-roleAssignments
-roleAdmin
-roleAdmins
-oracleOwner
-oracleOwners
-pendingAdminGrant
-pendingAdminGrants
-whitelistEntry
-whitelistEntrys
-vaultSnapshot
-vaultSnapshots
-activity
-activitys
-pendingRequest
-pendingRequests
-requestTx
-requestTxs
-_meta
-```
-
-Use GraphQL for discovery, metadata enrichment and sanity checks. Do not treat it
-as authoritative for transaction execution or final accounting; onchain vault
-calls and events remain the source of truth.
-
-### Vault page metadata
-
-The vault detail page uses a separate REST endpoint for the offchain metadata
-shown in the application:
-
-```text
-GET https://api.t3tris.finance/api/v1/vaults/{chainId}/{vaultAddress}
-```
-
-For example:
-
-```shell
-curl -sS \
-  "https://api.t3tris.finance/api/v1/vaults/42161/0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f" \
-  | jq ".vault | {description, curatorName, curatorUrl, verified, depositsDisabled, showComposition, displayName, displaySymbol, category, attributes, rating, ipfsHash, visibility, visibilityLocked}"
-```
-
-The response is a page view model with these top-level keys:
-
-```text
-performance
-positions
-roles
-snapshots
-vault
-```
-
-`vault.description` is Markdown and should be rendered with the same precautions
-as any third-party HTML-producing content. The example Arbitrum vault
-`0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f` returns a non-empty Markdown
-description, curator profile fields and a public visibility flag from this REST
-endpoint, while `vault.ipfsHash` is an empty string. This means the current page
-description for that vault is backend-curated REST metadata, not data read from
-IPFS through the indexed `ipfsHash` field.
-
-Important REST metadata fields:
-
-| Field | Meaning |
+| Field | Use |
 | --- | --- |
-| `description` | Markdown text shown on the vault page. |
-| `curatorName` | Human-readable curator or manager name. |
-| `curatorUrl` | Curator website URL shown by the app. |
-| `verified` | T3tris UI verification flag. |
-| `depositsDisabled` | UI-level deposit disable flag. Check onchain `isDepositEnabled()` or GraphQL `depositEnabled` before execution. |
-| `showComposition` | Whether the UI should show vault composition data. |
-| `displayName`, `displaySymbol` | Optional UI overrides for onchain vault name and symbol. |
-| `onchainName`, `onchainSymbol` | Onchain name and symbol copied into the page model. |
-| `category`, `attributes`, `rating` | Additional T3tris curation and risk classification fields. |
-| `visibility`, `visibilityLocked` | Listing and visibility controls used by the app. |
-| `apy` | App-level APY view. The detail endpoint currently returns `D`, `W`, `M`, `Y` and `ALL` buckets. |
-| `depositorCount` | App-indexed depositor count. |
-| `ppsEffectiveWad` | Effective price per share used by the app view. |
+| `name`, `displayName`, `symbol`, `displaySymbol` | Display name and symbol |
+| `description` | Markdown vault description. Render it with the same precautions as any third-party content |
+| `curatorName`, `curatorUrl` | Manager name and link |
+| `verified`, `visibility` | T3tris curation and listing flags |
+| `category`, `attributes`, `rating` | Short description and classification |
+| `depositsDisabled` or `flags.depositEnabled` | App-level deposit flag. Execution uses the onchain `isDepositEnabled()` instead |
+| `ipfsHash` | Onchain metadata pointer, usually empty |
 
-Adding an account query parameter can include account-specific page data:
+Earlier endpoints are gone. `https://api.t3tris.finance/api/v1/...` has
+returned 404 since October 2026, and the Ponder GraphQL indexer at
+`https://api.t3tris.finance/graphql` returned 404 in November 2026. Neither is
+used by the code. Onchain vault calls and events remain the source of truth
+for execution and accounting.
 
-```text
-GET https://api.t3tris.finance/api/v1/vaults/{chainId}/{vaultAddress}?account={address}
-```
-
-The vault list endpoint also includes the same offchain metadata for discovery:
-
-```text
-GET https://api.t3tris.finance/api/v1/vaults
-```
-
-This endpoint returns an object with a `vaults` array. Its vault items include
-`description`, `curatorName`, `curatorUrl`, `verified`, `depositsDisabled`,
-`showComposition`, `displayName`, `displaySymbol`, `category`, `attributes`,
-`rating`, `visibility` and `visibilityLocked`. The list APY object currently has
-a different shape from the detail endpoint, using `m` and `allTime` fields.
-
-Related page endpoints discovered from the app bundle:
-
-| Endpoint | Use |
-| --- | --- |
-| `/api/v1/vaults/{chainId}/{vaultAddress}/performance?window={window}` | Performance chart data. |
-| `/api/v1/vaults/{chainId}/{vaultAddress}/composition` | Vault composition data, used when `showComposition` is true. |
-| `/api/v1/activity/{chainId}/{vaultAddress}?limit={limit}` | Vault activity feed. |
-| `/api/v1/events/{chainId}/{vaultAddress}` | Curator/admin event timeline. This is separate from the Markdown description and was empty for the example vault during research. |
-| `/api/v1/config` | App configuration, including chains, features, governance and pricing. |
-
-GraphQL still exposes `ipfsHash` and the onchain `getIpfsHash()` getter exists
-in the live ABI, so future vaults may use IPFS-backed metadata. For the current
-application page, prefer the REST page endpoint when matching what users see in
-the T3tris app.
-
-Useful `vault` fields:
-
-| Field group | Fields |
-| --- | --- |
-| Identity | `chainId`, `address`, `asset`, `name`, `symbol`, `shareName`, `shareSymbol`, `version` |
-| Operators | `owner`, `curator`, `feeRecipient`, `protocol`, `oracle`, `isSafeOracle` |
-| Silos | `syncSilo`, `depositSilo`, `redeemSilo` |
-| Fees | `entryFeeWad`, `exitFeeWad`, `performanceFeeWad`, `managementFeeWad`, `managementFeeDays`, `unclaimedSharesFee`, `pendingFeeShares` |
-| Status | `transferEnabled`, `depositWhitelistEnabled`, `withdrawWhitelistEnabled`, `depositEnabled`, `paused`, `vaultOpen`, `endOfFund` |
-| Accounting | `totalAssets`, `totalSupply`, `totalNetAssets`, `totalNetSupply`, `pricePerShareWad`, `hwmWad`, `lastSettlementTs` |
-| Gross TVL | `grossTvl`, `grossManagedAssets`, `grossPendingDeposits`, `grossClaimableRedeems` |
-| Polling | `pollLastTotalAssets`, `lastValuationTs`, `lastPollOkTs`, `pollFailures` |
-| Deployment | `referralCode`, `salt`, `deployCalldata`, `createdAtBlock`, `createdAtTs`, `updatedAtBlock`, `updatedAtTs` |
-
-Useful `asset` fields:
-
-```text
-id
-chainId
-address
-symbol
-name
-decimals
-canonicalId
-logoUri
-source
-priceUsd
-priceUpdatedAt
-```
-
-Useful `position` fields:
-
-```text
-chainId
-vault
-account
-pendingDepositAssets
-claimableDepositShares
-ownedShares
-pendingRedeemShares
-claimableRedeemAssets
-recoverableRedeemSiloShares
-depositedAssets
-withdrawnAssets
-costBasisAssets
-realizedPnlAssets
-firstDepositTs
-lastUpdatedBlock
-lastUpdatedTs
-```
-
-Useful request and activity tables:
-
-| Type | Useful fields |
-| --- | --- |
-| `pendingRequest` | `chainId`, `vault`, `side`, `requestId`, `account`, `amount`, `updatedAtBlock`, `updatedAtTs` |
-| `requestTx` | `chainId`, `vault`, `side`, `requestId`, `account`, `txHash`, `logIndex`, `amount`, `timestamp` |
-| `vaultSnapshot` | `chainId`, `vault`, `tier`, `ts`, `blockNumber`, `pricePerShareWad`, `ppsEffectiveWad`, `totalAssets`, `totalSupply` |
-| `activity` | `chainId`, `txHash`, `logIndex`, `vault`, `kind`, `category`, `account`, `amount`, `extra`, `blockNumber`, `timestamp` |
-
-Example discovery query:
-
-```graphql
-{
-  vaults(limit: 100) {
-    items {
-      chainId
-      address
-      asset
-      name
-      symbol
-      shareName
-      shareSymbol
-      owner
-      curator
-      protocol
-      oracle
-      version
-      vaultOpen
-      totalAssets
-      totalSupply
-      totalNetAssets
-      totalNetSupply
-      pricePerShareWad
-      grossTvl
-      grossManagedAssets
-      grossPendingDeposits
-      grossClaimableRedeems
-      createdAtBlock
-      createdAtTs
-      updatedAtBlock
-      updatedAtTs
-    }
-  }
-}
-```
-
-The initial app-indexed live vaults were on Arbitrum (`chainId = 42161`) and
-shared protocol address `0x0000000000cc53b5fd649b80f08b05405779cc71`. T3tris
-also deploys vaults on Robinhood Chain (`chainId = 4663`); the scanner supports
-both chains. Robinhood vaults must be classified through their T3tris
-``getGrossTVL`` interface, rather than treated as generic ERC-4626 vaults.
-
-Example vaults seen in the API:
+Example vaults:
 
 | Vault | Notes |
 | --- | --- |
-| `0x394c4db21b6b429848e123272f206f1f9d8d74b0` | Arbitrum USDC test vault with non-zero accounting and pending deposits during research |
-| `0x98e43a491a464f0886bc5e57207c340bbed0d01f` | Arbitrum USDC vault observed in earlier app data |
-| `0x5b93dd3eb7fd224565498045f5e1a2ebda49e672` | Robinhood Morini vault; first seen in the API at block 27,650,917 |
-| `0xd4d607239dcbdb5cc3a301266433810bb63c63bf` | Robinhood Kingfisher vault; first seen in the API at block 21,034,332 |
+| `0x98e43a491a464f0886bc5e57207c340bbed0d01f` | Arbitrum First USDC. Permissionless; used by the deposit and redemption fork tests |
+| `0x9984ad74c5fb6bec3888e14b4e453707d3be7f8f` | Arbitrum Gami USDC. Deposits disabled and both whitelists enabled at the test block |
+| `0x394c4db21b6b429848e123272f206f1f9d8d74b0` | Arbitrum test vault with the deposit whitelist enabled |
+| `0x5b93dd3eb7fd224565498045f5e1a2ebda49e672` | Robinhood Chain Morini vault |
+| `0xd4d607239dcbdb5cc3a301266433810bb63c63bf` | Robinhood Chain Kingfisher vault |
+
+The Arbitrum vaults share protocol address
+`0x0000000000cc53b5fd649b80f08b05405779cc71`. Robinhood Chain (`chainId =
+4663`) vaults must be classified through their T3tris `getGrossTVL`
+interface rather than treated as generic ERC-4626 vaults.
 
 ## ABI files and sources
 
@@ -445,49 +251,34 @@ Other T3tris contract ABIs were not saved yet:
 
 | ABI | Reason |
 | --- | --- |
-| `IT3tris.json` | Not present as a frontend ABI export in the researched app bundle. Needed only for factory discovery/deployment features. For scanner support, vault-level GraphQL discovery may be enough. |
-| `ISafeOracle.json` | Not present as a frontend ABI export in the researched app bundle. Needed only if we read oracle state directly. |
+| `IT3tris.json` | Not present as a frontend ABI export in the researched app bundle. Needed only for factory discovery/deployment features. |
+| `ISafeOracle.json` | Not present as a frontend ABI export in the researched app bundle. The Anvil settlement driver uses a two-function inline fragment for `owner()` and `setTotalAssets(uint256)`, observed in onchain oracle transactions. |
 | `ISilo.json` | Not present as a frontend ABI export in the researched app bundle. Needed only if we inspect silo internals. |
 
 ABI source priority:
 
 1. Live app bundle ABI, because it matches the frontend currently used against
    deployed vaults.
-2. Published interface docs in
-   [mdoc-t3tris](https://github.com/t3tris-finance/mdoc-t3tris), because T3tris
-   explicitly publishes interfaces rather than verified Solidity.
+2. Observed onchain calls and events, decoded with that ABI.
 3. Block explorer ABI if T3tris later verifies implementation contracts.
 
-Known doc drift:
+The current documentation at [docs.t3tris.finance](https://docs.t3tris.finance/)
+describes SDK method fields, not Solidity signatures. For example, its
+`requestDeposit` takes `amount`, `controller` and `permit2Data`, while the
+deployed vault takes `requestDeposit(address receiver, bool unsafe, uint256
+assets, bytes permit2Data)`. The earlier Markdown interface docs also differed
+from the deployed ABI. Do not generate integration code from either without
+checking the live app ABI and onchain transactions.
 
-- The Markdown docs list `requestDeposit(uint256 assets, address receiver, bytes
-  permit2Data)`, but the live app ABI uses `requestDeposit(address receiver,
-  bool unsafe, uint256 assets, bytes permit2Data)`.
-- The Markdown docs list `requestRedeem(uint256 shares, address receiver,
-  address owner, address previousClaimReceiver)`, but the live app ABI uses
-  `requestRedeem(address receiver, address owner, address previousClaimReceiver,
-  bool unsafe, uint256 shares)`.
-- The Markdown docs list `getPerfFee()`, but the live app ABI exposes
-  `getPerformanceFee()`.
-- Some getter argument order in the Markdown docs is stale. The live app ABI has
-  `getRequestDepositAmount(address owner, uint256 requestId)` and
-  `getRequestRedeemAmount(address owner, uint256 requestId)`.
+## Discovery and classification
 
-Because of this drift, do not generate integration code directly from the
-Markdown signatures without comparing them to the current live app ABI.
-
-## Integration notes for eth_defi
-
-Initial scanner support can start with:
-
-1. Discover vaults from GraphQL `vaults`.
-2. Confirm each vault onchain with `asset()`, `totalAssets()`, `totalSupply()`,
-   `getProtocol()` and, if needed, `version()`.
-3. Classify T3tris vaults by `getProtocol()` returning the known T3tris protocol
-   address or by the presence of a uniquely T3tris getter such as
-   `getGrossTVL()`.
-4. Use onchain values for final TVL/accounting and GraphQL values as metadata
-   or sanity checks.
+The scanner discovers T3tris vaults from vault-local `DepositRequest`,
+`RedeemRequest` and configuration events through Hypersync
+(`get_t3tris_vault_discovery_events()` in `eth_defi/erc_4626/discovery_base.py`),
+plus explicit leads in `constants.py` for deployments without such events.
+`classification.py` identifies them by the `getGrossTVL()` getter. Onchain
+values are used for TVL and accounting; the REST metadata only enriches the
+vault row.
 
 ## Deposits and redemptions
 
@@ -517,8 +308,11 @@ Verified on an Arbitrum fork against First USDC
   request in the same direction. The manager therefore allows one open
   request per owner and direction, and reads each ticket's own epoch.
 - Each settlement needs an oracle valuation newer than the previous
-  settlement, otherwise it reverts `Vault__StaleValuation()`.
-- Redemption settlement pulls assets from the curator wallet.
+  settlement, otherwise it reverts `Vault__StaleValuation()`. The T3tris
+  curator documentation says the vault checks this order, not a maximum
+  valuation age.
+- Redemption settlement pulls the net shortfall from the curator wallet,
+  which approves the vault beforehand.
 - `convertToShares` and `convertToAssets` exclude entry and exit fees, so
   the inherited estimates are slightly high.
 
@@ -543,20 +337,14 @@ Settlement proof comes from `force_settle()` on the fork. The tests are
 `tests/guard/test_guard_simple_vault_t3tris.py` and
 `tests/erc_4626/vault_protocol/test_t3tris_deposit_redeem.py`.
 
-The public T3tris docs repository and the GraphQL endpoint returned 404 in
-November 2026; the REST page API used by `offchain_metadata.py` still works.
-
 ## Reference links
 
 - T3tris homepage: https://t3tris.finance/
-- T3tris vault app: https://app.t3tris.finance/vaults
-- T3tris GraphQL endpoint: https://api.t3tris.finance/graphql
-- T3tris docs repository: https://github.com/t3tris-finance/mdoc-t3tris
-- Introduction: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/01-introduction.md
-- Architecture: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/01-architecture.md
-- Vault interface: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/02-vault-interface.md
-- Vault getters: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/03-vault-getters.md
-- Protocol factory: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/05-protocol-factory.md
-- Events reference: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/08-events-reference.md
-- Integration guide: https://raw.githubusercontent.com/t3tris-finance/mdoc-t3tris/main/docs/en/04-developers/10-integration-guide.md
+- T3tris vault app: https://earn.t3tris.finance/vaults
+- Developer documentation: https://docs.t3tris.finance/
+- Deposits and redemptions: https://docs.t3tris.finance/developers/deposits-and-redemptions
+- Onchain reference: https://docs.t3tris.finance/developers/onchain-reference
+- Settlement and epochs: https://docs.t3tris.finance/concepts/settlement-and-epochs
+- Oracle and NAV: https://docs.t3tris.finance/concepts/oracle-and-nav
+- Curator operations and fees: https://docs.t3tris.finance/curators/operations
 - ERC-7540: https://eips.ethereum.org/EIPS/eip-7540

@@ -12,15 +12,15 @@ the GuardV0 coverage.
 """
 
 import logging
+from collections.abc import Callable
 from decimal import Decimal
 
-from eth_typing import HexAddress, HexStr
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.logs import DISCARD
 
-from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_7540.deposit_redeem import (
     ERC7540DepositManager,
@@ -45,7 +45,6 @@ from eth_defi.vault.deposit_redeem import (
     VaultRequestInvariantViolation,
     WhitelistingRequired,
 )
-from eth_defi.vault.flow_events import normalise_event_topic
 
 logger = logging.getLogger(__name__)
 
@@ -102,10 +101,6 @@ class T3trisDepositManager(ERC7540DepositManager):
     **Anvil settlement.** :meth:`force_settle` impersonates the oracle owner
     to refresh the valuation and the curator to call ``settle()``.
     """
-
-    deposit_request_class = ERC7540DepositRequest
-
-    redemption_request_class = ERC7540RedemptionRequest
 
     def __init__(self, vault: T3trisVault):
         """Initialise the manager for a T3tris vault.
@@ -221,17 +216,27 @@ class T3trisDepositManager(ERC7540DepositManager):
         if self.is_redemption_in_progress(owner):
             raise self._unavailable(f"Owner {owner} already has an open T3tris redemption request", owner, "redeem", T3TRIS_REQUEST_IN_PROGRESS)
 
+    @staticmethod
+    def _passes(preflight: Callable[[HexAddress], None], owner: HexAddress) -> bool:
+        """Convert a raising preflight into a boolean.
+
+        :param preflight: Preflight that raises :class:`VaultFlowUnavailable`.
+        :param owner: Request owner.
+        :return: ``True`` when the preflight does not refuse the request.
+        """
+        try:
+            preflight(owner)
+        except VaultFlowUnavailable:
+            return False
+        return True
+
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Return whether a deposit request would pass the preflight.
 
         :param owner: Request owner.
         :return: ``True`` when no preflight refusal applies.
         """
-        try:
-            self._assert_deposit_request_available(owner)
-        except VaultFlowUnavailable:
-            return False
-        return True
+        return self._passes(self._assert_deposit_request_available, owner)
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         """Return whether a redemption request would pass the preflight.
@@ -239,11 +244,7 @@ class T3trisDepositManager(ERC7540DepositManager):
         :param owner: Share owner.
         :return: ``True`` when no preflight refusal applies.
         """
-        try:
-            self._assert_redemption_request_available(owner)
-        except VaultFlowUnavailable:
-            return False
-        return True
+        return self._passes(self._assert_redemption_request_available, owner)
 
     def create_deposit_request(
         self,
@@ -402,20 +403,6 @@ class T3trisDepositManager(ERC7540DepositManager):
         :return: Bound claim function.
         """
         return self.vault.vault_contract.functions.claimRedeem(redemption_ticket.owner, redemption_ticket.to, False)
-
-    def get_deposit_event_signatures(self) -> set[HexStr]:
-        """Return the T3tris ``ClaimDeposit`` topic.
-
-        :return: Claim event topic.
-        """
-        return {normalise_event_topic(get_topic_signature_from_event(self.vault.vault_contract.events.ClaimDeposit))}
-
-    def get_redemption_event_signatures(self) -> set[HexStr]:
-        """Return the T3tris ``ClaimRedeem`` topic.
-
-        :return: Claim event topic.
-        """
-        return {normalise_event_topic(get_topic_signature_from_event(self.vault.vault_contract.events.ClaimRedeem))}
 
     def _analyse_claim(
         self,

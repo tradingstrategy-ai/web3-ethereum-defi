@@ -80,7 +80,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # T3tris fees are represented as fee shares. Entry/exit fees reduce the
     # user's net deposit/redeem, while management and high-water-mark
     # performance fees accrue as shares for the fee recipient.
-    # https://github.com/t3tris-finance/mdoc-t3tris/blob/main/docs/en/02-liquidity-providers/05-understanding-fees.md
+    # https://docs.t3tris.finance/curators/operations
     "T3tris": VaultFeeMode.internalised_minting,
     # Bulla Factoring's V2.1 reconciliation adds only LP net interest to its
     # capital account; administrator fees and invoice-specific underwriting

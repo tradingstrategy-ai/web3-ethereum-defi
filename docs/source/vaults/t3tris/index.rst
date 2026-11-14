@@ -20,8 +20,8 @@ Links
 
 - `Listing <https://tradingstrategy.ai/vaults/protocols/t3tris>`__
 - `Homepage <https://t3tris.finance/>`__
-- `Vault app <https://app.t3tris.finance/vaults>`__
-- `Documentation repository <https://github.com/t3tris-finance/mdoc-t3tris>`__
+- `Vault app <https://earn.t3tris.finance/vaults>`__
+- `Developer documentation <https://docs.t3tris.finance/>`__
 - `Research notes <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/erc_4626/vault_protocol/t3tris/README-t3tris.md>`__
 
 .. autosummary::

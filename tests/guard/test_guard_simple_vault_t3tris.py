@@ -339,7 +339,9 @@ def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple
     assert c.guard.functions.getInternalVersion().call() == 5
 
     # 5. Reject malformed calldata and a non-governance whitelist call.
-    word = lambda value: value.to_bytes(32, "big")  # noqa: E731
+    def word(value: int) -> bytes:
+        return value.to_bytes(32, "big")
+
     address_word = word(int(me, 16))
     dirty_address = word(int(me, 16) | (1 << 200))
     malformed = [
