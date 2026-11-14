@@ -4,7 +4,7 @@ Purpose: Add the maintainer-requested long_short_portfolio strategy tag.
 Scope: Only _strategy_tags for HyperNeutral #1 on Hypercore (9999).
 Branch: check-strategy-tag-long-short-portfolio
 PR title: feat: add long-short portfolio tag and HyperNeutral curator
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1778
 Preserves: Other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most one updated row and field; report an absent target.
 No historical backfill is needed: this changes strategy metadata only.

@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add the long-short portfolio strategy tag, classify HyperNeutral #1, and add its curator profile, X feed and logo with a targeted strategy-tag migration (2026-11-14).
+- feat: Add the long-short portfolio strategy tag, classify HyperNeutral #1, and add its curator profile, X feed and logo with a targeted strategy-tag migration (2026-11-14, [#1778](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1778)).
 
 - fix: Separate the unattributed VaultMorpho adapter and ABI from canonical Morpho, remove inherited Morpho metadata assumptions, and correct existing catalogue attribution through migration 075 (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).
 
