@@ -15,6 +15,7 @@ import logging
 from collections.abc import Iterable
 from decimal import Decimal
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
@@ -27,7 +28,11 @@ from eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata import T3trisVaul
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem import T3trisDepositManager
 
 logger = logging.getLogger(__name__)
 
@@ -488,7 +493,8 @@ class T3trisVault(ERC4626Vault):
 
     - T3tris vaults expose standard ERC-4626 accounting methods
     - Async deposit/redemption flow uses custom ``DepositRequest`` and
-      ``RedeemRequest`` events and custom request/claim methods
+      ``RedeemRequest`` events and custom request/claim methods, implemented
+      by :py:class:`~eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem.T3trisDepositManager`
     - Fee values are exposed as WAD-scaled integers by the live vault ABI
     - Offchain descriptions are fetched from the T3tris page API
     """
@@ -595,6 +601,43 @@ class T3trisVault(ERC4626Vault):
             ``True`` when deposit requests require whitelisting.
         """
         return self.vault_contract.functions.isDepositWhitelistEnabled().call(block_identifier=self._get_block_identifier())
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Check deposit whitelist membership.
+
+        :param address:
+            Account whose deposit-policy membership is queried.
+        :return:
+            ``True`` when ``isDepositWhitelisted(address)`` admits the account.
+        """
+        return self.vault_contract.functions.isDepositWhitelisted(address).call(block_identifier=self._get_block_identifier())
+
+    def get_deposit_manager(self) -> "T3trisDepositManager":
+        """Get the asynchronous T3tris request and claim manager.
+
+        :return:
+            T3tris deposit manager.
+        """
+        from eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem import T3trisDepositManager
+
+        return T3trisDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the closed-mode request, settle and claim lifecycle.
+
+        Both directions are fork-tested through GuardV0, including curator
+        settlement on Anvil.
+
+        :return:
+            Two-way asynchronous capability.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="asynchronous",
+            redemption_flow="asynchronous",
+            supports_anvil_settlement=True,
+        )
 
     @property
     def description(self) -> str | None:
