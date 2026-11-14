@@ -3,8 +3,8 @@
 Purpose: Replace unknown/stale persisted policy using the repaired adapters; correct the MAAT strategy formerly classified as Fluid by name.
 Scope: Existing reviewed targets only; admission and MAAT adapter-derived metadata. No new rows or price writes.
 Branch: fix/vault-simulation-coverage
-PR title: fix: expand vault simulation coverage and correct admission metadata
-PR: Pending publication; vault-notebooks tracking PR https://github.com/tradingstrategy-ai/vault-notebooks/pull/20
+PR title: feat: expand guarded vault simulation coverage and settlement
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1773
 Preserves: Historical prices, discovery boundaries, reader state and unrelated metadata.
 Expected: At most 40 existing rows; counts depend on current admission state.
 
