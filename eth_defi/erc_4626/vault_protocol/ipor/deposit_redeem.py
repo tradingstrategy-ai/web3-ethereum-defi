@@ -47,11 +47,15 @@ ERROR_SELECTOR_LENGTH = 4
 def _external_state_stale_reason(revert_data: bytes | None) -> str | None:
     """Explain the stale observation without mistaking it for missing liquidity.
 
-    The pre-hook supplies all three values, so use its execution timestamp
-    instead of the local clock. Malformed or unrelated errors remain unchanged.
+    The contract checks observation age before allowing the operation. Its
+    error supplies the last update, execution time and permitted age, so the
+    explanation uses chain time rather than the local clock.
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` carries this
+    reason to callers without labelling it a lack of withdrawal funds.
 
-    :param revert_data: Original EVM revert payload.
-    :return: Explanation with Unix timestamps and maximum age in seconds, if decoded.
+    :param revert_data: Bytes returned by a failed contract call, if available.
+    :return: Explanation with Unix timestamps and maximum age in seconds, or
+        ``None`` for an unrelated or malformed error.
     """
     if revert_data is None or len(revert_data) != 100 or revert_data[:4] != IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR:
         return None
@@ -274,7 +278,13 @@ class IPORDepositManager(ERC4626DepositManager):
         check_max_deposit: bool = True,
         check_enough_token: bool = True,
     ) -> ERC4626DepositRequest:
-        """Create a standard ERC-4626 deposit after access admission.
+        """Reject known stale observations before the caller submits a deposit.
+
+        After checking account permissions, simulate the exact call to detect
+        ``ExternalStatePreHookStale``. Other contract failures may be due to a
+        token approval that has not been submitted yet, so they are left to
+        transaction execution. A node error without contract failure data is
+        propagated; a returned request is not proof that execution will succeed.
 
         :param owner:
             Account submitting and signing the deposit.
@@ -289,7 +299,10 @@ class IPORDepositManager(ERC4626DepositManager):
         :param check_enough_token:
             Whether to run the shared balance check.
         :return:
-            Preflighted deposit request.
+            :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositRequest`
+            with the known stale-observation check applied.
+        :raises eth_defi.vault.deposit_redeem.VaultFlowUnavailable:
+            If the contract reports an expired external observation.
         """
         self._assert_immediate_access(owner, self.vault.get_deposit_function_selector(), "deposit")
         request = super().create_deposit_request(
@@ -310,7 +323,7 @@ class IPORDepositManager(ERC4626DepositManager):
             if reason is not None:
                 raise VaultFlowUnavailable(reason, protocol="IPOR Fusion", vault_address=self.vault.address, caller=owner, direction="deposit", phase="preflight", preflight_result="deposit_unavailable", decoded_error="ExternalStatePreHookStale", error_selector=IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR, raw_revert_data=revert_data, requested_raw_amount=request.raw_amount) from error
             # Request construction can precede the approval transaction. Only
-            # recognise the known pre-hook failure here; normal funding and
+            # recognise the known observation-age failure here; normal funding and
             # allowance checks still apply when the request is executed.
         return request
 

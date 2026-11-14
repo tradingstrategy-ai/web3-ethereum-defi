@@ -156,6 +156,8 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         Lagoon's ``maxDeposit`` reports assets already available to claim from a
         queued deposit. Using it as the limit for a new deposit would incorrectly
         reject accounts that have no pending claim.
+        Use :meth:`~eth_defi.erc_4626.vault_protocol.lagoon.vault.LagoonVault.fetch_deposit_capacity`
+        for the separate vault-wide limit.
 
         :param owner: Unused because the remaining cap is shared by all depositors.
         :return: Raw deposit limit, or ``None`` when not advertised.
@@ -262,8 +264,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
                 raise
         else:
             if self.vault.fetch_deposit_capacity() == 0:
-                # A verified global cap can authorise the same Anvil-only Guard
-                # check as terminal closure, without submitting a real deposit.
+                # A full cap would stop request construction before the Guard
+                # permission check. On an Anvil fork, keep the call available
+                # for that check; this does not submit a deposit transaction.
                 return self.create_deposit_request(owner=owner, raw_amount=raw_amount, check_max_deposit=False, check_enough_token=False)
             return super().create_deposit_request_for_guard_validation(owner, raw_amount)
         return GenericERC7540DepositRequest(vault=self.vault, owner=owner, to=owner, amount=self.vault.denomination_token.convert_to_decimals(raw_amount), raw_amount=raw_amount, funcs=[self.vault.vault_contract.functions.requestDeposit(raw_amount, owner, owner)])

@@ -1,4 +1,4 @@
-"""Regressions for limits that an optimistic ERC-4626 maximum cannot establish."""
+"""Prevent positive ERC-4626 limits from hiding a pause, cap or expired observation."""
 
 import datetime
 from decimal import Decimal
@@ -78,7 +78,7 @@ def test_lagoon_capacity_includes_pending_assets() -> None:
     functions.totalAssets.return_value.call.assert_called_with(block_identifier=123)
     balance.call.assert_called_with(block_identifier=123)
     functions.maxDeposit.assert_not_called()
-    # 3. Saturate instead of underflowing and retain older-version behaviour.
+    # 3. Return zero instead of a negative capacity and retain older-version behaviour.
     balance.call.return_value = 25
     assert LagoonVault.fetch_deposit_capacity(vault) == 0
     vault.version = LagoonVersion.v_0_5_0
@@ -172,13 +172,13 @@ def test_lagoon_guardrail_refusal_needs_operator_valuation() -> None:
 
 
 def test_vault_morpho_cap_does_not_change_canonical_morpho() -> None:
-    """The fork's extra cap must not become a requirement for ordinary MetaMorpho.
+    """The third-party implementation's cap must not apply to canonical MetaMorpho.
 
     1. Resolve each implementation from its detected features without RPC.
-    2. Model a positive advertised maximum and a smaller global TVL cap.
+    2. Model a positive advertised maximum and a smaller vault-wide asset cap.
     3. Check the cap remains bounded at zero when current assets exceed it.
     """
-    # 1. Only transport is mocked; factory selection and capacity readers are real.
+    # 1. Only node responses are mocked; adapter selection and capacity readers are real.
     provider = Mock()
     provider.eth.chain_id = 1
     vault = create_vault_instance(provider, OWNER, features={ERC4626Feature.morpho_like, ERC4626Feature.vault_morpho_like})
@@ -248,7 +248,7 @@ def test_morpho_market_adapter_zero_cap_is_not_a_funding_failure() -> None:
 
 
 def test_morpho_arithmetic_and_exit_gate_failures_remain_distinct() -> None:
-    """A panic must not be called illiquidity, and a denied owner must stay denied.
+    """Keep arithmetic failures and denied withdrawal permission distinct from missing funds.
 
     1. Supply the two captured revert payloads without a provider.
     2. Run the existing exact-redemption preflight.
@@ -281,12 +281,15 @@ def test_ipor_deposit_keeps_fresh_and_unrelated_revert_paths(failure: Exception 
     2. Model a fresh call or an unrelated contract refusal.
     3. Retain the request for normal execution and approval checks.
     """
+    # 1. Bypass separately tested access checks to isolate observation-age handling.
     manager = object.__new__(IPORDepositManager)
     manager.vault = SimpleNamespace(address=OWNER, get_deposit_function_selector=lambda: b"test")
     manager._assert_immediate_access = Mock()
+    # 2. Model a fresh call or an unrelated refusal, such as a pending approval.
     func = Mock()
     func.call.side_effect = failure
     request = SimpleNamespace(funcs=[func], raw_amount=100)
+    # 3. Keep both requests for normal execution and approval checks.
     with patch.object(ERC4626DepositManager, "create_deposit_request", return_value=request):
         assert manager.create_deposit_request(OWNER, raw_amount=100) is request
     func.call.assert_called_once_with({"from": OWNER})
@@ -299,13 +302,16 @@ def test_ipor_deposit_does_not_hide_provider_failure() -> None:
     2. Attempt the new deposit preflight.
     3. Preserve the provider failure for the operator to retry.
     """
+    # 1. Mock node unavailability; it provides no evidence of a contract refusal.
     manager = object.__new__(IPORDepositManager)
     manager.vault = SimpleNamespace(address=OWNER, get_deposit_function_selector=lambda: b"test")
     manager._assert_immediate_access = Mock()
     func = Mock()
     func.call.side_effect = ValueError("provider unavailable")
     request = SimpleNamespace(funcs=[func], raw_amount=100)
+    # 2. Use the real simulation check with a separately covered request builder.
     with patch.object(ERC4626DepositManager, "create_deposit_request", return_value=request):
+        # 3. Keep the node failure visible so callers can retry it.
         with pytest.raises(ValueError, match="provider unavailable"):
             manager.create_deposit_request(OWNER, raw_amount=100)
 
@@ -326,7 +332,7 @@ def test_vault_morpho_retains_measured_lending_without_protocol_defaults() -> No
     token = SimpleNamespace(address=OWNER, contract=get_deployed_contract(transport, "ERC20MockDecimals.json", OWNER), convert_to_decimals=lambda raw: Decimal(raw) / Decimal(10**6), convert_to_raw=lambda amount: int(amount * 10**6))
     vault.denomination_token = token
     raw_idle = 25_000_000
-    # 2. The existing shared snapshot helper and historical codec retain the same units.
+    # 2. The shared snapshot helper and historical decoder retain the same units.
     with patch.object(transport.eth, "call", return_value=raw_idle.to_bytes(32, "big")):
         liquidity, utilisation = vault.fetch_lending_snapshot(Decimal(100), 123)
     assert liquidity == pytest.approx(Decimal(25))

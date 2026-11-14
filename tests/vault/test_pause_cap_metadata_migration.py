@@ -20,13 +20,14 @@ def test_pause_cap_refresh_preserves_prices_and_unrelated_rows(monkeypatch: pyte
     """Refresh the repaired readers even below the scanner's activity threshold.
 
     1. Model the five existing catalogue rows and their saved enrichment.
-    2. Read current closure directly, with realistic unknown tri-state openness.
-    3. Preserve economics while clearing only metadata inherited from wrong attribution.
+    2. Read a specific closure reason even when general deposit availability is unknown.
+    3. Preserve asset values while clearing defaults inherited from the wrong protocol.
     """
     script = next(s for s in discover_migrations() if s.name == "075-vault-pause-cap-and-classification.py")
     spec = importlib.util.spec_from_file_location("pause_cap_migration", script.path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # 1. Saved rows let the test check changes without a production database.
     rows = {}
     timestamp = datetime.datetime(2026, 1, 1)
     protocols = {}
@@ -48,13 +49,13 @@ def test_pause_cap_refresh_preserves_prices_and_unrelated_rows(monkeypatch: pyte
     monkeypatch.setattr(module, "read_json_rpc_url", lambda _chain: "http://unused")
     monkeypatch.setattr(module, "create_multi_provider_web3", lambda _url: provider)
     monkeypatch.setattr(module, "detect_vault_features", lambda *_a, **_k: {ERC4626Feature.morpho_like, ERC4626Feature.vault_morpho_like})
-    # Unknown openness is valid: the explicit closure reason has separate semantics.
+    # A specific closure reason can be known even when general availability is unknown.
     vault = SimpleNamespace(fetch_deposit_open=lambda: None, fetch_deposit_closed_reason=lambda: "Cap reached")
     factory = Mock(return_value=vault)
     monkeypatch.setattr(module, "create_vault_instance", factory)
 
     def scan(_web3: object, detection: ERC4262VaultDetection, _block: int, token_cache: dict) -> dict:
-        """Model the generic adapter projection with old Morpho defaults removed."""
+        """Supply scanner fields without network calls so only migration changes are tested."""
         return {
             "Protocol": GENERIC_ERC4626_PROTOCOL_NAME,
             "_detection_data": detection,
@@ -81,7 +82,9 @@ def test_pause_cap_refresh_preserves_prices_and_unrelated_rows(monkeypatch: pyte
         }
 
     monkeypatch.setattr(module, "create_vault_scan_record", scan)
+    # 2. Read a specific closure reason even when general deposit availability is unknown.
     module.migrate(context)
+    # 3. Only the misclassified family loses the unsupported Morpho defaults.
     for address in module.TARGETS:
         row = rows[VaultSpec(1, address)]
         assert (row["NAV"], row["Shares"], row["First seen"], row["Address"]) == (nav, 123, timestamp, address)
@@ -114,7 +117,7 @@ def test_pause_cap_refresh_propagates_read_failure(monkeypatch: pytest.MonkeyPat
     """A failed contract read must not become a replacement catalogue value.
 
     1. Retain one existing capped-vault row in the migration context.
-    2. Fail the direct closure read as a provider would.
+    2. Fail either the closure read or metadata rebuild, as a node failure would.
     3. Leave the row unchanged and prevent a metadata commit.
     """
     script = next(s for s in discover_migrations() if s.name == "075-vault-pause-cap-and-classification.py")
@@ -124,6 +127,7 @@ def test_pause_cap_refresh_propagates_read_failure(monkeypatch: pytest.MonkeyPat
     address = module.TARGETS[-1]
     timestamp = datetime.datetime(2026, 1, 1)
     detection = ERC4262VaultDetection(1, address, 1, timestamp, {ERC4626Feature.morpho_like}, timestamp, 10, 20)
+    # 1. Keep a copy to detect any partial update after a failed read.
     row = {"Protocol": "Morpho", "_detection_data": detection, "NAV": 999}
     original = row.copy()
     context = Mock()
@@ -136,7 +140,9 @@ def test_pause_cap_refresh_propagates_read_failure(monkeypatch: pytest.MonkeyPat
     vault = SimpleNamespace(fetch_deposit_open=lambda: None, fetch_deposit_closed_reason=Mock(side_effect=ValueError("RPC failed") if failure_mode == "closure" else None, return_value="Cap reached"))
     monkeypatch.setattr(module, "create_vault_instance", lambda *_a, **_k: vault)
     monkeypatch.setattr(module, "create_vault_scan_record", lambda *_a, **_k: {"Protocol": "<unknown>", "_rpc_failure_category": "provider_error"})
+    # 2. Mock node failure rather than depending on a live provider outage.
     with pytest.raises(ValueError, match="RPC failed|metadata rebuild failed"):
         module.migrate(context)
+    # 3. Neither an invented value nor a partial repair may be committed.
     assert row == original
     context.commit_metadata.assert_not_called()

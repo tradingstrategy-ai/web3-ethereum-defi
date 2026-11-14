@@ -1,7 +1,7 @@
 .. _vault-morpho-unattributed:
 
 Unattributed VaultMorpho implementation
-======================================
+=======================================
 
 ``VaultMorpho`` is the Solidity name of a capped ERC-4626 implementation that
 allocates assets to Morpho Blue markets. Its owning protocol and upstream GitHub
@@ -9,7 +9,7 @@ repository have not been identified. It is not the canonical MetaMorpho source,
 and calling ``MORPHO()`` does not make it an officially attributed Morpho vault.
 
 Source and deployment evidence
------------------------------
+------------------------------
 
 The reviewed Ethereum vault is
 ``0x21ed44c18c926c60092b1b2985e2c999421a5a69``. At block ``26402309`` it used
@@ -76,7 +76,7 @@ still determines whether an account can trade. A prior Guard-only closure check
 at block ``26402309`` did not execute a deposit or establish live trade support.
 
 Persisted metadata and maintenance
----------------------------------
+----------------------------------
 
 The prepared, unapplied migration
 ``migration/scripts/075-vault-pause-cap-and-classification.py`` re-detects the

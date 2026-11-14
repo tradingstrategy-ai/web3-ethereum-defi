@@ -34,10 +34,20 @@ TARGETS = (
 
 
 def migrate(context: MigrationContext) -> None:
-    """Refresh existing scan fields through the repaired readers, retaining history.
+    """Correct current availability and unsupported Morpho defaults without rewriting prices.
 
-    :param context: Runner-owned metadata staging, reports, backups and commit.
-    :return: ``None`` after staging reviewed changes.
+    A saved name only selects candidates: contract detection must confirm the
+    capped implementation before its metadata changes. Read repaired availability
+    fields directly so the scanner's minimum-value threshold cannot hide a pause
+    or full cap. Rebuild only fields affected by the incorrect protocol identity.
+    Contract-read and provider failures propagate unchanged and prevent a commit.
+
+    :param context: :class:`~eth_defi.vault_protocols.migration.MigrationContext`
+        managing metadata, reports and backups. Its
+        :meth:`~eth_defi.vault_protocols.migration.MigrationContext.commit_metadata`
+        writes changes only when the runner is in apply mode.
+    :raises ValueError: If saved identities conflict, the reviewed deployment no
+        longer matches, or rebuilding its metadata fails. No commit is made.
     """
     database = context.metadata()
     targets = {VaultSpec(1, address): address == TARGETS[-1] for address in TARGETS}
@@ -65,7 +75,9 @@ def migrate(context: MigrationContext) -> None:
         if detection.get_spec() != spec:
             raise ValueError(f"Conflicting vault identity at {spec}")
         if is_vault_morpho:
-            # Interface detection uses latest; capacity reads below use the numeric block.
+            # Recheck the contract because its saved name alone cannot identify
+            # the implementation. Detection uses latest; capacity reads below
+            # use the selected block so related balances are consistent.
             features = detect_vault_features(web3, address, verbose=False)
             if ERC4626Feature.vault_morpho_like not in features:
                 if spec == VaultSpec(1, TARGETS[-1]):

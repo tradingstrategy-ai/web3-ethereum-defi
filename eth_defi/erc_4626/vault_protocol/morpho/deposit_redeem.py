@@ -1,7 +1,9 @@
-"""Morpho Vault V1 and V2 redemption transaction preflights.
+"""Check Morpho Vault V1 and V2 operations before transaction submission.
 
 Morpho Vault V2 deliberately returns zero from its ERC-4626 maximum functions,
 so exact transaction simulation is needed to expose failures before broadcast.
+Deposits also depend on the configured adapter's permissions and allocation
+limits; :class:`MorphoV2DepositManager` checks these before building the request.
 See the `official Vault V2 liquidity and ERC-4626 documentation
 <https://github.com/morpho-org/vault-v2#liquidity>`__.
 """
@@ -25,8 +27,13 @@ from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowU
 #: https://github.com/morpho-org/vault-v2/blob/main/src/libraries/SafeERC20Lib.sol
 MORPHO_V2_TRANSFER_REVERTED_SELECTOR = HexBytes("0xace2a47e")
 
-#: Known exit failures stay separate from insufficient payout liquidity.
+#: ``CannotSendShares()`` means the share owner lacks withdrawal permission.
+#: Additional payout tokens cannot resolve it; report the permission refusal via
+#: :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable`.
 MORPHO_V2_CANNOT_SEND_SHARES_SELECTOR = HexBytes("0x876736d1")
+
+#: Solidity's ``Panic(uint256)`` error carries a runtime failure code. Preserve
+#: arithmetic failure ``0x11`` rather than misreporting it as a lack of funds.
 SOLIDITY_PANIC_SELECTOR = HexBytes("0x4e487b71")
 
 #: Divisor for the Anvil liquidity injection margin: ``10_000`` adds one basis
@@ -38,7 +45,7 @@ class MorphoV1DepositManager(ERC4626DepositManager):
     """Preserve requested shares across MetaMorpho's capacity conversion rounding."""
 
     def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
-        """Allow at most one raw asset unit of shortfall after exact simulation."""
+        """Permit exact simulation when the excess is worth at most one raw asset unit."""
         return 0 < maximum < raw_shares and self.vault.vault_contract.functions.previewRedeem(raw_shares - maximum).call() <= 1
 
 
@@ -59,13 +66,23 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         permissions using the adapter address. Missing optional functions leave
         the final decision to the deposit transaction's contract checks.
 
+        For a recognised market adapter, also read its allocation identifiers
+        and reject a zero ``absoluteCap``: funding the sender cannot enable a
+        market the vault is configured never to use. A positive cap is not a
+        full availability check; the contract still validates the deposit.
+        See :ref:`morpho-vault-classification` for implementation distinctions.
+
         :param owner: Outer asset sender.
         :param to: Outer share receiver.
         :param amount: Decimal deposit amount.
         :param raw_amount: Deposit in the token's smallest integer units.
         :param check_max_deposit: Retain ordinary deposit-limit checks.
         :param check_enough_token: Retain ordinary funding checks.
-        :return: Standard ERC-4626 deposit request.
+        :return: Standard :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositRequest`.
+        :raises eth_defi.vault.deposit_redeem.WhitelistingRequired:
+            If the underlying vault denies the adapter permission.
+        :raises eth_defi.vault.deposit_redeem.VaultFlowUnavailable:
+            If a recognised allocation has a zero cap.
         """
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.vault.address)
         adapter = contract.functions.liquidityAdapter().call()

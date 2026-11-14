@@ -931,8 +931,8 @@ def create_probe_calls(
         )
 
         # An unattributed VaultMorpho implementation adds a global deposit cap.
-        # Offline ABI binding only: detection executes the resulting call in
-        # its existing multicall, without a second provider or RPC request here.
+        # Bind the stored contract interface without a provider: the existing
+        # batch reader executes the call alongside the other detection calls.
         yield EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
 
         # Morpho V2 - newer adapter-based architecture
@@ -2457,7 +2457,8 @@ def create_vault_instance(
 
         return VaultStreetVault(web3, spec, **kwargs)
 
-    # TODO: Some module deadlock sheningans for Morpho
+    # Check the capped implementation first: it also exposes MORPHO(), but
+    # must not inherit canonical Morpho fees or deposit rules.
     elif ERC4626Feature.vault_morpho_like in features:
         return VaultMorphoVault(web3, spec, **kwargs)
     elif ERC4626Feature.morpho_like in features:

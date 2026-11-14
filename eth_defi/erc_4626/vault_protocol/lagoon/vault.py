@@ -1394,11 +1394,17 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
     def fetch_deposit_capacity(self) -> int | None:
         """Read v0.6 capacity without confusing a queued claim with a new deposit.
 
-        ERC7540Lib counts both accepted assets and assets waiting in the pending
-        silo against maxCap. Only the verified v0.6 accounting is handled here;
-        older versions retain their existing request checks.
+        The v0.6 ``ERC7540Lib`` counts both accepted assets and tokens waiting
+        in the deposit holding contract (the silo) against ``maxCap``. Read
+        those balances at one block so deposits between reads cannot distort
+        the limit. Older versions retain their existing request checks.
 
-        :return: Remaining raw denomination units, or ``None`` for other versions.
+        :meth:`~eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem.LagoonDepositManager.fetch_depositable_raw_assets`
+        uses this value because ``maxDeposit()`` describes an existing claim,
+        rather than capacity for a new deposit.
+
+        :return: Remaining capacity in the denomination token's smallest units,
+            floored at zero, or ``None`` for other versions.
         """
         if self.version is not LagoonVersion.v_0_6_0:
             return None
@@ -1410,7 +1416,9 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         return max(0, cap - accepted - pending)
 
     def fetch_deposit_closed_reason(self) -> str | None:
-        """Recognise exhausted global capacity while preserving queued-claim semantics.
+        """Report an exhausted cap without treating an empty claim as a deposit closure.
+
+        :meth:`fetch_deposit_capacity` includes deposits still waiting for settlement.
 
         :return: Closure reason at zero remaining capacity, otherwise the base assessment.
         """

@@ -4,7 +4,8 @@ The contract uses Morpho Blue markets but is not canonical MetaMorpho. Its
 verified deposit cap belongs to this implementation; it does not establish
 Morpho protocol identity, API coverage, fees, permissions or withdrawal timing.
 
-See :ref:`vault-morpho-unattributed` for source provenance and classification.
+See :ref:`vault-morpho-unattributed` for verified contract sources and the
+limits of what they establish about the operator.
 """
 
 import datetime
@@ -27,12 +28,18 @@ from eth_defi.vault.strategy_tag import StrategyTag
 
 
 class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
-    """Retain measured idle assets without importing Morpho fee assumptions."""
+    """Preserve lending measurements without assuming Morpho fees apply.
+
+    :class:`~eth_defi.erc_4626.vault.ERC4626HistoricalReader` supplies prices
+    and asset totals. A separate token-balance read measures assets held in the
+    vault itself; it does not estimate what can be withdrawn from its markets.
+    """
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Read standard vault values and the unallocated token balance together.
 
-        :return: Existing core calls plus one ABI-backed balance read, without a fee call.
+        :return: Calls for :meth:`process_result`, including the idle token balance.
+            The generic reader leaves unsupported fee information unknown.
         """
         yield from super().construct_multicalls()
         token = self.vault.denomination_token
@@ -40,7 +47,13 @@ class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
             yield EncodedCall.from_contract_call(token.contract.functions.balanceOf(self.vault.address), extra_data={"function": "idle_assets", "vault": self.vault.address}, first_block_number=self.first_block)
 
     def process_result(self, block_number: int, timestamp: datetime.datetime, call_results: list[EncodedCallResult]) -> VaultHistoricalRead:
-        """Extend the common result with the observed idle balance and allocation fraction.
+        """Keep missing liquidity observations distinct from a measured zero balance.
+
+        An unsuccessful or malformed balance response leaves the inherited result
+        unchanged. Valid balances use the same token units as total assets;
+        utilisation is the fraction outside the vault, with zero for an empty vault.
+        See :meth:`~eth_defi.erc_4626.vault.ERC4626Vault.fetch_idle_lending_snapshot`
+        for the corresponding single-block calculation.
 
         :param block_number: Source block shared by all observations.
         :param timestamp: Naive UTC timestamp of that block.
@@ -58,14 +71,31 @@ class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
 
 
 class VaultMorphoDepositManager(ERC4626DepositManager):
-    """Retain the standard request flow while enforcing the fork's TVL cap."""
+    """Apply the implementation's deposit cap before constructing a transaction.
+
+    Its ``maxDeposit()`` can exceed the limit enforced by ``deposit()``.
+    :meth:`fetch_depositable_raw_assets` applies
+    :meth:`VaultMorphoVault.fetch_deposit_capacity` through the standard
+    :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager` capacity check.
+    """
 
     def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
-        """Bound the verified maxRedeem round-down difference to one raw asset unit."""
+        """Permit exact simulation for a share excess worth at most one raw asset unit.
+
+        The verified ``maxRedeem()`` rounds its asset-to-share conversion down;
+        see :ref:`vault-morpho-unattributed` for the implementation source.
+        The excess must convert to at most one smallest denomination-token unit.
+        This only permits the parent request builder to simulate the exact
+        redemption; that call must still succeed and return a positive payout.
+
+        :param raw_shares: Requested shares in the share token's smallest units.
+        :param maximum: Advertised share limit in the same units.
+        :return: Whether the excess is small enough to attempt the exact simulation.
+        """
         return 0 < maximum < raw_shares and self.vault.vault_contract.functions.previewRedeem(raw_shares - maximum).call() <= 1
 
     def fetch_depositable_raw_assets(self, owner: HexAddress) -> int:
-        """Use remaining TVL capacity even when maxDeposit advertises more.
+        """Prevent a request from passing the market limit but exceeding the vault cap.
 
         :param owner: Account used for the ordinary ERC-4626 maximum.
         :return: Remaining raw denomination units, bounded by a reported maximum.
@@ -84,7 +114,7 @@ class VaultMorphoVault(ERC4626Vault):
     """
 
     def get_strategy_tags(self) -> set[StrategyTag]:
-        """Retain source-proven lending behaviour without asserting the operator's identity.
+        """Describe the lending confirmed by contract source without guessing its operator.
 
         :return: Lending plus independently maintained deployment tags.
         """
@@ -93,16 +123,20 @@ class VaultMorphoVault(ERC4626Vault):
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Preserve historical liquidity measurements independently of protocol attribution.
 
-        :param stateful: Use the existing ordered-reader state when requested.
-        :return: Standard ERC-4626 history with one additional idle-balance observation.
+        :param stateful: Passed to the shared reader to retain state between blocks.
+        :return: :class:`VaultMorphoHistoricalReader`, which also measures idle tokens.
         """
         return VaultMorphoHistoricalReader(self, stateful)
 
     def fetch_lending_snapshot(self, total_assets: Decimal, block_identifier: BlockIdentifier) -> tuple[Decimal | None, Percent | None]:
-        """Keep the verified idle-assets measurement while removing branded metadata.
+        """Derive the allocated fraction without assuming a Morpho protocol identity.
 
-        :param total_assets: TVL already observed in denomination-token units.
-        :param block_identifier: Source block shared with the TVL read.
+        Delegate to
+        :meth:`~eth_defi.erc_4626.vault.ERC4626Vault.fetch_idle_lending_snapshot`
+        so metadata scanning and direct reads use the same units and calculation.
+
+        :param total_assets: Observed assets as a decimal token amount, not smallest units.
+        :param block_identifier: Block used for the total-assets read.
         :return: Idle token balance and the fraction allocated to underlying markets.
         """
         return self.fetch_idle_lending_snapshot(total_assets, block_identifier)
@@ -111,7 +145,8 @@ class VaultMorphoVault(ERC4626Vault):
         """Report idle tokens, excluding liquidity that would require a market withdrawal.
 
         :param block_identifier: Source block for the token balance.
-        :return: Idle denomination-token units, or None without a denomination token.
+        :return: Idle balance as a decimal token amount, or ``None`` if the
+            denomination token is unknown.
         """
         token = self.denomination_token
         if token is None:
@@ -122,33 +157,47 @@ class VaultMorphoVault(ERC4626Vault):
         """Retain the observed allocation fraction rather than a protocol default.
 
         :param block_identifier: Common source block for total and idle assets.
-        :return: Fraction of assets outside the vault's idle balance.
+        :return: Fraction of assets outside the vault's idle balance, zero for an
+            empty vault, or ``None`` when the denomination token is unknown.
         """
         return self.fetch_idle_lending_snapshot(self.fetch_total_assets(block_identifier), block_identifier)[1]
 
     @cached_property
     def vault_contract(self) -> Contract:
-        """Bind the implementation ABI so the extra cap has a typed getter."""
+        """Expose ``tvlCap()`` through the verified implementation's contract interface.
+
+        :return: Contract proxy loaded by :func:`~eth_defi.abi.get_deployed_contract`.
+        """
         return get_deployed_contract(self.web3, "vault_morpho/VaultMorpho.json", self.address)
 
     def fetch_deposit_capacity(self) -> int:
-        """Match the deposit's totalAssets + assets <= tvlCap condition.
+        """Account for the vault-wide limit omitted by ``maxDeposit()``.
 
-        :return: Remaining raw denomination units, floored at zero.
+        ``deposit()`` requires ``totalAssets() + assets <= tvlCap``. Read both
+        values at the configured block, or one selected current block, so a new
+        deposit between reads cannot distort the remaining capacity.
+        See :ref:`vault-morpho-unattributed` for the verified Solidity source.
+
+        :return: Remaining capacity in the denomination token's smallest units,
+            with zero when assets reach or exceed the cap.
         """
         block = self.default_block_identifier if self.default_block_identifier is not None else self.web3.eth.block_number
         functions = self.vault_contract.functions
         return max(0, functions.tvlCap().call(block_identifier=block) - functions.totalAssets().call(block_identifier=block))
 
     def fetch_deposit_closed_reason(self) -> str | None:
-        """Make a full global cap visible to the existing closure checks.
+        """Expose a full cap even when the standard maximum still permits deposits.
 
-        :return: Cap refusal or the inherited ERC-4626 assessment.
+        :return: Explanation when :meth:`fetch_deposit_capacity` is zero;
+            otherwise the inherited ERC-4626 assessment, which may be ``None``.
         """
         if self.fetch_deposit_capacity() == 0:
             return "VaultMorpho tvlCap reached"
         return super().fetch_deposit_closed_reason()
 
     def get_deposit_manager(self) -> VaultMorphoDepositManager:
-        """Keep the cap check in the protocol's ordinary request path."""
+        """Ensure callers receive the manager that enforces this implementation's cap.
+
+        :return: :class:`VaultMorphoDepositManager` bound to this vault.
+        """
         return VaultMorphoDepositManager(self)
