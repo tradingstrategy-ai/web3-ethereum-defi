@@ -111,11 +111,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The project README links this exact reference vault
     #: as running its long-only configuration. Its contrarian limit-order
     #: market making, grid/trailing entries and exits, and averaging into price
-    #: falls support algorithmic, directional, mean-reversion, grid and
+    #: falls support algorithmic, directional, mean-reversion and
     #: orderbook market-making tags. The maintainer explicitly requested the
     #: high-frequency, high-win-rate classification; no measured win rate or
     #: latency-based HFT capability is asserted.
     #: Updated: 2026-11-13. Maintainer assigned Martingale-like trading.
+    #: Updated: 2026-11-14. Removed grid trading at the maintainer's request.
     #: Sources:
     #: - https://github.com/enarjord/passivbot
     #: - https://github.com/enarjord/passivbot/blob/master/docs/config.bot.md
@@ -127,7 +128,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.directional_trading,
         StrategyTag.mean_reversion,
-        StrategyTag.grid_trading,
         StrategyTag.market_making,
         StrategyTag.market_making_clob,
         StrategyTag.martingale_like,

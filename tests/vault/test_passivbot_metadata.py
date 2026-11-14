@@ -28,7 +28,6 @@ EXPECTED_TAGS = {
     StrategyTag.martingale_like,
     StrategyTag.directional_trading,
     StrategyTag.mean_reversion,
-    StrategyTag.grid_trading,
     StrategyTag.market_making,
     StrategyTag.market_making_clob,
 }
@@ -226,3 +225,55 @@ def test_passivbot_migration_target_states(passivbot_migration: tuple[Path, Path
         assert entry["other_data"]["missing_specs"] == ([TARGET.as_string_id()] if state == "missing" else [])
     assert path.read_bytes() == before
     assert not list(data_dir.glob("*.bak*"))
+
+
+@pytest.mark.parametrize("state", ["stale", "current", "missing", "wrong_protocol"])
+def test_passivbot_grid_tag_removal(passivbot_migration: tuple[Path, Path], state: str) -> None:
+    """Remove the persisted grid tag without modifying unrelated metadata.
+
+    Exercise the later migration independently of the initial copy refresh.
+    Preview must preserve bytes, apply must preserve unrelated data, and a
+    second apply must be skipped by the journal.
+
+    :param passivbot_migration: Isolated pipeline and migration resources.
+    :param state: Target condition before the tag-only migration.
+    :return: ``None`` after checking the isolated migration result.
+    """
+    data_dir, scripts_dir = passivbot_migration
+    (scripts_dir / SCRIPT_NAME).unlink()
+    name = "073-passivbot-canon-strategy-tags.py"
+    script = next(spec for spec in runner.discover_migrations() if spec.name == name)
+    (scripts_dir / name).write_bytes(script.source)
+    path = data_dir / "vault-metadata-db.pickle"
+    database = VaultDatabase.read(path)
+    database.rows[TARGET]["_strategy_tags"] = EXPECTED_TAGS | {StrategyTag.grid_trading} if state == "stale" else set(EXPECTED_TAGS)
+    if state == "missing":
+        del database.rows[TARGET]
+    elif state == "wrong_protocol":
+        database.rows[TARGET]["Protocol"] = "Other"
+    database.write(path)
+    original = {file.name: file.read_bytes() for file in data_dir.iterdir()}
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+    if state == "wrong_protocol":
+        with pytest.raises(ValueError, match="not classified as Hyperliquid"):
+            runner.run_pending_migrations(dry_run=False, **options)
+        assert path.read_bytes() == original[path.name]
+        return
+
+    runner.run_pending_migrations(dry_run=True, **options)
+    assert {file.name: file.read_bytes() for file in data_dir.iterdir()} == original
+    runner.run_pending_migrations(dry_run=False, **options)
+    if state == "stale":
+        database.rows[TARGET]["_strategy_tags"] = set(EXPECTED_TAGS)
+    assert VaultDatabase.read(path) == database
+    assert all((data_dir / name).read_bytes() == value for name, value in original.items() if name != path.name)
+    entry = runner.load_state(data_dir / "migration.json")[name]
+    assert entry["other_data"]["updated_fields"] == (1 if state == "stale" else 0)
+    if state == "stale":
+        assert Path(entry["other_data"]["backup_paths"][0]).read_bytes() == original[path.name]
+    else:
+        assert path.read_bytes() == original[path.name]
+        assert not list(data_dir.glob("*.bak*"))
+    applied = {file.name: file.read_bytes() for file in data_dir.iterdir()}
+    assert runner.run_pending_migrations(dry_run=False, **options) == []
+    assert {file.name: file.read_bytes() for file in data_dir.iterdir()} == applied

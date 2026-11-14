@@ -267,4 +267,4 @@ def test_maat_factory_and_migration_inventory() -> None:
     assert vault.is_whitelisted_deposit() is True
     assert get_vault_protocol_name(features) == "MAAT"
     # 3. This also checks required operational headers and migration signature.
-    assert any(spec.number == 72 and spec.path.name == "072-vault-simulation-admission.py" for spec in discover_migrations())
+    assert any(spec.number == 74 and spec.path.name == "074-vault-simulation-admission.py" for spec in discover_migrations())
