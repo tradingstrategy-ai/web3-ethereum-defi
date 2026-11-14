@@ -17,7 +17,7 @@ from web3 import HTTPProvider, Web3
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.compat import install_retry_middleware_compat, native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
