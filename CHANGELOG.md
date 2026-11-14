@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Probe versionless Lagoon settlement interfaces before fork broadcasts; update exact unlimited-capacity expectations and Ember validator admission coverage (2026-11-14).
+
 - feat: Simulate Accountable request fulfilment on Anvil through its configured strategy, preserving exact ticket attribution and existing vault liquidity checks (2026-11-14).
 
 - fix: Preserve token units beyond the caller's Decimal precision; bound vault payout comparisons with explicit token-unit tolerances and distinguish Fluid interest-driven fork liquidity shortages from rounding (2026-11-14).

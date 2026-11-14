@@ -68,7 +68,7 @@ class FluidVault(ERC4626Vault):
             liquidity = b""
         # fToken/iToken getData returns five addresses, a boolean and three
         # uint256 values. The first two identify Liquidity and LendingFactory.
-        if len(liquidity) == 9 * 32 and all(int.from_bytes(liquidity[i:i + 32], "big") for i in (0, 32)) and int.from_bytes(liquidity[5 * 32:6 * 32], "big") in (0, 1):
+        if len(liquidity) == 9 * 32 and all(int.from_bytes(liquidity[i : i + 32], "big") for i in (0, 32)) and int.from_bytes(liquidity[5 * 32 : 6 * 32], "big") in (0, 1):
             return False
         # Fluid Lite uses a different interface. Only its reviewed implementation
         # is covered; a name containing Fluid is not admission evidence.

@@ -3,6 +3,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from web3.exceptions import ContractLogicError
 
 import pytest
 
@@ -126,8 +127,8 @@ def test_lagoon_deposit_modes(version, valid, mode, expected) -> None:
         vault.vault_contract.functions.syncMode.assert_not_called()
 
 
-@pytest.mark.parametrize("version,valid,signature", [(LagoonVersion.legacy, False, "settleDeposit()"), (LagoonVersion.v_0_4_0, False, "settleDeposit(uint256)"), (LagoonVersion.v_0_5_0, True, "settleDeposit(uint256)")])
-def test_lagoon_settlement_selector_and_expiry(version, valid, signature) -> None:
+@pytest.mark.parametrize("version,valid,signature", [(LagoonVersion.legacy, False, "settleDeposit()"), (LagoonVersion.legacy, False, "settleDeposit(uint256)"), (LagoonVersion.v_0_4_0, False, "settleDeposit(uint256)"), (LagoonVersion.v_0_5_0, True, "settleDeposit(uint256)")])
+def test_lagoon_settlement_selector_and_expiry(version: LagoonVersion, valid: bool, signature: str) -> None:
     """Keep legacy/v0.4 calls compatible and expire valid NAV from the Safe.
 
     1. Stub only transaction transport; the helper constructs real call metadata.
@@ -141,6 +142,8 @@ def test_lagoon_settlement_selector_and_expiry(version, valid, signature) -> Non
     vault.web3 = Mock()
     vault.web3.eth.get_balance.return_value = 10**18
     vault.web3.eth.send_transaction.return_value = b"\x03" * 32
+    if version is LagoonVersion.legacy and signature == "settleDeposit(uint256)":
+        vault.web3.eth.call.side_effect = [ContractLogicError("execution reverted"), b""]
     vault.vault_contract.functions.isTotalAssetsValid.return_value.call.return_value = valid
     vault.vault_contract.functions.updateNewTotalAssets.return_value.transact.return_value = b"\x01" * 32
     vault.vault_contract.functions.expireTotalAssets.return_value.transact.return_value = b"\x02" * 32
@@ -150,6 +153,10 @@ def test_lagoon_settlement_selector_and_expiry(version, valid, signature) -> Non
         force_lagoon_settle(vault, vault.address, raw_nav=123, settlement_manager=safe)
     # 3. Old versions must not call the missing validity view.
     assert encode.call_args.kwargs["function"] == signature
+    assert encode.call_args.kwargs["data"] == (b"" if signature == "settleDeposit()" else (123).to_bytes(32, "big"))
+    vault.web3.eth.send_transaction.assert_called_once()
+    if version is LagoonVersion.legacy:
+        assert vault.web3.eth.call.call_count == (2 if signature == "settleDeposit(uint256)" else 1)
     if version in (LagoonVersion.legacy, LagoonVersion.v_0_4_0):
         vault.vault_contract.functions.isTotalAssetsValid.assert_not_called()
     else:
@@ -216,4 +223,4 @@ def test_maat_factory_and_migration_inventory() -> None:
     assert vault.is_whitelisted_deposit() is True
     assert get_vault_protocol_name(features) == "MAAT"
     # 3. This also checks required operational headers and migration signature.
-    assert any(spec.number == 70 for spec in discover_migrations())
+    assert any(spec.number == 72 and spec.path.name == "072-vault-simulation-admission.py" for spec in discover_migrations())
