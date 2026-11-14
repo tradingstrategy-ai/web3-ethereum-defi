@@ -106,6 +106,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.directional_trading,
         StrategyTag.trend_following,
     },
+    #: Vault: HyperNeutral #1 on Hypercore (9999).
+    #: Added: 2026-11-14.
+    #: Decision material: Maintainer explicitly assigned long-short portfolio.
+    #: The current vault page confirms the address and describes a market
+    #: neutral strategy; no additional strategy tags are inferred.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/hyperneutral-1
+    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.long_short_portfolio},
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault

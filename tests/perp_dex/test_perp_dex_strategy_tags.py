@@ -24,6 +24,24 @@ EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
+def test_hyperneutral_native_export_strategy_tags() -> None:
+    """Export HyperNeutral #1 with its maintained long-short classification.
+
+    The native exporter must preserve the default perpetual-futures tag while
+    adding the address-specific portfolio tag, regardless of address casing.
+
+    :return: ``None`` after checking resolver and export output.
+    """
+    address = "0x8bb033130be354eed1110ce7228d7095f001d9fe"
+    expected = {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    for variant in (address, address.upper()):
+        _, row = create_hyperliquid_vault_row(HexAddress(variant), "HyperNeutral #1", None, 1_000, datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC).replace(tzinfo=None))
+        assert row["_strategy_tags"] == expected
+        assert hyperliquid_tags.get_strategy_tags(variant) == expected
+    hyperliquid_tags.get_strategy_tags(address).clear()
+    assert hyperliquid_tags.get_strategy_tags(address) == expected
+
+
 def test_rocksteady_native_export_strategy_tags() -> None:
     """Export RockSteady as a programmed perpetual futures strategy.
 

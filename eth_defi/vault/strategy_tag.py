@@ -75,6 +75,11 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: AllDeFi Quant Directional Strategy (GRVT).
     directional_trading = "directional_trading"
 
+    #: Holds long positions in assets expected to rise and short positions in
+    #: assets expected to fall, seeking returns from their relative performance.
+    #: Market neutrality depends on how the two legs are sized and hedged.
+    long_short_portfolio = "long_short_portfolio"
+
     #: Maintains a fixed long or short exposure to one underlying asset using
     #: leverage. This is direct market exposure, not a trading signal,
     #: selection method, or other trade intelligence.
@@ -120,6 +125,7 @@ class StrategyTag(str, enum.Enum):
     arbitrage = "arbitrage"
 
     #: Seeks to offset market exposure while capturing non-directional returns.
+    #: Must always be paired with :attr:`long_short_portfolio`.
     #: Example vault: Grvt Liquidity Provider (GLP).
     delta_neutral = "delta_neutral"
 
@@ -317,6 +323,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.directional_trading: {
         "label": "Directional trading",
         "description": "Takes [long or short positions](https://tradingstrategy.ai/glossary/directional-strategy) to profit from rising or falling markets.",
+    },
+    StrategyTag.long_short_portfolio: {
+        "label": "Long-short portfolio",
+        "description": "Combines positions that profit from rising prices with positions that profit from falling prices, seeking returns from their relative performance.",
     },
     StrategyTag.directional_leverage: {
         "label": "Directional leverage",

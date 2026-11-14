@@ -524,6 +524,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (9999, "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003"): "futurai-labs",
     (9999, "0x53375ca9a649f337d83d0834fec0db97640a2a06"): "futurai-labs",
     (9999, "0xbefed76a71682b1dc48cca5a10f397cbc492a216"): "futurai-labs",
+    #: HyperNeutral #1 on Hypercore (9999), reviewed 2026-11-14.
+    #: The live vaultDetails description explicitly links @HyprNeutral;
+    #: the maintainer supplied the same account as the curator identity.
+    #: https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe
+    #: https://x.com/HyprNeutral
+    (9999, "0x8bb033130be354eed1110ce7228d7095f001d9fe"): "hyperneutral",
     #: Passivbot Canon on Hypercore (9999), reviewed 2026-11-01.
     #: The project's README identifies this exact address as its reference
     #: long-only configuration. The public vaultDetails response confirms
