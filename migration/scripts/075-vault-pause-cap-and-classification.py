@@ -4,7 +4,7 @@ Purpose: Refresh the three legacy Upshift pause readers, Odyssey's cap, and Vaul
 Scope: Five existing Ethereum vault rows; current availability and VaultMorpho metadata only.
 Branch: fix/vault-remaining-issues
 PR title: fix: enforce vault pauses and caps and explain unavailable operations
-PR: pending publication
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777
 Preserves: Historical prices, NAV, shares, discovery boundaries and reader state.
 Expected: At most five existing rows change; current contract state determines availability.
 
