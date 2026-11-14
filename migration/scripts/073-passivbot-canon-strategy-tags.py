@@ -4,7 +4,7 @@ Purpose: Remove the grid trading classification at the maintainer's request.
 Scope: Only _strategy_tags for Passivbot Canon on Hypercore (9999).
 Branch: remove-grid-trading-tag-passivbot-canon
 PR title: fix: remove grid trading tag from Passivbot Canon
-PR: Not opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1776
 Preserves: All other metadata, unrelated rows, prices, reader state and timestamp caches.
 Expected: At most one existing row and one changed field; report absent rows.
 Run after merge using the production reminder in the Passivbot research note.
