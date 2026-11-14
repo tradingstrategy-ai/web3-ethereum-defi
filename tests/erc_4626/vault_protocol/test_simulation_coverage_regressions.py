@@ -3,6 +3,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from eth_abi import encode
 from web3.exceptions import ContractLogicError
 
 import pytest
@@ -10,7 +11,8 @@ import pytest
 from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import AccountableDepositManager
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
@@ -20,6 +22,7 @@ from eth_defi.erc_4626.vault_protocol.maat.vault import MaatVault
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault_protocols.migration import discover_migrations
 from eth_defi.abi import ZERO_ADDRESS_STR
 
@@ -57,25 +60,66 @@ def test_accountable_mined_request_reconstruction() -> None:
 def test_morpho_owner_gate_predicates() -> None:
     """Distinguish canonical owner admission, refusal and unreadable results.
 
-    1. Supply a provider-shaped stub to check decoding without RPC.
+    1. Bind the stored ABI and stub only RPC responses.
     2. Verify admitted owner checks both predicates.
     3. Verify denied and unreadable predicates stay distinct.
     """
-    # 1. No external provider is needed to check bool decoding and call shape.
-    owner = "0x1111111111111111111111111111111111111111"
+    # 1. Exercise real ABI encoding/decoding without an external provider.
+    owner = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
     vault = object.__new__(MorphoV2Vault)
-    provider = Mock()
-    with patch.object(MorphoV2Vault, "web3", provider, create=True), patch.object(MorphoV2Vault, "address", owner), patch.object(MorphoV2Vault, "_get_block_identifier", return_value="latest"):
+    with patch("eth_defi.event_reader.fast_json_rpc._make_request", lambda self, method, params: {"jsonrpc": "2.0", "id": 1, "result": "0x1"}):
+        provider = create_multi_provider_web3("http://localhost:1")
+    with patch.object(MorphoV2Vault, "web3", provider, create=True), patch.object(MorphoV2Vault, "address", owner), patch.object(MorphoV2Vault, "_get_block_identifier", return_value=12345), patch.object(provider.eth, "call") as call, patch.object(provider.eth, "get_code", return_value=b"\x01"):
         # 2. Both predicates must admit the custody account.
-        provider.eth.call.side_effect = [(1).to_bytes(32), (1).to_bytes(32)]
+        call.side_effect = [encode(["bool"], [True]), encode(["bool"], [True])]
         assert vault.is_account_whitelisted(owner) is True
-        assert provider.eth.call.call_count == 2
+        assert call.call_count == 2
+        assert all(c.kwargs["block_identifier"] == 12345 for c in call.call_args_list)
+        assert all(c.args[0]["data"].endswith(owner[2:]) for c in call.call_args_list)
         # 3. Refusal is false; malformed output remains unknown.
-        provider.eth.call.side_effect = [(0).to_bytes(32)]
+        call.side_effect = [encode(["bool"], [False])]
         assert vault.is_account_whitelisted(owner) is False
-        provider.eth.call.side_effect = [b""]
-        with pytest.raises(NotImplementedError, match="Unreadable"):
+        call.side_effect = [encode(["bool"], [True]), encode(["bool"], [False])]
+        assert vault.is_account_whitelisted(owner) is False
+        for response in (b"", b"\x00" * 31, encode(["uint256"], [2]), ContractLogicError("reverted"), ExtraValueError("reverted")):
+            call.side_effect = [response]
+            with pytest.raises(NotImplementedError, match="Unreadable"):
+                vault.is_account_whitelisted(owner)
+        call.side_effect = RuntimeError("transport failed")
+        with pytest.raises(RuntimeError, match="transport failed"):
             vault.is_account_whitelisted(owner)
+
+
+def test_morpho_nested_gate_predicates() -> None:
+    """Retain nested adapter admission through the stored predicate ABI.
+
+    1. Bind real proxies, mocking RPC responses and generic request construction.
+    2. Check each known denial names the inner vault and adapter depositor.
+    3. Preserve fall-through for admitted or unavailable optional predicates.
+    """
+    # 1. No fork is needed to check predicate decoding and exception attribution.
+    with patch("eth_defi.event_reader.fast_json_rpc._make_request", lambda self, method, params: {"jsonrpc": "2.0", "id": 1, "result": "0x1"}):
+        provider = create_multi_provider_web3("http://localhost:1")
+    owner, adapter, inner = ("0x" + byte * 40 for byte in ("1", "2", "3"))
+    vault = Mock(spec=MorphoV2Vault, web3=provider, address=owner, chain_id=1)
+    manager = MorphoV2DepositManager(vault)
+    prefix = [encode(["address"], [adapter]), encode(["address"], [inner])]
+    with patch.object(provider.eth, "call") as call, patch.object(provider.eth, "get_code", return_value=b"\x01"), patch.object(ERC4626DepositManager, "create_deposit_request") as create_request:
+        # 2. Each canonical false result refuses before generic request creation.
+        for responses, error in (([False], "CannotSendAssets"), ([True, False], "CannotReceiveShares")):
+            call.side_effect = prefix + [encode(["bool"], [allowed]) for allowed in responses]
+            with pytest.raises(WhitelistingRequired) as exc:
+                manager.create_deposit_request(owner, raw_amount=100)
+            assert exc.value.vault_address == inner
+            assert exc.value.caller == adapter
+            assert exc.value.decoded_error == error
+        create_request.assert_not_called()
+        # 3. Optional predicates may be missing on a V1 inner vault; the normal
+        # request and onchain validation still decide whether a deposit succeeds.
+        for responses in ([encode(["bool"], [True])] * 2, [b"", encode(["uint256"], [2])], [ContractLogicError("missing"), ExtraValueError("missing")]):
+            call.side_effect = prefix + responses
+            assert manager.create_deposit_request(owner, raw_amount=100) is create_request.return_value
+        assert create_request.call_count == 3
 
 
 def test_lagoon_sync_receipt_keeps_original_mode() -> None:

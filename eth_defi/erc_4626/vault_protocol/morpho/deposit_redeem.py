@@ -11,7 +11,7 @@ from decimal import Decimal
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.exceptions import ContractLogicError
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.provider.fallback import ExtraValueError
 
 from eth_defi.abi import get_deployed_contract
@@ -62,20 +62,26 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.vault.address)
         adapter = contract.functions.liquidityAdapter().call()
         if int(adapter, 16):
+            # This optional adapter-identification getter has no stored ABI.
             try:
                 result = self.web3.eth.call({"to": adapter, "data": Web3.keccak(text="morphoVaultV1()")[:4]})
             except (ContractLogicError, ExtraValueError):
                 result = b""
             if len(result) == 32 and int.from_bytes(result, "big"):
                 inner = Web3.to_checksum_address(result[-20:])
-                data = bytes.fromhex(adapter.removeprefix("0x")).rjust(32, b"\x00")
-                for predicate in ("canSendAssets(address)", "canReceiveShares(address)"):
+                # The V2 ABI provides these optional predicates; inner vaults
+                # without them fall through to normal onchain validation.
+                inner_contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", inner)
+                for predicate, decoded_error in (
+                    (inner_contract.functions.canSendAssets(adapter), "CannotSendAssets"),
+                    (inner_contract.functions.canReceiveShares(adapter), "CannotReceiveShares"),
+                ):
                     try:
-                        allowed = self.web3.eth.call({"to": inner, "data": Web3.keccak(text=predicate)[:4] + data})
-                    except (ContractLogicError, ExtraValueError):
+                        allowed = predicate.call()
+                    except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
                         continue
-                    if len(allowed) == 32 and int.from_bytes(allowed, "big") == 0:
-                        raise WhitelistingRequired(f"Morpho outer vault {self.vault.address} on chain {self.vault.chain_id}: liquidity adapter depositor {adapter} is denied by inner vault {inner} ({predicate})", protocol="Morpho", vault_address=inner, caller=adapter, direction="deposit", phase="preflight", decoded_error="CannotSendAssets" if predicate.startswith("canSend") else "CannotReceiveShares")
+                    if not allowed:
+                        raise WhitelistingRequired(f"Morpho outer vault {self.vault.address} on chain {self.vault.chain_id}: liquidity adapter depositor {adapter} is denied by inner vault {inner} ({predicate.fn_name})", protocol="Morpho", vault_address=inner, caller=adapter, direction="deposit", phase="preflight", decoded_error=decoded_error)
         return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
 
     def fetch_redemption_liquidity(self) -> tuple[HexAddress, int, int]:

@@ -60,6 +60,13 @@ a generic descriptor appear supported.
 
 ## Extend only the missing adapter behaviour
 
+Use ABI-backed contract proxies whenever the required functions exist in the
+stored ABI. Prefer `contract.functions.method(...).call()` to manually built
+selectors, padded arguments and return-word decoding, including admission
+preflights. For multicalls, use `EncodedCall.from_contract_call()`. See the
+[ABI guide](../../eth_defi/abi/README.md) for loaders and exceptions where no ABI
+is available. Preserve typed refusal and unreadable-response handling.
+
 Use existing request construction, ticket serialisation, status, finish and
 receipt-analysis methods. The shared hooks already cover these exceptions:
 

@@ -553,6 +553,12 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 - **Read `eth_defi/abi/README.md` first** — it is the canonical reference for
   fetching, storing, loading and using ABI files.
 - Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
+- Always use ABI-backed contract proxies when the required functions are available
+  in a stored ABI. Prefer `contract.functions.method(...).call()` and the shared
+  transaction/encoding helpers over handcrafted selectors, argument padding and
+  return decoding for readability and maintainability. For multicalls, use
+  `EncodedCall.from_contract_call()`. Reserve ABI-less probes for interfaces
+  without an available ABI and explain that reason in the code.
 - Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
 - Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
 

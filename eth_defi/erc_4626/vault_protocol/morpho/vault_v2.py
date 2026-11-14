@@ -28,7 +28,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
@@ -273,16 +273,17 @@ class MorphoV2Vault(ERC4626Vault):
 
         :param address: Account sending assets and receiving shares.
         :return: Whether both canonical deposit predicates admit the account.
+        :raises NotImplementedError: If a predicate reverts or cannot be decoded.
         """
-        data = bytes.fromhex(address.removeprefix("0x")).rjust(32, b"\x00")
-        for name in ("canReceiveShares(address)", "canSendAssets(address)"):
+        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        account = Web3.to_checksum_address(address)
+        block_identifier = self._get_block_identifier()
+        for predicate in (contract.functions.canReceiveShares(account), contract.functions.canSendAssets(account)):
             try:
-                result = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text=name)[:4] + data}, block_identifier=self._get_block_identifier())
-            except (ContractLogicError, ExtraValueError) as error:
-                raise NotImplementedError(f"Unreadable Morpho gate predicate {name} for {self.address}") from error
-            if len(result) != 32 or int.from_bytes(result, "big") not in (0, 1):
-                raise NotImplementedError(f"Unreadable Morpho gate predicate {name} for {self.address}")
-            if not int.from_bytes(result, "big"):
+                allowed = predicate.call(block_identifier=block_identifier)
+            except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as error:
+                raise NotImplementedError(f"Unreadable Morpho gate predicate {predicate.fn_name} for {self.address}") from error
+            if not allowed:
                 return False
         return True
 
