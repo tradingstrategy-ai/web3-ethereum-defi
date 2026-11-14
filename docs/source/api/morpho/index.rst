@@ -1,7 +1,8 @@
 Morpho API
 ----------
 
-Morpho vault protocol integration.
+Morpho vault protocol integration. See :ref:`morpho-vault-classification` for
+the canonical feature-detection, adapter-selection and VaultMorpho cap rules.
 
 .. autosummary::
    :toctree: _autosummary_morpho

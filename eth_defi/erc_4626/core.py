@@ -255,12 +255,51 @@ class ERC4626Feature(enum.Enum):
     #: Moonwell protocol
     moonwell_like = "moonwell_like"
 
-    #: Morpho protocol (V1)
+    #: MetaMorpho-compatible interface, used by Morpho Vault V1 and compatible implementations.
     #:
-    #: Uses MORPHO() function for identification
+    #: The classifier sets this flag after a successful ``MORPHO()`` probe.
+    #: In canonical MetaMorpho, that getter returns the underlying Morpho Blue
+    #: lending contract. It identifies an interface family, not the vault's
+    #: operator, investor permissions, available liquidity or official provenance.
+    #:
+    #: The factory normally selects
+    #: :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`,
+    #: but checks implementation-specific flags such as ``vault_morpho_like``
+    #: first. Those additional flags coexist with this one, so callers must not
+    #: treat it as a promise that every deployment has canonical deposit rules.
+    #: Morpho Vault V2 has a separate ``morpho_v2_like`` feature.
+    #:
+    #: Canonical Solidity source:
+    #: https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol
+    #:
+    #: See :ref:`morpho-vault-classification` for the detection predicates,
+    #: adapter precedence, protocol attribution and verified contract sources.
     morpho_like = "morpho_like"
 
-    #: VaultMorpho adds a global TVL cap to its Morpho-compatible implementation.
+    #: VaultMorpho implementation with an additional vault-wide deposit cap.
+    #:
+    #: Set alongside ``morpho_like`` when ``MORPHO()`` succeeds and ``tvlCap()``
+    #: returns one 32-byte word. This recognises the reviewed interface; it does
+    #: not certify that arbitrary contracts with these getters have identical code.
+    #:
+    #: The verified implementation checks ``totalAssets() + assets <= tvlCap``
+    #: inside ``deposit()``, while its market-based ``maxDeposit()`` can still be
+    #: positive after this cap is exhausted. The factory therefore selects
+    #: :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_morpho.VaultMorphoVault`
+    #: before the ordinary V1 adapter. Its manager honours both remaining global
+    #: capacity and any reported ERC-4626 maximum through existing capacity hooks.
+    #:
+    #: The common flag retains lending-protocol detection and protocol naming.
+    #: Keep both flags and the catalogue protocol name ``Morpho``: the extra flag
+    #: selects contract behaviour without changing fee/risk lookups or protocol
+    #: filters. It is not Morpho Vault V2, and it does not establish live access.
+    #: Verified capped implementation (its upstream GitHub repository is unconfirmed):
+    #: https://etherscan.io/address/0xf392a5b96d3248440bb4841b4f50f0862060c1a3#code
+    #: Canonical V1 reference, not the source of the additional cap:
+    #: https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol
+    #:
+    #: See :ref:`morpho-vault-classification` for the verified deployment, ABI
+    #: provenance, cap units, snapshot behaviour and regression coverage.
     vault_morpho_like = "vault_morpho_like"
 
     #: Morpho Vault V2

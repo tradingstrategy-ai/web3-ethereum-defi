@@ -16,8 +16,10 @@ liquidity. See the [Morpho documentation](https://docs.morpho.org/).
 used by `0x21ed44c18c926c60092b1b2985e2c999421a5a69`. Source/ABI were
 retrieved on 13 November 2026 and imported on 14 November 2026. Its `tvlCap`
 is an additional global restriction, separate from canonical MetaMorpho limits.
-Detection adds one `tvlCap` probe to the existing multicall on each chain and
-requires a successful `MORPHO` probe before choosing the capped adapter.
+The canonical [Morpho integration guide](../../../docs/source/vaults/morpho/index.rst#vault-features-and-adapter-selection)
+explains the two feature flags, detection predicates, adapter precedence, cap
+semantics and preserved Morpho protocol identity. Detection adds one `tvlCap`
+probe to the existing multicall on each chain.
 
 `MorphoMarketV1AdapterV2.json` comes from verified Ethereum adapter
 [`0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5`](https://etherscan.io/address/0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5#code),

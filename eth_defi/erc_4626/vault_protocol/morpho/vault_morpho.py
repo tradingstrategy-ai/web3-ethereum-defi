@@ -1,4 +1,12 @@
-"""VaultMorpho's additional global cap, separate from canonical MetaMorpho."""
+"""Enforce VaultMorpho's additional deposit cap through the existing V1 integration.
+
+The verified implementation can advertise positive ``maxDeposit`` while its
+vault-wide ``tvlCap`` is exhausted. Keep this rule in the selected adapter so
+shared deposit consumers use their ordinary capacity and closure hooks.
+
+See :ref:`morpho-vault-classification` for detection, adapter precedence,
+protocol identity and the verified implementation/ABI sources.
+"""
 
 from functools import cached_property
 
