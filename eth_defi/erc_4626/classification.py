@@ -36,6 +36,7 @@ from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
+from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
@@ -929,10 +930,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # VaultMorpho adds a global cap to its MetaMorpho-compatible interface.
+        # An unattributed VaultMorpho implementation adds a global deposit cap.
         # Offline ABI binding only: detection executes the resulting call in
         # its existing multicall, without a second provider or RPC request here.
-        yield EncodedCall.from_contract_call(get_deployed_contract(Web3(), "morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
+        yield EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
 
         # Morpho V2 - newer adapter-based architecture
         # https://docs.morpho.org/learn/concepts/vault-v2/
@@ -2458,8 +2459,6 @@ def create_vault_instance(
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.vault_morpho_like in features:
-        from eth_defi.erc_4626.vault_protocol.morpho.vault_morpho import VaultMorphoVault
-
         return VaultMorphoVault(web3, spec, **kwargs)
     elif ERC4626Feature.morpho_like in features:
         # Morpho V1 instance

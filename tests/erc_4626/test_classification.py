@@ -328,8 +328,8 @@ def test_chain_probe_filtering():
     assert len(probes_polygon) < len(probes_monad)
 
 
-def test_vault_morpho_cap_probe_preserves_morpho_identity() -> None:
-    """The extra cap chooses the fork adapter without changing the protocol family.
+def test_vault_morpho_cap_probe_preserves_interface_features() -> None:
+    """The extra cap identifies a separate implementation without asserting its operator.
 
     1. Supply the common ERC-4626 and MORPHO probes.
     2. Compare canonical MetaMorpho with the capped implementation.

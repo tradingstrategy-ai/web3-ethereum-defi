@@ -45,7 +45,7 @@ the existing multicall probe results. The Morpho-specific rules are:
      - :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`.
    * - ``morpho_like`` and ``vault_morpho_like``
      - ``MORPHO()`` succeeds and ``tvlCap()`` succeeds with a 32-byte result.
-     - :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_morpho.VaultMorphoVault`.
+     - :py:class:`~eth_defi.erc_4626.vault_protocol.vault_morpho.vault.VaultMorphoVault`.
    * - ``morpho_v2_like``
      - ``adaptersLength()`` succeeds and ``MORPHO()`` fails.
      - :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault`.
@@ -58,81 +58,30 @@ features may coexist with these flags.
 
 The shared factory,
 :py:func:`~eth_defi.erc_4626.classification.create_vault_instance`, checks the
-VaultMorpho flag before the ordinary V1 flag; protocol features matched earlier
+unattributed VaultMorpho flag before the ordinary V1 flag; protocol features matched earlier
 in the factory retain precedence over this Morpho-specific branch. Both flags
 are retained: ``morpho_like`` supplies lending-protocol classification used by
-liquidity/utilisation readers and the existing protocol-name lookup, while
+lending readers, while the more specific feature overrides protocol attribution;
 ignoring ``vault_morpho_like`` would select a reader that misses its cap.
 Do not duplicate this selection in scanners, strategies or CLI consumers.
 
-Why VaultMorpho needs a different reader
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Third-party implementations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The reviewed Solidity contract is named ``VaultMorpho``. This name describes
-the implementation handled by the extra feature, rather than another catalogue
-protocol. Its verified ``deposit()`` rejects a request when the sum of
-``totalAssets()`` and the requested assets exceeds ``tvlCap()``. Its
-``maxDeposit()`` instead derives capacity from its underlying market allocations,
-so that reported maximum can remain positive when the vault-wide cap is full.
-A positive ERC-4626 maximum alone therefore misses a real deposit restriction.
+A ``MORPHO()`` getter establishes a lending dependency, not official protocol
+provenance. The capped ``VaultMorpho`` implementation is maintained separately;
+see :ref:`vault-morpho-unattributed` for its verified source and unresolved
+operator identity. Its additional feature selects a generic ERC-4626 adapter,
+not :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`.
+The catalogue must not attach Morpho's website, API coverage or protocol risk
+and fee defaults to that implementation.
 
-:py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_morpho.VaultMorphoVault`
-reuses the V1 integration and binds the verified ``VaultMorpho.json`` ABI.
-Its capacity reader calculates::
-
-    remaining = max(0, tvlCap - totalAssets)
-
-Both inputs use the adapter's ``default_block_identifier`` when supplied;
-otherwise the reader selects one numeric block for both calls. Values are raw
-denomination-token units, not share units or a USD price estimate. The deposit
-manager applies the tighter of this remaining capacity and any reported
-ERC-4626 maximum through the existing capacity hook. Zero remaining capacity
-produces a global closure reason; a positive remainder below the requested size
-is an amount restriction. These reads are preflights: the eventual transaction
-still determines permission, funding and execution success. This rule documents
-the supported ``deposit()`` path, not an assumed cap on every contract entrypoint.
-
-:py:func:`~eth_defi.erc_4626.core.get_vault_protocol_name` continues to return
-``Morpho`` for the combined feature set. The catalogue slug therefore remains
-``morpho``, preserving existing fee-mode, risk and protocol-filter lookups. The
-additional flag changes adapter selection without introducing a new protocol
-identity or applying a current cap retrospectively to historical membership.
-Keeping that identity does not certify a compatible implementation's safety.
-
-Verified deployment and maintenance
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The integration was checked on 14 November 2026 using Ethereum block
-``26402309`` and vault ``0x21ed44c18c926c60092b1b2985e2c999421a5a69``. At that
-snapshot its implementation was
-``0xf392a5b96d3248440bb4841b4f50f0862060c1a3``. The exhausted global cap
-explained a deposit refusal despite a positive advertised maximum. The resulting
-closed-deposit Guard check did not execute a deposit or prove live trade support.
-The snapshot is evidence for this implementation, not a claim about its present
-availability or an allowlist limiting detection to this address.
-
-The stored ABI comes from that `verified VaultMorpho implementation
-<https://etherscan.io/address/0xf392a5b96d3248440bb4841b4f50f0862060c1a3#code>`__.
-Canonical reference contracts are `MetaMorpho
-<https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol>`__ and
-`Morpho Vault V2
+Canonical Solidity references are `MetaMorpho
+<https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol>`__
+and `Morpho Vault V2
 <https://github.com/morpho-org/vault-v2/blob/bcad37068507dba4193f79c48d539b241faa7f37/src/VaultV2.sol>`__.
-These are different sources: the capped implementation must not be treated as
-canonical MetaMorpho merely because both expose ``MORPHO()``. ABI retrieval
-provenance is recorded in ``eth_defi/abi/morpho/README.md``. The capped
-implementation's own upstream GitHub repository has not been identified; the
-canonical MetaMorpho link is a reference for the common interface, not evidence
-for the added cap. Do not substitute that link for the verified capped source.
-
-Regression coverage checks the combined flags, ordinary MetaMorpho without the
-cap getter, and an unrelated cap getter without ``MORPHO()`` in
-``tests/erc_4626/test_classification.py``. The factory, tighter capacity and zero
-capacity behaviour are covered in
-``tests/erc_4626/vault_protocol/test_remaining_vault_preflights.py``. When changing
-these predicates or their interpretation, update the canonical guide and both
-feature comments together. Persisted feature corrections use numbered migration
-``migration/scripts/075-vault-pause-cap-and-classification.py``; merging code
-does not execute it.
+These are source references for the canonical contracts, not substitutes for a
+third-party implementation's own source repository.
 
 Metadata requests
 ~~~~~~~~~~~~~~~~~

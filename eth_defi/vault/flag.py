@@ -1340,8 +1340,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x17271da949bbd4713c7c599759e2bf30604fc8da": (VaultFlag.illiquid, MAINSTREET_GREENHOUSE_USDC_ILLIQUID),
     # Blue Chip USDC Vault (Prime) on Ethereum - Morpho
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
-    # VaultMorpho on Ethereum - Morpho
-    "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Unattributed VaultMorpho implementation on Ethereum
+    "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.unofficial, "This third-party vault lends through [Morpho Blue](https://github.com/morpho-org/morpho-blue), but its operator and source repository have not been identified."),
     # Borrowable USDC Deposit, SiloId: 125 on Avalanche
     "0xe0345f66318f482acccd67244a921c7fdc410957": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 142 on Avalanche

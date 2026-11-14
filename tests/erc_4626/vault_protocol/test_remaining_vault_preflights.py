@@ -1,23 +1,32 @@
 """Regressions for limits that an optimistic ERC-4626 maximum cannot establish."""
 
+import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 from eth_abi import encode
+from web3 import Web3
 from web3.exceptions import ContractLogicError
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.core import ERC4626Feature, GENERIC_ERC4626_PROTOCOL_NAME, get_vault_protocol_name
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager, IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
-from eth_defi.erc_4626.vault_protocol.morpho.vault_morpho import VaultMorphoVault, VaultMorphoDepositManager
+from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault, VaultMorphoDepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, UnsupportedVaultSimulation
+from eth_defi.vault.risk import get_vault_risk
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader
+from eth_defi.event_reader.multicall_batcher import EncodedCallResult
+from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 OWNER = "0x1111111111111111111111111111111111111111"
@@ -174,7 +183,14 @@ def test_vault_morpho_cap_does_not_change_canonical_morpho() -> None:
     provider.eth.chain_id = 1
     vault = create_vault_instance(provider, OWNER, features={ERC4626Feature.morpho_like, ERC4626Feature.vault_morpho_like})
     canonical = create_vault_instance(provider, OWNER, features={ERC4626Feature.morpho_like})
-    assert get_vault_protocol_name(vault.features) == "Morpho"
+    assert get_vault_protocol_name(vault.features) == GENERIC_ERC4626_PROTOCOL_NAME
+    assert not isinstance(vault, type(canonical))
+    assert vault.get_fee_mode() is None
+    assert get_vault_risk(vault.get_protocol_name(), OWNER) is None
+    assert "app.morpho.org" not in vault.get_link()
+    assert not hasattr(vault, "morpho_api_result")
+    with pytest.raises(NotImplementedError):
+        vault.is_whitelisted_deposit()
     assert isinstance(vault, VaultMorphoVault)
     assert not isinstance(canonical, VaultMorphoVault)
     # 2. Read related values from one pinned block and honour the tighter cap.
@@ -292,3 +308,46 @@ def test_ipor_deposit_does_not_hide_provider_failure() -> None:
     with patch.object(ERC4626DepositManager, "create_deposit_request", return_value=request):
         with pytest.raises(ValueError, match="provider unavailable"):
             manager.create_deposit_request(OWNER, raw_amount=100)
+
+
+def test_vault_morpho_retains_measured_lending_without_protocol_defaults() -> None:
+    """Wrong attribution must not erase independently measured lending behaviour.
+
+    1. Use the real ABI with a mocked token-balance RPC response.
+    2. Preserve the metadata snapshot, lending tag and historical idle measurement.
+    3. Leave fees and failed idle observations unknown rather than inventing zeroes.
+    """
+    # 1. Only transport and the separately covered core historical decoder are replaced.
+    provider = Mock()
+    provider.eth.chain_id = 1
+    vault = create_vault_instance(provider, OWNER, features={ERC4626Feature.morpho_like, ERC4626Feature.vault_morpho_like})
+    vault.first_seen_at_block = 1
+    transport = Web3()
+    token = SimpleNamespace(address=OWNER, contract=get_deployed_contract(transport, "ERC20MockDecimals.json", OWNER), convert_to_decimals=lambda raw: Decimal(raw) / Decimal(10**6), convert_to_raw=lambda amount: int(amount * 10**6))
+    vault.denomination_token = token
+    raw_idle = 25_000_000
+    # 2. The existing shared snapshot helper and historical codec retain the same units.
+    with patch.object(transport.eth, "call", return_value=raw_idle.to_bytes(32, "big")):
+        liquidity, utilisation = vault.fetch_lending_snapshot(Decimal(100), 123)
+    assert liquidity == pytest.approx(Decimal(25))
+    assert utilisation == pytest.approx(0.75)
+    assert vault.get_strategy_tags() == {StrategyTag.lending}
+    reader = vault.get_historical_reader(stateful=False)
+    with patch.object(ERC4626HistoricalReader, "construct_multicalls", return_value=iter(())):
+        calls = list(reader.construct_multicalls())
+    assert len(calls) == 1
+    assert calls[0].extra_data["function"] == "idle_assets"
+    timestamp = datetime.datetime(2026, 11, 14)
+    core = VaultHistoricalRead(vault=vault, block_number=123, timestamp=timestamp, share_price=Decimal(1), total_assets=Decimal(100), total_supply=Decimal(100), performance_fee=None, management_fee=None, errors=None)
+    idle = EncodedCallResult(call=calls[0], success=True, result=raw_idle.to_bytes(32, "big"), block_identifier=123)
+    with patch.object(ERC4626HistoricalReader, "process_result", return_value=core):
+        result = reader.process_result(123, timestamp, [idle])
+        assert result.available_liquidity == pytest.approx(Decimal(25))
+        assert result.utilisation == pytest.approx(0.75)
+        assert result.share_price == pytest.approx(Decimal(1))
+        # 3. Missing measurements and unverified fees retain their unknown values.
+        assert result.management_fee is result.performance_fee is None
+        for success in (False, True):
+            failed_idle = EncodedCallResult(call=calls[0], success=success, result=b"", block_identifier=123)
+            failed = reader.process_result(123, timestamp, [failed_idle])
+            assert failed.available_liquidity is failed.utilisation is None

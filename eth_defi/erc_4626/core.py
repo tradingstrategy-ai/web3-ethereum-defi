@@ -267,6 +267,8 @@ class ERC4626Feature(enum.Enum):
     #: but checks implementation-specific flags such as ``vault_morpho_like``
     #: first. Those additional flags coexist with this one, so callers must not
     #: treat it as a promise that every deployment has canonical deposit rules.
+    #: A recognised third-party implementation may therefore receive generic
+    #: protocol attribution despite retaining this compatibility feature.
     #: Morpho Vault V2 has a separate ``morpho_v2_like`` feature.
     #:
     #: Canonical Solidity source:
@@ -276,30 +278,28 @@ class ERC4626Feature(enum.Enum):
     #: adapter precedence, protocol attribution and verified contract sources.
     morpho_like = "morpho_like"
 
-    #: VaultMorpho implementation with an additional vault-wide deposit cap.
+    #: Unattributed VaultMorpho implementation with a vault-wide deposit cap.
     #:
     #: Set alongside ``morpho_like`` when ``MORPHO()`` succeeds and ``tvlCap()``
-    #: returns one 32-byte word. This recognises the reviewed interface; it does
-    #: not certify that arbitrary contracts with these getters have identical code.
+    #: returns one 32-byte word. The common getter exposes its Morpho Blue lending
+    #: dependency; it does not establish that Morpho owns or maintains the vault.
     #:
-    #: The verified implementation checks ``totalAssets() + assets <= tvlCap``
-    #: inside ``deposit()``, while its market-based ``maxDeposit()`` can still be
-    #: positive after this cap is exhausted. The factory therefore selects
-    #: :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_morpho.VaultMorphoVault`
-    #: before the ordinary V1 adapter. Its manager honours both remaining global
-    #: capacity and any reported ERC-4626 maximum through existing capacity hooks.
+    #: The verified ``deposit()`` checks ``totalAssets() + assets <= tvlCap``,
+    #: although market-based ``maxDeposit()`` can remain positive after the cap
+    #: is exhausted. The factory selects the separate
+    #: :py:class:`~eth_defi.erc_4626.vault_protocol.vault_morpho.vault.VaultMorphoVault`
+    #: adapter, which enforces this cap through existing capacity hooks.
     #:
-    #: The common flag retains lending-protocol detection and protocol naming.
-    #: Keep both flags and the catalogue protocol name ``Morpho``: the extra flag
-    #: selects contract behaviour without changing fee/risk lookups or protocol
-    #: filters. It is not Morpho Vault V2, and it does not establish live access.
-    #: Verified capped implementation (its upstream GitHub repository is unconfirmed):
+    #: The implementation's owning protocol and upstream GitHub repository are
+    #: unidentified. Attribute it to generic ``ERC-4626`` instead of inheriting
+    #: Morpho's website, fee mode, risk rating, API coverage or permission policy.
+    #: The canonical MetaMorpho GitHub source linked on ``morpho_like`` is not
+    #: the source of this capped implementation and must not be substituted for it.
+    #:
+    #: Verified implementation source:
     #: https://etherscan.io/address/0xf392a5b96d3248440bb4841b4f50f0862060c1a3#code
-    #: Canonical V1 reference, not the source of the additional cap:
-    #: https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol
-    #:
-    #: See :ref:`morpho-vault-classification` for the verified deployment, ABI
-    #: provenance, cap units, snapshot behaviour and regression coverage.
+    #: See :ref:`vault-morpho-unattributed` for deployment/owner evidence,
+    #: classification, cap units and the explicitly unresolved GitHub provenance.
     vault_morpho_like = "vault_morpho_like"
 
     #: Morpho Vault V2
@@ -1227,6 +1227,10 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Atoma"
     elif ERC4626Feature.symbiotic_like in features:
         return "Symbiotic"
+    elif ERC4626Feature.vault_morpho_like in features:
+        # Interface compatibility is not protocol provenance. This reviewed
+        # implementation has no identified operator or upstream repository.
+        return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:
