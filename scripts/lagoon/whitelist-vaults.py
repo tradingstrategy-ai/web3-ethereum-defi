@@ -33,6 +33,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import T3TRIS_GUARD_INTERNAL_VERSION
 from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -60,6 +61,10 @@ def whitelist_vaults(
     """
 
     target = trading_strategy_module.address
+
+    if any(isinstance(vault, T3trisVault) for vault in vaults):
+        internal_version = trading_strategy_module.functions.getInternalVersion().call()
+        assert internal_version >= T3TRIS_GUARD_INTERNAL_VERSION, f"T3tris vaults need guard internal version {T3TRIS_GUARD_INTERNAL_VERSION} or newer, got {internal_version}; deploy a new guard"
 
     multi_send_txs = []
     for vault in vaults:

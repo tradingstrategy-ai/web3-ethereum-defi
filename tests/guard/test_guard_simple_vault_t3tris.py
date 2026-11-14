@@ -21,6 +21,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
@@ -254,7 +255,8 @@ def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple
     1. Accept the manager-generated calls.
     2. Reject a substituted address in every validated position.
     3. Reject unsafe mode and Permit2 payloads.
-    4. Reject unregistered vault calls and a foreign approval spender.
+    4. Reject unregistered vault and share-token calls and a foreign approval spender.
+    5. Reject malformed calldata and a non-governance whitelist call.
     """
     c = simple_custody
     f = vault.vault_contract.functions
@@ -300,8 +302,15 @@ def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple
         f.unsafeWithdraw(1, me, me),
         f.claimFees(False, 1, 0, b""),
         f.deposit(1, me),
+        f.deposit(me, 1, b""),
+        f.mint(1, me),
+        f.mint(me, 1, b""),
         f.redeem(1, me, me),
+        f.withdraw(1, me, me),
         f.transfer(outsider, 1),
+        f.transferFrom(me, outsider, 1),
+        f.approve(vault.address, 1),
+        f.approve(outsider, 1),
         multicall,
     ]
     for func in unregistered:
@@ -311,6 +320,63 @@ def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple
         c.validate(vault.denomination_token.contract.functions.approve(outsider, 1))
     assert not c.guard.functions.isAllowedCallSite(vault.address, Web3.keccak(text="settle(uint8,bool,bytes)")[:4]).call()
     assert c.guard.functions.getInternalVersion().call() == 5
+
+    # 5. Reject malformed calldata and a non-governance whitelist call.
+    word = lambda value: value.to_bytes(32, "big")  # noqa: E731
+    address_word = word(int(me, 16))
+    dirty_address = word(int(me, 16) | (1 << 200))
+    malformed = [
+        bytes.fromhex("afd933fb") + address_word,
+        bytes.fromhex("de56603c") + dirty_address,
+        bytes.fromhex("5fb8c2cf") + address_word * 3 + word(2) + word(1),
+        bytes.fromhex("9cb4b041") + address_word * 2 + word(2),
+        bytes.fromhex("afd933fb") + address_word + word(0) + word(1) + word(0x1000),
+    ]
+    for data in malformed:
+        with pytest.raises((ContractLogicError, ValueError)):
+            c.guard.functions.validateCall(c.manager, vault.address, data).call({"from": c.manager})
+    with pytest.raises((ContractLogicError, ValueError)):
+        c.guard.functions.whitelistT3tris(vault.address, "T3tris").call({"from": c.manager})
+
+
+def test_t3tris_new_request_auto_claims_to_custody(web3: Web3, vault: T3trisVault, simple_custody: Custody) -> None:
+    """A request made while an earlier one is claimable pays the earlier one to custody.
+
+    The manager never builds this sequence, but a guarded asset manager can,
+    so the guard's receiver checks must cover the automatic claims.
+
+    1. Request and settle a deposit, then request again without claiming.
+    2. Request and settle a partial redemption, then request the rest without claiming.
+    """
+    c = simple_custody
+    manager = vault.get_deposit_manager()
+    f = vault.vault_contract.functions
+    usdc = vault.denomination_token
+    raw_amount = usdc.convert_to_raw(Decimal(100))
+    fund_erc20_on_anvil(web3, usdc.address, c.address, 2 * raw_amount)
+    c.transact(web3, usdc.contract.functions.approve(vault.address, 2 * raw_amount))
+
+    # 1. Request and settle a deposit, then request again without claiming.
+    request = manager.create_deposit_request(c.address, raw_amount=raw_amount)
+    ticket = request.parse_deposit_transaction([c.transact(web3, request.funcs[0])])
+    manager.force_settle(ticket)
+    settled_shares = f.getSettledDepositShares(c.address, ticket.request_id).call()
+    assert settled_shares > 0
+    c.transact(web3, f.requestDeposit(c.address, False, raw_amount, b""))
+    assert vault.share_token.fetch_raw_balance_of(c.address) == settled_shares
+    assert manager.get_deposit_request_status(ticket) is AsyncVaultRequestStatus.none
+
+    # 2. Request and settle a partial redemption, then request the rest without claiming.
+    half = settled_shares // 2
+    request = manager.create_redemption_request(c.address, raw_shares=half)
+    redemption = request.parse_redeem_transaction([c.transact(web3, request.funcs[0])])
+    manager.force_settle(redemption)
+    # The claim pays previewClaimRedeem(), which rounds the settled assets down.
+    claimable_assets, _silo_shares = f.previewClaimRedeem(c.address).call()
+    assert claimable_assets > 0
+    c.transact(web3, f.requestRedeem(c.address, c.address, c.address, False, settled_shares - half))
+    assert usdc.fetch_raw_balance_of(c.address) == claimable_assets
+    assert manager.get_redemption_request_status(redemption) is AsyncVaultRequestStatus.none
 
 
 def test_t3tris_setup_guard_policy(web3: Web3, simple_custody: Custody) -> None:

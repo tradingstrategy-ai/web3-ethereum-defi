@@ -101,7 +101,9 @@ asynchronous ``requestDeposit``, ``claimDeposit``, ``requestRedeem`` and
 ``claimRedeem`` calls, and the guard requires every receiver, owner and
 previous-claim receiver to be allowed, ``unsafe`` to be ``false`` and the
 Permit2 payload to be empty. Curator settlement, request decreases, forced
-claims and the unsafe ERC-4626 exits stay unregistered.
+claims and the unsafe ERC-4626 exits stay unregistered. Do not also call
+``whitelistERC4626()`` for a T3tris vault: it would register the synchronous
+exits and the share token's ``transfer`` and ``approve``.
 
 ### Product deployment restrictions
 

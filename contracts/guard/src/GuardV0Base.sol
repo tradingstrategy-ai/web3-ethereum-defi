@@ -813,7 +813,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
             // NaraUSD+: cooldownShares(uint256). The request always acts on msg.sender.
         } else if (selector == SEL_UNSTAKE) {
             // NaraUSD+: unstake(address receiver)
-            _validate_NaraUnstake(callData);
+            _validate_SingleReceiver(callData);
         } else if (selector == SEL_UPSHIFT_DEPOSIT) {
             // Upshift: deposit(address asset,uint256 amount,address receiver)
             _validate_UpshiftDeposit(callData);
@@ -837,8 +837,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_T3TRIS_REQUEST_DEPOSIT) {
             _validate_T3trisRequestDeposit(callData);
         } else if (selector == SEL_T3TRIS_CLAIM_DEPOSIT) {
-            // T3tris: claimDeposit(address receiver)
-            _validate_NaraUnstake(callData);
+            _validate_SingleReceiver(callData);
         } else if (selector == SEL_T3TRIS_REQUEST_REDEEM) {
             _validate_T3trisRequestRedeem(callData);
         } else if (selector == SEL_T3TRIS_CLAIM_REDEEM) {
@@ -968,8 +967,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _requireAllowedOwner(controllerOrOwner);
     }
 
-    // NaraUSD+: validate unstake(address receiver).
-    function _validate_NaraUnstake(bytes calldata callData) internal view {
+    // Validate a call whose only argument is a receiver: NaraUSD+
+    // unstake(address receiver) and T3tris claimDeposit(address receiver).
+    function _validate_SingleReceiver(bytes calldata callData) internal view {
         address receiver = abi.decode(callData, (address));
         _requireAllowedReceiver(receiver);
     }
@@ -1058,7 +1058,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ///
     /// Curator settlement, request decreases, forced claims and the unsafe
     /// ERC-4626 exits are intentionally absent: a guarded asset manager can
-    /// only request, then claim to an allowed receiver.
+    /// only request, then claim to an allowed receiver. Do not also call
+    /// whitelistERC4626() for a T3tris vault: it would add the synchronous
+    /// exits and share-token transfer and approve call sites.
     function whitelistT3tris(address vault, string calldata notes) external onlyGuardOwner {
         address asset = IERC4626(vault).asset();
         allowCallSite(vault, SEL_T3TRIS_REQUEST_DEPOSIT, notes);

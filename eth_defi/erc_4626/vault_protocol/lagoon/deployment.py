@@ -117,6 +117,9 @@ DEFAULT_PERFORMANCE_RATE = 2000
 #: asset-manager settlement safety policy: cumulative gross cap plus window.
 LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 4
 
+#: Earliest GuardV0 internal ABI version with ``whitelistT3tris()``.
+T3TRIS_GUARD_INTERNAL_VERSION = 5
+
 #: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
 #: setup / deployment broadcasts.
 #:
@@ -2052,6 +2055,9 @@ def setup_guard(
                 resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
                 assert isinstance(resolved, (AtomaVault, T3trisVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
                 erc_4626_vaults[index] = resolved
+        if any(isinstance(descriptor, T3trisVault) for descriptor in erc_4626_vaults):
+            internal_version = module.functions.getInternalVersion().call()
+            assert internal_version >= T3TRIS_GUARD_INTERNAL_VERSION, f"T3tris vaults need GuardV0 internal version {T3TRIS_GUARD_INTERNAL_VERSION} or newer, got {internal_version}; deploy a new guard"
 
     _broadcast = broadcast_func
     entries: list[WhitelistEntry] = []
