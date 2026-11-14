@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Simulate Accountable request fulfilment on Anvil through its configured strategy, preserving exact ticket attribution and existing vault liquidity checks (2026-11-14).
+
 - fix: Preserve token units beyond the caller's Decimal precision; bound vault payout comparisons with explicit token-unit tolerances and distinguish Fluid interest-driven fork liquidity shortages from rounding (2026-11-14).
 
 - fix: Resolve vault admission through protocol gates, correct MAAT classification, reconstruct Accountable requests after mining, recognise the Atoma fee-split upgrade and Upshift getter variant, and support Lagoon synchronous deposits and versioned fork settlement; refresh affected metadata through migration 070 (2026-11-14).

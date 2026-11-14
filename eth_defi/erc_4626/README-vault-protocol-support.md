@@ -418,6 +418,16 @@ hashes. If the protocol cannot be safely advanced on an Anvil fork, publish
 that limitation in ``VaultDepositManagerCapability`` rather than claiming a
 complete tested lifecycle.
 
+Accountable's fork driver impersonates the vault's configured strategy and
+calls ``fulfillRedeemRequest(controller, shares)`` for the exact recorded,
+self-controlled request. Existing vault liquidity checks remain enforced;
+there is no denomination-token injection or production authority grant. This
+proves vault settlement/claim mechanics, not the strategy's external approval
+policy or ability to unwind its investments. Direct fulfilment can serve this
+request ahead of earlier queued requests, so FIFO liquidity availability is not
+validated. The local mock driver retains
+its separate ``fulfillRedeemRequest(requestId)`` interface.
+
 Synchronous managers use the inherited no-op: call ``force_settle(None)`` and
 assert that settlement is not required. The cSigma reference does this after
 its deposit and before its immediate redemption; it has no onchain request
