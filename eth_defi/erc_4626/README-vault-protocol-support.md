@@ -136,6 +136,19 @@ a positive simulation of the exact redemption before accepting it. These rules
 belong to the shared managers and apply equally to strategy execution and manual
 test trades. Callers should report residual shares after execution.
 
+Rounding tests use ``pytest.approx`` with an explicit absolute tolerance of one
+raw denomination or share unit and ``rel=0`` for decimal conversions. Raw
+request quantities, calldata, receipt share counts and zero residual shares
+remain exact. The guarded synchronous matrix compares the executable,
+fee-aware payout quote with the receipt using one raw asset unit or one ppm
+for inter-block interest. This tolerance does not relax transaction capacity
+checks or classify a real liquidity shortfall as rounding. The Fluid regression
+separately checks immediate redemption and the artificial 24-hour fork delay.
+The shared ``TokenDetails`` conversions retain all raw units through uint256
+balances using a local Decimal context, without changing the caller's precision.
+Fractional raw units are truncated towards zero. A common request invariant
+refuses amounts that truncate to zero; one-raw-share requests remain valid.
+
 ### Minimum amounts
 
 ``VaultBase`` exposes optional, block-aware minimum accessors so a caller can
@@ -404,6 +417,16 @@ and return observable before/after status plus any settlement transaction
 hashes. If the protocol cannot be safely advanced on an Anvil fork, publish
 that limitation in ``VaultDepositManagerCapability`` rather than claiming a
 complete tested lifecycle.
+
+Accountable's fork driver impersonates the vault's configured strategy and
+calls ``fulfillRedeemRequest(controller, shares)`` for the exact recorded,
+self-controlled request. Existing vault liquidity checks remain enforced;
+there is no denomination-token injection or production authority grant. This
+proves vault settlement/claim mechanics, not the strategy's external approval
+policy or ability to unwind its investments. Direct fulfilment can serve this
+request ahead of earlier queued requests, so FIFO liquidity availability is not
+validated. The local mock driver retains
+its separate ``fulfillRedeemRequest(requestId)`` interface.
 
 Synchronous managers use the inherited no-op: call ``force_settle(None)`` and
 assert that settlement is not required. The cSigma reference does this after

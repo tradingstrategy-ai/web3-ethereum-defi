@@ -123,6 +123,7 @@ def test_morpho_v2_gate_getters_are_permissionless(web3: Web3) -> None:
     assert int(receive_shares_gate, 16) == 0
     assert int(send_assets_gate, 16) == 0
     assert vault.is_whitelisted_deposit() is False
+    assert vault.is_account_whitelisted("0x1111111111111111111111111111111111111111") is True
 
 
 def test_morpho_v2_empty_gate_response_is_safe_for_permission_scans(web3: Web3) -> None:

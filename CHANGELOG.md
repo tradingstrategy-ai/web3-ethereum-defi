@@ -1,5 +1,17 @@
 # 1.2
 
+- docs: Explain vault permission, withdrawal and precision decisions in plain language; clarify Lagoon version support and unused options, and record comment-writing guidance (2026-11-14).
+
+- refactor: Use the stored Morpho V2 ABI for owner and nested-vault deposit predicates, preserving typed admission errors; document ABI-backed contract proxies as the default (2026-11-14).
+
+- fix: Probe versionless Lagoon settlement interfaces before fork broadcasts; update exact unlimited-capacity expectations and Ember validator admission coverage (2026-11-14).
+
+- feat: Simulate Accountable request fulfilment on Anvil through its configured strategy, preserving exact ticket attribution and existing vault liquidity checks (2026-11-14).
+
+- fix: Preserve token units beyond the caller's Decimal precision; bound vault payout comparisons with explicit token-unit tolerances and distinguish Fluid interest-driven fork liquidity shortages from rounding (2026-11-14).
+
+- fix: Resolve vault admission through protocol gates, correct MAAT classification, reconstruct Accountable requests after mining, recognise the Atoma fee-split upgrade and Upshift getter variant, and support Lagoon synchronous deposits and versioned fork settlement; refresh affected metadata through migration 074 (2026-11-14).
+
 - feat: Add T3tris deposits and redemptions: an asynchronous request, settlement and claim manager with typed preflights and an Anvil settlement driver, `GuardV0.whitelistT3tris()` with receiver, owner and `unsafe` checks, and numbered capability migration 072. Pass `bytes calldata` to the internal `GuardV0Base` validators, freeing about 1,200 bytes in `TradingStrategyModuleV0` (2026-11-14, [#1774](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1774)).
 - fix: Map each Infinit price observation to the last Arbitrum block at or before its timestamp, so a second without its own block no longer defers Infinit history (2026-11-13).
 - fix: Preserve existing vault URLs while filling missing metadata slugs, isolate metrics fixtures and give transient live Hypersync test failures a five-minute retry budget (2026-11-13).

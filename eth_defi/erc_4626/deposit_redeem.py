@@ -448,19 +448,26 @@ class ERC4626DepositManager(VaultDepositManager):
         deposit_ticket: DepositTicket | None,
         *,
         deposit_event_signature: str | None = None,
+        hot_wallet: bool | None = None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse an ERC-4626 deposit with an optional explicit event signature.
 
-        Vaults with an overloaded Solidity event name can use this hook to
-        select the canonical ERC-4626 ``Deposit`` event without changing the
-        default behaviour for ordinary ERC-4626 deployments.
+        An explicit signature selects the event when a vault defines several
+        ``Deposit`` events or uses a different name, such as Lagoon's
+        ``DepositSync``. Read quantities from the mined receipt so later changes
+        to the vault's deposit mode cannot change how the trade is interpreted.
 
         :param claim_tx_hash:
             Mined deposit transaction hash.
         :param deposit_ticket:
             Optional ticket for a guarded non-vault call.
         :param deposit_event_signature:
-            Solidity event signature when the vault overloads ``Deposit``.
+            Full Solidity signature when the default ``Deposit`` event is ambiguous
+            or the vault uses a different event.
+        :param hot_wallet:
+            Whether the transaction must target the vault directly. ``False``
+            permits a wrapper contract; ``None`` infers this from the ticket and
+            transaction recipient.
         :return:
             Decoded executed deposit quantities or a revert description.
         """
@@ -473,7 +480,7 @@ class ERC4626DepositManager(VaultDepositManager):
             tx_hash=claim_tx_hash,
             tx_receipt=receipt,
             direction="deposit",
-            hot_wallet=not guarded_call,
+            hot_wallet=not guarded_call if hot_wallet is None else hot_wallet,
             deposit_event_signature=deposit_event_signature,
         )
 

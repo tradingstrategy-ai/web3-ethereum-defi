@@ -367,7 +367,11 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ### Code comments
 
-- For code comments, Use Sphinx restructured text style
+- Write docstrings and comments for a maintainer who knows Python but may not know the protocol. Give the context needed to understand the decision.
+- Explain why the code exists and how it addresses the problem. Describe assumptions, units, ownership, timing, side effects and failure behaviour where they affect correct use. Do not merely narrate the statements below a comment.
+- Use plain language. Replace jargon and unexplained abbreviations with concrete descriptions; retain exact API names and explain unfamiliar protocol terms on first use.
+- Keep explanations proportionate: a concise summary and relevant rationale are more useful than padding. Keep comments accurate when behaviour changes, and link to authoritative sources for non-obvious protocol constraints.
+- Use Sphinx reStructuredText for Python docstrings.
 - For documenting dataclass and Enum members, use Sphinx `#: comment here` line comment above variable, not `:param:` or `:ivar:` blocks
 - If a. class function overloads a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
 - Each function should *minimum* have 1) one liner summary description 2) one paragraph longer description 3) arguments and return values documented 4) for APIs and integrations, links to authoritative and canonical documentation 5) for dataframes and series expectations of columns and value types
@@ -553,6 +557,12 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 - **Read `eth_defi/abi/README.md` first** — it is the canonical reference for
   fetching, storing, loading and using ABI files.
 - Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
+- Always use ABI-backed contract proxies when the required functions are available
+  in a stored ABI. Prefer `contract.functions.method(...).call()` and the shared
+  transaction/encoding helpers over handcrafted selectors, argument padding and
+  return decoding for readability and maintainability. For multicalls, use
+  `EncodedCall.from_contract_call()`. Reserve ABI-less probes for interfaces
+  without an available ABI and explain that reason in the code.
 - Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
 - Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
 

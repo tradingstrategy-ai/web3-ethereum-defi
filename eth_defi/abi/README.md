@@ -117,8 +117,9 @@ Some protocols do not verify on an explorer but publish ABIs or interfaces in
 their contracts repo (or a docs/SDK export). Commit the application-exported or
 repo-exported interface JSON and record the exact source URL and commit/tag in
 the protocol README. For a narrowly-scoped adapter that only needs a handful of
-stable no-argument view methods, using canonical 4-byte selectors directly (see
-`EncodedCall` below) is acceptable instead of committing a full ABI — link the
+stable no-argument view methods without an available ABI, using canonical
+4-byte selectors directly (see `EncodedCall` below) is acceptable instead of
+committing a full ABI — link the
 authoritative source in the module docstring and cover every decoded value with
 a fork test.
 
@@ -166,6 +167,20 @@ All loaders live in `eth_defi.abi` and are cached in-process. Pass the
 repo-relative filename (e.g. `"lagoon/Vault.json"`); a leading slash means an
 absolute filesystem path.
 
+Always use ABI-backed contract proxy classes when the required functions are
+available in a stored ABI. Call `contract.functions.method(...).call()` for
+reads and use the shared transaction/encoding helpers for writes. Let the ABI
+encode arguments and decode return types instead of assembling selectors,
+padding addresses or interpreting return words by hand. This keeps calls
+readable and maintainable and gives malformed responses the standard decoding
+errors. Preserve the caller's distinction between denial, unreadable data and
+connection failure when translating those errors.
+
+For batched reads with an available ABI, use
+`EncodedCall.from_contract_call(contract.functions.method(...))`. ABI-less
+selector probes are for interfaces without an available ABI; document that
+reason at the call site rather than duplicating a known interface.
+
 | Role | Helper | Notes |
 |------|--------|-------|
 | Load the raw ABI/artifact dict | `get_abi_by_filename(fname)` | Returns the parsed JSON (array or `{abi, bytecode}`); cached. |
@@ -174,7 +189,8 @@ absolute filesystem path.
 | Contract needing **Forge library linking** | `get_contract_with_forge_libraries(web3, fname, library_addresses)` | Resolves `linkReferences`; pass `ZERO_ADDRESS` when the library is never called on this chain. |
 | Contract needing **Hardhat library linking** | `get_linked_contract(...)` | Hardhat `link_references` variant. |
 | Standard **ERC-4626** vault binding | `eth_defi.erc_4626.core.get_deployed_erc_4626_contract(web3, address)` | Uses the fixed `lagoon/IERC4626.json` interface; use when you only need the ERC-4626 surface. |
-| **ABI-less** encoded call (classification probes, batched multicall) | `eth_defi.event_reader.multicall_batcher.EncodedCall.from_keccak_signature(address, signature, function, data, extra_data)` | Encodes a call from a raw 4-byte selector without loading an ABI; the canonical pattern for detection probes and dense multicall reads. |
+| ABI-backed batched call | `eth_defi.event_reader.multicall_batcher.EncodedCall.from_contract_call(func)` | Preferred for multicall reads when a stored ABI provides the function. |
+| **ABI-less** encoded call (classification probes, batched multicall) | `eth_defi.event_reader.multicall_batcher.EncodedCall.from_keccak_signature(address, signature, function, data, extra_data)` | Use for probes without an available ABI; document why the ABI-backed form cannot be used. |
 | Event **topic0** signature | `get_topic_signature_from_event(event)` | `keccak` of the event signature for log filtering/decoding. |
 | Function **selector** | `get_function_selector(func)` | 4-byte selector of a bound `ContractFunction`. |
 | **Encode** a call by signature | `encode_function_call(func, args)` / `encode_with_signature(signature, args)` | Build raw calldata. |
@@ -219,6 +235,8 @@ probe = EncodedCall.from_keccak_signature(
 ## Rules recap (see `CLAUDE.md` → ABIs)
 
 - Store ABIs under `eth_defi/abi/<protocol>/`; load through the helpers above.
+- Prefer ABI-backed proxy calls and `EncodedCall.from_contract_call()` whenever
+  the stored interface provides the function; do not handcraft equivalent calls.
 - Do not inline ABIs in Python beyond a one- or two-entry fragment.
 - For a proxy, commit the **implementation** ABI, not the proxy ABI.
 - Record the canonical source (chain, proxy, implementation, URL, date) in the

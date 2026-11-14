@@ -18,6 +18,8 @@ Key features of Morpho Vault V2:
 
 import datetime
 import logging
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -26,7 +28,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
@@ -257,17 +259,38 @@ class MorphoV2Vault(ERC4626Vault):
         Canonical Morpho V2 vaults are permissionless when both optional gate
         addresses are zero. Configured gates implement Morpho's
         ``IReceiveSharesGate`` and ``ISendAssetsGate`` predicates and cannot
-        safely be called KYC without recognising their implementation.
+        safely be called KYC merely because a gate is configured.
 
         :return:
-            ``False`` when both canonical gate slots are disabled.
-        :raise NotImplementedError:
-            If a deployed gate requires implementation-specific analysis.
+            Whether either canonical deposit gate is configured.
+            Account admission is evaluated separately by the canonical predicates.
         """
         receive_shares_gate, send_assets_gate = self.fetch_deposit_gates()
-        if receive_shares_gate.lower() == ZERO_ADDRESS_STR and send_assets_gate.lower() == ZERO_ADDRESS_STR:
-            return False
-        raise NotImplementedError(f"Morpho V2 vault {self.address} has custom gates: receiveSharesGate={receive_shares_gate}, sendAssetsGate={send_assets_gate}")
+        return any(gate.lower() != ZERO_ADDRESS_STR for gate in (receive_shares_gate, send_assets_gate))
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Check deposit permission when one account sends assets and receives shares.
+
+        Morpho checks the asset sender and share receiver separately. Query both
+        permission functions for this account at the vault reader's selected block.
+        A failed or undecodable call leaves permission unknown; it must not be
+        reported as an explicit denial or as permission to deposit.
+
+        :param address: Account sending assets and receiving shares.
+        :return: Whether both permission checks allow the account.
+        :raises NotImplementedError: If a predicate reverts or cannot be decoded.
+        """
+        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        account = Web3.to_checksum_address(address)
+        block_identifier = self._get_block_identifier()
+        for predicate in (contract.functions.canReceiveShares(account), contract.functions.canSendAssets(account)):
+            try:
+                allowed = predicate.call(block_identifier=block_identifier)
+            except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as error:
+                raise NotImplementedError(f"Unreadable Morpho gate predicate {predicate.fn_name} for {self.address}") from error
+            if not allowed:
+                return False
+        return True
 
     def fetch_deposit_gates(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, HexAddress]:
         """Read Morpho V2's canonical receiver and sender gate slots.

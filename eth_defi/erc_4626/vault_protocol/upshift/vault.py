@@ -764,7 +764,7 @@ class UpshiftVault(ERC4626Vault):
             slot = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
             value = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block_identifier)
             implementation = "0x" + bytes(value[-20:]).hex()
-            if implementation != "0xaacc687cea8cd706bd7a56be0f7ad85d420767dc":
+            if implementation not in {"0xaacc687cea8cd706bd7a56be0f7ad85d420767dc", "0xff33f4042bd18572e1e1568fdaf3348df5113908"}:
                 raise
             return None
 

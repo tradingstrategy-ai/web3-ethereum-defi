@@ -4,6 +4,11 @@ import logging
 from decimal import Decimal
 
 from eth_typing import HexAddress, HexStr
+from web3 import Web3
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from hexbytes import HexBytes
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_VERSIONS, LagoonVault
@@ -22,12 +27,15 @@ from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil, make_anvil_cu
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
     DepositTicket,
     RedemptionTicket,
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
     WhitelistingRequired,
+    extract_revert_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,10 +102,15 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     **Whitelisting / access control.** Deposit admission is version specific and
     checked before broadcast by :meth:`_assert_deposit_request_available` /
     :meth:`can_create_deposit_request`. Lagoon v0.4 reads its explicit policy
-    getter, while v0.5 derives whitelist mode from ``isWhitelisted(0x0)``;
-    both admit an account with ``isWhitelisted(account)``. Lagoon v0.6 uses the access layer's
-    ``isAllowed(0x0)`` / ``isAllowed(account)`` for whitelist, blacklist and
-    sanctions checks; the characterised v1 deployment exposes the same view.
+    getter, while v0.5.0 falls back to ``isWhitelisted(0x0)``. Version v0.5.2
+    reads ``isActivated`` from contract storage because its zero-address check
+    always returns ``True``. These versions check each account with ``isWhitelisted``.
+    Version v0.6 reads ``accessMode`` from storage and checks each account with
+    ``isAllowed`` for whitelist, blacklist and sanctions restrictions. The v1
+    path uses the same reads based on tests at fixed blocks; wider compatibility
+    has not been established from verified v1 source. A zero-address permission
+    check cannot identify the modern access mode because that address may be
+    exempt as the configured fee receiver or super operator.
     Both flow through
     :meth:`LagoonVault.is_whitelisted_deposit` and
     :meth:`LagoonVault.is_account_whitelisted`. A denial raises
@@ -136,6 +149,116 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         """
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         super().__init__(vault)
+
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
+        """Leave new-deposit capacity unknown instead of using a pending claim.
+
+        Lagoon's ``maxDeposit`` reports assets already available to claim from a
+        queued deposit. Using it as the limit for a new deposit would incorrectly
+        reject accounts that have no pending claim.
+
+        :param owner: Unused because no new-deposit limit is read for any account.
+        :return: Raw deposit limit, or ``None`` when not advertised.
+        """
+        return None
+
+    def has_synchronous_deposit(self) -> bool:
+        """Check whether a new deposit can receive shares immediately.
+
+        Versions v0.5.0, v0.5.2 and v0.6.0 require a current asset valuation.
+        Version v0.6.0 also restricts immediate deposits through ``syncMode``.
+        This adapter uses the queued deposit path for all other versions,
+        including v1.
+
+        :return: Whether sync deposits are currently permitted.
+        """
+        version = self.vault.version.value
+        if version not in ("v0.5.0", "v0.5.2", "v0.6.0"):
+            return False
+        f = self.vault.vault_contract.functions
+        valid = f.isTotalAssetsValid().call()
+        return valid and (version != "v0.6.0" or f.syncMode().call() in (0, 1))
+
+    def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True) -> ERC4626DepositRequest | GenericERC7540DepositRequest:
+        """Choose an immediate or queued deposit from the vault's current mode.
+
+        When the asset valuation and mode allow it, ``syncDeposit`` issues shares
+        in the same transaction. Otherwise ``requestDeposit`` queues the assets
+        for later settlement. For queued deposits, leave ``to`` unset: the owner
+        receives the shares, and even an explicit ``to=owner`` is rejected.
+
+        :param owner: Account funding the deposit.
+        :param to: Share receiver for immediate deposits; must be unset for queued deposits.
+        :param amount: Human-readable deposit amount.
+        :param raw_amount: Deposit in the token's smallest integer units, if supplied.
+        :param check_max_deposit: Unused interface option; no new-deposit limit is read here.
+        :param check_enough_token: Unused interface option; this builder does not read balances.
+        :return: Synchronous or queued request for the current mode.
+        """
+        self._assert_deposit_request_available(owner)
+        receiver = to or owner
+        raw = raw_amount if raw_amount is not None else self.vault.denomination_token.convert_to_raw(amount)
+        if self.has_synchronous_deposit():
+            request_class = ERC4626DepositRequest
+            func = self.vault.vault_contract.functions.syncDeposit(raw, receiver, ZERO_ADDRESS_STR)
+        else:
+            assert not to, f"Unsupported async receiver: {to}"
+            request_class = self.deposit_request_class
+            func = self.vault.vault_contract.functions.requestDeposit(raw, owner, owner)
+        return request_class(vault=self.vault, owner=owner, to=receiver, amount=self.vault.denomination_token.convert_to_decimals(raw), raw_amount=raw, funcs=[func])
+
+    def analyse_deposit(self, claim_tx_hash: HexBytes | str, deposit_ticket: DepositTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Use the saved deposit ticket to select the receipt's event type.
+
+        The asset valuation may expire between submission and receipt analysis.
+        Selecting an event from the current deposit mode could then misread an
+        immediate deposit as a queued one. A missing ticket identifies the
+        immediate path and its ``DepositSync`` event.
+
+        :param claim_tx_hash: Mined deposit or claim transaction.
+        :param deposit_ticket: Saved async ticket, or ``None`` for a sync trade.
+        :return: Executed deposit quantities or a failure description.
+        """
+        if deposit_ticket is None:
+            return ERC4626DepositManager(self.vault)._analyse_deposit(claim_tx_hash, None, deposit_event_signature="DepositSync(address,address,uint256,uint256)", hot_wallet=False)
+        return super().analyse_deposit(claim_tx_hash, deposit_ticket)
+
+    def _assert_vault_open(self, owner: HexAddress) -> None:
+        """Recognise Closed before moving assets into a new request.
+
+        Lagoon has no public function to read its closed flag. Simulating a
+        valuation proposal with ``eth_call`` can return ``Closed()`` without
+        changing chain state. Other contract reverts, such as a refusal to replace
+        a still valid valuation, do not establish closure and are ignored here.
+
+        :param owner: Prospective depositor included in the failure details.
+        :raises VaultFlowUnavailable: If the simulated proposal reports ``Closed()``.
+        """
+        try:
+            self.vault.vault_contract.functions.updateNewTotalAssets(0).call({"from": self.vault.valuation_manager})
+        except (ContractLogicError, ExtraValueError) as error:
+            data = extract_revert_data(error)
+            if data and bytes(data[:4]) == bytes.fromhex("1cdde67b"):
+                raise VaultFlowUnavailable("Lagoon vault is closed", protocol="Lagoon", vault_address=self.vault.address, caller=owner, direction="deposit", phase="preflight", preflight_result="deposit_closed", error_selector=HexBytes("0x1cdde67b")) from error
+
+    def create_deposit_request_for_guard_validation(self, owner: HexAddress, raw_amount: int) -> GenericERC7540DepositRequest:
+        """Build calldata only after the contract proves terminal closure.
+
+        This validates the Guard policy without submitting to a closed vault.
+
+        :param owner: Simulated custody account.
+        :param raw_amount: Deposit in the token's smallest integer units for validation.
+        :return: Original async call shape for Guard-only validation.
+        """
+        self._assert_anvil_guard_validation()
+        try:
+            self._assert_vault_open(owner)
+        except VaultFlowUnavailable as error:
+            if error.preflight_result != "deposit_closed":
+                raise
+        else:
+            return super().create_deposit_request_for_guard_validation(owner, raw_amount)
+        return GenericERC7540DepositRequest(vault=self.vault, owner=owner, to=owner, amount=self.vault.denomination_token.convert_to_decimals(raw_amount), raw_amount=raw_amount, funcs=[self.vault.vault_contract.functions.requestDeposit(raw_amount, owner, owner)])
 
     def force_settle(
         self,
@@ -428,10 +551,14 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     def _assert_deposit_request_available(self, owner: HexAddress) -> None:
         """Reject a Lagoon access-policy denial before request broadcast.
 
-        Lagoon v0.5 derives whitelist mode from ``isWhitelisted(0x0)``.
-        Lagoon v0.6 uses ``isAllowed(0x0)`` for whitelist, blacklist and
-        sanctions checks. The characterised v1 deployment exposes the same
-        selector, without verified source for wider semantic claims.
+        Require :meth:`LagoonVault.is_whitelisted_deposit` to read the mode;
+        an unreadable mode causes a refusal. Its boolean result does not decide
+        permission: the separate account check does that. For mode detection,
+        v0.5.0 can use ``isWhitelisted(0x0)``, while v0.5.2, v0.6 and v1 read
+        version-specific storage. Even a vault without a whitelist may deny the
+        depositing account through a
+        blacklist or sanctions check. The v1 reads rely on tests at fixed blocks,
+        without verified source establishing wider compatibility.
 
         :param owner:
             Request owner and controller.
@@ -477,6 +604,7 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             ) from e
 
         if account_allowed:
+            self._assert_vault_open(owner)
             return
 
         is_modern = self.vault.version in LAGOON_MODERN_VERSIONS

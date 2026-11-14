@@ -10,13 +10,14 @@ from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 from eth_defi.erc_4626.vault_protocol.forty_acres.vault import FortyAcresVault
 from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
 from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
+from eth_defi.vault.base import VaultSpec
 
 OWNER = "0x0000000000000000000000000000000000000001"
 
 
 @pytest.mark.parametrize(
     "vault_type",
-    (FortyAcresVault, EmberVault, PlutusVault, CsigmaVault, YearnCompounderVault),
+    (FortyAcresVault, PlutusVault, CsigmaVault, YearnCompounderVault),
 )
 def test_protocol_adapters_default_to_permissionless(vault_type: type) -> None:
     """Public protocol adapters must not inherit the base unknown policy.
@@ -71,3 +72,33 @@ def test_accountable_uses_explicit_contract_permission_level() -> None:
     permission_call.return_value = 3
     with pytest.raises(NotImplementedError, match="Unknown Accountable permission level 3"):
         vault.fetch_permission_level()
+
+
+def test_ember_admission_uses_deployment_validator() -> None:
+    """Ember admission follows its configured validator rather than a default.
+
+    1. Model the validator boundary without requiring an RPC connection.
+    2. Check disabled and empty validators permit public deposits.
+    3. Check a populated list uses the actual owner's membership.
+    """
+    # 1. Mock only the contract reader; exercise the adapter's real policy.
+    vault = object.__new__(EmberVault)
+    vault.spec = VaultSpec(1, OWNER)
+    vault.__dict__["deposit_validator"] = None
+    # 2. Disabled and empty validators permit public deposits.
+    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_account_whitelisted(OWNER) is True
+    validator = MagicMock()
+    vault.__dict__["deposit_validator"] = validator
+    validator.functions.depositAllowListCount.return_value.call.return_value = 0
+    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_account_whitelisted(OWNER) is True
+    # 3. A populated list requires the real owner's membership.
+    validator.functions.depositAllowListCount.return_value.call.return_value = 2
+    assert vault.is_whitelisted_deposit() is True
+    allowed = validator.functions.depositAllowList.return_value.call
+    allowed.return_value = True
+    assert vault.is_account_whitelisted(OWNER) is True
+    allowed.return_value = False
+    assert vault.is_account_whitelisted(OWNER) is False
+    validator.functions.depositAllowList.assert_called_with(vault.address, OWNER)

@@ -24,7 +24,7 @@ from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, Contract
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
-from eth_defi.provider.anvil import is_anvil
+from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
@@ -55,9 +55,6 @@ if TYPE_CHECKING:
 
 #: ``InsufficientAmount()`` from the verified AccountableAsyncRedeemVault ABI.
 ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR = HexBytes("0x5945ea56")
-
-#: Accountable redemption settlement requires a strategy-operator action.
-ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "accountable_redemption_settlement_is_strategy_operator_controlled"
 
 
 @dataclass(slots=True)
@@ -204,10 +201,14 @@ class AccountableDepositManager(ERC4626DepositManager):
 
     **Anvil settlement (force_settle)**
 
-    Deposits use the shared ``force_settle(None)`` no-op. Redemptions have no safe
-    generic Anvil settlement driver, so ``force_settle(ticket)`` raises
-    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation`;
-    settlement must be driven by the real strategy operator.
+    Deposits use the shared ``force_settle(None)`` no-op. On Anvil, redemptions
+    impersonate the configured strategy and call the vault's authorised
+    ``fulfillRedeemRequest`` for the exact self-controlled ticket. Existing
+    liquidity checks remain enforced and no denomination assets are injected.
+    This exercises vault settlement mechanics, not the strategy's offchain
+    approval policy or its ability to unwind deployed capital. Direct fulfilment
+    can serve this ticket ahead of earlier queued requests; FIFO availability
+    is not validated.
     """
 
     def estimate_deposit(
@@ -460,6 +461,26 @@ class AccountableDepositManager(ERC4626DepositManager):
             funcs=[self.vault.vault_contract.functions.requestRedeem(raw_shares, owner, owner)],
         )
 
+    def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> AccountableRedemptionRequest:
+        """Reconstruct a submitted withdrawal so its receipt can be analysed.
+
+        A new request is refused while an earlier withdrawal is pending. Applying
+        that check after submission would reject the very request being analysed,
+        so reconstruct it from the saved owner and exact share quantity instead.
+
+        :param owner: Original controller and share owner.
+        :param raw_shares: Exact shares saved before submission.
+        :return: Original request description for receipt analysis.
+        """
+        return AccountableRedemptionRequest(
+            vault=self.vault,
+            owner=owner,
+            to=owner,
+            shares=self.vault.share_token.convert_to_decimals(raw_shares),
+            raw_shares=raw_shares,
+            funcs=[self.vault.vault_contract.functions.requestRedeem(raw_shares, owner, owner)],
+        )
+
     def force_settle(
         self,
         ticket: DepositTicket | RedemptionTicket | None,
@@ -467,53 +488,59 @@ class AccountableDepositManager(ERC4626DepositManager):
         mock: object | None = None,
         ignore_liquidity: bool = False,
     ) -> VaultForcedSettlementResult:
-        """Refuse Accountable asynchronous settlement before any fork broadcast.
+        """Fulfil one exact Accountable ticket using existing fork liquidity.
 
-        The selected deposit direction is synchronous and retains the base
-        no-op result. Accountable redemption settlement is controlled by a
-        strategy operator and does not expose a safe Anvil driver.
+        Impersonate only the vault's configured strategy for its privileged
+        fulfilment call. This does not grant settlement authority to the asset
+        manager or model the strategy's external approval/unwind process.
 
         :param ticket:
-            ``None`` for a synchronous deposit, or an Accountable redemption
-            ticket to refuse.
+            ``None`` for a synchronous deposit, or the self-controlled request.
         :param mock:
             A deployed ``MockERC7540Vault`` only for local mock tests. Its
             ``fulfillRedeemRequest`` call stands in for the strategy operator.
         :param ignore_liquidity:
-            Unsupported because Accountable settlement is strategy-operator
-            controlled rather than an immediate-liquidity gate.
+            Unsupported; the vault must have enough existing free assets.
         :return:
-            Shared synchronous no-op outcome for ``None``.
+            Settlement status and mined transaction evidence, without injected assets.
         :raise UnsupportedVaultSimulation:
-            For an asynchronous redemption ticket with the stable capability
-            reason.
+            For a live provider, mismatched ticket or unsupported liquidity bypass.
         """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("Accountable settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
         if ignore_liquidity:
             return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
 
         if ticket is None:
             return create_synchronous_settlement_result()
+        if not isinstance(ticket, AccountableRedemptionTicket) or ticket.vault_address.lower() != self.vault.address.lower() or ticket.controller != ticket.owner or ticket.to != ticket.owner:
+            raise UnsupportedVaultSimulation("Accountable settlement requires a matching self-controlled ticket", unsupported_reason="accountable_settlement_ticket_mismatch")
+        before = self.get_redemption_request_status(ticket)
+        if before is AsyncVaultRequestStatus.claimable:
+            if self._claimable_redeem_shares(ticket.controller) != ticket.raw_shares or self._pending_redeem_shares(ticket.controller):
+                raise UnsupportedVaultSimulation("Accountable claimable aggregate does not match the ticket", unsupported_reason="accountable_claimable_ticket_mismatch")
+            return VaultForcedSettlementResult(ticket, False, before, before)
+        if before is not AsyncVaultRequestStatus.pending or self._pending_redeem_shares(ticket.controller) != ticket.raw_shares:
+            raise UnsupportedVaultSimulation("Accountable pending aggregate does not match the ticket", unsupported_reason="accountable_pending_ticket_mismatch")
         if mock is not None:
-            assert isinstance(ticket, AccountableRedemptionTicket), f"Accountable mock settlement requires AccountableRedemptionTicket, got {type(ticket)}"
-            if not is_anvil(self.web3):
-                raise UnsupportedVaultSimulation("Accountable mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
             tx_hash = mock.functions.fulfillRedeemRequest(ticket.request_id).transact({"from": self.web3.eth.accounts[0]})
-            # Anvil >= 1.8 returns the hash before the automined block exists.
             assert_transaction_success_with_explanation(self.web3, tx_hash)
-            return VaultForcedSettlementResult(
-                ticket=ticket,
-                settlement_required=True,
-                status_before=AsyncVaultRequestStatus.pending,
-                status_after=AsyncVaultRequestStatus.claimable,
-                transaction_hashes=(HexBytes(tx_hash),),
-            )
-        raise UnsupportedVaultSimulation(
-            f"Accountable redemption settlement is strategy-operator controlled for vault {self.vault.address} on chain {self.vault.chain_id}",
-            unsupported_reason=ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
-            protocol=self.vault.get_protocol_name(),
-            vault_address=self.vault.address,
-            direction="redeem",
-        )
+        else:
+            strategy = self.vault.vault_contract.functions.strategy().call()
+            if int(strategy, 16) == 0 or not self.web3.eth.get_code(strategy):
+                raise UnsupportedVaultSimulation("Accountable strategy is not a deployed contract", unsupported_reason="accountable_strategy_unavailable")
+            make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [strategy])
+            try:
+                gas_balance = max(self.web3.eth.get_balance(strategy), 10**18)
+                make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [strategy, hex(gas_balance)])
+                tx_hash = self.vault.vault_contract.functions.fulfillRedeemRequest(ticket.controller, ticket.raw_shares).transact({"from": strategy, "gas": 2_000_000})
+                assert_transaction_success_with_explanation(self.web3, tx_hash)
+            finally:
+                make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [strategy])
+        after = self.get_redemption_request_status(ticket)
+        if after is not AsyncVaultRequestStatus.claimable or self._claimable_redeem_shares(ticket.controller) != ticket.raw_shares or self._pending_redeem_shares(ticket.controller):
+            raise UnsupportedVaultSimulation("Accountable settlement did not make the ticket claimable", unsupported_reason="accountable_settlement_incomplete")
+        return VaultForcedSettlementResult(ticket, True, before, after, transaction_hashes=(HexBytes(tx_hash),))
 
     def has_synchronous_deposit(self) -> bool:
         """Return Accountable deposit completion mode.

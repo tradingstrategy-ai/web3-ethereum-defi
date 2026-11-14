@@ -10,12 +10,14 @@ from decimal import Decimal
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
-from web3.exceptions import ContractLogicError
+from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626RedemptionRequest
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil
-from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, VaultRedemptionSimulationIntervention, extract_revert_data
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, WhitelistingRequired, VaultRedemptionSimulationIntervention, extract_revert_data
 
 #: ``TransferReverted()`` from Morpho Vault V2's ``SafeERC20Lib.safeTransfer``.
 #: The library is used for the final redemption asset payout:
@@ -42,6 +44,48 @@ class MorphoV2DepositManager(ERC4626DepositManager):
     therefore retains the generic request construction and adds an ``eth_call``
     of the exact redemption from its eventual caller.
     """
+
+    def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True) -> ERC4626DepositRequest:
+        """Check the depositor actually used when Morpho forwards assets to another vault.
+
+        Morpho's liquidity adapter sends assets to the underlying vault and
+        receives its shares. Checking the user's account there would miss a
+        restriction on the adapter itself. For recognised adapters, check both
+        permissions using the adapter address. Missing optional functions leave
+        the final decision to the deposit transaction's contract checks.
+
+        :param owner: Outer asset sender.
+        :param to: Outer share receiver.
+        :param amount: Decimal deposit amount.
+        :param raw_amount: Deposit in the token's smallest integer units.
+        :param check_max_deposit: Retain ordinary deposit-limit checks.
+        :param check_enough_token: Retain ordinary funding checks.
+        :return: Standard ERC-4626 deposit request.
+        """
+        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.vault.address)
+        adapter = contract.functions.liquidityAdapter().call()
+        if int(adapter, 16):
+            # This optional adapter-identification getter has no stored ABI.
+            try:
+                result = self.web3.eth.call({"to": adapter, "data": Web3.keccak(text="morphoVaultV1()")[:4]})
+            except (ContractLogicError, ExtraValueError):
+                result = b""
+            if len(result) == 32 and int.from_bytes(result, "big"):
+                inner = Web3.to_checksum_address(result[-20:])
+                # The V2 ABI provides these optional predicates; inner vaults
+                # without them fall through to normal onchain validation.
+                inner_contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", inner)
+                for predicate, decoded_error in (
+                    (inner_contract.functions.canSendAssets(adapter), "CannotSendAssets"),
+                    (inner_contract.functions.canReceiveShares(adapter), "CannotReceiveShares"),
+                ):
+                    try:
+                        allowed = predicate.call()
+                    except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+                        continue
+                    if not allowed:
+                        raise WhitelistingRequired(f"Morpho outer vault {self.vault.address} on chain {self.vault.chain_id}: liquidity adapter depositor {adapter} is denied by inner vault {inner} ({predicate.fn_name})", protocol="Morpho", vault_address=inner, caller=adapter, direction="deposit", phase="preflight", decoded_error=decoded_error)
+        return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
 
     def fetch_redemption_liquidity(self) -> tuple[HexAddress, int, int]:
         """Read balances that can satisfy a Morpho V2 redemption payout.

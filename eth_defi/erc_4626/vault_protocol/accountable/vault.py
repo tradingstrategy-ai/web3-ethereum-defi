@@ -16,10 +16,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import (
-    ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
-    AccountableDepositManager,
-)
+from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import AccountableDepositManager
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     AccountableVaultMetadata,
     fetch_accountable_vault_metadata,
@@ -519,8 +516,7 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
-            supports_anvil_settlement=False,
-            anvil_settlement_unsupported_reason=ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            supports_anvil_settlement=True,
         )
 
     @cached_property
