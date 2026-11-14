@@ -326,3 +326,26 @@ def test_chain_probe_filtering():
     func_names_polygon = [p.func_name for p in probes_polygon]
     assert "getRawNAV" not in func_names_polygon
     assert len(probes_polygon) < len(probes_monad)
+
+
+def test_vault_morpho_cap_probe_preserves_interface_features() -> None:
+    """The extra cap identifies a separate implementation without asserting its operator.
+
+    1. Supply the common ERC-4626 and MORPHO probes.
+    2. Compare canonical MetaMorpho with the capped implementation.
+    3. Ignore tvlCap on an unrelated vault without MORPHO.
+    """
+    # 1. Fixed contract responses isolate classification from node availability.
+    address = "0x0000000000000000000000000000000000000001"
+    success = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+    # 2. The shared MORPHO getter must not erase the extra cap distinction.
+    for has_morpho, has_cap in ((True, True), (True, False), (False, True)):
+        probes = {"convertToShares": success}
+        if has_morpho:
+            probes["MORPHO"] = success
+        if has_cap:
+            probes["tvlCap"] = success
+        features = identify_vault_features(address, _ProbeResultsDict(probes), debug_text=None, chain_id=ETHEREUM_MAINNET)
+        # 3. A cap getter alone does not establish this implementation family.
+        assert (ERC4626Feature.vault_morpho_like in features) == (has_morpho and has_cap)
+        assert (ERC4626Feature.morpho_like in features) == has_morpho

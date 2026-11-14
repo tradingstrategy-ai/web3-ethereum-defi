@@ -221,6 +221,7 @@ Supported protocols
    yield_basis/index
    usyc/index
    morpho/index
+   vault_morpho/index
    nashpoint/index
    nara/index
    nest/index

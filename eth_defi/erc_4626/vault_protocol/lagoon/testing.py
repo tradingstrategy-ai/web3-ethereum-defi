@@ -18,6 +18,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDiskCache
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, extract_revert_data
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,9 @@ def force_lagoon_settle(
         Gas allowance for each privileged fork transaction.
     :return:
         Mined expiry (when needed), valuation and settlement transaction hashes.
+    :raises UnsupportedVaultSimulation:
+        If the valuation guard rejects the proposed NAV. The helper does not
+        invent another valuation to make settlement pass.
     """
 
     assert asset_manager.startswith("0x"), f"asset_manager should be an address, got: {asset_manager}"
@@ -181,7 +185,20 @@ def force_lagoon_settle(
         expiry_hash = vault.vault_contract.functions.expireTotalAssets().transact({"from": settlement_manager, "gas": gas_limit})
         assert_transaction_success_with_explanation(web3, expiry_hash)
         expiry_hashes = (expiry_hash,)
-    valuation_tx_hash = vault.vault_contract.functions.updateNewTotalAssets(raw_nav).transact({"from": asset_manager, "gas": gas_limit})
+    valuation = vault.vault_contract.functions.updateNewTotalAssets(raw_nav)
+    try:
+        valuation.call({"from": asset_manager})
+    except (ContractLogicError, ExtraValueError) as error:
+        data = extract_revert_data(error)
+        if data and data[:4] == bytes.fromhex("21aa421f"):
+            raise UnsupportedVaultSimulation(
+                f"Lagoon valuation guard rejects proposed raw NAV {raw_nav}; settlement requires a justified valuation from the operator",
+                unsupported_reason="lagoon_valuation_guardrails",
+                protocol="Lagoon",
+                vault_address=vault.address,
+            ) from error
+        raise
+    valuation_tx_hash = valuation.transact({"from": asset_manager, "gas": gas_limit})
     assert_transaction_success_with_explanation(web3, valuation_tx_hash)
 
     legacy = vault.version is LagoonVersion.legacy

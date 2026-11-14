@@ -5,6 +5,7 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
+from eth_abi import decode
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3.exceptions import ContractLogicError
@@ -29,13 +30,37 @@ IPOR_WITHDRAW_MANAGER_INVALID_SHARES_TO_RELEASE_SELECTOR = HexBytes("0x3c71a1e7"
 #: redemption lock remains active. ``keccak("AccountIsLocked(uint256)")[:4]``.
 IPOR_ACCOUNT_IS_LOCKED_SELECTOR = HexBytes("0xa592703b")
 
+#: External observations must be updated by the protocol's authorised operator;
+#: a positive deposit or redemption maximum does not establish their freshness.
+IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR = HexBytes("0x1cb5be05")
+
 IPOR_REDEMPTION_ERROR_NAMES = {
     IPOR_FAILED_INNER_CALL_SELECTOR: "FailedInnerCall",
     IPOR_WITHDRAW_MANAGER_INVALID_SHARES_TO_RELEASE_SELECTOR: "WithdrawManagerInvalidSharesToRelease",
     IPOR_ACCOUNT_IS_LOCKED_SELECTOR: "AccountIsLocked",
+    IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR: "ExternalStatePreHookStale",
 }
 
 ERROR_SELECTOR_LENGTH = 4
+
+
+def _external_state_stale_reason(revert_data: bytes | None) -> str | None:
+    """Explain the stale observation without mistaking it for missing liquidity.
+
+    The contract checks observation age before allowing the operation. Its
+    error supplies the last update, execution time and permitted age, so the
+    explanation uses chain time rather than the local clock.
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` carries this
+    reason to callers without labelling it a lack of withdrawal funds.
+
+    :param revert_data: Bytes returned by a failed contract call, if available.
+    :return: Explanation with Unix timestamps and maximum age in seconds, or
+        ``None`` for an unrelated or malformed error.
+    """
+    if revert_data is None or len(revert_data) != 100 or revert_data[:4] != IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR:
+        return None
+    oldest_update, execution_time, maximum_age = decode(["uint256", "uint256", "uint256"], revert_data[4:])
+    return f"IPOR external state is stale: oldest update {oldest_update}, execution time {execution_time}, maximum age {maximum_age} seconds; an authorised external-state update is required"
 
 
 class IPORDepositManager(ERC4626DepositManager):
@@ -228,7 +253,9 @@ class IPORDepositManager(ERC4626DepositManager):
             return owner_raw_shares
 
         full_error_selector = full_revert_data[:ERROR_SELECTOR_LENGTH] if full_revert_data and len(full_revert_data) >= ERROR_SELECTOR_LENGTH else None
-        if full_error_selector == IPOR_ACCOUNT_IS_LOCKED_SELECTOR:
+        if full_error_selector in {IPOR_ACCOUNT_IS_LOCKED_SELECTOR, IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR}:
+            # Neither an account lock nor stale external observations can be
+            # repaired by searching for a smaller withdrawal.
             return 0
 
         lower_bound = 0
@@ -251,7 +278,13 @@ class IPORDepositManager(ERC4626DepositManager):
         check_max_deposit: bool = True,
         check_enough_token: bool = True,
     ) -> ERC4626DepositRequest:
-        """Create a standard ERC-4626 deposit after access admission.
+        """Reject known stale observations before the caller submits a deposit.
+
+        After checking account permissions, simulate the exact call to detect
+        ``ExternalStatePreHookStale``. Other contract failures may be due to a
+        token approval that has not been submitted yet, so they are left to
+        transaction execution. A node error without contract failure data is
+        propagated; a returned request is not proof that execution will succeed.
 
         :param owner:
             Account submitting and signing the deposit.
@@ -266,10 +299,13 @@ class IPORDepositManager(ERC4626DepositManager):
         :param check_enough_token:
             Whether to run the shared balance check.
         :return:
-            Preflighted deposit request.
+            :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositRequest`
+            with the known stale-observation check applied.
+        :raises eth_defi.vault.deposit_redeem.VaultFlowUnavailable:
+            If the contract reports an expired external observation.
         """
         self._assert_immediate_access(owner, self.vault.get_deposit_function_selector(), "deposit")
-        return super().create_deposit_request(
+        request = super().create_deposit_request(
             owner=owner,
             to=to,
             amount=amount,
@@ -277,6 +313,19 @@ class IPORDepositManager(ERC4626DepositManager):
             check_max_deposit=check_max_deposit,
             check_enough_token=check_enough_token,
         )
+        try:
+            request.funcs[0].call({"from": owner})
+        except (ContractLogicError, ValueError) as error:
+            revert_data = extract_revert_data(error)
+            if isinstance(error, ValueError) and revert_data is None:
+                raise
+            reason = _external_state_stale_reason(revert_data)
+            if reason is not None:
+                raise VaultFlowUnavailable(reason, protocol="IPOR Fusion", vault_address=self.vault.address, caller=owner, direction="deposit", phase="preflight", preflight_result="deposit_unavailable", decoded_error="ExternalStatePreHookStale", error_selector=IPOR_EXTERNAL_STATE_PRE_HOOK_STALE_SELECTOR, raw_revert_data=revert_data, requested_raw_amount=request.raw_amount) from error
+            # Request construction can precede the approval transaction. Only
+            # recognise the known observation-age failure here; normal funding and
+            # allowance checks still apply when the request is executed.
+        return request
 
     def create_redemption_request(
         self,
@@ -315,34 +364,39 @@ class IPORDepositManager(ERC4626DepositManager):
 
         if check_max_redeem:
             available_raw_shares = self.fetch_redeemable_raw_shares(owner)
-            if raw_shares > available_raw_shares:
-                succeeds, revert_data = self.fetch_redeem_simulation(owner, raw_shares)
-                if not succeeds:
-                    error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
-                    decoded_error = IPOR_REDEMPTION_ERROR_NAMES.get(error_selector)
-                    if decoded_error == "AccountIsLocked":
-                        reason = "IPOR PlasmaVault redemption is temporarily locked for this account"
-                        preflight_result = "redemption_window_closed"
-                    elif decoded_error in {"FailedInnerCall", "WithdrawManagerInvalidSharesToRelease"}:
-                        reason = "IPOR PlasmaVault cannot source immediate redemption liquidity from configured markets"
-                        preflight_result = "redemption_capacity_limited"
-                    else:
-                        reason = "IPOR PlasmaVault redemption is not immediately available"
-                        preflight_result = "redemption_unavailable"
-                    raise VaultFlowUnavailable(
-                        reason,
-                        protocol="IPOR Fusion",
-                        vault_address=self.vault.address,
-                        caller=owner,
-                        direction="redeem",
-                        phase="preflight",
-                        decoded_error=decoded_error,
-                        preflight_result=preflight_result,
-                        raw_revert_data=revert_data,
-                        error_selector=error_selector,
-                        requested_raw_amount=raw_shares,
-                        available_raw_amount=available_raw_shares,
-                    )
+            # Reported capacity can be positive while external observations
+            # have expired. Always check the exact requested withdrawal.
+            succeeds, revert_data = self.fetch_redeem_simulation(owner, raw_shares)
+            if not succeeds:
+                error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
+                decoded_error = IPOR_REDEMPTION_ERROR_NAMES.get(error_selector)
+                stale_reason = _external_state_stale_reason(revert_data)
+                if stale_reason is not None:
+                    reason = stale_reason
+                    preflight_result = "redemption_unavailable"
+                elif decoded_error == "AccountIsLocked":
+                    reason = "IPOR PlasmaVault redemption is temporarily locked for this account"
+                    preflight_result = "redemption_window_closed"
+                elif decoded_error in {"FailedInnerCall", "WithdrawManagerInvalidSharesToRelease"}:
+                    reason = "IPOR PlasmaVault cannot source immediate redemption liquidity from configured markets"
+                    preflight_result = "redemption_capacity_limited"
+                else:
+                    reason = "IPOR PlasmaVault redemption is not immediately available"
+                    preflight_result = "redemption_unavailable"
+                raise VaultFlowUnavailable(
+                    reason,
+                    protocol="IPOR Fusion",
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error=decoded_error,
+                    preflight_result=preflight_result,
+                    raw_revert_data=revert_data,
+                    error_selector=error_selector,
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=available_raw_shares,
+                )
 
         return super().create_redemption_request(
             owner=owner,

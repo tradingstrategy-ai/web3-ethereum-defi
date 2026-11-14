@@ -17,7 +17,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
@@ -36,6 +36,7 @@ from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
+from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
@@ -929,6 +930,11 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # An unattributed VaultMorpho implementation adds a global deposit cap.
+        # Bind the stored contract interface without a provider: the existing
+        # batch reader executes the call alongside the other detection calls.
+        yield EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
+
         # Morpho V2 - newer adapter-based architecture
         # https://docs.morpho.org/learn/concepts/vault-v2/
         # https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
@@ -1638,6 +1644,8 @@ def identify_vault_features(
 
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
+        if calls["tvlCap"].success and len(calls["tvlCap"].result) == 32:
+            features.add(ERC4626Feature.vault_morpho_like)
 
     # Morpho V2 - uses adaptersLength() instead of MORPHO()
     # Must check that MORPHO() fails to distinguish from V1
@@ -2449,7 +2457,10 @@ def create_vault_instance(
 
         return VaultStreetVault(web3, spec, **kwargs)
 
-    # TODO: Some module deadlock sheningans for Morpho
+    # Check the capped implementation first: it also exposes MORPHO(), but
+    # must not inherit canonical Morpho fees or deposit rules.
+    elif ERC4626Feature.vault_morpho_like in features:
+        return VaultMorphoVault(web3, spec, **kwargs)
     elif ERC4626Feature.morpho_like in features:
         # Morpho V1 instance
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault

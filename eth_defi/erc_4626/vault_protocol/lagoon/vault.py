@@ -1391,6 +1391,41 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""
         return False
 
+    def fetch_deposit_capacity(self) -> int | None:
+        """Read v0.6 capacity without confusing a queued claim with a new deposit.
+
+        The v0.6 ``ERC7540Lib`` counts both accepted assets and tokens waiting
+        in the deposit holding contract (the silo) against ``maxCap``. Read
+        those balances at one block so deposits between reads cannot distort
+        the limit. Older versions retain their existing request checks.
+
+        :meth:`~eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem.LagoonDepositManager.fetch_depositable_raw_assets`
+        uses this value because ``maxDeposit()`` describes an existing claim,
+        rather than capacity for a new deposit.
+
+        :return: Remaining capacity in the denomination token's smallest units,
+            floored at zero, or ``None`` for other versions.
+        """
+        if self.version is not LagoonVersion.v_0_6_0:
+            return None
+        block = self.default_block_identifier if self.default_block_identifier is not None else self.web3.eth.block_number
+        functions = self.vault_contract.functions
+        cap = functions.maxCap().call(block_identifier=block)
+        accepted = functions.totalAssets().call(block_identifier=block)
+        pending = self.denomination_token.contract.functions.balanceOf(self.silo_address).call(block_identifier=block)
+        return max(0, cap - accepted - pending)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Report an exhausted cap without treating an empty claim as a deposit closure.
+
+        :meth:`fetch_deposit_capacity` includes deposits still waiting for settlement.
+
+        :return: Closure reason at zero remaining capacity, otherwise the base assessment.
+        """
+        if self.fetch_deposit_capacity() == 0:
+            return "Lagoon maxCap reached, including pending deposits"
+        return super().fetch_deposit_closed_reason()
+
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002 - Signature follows the shared vault API.
         return f"https://app.lagoon.finance/vault/{self.chain_id}/{self.vault_address}"
 

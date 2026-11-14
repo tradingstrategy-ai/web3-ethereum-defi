@@ -1,5 +1,11 @@
 # 1.2
 
+- fix: Separate the unattributed VaultMorpho adapter and ABI from canonical Morpho, remove inherited Morpho metadata assumptions, and correct existing catalogue attribution through migration 075 (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).
+
+- docs: Explain Morpho interface detection and the capped VaultMorpho variant in feature comments and the canonical integration guide, including verified sources and the distinction between compatibility and protocol identity (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).
+
+- fix: Enforce legacy Upshift pauses, Lagoon pending-deposit capacity and VaultMorpho TVL caps; decode IPOR stale observations and Morpho exit failures, identify zero-cap allocation routes, and stop Lagoon fork settlement when its valuation guard needs operator input. Refresh reviewed catalogue fields with migration 075 (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).
+
 - docs: Explain vault permission, withdrawal and precision decisions in plain language; clarify Lagoon version support and unused options, and record comment-writing guidance (2026-11-14).
 
 - refactor: Use the stored Morpho V2 ABI for owner and nested-vault deposit predicates, preserving typed admission errors; document ABI-backed contract proxies as the default (2026-11-14).

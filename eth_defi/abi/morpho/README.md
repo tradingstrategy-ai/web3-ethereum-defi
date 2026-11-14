@@ -10,3 +10,15 @@
 `eth_defi.vault_report.vault_probes` to read a MetaMorpho vault's withdraw
 queue, its supply positions and each market's collateral, oracle and
 liquidity. See the [Morpho documentation](https://docs.morpho.org/).
+
+The separately maintained [VaultMorpho ABI](../vault_morpho/README.md) belongs
+to an unattributed implementation, not canonical MetaMorpho. Its contract
+compatibility must not be used as evidence of Morpho protocol ownership.
+
+`MorphoMarketV1AdapterV2.json` comes from verified Ethereum adapter
+[`0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5`](https://etherscan.io/address/0x4336bcdbd4e099f76ee47e8e26fd9e8513ceeff5#code),
+retrieved on 14 November 2026. The same verified contract name/interface was
+checked at `0x0854c79ec9600fd1d02caa14ef0527f93bb5e4cc`.
+`IVaultV2.json` additionally imports `liquidityData()` from verified Ethereum
+VaultV2 `0x9480034d908989b006d78bdbbd7bd509c92e8bbc` (source retrieved
+13 November, interface extended 14 November 2026).

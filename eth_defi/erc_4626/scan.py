@@ -453,7 +453,7 @@ def create_vault_scan_record(
         if isinstance(vault, LagoonVault):
             vault.fetch_metadata_snapshot_for_scan()
         try:
-            fees = vault.get_fee_data(block_identifier=block_identifier) if type(vault) in (MorphoV1Vault, MorphoV2Vault) and type(vault).get_fee_data is VaultBase.get_fee_data else vault.get_fee_data()
+            fees = vault.get_fee_data(block_identifier=block_identifier) if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) and type(vault).get_fee_data is VaultBase.get_fee_data else vault.get_fee_data()
         except (NotImplementedError, ValueError):
             fees = BROKEN_FEE_DATA
 

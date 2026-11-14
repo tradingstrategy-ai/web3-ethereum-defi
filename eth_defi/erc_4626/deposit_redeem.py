@@ -205,6 +205,7 @@ class ERC4626DepositManager(VaultDepositManager):
                     phase="preflight",
                     requested_raw_amount=raw_amount,
                     available_raw_amount=limit,
+                    preflight_result="deposit_closed" if limit == 0 else "deposit_capacity_limited",
                 )
 
         func = deposit_4626(

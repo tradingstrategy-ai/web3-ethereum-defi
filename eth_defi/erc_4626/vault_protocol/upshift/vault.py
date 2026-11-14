@@ -777,6 +777,11 @@ class UpshiftVault(ERC4626Vault):
         """
 
         if not self.multi_asset_like:
+            # Legacy TokenizedAccount can advertise capacity while deposits are
+            # paused. Honour the selected block so a later pause does not
+            # rewrite a saved metadata observation.
+            if self.upshift_contract.functions.depositsPaused().call(block_identifier=self._get_block_identifier()):
+                return "Upshift depositsPaused() is true"
             return super().fetch_deposit_closed_reason()
 
         if self.upshift_contract.functions.depositsPaused().call():
