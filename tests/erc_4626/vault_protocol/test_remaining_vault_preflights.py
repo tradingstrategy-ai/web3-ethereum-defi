@@ -33,12 +33,14 @@ def test_upshift_legacy_pause_wins_over_positive_maximum() -> None:
     # 1. Mock only contract transport so the actual closure reader is exercised.
     vault = object.__new__(UpshiftVault)
     vault.features = {ERC4626Feature.upshift_like}
+    vault.default_block_identifier = 123
     contract = Mock()
     vault.vault_contract = contract
     contract.functions.maxDeposit.return_value.call.return_value = 1000
     # 2. A positive maximum must not bypass the explicit pause.
     contract.functions.depositsPaused.return_value.call.return_value = True
     assert vault.fetch_deposit_closed_reason() == "Upshift depositsPaused() is true"
+    contract.functions.depositsPaused.return_value.call.assert_called_once_with(block_identifier=123)
     contract.functions.maxDeposit.assert_not_called()
     # 3. Reopening preserves the existing generic maximum check.
     contract.functions.depositsPaused.return_value.call.return_value = False
