@@ -452,20 +452,24 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse an ERC-4626 deposit with an optional explicit event signature.
 
-        Vaults with an overloaded Solidity event name can use this hook to
-        select the canonical ERC-4626 ``Deposit`` event without changing the
-        default behaviour for ordinary ERC-4626 deployments.
+        An explicit signature selects the event when a vault defines several
+        ``Deposit`` events or uses a different name, such as Lagoon's
+        ``DepositSync``. Read quantities from the mined receipt so later changes
+        to the vault's deposit mode cannot change how the trade is interpreted.
 
         :param claim_tx_hash:
             Mined deposit transaction hash.
         :param deposit_ticket:
             Optional ticket for a guarded non-vault call.
         :param deposit_event_signature:
-            Solidity event signature when the vault overloads ``Deposit``.
+            Full Solidity signature when the default ``Deposit`` event is ambiguous
+            or the vault uses a different event.
+        :param hot_wallet:
+            Whether the transaction must target the vault directly. ``False``
+            permits a wrapper contract; ``None`` infers this from the ticket and
+            transaction recipient.
         :return:
             Decoded executed deposit quantities or a revert description.
-        :param hot_wallet:
-            Explicit direct/wrapped target validation for specialised managers.
         """
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)

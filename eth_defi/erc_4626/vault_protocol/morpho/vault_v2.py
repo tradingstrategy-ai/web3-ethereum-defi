@@ -269,10 +269,15 @@ class MorphoV2Vault(ERC4626Vault):
         return any(gate.lower() != ZERO_ADDRESS_STR for gate in (receive_shares_gate, send_assets_gate))
 
     def is_account_whitelisted(self, address: HexAddress) -> bool:
-        """Evaluate canonical deposit gates for a self-custodied deposit.
+        """Check deposit permission when one account sends assets and receives shares.
+
+        Morpho checks the asset sender and share receiver separately. Query both
+        permission functions for this account at the vault reader's selected block.
+        A failed or undecodable call leaves permission unknown; it must not be
+        reported as an explicit denial or as permission to deposit.
 
         :param address: Account sending assets and receiving shares.
-        :return: Whether both canonical deposit predicates admit the account.
+        :return: Whether both permission checks allow the account.
         :raises NotImplementedError: If a predicate reverts or cannot be decoded.
         """
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)

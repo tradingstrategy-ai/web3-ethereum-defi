@@ -147,16 +147,23 @@ class AutoPoolDepositManager(ERC4626DepositManager):
     """
 
     def create_redemption_request(self, owner: HexAddress, to: HexAddress | None = None, shares: Decimal | None = None, raw_shares: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True, check_max_redeem: bool = True) -> ERC4626RedemptionRequest:
-        """Preflight the actual exit when flash-accounting maxRedeem is unreadable.
+        """Check the requested withdrawal when Autopool cannot report a maximum.
+
+        Autopool's accounting can make ``maxRedeem`` fail with
+        ``InvalidDataReturned()``. In that case, simulate the exact ``redeem``
+        call from the share owner's account without sending a transaction. This
+        checks whether that withdrawal can execute; it does not assume that a
+        failed maximum query means unlimited liquidity. Other errors propagate.
 
         :param owner: Share owner and payout receiver.
         :param to: Unsupported separate receiver, as in the standard manager.
         :param shares: Decimal shares when raw shares are not provided.
-        :param raw_shares: Exact native share amount.
+        :param raw_shares: Shares in the share token's smallest integer units.
         :param check_max_deposit: Inherited request option.
         :param check_enough_token: Retain the normal share-balance check.
-        :param check_max_redeem: Read the maximum unless its known flash view fails.
-        :return: Standard request after an executable-capacity check.
+        :param check_max_redeem: Check the maximum, using the exact call on the known failure.
+        :return: Standard request after the enabled balance and withdrawal checks.
+        :raises VaultFlowUnavailable: If the fallback withdrawal simulation reverts.
         """
         if check_max_redeem:
             try:

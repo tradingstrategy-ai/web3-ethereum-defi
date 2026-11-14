@@ -28,7 +28,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 
 
 def test_accountable_mined_request_reconstruction() -> None:
-    """Keep new-request admission while reconstructing an already mined request.
+    """Allow receipt analysis after submission has made another withdrawal ineligible.
 
     1. Model pending Accountable state without requiring a provider.
     2. Confirm a new request is refused.
@@ -48,7 +48,7 @@ def test_accountable_mined_request_reconstruction() -> None:
     with patch.object(manager, "is_redemption_in_progress", return_value=True):
         with pytest.raises(VaultFlowUnavailable, match="pending"):
             manager.create_redemption_request(owner, raw_shares=10**18 + 1)
-    # 3. Parsing must not call mutable admission or round the stored quantity.
+    # 3. Receipt analysis must not repeat new-request checks or round the saved shares.
     with patch.object(manager, "is_redemption_in_progress", side_effect=AssertionError("admission rerun")):
         request = manager.create_redemption_request_for_analysis(owner, 10**18 + 1)
     assert request.raw_shares == 10**18 + 1
@@ -58,7 +58,7 @@ def test_accountable_mined_request_reconstruction() -> None:
 
 
 def test_morpho_owner_gate_predicates() -> None:
-    """Distinguish canonical owner admission, refusal and unreadable results.
+    """Keep an unreadable Morpho permission check distinct from an explicit refusal.
 
     1. Bind the stored ABI and stub only RPC responses.
     2. Verify admitted owner checks both predicates.
@@ -91,7 +91,7 @@ def test_morpho_owner_gate_predicates() -> None:
 
 
 def test_morpho_nested_gate_predicates() -> None:
-    """Retain nested adapter admission through the stored predicate ABI.
+    """Check the underlying vault's depositor using the stored Morpho V2 ABI.
 
     1. Bind real proxies, mocking RPC responses and generic request construction.
     2. Check each known denial names the inner vault and adapter depositor.
@@ -151,7 +151,7 @@ def test_lagoon_sync_receipt_keeps_original_mode() -> None:
 
 @pytest.mark.parametrize("version,valid,mode,expected", [(LagoonVersion.v_0_5_0, True, 3, True), (LagoonVersion.v_0_5_0, False, 0, False), (LagoonVersion.v_0_6_0, True, 0, True), (LagoonVersion.v_0_6_0, True, 2, False)])
 def test_lagoon_deposit_modes(version, valid, mode, expected) -> None:
-    """Respect version-specific mode reads and keep claim entitlement out of capacity.
+    """Respect Lagoon's deposit modes without treating claims as new-deposit capacity.
 
     1. Supply the observed version and mode.
     2. Read synchronous support and capacity through the manager.
@@ -253,7 +253,7 @@ def test_fluid_name_is_not_permission_evidence() -> None:
 def test_maat_factory_and_migration_inventory() -> None:
     """Route MAAT independently of a Fluid name and validate the migration resource.
 
-    1. Construct a feature-bearing descriptor without reading contract state.
+    1. Describe the detected protocol features without reading contract state.
     2. Confirm the restricted MAAT policy and protocol label.
     3. Validate that the numbered refresh is discoverable by the actual runner.
     """

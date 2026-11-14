@@ -102,10 +102,15 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     **Whitelisting / access control.** Deposit admission is version specific and
     checked before broadcast by :meth:`_assert_deposit_request_available` /
     :meth:`can_create_deposit_request`. Lagoon v0.4 reads its explicit policy
-    getter, while v0.5 derives whitelist mode from ``isWhitelisted(0x0)``;
-    both admit an account with ``isWhitelisted(account)``. Lagoon v0.6 uses the access layer's
-    ``isAllowed(0x0)`` / ``isAllowed(account)`` for whitelist, blacklist and
-    sanctions checks; the characterised v1 deployment exposes the same view.
+    getter, while v0.5.0 falls back to ``isWhitelisted(0x0)``. Version v0.5.2
+    reads ``isActivated`` from contract storage because its zero-address check
+    always returns ``True``. These versions check each account with ``isWhitelisted``.
+    Version v0.6 reads ``accessMode`` from storage and checks each account with
+    ``isAllowed`` for whitelist, blacklist and sanctions restrictions. The v1
+    path uses the same reads based on tests at fixed blocks; wider compatibility
+    has not been established from verified v1 source. A zero-address permission
+    check cannot identify the modern access mode because that address may be
+    exempt as the configured fee receiver or super operator.
     Both flow through
     :meth:`LagoonVault.is_whitelisted_deposit` and
     :meth:`LagoonVault.is_account_whitelisted`. A denial raises
@@ -146,16 +151,24 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         super().__init__(vault)
 
     def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
-        """Do not use an async claim entitlement as a synchronous deposit limit.
+        """Leave new-deposit capacity unknown instead of using a pending claim.
 
-        :param owner: Prospective share receiver.
+        Lagoon's ``maxDeposit`` reports assets already available to claim from a
+        queued deposit. Using it as the limit for a new deposit would incorrectly
+        reject accounts that have no pending claim.
+
+        :param owner: Unused because no new-deposit limit is read for any account.
         :return: Raw deposit limit, or ``None`` when not advertised.
         """
-        # maxDeposit reports an async claim entitlement, not sync entry capacity.
         return None
 
     def has_synchronous_deposit(self) -> bool:
-        """Read the active v0.6 deposit mode without changing queued claims.
+        """Check whether a new deposit can receive shares immediately.
+
+        Versions v0.5.0, v0.5.2 and v0.6.0 require a current asset valuation.
+        Version v0.6.0 also restricts immediate deposits through ``syncMode``.
+        This adapter uses the queued deposit path for all other versions,
+        including v1.
 
         :return: Whether sync deposits are currently permitted.
         """
@@ -167,14 +180,19 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         return valid and (version != "v0.6.0" or f.syncMode().call() in (0, 1))
 
     def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True) -> ERC4626DepositRequest | GenericERC7540DepositRequest:
-        """Use the active Lagoon call; async claim reconstruction stays async.
+        """Choose an immediate or queued deposit from the vault's current mode.
+
+        When the asset valuation and mode allow it, ``syncDeposit`` issues shares
+        in the same transaction. Otherwise ``requestDeposit`` queues the assets
+        for later settlement. For queued deposits, leave ``to`` unset: the owner
+        receives the shares, and even an explicit ``to=owner`` is rejected.
 
         :param owner: Account funding the deposit.
-        :param to: Share receiver, defaulting to the owner.
+        :param to: Share receiver for immediate deposits; must be unset for queued deposits.
         :param amount: Human-readable deposit amount.
-        :param raw_amount: Exact native amount, if supplied.
-        :param check_max_deposit: Retained common-manager option.
-        :param check_enough_token: Retained common-manager option.
+        :param raw_amount: Deposit in the token's smallest integer units, if supplied.
+        :param check_max_deposit: Unused interface option; no new-deposit limit is read here.
+        :param check_enough_token: Unused interface option; this builder does not read balances.
         :return: Synchronous or queued request for the current mode.
         """
         self._assert_deposit_request_available(owner)
@@ -190,11 +208,16 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         return request_class(vault=self.vault, owner=owner, to=receiver, amount=self.vault.denomination_token.convert_to_decimals(raw), raw_amount=raw, funcs=[func])
 
     def analyse_deposit(self, claim_tx_hash: HexBytes | str, deposit_ticket: DepositTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
-        """Decode the submitted flow rather than selecting from current NAV mode.
+        """Use the saved deposit ticket to select the receipt's event type.
+
+        The asset valuation may expire between submission and receipt analysis.
+        Selecting an event from the current deposit mode could then misread an
+        immediate deposit as a queued one. A missing ticket identifies the
+        immediate path and its ``DepositSync`` event.
 
         :param claim_tx_hash: Mined deposit or claim transaction.
         :param deposit_ticket: Saved async ticket, or ``None`` for a sync trade.
-        :return: Existing manager event analysis.
+        :return: Executed deposit quantities or a failure description.
         """
         if deposit_ticket is None:
             return ERC4626DepositManager(self.vault)._analyse_deposit(claim_tx_hash, None, deposit_event_signature="DepositSync(address,address,uint256,uint256)", hot_wallet=False)
@@ -203,11 +226,13 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     def _assert_vault_open(self, owner: HexAddress) -> None:
         """Recognise Closed before moving assets into a new request.
 
-        Lagoon does not expose its closed flag as a public view. A valuation
-        proposal eth_call exposes the source-defined Closed error without
-        changing state; valid-NAV refusals do not imply closure.
+        Lagoon has no public function to read its closed flag. Simulating a
+        valuation proposal with ``eth_call`` can return ``Closed()`` without
+        changing chain state. Other contract reverts, such as a refusal to replace
+        a still valid valuation, do not establish closure and are ignored here.
 
-        :param owner: Prospective depositor for the typed refusal.
+        :param owner: Prospective depositor included in the failure details.
+        :raises VaultFlowUnavailable: If the simulated proposal reports ``Closed()``.
         """
         try:
             self.vault.vault_contract.functions.updateNewTotalAssets(0).call({"from": self.vault.valuation_manager})
@@ -222,7 +247,7 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         This validates the Guard policy without submitting to a closed vault.
 
         :param owner: Simulated custody account.
-        :param raw_amount: Native deposit amount for the validation call.
+        :param raw_amount: Deposit in the token's smallest integer units for validation.
         :return: Original async call shape for Guard-only validation.
         """
         self._assert_anvil_guard_validation()
@@ -526,10 +551,14 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     def _assert_deposit_request_available(self, owner: HexAddress) -> None:
         """Reject a Lagoon access-policy denial before request broadcast.
 
-        Lagoon v0.5 derives whitelist mode from ``isWhitelisted(0x0)``.
-        Lagoon v0.6 uses ``isAllowed(0x0)`` for whitelist, blacklist and
-        sanctions checks. The characterised v1 deployment exposes the same
-        selector, without verified source for wider semantic claims.
+        Require :meth:`LagoonVault.is_whitelisted_deposit` to read the mode;
+        an unreadable mode causes a refusal. Its boolean result does not decide
+        permission: the separate account check does that. For mode detection,
+        v0.5.0 can use ``isWhitelisted(0x0)``, while v0.5.2, v0.6 and v1 read
+        version-specific storage. Even a vault without a whitelist may deny the
+        depositing account through a
+        blacklist or sanctions check. The v1 reads rely on tests at fixed blocks,
+        without verified source establishing wider compatibility.
 
         :param owner:
             Request owner and controller.

@@ -8,17 +8,25 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 
 
 class MaatVault(ERC4626Vault):
-    """Expose the strategy's provider-controlled depositor admission."""
+    """Identify MAAT strategies that accept deposits only from registered vaults.
+
+    The MAAT address-provider contract maintains this registration. An ordinary
+    wallet cannot deposit merely because the strategy uses an ERC-4626 interface.
+    """
 
     def is_whitelisted_deposit(self) -> bool:
-        """Report the source-proven onlyTokenVault deposit restriction.
+        """Mark deposits as restricted because ``onlyTokenVault`` requires registration.
 
         :return: ``True`` because MAAT's provider must register the caller.
         """
         return True
 
     def is_account_whitelisted(self, address: str) -> bool:
-        """Query the same provider predicate used by the deposit modifier.
+        """Check registration in the provider used by MAAT's deposit restriction.
+
+        Read the provider address from the strategy, then ask its ``isVault``
+        function about the depositing account. Both reads use the adapter's
+        selected block so historical checks use the corresponding registration.
 
         :param address: Account submitting the deposit.
         :return: Whether the provider recognises this account as a token vault.
@@ -35,7 +43,7 @@ class MaatVault(ERC4626Vault):
     def get_fee_mode(self) -> VaultFeeMode:
         """MAAT collects performance fees by minting strategy shares.
 
-        :return: Internalised share-minting fee mode.
+        :return: Fee mode where newly minted shares dilute existing holders.
         """
         return VaultFeeMode.internalised_minting
 
@@ -48,7 +56,10 @@ class MaatVault(ERC4626Vault):
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier = "latest") -> float:
-        """Read the strategy fee and its own precision denominator.
+        """Convert the stored performance fee using MAAT's declared scale.
+
+        Divide ``performanceFee`` by ``feePrecision`` from the same requested
+        block rather than assuming that the stored number is a percentage.
 
         :param block_identifier: Contract state snapshot.
         :return: Performance fee as a fraction.

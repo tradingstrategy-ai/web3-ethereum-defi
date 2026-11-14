@@ -337,18 +337,22 @@ class TokenDetails:
         return self.contract.functions
 
     def convert_to_decimals(self, raw_amount: int) -> Decimal:
-        """Convert raw token units to decimals.
+        """Convert integer token units without rounding a large balance.
 
-        Preserve every raw unit even if the caller's Decimal context has less
-        precision than the balance. Do not change that caller's context.
+        Temporarily use enough Decimal precision for every input digit. This
+        preserves the balance when converted back to integer units, even if the
+        caller uses a lower precision. The caller's precision is unchanged.
+
+        :param raw_amount: Balance in the token's smallest integer units.
+        :return: Token amount scaled by this token's decimal places.
 
         Example:
 
         .. code-block:: python
 
             details = fetch_erc20_details(web3, token_address)
-            # Convert 1 wei units to edcimals
-            assert details.convert_to_decimals(1) == Decimal("0.0000000000000001")
+            # The smallest unit depends on this token's decimal places.
+            assert details.convert_to_decimals(1) == Decimal(1) / 10**details.decimals
 
         """
         assert type(raw_amount) == int, f"Got {type(raw_amount)}, expected int: {raw_amount}"
@@ -357,10 +361,17 @@ class TokenDetails:
             return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
-        """Convert decimalised token amount to raw uint256.
+        """Convert a token amount to integer units, preserving Decimal precision.
 
-        Scale Decimal inputs without rounding their coefficient first, then
-        truncate fractional raw units towards zero. Keep legacy numeric inputs.
+        Increase local precision for Decimal inputs before scaling, so a large
+        share balance cannot round up into a withdrawal larger than the balance.
+        Fractions smaller than one token unit are truncated towards zero without
+        changing the caller's precision. Other numeric types remain supported;
+        float inputs can lose precision both before this call and during scaling.
+        Use Decimal or integer inputs when quantities must remain exact.
+
+        :param decimal_amount: Token amount; use Decimal to preserve exact digits.
+        :return: Amount in the token's smallest integer units.
 
         Example:
 

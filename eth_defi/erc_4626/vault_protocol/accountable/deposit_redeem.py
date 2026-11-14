@@ -462,11 +462,15 @@ class AccountableDepositManager(ERC4626DepositManager):
         )
 
     def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> AccountableRedemptionRequest:
-        """Rebuild a mined request without checking its now-pending admission.
+        """Reconstruct a submitted withdrawal so its receipt can be analysed.
+
+        A new request is refused while an earlier withdrawal is pending. Applying
+        that check after submission would reject the very request being analysed,
+        so reconstruct it from the saved owner and exact share quantity instead.
 
         :param owner: Original controller and share owner.
         :param raw_shares: Exact shares saved before submission.
-        :return: Parser for the original one-call request.
+        :return: Original request description for receipt analysis.
         """
         return AccountableRedemptionRequest(
             vault=self.vault,

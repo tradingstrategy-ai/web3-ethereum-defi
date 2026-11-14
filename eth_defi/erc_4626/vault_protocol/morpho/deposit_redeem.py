@@ -46,15 +46,18 @@ class MorphoV2DepositManager(ERC4626DepositManager):
     """
 
     def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True) -> ERC4626DepositRequest:
-        """Check a recognised nested ERC-4626 adapter's canonical gates.
+        """Check the depositor actually used when Morpho forwards assets to another vault.
 
-        The adapter, rather than the outer custody account, funds its inner
-        vault. Other adapter types retain normal onchain validation.
+        Morpho's liquidity adapter sends assets to the underlying vault and
+        receives its shares. Checking the user's account there would miss a
+        restriction on the adapter itself. For recognised adapters, check both
+        permissions using the adapter address. Missing optional functions leave
+        the final decision to the deposit transaction's contract checks.
 
         :param owner: Outer asset sender.
         :param to: Outer share receiver.
         :param amount: Decimal deposit amount.
-        :param raw_amount: Exact native deposit amount.
+        :param raw_amount: Deposit in the token's smallest integer units.
         :param check_max_deposit: Retain ordinary deposit-limit checks.
         :param check_enough_token: Retain ordinary funding checks.
         :return: Standard ERC-4626 deposit request.
