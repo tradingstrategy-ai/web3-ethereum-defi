@@ -4,6 +4,11 @@ import logging
 from decimal import Decimal
 
 from eth_typing import HexAddress, HexStr
+from web3 import Web3
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from hexbytes import HexBytes
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_VERSIONS, LagoonVault
@@ -22,12 +27,15 @@ from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil, make_anvil_cu
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
     DepositTicket,
     RedemptionTicket,
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
     WhitelistingRequired,
+    extract_revert_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,6 +144,96 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         """
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         super().__init__(vault)
+
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
+        """Do not use an async claim entitlement as a synchronous deposit limit.
+
+        :param owner: Prospective share receiver.
+        :return: Raw deposit limit, or ``None`` when not advertised.
+        """
+        # maxDeposit reports an async claim entitlement, not sync entry capacity.
+        return None
+
+    def has_synchronous_deposit(self) -> bool:
+        """Read the active v0.6 deposit mode without changing queued claims.
+
+        :return: Whether sync deposits are currently permitted.
+        """
+        version = self.vault.version.value
+        if version not in ("v0.5.0", "v0.5.2", "v0.6.0"):
+            return False
+        f = self.vault.vault_contract.functions
+        valid = f.isTotalAssetsValid().call()
+        return valid and (version != "v0.6.0" or f.syncMode().call() in (0, 1))
+
+    def create_deposit_request(self, owner: HexAddress, to: HexAddress | None = None, amount: Decimal | None = None, raw_amount: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True) -> ERC4626DepositRequest | GenericERC7540DepositRequest:
+        """Use the active Lagoon call; async claim reconstruction stays async.
+
+        :param owner: Account funding the deposit.
+        :param to: Share receiver, defaulting to the owner.
+        :param amount: Human-readable deposit amount.
+        :param raw_amount: Exact native amount, if supplied.
+        :param check_max_deposit: Retained common-manager option.
+        :param check_enough_token: Retained common-manager option.
+        :return: Synchronous or queued request for the current mode.
+        """
+        self._assert_deposit_request_available(owner)
+        receiver = to or owner
+        raw = raw_amount if raw_amount is not None else self.vault.denomination_token.convert_to_raw(amount)
+        if self.has_synchronous_deposit():
+            request_class = ERC4626DepositRequest
+            func = self.vault.vault_contract.functions.syncDeposit(raw, receiver, ZERO_ADDRESS_STR)
+        else:
+            assert not to, f"Unsupported async receiver: {to}"
+            request_class = self.deposit_request_class
+            func = self.vault.vault_contract.functions.requestDeposit(raw, owner, owner)
+        return request_class(vault=self.vault, owner=owner, to=receiver, amount=self.vault.denomination_token.convert_to_decimals(raw), raw_amount=raw, funcs=[func])
+
+    def analyse_deposit(self, claim_tx_hash: HexBytes | str, deposit_ticket: DepositTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Decode the submitted flow rather than selecting from current NAV mode.
+
+        :param claim_tx_hash: Mined deposit or claim transaction.
+        :param deposit_ticket: Saved async ticket, or ``None`` for a sync trade.
+        :return: Existing manager event analysis.
+        """
+        if deposit_ticket is None:
+            return ERC4626DepositManager(self.vault)._analyse_deposit(claim_tx_hash, None, deposit_event_signature="DepositSync(address,address,uint256,uint256)", hot_wallet=False)
+        return super().analyse_deposit(claim_tx_hash, deposit_ticket)
+
+    def _assert_vault_open(self, owner: HexAddress) -> None:
+        """Recognise Closed before moving assets into a new request.
+
+        Lagoon does not expose its closed flag as a public view. A valuation
+        proposal eth_call exposes the source-defined Closed error without
+        changing state; valid-NAV refusals do not imply closure.
+
+        :param owner: Prospective depositor for the typed refusal.
+        """
+        try:
+            self.vault.vault_contract.functions.updateNewTotalAssets(0).call({"from": self.vault.valuation_manager})
+        except (ContractLogicError, ExtraValueError) as error:
+            data = extract_revert_data(error)
+            if data and bytes(data[:4]) == bytes.fromhex("1cdde67b"):
+                raise VaultFlowUnavailable("Lagoon vault is closed", protocol="Lagoon", vault_address=self.vault.address, caller=owner, direction="deposit", phase="preflight", preflight_result="deposit_closed", error_selector=HexBytes("0x1cdde67b")) from error
+
+    def create_deposit_request_for_guard_validation(self, owner: HexAddress, raw_amount: int) -> GenericERC7540DepositRequest:
+        """Build calldata only after the contract proves terminal closure.
+
+        This validates the Guard policy without submitting to a closed vault.
+
+        :param owner: Simulated custody account.
+        :param raw_amount: Native deposit amount for the validation call.
+        :return: Original async call shape for Guard-only validation.
+        """
+        self._assert_anvil_guard_validation()
+        try:
+            self._assert_vault_open(owner)
+        except VaultFlowUnavailable as error:
+            if error.preflight_result != "deposit_closed":
+                raise
+        else:
+            return super().create_deposit_request_for_guard_validation(owner, raw_amount)
+        return GenericERC7540DepositRequest(vault=self.vault, owner=owner, to=owner, amount=self.vault.denomination_token.convert_to_decimals(raw_amount), raw_amount=raw_amount, funcs=[self.vault.vault_contract.functions.requestDeposit(raw_amount, owner, owner)])
 
     def force_settle(
         self,
@@ -477,6 +575,7 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             ) from e
 
         if account_allowed:
+            self._assert_vault_open(owner)
             return
 
         is_modern = self.vault.version in LAGOON_MODERN_VERSIONS

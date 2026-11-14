@@ -24,7 +24,10 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier
+from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -116,17 +119,43 @@ class EmberVault(ERC4626Vault):
             return self.ember_metadata.get("management_fee")
         return None
 
-    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report the Ember adapter family's default permission policy.
+    @cached_property
+    def deposit_validator(self) -> Contract | None:
+        """Resolve the validator used by the reviewed Ember deposit entry point.
 
-        Supported Ember deployments are treated as permissionless by default.
-        Global pause, capacity and minimum checks are independent lifecycle
-        conditions handled by the deposit manager.
-
-        :return:
-            Always ``False``.
+        :return: Allowlist reader, or ``None`` when the validator is disabled.
         """
-        return False
+        try:
+            data = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text="vaultValidator()")[:4]})
+        except (ContractLogicError, ExtraValueError) as error:
+            raise NotImplementedError(f"Unreadable Ember validator for {self.address}") from error
+        if len(data) != 32:
+            raise NotImplementedError(f"Unreadable Ember validator for {self.address}")
+        if int.from_bytes(data, "big") == 0:
+            return None
+        abi = [
+            {"type": "function", "name": "depositAllowListCount", "inputs": [{"type": "address", "name": "vault"}], "outputs": [{"type": "uint256"}], "stateMutability": "view"},
+            {"type": "function", "name": "depositAllowList", "inputs": [{"type": "address", "name": "vault"}, {"type": "address", "name": "depositor"}], "outputs": [{"type": "bool"}], "stateMutability": "view"},
+        ]
+        return self.web3.eth.contract(address=Web3.to_checksum_address(data[-20:]), abi=abi)
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Read the validator's per-vault list; an empty list permits everyone.
+
+        :return: Whether the deposit allowlist contains any accounts.
+        """
+        validator = self.deposit_validator
+        return validator is not None and validator.functions.depositAllowListCount(self.address).call() > 0
+
+    def is_account_whitelisted(self, address: str) -> bool:
+        """Read the same depositor entry checked by validateDeposit.
+
+        :param address: Account funding the Ember deposit.
+        :return: Whether the current deposit list admits this account.
+        """
+        if not self.is_whitelisted_deposit():
+            return True
+        return self.deposit_validator.functions.depositAllowList(self.address, Web3.to_checksum_address(address)).call()
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Weekly performance fee from Ember's offchain API.

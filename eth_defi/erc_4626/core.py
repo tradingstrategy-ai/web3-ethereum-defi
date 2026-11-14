@@ -336,6 +336,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
 
+    #: MAAT strategies restrict deposits to token vaults registered by their provider.
+    maat_like = "maat_like"
+
     #: Kiln OmniVaults.
     #:
     #: https://docs.kiln.fi/v1/kiln-products/omnivaults
@@ -1186,6 +1189,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
+    elif ERC4626Feature.maat_like in features:
+        return "MAAT"
     elif ERC4626Feature.fluid_like in features:
         return "Fluid"
     elif ERC4626Feature.harvest_finance in features:

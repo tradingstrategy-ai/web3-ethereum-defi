@@ -448,6 +448,7 @@ class ERC4626DepositManager(VaultDepositManager):
         deposit_ticket: DepositTicket | None,
         *,
         deposit_event_signature: str | None = None,
+        hot_wallet: bool | None = None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse an ERC-4626 deposit with an optional explicit event signature.
 
@@ -463,6 +464,8 @@ class ERC4626DepositManager(VaultDepositManager):
             Solidity event signature when the vault overloads ``Deposit``.
         :return:
             Decoded executed deposit quantities or a revert description.
+        :param hot_wallet:
+            Explicit direct/wrapped target validation for specialised managers.
         """
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
@@ -473,7 +476,7 @@ class ERC4626DepositManager(VaultDepositManager):
             tx_hash=claim_tx_hash,
             tx_receipt=receipt,
             direction="deposit",
-            hot_wallet=not guarded_call,
+            hot_wallet=not guarded_call if hot_wallet is None else hot_wallet,
             deposit_event_signature=deposit_event_signature,
         )
 

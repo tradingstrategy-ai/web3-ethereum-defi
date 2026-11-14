@@ -57,10 +57,14 @@ ATOMA_LEGACY_IMPLEMENTATION = "0x9521b08303ae010e85e24fc15d5334a0e506641e"
 #: their claim accounting is compatible, so a request made under one can be
 #: followed up and claimed under the other. Only the claimant's withdrawal fee
 #: depends on the implementation, see :py:meth:`AtomaVault.fetch_withdrawal_fee_bps`.
-ATOMA_EXECUTION_IMPLEMENTATIONS: frozenset[str] = frozenset((ATOMA_IMPLEMENTATION, ATOMA_FEE_SPLIT_IMPLEMENTATION))
+#: Reviewed fee-split upgrade with the same request, claim and fee-account ABI.
+ATOMA_CURRENT_FEE_SPLIT_IMPLEMENTATION = "0x027b459075f93537381f401874a8480f887228a1"
+
+ATOMA_EXECUTION_IMPLEMENTATIONS: frozenset[str] = frozenset((ATOMA_IMPLEMENTATION, ATOMA_FEE_SPLIT_IMPLEMENTATION, ATOMA_CURRENT_FEE_SPLIT_IMPLEMENTATION))
 #: Verified ABI used to decode receipts mined under each recognised implementation.
 ATOMA_RECEIPT_INTERFACES: Final[dict[str, str]] = {
     ATOMA_FEE_SPLIT_IMPLEMENTATION: "atoma/AtomaVaultFeeSplit.json",
+    ATOMA_CURRENT_FEE_SPLIT_IMPLEMENTATION: "atoma/AtomaVaultFeeSplit.json",
     ATOMA_IMPLEMENTATION: "atoma/AtomaVault.json",
     ATOMA_LEGACY_IMPLEMENTATION: "atoma/AtomaVaultLegacy.json",
 }
@@ -288,7 +292,7 @@ class AtomaVault(ERC4626Vault):
         :return: Withdrawal fee in basis points.
         """
         f = self.vault_contract.functions
-        if implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION:
+        if implementation in (ATOMA_FEE_SPLIT_IMPLEMENTATION, ATOMA_CURRENT_FEE_SPLIT_IMPLEMENTATION):
             recipients, _ = f.feeSplit().call(block_identifier=block_identifier)
             fee_accounts = {f.feeRecipient().call(block_identifier=block_identifier).lower(), *(r.lower() for r in recipients)}
             if claimant.lower() in fee_accounts:

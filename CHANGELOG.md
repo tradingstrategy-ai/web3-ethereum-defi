@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Resolve vault admission through protocol gates, correct MAAT classification, reconstruct Accountable requests after mining, recognise the Atoma fee-split upgrade and Upshift getter variant, and support Lagoon synchronous deposits and versioned fork settlement; refresh affected metadata through migration 070 (2026-11-14).
+
 - fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
 
 - fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).

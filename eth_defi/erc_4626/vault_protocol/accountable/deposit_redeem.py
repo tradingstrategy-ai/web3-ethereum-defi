@@ -460,6 +460,22 @@ class AccountableDepositManager(ERC4626DepositManager):
             funcs=[self.vault.vault_contract.functions.requestRedeem(raw_shares, owner, owner)],
         )
 
+    def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> AccountableRedemptionRequest:
+        """Rebuild a mined request without checking its now-pending admission.
+
+        :param owner: Original controller and share owner.
+        :param raw_shares: Exact shares saved before submission.
+        :return: Parser for the original one-call request.
+        """
+        return AccountableRedemptionRequest(
+            vault=self.vault,
+            owner=owner,
+            to=owner,
+            shares=self.vault.share_token.convert_to_decimals(raw_shares),
+            raw_shares=raw_shares,
+            funcs=[self.vault.vault_contract.functions.requestRedeem(raw_shares, owner, owner)],
+        )
+
     def force_settle(
         self,
         ticket: DepositTicket | RedemptionTicket | None,

@@ -1170,6 +1170,14 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MaatAddressProvider()")[0:4],
+            function="MaatAddressProvider",
+            data=b"",
+            extra_data=None,
+        )
+
         # Yearn TokenizedStrategy / Fluid conflicting
         # https://arbiscan.io/address/0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2#code
         yield EncodedCall.from_keccak_signature(
@@ -1766,6 +1774,10 @@ def identify_vault_features(
         features.add(ERC4626Feature.centrifuge_like)
         features.add(ERC4626Feature.erc_7540_like)
 
+    if calls["MaatAddressProvider"].success:
+        features.discard(ERC4626Feature.fluid_like)
+        features.add(ERC4626Feature.maat_like)
+
     # Royco Protocol - WrappedVault with reward distribution
     # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
     if calls["previewRateAfterDeposit"].success:
@@ -1871,7 +1883,7 @@ def identify_vault_features(
             features.add(ERC4626Feature.athena_like)
         elif "RightsToken" in name:
             features.add(ERC4626Feature.reserve_like)
-        elif "Fluid" in name:
+        elif "Fluid" in name and ERC4626Feature.maat_like not in features:
             features.add(ERC4626Feature.fluid_like)
         elif "Peapods" in name:
             features.add(ERC4626Feature.peapods_like)
@@ -2787,6 +2799,10 @@ def create_vault_instance(
 
         return HypurrFiVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.maat_like in features:
+        from eth_defi.erc_4626.vault_protocol.maat.vault import MaatVault
+
+        return MaatVault(web3, spec, **kwargs)
     elif ERC4626Feature.fluid_like in features:
         from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
 

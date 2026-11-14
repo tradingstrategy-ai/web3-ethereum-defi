@@ -23,6 +23,9 @@ from decimal import Decimal
 from typing import Iterable
 
 from eth_typing import BlockIdentifier
+from web3 import Web3
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
 
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.fluid.tags import STRATEGY_TAGS
@@ -52,6 +55,28 @@ class FluidVault(ERC4626Vault):
     - Fees are internalised into the share price through interest accrual
     - No explicit deposit or withdrawal fees
     """
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Fluid fToken and Lite deposits have no depositor allowlist.
+
+        :return: ``False`` for the public deposit policy.
+        """
+        block = self._get_block_identifier()
+        try:
+            liquidity = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text="getData()")[:4]}, block_identifier=block)
+        except (ContractLogicError, ExtraValueError):
+            liquidity = b""
+        # fToken/iToken getData returns five addresses, a boolean and three
+        # uint256 values. The first two identify Liquidity and LendingFactory.
+        if len(liquidity) == 9 * 32 and all(int.from_bytes(liquidity[i:i + 32], "big") for i in (0, 32)) and int.from_bytes(liquidity[5 * 32:6 * 32], "big") in (0, 1):
+            return False
+        # Fluid Lite uses a different interface. Only its reviewed implementation
+        # is covered; a name containing Fluid is not admission evidence.
+        slot = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
+        implementation = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block)
+        if implementation[-20:].hex() == "e16ccc91a8134d428e7b6240177f9e2b227b9743":
+            return False
+        raise NotImplementedError(f"Unrecognised Fluid admission interface for {self.address}")
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return the maintained classifications for this reviewed deployment.

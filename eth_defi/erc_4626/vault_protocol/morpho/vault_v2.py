@@ -18,6 +18,8 @@ Key features of Morpho Vault V2:
 
 import datetime
 import logging
+from web3.exceptions import ContractLogicError
+from eth_defi.provider.fallback import ExtraValueError
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -257,17 +259,32 @@ class MorphoV2Vault(ERC4626Vault):
         Canonical Morpho V2 vaults are permissionless when both optional gate
         addresses are zero. Configured gates implement Morpho's
         ``IReceiveSharesGate`` and ``ISendAssetsGate`` predicates and cannot
-        safely be called KYC without recognising their implementation.
+        safely be called KYC merely because a gate is configured.
 
         :return:
-            ``False`` when both canonical gate slots are disabled.
-        :raise NotImplementedError:
-            If a deployed gate requires implementation-specific analysis.
+            Whether either canonical deposit gate is configured.
+            Account admission is evaluated separately by the canonical predicates.
         """
         receive_shares_gate, send_assets_gate = self.fetch_deposit_gates()
-        if receive_shares_gate.lower() == ZERO_ADDRESS_STR and send_assets_gate.lower() == ZERO_ADDRESS_STR:
-            return False
-        raise NotImplementedError(f"Morpho V2 vault {self.address} has custom gates: receiveSharesGate={receive_shares_gate}, sendAssetsGate={send_assets_gate}")
+        return any(gate.lower() != ZERO_ADDRESS_STR for gate in (receive_shares_gate, send_assets_gate))
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Evaluate canonical deposit gates for a self-custodied deposit.
+
+        :param address: Account sending assets and receiving shares.
+        :return: Whether both canonical deposit predicates admit the account.
+        """
+        data = bytes.fromhex(address.removeprefix("0x")).rjust(32, b"\x00")
+        for name in ("canReceiveShares(address)", "canSendAssets(address)"):
+            try:
+                result = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text=name)[:4] + data}, block_identifier=self._get_block_identifier())
+            except (ContractLogicError, ExtraValueError) as error:
+                raise NotImplementedError(f"Unreadable Morpho gate predicate {name} for {self.address}") from error
+            if len(result) != 32 or int.from_bytes(result, "big") not in (0, 1):
+                raise NotImplementedError(f"Unreadable Morpho gate predicate {name} for {self.address}")
+            if not int.from_bytes(result, "big"):
+                return False
+        return True
 
     def fetch_deposit_gates(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, HexAddress]:
         """Read Morpho V2's canonical receiver and sender gate slots.

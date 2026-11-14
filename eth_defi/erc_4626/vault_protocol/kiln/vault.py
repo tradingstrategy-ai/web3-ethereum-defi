@@ -33,6 +33,13 @@ class KilnVault(ERC4626Vault):
     is exposed separately in denomination-token units.
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Kiln deposits have no recipient allowlist; sanctions and pause checks remain onchain.
+
+        :return: ``False`` for the public deposit policy.
+        """
+        return False
+
     def _fetch_uint256(self, function_signature: str, block_identifier: BlockIdentifier) -> int:
         """Read a no-argument ``uint256`` function without a local ABI file.
 

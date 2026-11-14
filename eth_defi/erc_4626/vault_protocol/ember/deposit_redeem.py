@@ -248,6 +248,7 @@ class EmberDepositManager(ERC4626DepositManager):
         :return:
             One-call synchronous deposit request.
         """
+        self.check_deposit_whitelist(owner)
         if (amount is None) == (raw_amount is None):
             raise ValueError("Give exactly one of amount or raw_amount")
         if to is None:

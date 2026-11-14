@@ -81,6 +81,7 @@ bytes4 constant SEL_REDEEM_UMAMI = 0x0169a996; // redeem(uint256,uint256,address
 bytes4 constant SEL_DEPOSIT_7540 = 0x2e2d2984; // deposit(uint256,address,address)
 bytes4 constant SEL_REQUEST_REDEEM = 0x7d41c86e; // requestRedeem(uint256,address,address)
 bytes4 constant SEL_REQUEST_WITHDRAW = 0x32f25a3a; // requestWithdraw(uint256,address,address)
+bytes4 constant SEL_LAGOON_SYNC_DEPOSIT = bytes4(keccak256("syncDeposit(uint256,address,address)"));
 bytes4 constant SEL_REQUEST_DEPOSIT = 0x85b77f45; // requestDeposit(uint256,address,address)
 
 // ===== Gains/Ostium V1.0 =====
@@ -797,6 +798,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_REQUEST_WITHDRAW) {
             // ERC-7540: requestWithdraw(uint256 assets, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
+        } else if (selector == SEL_LAGOON_SYNC_DEPOSIT) {
+            // Final address is a referral, never an owner/controller.
+            _validate_ERC4626Deposit(callData);
         } else if (selector == SEL_REQUEST_DEPOSIT) {
             _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
@@ -1040,6 +1044,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_REQUEST_REDEEM, notes);
         allowCallSite(vault, SEL_REQUEST_WITHDRAW, notes);
         allowCallSite(vault, SEL_REQUEST_DEPOSIT, notes);
+        allowCallSite(vault, SEL_LAGOON_SYNC_DEPOSIT, notes);
         allowCallSite(vault, SEL_MAKE_WITHDRAW_REQUEST, notes);
         allowCallSite(vault, SEL_OSTIUM_REQUEST_DEPOSIT, notes);
         allowCallSite(vault, SEL_OSTIUM_CLAIM_DEPOSIT, notes);

@@ -106,6 +106,22 @@ contract GuardVaultProtocolTest is Test {
         assertEq(abi.decode(transferLog.data, (uint256)), expectedAmount, "Asset transfer amount");
     }
 
+    function testLagoonSyncDepositValidatesReceiverNotReferral() public {
+        MockERC4626Vault vault = new MockERC4626Vault(asset);
+        guard.whitelistERC4626(address(vault), "Lagoon sync deposit");
+        // The third argument is a referral, so zero is valid.
+        guard.validateCall(
+            ASSET_MANAGER, address(vault),
+            abi.encodeWithSignature("syncDeposit(uint256,address,address)", AMOUNT, address(simpleVault), address(0))
+        );
+        // The share receiver must remain in guarded custody.
+        vm.expectRevert(bytes("Receiver not whitelisted"));
+        guard.validateCall(
+            ASSET_MANAGER, address(vault),
+            abi.encodeWithSignature("syncDeposit(uint256,address,address)", AMOUNT, OUTSIDER, address(0))
+        );
+    }
+
     function testERC7540AcceptsSelfControlledRequestAndClaim() public {
         MockERC7540Vault vault = new MockERC7540Vault(asset);
         guard.whitelistERC4626(address(vault), "ERC-7540 test vault");
