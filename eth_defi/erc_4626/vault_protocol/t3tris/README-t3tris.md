@@ -489,22 +489,62 @@ Initial scanner support can start with:
 4. Use onchain values for final TVL/accounting and GraphQL values as metadata
    or sanity checks.
 
-Trading support needs a protocol-specific async deposit and redeem manager:
+## Deposits and redemptions
+
+`T3trisDepositManager` in `deposit_redeem.py` implements the closed-mode
+lifecycle on top of the generic ERC-7540 manager. Open-mode synchronous
+vaults, Permit2 deposits, `unsafe` flows and request decreases are not
+implemented; the manager refuses them with typed preflight results.
 
 | Flow step | T3tris call |
 | --- | --- |
-| Request deposit | `requestDeposit(receiver, unsafe, assets, permit2Data)` |
-| Check pending deposit | `getRequestDepositAmount(owner, requestId)` |
-| Check claimable deposit | `hasClaimableDeposit(owner)` or `previewClaimDeposit(owner)` |
-| Claim deposit | `claimDeposit(receiver)` |
-| Request redeem | `requestRedeem(receiver, owner, previousClaimReceiver, unsafe, shares)` |
-| Check pending redeem | `getRequestRedeemAmount(owner, requestId)` |
-| Check claimable redeem | `hasClaimableRedeem(owner)` or `previewClaimRedeem(owner)` |
-| Claim redeem | `claimRedeem(owner, receiver, unsafe)` |
+| Approve | ERC-20 `approve(vault, assets)`; the vault is the spender |
+| Request deposit | `requestDeposit(owner, false, assets, "")` |
+| Settle | Curator `settle(0, false, "")` after an oracle `setTotalAssets(uint256)` refresh |
+| Claim deposit | `claimDeposit(owner)` |
+| Request redeem | `requestRedeem(owner, owner, owner, false, shares)` |
+| Claim redeem | `claimRedeem(owner, owner, false)` |
 
-Guard and transaction whitelisting must use the T3tris selectors above. Existing
-ERC-7540 whitelists for standard `requestDeposit(uint256,address,address)` or
-`requestRedeem(uint256,address,address)` will not cover T3tris.
+Verified on an Arbitrum fork against First USDC
+`0x98e43a491a464f0886bc5e57207c340bbed0d01f`:
+
+- Request ids are vault-wide epochs from `getCurrentDepositRequestId()` and
+  `getCurrentRedeemRequestId()`. Per-owner state is keyed by
+  `(owner, requestId)`: claimable when `getSettledDepositShares` or
+  `getSettledRedeemAssets` is positive, pending when `getRequestDepositAmount`
+  or `getRequestRedeemAmount` is positive.
+- Claims are owner-wide and a new request first claims an earlier settled
+  request in the same direction. The manager therefore allows one open
+  request per owner and direction, and reads each ticket's own epoch.
+- Each settlement needs an oracle valuation newer than the previous
+  settlement, otherwise it reverts `Vault__StaleValuation()`.
+- Redemption settlement pulls assets from the curator wallet.
+- `convertToShares` and `convertToAssets` exclude entry and exit fees, so
+  the inherited estimates are slightly high.
+
+`force_settle()` refreshes the oracle as its `owner()` and settles as
+`getCurator()` on Anvil. It rejects `mock` and `ignore_liquidity`.
+
+### GuardV0 coverage
+
+`whitelistT3tris(vault, notes)` registers only the four calls below, the vault
+as approval destination and asset, and the denomination token.
+
+| Manager call | Guard check | Positive proof | Negative proof |
+| --- | --- | --- | --- |
+| ERC-20 approval | Vault is the only approval destination | Executed through `performCall()` | Foreign spender rejected |
+| `requestDeposit` | Receiver allowed; `unsafe` false; empty `permit2Data` | Request through `SimpleVaultV0` and a Safe module | Foreign receiver, `unsafe`, Permit2 payload rejected |
+| `claimDeposit` | Receiver allowed | Shares claimed | Foreign receiver rejected |
+| `requestRedeem` | Receiver, owner and `previousClaimReceiver` allowed; `unsafe` false | Request through both custody types | Each address position and `unsafe` rejected |
+| `claimRedeem` | Owner and receiver allowed; `unsafe` false | Assets claimed | Each address position and `unsafe` rejected |
+| Settlement, request decreases, forced claims, unsafe exits, `multicall` | Not registered | Not applicable | Rejected as not allowed |
+
+Settlement proof comes from `force_settle()` on the fork. The tests are
+`tests/guard/test_guard_simple_vault_t3tris.py` and
+`tests/erc_4626/vault_protocol/test_t3tris_deposit_redeem.py`.
+
+The public T3tris docs repository and the GraphQL endpoint returned 404 in
+November 2026; the REST page API used by `offchain_metadata.py` still works.
 
 ## Reference links
 

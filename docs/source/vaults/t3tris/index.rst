@@ -11,6 +11,10 @@ The adapter detects T3tris vaults through the protocol-specific
 ``getGrossTVL()`` getter, reads fee data from the live vault ABI, and enriches
 vault rows with offchain metadata from the T3tris app API.
 
+:py:class:`~eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem.T3trisDepositManager`
+implements the closed-mode request, settlement and claim lifecycle, and
+``GuardV0.whitelistT3tris()`` admits its four calls for guarded custody.
+
 Links
 ~~~~~
 
@@ -25,4 +29,5 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.t3tris.vault
+   eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem
    eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata
