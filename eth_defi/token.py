@@ -12,7 +12,7 @@ import os
 import warnings
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterable, Optional, TypeAlias, TypedDict, Union
@@ -339,6 +339,9 @@ class TokenDetails:
     def convert_to_decimals(self, raw_amount: int) -> Decimal:
         """Convert raw token units to decimals.
 
+        Preserve every raw unit even if the caller's Decimal context has less
+        precision than the balance. Do not change that caller's context.
+
         Example:
 
         .. code-block:: python
@@ -349,10 +352,15 @@ class TokenDetails:
 
         """
         assert type(raw_amount) == int, f"Got {type(raw_amount)}, expected int: {raw_amount}"
-        return Decimal(raw_amount) / Decimal(10**self.decimals)
+        with localcontext() as context:
+            context.prec = max(context.prec, len(str(abs(raw_amount))))
+            return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
         """Convert decimalised token amount to raw uint256.
+
+        Scale Decimal inputs without rounding their coefficient first, then
+        truncate fractional raw units towards zero. Keep legacy numeric inputs.
 
         Example:
 
@@ -363,6 +371,10 @@ class TokenDetails:
             assert details.convert_to_raw(1) == 1_000_000
 
         """
+        if isinstance(decimal_amount, Decimal):
+            with localcontext() as context:
+                context.prec = max(context.prec, len(decimal_amount.as_tuple().digits))
+                return int(decimal_amount * 10**self.decimals)
         return int(decimal_amount * 10**self.decimals)
 
     def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
