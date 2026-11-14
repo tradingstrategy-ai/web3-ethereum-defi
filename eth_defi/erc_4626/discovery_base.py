@@ -1181,4 +1181,11 @@ class VaultDiscoveryBase(abc.ABC):
             broken_vaults,
         )
 
+        # Each lead yields at most one detection. More detections than leads
+        # means classification split vaults into duplicate identities, as on
+        # 2026-11-14 when 119 Arc leads produced 238 detections. Fail here,
+        # before lead_scan_core persists classifications built from them.
+        if len(report.detections) > len(leads):
+            raise RuntimeError(f"Vault classification on chain {chain} produced {len(report.detections)} detections for {len(leads)} leads; refusing to persist duplicate vault identities")
+
         return report
