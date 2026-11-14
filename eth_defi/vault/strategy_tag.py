@@ -326,7 +326,7 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.long_short_portfolio: {
         "label": "Long-short portfolio",
-        "description": "Combines positions that profit from rising prices with positions that profit from falling prices, seeking returns from their relative performance.",
+        "description": "Pairs [long and short positions](https://tradingstrategy.ai/glossary/directional-strategy), seeking returns from how they perform relative to each other.",
     },
     StrategyTag.directional_leverage: {
         "label": "Directional leverage",

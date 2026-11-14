@@ -933,7 +933,11 @@ def create_probe_calls(
         # An unattributed VaultMorpho implementation adds a global deposit cap.
         # Bind the stored contract interface without a provider: the existing
         # batch reader executes the call alongside the other detection calls.
-        yield EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
+        # The contract proxy checksums the address; restore the caller's form
+        # so every probe for one vault carries an identical address string.
+        cap_call = EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
+        cap_call.address = address
+        yield cap_call
 
         # Morpho V2 - newer adapter-based architecture
         # https://docs.morpho.org/learn/concepts/vault-v2/
@@ -1981,7 +1985,11 @@ def probe_vaults(
         pinned blocks and the multiprocessing backend.
 
     :return:
-        Iterator of what vault smart contract features we detected for each potential vault address
+        Iterator of what vault smart contract features we detected for each
+        potential vault address. Results are grouped case-insensitively and
+        yielded at most once per input address, using the caller's address form.
+    :raise ValueError:
+        If the reader returns a result for an address that was not requested.
     """
 
     assert type(chain_id) == int
@@ -2000,6 +2008,14 @@ def probe_vaults(
     # batching can split one candidate's ABI probes across multiple chunks.
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
+    # Group by the caller's address, not the call's address string. Probes built
+    # from a Web3 contract proxy, such as ``tvlCap()``, carry a checksummed
+    # address while signature probes keep the caller's (usually lower-case)
+    # form. Grouping by the raw string split each vault into a full result set
+    # and a ``tvlCap``-only set that decoded as ``broken``, yielding two probes
+    # per address and overwriting cached classifications.
+    input_addresses = {address.lower(): address for address in addresses}
+
     parent_stats = getattr(web3factory, "rpc_request_stats", None)
     probe_stats = RPCRequestStats(operation="feature_probe") if parent_stats is not None else None
     try:
@@ -2016,7 +2032,11 @@ def probe_vaults(
             refresh_current_block=current_state and chain_id == 999,
             greylist=greylist,
         ):
-            address = call_result.call.address
+            address = input_addresses.get(call_result.call.address.lower())
+            if address is None:
+                # A result for an address we did not request would become an
+                # extra, partial classification. Fail before callers persist it.
+                raise ValueError(f"Vault probe returned a result for unrequested address {call_result.call.address} on chain {chain_id}")
             address_calls = results_per_address[address]
             address_calls[call_result.call.func_name] = call_result
 
