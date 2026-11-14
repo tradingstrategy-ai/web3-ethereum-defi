@@ -4,6 +4,8 @@ import asyncio
 import datetime
 import enum
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 from dataclasses import dataclass
 
 import eth_abi
@@ -19,6 +21,9 @@ try:
     from eth_defi.hypersync.session import open_hypersync_stream
 except ImportError:
     hypersync = None
+
+
+_FetchResult = TypeVar("_FetchResult")
 
 
 class VaultFlowDirection(enum.Enum):
@@ -219,6 +224,7 @@ async def _fetch_vault_flow_logs_for_addresses_hypersync_async(
     start_block: int,
     end_block: int,
     recv_timeout: float = 90.0,
+    require_complete: bool = False,
 ) -> list[IndexedVaultFlowLog]:
     """Fetch raw vault request logs for multiple vaults with Hypersync.
 
@@ -240,6 +246,8 @@ async def _fetch_vault_flow_logs_for_addresses_hypersync_async(
     :param recv_timeout:
         Timeout for each stream receive.
 
+    :param require_complete:
+        Refuse truncated or invalid progress when settlement readers require a complete range.
     :return:
         Raw logs sorted by ``(block_number, log_index)``.
     """
@@ -275,26 +283,38 @@ async def _fetch_vault_flow_logs_for_addresses_hypersync_async(
 
     receiver = await open_hypersync_stream(hypersync_client, query)
     events: list[IndexedVaultFlowLog] = []
-    while True:
-        res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
-        if res is None:
-            break
+    next_block = start_block
+    try:
+        while True:
+            res = await asyncio.wait_for(receiver.recv(), timeout=recv_timeout)
+            if res is None:
+                break
 
-        block_timestamps = {int(block.number): from_unix_timestamp(decode_hypersync_int(block.timestamp)) for block in res.data.blocks or [] if block.number is not None and block.timestamp is not None}
+            if require_complete:
+                if not next_block < res.next_block <= end_block + 1:
+                    raise RuntimeError("Invalid HyperSync flow-log coverage")
+                next_block = res.next_block
 
-        for log in res.data.logs or []:
-            block_number = decode_hypersync_int(log.block_number)
-            events.append(
-                IndexedVaultFlowLog(
-                    address=Web3.to_checksum_address(log.address),
-                    topics=log.topics,
-                    data=log.data or "0x",
-                    block_number=block_number,
-                    block_timestamp=block_timestamps.get(block_number),
-                    transaction_hash=log.transaction_hash,
-                    log_index=decode_hypersync_int(log.log_index),
+            block_timestamps = {int(block.number): from_unix_timestamp(decode_hypersync_int(block.timestamp)) for block in res.data.blocks or [] if block.number is not None and block.timestamp is not None}
+
+            for log in res.data.logs or []:
+                block_number = decode_hypersync_int(log.block_number)
+                events.append(
+                    IndexedVaultFlowLog(
+                        address=Web3.to_checksum_address(log.address),
+                        topics=log.topics,
+                        data=log.data or "0x",
+                        block_number=block_number,
+                        block_timestamp=block_timestamps.get(block_number),
+                        transaction_hash=log.transaction_hash,
+                        log_index=decode_hypersync_int(log.log_index),
+                    )
                 )
-            )
+
+        if require_complete and next_block != end_block + 1:
+            raise RuntimeError("Incomplete HyperSync flow-log coverage")
+    finally:
+        await asyncio.wait_for(receiver.close(), timeout=1.0)
 
     events.sort(key=lambda e: (e.block_number, e.log_index))
     return events
@@ -460,14 +480,14 @@ def fetch_vault_flow_logs_for_addresses_hypersync(
     return run_vault_flow_log_fetch(coroutine)
 
 
-def run_vault_flow_log_fetch(coroutine) -> list[IndexedVaultFlowLog]:
-    """Run a Hypersync log fetch coroutine from sync code.
+def run_vault_flow_log_fetch(coroutine: Coroutine[Any, Any, _FetchResult]) -> _FetchResult:
+    """Run an indexed read from sync code, including inside an active event loop.
 
     :param coroutine:
         Coroutine returning indexed vault flow logs.
 
     :return:
-        Raw logs sorted by ``(block_number, log_index)``.
+        The result returned by the supplied coroutine.
     """
     try:
         asyncio.get_running_loop()

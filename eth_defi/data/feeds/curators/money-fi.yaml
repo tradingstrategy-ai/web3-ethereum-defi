@@ -3,9 +3,11 @@ name: MoneyFi
 role: curator
 lagoon-curator: MoneyFi
 website: https://moneyfi.fund/
-short_description: MoneyFi is a DeFAI platform that automates stablecoin yield strategies across protocols and blockchains.
+short_description: MoneyFi automates stablecoin investments across lending and trading platforms on several blockchains.
 long_description: |
-  MoneyFi provides AI-driven, automated strategies for users to deploy stablecoins across DeFi protocols and blockchains. Its platform describes automated yield scanning, compounding, allocation, and cross-chain management, while its documentation presents the product as a simplified stablecoin monetisation service. Lagoon Finance lists MoneyFi as the curator of the MoneyFi FlowForge Vault on Base.
+  [MoneyFi](https://moneyfi.fund/) develops automated tools for allocating stablecoins across investment platforms on several blockchains. Its [documentation](https://moneyfi-1.gitbook.io/docs) describes comparing opportunities, moving money between them and reinvesting income.
+
+  The [FlowForge strategy](https://app.lagoon.finance/api/vault?chainId=8453&address=0x4efc07dca8697792119484af33549f33ab11bf3c) includes stablecoin pools on Aptos. MoneyFi scores allocations using factors such as returns, risk and the availability of money for withdrawals; the individual platforms and the role of human approval are not disclosed.
 
 # Evidence and background references.
 #
@@ -13,7 +15,11 @@ long_description: |
 # FlowForge Vault. MoneyFi's official homepage and documentation describe its
 # automated, cross-chain stablecoin strategy platform.
 other-links:
-  - title: Lagoon Finance vault - MoneyFi FlowForge Vault lists MoneyFi as curator
-    url: https://app.lagoon.finance/vault/8453/0x4efc07dca8697792119484af33549f33ab11bf3c
+  - title: Trading Strategy - MoneyFi FlowForge Vault
+    url: https://tradingstrategy.ai/vaults/moneyfi-flowforge-vault
   - title: MoneyFi documentation - introduction to its automated stablecoin strategy platform
     url: https://moneyfi-1.gitbook.io/docs
+
+# 2026-11-10 add-curator: sources verified from https://moneyfi-1.gitbook.io/docs links MoneyFiHub; https://www.linkedin.com/company/moneyfihub links moneyfi.fund.
+twitter: MoneyFiHub
+linkedin: moneyfihub

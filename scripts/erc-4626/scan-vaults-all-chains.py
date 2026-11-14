@@ -13,6 +13,8 @@ and indexed receipt supply through an address-scoped contextual reader.
 - Write detailed logs
 - Run post-processing after all chains complete
 - Supports looped mode with per-chain/protocol cycle intervals
+- Looped mode retries Webshare proxy blocks when their state file has not
+  been updated for 24 hours, including ticks with no scans due
 
 Usage:
 
@@ -106,6 +108,7 @@ Environment variables:
     - SCAN_LIGHTER: "true" to scan both Ethereum and Robinhood Lighter native pools via public endpoints (default: "false")
     - SCAN_HIBACHI: "true" to scan Hibachi native vaults via public endpoints (default: "false")
     - SCAN_APEX: "true" to scan ApeX native vaults and due history via public endpoints (default: "false")
+    - SCAN_NEUTRAL_TRADE: Opt-in native REST collection (default: false), requires NEUTRAL_TRADE_API_KEY; four-hour cadence.
     - SCAN_DERIVE_V3: "false" to skip Derive v3 mainnet native vaults (default: "true")
     - SCAN_VAULT_SETTLEMENTS: "false" to skip per-chain Lagoon and D2 settlement event scanning.
       When enabled, events are stored in vault-settlements.duckdb before price cleaning;

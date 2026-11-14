@@ -56,7 +56,7 @@ repository and GraphQL endpoint return 404, so the committed
 ## Implementation status
 
 Implemented on 2026-11-14 in commits `84596e7b4` (step 3), `03841b30b`
-(step 4), `a1f96cd4c` (steps 1, 2, 5 and 6), `ff255257b` (step 9) and
+(step 4), `a1f96cd4c` (steps 1, 2, 5 and 6), `ff255257b` (step 9; the migration was renumbered from 036 to 072 when merging master) and
 `69ab8729d` (step 7 fixes). The security review record is
 [t3tris-guard-security-review.md](t3tris-guard-security-review.md).
 

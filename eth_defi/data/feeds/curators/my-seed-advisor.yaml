@@ -5,13 +5,12 @@ website: https://www.my-seed-advisor.com/presentation-msa-2
 lagoon-curator: MSA
 short_description: My Seed Advisor is a crypto investment club offering project research, education and portfolio guidance.
 long_description: |
-  [My Seed Advisor](https://www.my-seed-advisor.com/presentation-msa-2), also known as MSA, focuses on
-  emerging crypto projects and token presales. Its membership programme includes research, a monthly
-  newsletter, tutorials and access to private investment opportunities. For the [Portefeuille Dynamique vault
-  on Base](https://app.lagoon.finance/vault/8453/0xf56bfe07b8d6e6d74258cdb6969a633629b06b08), MSA selects
-  assets and Lagoon lists both MSA and Gami as curators. The portfolio combines Bitcoin and Ethereum with
-  smaller sector-specific tokens, puts holdings to work in DeFi where possible, and can move realised profits
-  into USDC yield strategies.
+  [My Seed Advisor](https://www.my-seed-advisor.com/presentation-msa-2), also known as MSA, researches emerging crypto projects and token presales. Its membership programme includes research, a monthly newsletter, tutorials and access to private investment opportunities.
+
+  MSA selects assets for [Portefeuille Dynamique](https://tradingstrategy.ai/vaults/msa-portefeuille-dynamique), with Gami also named as a [co-curator](https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08). The portfolio combines bitcoin and ether with smaller sector-specific tokens, invests holdings to earn additional income where possible and can move realised profits into stablecoin investments.
+
 other-links:
 - title: Official organisation website
   url: https://www.my-seed-advisor.com/presentation-msa-2
+
+# 2026-11-10 add-curator: The existing homepage returned HTTP 403; no verified official Twitter, LinkedIn or RSS endpoint was found. Existing attribution is unchanged.

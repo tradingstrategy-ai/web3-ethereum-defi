@@ -5,6 +5,51 @@ EVM addresses, for example ``"0x1234..."``.  Keeping address literals as
 strings avoids noisy ``HexAddress(...)`` constructors while allowing the same
 mapping convention to be used for native protocol identifiers.  The lookup
 helper normalises adapter-supplied addresses before consulting these tables.
+
+Risk premium harvesting
+-----------------------
+
+:attr:`StrategyTag.risk_premium_harvest` identifies a documented strategy that
+seeks income as compensation for accepting investment risks. A risk premium is
+the extra return investors require for bearing uncertainty, such as a borrower
+failing to repay, being unable to sell an investment promptly, or having to pay
+out during adverse market moves. Harvesting means repeatedly taking those
+exposures to collect interest, fees or other payments. It does not mean that
+the premium has been measured or that the compensation will cover losses.
+
+The `K3 cirBTC vault on Arc
+<https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042>`__
+is an example. Its `launch announcement
+<https://x.com/k3_capital/status/2119852350034895084>`__ explicitly describes
+harvesting risk premium across DeFi. The `strategy explanation
+<https://x.com/k3_capital/status/2119852361879556335>`__ describes pledging
+cirBTC, a bitcoin-backed token, to borrow USDC, investing that USDC and
+converting investment income less borrowing costs into cirBTC. Its
+`investment mandate <https://x.com/k3_capital/status/2119852385367740877>`__
+permits lending and selected principal tokens, claims on an investment's
+redemption value at a future date. The launch allocation includes lending on
+Aave and Morpho; permission to hold principal tokens does not establish a
+current holding.
+
+For example, over one hypothetical period, investing 100 USDC of borrowed
+money might earn 6 USDC while borrowing costs 4 USDC, leaving 2 USDC before
+fees and investment losses. A 10 USDC investment loss would turn that into an
+8 USDC loss. These figures are illustrative, not the vault's rates or a return
+on its depositors' capital. Rising borrowing costs, investment losses and a
+forced sale of pledged cirBTC can reduce the amount returned to depositors.
+Depositors also retain bitcoin's dollar-price exposure.
+
+Use this tag only when product-specific evidence establishes both the
+risk-premium mandate and the income-generating mechanism. Generic yield
+marketing, token incentives or the mere presence of smart-contract risk is
+insufficient. Lending alone does not establish this category, and its absence
+does not imply that another vault has no credit or liquidity risk.
+The category does not imply that every risk is compensated,
+that capital is protected, or that the strategy is market-neutral.
+Keep supported instrument and mechanism tags alongside it: ``lending``
+identifies interest earned from borrowers, while ``carry_trade`` identifies
+income from holding or financing positions. K3 cirBTC retains both, together
+with its documented ``delta_neutral`` objective in cirBTC terms.
 """
 
 import enum
@@ -40,7 +85,9 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Gen Wealth Algo (Hyperliquid).
     trend_following = "trend_following"
 
-    #: Uses trader judgement to select and manage positions.
+    #: Uses human judgement to select, approve or rebalance investments.
+    #: Includes curator-selected yield allocations and credit deals, even
+    #: when execution is automated; a curator identity alone is insufficient.
     #: Example vault: Rogue Trader Discretionary (GRVT).
     discretionary_trading = "discretionary_trading"
 
@@ -64,6 +111,10 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Growi HF (Hyperliquid).
     high_frequency_high_win_rate = "high_frequency_high_win_rate"
 
+    #: The strategy trades only Bitcoin.
+    #: Example vaults: Bunny and BitRocket (Hyperliquid).
+    btc_only = "btc_only"
+
     #: Captures price differences between markets or related instruments.
     #: Example vault: Axis Origin (Upshift).
     arbitrage = "arbitrage"
@@ -83,6 +134,14 @@ class StrategyTag(str, enum.Enum):
     #: Places orders at predefined price intervals to capture market ranges.
     #: Example vault: AI Grid Trading Strategy (GRVT).
     grid_trading = "grid_trading"
+
+    #: Makes markets with a ladder of limit orders that adds to a losing
+    #: position as price moves against it, in a Martingale-like manner.
+    #: Pair with :attr:`high_frequency_high_win_rate`, because these strategies
+    #: produce many small winning trades until a sustained adverse move. Omit it
+    #: only when a vault has been explicitly observed to behave differently.
+    #: Example vault: Passivbot Canon (Hyperliquid).
+    martingale_like = "martingale_like"
 
     #: Trades the relative price of two related assets.
     #: Example vault: pmalt (Hyperliquid).
@@ -124,6 +183,14 @@ class StrategyTag(str, enum.Enum):
     #: market maker.
     #: Example vault: gTrade (Gains Network USDC).
     market_making_amm = "market_making_amm"
+
+    #: Makes markets between stablecoins through an automated market maker.
+    #: Every pool asset is a stablecoin, so volatility risk should be minimal
+    #: while the pegs hold. Depeg risk remains, and a pool that also backs
+    #: leveraged traders bears their net profit and loss. Normally paired with
+    #: :attr:`market_making_amm`.
+    #: Example vault: GLV [USDG-USDG] (GMX).
+    amm_stablecoin = "amm_stablecoin"
 
     #: Provides liquidity through a central limit order book.
     #: Example vault: Pharos Market Maker (PMM) (GRVT).
@@ -171,6 +238,18 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: USD3 (3Jane).
     inventory_financing = "inventory_financing"
 
+    #: Lends without collateral, making the vault's depositors unsecured
+    #: creditors of the borrower.
+    #:
+    #: An unsecured creditor is a lender whose claim is not backed by
+    #: collateral: there are no pledged assets it can seize or sell if the
+    #: borrower fails to pay. Repayment depends on the borrower's ability and
+    #: willingness to pay. In a default or insolvency, unsecured creditors
+    #: rank behind secured creditors and may recover little or nothing.
+    #: Normally paired with :attr:`lending`.
+    #: Example vault: Wintermute Trading USD Coin (Wildcat).
+    unsecured_credit = "unsecured_credit"
+
     #: Invests in money-market instruments.
     #: Example vault: Spiko EU T-Bills Money Market Fund (Spiko).
     money_market_fund = "money_market_fund"
@@ -182,6 +261,14 @@ class StrategyTag(str, enum.Enum):
     #: Seeks return from the carry of an asset or position.
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
+
+    #: Seeks income as compensation for deliberately accepting investment risks.
+    #: Requires a documented risk-premium mandate and an identifiable income
+    #: mechanism; generic yield or exposure to software risk alone is insufficient.
+    #: Complements instrument and mechanism tags such as lending and carry_trade. It neither
+    #: guarantees positive returns nor implies that every risk is compensated.
+    #: Example vault: K3 cirBTC on Arc, linked in the module's detailed explanation.
+    risk_premium_harvest = "risk_premium_harvest"
 
     @classmethod
     def _missing_(cls, value: object) -> "StrategyTag | None":
@@ -216,8 +303,8 @@ class StrategyTagMetadata(TypedDict):
 
 #: Public presentation labels and summaries for every strategy tag.
 #:
-#: Descriptions are deliberately brief so API consumers can display them in a
-#: summary table without truncating the activity being described.
+#: Descriptions are normally brief. Selected categories include a fuller risk
+#: explanation or linked example; exporters preserve the complete Markdown.
 STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.protocol_equity: {
         "label": "Protocol equity",
@@ -241,7 +328,7 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.discretionary_trading: {
         "label": "Discretionary trading",
-        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts positions using judgement and market insight.",
+        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses trades, lending markets, yield strategies and credit deals.",
     },
     StrategyTag.sentiment_trading: {
         "label": "Sentiment trading",
@@ -258,6 +345,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.high_frequency_high_win_rate: {
         "label": "High-frequency, high-win-rate trading",
         "description": "High-frequency trading, market making, grid strategies or similar approaches. Usually produces multiple small winning trades, but may suffer severe drawdowns if trapped in a position it cannot close profitably.",
+    },
+    StrategyTag.btc_only: {
+        "label": "Bitcoin only",
+        "description": "The strategy trades only Bitcoin",
     },
     StrategyTag.arbitrage: {
         "label": "Arbitrage",
@@ -278,6 +369,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.grid_trading: {
         "label": "Grid trading",
         "description": "Places staggered buy and sell orders across a price range.",
+    },
+    StrategyTag.martingale_like: {
+        "label": "Martingale-like",
+        "description": "A limit order ladder based market making strategy with Martingale-like behaviour.",
     },
     StrategyTag.pair_trading: {
         "label": "Pair trading",
@@ -314,6 +409,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.market_making_amm: {
         "label": "AMM market making",
         "description": "Supplies assets to automated trading pools and earns a share of trading fees.",
+    },
+    StrategyTag.amm_stablecoin: {
+        "label": "Stablecoin AMM market making",
+        "description": "Makes markets between stablecoins in automated trading pools. With no volatile pool assets, price volatility risk should be minimal while the stablecoins hold their pegs. For example, [GLV USDG-USDG](https://tradingstrategy.ai/vaults/glv-usdg-usdg) holds only USDG and earns fees from leveraged trading and swaps on GMX. A stablecoin losing its peg can cause losses, and pools that back leveraged traders also lose when those traders make net profits.",
     },
     StrategyTag.market_making_clob: {
         "label": "Orderbook market making",
@@ -359,6 +458,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
         "label": "Inventory financing",
         "description": "Funds loans that pay for a business's stock before it is sold, repaid from the sale proceeds.",
     },
+    StrategyTag.unsecured_credit: {
+        "label": "Unsecured credit",
+        "description": "Lends without collateral, so repayment depends on the borrower's ability and willingness to pay.",
+    },
     StrategyTag.money_market_fund: {
         "label": "Money-market fund",
         "description": "Holds short-term, highly liquid debt instruments for steady income.",
@@ -370,6 +473,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.carry_trade: {
         "label": "Carry trade",
         "description": "Earns [recurring income from holding assets or balancing related positions](https://tradingstrategy.ai/glossary/carry-trade).",
+    },
+    StrategyTag.risk_premium_harvest: {
+        "label": "Risk premium harvesting",
+        "description": "Pursues an explicit mandate to earn income for bearing investment risks, such as borrowers failing to repay or difficulty selling assets. For example, [K3 cirBTC](https://app.k3.capital/earn/0x56fb80282BB565dE67c196924dda0138e30323BE?chainId=5042) borrows USDC against cirBTC, a bitcoin-backed token, and lends the USDC, aiming to earn more than the borrowing cost. Losses can exceed the income earned. This describes the investment mandate, not a risk rating.",
     },
 }
 

@@ -10,6 +10,7 @@ from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import duckdb
 import pandas as pd
@@ -21,6 +22,7 @@ from eth_abi import encode
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.infinit import api, historical_context
+from eth_defi.erc_4626.vault_protocol.infinit import events as infinit_events
 from eth_defi.erc_4626.vault_protocol.infinit.api import InfinitPricePoint, parse_history_response
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import apply_period_gap_exclusions, mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT, INFINIT_MANAGER, INFINIT_PRICE_GAPS, INFINIT_USDC
@@ -29,6 +31,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitH
 from eth_defi.erc_4626.vault_protocol.infinit.migration import InfinitMigrationConfig, run_staged
 from eth_defi.erc_4626.vault_protocol.infinit.tags import get_strategy_tags
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.research.vault_metrics import PeriodMetrics, calculate_hourly_returns_for_all_vaults
 from eth_defi.research.wrangle_vault_prices import calculate_vault_returns, forward_fill_vault
 from eth_defi.token import TokenDetails
@@ -39,6 +42,40 @@ from eth_defi.vault.risk import VAULT_PROTOCOL_RISK_MATRIX, VaultTechnicalRisk
 def flight(data: list[dict], vault_id: str = APEX_PRODUCT.application_id) -> str:
     """Encode a small source response with its reviewed product identity."""
     return '0:{"a":"$@1"}\n1:' + json.dumps({"vaultId": vault_id, "data": data})
+
+
+@pytest.mark.parametrize("cache_mode", ["dense", "partial", "absent"])
+def test_infinit_events_reuse_shared_timestamps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cache_mode: str) -> None:
+    """Resolve ordered events from prepared timestamps and reject missing coverage.
+
+    Reads preserve event ordering and leave shared database bytes intact.
+    Incomplete or absent caches must be prepared by the caller.
+
+    :param tmp_path: Isolated shared timestamp-cache directory.
+    :param monkeypatch: Supply indexed events without network reads.
+    :param cache_mode: Dense shared cache, one cached event block or no cache.
+    :return: None after checking mapped events, cache reuse and preservation.
+    """
+    if cache_mode != "absent":
+        database = BlockTimestampDatabase.create(42161, tmp_path)
+        try:
+            numbers = range(1000, 1301) if cache_mode == "dense" else (1000,)
+            database.import_chain_data(42161, pd.Series({number: 1700000000 + number for number in numbers}))
+        finally:
+            database.close()
+    path = tmp_path / "42161-timestamps.duckdb"
+    original = path.read_bytes() if path.exists() else None
+    indexed = [InfinitEvent(1300, 0, 0, "mint", 100, "0x3"), InfinitEvent(1000, 1, 0, "deposit", 100, "0x2"), InfinitEvent(1000, 0, 0, "created", 0, "0x1")]
+    monkeypatch.setattr(infinit_events, "_fetch_chunk", AsyncMock(return_value=indexed))
+
+    if cache_mode == "dense":
+        result = tuple(infinit_events.fetch_infinit_events(Mock(), APEX_PRODUCT, 1301, tmp_path, start_block=1000))
+        assert [(event.block_number, event.log_index, event.timestamp) for event in result] == [(1000, 0, 1700001000), (1000, 1, 1700001000), (1300, 0, 1700001300)]
+    else:
+        error, message = (ValueError, "does not cover event block 1300") if cache_mode == "partial" else (FileNotFoundError, "requires the prepared dense timestamp cache")
+        with pytest.raises(error, match=message):
+            tuple(infinit_events.fetch_infinit_events(Mock(), APEX_PRODUCT, 1301, tmp_path, start_block=1000))
+    assert (path.read_bytes() if path.exists() else None) == original
 
 
 def test_infinit_classification_and_tags() -> None:
@@ -190,6 +227,29 @@ def test_infinit_dense_mapping(tmp_path: Path) -> None:
     assert map_source_blocks((point,), tmp_path, 10, 13)[point.timestamp] == 11
     with pytest.raises(ValueError, match="dense"):
         map_source_blocks((point,), tmp_path, 10, 14)
+
+
+def test_infinit_mapping_uses_previous_block_for_skipped_second(tmp_path: Path) -> None:
+    """A second without its own Arbitrum block maps to the previous block.
+
+    Mirrors production blocks 517,991,648-517,991,651: Arbitrum produced no
+    block at 2026-10-25 00:15:00 UTC (1792887300).
+    """
+    con = duckdb.connect(str(tmp_path / "42161-timestamps.duckdb"))
+    try:
+        con.execute(
+            """CREATE TABLE block_timestamps (block_number UBIGINT, timestamp UINTEGER);
+            INSERT INTO block_timestamps VALUES
+                (517991648, 1792887298), (517991649, 1792887299), (517991650, 1792887301), (517991651, 1792887301)"""
+        )
+    finally:
+        con.close()
+    skipped = InfinitPricePoint(datetime.datetime(2026, 10, 25, 0, 15), Decimal(1))
+    exact = InfinitPricePoint(datetime.datetime(2026, 10, 25, 0, 15, 1), Decimal(1))
+    mapping = map_source_blocks((skipped, exact), tmp_path, 517991648, 517991652)
+    assert mapping == {skipped.timestamp: 517991649, exact.timestamp: 517991651}
+    with pytest.raises(ValueError, match="precedes"):
+        map_source_blocks((skipped,), tmp_path, 517991650, 517991652)
 
 
 def test_infinit_recurring_timestamp_tail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

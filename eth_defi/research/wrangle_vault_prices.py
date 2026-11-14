@@ -37,6 +37,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.neutral_trade.constants import is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
 from eth_defi.types import Percent
@@ -2683,7 +2684,10 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
     rows = vault_db.rows
     selected_families = frozenset(denomination_families or {DenominationFamily.stablecoin})
     filter_specs = set(raw_vault_specs) if raw_vault_specs is not None else {spec for spec, row in rows.items() if classify_denomination(row.get("Denomination")) in selected_families}
-    if raw_vault_specs is not None and not filter_specs:
+    candidate_specs = set(filter_specs)
+    filter_specs = {spec for spec in filter_specs if is_neutral_trade_public_metadata(rows.get(spec, {}))}
+    intentional_native_suppression = bool(candidate_specs) and not filter_specs and all(rows.get(spec, {}).get("Protocol") == "Neutral Trade" for spec in candidate_specs)
+    if raw_vault_specs is not None and not raw_vault_specs:
         message = "raw_vault_specs must not be empty when Parquet push-down is requested"
         raise ValueError(message)
 
@@ -2738,7 +2742,7 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
     # creation so the last known-good public Parquet and sidecar stay intact.
     # Targeted crypto cleans pass ``raw_vault_specs`` and may legitimately
     # materialise a typed empty result for their isolated temporary output.
-    if raw_vault_specs is None and enhanced_prices_df.empty:
+    if raw_vault_specs is None and enhanced_prices_df.empty and not intentional_native_suppression:
         message = "Refusing to replace the public cleaned vault price dataset with zero rows"
         raise ValueError(message)
 

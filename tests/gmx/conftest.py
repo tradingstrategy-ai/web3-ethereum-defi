@@ -17,7 +17,7 @@ from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
-from eth_defi.gmx.core import GetAvailableLiquidity, GetBorrowAPR, GetClaimableFees, GetFundingFee, GetOpenPositions, GetPoolTVL, Markets
+from eth_defi.gmx.core import GetAvailableLiquidity, GetBorrowAPR, GetClaimableFees, GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
@@ -499,21 +499,6 @@ def market_data(gmx_config) -> GMXMarketData:
 def get_pool_tvl(gmx_config) -> GetPoolTVL:
     """Create a GetPoolTVL instance for the specified chain."""
     return GetPoolTVL(gmx_config)
-
-
-@pytest.fixture
-def pool_tvl_data(get_pool_tvl, chain_name):
-    """Pre-fetch pool TVL data, skipping if the API returns empty results.
-
-    Empty results indicate a transient RPC/GMX API outage or API saturation
-    from parallel test execution.  Skipping here lets ``@flaky`` retry rather
-    than failing hard on bad input data.
-    """
-    data = get_pool_tvl.get_data()
-    logger.debug("pool_tvl_data for %s: markets=%s", chain_name, list(data.keys()))
-    if not data:
-        pytest.skip(f"get_pool_tvl.get_data() returned an empty dict for chain '{chain_name}' — transient RPC/GMX API outage or API saturation from parallel test execution.  @flaky will retry up to 3 times.")
-    return data
 
 
 @pytest.fixture()
@@ -1047,13 +1032,6 @@ def get_claimable_fees(gmx_config):
 
 
 @pytest.fixture
-def get_funding_fee(gmx_config):
-    """Create GetFundingFee instance."""
-
-    return GetFundingFee(gmx_config)
-
-
-@pytest.fixture
 def markets(gmx_config):
     """Fixture to provide a Markets instance for testing."""
     return Markets(gmx_config)
@@ -1065,14 +1043,6 @@ def get_gm_prices(gmx_config):
     from eth_defi.gmx.core.gm_prices import GetGMPrices
 
     return GetGMPrices(gmx_config)
-
-
-@pytest.fixture
-def get_open_interest(gmx_config):
-    """Create GetOpenInterest instance."""
-    from eth_defi.gmx.core.open_interest import GetOpenInterest
-
-    return GetOpenInterest(gmx_config)
 
 
 @pytest.fixture

@@ -1,5 +1,123 @@
 # Test suite performance plan
 
+## Forge deployment output deadlock (2026-11-12)
+
+A local run of the main CI selection reached 4,571 passes but did not finish
+within ten minutes. The Forge deployment test blocked in `_exec_cmd()` while
+its Git child waited to write to stderr: 64,591 of the pipe's 65,536 bytes were
+occupied. Waiting for Forge before reading its pipes creates this deadlock.
+A standalone child writing 256 KiB to stderr reproduced the same failure
+without Anvil or any network requests.
+
+Drain both streams with `communicate(timeout=...)` while the command runs.
+On POSIX, give the invocation its own session and kill its process group on
+timeout or interruption, including children that retain pipe handles after Forge exits.
+Windows cleanup is limited to descendants still attached to Forge; terminating
+orphaned descendants there would require a Windows Job Object.
+Keep errors limited to the censored command, since the actual invocation can
+include a private key. Focused subprocess coverage checks large stdout and
+stderr, timeout cleanup and credential-free errors; the existing two real
+Forge-to-Anvil deployment tests passed after the fix.
+
+The same full run stalled in Kaleido chart rendering. The affected chart tests
+passed individually, consecutively and with two workers afterwards. The green
+CI baseline skipped them because Chrome was absent. This does not establish Kaleido
+as the CI timeout cause. Hypersync also returned HTTP 429 responses. Separate
+Hyperliquid and Centrifuge assertion mismatches reproduced on unchanged
+`master`; none of these observations identifies a specific failure in the
+unavailable CI logs.
+
+The assertion fixes preserve production behaviour. Hyperliquid's test now
+checks that a price-only update retains the last coherent policy snapshot and
+its original clocks, while a newer actual response replaces it, including
+explicitly missing capacity. Centrifuge's scan test uses a temporary token
+cache so an operator's cached historical name cannot affect the live check.
+These test-only corrections require no persisted-data migration.
+
+## Neutral Trade test reporting and isolation (2026-11-12)
+
+The oversized-response test passed a 4 MiB bytes fixture directly into pytest
+parametrisation. Its automatically generated ID produced two verbose output
+lines of more than 4.19 million characters each. The original streaming CI jobs
+stalled without final logs; these huge IDs are a likely cause. A diagnostic run
+with pytest output redirected to a file completed both full collection and the focused tests successfully,
+and uploaded snapshots while pytest was running. Those snapshots exposed the
+huge IDs. The immediate repair gave the cases short explicit IDs, keeping
+JUnit names and per-worker JSONL timing records small. The normal full suite
+then passed in [PR #1766](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1766).
+The provider-response rejection cases were subsequently removed under the
+trusted API testing policy in `CLAUDE.md`; the collection and storage isolation
+fixes below remain in place.
+
+Full-suite serial collection exposed three import mismatches introduced by
+Neutral Trade's generic `test_scan.py`, `test_vault_metadata.py` and
+`test_metrics.py` names. Adding `tests/neutral_trade/__init__.py` gives those
+modules package-qualified names without changing pytest's global import mode.
+The same main-suite collection then selected 4,864 tests without errors in
+13.15 seconds. Collection alone does not execute those tests.
+
+A focused eight-worker run also found a cleaning test opening the operator's
+default settlement DuckDB, where another process held its writer lock. All
+four Neutral Trade cleaner calls now use a settlement path under `tmp_path`,
+including the manual authenticated test. Tests must not depend on or contend
+with an operator's persisted pipeline data. These test-only changes require
+no persisted-data migration.
+
+A separate CI smoke run on the Beefy runner group with `-n 2` passed the six
+Forge subprocess tests in 4.63 seconds. It uploaded `runner-preflight` and
+`test-results-test-python-0`, including the pytest log and JUnit XML. Its runner
+reported 16 CPUs and 62 GiB RAM. This establishes that a small selection and
+the upload path work; it does not establish the cause of the stalled full suite.
+
+## Preserve diagnostics after a stalled main suite (2026-11-12)
+
+The main-suite run for PR #1761 exceeded its 15-minute job limit without
+uploading logs or test artefacts. Its retry also exceeded that limit without
+exposing diagnostic output. The affected tests passed locally both serially
+and with four workers, so this does not identify a failing test or establish
+the cause of the CI stall.
+
+Bound the entire pytest-to-tee pipeline to ten minutes, with a further 30 seconds
+before forced termination. Timing out pytest alone is insufficient: a detached
+child can retain an output pipe and keep tee waiting for EOF after pytest exits.
+A local subprocess reproduction with a 0.3-second deadline and a detached child
+lasting two seconds held the old pipeline open for 2.06 seconds; bounding the
+whole pipeline returned status 124 in 0.30 seconds while retaining its log.
+GNU timeout must retain its default process-group signalling (no `--foreground`):
+the group now includes tee, so the log reader also stops at the deadline.
+Detached processes may survive in their own sessions, but cannot keep this
+pipeline open; runner cleanup remains responsible for any surviving processes.
+Keep shell pipe failure propagation inside the bounded shell so a timeout
+fails the check. Setup took 100 and 95 seconds in the two affected attempts,
+leaving roughly three minutes within the unchanged 15-minute job cap for the
+existing always-run reporting and uploads, including the full pytest log.
+Slower setup can still exhaust the job budget. JUnit XML and the final durations
+table may be missing after termination; use the captured test names and any
+60-second stall stacks to diagnose the failure before changing tests or their
+scheduling.
+
+The first complete-pipeline attempt on the organisation runner also remained
+in its test step beyond the ten-minute deadline and 30-second kill grace,
+without uploading artefacts. The wrapper reproduction therefore does not
+explain the observed runner stall. A comparison on `ubuntu-latest`, already used
+by the slow integration workflow, also remained in the test step beyond the
+complete-pipeline deadline and kill grace without uploading artefacts. It used
+the same test selection and deadlines, with `-n auto` following the runner's
+CPU count. Different worker counts make suite duration an indirect comparison;
+the diagnostic failure here is that the step did not end at the deadline.
+The hosted comparison did not establish a repair, so the main workflow retains
+its original organisation runner configuration. Do not repeatedly rerun the
+unchanged suite without obtaining new evidence.
+For new evidence, rerun once with `gh run rerun RUN_ID --debug` and inspect
+`runner-diagnostic-logs` in the downloaded log archive. Repository access that
+permits workflow reruns and log downloads is sufficient; an HTTP 403 from the
+organisation runner inventory does not mean GitHub authentication or
+workflow-log access has failed.
+[GitHub's debug logging guidance](https://docs.github.com/en/actions/how-tos/monitor-workflows/enable-debug-logging)
+describes the runner and worker diagnostic files available for a debug rerun.
+Only investigate host `_diag` and OOM logs directly if the runner is confirmed
+to be self-hosted and host access is available.
+
 ## Anvil 1.8 fork slowdown (2026-10-27)
 
 After CI moved to Foundry/Anvil `v1.8.6`

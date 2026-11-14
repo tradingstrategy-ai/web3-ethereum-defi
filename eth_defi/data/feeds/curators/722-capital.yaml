@@ -3,13 +3,11 @@ name: 722 Capital
 role: curator
 lagoon-curator: 722 Capital
 website: https://722.capital
-short_description: 722 Capital manages DeFi yield strategies and treasury portfolios for investors, protocols and institutions.
+short_description: 722 Capital manages lending and trading portfolios and company treasury investments in crypto markets.
 long_description: |
-  [722 Capital](https://722.capital/) manages vaults that allocate across DeFi lending, liquidity and yield
-  markets, including Morpho and Pendle. It also offers treasury management and private mandates for family
-  offices and institutional investors. Its vaults use Lagoon and Safe infrastructure, with portfolio values
-  published onchain and fees defined in the vault contracts. The firm's name refers to 22 July 2014, the date
-  of Ethereum's token sale.
+  [722 Capital](https://722.capital/) manages portfolios that earn income from lending, trading and providing money for token exchanges. Its investment venues include [Morpho](https://morpho.org/) for lending and [Pendle](https://pendle.finance/) for trading rights to future yield.
+
+  The firm also manages company reserves and tailored portfolios for family offices and institutional investors. These services have separate investment mandates; the firm's general approach does not establish the holdings of each vault.
 
 # Evidence and background references.
 #
@@ -17,11 +15,12 @@ long_description: |
 # 722Capital-USDC vault on Base. The official 722 Capital website describes
 # the firm as building institutional-grade DeFi yield strategies.
 other-links:
-  - title: Lagoon Finance vault - 722Capital-USDC lists 722 Capital as curator
-    url: https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
-  - title: 722 Capital vault app - 722 USDC vault
-    url: https://app.722.capital/v/722-usdc
+  - title: Trading Strategy - 722Capital-USDC vault
+    url: https://tradingstrategy.ai/vaults/722capital-usdc
   - title: Trinity Trust on Ethereum - vault details and attribution
     url: https://app.lagoon.finance/api/vault?chainId=1&address=0x71652d4898de9a7dd35e472a5fe4577ec69d82f2
   - title: Unity Trust on Ethereum - vault details and attribution
     url: https://app.lagoon.finance/api/vault?chainId=1&address=0x66dcb62da5430d800a1c807822c25be17138fda8
+
+# 2026-11-10 add-curator: sources verified from https://www.linkedin.com/company/722-capital/ (company profile links 722.capital).
+linkedin: 722-capital

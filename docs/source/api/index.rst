@@ -24,6 +24,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    arcus/index
    arcadia/index
    axis/index
+   k3/index
    flying_tulip/index
    upshift/index
    cowswap/index
@@ -38,6 +39,8 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    grvt/index
    lighter/index
    hibachi/index
+   neutral_trade/index
+   solana/index
    cctp/index
    centrifuge/index
    orderly/index
@@ -57,6 +60,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    antarctic/index
    infinit/index
    rysk/index
+   wildcat/index
    barker/index
    bulla/index
    ondo/index

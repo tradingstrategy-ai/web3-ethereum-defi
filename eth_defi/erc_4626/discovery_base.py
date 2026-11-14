@@ -36,6 +36,7 @@ from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_HARDC
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.k3.constants import K3_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HARDCODED_LEADS
@@ -96,6 +97,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Shift", SHIFT_HARDCODED_LEADS),
     ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
     ("Axis", AXIS_HARDCODED_LEADS),
+    ("K3", K3_HARDCODED_LEADS),
     ("Flying Tulip", FLYING_TULIP_HARDCODED_LEADS),
     ("Pallas", PALLAS_HARDCODED_LEADS),
     ("T3tris", T3TRIS_HARDCODED_LEADS),
@@ -104,6 +106,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
 if TYPE_CHECKING:
     from eth_defi.enzyme.blue_discovery import EnzymeBlueVaultFactoryCandidate
     from eth_defi.enzyme.onyx_discovery import EnzymeVaultFactoryCandidate
+    from eth_defi.erc_4626.vault_protocol.wildcat.discovery import WildcatMarketCandidate
     from eth_defi.mellow.discovery import MellowFactoryCandidate
 
 
@@ -151,10 +154,14 @@ class PotentialVaultMatch:
     #: VaultProxy is not ERC-4626, so this direct protocol lead bypasses the
     #: generic feature probe just like an Onyx Shares lead.
     enzyme_blue_factory_candidate: "EnzymeBlueVaultFactoryCandidate | None" = None
+    #: Wildcat ``WildcatArchController.MarketAdded`` metadata. Wildcat markets
+    #: are not ERC-4626, so this direct registry lead bypasses the generic
+    #: feature probe just like an Enzyme Blue lead.
+    wildcat_market_candidate: "WildcatMarketCandidate | None" = None
 
     def is_candidate(self) -> bool:
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
-        if getattr(self, "mellow_factory_candidate", None) is not None or getattr(self, "enzyme_factory_candidate", None) is not None or getattr(self, "enzyme_blue_factory_candidate", None) is not None:
+        if is_direct_registry_lead(self) or getattr(self, "mellow_factory_candidate", None) is not None or getattr(self, "enzyme_factory_candidate", None) is not None:
             return True
 
         # Deposit-only event streams and protocol-specific configuration events
@@ -673,13 +680,14 @@ def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[
         leads_by_address[lowered_address] = lead
 
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
-        if getattr(lead, "mellow_factory_candidate", None) is not None or getattr(lead, "enzyme_factory_candidate", None) is not None or getattr(lead, "enzyme_blue_factory_candidate", None) is not None:
+        if getattr(lead, "mellow_factory_candidate", None) is not None or getattr(lead, "enzyme_factory_candidate", None) is not None or is_direct_registry_lead(lead):
             factory_lead_count += 1
 
-        # A reviewed Enzyme ``ProxyDeployed`` event is sufficient protocol
-        # identification. Its adapter does not depend on the broad ERC-4626
-        # probe surface, so skip dozens of unnecessary probe calls per vault.
-        if getattr(lead, "enzyme_factory_candidate", None) is not None or getattr(lead, "enzyme_blue_factory_candidate", None) is not None:
+        # A reviewed Enzyme ``ProxyDeployed`` or Wildcat ``MarketAdded`` event
+        # is sufficient protocol identification. Their adapters do not depend
+        # on the broad ERC-4626 probe surface, so skip dozens of unnecessary
+        # probe calls per vault.
+        if getattr(lead, "enzyme_factory_candidate", None) is not None or is_direct_registry_lead(lead):
             continue
 
         if lowered_address in BROKEN_VAULT_CONTRACTS or lowered_address in seen_addresses:
@@ -828,6 +836,90 @@ def create_enzyme_blue_factory_detection(candidate: "EnzymeBlueVaultFactoryCandi
         deposit_count=0,
         redeem_count=0,
     )
+
+
+def is_direct_registry_lead(lead: PotentialVaultMatch) -> bool:
+    """Check whether a lead came from a registry event that skips probing.
+
+    Enzyme Blue ``VaultProxyDeployed`` and Wildcat ``MarketAdded`` events
+    identify a non-ERC-4626 vault without the generic feature probe.
+
+    :param lead:
+        Lead, possibly unpickled from an older version without these slots.
+    :return:
+        ``True`` for Enzyme Blue and Wildcat registry leads.
+    """
+
+    # Compatibility shim: older persisted lead objects may not have these slots; remove after reader state migration.
+    return getattr(lead, "enzyme_blue_factory_candidate", None) is not None or getattr(lead, "wildcat_market_candidate", None) is not None
+
+
+def create_wildcat_potential_vault_match(candidate: "WildcatMarketCandidate") -> PotentialVaultMatch:
+    """Create a direct lead for a Wildcat registry ``MarketAdded`` event.
+
+    :param candidate:
+        Decoded version 2 market.
+    :return:
+        Lead whose zero flow counts are exempted from activity filters by the
+        ``wildcat_like`` feature.
+    """
+
+    return PotentialVaultMatch(
+        chain=candidate.chain,
+        address=candidate.address,
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        deposit_count=0,
+        withdrawal_count=0,
+        wildcat_market_candidate=candidate,
+    )
+
+
+def create_wildcat_market_detection(candidate: "WildcatMarketCandidate") -> ERC4262VaultDetection:
+    """Create a direct, non-ERC-4626 detection for a Wildcat market.
+
+    :param candidate:
+        Decoded version 2 market.
+    :return:
+        Detection routed to the Wildcat market adapter.
+    """
+
+    return ERC4262VaultDetection(
+        chain=candidate.chain,
+        address=candidate.address,
+        features={ERC4626Feature.wildcat_like},
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        updated_at=native_datetime_utc_now(),
+        deposit_count=0,
+        redeem_count=0,
+    )
+
+
+def add_wildcat_market_candidate_lead(
+    report: LeadScanReport,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    candidate: "WildcatMarketCandidate",
+) -> None:
+    """Add a decoded Wildcat market lead if it is not persisted already.
+
+    :param report:
+        Mutable scan report whose counters are updated.
+    :param leads:
+        Mutable lead map.
+    :param candidate:
+        Decoded version 2 market.
+    """
+
+    key = HexAddress(candidate.address.lower())
+    existing = leads.get(key)
+    if existing is None:
+        leads[key] = create_wildcat_potential_vault_match(candidate)
+        report.new_leads += 1
+    elif getattr(existing, "wildcat_market_candidate", None) is None:
+        # A market first seen through an unrelated event still becomes a
+        # direct registry lead.
+        existing.wildcat_market_candidate = candidate
 
 
 def add_enzyme_blue_factory_candidate_lead(
@@ -1007,6 +1099,10 @@ class VaultDiscoveryBase(abc.ABC):
             enzyme_blue_candidate = getattr(lead, "enzyme_blue_factory_candidate", None)
             if enzyme_blue_candidate is not None:
                 report.detections[enzyme_blue_candidate.address] = create_enzyme_blue_factory_detection(enzyme_blue_candidate)
+                good_vaults += 1
+            wildcat_candidate = getattr(lead, "wildcat_market_candidate", None)
+            if wildcat_candidate is not None:
+                report.detections[wildcat_candidate.address] = create_wildcat_market_detection(wildcat_candidate)
                 good_vaults += 1
 
         if display_progress:

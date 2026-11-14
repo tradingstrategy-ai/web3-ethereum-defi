@@ -10,7 +10,7 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
-SCRIPT_NAME = "036-t3tris-deposit-manager.py"
+SCRIPT_NAME = "072-t3tris-deposit-manager.py"
 ARBITRUM_VAULT = VaultSpec(42161, "0x98e43a491a464f0886bc5e57207c340bbed0d01f")
 ROBINHOOD_VAULT = VaultSpec(4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672")
 OTHER = VaultSpec(42161, "0x0000000000000000000000000000000000000001")

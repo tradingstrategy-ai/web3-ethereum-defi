@@ -1,0 +1,32 @@
+name: Neutral Trade
+slug: neutral-trade
+short_description: |
+  Neutral Trade offers vaults that put deposits into trading strategies and lending markets.
+long_description: |
+  [Neutral Trade](https://www.neutral.trade/) offers vaults that earn from trading or borrower interest.
+  Trading strategies include buying and selling across markets to capture price differences,
+  offering buy and sell prices, and taking positions on expected price moves.
+
+  Its [Curated strategies](https://www.neutral.trade/faq) undergo a full review and live testing with Neutral Trade's money;
+  Marketplace strategies receive basic checks without that live test.
+  Voltr vaults shown alongside Marketplace products receive **no Neutral Trade review**.
+
+  Each vault determines where trading takes place and who holds its assets.
+  Centralised exchange and custodian failures can cause losses or freeze access to money,
+  while decentralised trading and lending also depend on the security of their software.
+fee_description: |
+  Vaults can charge management, performance and withdrawal fees.
+  Performance fees apply to gains above each depositor's [individual high-water mark](https://docs.neutral.trade/additional-info/fees-+-redemption-period),
+  the previous peak used to calculate their fees. Charges and withdrawal
+  terms depend on the vault; a shared price history does not reproduce every depositor's net return.
+links:
+  homepage: https://www.neutral.trade/
+  app: https://www.neutral.trade/strategies
+  twitter: https://x.com/tradeneutral
+  github:
+  documentation: https://docs.neutral.trade/
+  defillama:
+  audits:
+  fees: https://docs.neutral.trade/additional-info/fees-+-redemption-period
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/neutral-trade
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/neutral_trade/index.html

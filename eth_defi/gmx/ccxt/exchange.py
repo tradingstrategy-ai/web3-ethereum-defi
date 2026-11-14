@@ -26,7 +26,7 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -97,10 +97,10 @@ from eth_defi.gmx.events import (
     extract_order_execution_result,
     extract_order_key_from_receipt,
 )
+from eth_defi.gmx.gas_refusal import GasRefusalProof, GasRejectedOrder, GMXPreflightGasError
 from eth_defi.gmx.gas_monitor import (
     GasMonitorConfig,
     GMXGasMonitor,
-    InsufficientGasError,
 )
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order.cancel_order import CancelOrder
@@ -110,6 +110,10 @@ from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.retry import GMXAPIUnavailable
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
+from eth_defi.gmx.ccxt.token_symbols import (
+    resolve_market_token_symbol,
+    token_symbols_by_address,
+)
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError, get_fallback_provider
@@ -3057,6 +3061,30 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def _resolve_market_token_symbol(self, market_info: dict[str, Any]) -> str:
+        """Return the token symbol the GMX price endpoints accept.
+
+        Synthetic markets are named with a ``2`` suffix (``HYPE2``) and some
+        markets carry a ``k`` prefix; neither is a symbol in ``/tokens``, so
+        use the market's index token address instead. The address-to-symbol
+        map is fetched once per exchange instance.
+
+        :param market_info:
+            CCXT market dict.
+
+        :return:
+            GMX token symbol for the price request.
+        """
+        symbols_by_address = getattr(self, "_market_token_symbols", None)
+        if symbols_by_address is None:
+            try:
+                symbols_by_address = token_symbols_by_address(self.api.get_tokens())
+            except GMXAPIUnavailable as exc:
+                logger.warning("Could not load GMX token symbols for price lookup: %s", exc)
+                return market_info["id"]
+            self._market_token_symbols = symbols_by_address
+        return resolve_market_token_symbol(market_info, symbols_by_address)
+
     def fetch_ohlcv(
         self,
         symbol: str,
@@ -3112,7 +3140,7 @@ class GMX(ExchangeCompatible):
 
         # Get market info and extract GMX token symbol
         market_info = self.market(symbol)
-        token_symbol = market_info["id"]  # GMX token symbol (e.g., "ETH")
+        token_symbol = self._resolve_market_token_symbol(market_info)
 
         # Validate timeframe
         if timeframe not in self.timeframes:
@@ -7665,7 +7693,20 @@ class GMX(ExchangeCompatible):
             if gas_check.status == "critical":
                 monitor.log_gas_check_warning(gas_check)
                 if gas_config.raise_on_critical:
-                    raise InsufficientGasError(gas_check.message, gas_check)
+                    raise GMXPreflightGasError(
+                        gas_check.message,
+                        GasRefusalProof(
+                            version=1,
+                            branch="ccxt_critical_raise",
+                            phase="pre_sign_pre_submit",
+                            chain_id=self.web3.eth.chain_id,
+                            payer=self._gas_payer_address,
+                            pair=symbol,
+                            observed_at=datetime.now(timezone.utc),
+                            signed=False,
+                            broadcast=False,
+                        ),
+                    )
                 # Return failed order dict instead of crashing.
                 # Use a unique timestamp-based ID so that freqtrade can INSERT
                 # multiple rejected orders for the same pair without hitting the
@@ -7673,7 +7714,7 @@ class GMX(ExchangeCompatible):
                 # gets stringified to the literal "None" by SQLAlchemy, which
                 # causes IntegrityError on the second rejection for the same pair.
                 _rejected_id = f"gas_rejected_{symbol.replace('/', '_').replace(':', '_')}_{self.milliseconds()}"
-                return {
+                rejected = {
                     "id": _rejected_id,
                     "clientOrderId": None,
                     "datetime": self.iso8601(self.milliseconds()),
@@ -7702,6 +7743,21 @@ class GMX(ExchangeCompatible):
                     "average": None,
                     "fees": [],
                 }
+                return GasRejectedOrder(
+                    rejected,
+                    GasRefusalProof(
+                        version=1,
+                        branch="ccxt_critical_return",
+                        phase="pre_sign_pre_submit",
+                        chain_id=self.web3.eth.chain_id,
+                        payer=self._gas_payer_address,
+                        pair=symbol,
+                        observed_at=datetime.now(timezone.utc),
+                        signed=False,
+                        broadcast=False,
+                        raw_result=rejected,
+                    ),
+                )
             elif gas_check.status == "warning":
                 monitor.log_gas_check_warning(gas_check)
 

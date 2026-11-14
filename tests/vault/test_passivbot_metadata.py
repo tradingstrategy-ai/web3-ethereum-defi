@@ -25,6 +25,7 @@ EXPECTED_TAGS = {
     StrategyTag.perpetual_futures,
     StrategyTag.algorithmic_trading,
     StrategyTag.high_frequency_high_win_rate,
+    StrategyTag.martingale_like,
     StrategyTag.directional_trading,
     StrategyTag.mean_reversion,
     StrategyTag.grid_trading,

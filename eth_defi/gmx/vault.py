@@ -32,6 +32,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
@@ -216,8 +217,28 @@ class GMXVaultBase(VaultBase):
         return self.share_token.symbol
 
     @property
-    def short_description(self) -> None:
-        return None
+    def description(self) -> str | None:
+        """Return the reviewed description of a known product.
+
+        The catalogue synchroniser generates descriptions for all other
+        products from their onchain composition, because this adapter cannot
+        name index markets without the GMX token registry.
+
+        :return:
+            Handwritten Markdown, or ``None`` when the product has no reviewed copy.
+        """
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return the reviewed one-sentence summary of a known product.
+
+        :return:
+            Handwritten plain text, or ``None`` when the product has no reviewed copy.
+        """
+        metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
+        return metadata.short_description if metadata else None
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch GM or GLV ERC-20 metadata."""

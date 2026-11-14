@@ -172,6 +172,19 @@ class VaultFlag(str, enum.Enum):
     #: affected vaults remain visible in the catalogue and data exports.
     forty_acres_withdrawal_risk = "forty_acres_withdrawal_risk"
 
+    #: The lending market's borrower has defaulted.
+    #:
+    #: For now used only for Wildcat markets whose delinquency has outlasted
+    #: the grace period, so the penalty rate applies. The flag can remain for a
+    #: while after the borrower cures the delinquency, because Wildcat applies
+    #: the penalty until the accumulated delinquent time falls back below the
+    #: grace period. During a default the market's share price keeps rising
+    #: with accrued and penalty interest, so the curve must not be read as
+    #: realised yield. Set by the protocol adapter from onchain state and
+    #: deliberately outside :py:data:`BAD_FLAGS`, so the market stays visible
+    #: with a warning; the monthly vault report leaves it out of its listings.
+    delinquent_markets = "delinquent_markets"
+
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,
@@ -688,6 +701,9 @@ ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has ab
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
+#: Public catalogue access failed before any membership observation was available.
+UNCONFIRMED_PROTOCOL_LISTING = "This vault's public listing could not be verified."
+
 NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
 
 NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed in Yearn's authoritative metadata."
@@ -697,6 +713,9 @@ TEST_VAULT = "This appears to be a test vault and should not be shown to end use
 UNKNOWN_ABNORMAL_SHARE_PRICE = "Share price chart has abnormal high returns and the vault protocol is not yet identified."
 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
+
+#: User-reported illiquidity of the reviewed K3 Capital Cluster vault.
+K3_CAPITAL_CLUSTER_ILLIQUID = "This vault is illiquid."
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
@@ -774,6 +793,18 @@ REVIEW_NEEDED_DATA_QUALITY = "Under review: the reported protocol or TVL of this
 
 #: Under review: a review started by a person rather than the investability check; see the ``review_needed`` entries in :py:data:`VAULT_FLAGS_AND_NOTES`
 REVIEW_NEEDED_MANUAL = "Under review: the Trading Strategy team is reviewing this vault. It is not blacklisted; check its positions and withdrawable liquidity before depositing."
+
+#: An unrelated TBTC token was incorrectly valued as Bitcoin.
+TITAN_BITCOIN_MISVALUATION = "The vault holds [Titan Bitcoin (TBTC)](https://etherscan.io/token/0x6cf92f7752f97350417548c70333b8e0acb7d8e2), a separate token from Threshold tBTC. Its reported Bitcoin-based dollar valuation is incorrect. See the [underlying token's market](https://eth.buildefi.win/token/0x6cf92f7752f97350417548c70333b8e0acb7d8e2)."
+
+#: Unverified ETH/BTC denominations must not receive canonical asset pricing.
+FUTURES_TOKEN_MISVALUATION = "The vault holds a token labelled ETH or BTC whose address has not been verified as a canonical representation of ether or bitcoin. Its reported dollar valuation is unsupported and should not be used to assess the vault's value."
+
+#: A USDC symbol does not establish canonical USDC identity or dollar backing.
+TETHER_USDC_MISVALUATION = "The vault holds a separate token named TETHER USDC. Its USDC symbol does not establish that it is canonical USDC or backed by dollars, so the reported dollar valuation is unsupported."
+
+#: A meme token sharing the ETH symbol was incorrectly valued as ether.
+GROW_ETH_MISVALUATION = "The vault holds Eternal Titty Heaven, a separate token with the symbol ETH. Its reported ether-based dollar valuation is incorrect; the token symbol does not make these holdings ether."
 
 
 #: Protocol-wide flags and notes.
@@ -858,6 +889,126 @@ The system checks your total equity meets the minimum for your tier when you att
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
+    # Titan Bitcoin Staking (generic ERC-4626, Ethereum).
+    # Added 2026-11-09 following the user's market-valuation audit, checked by
+    # Codex. At block 26,378,588, totalAssets and token balance both equalled
+    # 101,992.85262055 Titan Bitcoin tokens. The underlying is not Threshold
+    # tBTC: BuilDeFi identifies the token and a roughly $0.0037 market price.
+    # misleading_valuation excludes the incorrect BTC-priced record without
+    # alleging fraud. Reassess this flag after correcting denomination pricing.
+    # - https://tradingstrategy.ai/vaults/titan-bitcoin-staking
+    # - https://etherscan.io/address/0xe86fb0d3cc16c4f9d97d734795c4f43da6fd3751
+    # - https://etherscan.io/token/0x6cf92f7752f97350417548c70333b8e0acb7d8e2
+    # - https://eth.buildefi.win/token/0x6cf92f7752f97350417548c70333b8e0acb7d8e2
+    # - https://tbtc.network/
+    "0xe86fb0d3cc16c4f9d97d734795c4f43da6fd3751": (VaultFlag.misleading_valuation, TITAN_BITCOIN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), ETH instance.
+    # Added 2026-11-09 following the user's valuation audit, checked by Codex.
+    # At block 132,618,000, asset() returned the token below; totalAssets and
+    # balance both equalled 100,020.032232 units. ETH-symbol admission supplies
+    # no evidence of canonical backing. misleading_valuation excludes the
+    # unsupported ether-priced record, without alleging malicious behaviour.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share-2
+    # - https://bscscan.com/address/0x1acbe95a3478ca508b356da1f9918678c254f88f
+    # - https://bscscan.com/token/0xdf03387a1995af4a0fea74f52159325c8f9e9ecc
+    "0x1acbe95a3478ca508b356da1f9918678c254f88f": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), BTC instance.
+    # Added 2026-11-09 following the user's valuation audit, checked by Codex.
+    # At block 132,618,000, asset() returned the token below; totalAssets and
+    # balance both equalled 1,000.090476 units. Canonical Bitcoin backing is
+    # unverified; misleading_valuation excludes unsupported BTC pricing.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share
+    # - https://bscscan.com/address/0x6316771916aa933189aa4e43290d0f69ad6909eb
+    # - https://bscscan.com/token/0xe8a5cb0a74bdf4bbaeb3955d0b829134e6437862
+    "0x6316771916aa933189aa4e43290d0f69ad6909eb": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), ETH instance.
+    # Added 2026-11-09 by Codex during the user's valuation audit. The local
+    # 2026-10-28 crypto export records 298,613.00799077 units of the same
+    # unsupported ETH token as the checked instance above. The vault address
+    # and cached underlying were also verified in production on 2026-11-09.
+    # Apply the same misleading_valuation exclusion; this is not a fraud finding.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share-6
+    # - https://bscscan.com/address/0x3c770ab0c25c77b44b4d76af1b8067fbbc16da5d
+    # - https://bscscan.com/token/0xdf03387a1995af4a0fea74f52159325c8f9e9ecc
+    "0x3c770ab0c25c77b44b4d76af1b8067fbbc16da5d": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), BTC instance.
+    # Added 2026-11-09 by Codex during the user's valuation audit. The local
+    # 2026-10-28 crypto export records 11 units of the same unsupported BTC
+    # token as the checked instance above. The vault address and cached
+    # underlying were also verified in production on 2026-11-09.
+    # misleading_valuation excludes unsupported Bitcoin pricing without alleging
+    # malicious behaviour.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share-4
+    # - https://bscscan.com/address/0x620270019370766bc55099299e38c2504a984211
+    # - https://bscscan.com/token/0xe8a5cb0a74bdf4bbaeb3955d0b829134e6437862
+    "0x620270019370766bc55099299e38c2504a984211": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), BTC instance.
+    # Added 2026-11-09 by Codex during the user's valuation audit. The local
+    # 2026-10-28 crypto export records 18,270.37847488 units of the same
+    # unsupported BTC token. The vault address and cached underlying were also
+    # verified in production on 2026-11-09. misleading_valuation excludes BTC
+    # pricing; neither solvency nor malicious behaviour has been established.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share-5
+    # - https://bscscan.com/address/0xb7dc5eefa04685f326883b3c5067742102beaca3
+    # - https://bscscan.com/token/0xe8a5cb0a74bdf4bbaeb3955d0b829134e6437862
+    "0xb7dc5eefa04685f326883b3c5067742102beaca3": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Futures Vault Share (generic ERC-4626, BNB Smart Chain), ETH instance.
+    # Added 2026-11-09 by Codex during the user's valuation audit. The local
+    # 2026-10-28 crypto export records 2,001.97211215 units of the same
+    # unsupported ETH token. The vault address and cached underlying were also
+    # verified in production on 2026-11-09. misleading_valuation excludes ether
+    # pricing without asserting fraud or a failed withdrawal mechanism.
+    # - https://tradingstrategy.ai/vaults/futures-vault-share-3
+    # - https://bscscan.com/address/0xd308adec40c09b7ebceeb665e8799feb8f6728d9
+    # - https://bscscan.com/token/0xdf03387a1995af4a0fea74f52159325c8f9e9ecc
+    "0xd308adec40c09b7ebceeb665e8799feb8f6728d9": (VaultFlag.misleading_valuation, FUTURES_TOKEN_MISVALUATION),
+    # Yearn USDC Vault (generic ERC-4626, Monad; name is not endorsement).
+    # Added 2026-11-09 following the user's valuation audit, checked by Codex.
+    # At block 120,800,013, asset() identified TETHER USDC with supply about
+    # 2.0932e18 tokens. totalAssets was 999,990,000 units. misleading_valuation
+    # excludes the unsupported dollar valuation; a USDC symbol is insufficient
+    # evidence of canonical identity or dollar backing.
+    # - https://tradingstrategy.ai/vaults/yearn-usdc-vault
+    # - https://monadscan.com/address/0xc5a195b4be1cc20e6f5390a0c09512124e7eb23a
+    # - https://monadscan.com/token/0x1b5c0bebae484759c757038b2fe39adc7f4d9af9
+    "0xc5a195b4be1cc20e6f5390a0c09512124e7eb23a": (VaultFlag.misleading_valuation, TETHER_USDC_MISVALUATION),
+    # grow ETH (Yearn-compatible, Robinhood; endorsement not established).
+    # Added 2026-11-09 following the user's valuation audit, checked by Codex.
+    # Production crypto metadata generated 2026-11-09 recorded 307,005,843.47
+    # units and no flags. asset() is Eternal Titty Heaven, whose ETH symbol
+    # caused ether-based pricing. At block 110,212,328, onchain reads confirmed
+    # the token name, symbol, supply of 371,083,458,206.36 and totalAssets of
+    # 306,971,502.29 units. misleading_valuation excludes that valuation
+    # without asserting that the deployment is malicious or official Yearn.
+    # - https://tradingstrategy.ai/vaults/grow-eth
+    # - https://robinhoodchain.blockscout.com/address/0x2f060715ef9de33236653bb5e73c62e0cac7d585
+    # - https://robinhoodchain.blockscout.com/token/0xc6d0a987c6839d08516bcd27ad89b3bcc8bbaac1
+    "0x2f060715ef9de33236653bb5e73c62e0cac7d585": (VaultFlag.misleading_valuation, GROW_ETH_MISVALUATION),
+    # UnaVault (generic ERC-4626, Polygon).
+    # Added 2026-11-09 following the user's audit. Codex manual decision:
+    # uncertain, high confidence in the observed discrepancy, but recoverability
+    # unproven. At block 97,024,648, totalAssets was 1,552,327,728.764767 USDC.e,
+    # token supply 1,064,865,211.456009 and idle balance zero. review_needed
+    # preserves visibility: debt claims can exceed supply through redepositing.
+    # Review the accounting, external positions, collateral and withdrawal path
+    # before deciding whether the valuation is unrealisable. No fraud verdict.
+    # - https://tradingstrategy.ai/vaults/unavault-2
+    # - https://polygonscan.com/address/0x182b06a514c29d07384838883efc02c8f0431b42
+    # - https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174
+    "0x182b06a514c29d07384838883efc02c8f0431b42": (VaultFlag.review_needed, REVIEW_NEEDED_MANUAL),
+    # Borrowable BTC.b Deposit, SiloId: 130 (Silo Finance, Avalanche).
+    # Added 2026-11-09 following the user's audit. Codex manual decision:
+    # uncertain, high confidence in observed state, but debt recoverability
+    # unproven. At block 99,866,231, totalAssets was 34,817.50738671 BTC.b,
+    # token supply 1,980.12904954 and idle balance zero. review_needed does not
+    # blacklist: inspect debt, collateral, liquidations and served withdrawals
+    # to distinguish realisable claims from phantom interest or temporary
+    # illiquidity. Supply and idle balance alone do not establish insolvency.
+    # - https://tradingstrategy.ai/vaults/borrowable-btc-b-deposit-siloid-130
+    # - https://snowtrace.io/address/0x7437ac81457fa98ffb2d0c8f9943ecfe4813e2f1
+    # - https://snowtrace.io/token/0x152b9d0fdc40c096757f570a51e494bd4b943e50
+    # - https://app.silo.finance/
+    "0x7437ac81457fa98ffb2d0c8f9943ecfe4813e2f1": (VaultFlag.review_needed, REVIEW_NEEDED_MANUAL),
     # IP Vault / Staked IPUSD (sIPUSD), Asseto, Soneium (1868).
     # Added 2026-10-27 at the user's request for launch context and an explicit
     # under-verification status. Manual Codex review (GPT-6), not an automated
@@ -1031,6 +1182,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xeaf77df5d03306bca4ee8b58b6821e6aca76309d": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Euler Re7
     "0xaba9d2d4b6b93c3dc8976d8eb0690cca56431fe4": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # K3 Capital Cluster, Euler on Avalanche (43114), curated by K3 Capital.
+    # Added 2026-11-06 at the user's explicit request to mark the vault illiquid.
+    # This records the user's liquidity classification and excludes the vault
+    # from investable rankings. No independent liquidity measurement or incident
+    # announcement was supplied; the links below establish the vault's identity.
+    # https://tradingstrategy.ai/vaults/k3-capital-cluster-7
+    # https://snowtrace.io/address/0x6fc9b3a52944a577cd8971fd8fde0819001bc595
+    "0x6fc9b3a52944a577cd8971fd8fde0819001bc595": (VaultFlag.illiquid, K3_CAPITAL_CLUSTER_ILLIQUID),
     # K3
     "0xe1a62fdcc6666847d5ea752634e45e134b2f824b": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Excellion USDC Vault
@@ -1197,6 +1356,24 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x5eb03d0fcfd3860be03b81a1ab3d46db3315202a": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 6 (Arbitrum)
     "0x3a87cf9af4d21778dad1ce7d0bf053f4b8f2631f": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 65, Peapods on Base (8453).
+    # Added 2026-11-06 following the user's explicit illiquidity report.
+    # Marked illiquid to exclude it from investable rankings. No onchain
+    # liquidity measurement or incident announcement was supplied; the flag
+    # records the user's classification, not a newly measured liquidity level.
+    # Sources (identity):
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-65
+    # https://basescan.org/address/0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1
+    "0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Interest Bearing USDC - 147, Peapods on Base (8453).
+    # Added 2026-11-06 following the user's explicit illiquidity report.
+    # Marked illiquid to exclude it from investable rankings. No onchain
+    # liquidity measurement or incident announcement was supplied; the flag
+    # records the user's classification, not a newly measured liquidity level.
+    # Sources (identity):
+    # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-147
+    # https://basescan.org/address/0x53ce611b5477997972dad83585a0ad5cb56f433b
+    "0x53ce611b5477997972dad83585a0ad5cb56f433b": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 195, Peapods on Base (8453).
     # Added 2026-10-22 following a user report that the vault is illiquid.
     # Flagged illiquid at the user's request to exclude it from investable vaults;

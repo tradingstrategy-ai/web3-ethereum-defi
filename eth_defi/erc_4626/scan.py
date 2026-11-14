@@ -16,6 +16,7 @@ from web3.types import BlockIdentifier
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -449,6 +450,8 @@ def create_vault_scan_record(
         vault._rpc_metadata_snapshot = metadata_snapshot
 
     try:
+        if isinstance(vault, LagoonVault):
+            vault.fetch_metadata_snapshot_for_scan()
         try:
             fees = vault.get_fee_data(block_identifier=block_identifier) if type(vault) in (MorphoV1Vault, MorphoV2Vault) and type(vault).get_fee_data is VaultBase.get_fee_data else vault.get_fee_data()
         except (NotImplementedError, ValueError):
@@ -534,6 +537,7 @@ def create_vault_scan_record(
             "_manager_name": vault.manager_name,
             "_share_price_source": share_price_source,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
+            "_morpho_api_status": vault.morpho_api_result.status.value if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,
             "_whitelist_notes": whitelist_notes,
@@ -575,6 +579,9 @@ def create_vault_scan_record(
             exc_info=False,
         )
         return record
+    finally:
+        if isinstance(vault, LagoonVault):
+            vault.__dict__.pop("_lagoon_scan_snapshot", None)
 
 
 #: Connections and token caches are local to each worker thread (and therefore

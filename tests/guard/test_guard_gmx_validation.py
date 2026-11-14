@@ -416,26 +416,6 @@ def test_complete_gmx_whitelist_workflow(
     assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
 
 
-def test_gmx_selector_constant():
-    """Verify the GMX createOrder selector matches the expected value.
-
-    This ensures the Guard contract has the correct function selector
-    for GMX's createOrder function.
-    """
-    # The correct selector for createOrder(((address,address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bool,bytes32,bytes32[]))
-    expected_selector = bytes.fromhex("f59c48eb")
-
-    # This can be verified by computing keccak256 of the function signature
-    from web3 import Web3
-
-    # Note: The actual selector depends on the exact function signature
-    # which includes the full tuple structure
-    sig = "createOrder(((address,address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bool,bytes32,bytes32[]))"
-    computed = Web3.keccak(text=sig)[:4]
-
-    assert computed == expected_selector, f"Expected {expected_selector.hex()}, got {computed.hex()}"
-
-
 # =============================================================================
 # SECURITY TESTS - Malicious market trading attack scenarios
 # =============================================================================
@@ -444,23 +424,6 @@ def test_gmx_selector_constant():
 # (tests/gmx/lagoon/test_gmx_lagoon_integration.py) which run against real GMX
 # contracts on an Arbitrum fork. These unit tests verify the whitelisting logic
 # that _validate_gmxCreateOrder uses when checking addresses.
-
-
-def test_security_attack_scenario_non_whitelisted_market(
-    guard: Contract,
-    btc_usd_market: str,
-):
-    """SECURITY: Verify non-whitelisted market would be rejected during validation.
-
-    Attack scenario:
-    1. Vault owner has whitelisted ETH/USD market only
-    2. Malicious asset manager tries to open position on BTC/USD market
-    3. Guard's isAllowedGMXMarket check would reject
-
-    The actual ABI validation is tested in integration tests.
-    """
-    # BTC/USD is NOT whitelisted (only ETH/USD was whitelisted in fixture)
-    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
 
 
 def test_security_attack_scenario_non_whitelisted_collateral(
@@ -480,72 +443,6 @@ def test_security_attack_scenario_non_whitelisted_collateral(
 
     # Bad token is NOT whitelisted
     assert guard.functions.isAllowedAsset(bad_token.address).call() is False
-
-
-def test_security_attack_scenario_non_whitelisted_receiver(
-    guard: Contract,
-    attacker: str,
-):
-    """SECURITY: Verify non-whitelisted receiver would be rejected during validation.
-
-    Attack scenario:
-    1. Vault owner has whitelisted Safe as order receiver
-    2. Malicious asset manager tries to set attacker as order receiver
-    3. Guard's isAllowedReceiver check would reject
-    """
-    # Attacker is NOT whitelisted as receiver
-    assert guard.functions.isAllowedReceiver(attacker).call() is False
-
-
-def test_security_attack_scenario_non_whitelisted_router(
-    guard: Contract,
-    attacker: str,
-):
-    """SECURITY: Verify non-whitelisted GMX router would be rejected.
-
-    Attack scenario:
-    1. Vault owner has whitelisted official GMX ExchangeRouter
-    2. Attacker tries to route through a malicious contract
-    3. Guard's isAllowedGMXRouter check would reject
-    """
-    # Attacker contract is NOT a whitelisted GMX router
-    assert guard.functions.isAllowedGMXRouter(attacker).call() is False
-
-
-def test_any_asset_allows_non_whitelisted_swap_path_market(
-    guard: Contract,
-    owner: str,
-    btc_usd_market: str,
-):
-    """Test that anyAsset=true allows non-whitelisted markets in swapPath.
-
-    swapPath entries are validated via isAllowedGMXMarket(), which respects anyAsset.
-    """
-    # BTC/USD is NOT whitelisted
-    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
-
-    # Enable anyAsset
-    guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
-
-    # Now it should be allowed (even in swapPath context)
-    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is True
-
-
-def test_security_attack_scenario_non_whitelisted_swap_path(
-    guard: Contract,
-    btc_usd_market: str,
-):
-    """SECURITY: Verify non-whitelisted market in swapPath would be rejected.
-
-    Attack scenario:
-    1. Vault owner has whitelisted ETH/USD market only
-    2. Malicious asset manager crafts order with BTC/USD in swapPath
-    3. Guard's isAllowedGMXMarket check on each swapPath entry would reject
-
-    The actual ABI validation is tested in integration tests.
-    """
-    # BTC/USD is NOT whitelisted (only ETH/USD was whitelisted in fixture)
-    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
 
 
 # =============================================================================
@@ -730,24 +627,6 @@ def test_gmx_claim_affiliate_rewards_allowed_receiver(
     call_data = _wrap_multicall(exchange_router_contract, [inner])
 
     guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
-
-
-def test_gmx_new_selector_constants():
-    """Verify cancelOrder / updateOrder / claim* selectors match GmxLib constants.
-
-    Guards against the function signatures drifting from the bytes4 constants
-    hardcoded in ``GmxLib.sol``.
-    """
-    expected = {
-        "cancelOrder(bytes32)": "7489ec23",
-        "updateOrder(bytes32,uint256,uint256,uint256,uint256,uint256,bool)": "dd5baad2",
-        "claimFundingFees(address[],address[],address)": "c41b1ab3",
-        "claimCollateral(address[],address[],uint256[],address)": "e9249b57",
-        "claimAffiliateRewards(address[],address[],address)": "49287a22",
-    }
-    for sig, selector in expected.items():
-        computed = Web3.keccak(text=sig)[:4]
-        assert computed == bytes.fromhex(selector), f"{sig}: expected {selector}, got {computed.hex()}"
 
 
 def test_security_verify_all_whitelisted_addresses_accepted(

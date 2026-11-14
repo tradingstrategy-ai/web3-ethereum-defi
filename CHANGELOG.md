@@ -1,7 +1,55 @@
 # 1.2
 
-- feat: Add T3tris deposits and redemptions: an asynchronous request, settlement and claim manager with typed preflights and an Anvil settlement driver, `GuardV0.whitelistT3tris()` with receiver, owner and `unsafe` checks, and a numbered capability migration. Pass `bytes calldata` to the internal `GuardV0Base` validators, freeing about 1,200 bytes in `TradingStrategyModuleV0` (2026-11-14, [#1774](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1774)).
+- feat: Add T3tris deposits and redemptions: an asynchronous request, settlement and claim manager with typed preflights and an Anvil settlement driver, `GuardV0.whitelistT3tris()` with receiver, owner and `unsafe` checks, and numbered capability migration 072. Pass `bytes calldata` to the internal `GuardV0Base` validators, freeing about 1,200 bytes in `TradingStrategyModuleV0` (2026-11-14, [#1774](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1774)).
+- fix: Map each Infinit price observation to the last Arbitrum block at or before its timestamp, so a second without its own block no longer defers Infinit history (2026-11-13).
+- fix: Preserve existing vault URLs while filling missing metadata slugs, isolate metrics fixtures and give transient live Hypersync test failures a five-minute retry budget (2026-11-13).
+- feat: Add the `martingale_like` strategy tag for limit order ladder based market making strategies with Martingale-like behaviour, apply it to PF1, BitRocket, Bunny, Growi HF, Steady Wealth Builder, FuturAI Labs, Stratwise, Cold Process and Passivbot Canon, add high-frequency, high-win-rate trading to PF1, reclassify both pmalt vaults from high-frequency, high-win-rate to discretionary trading, and refresh their persisted tags with numbered migration 071 (2026-11-13, [#1770](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1770)).
+- fix: Keep HyperSync timestamp caches dense regardless of price sampling and add numbered migration 070 to fill existing historical gaps (2026-11-13, [#1770](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1770)).
+- fix: Drain Forge subprocess output during execution, terminate child processes on timeout and keep private command arguments out of parse errors (2026-11-12).
+
+- fix: Leave three-month net Sharpe empty when a vault's fees are unknown, matching the other net-return fields (2026-11-12).
+
+- fix: Share the reserved Solana mainnet dataset ID 9992, accept case-sensitive base58 vault identities through VaultSpec, validate complete native accounts and preserve existing reversible storage keys (2026-11-12).
+
+- fix: Publish reviewed Neutral Trade native curator names and vault descriptions, add sourced curator profiles and strategy classifications, prevent venue-name curator matches and refresh cached metadata through migration 068 (2026-11-12).
+
+- fix: Classify native Neutral Trade risk as High and fees as externalised (feeless for explicit zero schedules), wire base-schedule net estimates into JSON and refresh cached classifications through migration 067 (2026-11-12).
+
+- feat: Collect Neutral Trade native vaults through one resumable REST discovery/backfill/live pipeline, with private DuckDB history, shared native exports, WSOL exclusion, manual verification tables, real API tests and numbered onboarding migration (2026-11-12).
+
+- feat: Add the `amm_stablecoin` strategy category for stablecoin pair market making with minimal volatility risk, tag GLV [USDG-USDG] and eight stablecoin-only GMX swap pools, add a scoped tag migration, and add a researched handwritten description for GLV [USDG-USDG] (2026-11-12, [#1765](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1765)).
+- fix: Preserve ordered timestamp-cache writes and add validated numbered cache compaction with recoverable backups (2026-11-12).
+- fix: Pace Morpho warning metadata requests across workers and processes, honour persisted provider cooldowns, and retain existing warnings during transient API failures (2026-11-12).
+- feat: Retry blocked Webshare proxies in the looped vault scanner when their shared failure-state file has been untouched for 24 hours (2026-11-12).
+- feat: Index Wildcat version 2 lending markets on Ethereum as read-only vaults, with registry discovery, scale-factor share prices, lending metrics, deposit permission from access hooks, borrower descriptions from the Wildcat app, a `delinquent_markets` flag for defaulted borrowers, a new `unsecured_credit` strategy tag, and numbered migrations that seed the markets and backfill their price history (2026-11-10).
+- fix: Include curator-selected yield allocations in discretionary strategy tags, review the 34-vault curator inventory, and add a scoped metadata refresh (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
+- feat: Add verified Lagoon curator profiles and logos for Murmurr, VOLTA90, NAVI Protocol and Stake Capital, correct stale vault attribution, and fill verified curator feed sources; add reviewed curator copy and manual descriptions for 25 associated vaults, preserving empty fields for nine without sufficient evidence (2026-11-10, [#1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757)).
+- fix: Review all known Lagoon deployments, add evidence-backed strategy tags for 40 vaults, correct eight existing classifications and add a metadata-only tag refresh migration (2026-11-10).
+- fix: Fetch Lagoon descriptions for known unlisted vaults without changing listing approval, retain published text after failed or empty reads, and add a scoped description migration (2026-11-10).
+- feat: Add limUSD classification, verified multichain metadata, news feed and artwork, plus researched RockawayX Liminal USDC vault descriptions and a targeted lending-tag refresh (2026-11-10, [#1755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1755)).
+- feat: Add K3 vault classification and offchain metadata for five reviewed deployments on Ethereum, Arc, Base and Monad, plus the `risk_premium_harvest` strategy category with K3 cirBTC as a documented example (2026-11-10).
+- fix: Publish reviewed zero management/performance fees and a fixed 0.5% withdrawal reference for Veranta avUSDC, explain that actual withdrawal fees are dynamic, and add a targeted fee and description refresh (2026-11-09, [#1752](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1752)).
+- feat: Add the Bitcoin-only strategy category for Bunny and BitRocket, and classify Bunny as high-frequency, high-win-rate trading (2026-11-09).
+
+- fix: Classify both FuturAI Labs branded Hyperliquid vaults as high-frequency, high-win-rate trading and refresh their persisted strategy tags (2026-11-09).
+
+- feat: Add FuturAI Labs curator metadata, partner links and logo, attribute its three Hyperliquid vaults and classify their trading strategies (2026-11-09).
+
+- fix: Unblock Travessia migration 043 by deferring the Polygon BRZ vault with generic ERC-7540 detection, preserving its metadata while refreshing the six Accountable-classified vaults (2026-11-09).
+
+- feat: Add Vectis Finance curator metadata and logo, attribute UltraX Arb and classify its automated funding-rate arbitrage strategy (2026-11-09).
+
+- feat: Add Travessia Credit curator descriptions and logos, classify seven Tauri vaults as real-world credit and lending, and require specific business details in public descriptions (2026-11-09).
+
+- feat: Publish researched Birch Hill curator and individual vault descriptions, attribute and tag the Flagship's real-world lending strategy, classify its verified deposit whitelist hook, and require Trading Strategy destinations for public vault links (2026-11-06).
+
+- fix: Price HyperEVM transactions from the latest small block with `fetch_small_block_base_fee()`, because `estimate_gas_price()` could read a big block's 0.1 gwei base fee from `latest`, which left a Lagoon settlement unmined for 96 minutes and stopped a live executor, and document how `eth_gasPrice` differs between RPC providers, and add `chain_id` and `block_type` arguments with `BlockType` and `fetch_big_block_gas_price()` (2026-11-06, [#1737](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1737)).
+- feat: Read Lighter payouts with HyperSync and an RPC tail, retry failed indexer reads with RPC, and verify Lagoon settlement stream completion with explicit credentials and optional whole-read timeouts (2026-11-06).
+
 - feat: Trade GMX markets that moved to single-token USDG pools (ZEC, HYPE, XRP, NEAR) with USDC by opening and closing through the USDC/USDG swap pool, and skip markets whose long and short open-interest caps are both zero in every market loader (2026-11-05).
+- fix: Type GMX preflight gas refusals as a lower-preflight refusal with zero fill and no transaction, so Freqtrade never latches them as a possibly-submitted order and retries the exit normally (2026-11-06).
+- fix: Resolve synthetic GMX market ids (`HYPE2`, `XRP2`, `ZEC2`, `NEAR2`) to their underlying token symbol through the index token address for `/prices/candles` and `/prices/tickers`, which returned HTTP 400 for the market id, and tolerate a degraded `/tokens` payload (2026-11-06).
+- test: Record that the GMX Freqtrade patched entrypoint imports and installs the async GMX bridge on freqtrade 2026.9 and CCXT 4.5.84 (2026-10-01).
 - feat: Print a final migration batch summary for preview and apply, showing completed, skipped, failed and unattempted migrations with reported row and field counts (2026-11-05).
 - fix: Recognise Lighter withdrawals paid by its relayer with `wait_for_lighter_withdrawal()`, `is_lighter_withdrawal_paid()` and `fetch_lighter_claimed_usdc()`, return `completed` rows from `wait_for_claimable_withdrawal()`, explain that an empty master gets `21129 too many sub accounts`, and document Lighter's sub-account limits (2026-11-05).
 - fix: Give every Lighter API call exponential backoff with `LighterSDKSession` for the official SDK and `create_lighter_submission_session()` for persisted transactions, treat HTTP 405 as a rate limit, let sub-account creation wait out the 2-per-minute limit that stopped a four-sub-account deployment, and remove the unused `api_url` argument of `create_lighter_sub_accounts()` and `api_key_index` of `request_lighter_transfer()` (2026-11-05).

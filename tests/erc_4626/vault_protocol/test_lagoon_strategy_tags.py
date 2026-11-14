@@ -95,6 +95,7 @@ def test_reused_lagoon_address_has_distinct_chain_classifications() -> None:
         StrategyTag.multistrategy,
     }
     assert base_tags == {
+        StrategyTag.discretionary_trading,
         StrategyTag.arbitrage,
         StrategyTag.delta_neutral,
         StrategyTag.lending,
@@ -110,25 +111,20 @@ def test_chain_scoped_classification_does_not_leak_to_other_chain() -> None:
     address = "0x8092ca384d44260ea4feaf7457b629b8dc6f88f0"
 
     assert create_lagoon_vault(8453, address).get_strategy_tags() == CHAIN_STRATEGY_TAGS[8453, address]
-    assert create_lagoon_vault(1, address).get_strategy_tags() is None
+    assert create_lagoon_vault(1, address).get_strategy_tags() == {StrategyTag.delta_neutral, StrategyTag.arbitrage, StrategyTag.carry_trade}
+    assert create_lagoon_vault(10, address).get_strategy_tags() is None
 
 
 @pytest.mark.parametrize(
     ("chain_id", "address"),
-    (
-        (1, "0x22f99228f3ba7cfc7189ddf14366970fe0cef0cb"),
-        (1, "0x23b27310451f2754de34d9c04aa24e8be367124a"),
+    [
+        (999, "0x2b24c04993a6d4e3cfc263f104d18429a0b1421d"),
         (1, "0xba6cfe8a9d199cd7f3e50114c4e4ec66f2d52c87"),
-        (1, "0xef39d77c7fb6224ac974c5fa4e3151a6c6ce9594"),
         (1, "0xf10801bcc3deaf467fb8b3dbb7430111822e6dab"),
-        (1, "0xfd104766499a3ff60ea85b5c6015ba9e32b8c891"),
         (8453, "0x02cf8d7863bc03d32fa18abba754fc300239d8f6"),
-        (8453, "0xe051aec08361694bdcee7ae6d4f3783f12bf601e"),
         (42161, "0x1723cb57af58efb35a013870c90fcc3d60174a4e"),
-        (42161, "0xc047d64dafe9e6ac76508835c17c6719f9278c1c"),
         (59144, "0x1b316fa2d6c44b65c1ed6d29b37743cd362f0f71"),
-        (59144, "0x7df7e45ab573ace8f872b5d5a1689af7ff1a07f7"),
-    ),
+    ],
 )
 def test_insufficient_evidence_lagoon_vaults_remain_unmapped(chain_id: int, address: str) -> None:
     """Preserve ``None`` for reviewed vaults without exact strategy evidence."""

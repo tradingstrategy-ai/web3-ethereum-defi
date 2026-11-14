@@ -183,6 +183,43 @@ files. Put provider/token caches in `TemporaryDirectory`. Script imports must
 not perform network reads or data writes. Keep long operations observable with
 progress reporting; never include credentials in reports.
 
+## Credentials and Docker configuration
+
+Every new API key must reach the process that consumes it. Wire it through
+`docker-compose.yml` for every relevant service, including
+`vault-scanner-oneshot` for migrations and `vault-scanner-looped` for recurring
+collection. Include other consumers, such as `post-scanner`, only where needed.
+Sourcing the host's private environment does not automatically pass arbitrary
+variables into a container; declare the mapping in the service's `environment`.
+
+Check the complete configuration path: the Python environment reader, script
+entry points, Compose service mappings, any launcher allow-lists or deployment
+templates, and CI secret mappings when CI uses the provider. Document required
+credentials in the integration README and PR's production reminder. Keep actual
+values in the private environment or CI secrets. Do not edit `.local-test.env`.
+
+**Every new Docker environment variable must have a YAML line comment directly
+above its declaration**, in each service where it appears. Explain its purpose,
+default and when it is required. For credentials, also name the provider and
+give the official key-management/sign-up URL or the provider's documented
+contact for obtaining the key. A comment saying only "API key" is insufficient.
+For example:
+
+```yaml
+environment:
+  # Enable Neutral Trade collection; off by default, requires NEUTRAL_TRADE_API_KEY.
+  SCAN_NEUTRAL_TRADE: ${SCAN_NEUTRAL_TRADE:-false}
+  # Partner REST key for Neutral Trade reads and onboarding; obtain from @bayes309:
+  # https://docs.neutral.trade/developers/developers#support
+  # Empty by default; required for collection or API-backed migration preview/apply.
+  NEUTRAL_TRADE_API_KEY: ${NEUTRAL_TRADE_API_KEY:-}
+```
+
+Use safe defaults for optional integrations and fail clearly when an enabled
+operation lacks its required key. Validate Compose syntax and check credential
+presence inside the consuming container without printing its value. A local
+Python test alone does not verify Docker credential propagation.
+
 ## Historical price backfills
 
 #### When a backfill is needed
@@ -208,6 +245,9 @@ separate numbered migration that follows it.
   ordinary scanning. Never rescan a whole chain or reset reader state.
 - **Fast.** Scan only the gap, at the hourly sampling of the raw file, with
   one connection per chain. A backfill of a few vaults should take minutes.
+  For slowly changing products, pass `step=` (blocks between samples) to
+  `run_price_backfill()` to match the protocol's live read cadence; the
+  Wildcat backfill reads daily, 7,200 Ethereum blocks.
 - **No production parameters.** Production runs the normal
   `vault-migrate run` with `DRY_RUN` only. RPC endpoints, Hypersync
   credentials, `MAX_WORKERS` and `TIMESTAMP_CACHE` remain infrastructure
@@ -223,10 +263,11 @@ separate numbered migration that follows it.
   required price work cannot run. Never journal a skipped backfill as success.
 - **Dense timestamp cache first.** The per-chain cache at
   `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb` must exist
-  and should cover the range. Gaps are fetched through Hypersync one sampled
-  block at a time, which is slow under a low rate limit. Check with
-  `DRY_RUN=true TEST_CHAINS=<chains> poetry run python scripts/erc-4626/heal-timestamps-all-chains.py`
-  and heal before a production backfill.
+  and should cover the range. HyperSync-backed readers fill every intervening
+  block, independently of price sampling. Existing sparse files need numbered
+  migration 070; see the [dense timestamp runbook](../../docs/README-dense-timestamps.md)
+  for preview, local per-chain repair and the production run reminder. Do not
+  use the legacy standalone healing script for a new persisted repair.
 
 #### Monad
 
@@ -291,6 +332,15 @@ migration docstring. See
 [`016-neutral-trade-autopilot-price-backfill.py`](../../migration/scripts/016-neutral-trade-autopilot-price-backfill.py)
 for a complete example.
 
+A vault onboarded by the same batch has no collected price row to end at.
+An earlier migration in the batch must build its metadata row, because the
+helper reports a vault without one as `missing_vault`. End its range at the
+chain's price cursor plus one: the highest `last_block` of the chain in
+`vault-reader-state-1h.pickle`, where ordinary scanning starts every vault
+without its own reader state. See
+[`064-wildcat-price-backfill.py`](../../migration/scripts/064-wildcat-price-backfill.py)
+and its helpers in `eth_defi/vault_protocols/repairs/wildcat.py`.
+
 Vaults whose readers need extra context, such as event observations or
 protocol-specific DuckDB tables, must prefill that context first, as the
 legacy GMX, YieldBasis, Rysk and Flying Tulip backfills below do. Then call
@@ -309,7 +359,9 @@ source .local-test.env && PIPELINE_DATA_DIR=/tmp/backfill-snapshot DRY_RUN=true 
 ```
 
 The preview runs every pending migration, so earlier pending scripts may need
-their own credentials. The `price_backfill` report lists, per vault, the
+their own credentials. To preview only selected scripts, copy them into a
+temporary directory and pass it as `scripts_dir` to `run_pending_migrations()`,
+as `scripts/erc-4626/preview-wildcat-migrations.py` does with a copied snapshot. The `price_backfill` report lists, per vault, the
 planned and scanned ranges, replaced, written and preserved row counts, and
 the first and last written timestamps. The helper requires free space of twice
 the raw price file plus the timestamp caches of the chains in scope.
@@ -493,6 +545,11 @@ and Unrelated CI and test fixes sections. State whether migrations are needed
 or N/A. Include a production reminder comment with numbered filenames, exact
 launcher commands, expected counts, affected files, validation criteria and
 **Run after merge**. Record the result after operation; do not imply merge ran it.
+List new credential names, where operators obtain them, and the consuming
+Compose services. Confirm their environment mappings and line comments are
+included before the migration is handed over.
+Link provider contacts to their actual service in PR text; a bare `@name`
+would instead mention a GitHub account.
 
 Focused local checks:
 
@@ -505,3 +562,13 @@ source .local-test.env && PYTHONPATH="$PWD" RUN_MIGRATION_DOCKER_TEST=1 timeout 
 The live check uses supplied `JSON_RPC_ETHEREUM` and the public Arcadia API;
 all state is temporary. Record command, UTC date, result and redacted provider
 in the implementation PR comment. Docker tests mount only temporary test data.
+
+## Timestamp storage compaction
+
+Migration 065 compacts existing timestamp caches with exact validation and
+independent backups. See [block timestamp storage](../../docs/README-block-timestamp-storage.md)
+for the smoke test, writer exclusion, preview isolation, WAL recovery and backup
+retirement. `PIPELINE_DATA_DIR` does not redirect timestamp files: set
+`TIMESTAMP_CACHE` explicitly for isolated snapshots. Retain `storage_recovery`
+when retrying an unsuccessful migration and keep all timestamp users stopped
+until every partial replacement has been reconciled.

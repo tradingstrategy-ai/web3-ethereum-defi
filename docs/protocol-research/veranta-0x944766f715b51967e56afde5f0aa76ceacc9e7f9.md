@@ -398,3 +398,122 @@ PR [#1728](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1728)
 was subsequently opened at the user's request. Migration 031 records that URL
 on the feature branch before merge. Earlier no-PR statements describe the
 local implementation stage. Production maintenance remains a separate step.
+
+## Direct LP fees rechecked, 9 November 2026
+
+The public page's missing management and performance data came from deliberate
+`None` accessors, not failed deposit/withdrawal fee reads. This source review
+supersedes the earlier conservative unknown classification for those two
+fields only. Risk and separate protocol fee assessment remain unchanged.
+
+Verified `src/AvantisTranche.sol` implementations and both manager generations
+have no separate annual management or investor-profit fee deduction in the
+reviewed direct LP paths. The managers transfer selected LP rewards into the
+tranche without an additional deduction. This conclusion uses verified
+accounting, mint/burn, transfer, deposit/redemption and reward source paths,
+not ABI getter absence. The official risk documentation describes fees charged
+on withdrawal; the LP table allocates trading revenue before pool income.
+The 30% buyback share therefore must not be deducted again as an investor
+performance fee. Underlying external investment costs, if any, are not a
+verified separate direct LP fee rate.
+
+The [ABI provenance](../../eth_defi/abi/veranta/README.md#direct-lp-fee-source-review-9-november-2026)
+records full deployment identities and canonical verified-source URLs. The
+source review covers the exact vault/manager implementation pair at canonical
+Base block 49,030,926 and the pair at blocks 53,496,246 and 55,297,428.
+Manager proxy `0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd` is required in both
+cases. A known implementation in an unreviewed pairing is insufficient.
+Unknown implementations or changed manager wiring keep management/performance
+unknown; read failures propagate and never establish free operation.
+
+At block 55,297,428 (2026-11-09 18:44:21 UTC), fees were enabled, deposit and
+withdrawal balancing fees were zero, and the nominal collateral-health fee
+was 500 / 100,000 = 0.5%. The manager buffer ratio was 97 and configured fee
+tiers were 2500, 1500, 500, 250 and 100. Raw fees on a 1-USDC payout were 5000
+USDC base units; the fee-inclusive charge on 1 USDC gross was 4976 base units.
+Exact previews retain this rounding rather than using nominal metadata as a
+transaction quote. `earlyWithdrawFee = 10000` belongs to legacy lock paths
+and is not charged by the reviewed unified vault's deposit/redemption paths.
+The canonical LP/risk Markdown endpoints returned HTTP 200 on 2026-11-09.
+
+Migration 055 refreshes only six fee fields for the existing Base vault and
+requires a complete verified current-state snapshot before updating the row.
+It preserves descriptions, notes, risk and all historical files. Missing targets
+are reported without insertion. No price backfill or reader reset is needed.
+The production preview/apply and normal export/publication reminder is in the
+Veranta vault documentation. No production state was changed during research
+or implementation.
+
+The zero direct LP rate does not establish an entitlement to every USDC held
+by the manager. The keeper chooses reward amounts and PnL proportions and can
+decrement `totalRewards`; governance can reset PnL accounting and withdraw
+buffer funds. The current manager excludes `totalRewards` and funding owed
+from available buffer withdrawals; the older V2 source checks only the full
+token balance. That discretion is a trust/return risk, not a defined direct
+management/performance rate. Any proxy upgrade needs a public fee-copy review
+as well as a new implementation-pair assessment.
+
+Manual local verification on 2026-11-09 used the supplied Base RPC fallback
+configuration, with credentials redacted. A current-state read at block
+55,301,583 (18:58:12 UTC) confirmed the reviewed current implementation pair,
+0% management/performance/deposit, a 0.5% nominal withdrawal charge and
+externalised fee mode. Net-return eligibility was true; no transaction was
+broadcast to Base.
+
+The real-contract local test command was:
+
+```shell
+source .local-test.env && timeout 180s poetry run pytest tests/erc_4626/vault_protocol/test_veranta.py -q --tb=short
+```
+
+All six cases passed across the canonical and post-upgrade shared fixed-block
+Anvil forks. This is a manual local result, not CI. The focused combined run
+passed 84 tests with one optional skip in 14.39 seconds, covering both forks,
+unit identity/failure checks, all numbered migrations, both earlier Veranta
+repairs, the fee-only repair and individual vault export/net returns. Formatting,
+targeted syntax/import checks and `git diff --check` passed. Production preview,
+apply and publication were not run; a PR has not been opened for this change.
+
+Independent cleanup review used Claude Opus 5.5 and approved the change with
+minor follow-ups, finding no correctness, regression, scope or preservation
+defect. Its source qualification about keeper/governance distribution discretion
+was checked against both verified managers and added above. The public source
+link now follows the vault proxy, and the upgrade checklist requires re-review
+of static fee copy. The production reminder explicitly calls out `missing_specs`
+as a successful no-op that must be investigated if the target was expected.
+The reviewer also confirmed that the zero-fee conclusion follows the actual
+accounting/reward code rather than missing ABI accessors. No PR was opened or
+production state changed as part of cleanup.
+
+The user subsequently confirmed a fixed exported withdrawal fee of 0.5%, with
+the long description explaining that actual fees are dynamic and linking the
+canonical withdrawal-fee rules. A fresh read at block 55,307,457 confirmed an
+actual 0.5% nominal rate, but the exported reference remains 0.5% independently
+of future rates or the execution-fee switch. This supersedes the earlier plan
+to export dynamic withdrawal rates. Exact execution previews still follow the
+contract and its fee switch; estimated net returns use the fixed reference.
+The maintained vault link now points to its verified Trading Strategy page,
+while strategy and fee documentation remain inline source citations.
+
+Migration 055 is still unshipped and unapplied. Its scope now additionally
+refreshes `_description` to publish the requested caveat: at most one existing
+row, six fee fields and the long description. The short description, notes and
+all other metadata/history remain preserved. This scope update supersedes the
+earlier fee-only description of 055 above; successful migrations 030 and 031
+remain unchanged.
+
+Fixed-reference follow-up verification passed 89 tests with one optional skip
+in 34.58 seconds, including a post-upgrade fork whose actual withdrawal rate
+is 1.5% while metadata exports 0.5%. The guarded execution still uses the true
+fee-adjusted preview and receipt payout, with zero remaining shares. Independent
+Claude Opus 5.5 follow-up review approved the explicit reference policy, copy
+and seven-field migration scope. JSON consumers receive the reference as the
+ordinary withdrawal-fee field; actual execution pricing requires a contract
+preview. Estimated net returns can differ from actual withdrawal proceeds.
+
+A read-only check of the local trade-executor checkout found live sell pricing
+and vault valuation call `manager.estimate_redeem`, routing builds manager
+redemption requests, and settlement records fees from receipt analysis.
+Its backtester explicitly does not turn metadata withdrawal fees into a sell
+tax automatically. No consumer files were changed. This confirms separation
+for the inspected checkout, not an audit of all third-party API consumers.

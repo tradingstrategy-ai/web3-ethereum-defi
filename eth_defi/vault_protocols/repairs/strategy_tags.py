@@ -23,8 +23,7 @@ from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.tags import lookup_erc4626_strategy_tags
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
-from eth_defi.erc_4626.vault_protocol.accountable.tags import MONAD_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.accountable.tags import STRATEGY_TAGS as ACCOUNTABLE_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.accountable.tags import get_strategy_tags as get_accountable_strategy_tags
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.autopool.tags import STRATEGY_TAGS as AUTOPOOL_STRATEGY_TAGS
@@ -52,12 +51,15 @@ from eth_defi.erc_4626.vault_protocol.tori.tags import STRATEGY_TAGS as TORI_STR
 from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS as UPSHIFT_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.veranta.tags import STRATEGY_TAGS as VERANTA_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.wildcat.tags import get_strategy_tags as get_wildcat_strategy_tags
+from eth_defi.erc_4626.vault_protocol.yearn.tags import get_strategy_tags as get_yearn_strategy_tags
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS as YIELDNEST_STRATEGY_TAGS
 from eth_defi.gmx.tags import STRATEGY_TAGS as GMX_STRATEGY_TAGS
 from eth_defi.grvt.tags import get_strategy_tags as get_grvt_strategy_tags
 from eth_defi.hibachi.tags import get_strategy_tags as get_hibachi_strategy_tags
 from eth_defi.hyperliquid.tags import get_strategy_tags as get_hyperliquid_strategy_tags
 from eth_defi.lighter.tags import get_strategy_tags as get_lighter_strategy_tags
+from eth_defi.neutral_trade.tags import get_strategy_tags as get_neutral_trade_strategy_tags
 from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS as SECURITIZE_STRATEGY_TAGS
 from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS as SPIKO_STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
@@ -68,16 +70,17 @@ from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultR
 logger = logging.getLogger(__name__)
 
 StrategyTagResolver = Callable[[HexAddress], set[StrategyTag] | None]
-NativeStrategyTagResolver = Callable[[str], set[StrategyTag]]
+NativeStrategyTagResolver = Callable[[str], set[StrategyTag] | None]
 
 # These protocols do not use VaultBase adapters. Their native exporters own
-# the default perpetual-futures tag and address-specific classifications.
+# strategy classifications, including any protocol-specific defaults.
 NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] = {
     ERC4626Feature.apex_native: get_apex_strategy_tags,
     ERC4626Feature.grvt_native: get_grvt_strategy_tags,
     ERC4626Feature.hibachi_native: get_hibachi_strategy_tags,
     ERC4626Feature.hypercore_native: get_hyperliquid_strategy_tags,
     ERC4626Feature.lighter_native: get_lighter_strategy_tags,
+    ERC4626Feature.neutral_trade_native: get_neutral_trade_strategy_tags,
 }
 
 # VaultBase adapters expose the same hook, but some constructors perform
@@ -91,6 +94,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.mellow_like,
     ERC4626Feature.enzyme_onyx_like,
     ERC4626Feature.enzyme_blue_like,
+    ERC4626Feature.wildcat_like,
     ERC4626Feature.symbiotic_like,
     ERC4626Feature.securitize_like,
     ERC4626Feature.usyc_like,
@@ -252,6 +256,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
     ERC4626Feature.enzyme_onyx_like: get_enzyme_strategy_tags,
     ERC4626Feature.enzyme_blue_like: get_enzyme_strategy_tags,
+    ERC4626Feature.wildcat_like: get_wildcat_strategy_tags,
 }
 
 #: Newly supported address-only mappings must preserve other persisted rows.
@@ -410,7 +415,9 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
     native_feature = next((feature for feature in NATIVE_STRATEGY_TAG_RESOLVERS if feature in detection.features), None)
     native_resolver = NATIVE_STRATEGY_TAG_RESOLVERS.get(native_feature) if native_feature is not None else None
     if native_resolver is not None:
-        return native_resolver(spec.vault_address) | (curator_tags or set()), f"{protocol_name} native resolver"
+        native_tags = native_resolver(spec.vault_address)
+        tags = native_tags | (curator_tags or set()) if native_tags is not None else curator_tags
+        return tags, f"{protocol_name} native resolver"
 
     evm_feature = next((feature for feature in EVM_ADAPTER_FEATURE_PRIORITY if feature in detection.features), None)
     if evm_feature is None:
@@ -430,10 +437,16 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         return (lagoon_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     if evm_feature == ERC4626Feature.accountable_like:
-        accountable_tags = lookup_strategy_tags(ACCOUNTABLE_STRATEGY_TAGS, spec.vault_address) if spec.chain_id == MONAD_CHAIN_ID else None
+        accountable_tags = get_accountable_strategy_tags(spec.chain_id, spec.vault_address)
         if accountable_tags is None and curator_tags is None:
             return None
         return (accountable_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
+
+    if evm_feature == ERC4626Feature.yearn_v3_like:
+        yearn_tags = get_yearn_strategy_tags(spec.chain_id, spec.vault_address) or lookup_erc4626_strategy_tags(spec.chain_id, spec.vault_address)
+        if yearn_tags is None and curator_tags is None:
+            return None
+        return (yearn_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
     if evm_resolver is None:
@@ -450,6 +463,8 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
 
     if evm_feature in {ERC4626Feature.gains_like, ERC4626Feature.ostium_like, ERC4626Feature.domination_finance_like}:
         adapter_tags = get_gains_strategy_tags(spec.chain_id, spec.vault_address)
+    elif evm_feature in {ERC4626Feature.morpho_like, ERC4626Feature.morpho_v2_like}:
+        adapter_tags = get_morpho_strategy_tags(spec.vault_address, spec.chain_id)
     elif evm_feature == ERC4626Feature.veranta_like:
         adapter_tags = evm_resolver(spec.vault_address) if spec.chain_id == VERANTA_CHAIN_ID else None
     elif evm_feature == ERC4626Feature.nova_markets_like:

@@ -581,6 +581,10 @@ def test_sync_fetch_ohlcv_converts_gmxapiunavailable() -> None:
     gmx = object.__new__(GMX)
 
     class _Api:
+        def get_tokens(self) -> dict:  # noqa: PLR6301
+            # The price lookup resolves the market's token symbol via /tokens first.
+            return {"tokens": []}
+
         def get_candlesticks(self, token_symbol: str, period: str) -> dict:  # noqa: ARG002, PLR6301
             raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 

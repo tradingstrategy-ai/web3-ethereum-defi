@@ -150,6 +150,12 @@ def load_state(path: Path) -> dict[str, dict[str, Any]]:
             raise ValueError(f"Invalid UTC timestamps: {name}")
         if not SHA256.fullmatch(entry["script_sha256"]) or not all(isinstance(p, str) and Path(p).is_absolute() for p in entry["modified_files"]):
             raise ValueError(f"Invalid checksum or modified files: {name}")
+        recovery = entry["other_data"].get("storage_recovery", {})
+        if not isinstance(recovery, dict) or not all(isinstance(key, str) and Path(key).is_absolute() and isinstance(value, dict) and isinstance(value.get("source_hash"), str) and SHA256.fullmatch(value["source_hash"]) and value.get("phase") in {"pending", "backed_up", "prepared", "published", "unchanged"} for key, value in recovery.items()):
+            raise ValueError(f"Invalid storage recovery state: {name}")
+        dense_recovery = entry["other_data"].get("dense_timestamp_recovery", {})
+        if not isinstance(dense_recovery, dict) or not all(isinstance(key, str) and Path(key).is_absolute() and isinstance(value, dict) and isinstance(value.get("source_hash"), str) and SHA256.fullmatch(value["source_hash"]) and all(isinstance(value.get(field), str) and Path(value[field]).is_absolute() for field in ("backup", "stage")) and isinstance(value.get("stage_ready"), bool) for key, value in dense_recovery.items()):
+            raise ValueError(f"Invalid dense timestamp recovery state: {name}")
         status = entry["other_data"].get("status")
         if status not in {"running", "succeeded", "failed", "interrupted"} or entry["success"] != (status == "succeeded"):
             raise ValueError(f"Inconsistent migration status: {name}")
@@ -328,7 +334,10 @@ class MigrationContext:
                     logger.info("%s %s %s: %r -> %r", self.script_name, spec.as_string_id(), key, old.get(key), new.get(key))
         database_fields = [item.name for item in fields(database) if item.name != "rows" and not _equal(getattr(before, item.name), getattr(database, item.name))]
         for name in database_fields:
-            logger.info("%s database field %s: %r -> %r", self.script_name, name, getattr(before, name), getattr(database, name))
+            # Database-level fields, such as leads, can hold thousands of older
+            # pickled records whose repr fails; log their size instead.
+            old_value, new_value = getattr(before, name), getattr(database, name)
+            logger.info("%s database field %s changed: %s -> %s entries", self.script_name, name, len(old_value) if hasattr(old_value, "__len__") else "?", len(new_value) if hasattr(new_value, "__len__") else "?")
         self.report(changed_rows=len(changes), changed_fields=sum(len(c["fields"]) for c in changes), changes=changes[:100], changes_truncated=len(changes) > 100, changed_database_fields=database_fields)
         if payload == self._snapshot:
             return
@@ -464,6 +473,10 @@ def run_pending_migrations(*, dry_run: bool = True, data_dir: Path | None = None
                     context.script_name = spec.name
                     prior_data = previous.get("other_data", {})
                     context.other_data = {key: list(prior_data.get(key, [])) for key in ("backup_paths", "modified_files_all_attempts")}
+                    if "storage_recovery" in prior_data:
+                        context.other_data["storage_recovery"] = prior_data["storage_recovery"]
+                    if "dense_timestamp_recovery" in prior_data:
+                        context.other_data["dense_timestamp_recovery"] = prior_data["dense_timestamp_recovery"]
                     context.other_data.update(status="running", git_dirty=version.get("git_dirty"))
                     if previous:
                         context.other_data["previous_status"] = "interrupted" if prior_data.get("status") == "running" else prior_data.get("status")

@@ -60,6 +60,9 @@ from eth_defi.currency_api.constants import (
     SOURCE_NAME,
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
+from eth_defi.neutral_trade.constants import NEUTRAL_TRADE_DATABASE
+from eth_defi.neutral_trade.metrics import NeutralTradeDatabase, run_scan as run_neutral_trade_scan
+from eth_defi.neutral_trade.vault_data_export import merge_into_vault_database as neutral_trade_merge_metadata
 from eth_defi.derive.v3_constants import DERIVE_V3_MAINNET_DATABASE
 from eth_defi.derive.v3_vault_data_export import merge_into_vault_database as derive_merge_vault_db
 from eth_defi.derive.v3_vault_metrics import DeriveV3VaultDatabase, scan_derive_v3_vaults
@@ -90,6 +93,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitH
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
+from eth_defi.event_reader.webshare import refresh_stale_proxy_state
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -258,6 +262,7 @@ def ensure_default_scan_cycles(cycle_overrides: dict[str, datetime.timedelta]) -
     if legacy_lighter_cycle is not None:
         for deployment in LIGHTER_DEPLOYMENTS:
             result.setdefault(deployment.name, legacy_lighter_cycle)
+    result.setdefault("Neutral Trade", datetime.timedelta(hours=4))
     result.setdefault(CURRENCY_RATES_PROTOCOL_NAME, CURRENCY_RATES_DEFAULT_CYCLE)
     for scanner in TOKENISED_FUND_PRICE_SCANNERS:
         result.setdefault(scanner.dashboard_name, TOKENISED_FUND_PRICE_DEFAULT_CYCLE)
@@ -370,6 +375,7 @@ def build_active_protocols(
     tokenised_fund_scanners: tuple[TokenisedFundPriceScanSpec, ...] = (),
     scan_xerberus: bool = False,
     scan_derive_v3: bool = False,
+    scan_neutral_trade: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
@@ -387,6 +393,7 @@ def build_active_protocols(
         Include Hibachi native vaults.
     :param scan_apex:
         Include ApeX native vaults.
+    :param scan_neutral_trade: Include Neutral Trade native REST collection/merge.
     :param scan_derive_v3:
         Include Derive v3 mainnet native vaults.
     :param scan_core3:
@@ -411,6 +418,8 @@ def build_active_protocols(
         all_protocols.append("Hibachi")
     if scan_apex:
         all_protocols.append("ApeX")
+    if scan_neutral_trade:
+        all_protocols.append("Neutral Trade")
     if scan_derive_v3:
         all_protocols.append("Derive V3")
     if scan_core3:
@@ -2365,6 +2374,27 @@ def scan_apex_fn(
     return result
 
 
+def scan_neutral_trade_fn(db_path: Path, vault_db_path: Path, max_workers: int = 2) -> ChainResult:
+    """Run one bounded native source tick under the scanner's writer lock.
+
+    Page exhaustion is pending work, while actual provider failures keep the
+    scheduled item due. The source database owns its additional writer lock.
+
+    :param db_path: Private source archive.
+    :param vault_db_path: Shared metadata pickle.
+    :param max_workers: Concurrent HTTP page readers.
+    :return: Existing scanner dashboard result.
+    """
+    started = time.monotonic()
+    key = os.environ.get("NEUTRAL_TRADE_API_KEY")
+    if not key:
+        raise ValueError("SCAN_NEUTRAL_TRADE requires NEUTRAL_TRADE_API_KEY")
+    with NeutralTradeDatabase(db_path) as database:
+        collected = run_neutral_trade_scan(database, key, max_workers=max_workers)
+        neutral_trade_merge_metadata(database, vault_db_path)
+    return ChainResult(name="Neutral Trade", status="failed" if collected.failures else "success", vault_count=collected.leads, price_rows=collected.pages, vault_scan_ok=True, price_scan_ok=not collected.failures, duration=time.monotonic() - started, error=f"{collected.failures} deferred operations" if collected.failures else None)
+
+
 def scan_derive_v3_fn(db_path: Path = DERIVE_V3_MAINNET_DATABASE, vault_db_path: Path = DEFAULT_VAULT_DATABASE) -> ChainResult:
     """Scan public Derive v3 mainnet vaults and merge shared metadata.
 
@@ -2946,7 +2976,9 @@ def run_scan_tick(
     bkp_files: list[Path],
     bkp_dir: Path,
     scan_derive_v3: bool = False,
+    scan_neutral_trade: bool = False,
     derive_v3_db_path: Path | None = None,
+    neutral_trade_db_path: Path | None = None,
     cleaned_price_path: Path | None = None,
     excluded_chains: list[str] | None = None,
     hypercore_mode: str = "daily",
@@ -3332,6 +3364,16 @@ def run_scan_tick(
             logger.error("ApeX: FAILED - %s", apex_result.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_neutral_trade and "Neutral Trade" in active_protocols:
+        try:
+            results["Neutral Trade"] = scan_neutral_trade_fn(neutral_trade_db_path or NEUTRAL_TRADE_DATABASE, vault_db_path, min(max_workers, 2))
+        except Exception as exc:
+            logger.exception("Neutral Trade source failed")
+            results["Neutral Trade"] = ChainResult(name="Neutral Trade", status="failed", error=str(exc), traceback_str=traceback.format_exc())
+        if results["Neutral Trade"].status == "success" and on_item_success:
+            on_item_success("Neutral Trade")
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     if scan_derive_v3 and "Derive V3" in active_protocols:
         logger.info("Scanning Derive v3 mainnet native vaults")
         results["Derive V3"] = scan_derive_v3_fn(
@@ -3527,7 +3569,9 @@ def run_scan_tick(
             scan_hibachi=scan_hibachi,
             scan_apex=scan_apex,
             scan_derive_v3=scan_derive_v3,
+            scan_neutral_trade=scan_neutral_trade,
             derive_v3_db_path=derive_v3_db_path,
+            neutral_trade_db_path=neutral_trade_db_path,
             skip_cleaning=skip_cleaning,
             skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
@@ -3646,6 +3690,9 @@ def _main() -> None:
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
+    scan_neutral_trade = os.environ.get("SCAN_NEUTRAL_TRADE", "false").lower() == "true"
+    if scan_neutral_trade and not os.environ.get("NEUTRAL_TRADE_API_KEY"):
+        raise ValueError("SCAN_NEUTRAL_TRADE requires NEUTRAL_TRADE_API_KEY")
     scan_derive_v3 = os.environ.get("SCAN_DERIVE_V3", "true").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
@@ -3733,6 +3780,7 @@ def _main() -> None:
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
     apex_db_path = data_dir / "apex-vaults.duckdb"
+    neutral_trade_db_path = Path(os.environ.get("NEUTRAL_TRADE_DB_PATH", str(data_dir / "neutral-trade-vaults.duckdb")))
     derive_v3_db_path = data_dir / "derive-v3-mainnet-vaults.duckdb"
     historical_context_db_path = data_dir / "vault-historical-context.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
@@ -3764,6 +3812,7 @@ def _main() -> None:
         hibachi_db_path,
         apex_db_path,
         derive_v3_db_path,
+        neutral_trade_db_path,
         historical_context_db_path,
         settlement_db_path,
         core3_db_path,
@@ -3899,6 +3948,7 @@ def _main() -> None:
         scan_hibachi=scan_hibachi,
         scan_apex=scan_apex,
         scan_derive_v3=scan_derive_v3,
+        scan_neutral_trade=scan_neutral_trade,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
         tokenised_fund_scanners=ready_tokenised_fund_scanners,
@@ -3927,6 +3977,7 @@ def _main() -> None:
         scan_hibachi=scan_hibachi,
         scan_apex=scan_apex,
         scan_derive_v3=scan_derive_v3,
+        scan_neutral_trade=scan_neutral_trade,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
         tokenised_fund_scanners=ready_tokenised_fund_scanners,
@@ -3959,6 +4010,7 @@ def _main() -> None:
         hibachi_db_path=hibachi_db_path,
         apex_db_path=apex_db_path,
         derive_v3_db_path=derive_v3_db_path,
+        neutral_trade_db_path=neutral_trade_db_path,
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
@@ -4022,6 +4074,8 @@ def _main() -> None:
 
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
+                if looped_mode:
+                    refresh_stale_proxy_state()
                 if not rate_limit_databases_cleared:
                     cleared_databases = clear_sqlite_rate_limit_databases()
                     logger.info("Cleared %d SQLite rate-limit databases before scanning", len(cleared_databases))

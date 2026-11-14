@@ -19,7 +19,7 @@ from web3 import HTTPProvider, Web3
 from web3._utils.http_session_manager import HTTPSessionManager
 from web3.contract import Contract
 from web3.middleware import ExtraDataToPOAMiddleware, SignAndSendRawMiddlewareBuilder, Web3Middleware
-from web3.providers.rpc.utils import ExceptionRetryConfiguration
+from web3.providers.rpc.utils import REQUEST_RETRY_ALLOWLIST, ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 from web3.utils import get_abi_element_info
 
@@ -43,6 +43,7 @@ DEFAULT_RETRY_ALLOWLIST = (
     "net_version",
     "eth_blockNumber",
     "eth_gasPrice",
+    "eth_bigBlockGasPrice",
     "eth_estimateGas",
     "eth_getTransactionByHash",
     "eth_getTransactionReceipt",
@@ -185,6 +186,7 @@ def install_retry_middleware_compat(web3: Web3, layer: int = 0):
             errors=(ConnectionError, HTTPError, Timeout),
             retries=10,
             backoff_factor=0.5,
+            method_allowlist=(*REQUEST_RETRY_ALLOWLIST, "eth_bigBlockGasPrice"),
         )
 
 

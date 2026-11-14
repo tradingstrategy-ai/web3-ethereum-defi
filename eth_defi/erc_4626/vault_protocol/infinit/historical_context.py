@@ -80,17 +80,27 @@ def fetch_infinit_timestamp_tail(client: ThrottledHypersyncClient, product: Infi
 
 
 def map_source_blocks(points: Sequence[InfinitPricePoint], cache_path: Path, start_block: int, end_block: int) -> dict[datetime.datetime, int]:
-    """Match source seconds to existing dense Arbitrum timestamps.
+    """Match source seconds to the Arbitrum state current at each second.
+
+    Each observation maps to the greatest cached block whose timestamp is at
+    or before the source second. Arbitrum produces blocks only when it has
+    transactions, so a second can lack its own block; for example, block
+    517,991,649 has timestamp 1792887299 and block 517,991,650 has 1792887301,
+    leaving the 2026-10-25 00:15:00 UTC observation without an exact match.
+    The previous block's post-state is the chain state at that second, so
+    this mapping remains exact rather than approximate.
 
     This is a read-only cache operation. Historical repairs must restore or
     prepopulate the dense cache, not bootstrap sparse timestamp requests.
+    Dense coverage guarantees that no intermediate block is missing, and
+    callers limit observations to the horizon of ``end_block - 1``.
 
     :param points: Source observations inside the requested source horizon.
     :param cache_path: Shared timestamp-cache directory.
     :param start_block: Inclusive deployment boundary.
     :param end_block: Exclusive source boundary.
-    :return: Greatest cached block at each exact source second.
-    :raise ValueError: If cache coverage is incomplete or source seconds lack blocks.
+    :return: Greatest cached block at or before each source second.
+    :raise ValueError: If cache coverage is incomplete or a source second precedes ``start_block``.
     """
     path = cache_path / f"{INFINIT_CHAIN_ID}-timestamps.duckdb"
     if not path.exists():
@@ -105,10 +115,20 @@ def map_source_blocks(points: Sequence[InfinitPricePoint], cache_path: Path, sta
             msg = "Infinit source has no observations inside the requested horizon"
             raise ValueError(msg)
         con.register("infinit_requested_seconds", requested)
-        rows = con.execute("SELECT b.timestamp, max(b.block_number) FROM block_timestamps b JOIN infinit_requested_seconds r ON b.timestamp=r.timestamp WHERE b.block_number >= ? AND b.block_number < ? GROUP BY b.timestamp", [start_block, end_block]).fetchall()
+        # Block timestamps never decrease, so the latest second at or before
+        # the source second holds the greatest block at or before it.
+        rows = con.execute(
+            """WITH seconds AS (
+                SELECT timestamp, max(block_number) AS block_number FROM block_timestamps
+                WHERE block_number >= ? AND block_number < ? GROUP BY timestamp
+            )
+            SELECT r.timestamp, s.block_number FROM infinit_requested_seconds r
+            ASOF JOIN seconds s ON r.timestamp >= s.timestamp""",
+            [start_block, end_block],
+        ).fetchall()
         mapping = {datetime.datetime.fromtimestamp(t, datetime.UTC).replace(tzinfo=None): b for t, b in rows}
         if any(p.timestamp not in mapping for p in points):
-            msg = "Infinit source timestamp has no exact indexed Arbitrum block; no approximate block was invented"
+            msg = "Infinit source timestamp precedes the first indexed Arbitrum block in range"
             raise ValueError(msg)
         return mapping
     finally:
@@ -196,7 +216,7 @@ class InfinitHistoricalContextStore(AbstractContextManager):
         :param product: Reviewed product.
         :param history: Complete validated API history and provenance.
         :param points: Observations inside the EVM source horizon.
-        :param blocks: Exact source-second mapping.
+        :param blocks: Greatest block at or before each source second.
         :param events: Complete indexed events for the covered range.
         :param start: Inclusive event replay boundary.
         :param end: Exclusive event replay boundary.

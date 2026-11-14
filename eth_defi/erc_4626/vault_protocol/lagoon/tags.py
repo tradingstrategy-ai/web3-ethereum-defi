@@ -5,13 +5,13 @@ from eth_defi.vault.strategy_tag import StrategyTag
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: GUSDC (chain 8453).
     #: Added: 2026-10-21.
-    #: Decision material: Current Lagoon metadata identifies the curator; the MSA portfolio uses Gami by explicit user selection. Undisclosed strategies remain unmapped.
+    #: Decision material: The current exact-address description documents lending, liquidity provision and delta-neutral stablecoin positions.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4
     "0xd5c22fa3f7ee979ed7c28e36669b29797ab277e4": {StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
     #: Vault: MSA - Portefeuille Dynamique  (chain 8453).
     #: Added: 2026-10-21.
-    #: Decision material: Current Lagoon metadata identifies the curator; the MSA portfolio uses Gami by explicit user selection. Undisclosed strategies remain unmapped.
+    #: Decision material: The current exact-address description documents discretionary BTC/ETH and niche-asset allocations, active rebalancing and USDC yield between opportunities.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xf56bfe07b8d6e6d74258cdb6969a633629b06b08
     "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08": {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy},
@@ -83,25 +83,15 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.delta_neutral,
         StrategyTag.multistrategy,
     },
-    #: Vault: Coinshift USPC High Yield, previously Coinshift Leveraged USPC.
+    #: Vault: Coinshift USPC High Yield.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents TermMax money-market positions,
-    #: Curve and StakeDAO liquidity, fixed-income positions, BlackRock and
-    #: Fidelity money-market funds, and Apollo tokenised private credit.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The current mandate explicitly supplies leveraged Curve/StakeDAO LP collateral
+    #: through Morpho and actively manages LTV, alongside money markets, liquidity and institutional
+    #: MMF/private-credit backing.
     #: Sources:
-    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x09252D2C4afca9B1479efdD39fAa53DE9ff23114
-    #: - https://app.lagoon.finance/vault/1/0x09252D2C4afca9B1479efdD39fAa53DE9ff23114
-    #: - https://www.coinshift.xyz/
-    #: - https://gamilabs.io/vaults
-    "0x09252d2c4afca9b1479efdd39faa53de9ff23114": {
-        StrategyTag.amm,
-        StrategyTag.lending,
-        StrategyTag.liquidity_provider,
-        StrategyTag.money_market_fund,
-        StrategyTag.multistrategy,
-        StrategyTag.rwa,
-        StrategyTag.rwa_credit,
-    },
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x09252d2c4afca9b1479efdd39faa53de9ff23114
+    "0x09252d2c4afca9b1479efdd39faa53de9ff23114": {StrategyTag.amm, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.money_market_fund, StrategyTag.multistrategy, StrategyTag.rwa, StrategyTag.rwa_credit},
     #: Vault: Syntropia USDC Core.
     #: Added: 2026-09-28.
     #: Decision material: The maintained product description documents DEX
@@ -162,18 +152,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.lending,
         StrategyTag.multistrategy,
     },
-    #: Vault: Mt Pelerin - USD strategy pool.
+    #: Vault: Mt Pelerin – USD strategy pool.
     #: Added: 2026-09-28.
-    #: Decision material: The exact-address Lagoon metadata categorises the
-    #: vault as market-neutral and documents delta-neutral or hedging
-    #: approaches without identifying a narrower mechanism.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The exact deployment automatically allocates among protocols under predefined
+    #: rules, using delta-neutral and hedging techniques.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x28663161f9fa2963eb6102b88a741e195e974df6
-    #: - https://app.lagoon.finance/vault/1/0x28663161f9FA2963EB6102b88a741E195E974dF6
-    #: - https://www.mtpelerin.com/
-    "0x28663161f9fa2963eb6102b88a741e195e974df6": {
-        StrategyTag.delta_neutral,
-    },
+    "0x28663161f9fa2963eb6102b88a741e195e974df6": {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.multistrategy},
     #: Vault: Gami hemiBTC.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and Gami document Curve tripool liquidity,
@@ -348,23 +334,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.lending,
         StrategyTag.lending_looping,
     },
-    #: Vault: Murmurr USDC One, previously DeTrade Morpho X-Chain USDC.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents automated allocation and rotation
-    #: across Morpho USDC lending sleeves using yield, collateral-quality,
-    #: liquidity and utilisation rules.
-    #: Sources:
-    #: - https://app.lagoon.finance/vault/1/0x7d2C2F54792ad72CB834D298f542145b06B703cb
-    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.murmurr.xyz/transparency
-    #: - https://murmurr.xyz/app/transparency
-    #: - https://detrade.fund/
-    "0x7d2c2f54792ad72cb834d298f542145b06b703cb": {
-        StrategyTag.algorithmic_trading,
-        StrategyTag.lending,
-        StrategyTag.lending_optimisation,
-    },
     #: Vault: DAMM Bitcoin Fund.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and DAMM document discretionary allocation
@@ -426,26 +395,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: Ammalgam USDC Vault.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents a phased mandate combining lending,
-    #: ETH-USDC AMM market making and an options hedge against impermanent loss.
-    #: Ammalgam pools provide swap liquidity while lending the same inventory.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The current mandate describes AMM market-making and lending with zero-target ETH
+    #: delta. Impermanent-loss convexity does not establish an options instrument.
     #: Sources:
-    #: - https://app.lagoon.finance/vault/1/0x8417430a31851ae0a36a854394227c5d86be8fc9
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x8417430a31851ae0a36a854394227c5d86be8fc9
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://ammalgam.xyz/
-    #: - https://docs.ammalgam.xyz/
-    #: - https://docs.ammalgam.xyz/assets/files/AmmalgamLitepaper-50e7552b1a05f9bae5828dd1b19deed8.pdf
-    "0x8417430a31851ae0a36a854394227c5d86be8fc9": {
-        StrategyTag.amm,
-        StrategyTag.delta_neutral,
-        StrategyTag.lending,
-        StrategyTag.liquidity_provider,
-        StrategyTag.market_making,
-        StrategyTag.market_making_amm,
-        StrategyTag.multistrategy,
-        StrategyTag.options,
-    },
+    "0x8417430a31851ae0a36a854394227c5d86be8fc9": {StrategyTag.amm, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_amm, StrategyTag.multistrategy},
     #: Vault: Syntropia Boosted.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and Syntropia document supplying synUSD as
@@ -536,19 +491,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.liquidity_provider,
         StrategyTag.multistrategy,
     },
-    #: Vault: Mt Pelerin - ETH strategy pool.
+    #: Vault: Mt Pelerin – ETH strategy pool.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon classifies this exact vault as market-neutral
-    #: and documents a framework that may use delta-neutral or hedging
-    #: approaches, without identifying a narrower mechanism.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The exact deployment automatically allocates among protocols under predefined
+    #: rules, using delta-neutral and hedging techniques.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xb118de4917f4bac5c3a453ea8de915a7cd84891c
-    #: - https://app.lagoon.finance/vault/1/0xb118DE4917f4BAc5c3A453eA8DE915a7cD84891c
-    #: - https://app.lagoon.finance/api/curators
-    #: - https://www.mtpelerin.com/
-    "0xb118de4917f4bac5c3a453ea8de915a7cd84891c": {
-        StrategyTag.delta_neutral,
-    },
+    "0xb118de4917f4bac5c3a453ea8de915a7cd84891c": {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.multistrategy},
     #: Vault: Zharta RWA Prime USDC.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and Zharta document fixed-rate institutional
@@ -586,23 +536,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: Ammalgam WETH Vault.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents a phased mandate combining lending,
-    #: ETH-USDC AMM market making and an options hedge against impermanent loss.
-    #: Ammalgam pools provide swap liquidity while lending the same inventory.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The current mandate explicitly targets approximately 100% ETH delta alongside AMM
+    #: market-making and lending. Impermanent loss is not itself an options allocation.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xbb211be8664128e30c6adcd5998eca9592be272f
-    #: - https://app.lagoon.finance/vault/1/0xBb211bE8664128E30C6AdCd5998EcA9592Be272F
-    #: - https://ammalgam.xyz/
-    "0xbb211be8664128e30c6adcd5998eca9592be272f": {
-        StrategyTag.amm,
-        StrategyTag.delta_neutral,
-        StrategyTag.lending,
-        StrategyTag.liquidity_provider,
-        StrategyTag.market_making,
-        StrategyTag.market_making_amm,
-        StrategyTag.multistrategy,
-        StrategyTag.options,
-    },
+    "0xbb211be8664128e30c6adcd5998eca9592be272f": {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_amm, StrategyTag.multistrategy},
     #: Vault: 1212.Stable.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and 1212 Capital document a diversified USD
@@ -623,19 +562,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.multistrategy,
         StrategyTag.rwa,
     },
-    #: Vault: Mt Pelerin - BTC strategy pool.
+    #: Vault: Mt Pelerin – BTC strategy pool.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon classifies this exact vault as market-neutral
-    #: and documents a framework that may use delta-neutral or hedging
-    #: approaches, without identifying a narrower mechanism.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: The exact deployment automatically allocates among protocols under predefined
+    #: rules, using delta-neutral and hedging techniques.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xbc6a48b30405cc1660627d8dfb3872505f14bca0
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.lagoon.finance/vault/1/0xbc6a48b30405cc1660627d8dfb3872505f14bca0
-    #: - https://www.mtpelerin.com/
-    "0xbc6a48b30405cc1660627d8dfb3872505f14bca0": {
-        StrategyTag.delta_neutral,
-    },
+    "0xbc6a48b30405cc1660627d8dfb3872505f14bca0": {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.multistrategy},
     #: Vault: 1212.Alpha.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and 1212 Capital document systematic,
@@ -860,22 +794,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: SP500 Hyperliquid Synth.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon and 9Summits document an automatically
-    #: rebalanced, continuously leveraged long S&P 500 index position through
-    #: the Hyperliquid HIP-3 perpetual market.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: Automatic rebalancing targets approximately 1x S&P 500 exposure, with idle funds
+    #: in Hyperliquid Earn lending; account-level margin is not leveraged portfolio exposure.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=999&address=0x3b65e02b1ff8072bdc094a899a4e41d07ce034aa
-    #: - https://app.lagoon.finance/vault/999/0x3B65E02b1FF8072bDC094A899A4e41D07Ce034aA
-    #: - https://vaults.9summits.io/vault/999/0x3B65E02b1FF8072bDC094A899A4e41D07Ce034aA
-    #: - https://9summits.io/
-    #: - https://app.hyperliquid.xyz/trade/xyz:SP500
-    "0x3b65e02b1ff8072bdc094a899a4e41d07ce034aa": {
-        StrategyTag.algorithmic_trading,
-        StrategyTag.directional_leverage,
-        StrategyTag.directional_trading,
-        StrategyTag.index,
-        StrategyTag.perpetual_futures,
-    },
+    "0x3b65e02b1ff8072bdc094a899a4e41d07ce034aa": {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.index, StrategyTag.lending, StrategyTag.multistrategy, StrategyTag.perpetual_futures},
     #: Vault: 722 Capital Hype.
     #: Added: 2026-09-28.
     #: Decision material: 722 Capital documents a delta-neutral HYPE mandate,
@@ -902,26 +826,12 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: SpaceX Hyperliquid Synth.
     #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents an automatically rebalanced,
-    #: leveraged long SpaceX synthetic position through a Hyperliquid HIP-3
-    #: perpetual, alongside a separate interest-bearing idle-cash sleeve.
+    #: Reviewed: 2026-11-10.
+    #: Decision material: Automatic rebalancing targets approximately 1x SpaceX perpetual exposure, with
+    #: idle funds in Hyperliquid Earn. Account margin does not establish leveraged portfolio exposure.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=999&address=0x8982df557d81540678285450898f77c31d69c8b2
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.lagoon.finance/vault/999/0x8982df557d81540678285450898f77c31d69c8b2
-    #: - https://spcx.9summits.io/
-    #: - https://9summits.io/
-    #: - https://app.hyperliquid.xyz/trade/xyz:SPCX
-    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals
-    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/trading/portfolio-margin
-    "0x8982df557d81540678285450898f77c31d69c8b2": {
-        StrategyTag.algorithmic_trading,
-        StrategyTag.directional_leverage,
-        StrategyTag.directional_trading,
-        StrategyTag.lending,
-        StrategyTag.multistrategy,
-        StrategyTag.perpetual_futures,
-    },
+    "0x8982df557d81540678285450898f77c31d69c8b2": {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.lending, StrategyTag.multistrategy, StrategyTag.perpetual_futures},
     #: Vault: Nova NLP.
     #: Added: 2026-09-28.
     #: Decision material: Nova documents two-sided order-book liquidity for
@@ -976,64 +886,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.liquidity_provider,
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
-        StrategyTag.multistrategy,
-    },
-    #: Vault: DeTrade Core ETH.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon and DeTrade document lending LST/LRT
-    #: collateral, conditional leverage loops, staking carry and distinct nested
-    #: stablecoin-yield sleeves including Curve AMM liquidity.
-    #: Sources:
-    #: - https://app.lagoon.finance/vault/8453/0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
-    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.detrade.fund/vault/8453/0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
-    #: - https://app.detrade.fund/
-    #: - https://detrade.fund/
-    #: - https://app.lagoon.finance/vault/8453/0x0a63471da694fc822f5a0a0b65978dda8c8edbe5
-    "0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523": {
-        StrategyTag.amm,
-        StrategyTag.carry_trade,
-        StrategyTag.lending,
-        StrategyTag.lending_looping,
-        StrategyTag.liquidity_provider,
-        StrategyTag.multistrategy,
-    },
-    #: Vault: TruMarket.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon and TruMarket document financing agricultural
-    #: trade deals backed by real agricultural products.
-    #: Sources:
-    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xbe7db44f4ce20dac83b578b94fd35087f66e9754
-    #: - https://app.lagoon.finance/vault/8453/0xbe7db44f4ce20dac83b578b94fd35087f66e9754
-    #: - https://www.trumarket.tech/
-    #: - https://finance.trumarket.tech/
-    #: - https://finance.trumarket.tech/shipments/68839958953ab2c775d51830
-    "0xbe7db44f4ce20dac83b578b94fd35087f66e9754": {
-        StrategyTag.rwa,
-        StrategyTag.rwa_credit,
-        StrategyTag.rwa_lending,
-    },
-    #: Vault: DeTrade Core EURC.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon and DeTrade document supplying EURC, borrowing
-    #: USD stablecoins and deploying them into distinct higher-yield lending and
-    #: Curve-liquidity sleeves while matching the USD liability exposure.
-    #: Sources:
-    #: - https://app.lagoon.finance/vault/8453/0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
-    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.detrade.fund/vault/8453/0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
-    #: - https://app.detrade.fund/
-    #: - https://detrade.fund/
-    #: - https://app.lagoon.finance/vault/8453/0x0a63471da694fc822f5a0a0b65978dda8c8edbe5
-    "0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550": {
-        StrategyTag.amm,
-        StrategyTag.carry_trade,
-        StrategyTag.delta_neutral,
-        StrategyTag.lending,
-        StrategyTag.lending_looping,
-        StrategyTag.liquidity_provider,
         StrategyTag.multistrategy,
     },
     #: Vault: 722Capital-ETH.
@@ -1222,10 +1074,107 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
 }
 
 
-#: Strategy classifications for Lagoon deployments whose address is reused on
-#: another chain for a materially different vault. These must take precedence
+#: Strategy classifications for Lagoon deployments identified by chain and
+#: address, including reused addresses. These must take precedence
 #: over the address-only table above.
 CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
+    #: Vault: Murmurr USDC One, previously DeTrade Morpho X-Chain USDC.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon documents automated allocation and rotation
+    #: across Morpho USDC lending sleeves using yield, collateral-quality,
+    #: liquidity and utilisation rules.
+    #: Reviewed: 2026-11-10.
+    #: Murmurr combines curator expertise with scored allocation in diversified sleeves.
+    #: This product invests through those sleeves and fixed-universe mono sleeves;
+    #: the team has revised the product-level sleeve targets in its published hard rules.
+    #: Sources:
+    #: - https://app.lagoon.finance/vault/1/0x7d2C2F54792ad72CB834D298f542145b06B703cb
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb
+    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
+    #: - https://app.murmurr.xyz/transparency
+    #: - https://murmurr.xyz/app/transparency
+    #: - https://detrade.fund/
+    #: - https://murmurr.xyz/
+    #: - https://docs.murmurr.xyz/how-it-works/allocator
+    #: - https://docs.murmurr.xyz/how-it-works/hard-rules
+    (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"): {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.lending,
+        StrategyTag.lending_optimisation,
+        StrategyTag.discretionary_trading,
+    },
+    #: Vault: DeTrade Core ETH.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon and DeTrade document lending LST/LRT
+    #: collateral, conditional leverage loops, staking carry and distinct nested
+    #: stablecoin-yield sleeves including Curve AMM liquidity.
+    #: Reviewed: 2026-11-10.
+    #: The website links this exact Core product and its opportunity-selection policy
+    #: describes "selecting trusted protocols with active incentive campaigns".
+    #: Automatic compounding does not remove that investment discretion.
+    #: Sources:
+    #: - https://app.lagoon.finance/vault/8453/0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
+    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
+    #: - https://app.detrade.fund/vault/8453/0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523
+    #: - https://app.detrade.fund/
+    #: - https://detrade.fund/
+    #: - https://app.lagoon.finance/vault/8453/0x0a63471da694fc822f5a0a0b65978dda8c8edbe5
+    (8453, "0x9b97bfdfe44d1b113ecd4bf2f243ed36aca34523"): {
+        StrategyTag.amm,
+        StrategyTag.carry_trade,
+        StrategyTag.lending,
+        StrategyTag.lending_looping,
+        StrategyTag.liquidity_provider,
+        StrategyTag.multistrategy,
+        StrategyTag.discretionary_trading,
+    },
+    #: Vault: TruMarket.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon and TruMarket document financing agricultural
+    #: trade deals backed by real agricultural products.
+    #: Reviewed: 2026-11-10.
+    #: TruMarket sources, structures and monitors the agricultural trade deals funded by this
+    #: exact vault.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xbe7db44f4ce20dac83b578b94fd35087f66e9754
+    #: - https://app.lagoon.finance/vault/8453/0xbe7db44f4ce20dac83b578b94fd35087f66e9754
+    #: - https://www.trumarket.tech/
+    #: - https://finance.trumarket.tech/
+    #: - https://finance.trumarket.tech/shipments/68839958953ab2c775d51830
+    (8453, "0xbe7db44f4ce20dac83b578b94fd35087f66e9754"): {
+        StrategyTag.rwa,
+        StrategyTag.rwa_credit,
+        StrategyTag.rwa_lending,
+        StrategyTag.discretionary_trading,
+    },
+    #: Vault: DeTrade Core EURC.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon and DeTrade document supplying EURC, borrowing
+    #: USD stablecoins and deploying them into distinct higher-yield lending and
+    #: Curve-liquidity sleeves while matching the USD liability exposure.
+    #: Reviewed: 2026-11-10.
+    #: The website links this exact Core product and its opportunity-selection policy
+    #: describes "selecting trusted protocols with active incentive campaigns".
+    #: Automatic compounding does not remove that investment discretion.
+    #: Sources:
+    #: - https://app.lagoon.finance/vault/8453/0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
+    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
+    #: - https://app.detrade.fund/vault/8453/0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550
+    #: - https://app.detrade.fund/
+    #: - https://detrade.fund/
+    #: - https://app.lagoon.finance/vault/8453/0x0a63471da694fc822f5a0a0b65978dda8c8edbe5
+    (8453, "0xd4401d8bea82e4e6c40bb26ae3a04d2fb7ca4550"): {
+        StrategyTag.amm,
+        StrategyTag.carry_trade,
+        StrategyTag.delta_neutral,
+        StrategyTag.lending,
+        StrategyTag.lending_looping,
+        StrategyTag.liquidity_provider,
+        StrategyTag.multistrategy,
+        StrategyTag.discretionary_trading,
+    },
     #: Vault: Flagship cbBTC on Ethereum.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon documents DEX liquidity provision,
@@ -1250,7 +1199,11 @@ CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and DeTrade document lending-market
     #: allocation, opportunistic leverage loops, fixed-yield carry and DEX
-    #: liquidity. The same address on Ethereum is an unrelated unverified vault.
+    #: liquidity. The same address on Ethereum is the unrelated Usual stUSR vault.
+    #: Reviewed: 2026-11-10.
+    #: The website links this exact Core product and its opportunity-selection policy
+    #: describes "selecting trusted protocols with active incentive campaigns".
+    #: Automatic compounding does not remove that investment discretion.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x8092ca384d44260ea4feaf7457b629b8dc6f88f0
     #: - https://app.lagoon.finance/vault/8453/0x8092ca384d44260ea4feaf7457b629b8dc6f88f0
@@ -1266,12 +1219,16 @@ CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
         StrategyTag.lending_optimisation,
         StrategyTag.liquidity_provider,
         StrategyTag.multistrategy,
+        StrategyTag.discretionary_trading,
     },
     #: Vault: 722Capital-USDC on Base.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon and 722 Capital document delta-neutral basis
     #: trading, lending, leverage loops and liquidity strategies. The same
     #: address on Ethereum belongs to the unrelated Flagship cbBTC vault.
+    #: Reviewed: 2026-11-10.
+    #: The exact USDC mandate describes the team actively positioning in selected emerging
+    #: protocols; its website describes conviction-led farm rotation.
     #: Sources:
     #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xb09f761cb13baca8ec087ac476647361b6314f98
     #: - https://app.lagoon.finance/vault/8453/0xB09F761Cb13baCa8eC087Ac476647361b6314F98
@@ -1286,16 +1243,314 @@ CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
         StrategyTag.lending_looping,
         StrategyTag.liquidity_provider,
         StrategyTag.multistrategy,
+        StrategyTag.discretionary_trading,
     },
+    #: Vault: Gami D1 (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The NVST mandate explicitly combines lending, liquidity pools, structured yield
+    #: and privately negotiated deals; private deals alone do not establish RWA exposure.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x16b85563902556d205f5c2b4485df3d26b153f96
+    (1, "0x16b85563902556d205f5c2b4485df3d26b153f96"): {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: UEB3 (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The documented portfolio diversifies and caps allocations across strategies,
+    #: assets, protocols and chains. Treasury yields are a benchmark, not evidence of Treasury holdings.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x23b27310451f2754de34d9c04aa24e8be367124a
+    (1, "0x23b27310451f2754de34d9c04aa24e8be367124a"): {StrategyTag.multistrategy},
+    #: Vault: Mt Pelerin – USD Senior Strategies (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The portfolio combines senior positions, Pendle PT and LP exposure, and Morpho
+    #: lending; the vault is explicitly not itself a tranche.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x2927c6d7f89b5ffdf5ad293b4aa6519d495cb341
+    (1, "0x2927c6d7f89b5ffdf5ad293b4aa6519d495cb341"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: VOLTA90 MULTI ASSET STRATEGY (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The operator chooses directional positions across traditional and crypto markets;
+    #: execution and risk controls use programmed rules on Hyperliquid.
+    #: The official operator describes leveraged equities, commodity and index exposure
+    #: with cross/isolated margin limits: these are Hyperliquid perpetual positions.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8
+    #: - https://volta90.trade/
+    #: - https://volta90.trade/blog/volta90-ethereum-migration
+    (1, "0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8"): {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.perpetual_futures},
+    #: Vault: Turtle Katana WBTC (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The exact deployment describes money-market lending and DEX liquidity provision
+    #: on Katana.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x423b469268b15821107c38d1e1f702877219bc52
+    (1, "0x423b469268b15821107c38d1e1f702877219bc52"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Emerald USDC Deployement + Yield (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The published allocation holds 40% WBTC, 30% WETH and 30% stablecoins.
+    #: Unspecified yield mechanisms do not justify additional tags.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x47b2010f3f0cb5782ad796dccc8d42b0c9062cb7
+    (1, "0x47b2010f3f0cb5782ad796dccc8d42b0c9062cb7"): {StrategyTag.directional_trading},
+    #: Vault: f(x) Protocol - Leveraged ecosystem vault (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The strategy recursively borrows USDC against fxSAVE or PT-fxSAVE collateral on
+    #: Morpho to capture the collateral-yield/borrowing-cost spread.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x4ef75e307f7edbf0462c679192c1ff7e911c389a
+    (1, "0x4ef75e307f7edbf0462c679192c1ff7e911c389a"): {StrategyTag.carry_trade, StrategyTag.lending, StrategyTag.lending_looping},
+    #: Vault: Gami xBTCY, cbBTC deposits (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The BTCY mandate actively manages secondary liquidity, gauge incentives and vote
+    #: allocations. The WBTC deployment explicitly names Curve and Spectra; the cbBTC deployment describes
+    #: the same BTCY liquidity ecosystem.
+    #: Only liquidity provision is assigned here; AMM venues named by the sister WBTC
+    #: product are not assumed for this exact deployment.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x57e6824a8b15b709cefb4ccef644ba1349057e77
+    (1, "0x57e6824a8b15b709cefb4ccef644ba1349057e77"): {StrategyTag.liquidity_provider},
+    #: Vault: Gami lvlUSD (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The lvlUSD deployment combines money-market lending, fixed-income opportunities
+    #: and deepening lvlUSD liquidity.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x59b7942f7d2afd085691ce65c152e0d38d4eff22
+    (1, "0x59b7942f7d2afd085691ce65c152e0d38d4eff22"): {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Autonomous Liquidity Plus (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The deployed code monitors yield farms and automatically enters new stablecoin-
+    #: pool opportunities; the description does not identify the lending or market-making mechanism.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x5a97b0b97197299456af841f8605543b13b12ee3
+    #: - https://docs.almanak.co/
+    (1, "0x5a97b0b97197299456af841f8605543b13b12ee3"): {StrategyTag.algorithmic_trading},
+    #: Vault: Flint EUR (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: EURC funds tokenised euro-denominated real-estate bonds and private credit.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x5f9efcc03b95609346798596494cf9dbaf176312
+    (1, "0x5f9efcc03b95609346798596494cf9dbaf176312"): {StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    #: Vault: Mt Pelerin – HL Carry Strategies (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: Equal-quantity spot longs and perpetual shorts harvest funding on Hyperliquid,
+    #: with USDC borrowing scaling the carry.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x6abf7b760a40c4f015803cba3cd8b430e41fba7f
+    (1, "0x6abf7b760a40c4f015803cba3cd8b430e41fba7f"): {StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.delta_neutral, StrategyTag.funding_rate_arbitrage, StrategyTag.perpetual_futures},
+    #: Vault: Mt Pelerin – USD Funding Strategies (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: Market-neutral spot/perpetual and perpetual/perpetual spreads rotate across
+    #: venues; options may construct the synthetic long leg.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x6fd4a2bd1e879803a0e083360dddf764d0bbd2df
+    (1, "0x6fd4a2bd1e879803a0e083360dddf764d0bbd2df"): {StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.delta_neutral, StrategyTag.funding_rate_arbitrage, StrategyTag.options, StrategyTag.perpetual_futures},
+    #: Vault: Noon tacUSN (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: Noon sUSN yield and ecosystem incentives are combined with Tulipa delta-neutral
+    #: leveraged looping.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x7895a046b26cc07272b022a0c9bafc046e6f6396
+    (1, "0x7895a046b26cc07272b022a0c9bafc046e6f6396"): {StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.multistrategy},
+    #: Vault: Usual Invested USD0++ in stUSR (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The Ethereum deployment exchanges USD0++ into stUSR to obtain Resolv basis-
+    #: trading yield; it is distinct from the Base DeTrade deployment.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x8092ca384d44260ea4feaf7457b629b8dc6f88f0
+    (1, "0x8092ca384d44260ea4feaf7457b629b8dc6f88f0"): {StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.delta_neutral},
+    #: Vault: Monarq WBTC Market Neutral Yield (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The exact deployment allocates across lending, fixed-rate DeFi and tokenised
+    #: real-world assets; it does not identify a particular RWA credit structure.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x8b21fa55e3afc537de8abb74b2068746c676c828
+    (1, "0x8b21fa55e3afc537de8abb74b2068746c676c828"): {StrategyTag.lending, StrategyTag.multistrategy, StrategyTag.rwa},
+    #: Vault: Tulipa ETH+ (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: ETHplus is deployed in money markets and DEXes, including conditional looping,
+    #: while maintaining the ETHplus mandate.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x9b1c616f5d2d8efb451b2823a58e789dc370705f
+    (1, "0x9b1c616f5d2d8efb451b2823a58e789dc370705f"): {StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Mt Pelerin – USD f(x) Strategies (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: Allocations rotate among fxUSD stability-pool/fxSAVE, Convex-boosted liquidity,
+    #: Pendle PT/LP and Morpho markets.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xab122081cbe59388f96e320dae77468f64512232
+    (1, "0xab122081cbe59388f96e320dae77468f64512232"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Gami xBTCY, WBTC deposits (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The BTCY mandate actively manages secondary liquidity, gauge incentives and vote
+    #: allocations. The WBTC deployment explicitly names Curve and Spectra; the cbBTC deployment describes
+    #: the same BTCY liquidity ecosystem.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xb34447f729abfd21b3d8997fedcb07e86268a2b3
+    (1, "0xb34447f729abfd21b3d8997fedcb07e86268a2b3"): {StrategyTag.amm, StrategyTag.liquidity_provider},
+    #: Vault: Turtle Katana WETH (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The exact deployment describes money-market lending and DEX liquidity provision
+    #: on Katana.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xbca723c30d55f0915e32019a95aa29ea21fd555c
+    (1, "0xbca723c30d55f0915e32019a95aa29ea21fd555c"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Usual Invested USD0++ in SYRUP (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: USD0++ is exchanged for USD0 and invested in Syrup USD lending yield; the
+    #: description explicitly disclaims direct RWA backing.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xc5a7884709967a51f67d2daca7451fe3b820e2e9
+    (1, "0xc5a7884709967a51f67d2daca7451fe3b820e2e9"): {StrategyTag.lending},
+    #: Vault: Flint USD (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: USDC funds euro real-estate debt and private credit; an IBKR currency hedge
+    #: captures the USD/EUR rate differential.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xd2386d8413c2ec4a761901da14c74a98ebe5054b
+    (1, "0xd2386d8413c2ec4a761901da14c74a98ebe5054b"): {StrategyTag.carry_trade, StrategyTag.fx, StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    #: Vault: Bizantine FXRP OmniVault (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The FXRP mandate explicitly combines non-directional lending, liquidity
+    #: provision, basis spreads and onchain options.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xd4b21ed00aee22d992ffa75f567d4419c1312fed
+    (1, "0xd4b21ed00aee22d992ffa75f567d4419c1312fed"): {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy, StrategyTag.options},
+    #: Vault: Turtle Katana USDC (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The exact deployment describes money-market lending and DEX liquidity provision
+    #: on Katana.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xd56031b6e6860bd41dce2729d1bed21c387b26ce
+    (1, "0xd56031b6e6860bd41dce2729d1bed21c387b26ce"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Turtle Katana USDT (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The exact deployment describes money-market lending and DEX liquidity provision
+    #: on Katana.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xe0dfbe4748ed96350754f1328679bd9647bf9621
+    (1, "0xe0dfbe4748ed96350754f1328679bd9647bf9621"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Carry trade yield WBTC (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The deprecated strategy borrows stablecoins against WBTC on Uncap and deploys
+    #: them on Extended for yield. Borrowing alone does not establish supplied lending or recursive
+    #: looping.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xeff2c1cc0e3bbb6bedc9622a309ed75eab730521
+    (1, "0xeff2c1cc0e3bbb6bedc9622a309ed75eab730521"): {StrategyTag.carry_trade},
+    #: Vault: DAMM Optimism Fund (chain 10).
+    #: Added: 2026-11-10.
+    #: Decision material: Proprietary algorithmic market-making models manage Velodrome OP-pair liquidity
+    #: while retaining OP price exposure.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=10&address=0x6657a22a3ab82e2f46575423e74ccc1943c8005f
+    (10, "0x6657a22a3ab82e2f46575423e74ccc1943c8005f"): {StrategyTag.algorithmic_trading, StrategyTag.amm, StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_amm},
+    #: Vault: MuDigital Tulipa USDC (chain 143).
+    #: Added: 2026-11-10.
+    #: Decision material: Capital is divided among DEX liquidity, lending and minting AZND/muBOND; token
+    #: names alone do not establish an RWA subtype.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=143&address=0x0da39b740834090c146dc48357f6a435a1bb33b3
+    (143, "0x0da39b740834090c146dc48357f6a435a1bb33b3"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: S&P500 Hyperliquid Synth, deprecated deployment (chain 999).
+    #: Added: 2026-11-10.
+    #: Decision material: The deprecated S&P 500 deployment automatically rebalances approximately 1x
+    #: index-perpetual exposure and idle Hyperliquid Earn lending. Account margin settings do not make
+    #: overall exposure leveraged.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=999&address=0x2229eaf48774e6c49d8a45150b6110239f24e476
+    (999, "0x2229eaf48774e6c49d8a45150b6110239f24e476"): {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.index, StrategyTag.lending, StrategyTag.multistrategy, StrategyTag.perpetual_futures},
+    #: Vault: DeTrade Applefarm USDC (chain 8453).
+    #: Added: 2026-11-10.
+    #: Decision material: USDC/USDT capital is deployed to Curve on Etherlink to earn fees and Merkl
+    #: ecosystem incentives.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x0a63471da694fc822f5a0a0b65978dda8c8edbe5
+    (8453, "0x0a63471da694fc822f5a0a0b65978dda8c8edbe5"): {StrategyTag.amm, StrategyTag.liquidity_provider},
+    #: Vault: Tailwind ETH (chain 8453).
+    #: Added: 2026-11-10.
+    #: Decision material: The ETH-denominated portfolio rotates between ETH and BTC, with idle ETH
+    #: optionally supplied to money markets. Systematic management alone does not prove programmed
+    #: execution.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x7dd04fa502c1ae6dc81762bea2177aa38398ecee
+    (8453, "0x7dd04fa502c1ae6dc81762bea2177aa38398ecee"): {StrategyTag.directional_trading, StrategyTag.lending, StrategyTag.multistrategy},
+    #: Vault: BTC DCA - Regime Vault (chain 8453).
+    #: Added: 2026-11-10.
+    #: Decision material: A proprietary onchain-data model selects weekly cbBTC exposure; humans approve
+    #: execution and idle USDC earns Aave V3 lending yield.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0x87b433543660001cf64ad50afc51cc2a27e73e1d
+    #: - https://regimevault.com/strategy
+    (8453, "0x87b433543660001cf64ad50afc51cc2a27e73e1d"): {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.lending, StrategyTag.multistrategy},
+    #: Vault: MSA - Portefeuille Défensif (chain 8453).
+    #: Added: 2026-11-10.
+    #: Decision material: The MSA portfolio actively reallocates BTC, ETH and selected volatile assets,
+    #: taking profits into USDC yield while awaiting new opportunities.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=8453&address=0xb725f2277f3f62ad017a6dc418433b326a9f6334
+    (8453, "0xb725f2277f3f62ad017a6dc418433b326a9f6334"): {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy},
+    #: Vault: TID Capital Plasma Yield (chain 9745).
+    #: Added: 2026-11-10.
+    #: Decision material: TID combines leveraged farming, liquidity provision and lending, balancing liquid
+    #: allocations for withdrawals. Leveraged farming alone does not establish recursive lending loops.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=9745&address=0x0c1c83c9c203f6920726a0045ff1ea95e9698d0a
+    (9745, "0x0c1c83c9c203f6920726a0045ff1ea95e9698d0a"): {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: Cassa Yen Carry & Divergence Trade (chain 9745).
+    #: Added: 2026-11-10.
+    #: Decision material: The strategy combines JPY-funded carry with tactical cross-asset divergence
+    #: trades around Japanese policy events. Systematic does not by itself establish automation.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=9745&address=0xff5ef6464896516c6ccf60da9e199680929fb01c
+    (9745, "0xff5ef6464896516c6ccf60da9e199680929fb01c"): {StrategyTag.carry_trade, StrategyTag.directional_trading, StrategyTag.fx, StrategyTag.multistrategy},
+    #: Vault: TID Capital Arbitrum Yield (chain 42161).
+    #: Added: 2026-11-10.
+    #: Decision material: TID combines leveraged farming, liquidity provision and lending, balancing liquid
+    #: allocations for withdrawals. Leveraged farming alone does not establish recursive lending loops.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=42161&address=0x647b5ad322c9173a8d3bdf8041b8bddfc456ddc4
+    (42161, "0x647b5ad322c9173a8d3bdf8041b8bddfc456ddc4"): {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: v2 sky vault (chain 42161).
+    #: Added: 2026-11-10.
+    #: Decision material: The mandate explicitly deploys into Huma and USD.AI real-world payment/GPU
+    #: financing and Aave/Morpho crypto lending; optional quantitative-manager examples do not prove
+    #: specific trading methods.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=42161&address=0x7197b77e717d837c00204cb21144692b2dedaa12
+    (42161, "0x7197b77e717d837c00204cb21144692b2dedaa12"): {StrategyTag.lending, StrategyTag.multistrategy, StrategyTag.rwa, StrategyTag.rwa_credit, StrategyTag.rwa_lending},
+    #: Vault: Nutria (chain 42161).
+    #: Added: 2026-11-10.
+    #: Decision material: The discretionary mandate explicitly lists options, directional positions,
+    #: prediction markets and event-driven opportunities.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=42161&address=0x7c43710b240d1810d9799001ec0964512ffdb077
+    (42161, "0x7c43710b240d1810d9799001ec0964512ffdb077"): {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy, StrategyTag.options},
+    #: Vault: Hemi USDC (chain 43111).
+    #: Added: 2026-11-10.
+    #: Decision material: The Hemi/Gami mandate combines SushiSwap liquidity, Feather money-market lending
+    #: and cross-chain Morpho/Curve/Spectra allocations.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=43111&address=0x1e32c96757c07775ca4fc796c4f4311722eaf35e
+    (43111, "0x1e32c96757c07775ca4fc796c4f4311722eaf35e"): {StrategyTag.amm, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy},
+    #: Vault: VOLTA90 legacy Arbitrum.
+    #: Added: 2026-11-10.
+    #: Decision material: The official migration announcement identifies both exact
+    #: contracts and confirms the same directional Hyperliquid trading book. The
+    #: Arbitrum share vault closed on 7 September 2026; this is a historical classification.
+    #: The official operator describes leveraged equities, commodity and index exposure
+    #: with cross/isolated margin limits: these are Hyperliquid perpetual positions.
+    #: Sources:
+    #: - https://volta90.trade/blog/volta90-ethereum-migration
+    #: - https://volta90.trade/
+    (42161, "0x9e6de1f581d63129af453fe1ea7253b280b4dca8"): {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.algorithmic_trading, StrategyTag.perpetual_futures},
 }
 
 
 def lookup_lagoon_strategy_tags(chain_id: int, address: str) -> set[StrategyTag] | None:
     """Look up one Lagoon deployment's maintained strategy categories.
 
-    Most classifications are address-scoped. Chain-scoped entries take
-    precedence for the few contract addresses reused by unrelated Lagoon
-    deployments, preventing one vault's mandate from leaking to another.
+    Legacy classifications are address-scoped. New entries are scoped by
+    chain and address, and take precedence over the legacy table so reused
+    addresses can carry distinct mandates on different chains.
     A copy is returned so scan consumers cannot mutate the maintained tables.
 
     :param chain_id:

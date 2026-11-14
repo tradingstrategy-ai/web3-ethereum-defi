@@ -292,12 +292,15 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
 #: ``"Gamma Strategies"`` not ``"Gamma"`` (which would match
 #: ``"GammaSwap V1"``).
 CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
+    # Verified Tauri product name omits the organisation's Credit suffix.
+    "travessia-credit": ["Travessia Tauri"],
     # Retain the historical label without claiming every Waterline-branded
     # deployment (for example the unreviewed Avalanche Waterline USDe vault).
     "waterline-rusd": ["Waterline RUSD"],
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
+    "vectis-finance": ["Vectis UltraX"],
     "avantgarde-finance": ["Avantgarde"],
     "fisher8-capital": ["Fisher8"],
     "ignight-capital": ["Ignight"],
@@ -414,6 +417,9 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    #: Product names alone do not establish VOLTA90 management. Use reviewed
+    #: operator-linked contracts or exact protocol manager metadata.
+    "volta90",
     # PassivBot is freely reusable software. Only its documented reference
     # vault is attributed to the project, not independently operated copies.
     "passivbot",
@@ -459,6 +465,65 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
+    #: product book links this exact chain/address, including earlier DeTrade branding.
+    #: https://murmurr.xyz/
+    #: https://app.murmurr.xyz/vault/1/0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac
+    (1, "0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac"): "murmurr",
+    #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
+    #: product book links this exact chain/address, including earlier DeTrade branding.
+    #: https://murmurr.xyz/
+    #: https://app.murmurr.xyz/vault/1/0x29ca54dd3ae9e43abb10880f5e08da439bf25f99
+    (1, "0x29ca54dd3ae9e43abb10880f5e08da439bf25f99"): "murmurr",
+    #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
+    #: product book links this exact chain/address, including earlier DeTrade branding.
+    #: https://murmurr.xyz/
+    #: https://app.murmurr.xyz/vault/8453/0xcda5dbf58a016158ecd4a226109752cc3a627ec8
+    (8453, "0xcda5dbf58a016158ecd4a226109752cc3a627ec8"): "murmurr",
+    #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
+    #: product book links this exact chain/address, including earlier DeTrade branding.
+    #: https://murmurr.xyz/
+    #: https://app.murmurr.xyz/vault/143/0x9f209b43559b13b783eaa0a6686921c7b174f269
+    (143, "0x9f209b43559b13b783eaa0a6686921c7b174f269"): "murmurr",
+    #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
+    #: product book links this exact chain/address, including earlier DeTrade branding.
+    #: https://murmurr.xyz/
+    #: https://app.murmurr.xyz/vault/999/0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10
+    (999, "0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10"): "murmurr",
+    #: Murmurr USDC One, Ethereum; reviewed 2026-11-10. Formerly labelled DeTrade
+    #: Morpho X-Chain USDC in published metadata. Current exact API and the operator
+    #: identify Murmurr; this takes precedence over stale names or declarations.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb
+    #: https://murmurr.xyz/
+    (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"): "murmurr",
+    #: NAVI's otherwise unbranded USDC High Yield vault; reviewed 2026-11-10.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da
+    (1, "0x47491305479635357df29fe0cb6f1af10e51d4da"): "navi",
+    #: VOLTA90 current Ethereum and closed Arbitrum share contracts; reviewed
+    #: 2026-11-10. The official migration announcement names both deployments.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8
+    #: https://volta90.trade/blog/volta90-ethereum-migration
+    (1, "0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8"): "volta90",
+    #: Additional closed VOLTA90 deployment, reviewed 2026-11-10: exact API role
+    #: data shares owner, Safe and valuation manager 0xe1f52c958bf1048b48c8707fb6c1c4da64bfbfbc
+    #: and fee receiver 0xcdbe2de60419398718981276863cb360f1f781ae with the current
+    #: Ethereum product. Strategy/closure details remain undisclosed; zero API
+    #: valuation alone does not establish a realised loss or justify new tags.
+    #: https://app.lagoon.finance/api/vault?chainId=1&address=0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a
+    (1, "0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a"): "volta90",
+    #: Closed Arbitrum VOLTA90 shares; reviewed 2026-11-10.
+    #: https://volta90.trade/blog/volta90-ethereum-migration
+    (42161, "0x9e6de1f581d63129af453fe1ea7253b280b4dca8"): "volta90",
+    #: FuturAI Labs on Hypercore, reviewed 2026-11-09. The official website
+    #: publishes both branded vaults; vaultDetails and the full vault inventory
+    #: confirm their shared leader 0x92f33bee92dd86db292e3bc8500ffc5619d50430
+    #: also operates the closed Breaking vault. Exact identities survive renames.
+    #: https://www.futurailabs.xyz/app.js?v=10
+    #: https://api.hyperliquid.xyz/info (vaultDetails)
+    #: https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    (9999, "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003"): "futurai-labs",
+    (9999, "0x53375ca9a649f337d83d0834fec0db97640a2a06"): "futurai-labs",
+    (9999, "0xbefed76a71682b1dc48cca5a10f397cbc492a216"): "futurai-labs",
     #: Passivbot Canon on Hypercore (9999), reviewed 2026-11-01.
     #: The project's README identifies this exact address as its reference
     #: long-only configuration. The public vaultDetails response confirms
@@ -515,9 +580,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: ARCHITECT Global Value (8453), reviewed 2026-10-21.
     #: https://app.morpho.org/base/vault/0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7
     (8453, "0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7"): "architect",
-    #: Birch Hill RWA USDC (8453), reviewed 2026-10-21.
+    #: Birch Hill Groma Ecosystem USDC (8453), formerly RWA USDC.
     #: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
     (8453, "0xb038cf3e233b78225f6d350ac8319bec8457db4a"): "birch-hill",
+    #: Birch Hill RWA USDC Flagship (8453), reviewed 2026-11-06.
+    #: https://docs.birchhill.io/vault-books/birch-hill-rwa-usdc/6.-technical-appendix
+    (8453, "0xa5afd3a598ef000a5edd96ed65929ac7a6feea39"): "birch-hill",
     #: Saturn USDC (143), reviewed 2026-10-21.
     #: https://app.morpho.org/monad/vault/0x75753e494e5e374c52e1d84fc04eb14b10f2c079
     (143, "0x75753e494e5e374c52e1d84fc04eb14b10f2c079"): "hyperithm",
@@ -1289,10 +1357,10 @@ def identify_curator(  # noqa: PLR0917
     if protocol_slug == "nest":
         return None
 
-    # Derive publishes the curator wallet, but a vault display name is not
-    # evidence that this wallet belongs to an organisation named in the title.
-    # Attribute it only through a reviewed address override or declaration.
-    if protocol_slug == "derive":
+    # Native directories expose manager wallets, while strategy names can
+    # mention unrelated venues or products (Hyperliquid, Autopilot). Require
+    # reviewed address overrides or declarations for curator attribution.
+    if protocol_slug in {"derive", "neutral-trade"}:
         return None
 
     # 3. Blanket protocol-curated protocols (all vaults are protocol-operated)

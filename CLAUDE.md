@@ -153,6 +153,23 @@ contract state. No provider offers arbitrary-depth historical state; see the
   the current provider cannot reconstruct them. Monad fork and historical tests
   must use current-state or state-relative assertions.
 
+### HyperEVM
+
+HyperEVM (chain IDs 999 and 998) interleaves small and large blocks with
+independent mempools and base fees, see the
+[dual-block architecture documentation](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture).
+The sender's `usingBigBlocks` flag selects the mempool, not the gas limit.
+
+- Check the block type before pricing from `latest`: it can be a large block
+  in a different fee market. Use `estimate_gas_price()`, which takes the block
+  type as `block_type`. web3.py's default fee filler does not make this check.
+- Do not rely on `eth_gasPrice`, as its meaning depends on the provider. See
+  the measurements in `estimate_gas_price()`.
+- Anvil forks keep chain ID 999 but have one fee market, and their blocks can
+  have a 30M gas limit, so do not apply these rules to a fork.
+- Use the block `gasLimit` to tell the two apart: 30M for large blocks. On
+  5 November 2026 small blocks had a 3M limit.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
@@ -172,26 +189,9 @@ otherwise the test cannot find environment variables.
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
 
-### External integration tests
-
-Every new or materially changed external integration must include at least one
-minimal real integration test that exercises the actual provider end-to-end.
-For authenticated APIs, this means using a supplied API token and verifying a
-real successful response; mocked requests and fixture-only tests are necessary
-unit coverage but do not replace this check.
-
-- Prefer an automatic CI integration test whenever credentials can be supplied
-  securely and the provider is reliable enough for CI.
-- Otherwise, provide a focused manual command, guarded by the required
-  environment variable or token, so an operator can run the check without
-  modifying source code. Never print, commit or include a token in the command
-  or its output.
-- The pull request that adds the integration must include a PR comment with
-  the real-test result: the exact test or command, whether it passed, the date,
-  and the redacted environment or provider used. State clearly when the result
-  is a manual run rather than CI. If the provider rate-limits a bulk migration,
-  record the response and the safe retry plan instead of repeatedly retrying
-  the same request burst.
+Never print, commit or include API credentials in test commands or their output.
+If a provider rate-limits a bulk migration, record the response and a safe retry
+plan instead of repeatedly retrying the same request burst.
 
 Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
 default because they dominated the CI critical path; they still run locally. To
@@ -401,6 +401,68 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 
 ### Pytest
 
+The test culling decisions and case inventories are recorded in
+[PR #1767](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1767)
+and [PR #1769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1769).
+Apply the following rules when adding tests or reviewing existing coverage.
+
+- We assume external APIs we integrate are safe and honour their documented
+  contracts; otherwise we would not integrate them.
+- Do not add unit or integration tests of those provider APIs themselves.
+  This includes fabricated malformed or oversized responses, adversarial API
+  scenarios, exhaustive provider-schema rejection tests and repeated live calls
+  that merely confirm the provider behaves as documented.
+- Test our code where it adds meaningful behaviour: calculations, fee and NAV
+  handling, mapping provider data, pagination and resume logic, persistence and
+  exports. Use small, representative fixtures.
+- Adding or changing an API integration does not itself require a live or
+  authenticated provider check or a PR comment recording one.
+- Prefer tests of observable behaviour or a concrete regression. Avoid tests
+  solely of attribute existence, basic inheritance/MRO, private helper import
+  identity, or constructor attributes already exercised by behavioural tests.
+  Retain checks of documented public type or dispatch contracts.
+- Do not test standard dataclass mechanics such as storing supplied fields,
+  generated equality, or the lengths of supplied literal strings. Retain tests
+  for custom behaviour, meaningful defaults, validation, immutability or a real
+  public contract.
+- Exercise production calculations and conversions with representative raw
+  inputs and explicit expected outputs. Do not compute an aggregate only in
+  the test and assert elementary arithmetic properties, or normalise fixtures
+  beforehand and claim to test our normalisation code.
+- Avoid arbitrary registry-size floors such as "at least 20 entries". Verify
+  required entries and their behaviour instead.
+- Do not use uncontrolled API/network response times as unit-test performance
+  assertions. Do not catch assertion failures or programming errors and turn
+  them into skips; use explicit, documented environment or provider conditions
+  for skips.
+- Keep one canonical test for duplicated behaviour. Use unique test function
+  names within each module so a later definition cannot overwrite an earlier
+  test; remove shadowed duplicate definitions when cleaning up.
+- Do not add live endpoint smoke tests whose only assertions are HTTP success,
+  response keys/types, non-empty results or an empty account having no orders
+  or positions. Retain tests of our mapping, filtering, caching, fixed-point
+  conversions and configuration validation with explicit expected results.
+- A test claiming to verify a calculation must check a calculated result;
+  merely asserting that fees, prices or TVL are non-null or positive does not
+  verify arithmetic.
+- Avoid exhaustive address-by-address snapshots of static strategy, curator
+  and flag registries when many entries exercise the same behaviour. Select
+  representative cases for distinct expected outcomes, chain-scoped versus
+  global lookup, overrides, unmapped fallbacks and matching edge cases such as
+  Unicode names. For flags, preserve distinct protocol/flag/note combinations.
+  Keep individual entries when they protect a concrete regression or public
+  contract; reducing snapshots deliberately gives up checks of omitted entries.
+- Do not add tests solely to attest which checkout supplied an imported module.
+  Configure the test environment correctly and test observable behaviour.
+- Assess the assertions before deleting a low-value test: move any unique,
+  meaningful assertion into the canonical retained test. Remove fixtures and
+  constants left unused by deletions, but retain shared fixtures still in use.
+- Do not cull by test count alone. Preserve distinct fee/NAV calculations,
+  liquidation and permission checks, persistence, exports and migration data
+  preservation, even when these require many cases. When reporting reductions,
+  distinguish function definitions from collected parametrised cases and state
+  the collection environment and suite scope; parameter IDs may be renumbered
+  when rows are removed.
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
@@ -544,6 +606,9 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | Path | Description |
 |------|-------------|
 | `README.md` | Web3-Ethereum-Defi project overview |
+| `docs/README-dense-timestamps.md` | Dense HyperSync timestamp coverage, numbered gap repair and local per-chain recovery |
+| `eth_defi/neutral_trade/README-delta-neutral.md` | Neutral Trade read-only API inspection and manual data verification |
+| `docs/README-block-timestamp-storage.md` | Timestamp layout benchmarks, numbered compaction and recovery |
 | `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
 | `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
@@ -572,6 +637,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/enzyme/README-Enzyme-vaults.md` | Enzyme Blue and Onyx architecture, metadata and migration operations |
 | `eth_defi/tokenised_fund/asseto/README-Asseto.md` | Asseto dynamic registry, daily NAV history and operations |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
+| `eth_defi/erc_4626/vault_protocol/morpho/README-morpho-metadata.md` | Morpho metadata request pacing, shared cooldowns, warning preservation and state recovery |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
 | `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
 | `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
@@ -584,6 +650,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/vault_report/README-best-vaults-news.md` | Monthly vault report blog post drafts — goal of the skeleton, GitHub PR comment previews, Ghost draft creation, architecture diagram |
 | `eth_defi/yield_basis/README-YieldBasis.md` | YieldBasis LT vault model, valuation and historical pipeline |
 | `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
+| `eth_defi/erc_4626/vault_protocol/wildcat/README-Wildcat.md` | Wildcat lending markets: scale-factor pricing, lending metrics, delinquency flag, offchain metadata and onboarding |
 | `eth_defi/erc_4626/vault_protocol/antarctic/README-Antarctic.md` | Antarctic perpetual DEX, AMLP/AHLP settlement data and event-based vault support |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
 | `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), Anvil 1.8 behaviour and mitigations (cache `source_id`, async mining, hedged receipt lookups), diagnosing slow fork tests, reference tests |
@@ -601,3 +668,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
 | `tests/provider/README.md` | Service provider integration tests |
 | `tests/rpc/README.md` | JSON-RPC scenario tests |
+
+For timestamp cache ordering, compaction, WAL recovery and maintenance exclusion,
+read [block timestamp storage](docs/README-block-timestamp-storage.md) before
+changing the cache writer or running numbered migration 065.

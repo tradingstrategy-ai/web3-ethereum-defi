@@ -11,7 +11,7 @@ from eth_typing import HexAddress
 class VaultFeeMode(enum.Enum):
     """How a vault protocol accounts for its fees.
 
-    - Externalised fees: fees are charged explicitly when a user enters or exits a vault.
+    - Externalised fees: fees are charged to individual holdings, periodically or at entry/exit.
     - Internalised fees: fees are baked into the share price (asset amount) and continuously taken from the profit.
       There are no fees on withdrawal.
     """
@@ -32,7 +32,7 @@ class VaultFeeMode(enum.Enum):
     #: Example protocols: AUTO Finance
     internalised_minting = "internalised_minting"
 
-    #: Vault fees are taken from the user explicitly at deposit or redemption time.
+    #: Vault fees are taken from individual holdings, periodically or at deposit/redemption.
     #:
     #: Example protocols: Lagoon Finance.
     externalised = "externalised"
@@ -50,6 +50,14 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    "K3": None,
+    # Native Solana user fees deduct shares from individual holdings; withdrawal
+    # fees reduce proceeds. They are not internalised in the common PPS.
+    # All-zero schedules are resolved as feeless by the native exporter.
+    # EVM Accountable products retain their separate protocol classification.
+    # https://docs.neutral.trade/additional-info/fees-+-redemption-period
+    # https://github.com/neutral-trade/sdk/blob/7d8b41044e757c378d9a20eddfafa507ee2ec15c/src/extensions/fees.ts
+    "Neutral Trade": VaultFeeMode.externalised,
     # Withdrawal charges reduce the payout rather than the quoted share price.
     # https://docs.veranta.xyz/liquidity-providers/risk-management
     "Veranta": VaultFeeMode.externalised,
@@ -103,6 +111,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # performance, deposit or withdrawal fees.
     "Antarctic": None,
     "Rysk": None,
+    # Lenders pay no fees: the borrower pays the protocol fee on top of lender interest.
+    # https://github.com/wildcat-finance/wildcat-docs/blob/main/using-wildcat/protocol-usage-fees.md
+    "Wildcat": VaultFeeMode.feeless,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
     # Product fee schedules are not published by the reviewed CMTAT token contracts.

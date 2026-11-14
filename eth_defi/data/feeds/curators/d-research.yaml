@@ -1,0 +1,12 @@
+# Curator identity reviewed against official Neutral Trade documentation, 2026-11-12.
+feeder-id: d-research
+name: D Research
+role: curator
+short_description: D Research uses trading models to seek profits from differences in expected price swings across stock, bond and crypto-linked markets.
+long_description: |
+  D Research manages a [strategy trading differences in expected price swings](https://docs.neutral.trade/for-capital-allocators/usdc-yield/rwa/multi-asset-volatility-arbitrage), available through Neutral Trade. It trades stocks, bonds and contracts tied to [volatility](https://tradingstrategy.ai/glossary/volatility), the size of market price swings, including listed securities linked to digital assets.
+
+  Its named venues are [Nasdaq](https://www.nasdaq.com/), [NYSE](https://www.nyse.com/) and [CME](https://www.cmegroup.com/), without a published mapping of each instrument to an exchange. **D Research is a published alias**, and the firm's legal name is not disclosed.
+other-links:
+- title: Neutral Trade — D Research strategy and curator disclosure
+  url: https://docs.neutral.trade/for-capital-allocators/usdc-yield/rwa/multi-asset-volatility-arbitrage

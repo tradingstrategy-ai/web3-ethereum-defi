@@ -2078,6 +2078,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: losses, supporting the frequent-small-win and adverse-tail pattern.
     #: The completed-position sample excludes incomplete positions and is
     #: before trading fees and funding; it is not an account-wide win rate.
+    #: Updated: 2026-11-13. Maintainer removed the high-frequency, high-win-rate
+    #: classification above and assigned discretionary trading.
     #: Sources:
     #: - eth_defi/data/feeds/curators/pmalt.yaml
     #: - https://app.lighter.xyz/public-pools/281474976552918
@@ -2087,7 +2089,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://apidocs.lighter.xyz/reference/trades
     "lighter-pool-281474976552918": {
         StrategyTag.algorithmic_trading,
-        StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.discretionary_trading,
         StrategyTag.pair_trading,
     },
     #: Vault: Steady Wealth Builder.
@@ -2096,6 +2098,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: this a long-only DCA grid strategy, supporting directional grid trading.
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
+    #: Updated: 2026-11-13. Maintainer assigned Martingale-like trading.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
@@ -2104,6 +2107,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.martingale_like,
     },
     #: Vault: Candle Effect v1.
     #: Added: 2026-10-26.

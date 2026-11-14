@@ -206,7 +206,10 @@ def test_morini_capital_adapters_return_fx_strategy_tag(
 
     vault = SimpleNamespace(chain_id=chain_id, address=HexAddress(address))
 
-    assert resolver(vault) == {StrategyTag.fx}
+    expected = {StrategyTag.fx}
+    if resolver is AccountableVault.get_strategy_tags:
+        expected |= {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.market_making, StrategyTag.carry_trade}
+    assert resolver(vault) == expected
 
 
 @pytest.mark.parametrize(

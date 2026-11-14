@@ -94,6 +94,7 @@ jobs:
           JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+          HYPERSYNC_CONCURRENCY: "1"
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
 
       - name: Upload complete test timings

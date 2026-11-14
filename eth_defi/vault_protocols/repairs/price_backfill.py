@@ -270,6 +270,7 @@ def _backfill_target(
     hypersync_client: object,
     limit: int | None,
     frequency: str,
+    step: int | None,
     max_workers: int,
 ) -> PriceBackfillOutcome:
     """Scan one target into the staged Parquet and validate the result.
@@ -284,6 +285,7 @@ def _backfill_target(
     :param hypersync_client: Hypersync client for timestamp reads, or ``None``.
     :param limit: Optional preview block limit.
     :param frequency: Sampling frequency of the raw price file.
+    :param step: Blocks between samples, or ``None`` to derive it from ``frequency``.
     :param max_workers: Historical read workers.
     :return: Validated per-vault outcome.
     :raises RuntimeError: If archive state is missing or the write breaks the row accounting.
@@ -335,6 +337,7 @@ def _backfill_target(
         end_block=end_block,
         max_workers=max_workers,
         frequency=frequency,
+        step=step,
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_folder,
         vault_addresses={target.vault_address},
@@ -449,6 +452,7 @@ def _scan_targets(
     timestamp_folder: Path,
     limit: int | None,
     frequency: str,
+    step: int | None,
 ) -> list[PriceBackfillOutcome]:
     """Scan every target into the staged file, one connection per chain.
 
@@ -459,6 +463,7 @@ def _scan_targets(
     :param timestamp_folder: Dense timestamp cache folder used by the scan.
     :param limit: Optional preview block limit.
     :param frequency: Sampling frequency of the raw price file.
+    :param step: Blocks between samples, or ``None`` to derive it from ``frequency``.
     :return: Validated outcomes in chain order.
     :raises RuntimeError: If an RPC connection is wrong or a range exceeds the safe head.
     """
@@ -487,6 +492,7 @@ def _scan_targets(
                 hypersync_client=hypersync.hypersync_client,
                 limit=limit,
                 frequency=frequency,
+                step=step,
                 max_workers=max_workers,
             )
             outcomes.append(outcome)
@@ -521,6 +527,7 @@ def run_price_backfill(
     targets: Sequence[PriceBackfillTarget],
     *,
     frequency: str = "1h",
+    step: int | None = None,
 ) -> list[PriceBackfillOutcome]:
     """Backfill reviewed vaults' historical prices and publish them atomically.
 
@@ -539,6 +546,8 @@ def run_price_backfill(
     :param context: Guarded migration attempt; the runner holds the writer lock.
     :param targets: Frozen reviewed vaults and half-open block ranges.
     :param frequency: Sampling frequency; only the hourly raw file is supported.
+    :param step: Blocks between samples. ``None`` samples every ``frequency``
+        interval; a protocol whose prices move slowly can sample less often.
     :return: Per-vault outcomes, also recorded with :py:meth:`MigrationContext.report`.
     :raises ValueError: If targets, metadata or configuration are invalid.
     :raises RuntimeError: If required data is missing or validation fails.
@@ -573,7 +582,7 @@ def run_price_backfill(
                 shutil.copy2(path, timestamp_folder / path.name)
         token_cache = TokenDiskCache(scratch / "tokens.sqlite")
         try:
-            outcomes += _scan_targets(targets=present, detections=detections, staged_path=staged_path, token_cache=token_cache, timestamp_folder=timestamp_folder, limit=limit, frequency=frequency)
+            outcomes += _scan_targets(targets=present, detections=detections, staged_path=staged_path, token_cache=token_cache, timestamp_folder=timestamp_folder, limit=limit, frequency=frequency, step=step)
         finally:
             token_cache.close()
 

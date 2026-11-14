@@ -21,10 +21,22 @@ from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
     fetch_yearn_vault_endorsement,
     resolve_yearn_vault_endorsement,
 )
-from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.erc_4626.vault_protocol.yearn.tags import get_strategy_tags
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
+from eth_defi.vault.handwritten_metadata import BIRCH_HILL_VAULT_METADATA
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
+
+#: Birch Hill's hook-enabled Yearn V3 deployment on Base, source-reviewed 2026-11-06.
+#: https://basescan.org/address/0xa5afd3a598ef000a5edd96ed65929ac7a6feea39#code
+BIRCH_HILL_RWA_USDC = VaultSpec(8453, HexAddress("0xa5afd3a598ef000a5edd96ed65929ac7a6feea39"))
+
+#: Immutable hook whose immutable receiver gate enforces a positive account whitelist.
+#: https://basescan.org/address/0x486aaf6bb111a837664331db65b811d5d707533e#code
+#: https://basescan.org/address/0x985b68740ab9aae2863d002ca208725c76e42fd5#code
+BIRCH_HILL_DEPOSIT_HOOK = HexAddress("0x486aaf6bb111a837664331db65b811d5d707533e")
 
 
 def create_yearn_vault_link(chain_id: int, vault_address: HexAddress) -> str:
@@ -74,23 +86,29 @@ class YearnDetectedVaultMetadataMixin:
 
     @property
     def description(self) -> str | None:
-        """Return the Yearn website description when it is safely exportable.
+        """Prefer reviewed deployment copy before consulting Yearn website metadata.
 
         :return:
-            Yearn-authored description, or ``None`` when unavailable or unusable.
+            Reviewed copy or Yearn-authored description, otherwise ``None``.
         """
 
+        reviewed = BIRCH_HILL_VAULT_METADATA.get((self.chain_id, self.vault_address.lower()))
+        if reviewed:
+            return reviewed.description
         metadata = self.yearn_detected_metadata
         return metadata.description if metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return the first bounded sentence of the Yearn website description.
+        """Prefer a reviewed summary before extracting one from the website description.
 
         :return:
-            Compact Yearn-authored description, or ``None`` when unavailable.
+            Reviewed summary or compact Yearn-authored description, otherwise ``None``.
         """
 
+        reviewed = BIRCH_HILL_VAULT_METADATA.get((self.chain_id, self.vault_address.lower()))
+        if reviewed:
+            return reviewed.short_description
         return extract_yearn_short_description(self.description)
 
     def get_link(self, referral: str | None = None) -> str:
@@ -201,16 +219,32 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
 
     whitelist_notes = "Legacy Yearn deployments without deposit_limit_module() use the adapter's permissionless compatibility default; an explicit custom module remains unknown."
 
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Resolve reviewed Yearn deployments before inherited wrapper metadata.
+
+        Keep the existing fallback for vaults outside the reviewed mapping.
+
+        :return: Maintained strategy tags, or ``None`` when unclassified.
+        """
+        return get_strategy_tags(self.chain_id, self.vault_address) or super().get_strategy_tags()
+
     @cached_property
     def vault_contract(self) -> Contract:
-        """Get vault deployment."""
+        """Bind the deployment-specific Yearn vault interface.
+
+        Birch Hill's verified hook variant has a separate ABI; canonical
+        Yearn deployments retain their existing interface. Provenance is
+        recorded in ``eth_defi/abi/yearn/README.md``.
+
+        :return: Contract bound to this vault's deployment address.
+        """
 
         # TODO: Detect SiloStrategy, use different ABI if needed
 
         return get_deployed_erc_4626_contract(
             self.web3,
             self.spec.vault_address,
-            abi_fname="yearn/YearnV3Vault.json",
+            abi_fname="yearn/BirchHillV3Vault.json" if self.spec == BIRCH_HILL_RWA_USDC else "yearn/YearnV3Vault.json",
         )
 
     def get_default_queue(self) -> list[HexAddress]:
@@ -246,11 +280,26 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
         inferred from the Yearn vault itself; keep that case explicitly
         unknown instead of assuming either public or allow-listed access.
 
+        Birch Hill's source-verified variant exposes ``deposit_hook()`` instead
+        of ``deposit_limit_module()``. Its reviewed immutable hook enforces a
+        receiver whitelist and a sender gate. Read the configured hook at the
+        requested block; an unrecognised replacement remains unknown.
+        See the verified ABI provenance in ``eth_defi/abi/yearn/README.md``.
+
         :return:
-            ``False`` when no custom deposit-limit module is configured.
+            ``True`` for Birch Hill's reviewed whitelist hook, or ``False``
+            when no account-specific deposit control is configured.
         :raise NotImplementedError:
-            If a readable custom module controls owner-specific capacity.
+            If an unreviewed module or hook controls account admission.
         """
+        if self.spec == BIRCH_HILL_RWA_USDC:
+            hook = self.vault_contract.functions.deposit_hook().call(block_identifier=self._get_block_identifier()).lower()
+            if hook == ZERO_ADDRESS_STR:
+                return False
+            if hook == BIRCH_HILL_DEPOSIT_HOOK:
+                return True
+            raise NotImplementedError(f"Birch Hill deposit hook {hook} requires implementation-specific permission inspection")
+
         try:
             deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
                 block_identifier=self._get_block_identifier(),
@@ -267,6 +316,18 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
         if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
             return False
         raise NotImplementedError(f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection")
+
+    def get_whitelist_notes(self) -> str | None:
+        """Omit the legacy compatibility caveat for the source-verified hook variant.
+
+        Birch Hill policy is read directly, rather than inferred from the
+        absence of the canonical Yearn module selector.
+
+        :return: Legacy caveat for other deployments, otherwise ``None``.
+        """
+        if self.spec == BIRCH_HILL_RWA_USDC:
+            return None
+        return super().get_whitelist_notes()
 
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()

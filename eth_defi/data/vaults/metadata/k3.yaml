@@ -1,0 +1,51 @@
+name: K3
+slug: k3
+short_description: K3 offers manager-operated vaults that pool bitcoin-backed tokens and dollar-denominated assets and settle deposits and withdrawals in batches.
+long_description: |
+  [K3 Capital](https://www.k3.capital/) operates vaults that accept bitcoin-backed
+  tokens, USDe, USDC and AUSD. Depositors receive shares representing their claims on managed assets.
+
+  The cirBTC product [borrows USDC against deposited cirBTC](https://x.com/k3_capital/status/2119852361879556335)
+  and invests it to earn income above the borrowing cost, converting the difference into cirBTC.
+  Its [mandate](https://x.com/k3_capital/status/2119852385367740877) permits lending and selected
+  [principal tokens](https://tradingstrategy.ai/glossary/principal-token), which represent an investment's
+  redemption value at a future date. Depositors retain bitcoin price exposure and can lose money
+  if borrowing becomes too costly or pledged assets must be sold to repay loans.
+
+  The cbBTC, cirBTC and USDe products process deposits and withdrawals in batches.
+  The manager reports investment values and settles requests before users can
+  claim shares or tokens, with no guaranteed settlement time. The [product documentation](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md)
+  explains their reliance on the manager's valuations and the absence of request cancellation.
+
+  The [USDC product](https://basescan.org/address/0x8c4f97ce5b2eea713728729aec08e48bce588216#code)
+  and [AUSD product](https://monadscan.com/address/0x1cca0fc4ce416893fe5e74039c4c81a4d10e6806#code)
+  instead hold shares in another investment vault. Their requests depend on
+  that vault's settlement, may be reduced under its rules, and are subject to
+  account blocking. Investors remain exposed to investment losses, delayed
+  withdrawals and risks associated with the deposited token.
+fee_description: |
+  The [cbBTC product's default fees](https://docs.k3.capital/vault-infra/introduction/cbbtc-vault.html)
+  are **0% management and 5% performance**, with vault-specific terms taking
+  precedence. Borrowing and other investment costs also reduce returns.
+
+  K3's [accounting documentation](https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md)
+  requires reported investment values to reflect management, performance and
+  strategy fees already charged. Fee rates are not publicly specified for the
+  cirBTC, USDe, USDC and AUSD products.
+links:
+  homepage: https://www.k3.capital/
+  app: https://app.k3.capital/
+  twitter: https://x.com/k3_capital
+  github: https://github.com/K3-Capital/k3-vault-contracts
+  documentation: https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md
+  defillama: https://defillama.com/protocol/k3-capital
+  audits: https://github.com/pashov/audits/blob/master/team/pdf/K3-security-review_2026-09-03.pdf
+  fees: https://github.com/K3-Capital/k3-vault-contracts/blob/main/ARCHITECTURE.md
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/k3
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/k3/index.html
+example_smart_contracts:
+  - https://arc.etherscan.io/address/0x56fb80282BB565dE67c196924dda0138e30323BE
+  - https://etherscan.io/address/0x009c02a73706a68e0aE0209235408206E4F53709
+  - https://etherscan.io/address/0x333333c5DEF8368C3fCc9c378cedc0f709Fa5ECB
+  - https://basescan.org/address/0xf508f0096b966f657a6bee55b341e9309d5871fb
+  - https://monadscan.com/address/0x37aef9d5b058382024ffb5c08e2f4c9ca4978751

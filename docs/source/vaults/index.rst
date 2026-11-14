@@ -154,6 +154,7 @@ Supported protocols
    arcus/index
    asseto/index
    axis/index
+   k3/index
    flying_tulip/index
    ondo/index
    wisdomtree/index
@@ -231,6 +232,7 @@ Supported protocols
    antarctic/index
    infinit/index
    rysk/index
+   wildcat/index
    sbold/index
    secured_finance/index
    securitize/index

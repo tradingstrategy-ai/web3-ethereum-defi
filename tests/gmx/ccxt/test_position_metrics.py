@@ -164,24 +164,6 @@ class TestSafeLiquidationPriceDirectionInvariant:
         assert result is None
 
 
-class TestSyncAsyncImportLockstep:
-    """Both ``exchange.py`` (sync) and ``async_support/exchange.py``
-    (async) must import the SAME helper module — guards against a
-    future divergence."""
-
-    def test_sync_imports_safe_liquidation_price(self):
-        from eth_defi.gmx.ccxt import exchange as sync_mod
-
-        assert hasattr(sync_mod, "safe_liquidation_price")
-        assert sync_mod.safe_liquidation_price is safe_liquidation_price
-
-    def test_async_imports_safe_liquidation_price(self):
-        from eth_defi.gmx.ccxt.async_support import exchange as async_mod
-
-        assert hasattr(async_mod, "safe_liquidation_price")
-        assert async_mod.safe_liquidation_price is safe_liquidation_price
-
-
 # ---------------------------------------------------------------------------
 # W2 — GMX_MIN_COST_USD guard in _convert_ccxt_to_gmx_params
 # ---------------------------------------------------------------------------

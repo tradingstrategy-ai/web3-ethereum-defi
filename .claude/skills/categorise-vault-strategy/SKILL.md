@@ -29,6 +29,22 @@ address-to-tag mapping next to its vault protocol adapter.
 
    - Assign every supported tag that the documented strategy warrants; tags
      are additive and are not mutually exclusive.
+   - Add `discretionary_trading` when product-specific evidence shows that a
+     person or investment team chooses, approves or rebalances investments.
+     This includes curator-selected lending markets, yield farms, underlying
+     vaults and credit deals, even when the return comes from interest or fees
+     rather than trading prices. Retain the supported income-mechanism tags.
+   - Identify who makes investment decisions separately from who executes them.
+     Human selection with automated execution or allocation can warrant both
+     `discretionary_trading` and `algorithmic_trading`, when each is supported.
+     A curator name, admin role, multisig, permissioned deposits or the word
+     “managed” alone does not establish discretion. Fully rules-driven
+     allocation without evidence of human investment choices does not receive
+     the discretionary tag. Routine settlement or reward claiming alone does
+     not establish algorithmic trading either.
+   - Record the evidence of human decisions for the exact product in its tag
+     comment. Do not propagate one discretionary product's tags to every vault
+     of the same curator, including fixed-universe and automated products.
    - Prefer the most specific tag and include a relevant parent tag where it
      conveys useful search or reporting context. For example, an RWA lending
      vault normally receives both `rwa` and `rwa_lending`.
@@ -61,6 +77,11 @@ address-to-tag mapping next to its vault protocol adapter.
        "0x...": {StrategyTag.rwa, StrategyTag.rwa_lending},
    }
    ```
+
+   Where the protocol has `CHAIN_STRATEGY_TAGS` (including Lagoon and Morpho),
+   use its `(chain_id, lowercase_address)` keys for deployment-specific evidence.
+   Pass the chain ID through both the adapter and persisted-tag resolver; do not
+   let an unrelated same-address deployment inherit the classification.
 
    Keep every EVM address key lowercase and scope every entry to an individual
    vault. `lookup_strategy_tags()` normalises the adapter's `HexAddress`
@@ -134,7 +155,8 @@ address-to-tag mapping next to its vault protocol adapter.
      and tests when authorised. Do not apply to production while categorising.
    - When a PR is requested, add a **Run after merge** comment following the
      migration guide. Stop the daemon and competing writers before both preview
-     and apply, use the production host launcher for the full pending batch,
+     and apply, use the direct Compose command for the full pending batch
+     (the host launcher is optional),
      then restart the same inspected image for cleaning, exports and uploads.
 
 ## Chat output

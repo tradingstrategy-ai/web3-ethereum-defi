@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="8" fill="#0A0A0A"/>
+  <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
+        font-family="'STIX Two Text', Georgia, serif" font-size="34" font-weight="600"
+        fill="#EDEDED">S</text>
+  <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
+        font-family="'STIX Two Text', Georgia, serif" font-size="34" font-style="italic"
+        fill="#8F8F8F" transform="translate(14 0)">c</text>
+</svg>

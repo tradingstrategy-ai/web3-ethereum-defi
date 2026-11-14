@@ -15,7 +15,7 @@ from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLO
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore
 from eth_defi.erc_4626.vault_protocol.antarctic.tags import STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
-from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, load_antarctic_settlements
+from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, fetch_recorded_antarctic_timestamps, load_antarctic_settlements
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultHistoricalReader, VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
@@ -117,6 +117,7 @@ def test_antarctic_recorded_hypersync_decoder_and_reader(records: list, web3: We
         return RecordedAntarcticStream(query, records)
 
     monkeypatch.setattr(historical_context, "open_hypersync_stream", open_stream)
+    monkeypatch.setattr(historical_context, "fetch_exact_block_timestamps_using_hypersync_cached", fetch_recorded_antarctic_timestamps)
     for deployment in ANTARCTIC_DEPLOYMENTS:
         selected = [r for r in records if r.pool_address == deployment.address]
         start, end = min(r.block_number for r in selected), max(r.block_number for r in selected) + 1
