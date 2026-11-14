@@ -34,6 +34,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil, fund_erc20_on_anvil, is_anvil, set_balance
 from eth_defi.provider.env import read_json_rpc_url
@@ -684,7 +685,12 @@ def probe_candidate(  # noqa: PLR0914
     _broadcast(governance, simple_vault.functions.initialiseOwnership(governance.address), web3)
     guard = get_deployed_contract(web3, "guard/GuardV0.json", simple_vault.functions.guard().call())
     try:
-        whitelist = guard.functions.whitelistAtoma if isinstance(vault, AtomaVault) else guard.functions.whitelistERC4626
+        if isinstance(vault, AtomaVault):
+            whitelist = guard.functions.whitelistAtoma
+        elif isinstance(vault, T3trisVault):
+            whitelist = guard.functions.whitelistT3tris
+        else:
+            whitelist = guard.functions.whitelistERC4626
         _broadcast(governance, whitelist(vault.address, "Vault deposit probe"), web3)
     except (*PROBE_EXECUTION_EXCEPTIONS, AnvilProbeTransactionError) as e:
         return {"outcome": "guard_configuration_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}

@@ -48,6 +48,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
@@ -1948,7 +1949,7 @@ def setup_guard(
     transactions whenever a limit is requested.
 
     External vault callers pass ordinary ERC-4626 descriptors with known
-    feature metadata. This shared setup resolves Atoma and Upshift through the
+    feature metadata. This shared setup resolves Atoma, T3tris and Upshift through the
     existing vault factory and installs their existing policies. Plain address
     descriptors without features are detected here. Other protocol descriptors
     retain the generic policy; metadata-only subclasses are not probed without
@@ -2041,15 +2042,15 @@ def setup_guard(
         erc_4626_vaults = list(erc_4626_vaults)
         for index, descriptor in enumerate(erc_4626_vaults):
             assert isinstance(descriptor, ERC4626Vault), f"Expected ERC4626Vault, got {type(descriptor)}"
-            if isinstance(descriptor, (AtomaVault, UpshiftVault)):
+            if isinstance(descriptor, (AtomaVault, T3trisVault, UpshiftVault)):
                 continue
             logger.info("Resolving vault guard policy at %s", descriptor.vault_address)
             features = descriptor.features
             if not features and type(descriptor) is ERC4626Vault:
                 features = detect_vault_features(web3, descriptor.vault_address, verbose=False)
-            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.upshift_like}:
+            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.t3tris_like, ERC4626Feature.upshift_like}:
                 resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
-                assert isinstance(resolved, (AtomaVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
+                assert isinstance(resolved, (AtomaVault, T3trisVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
                 erc_4626_vaults[index] = resolved
 
     _broadcast = broadcast_func
@@ -2147,9 +2148,12 @@ def setup_guard(
                 note = f"Whitelisting {erc_4626_vault.name}"
                 if isinstance(erc_4626_vault, UpshiftVault):
                     multicalls.extend(fetch_upshift_guard_calls(module, erc_4626_vault, note))
+                elif isinstance(erc_4626_vault, AtomaVault):
+                    multicalls.append(module.functions.whitelistAtoma(erc_4626_vault.vault_address, note))
+                elif isinstance(erc_4626_vault, T3trisVault):
+                    multicalls.append(module.functions.whitelistT3tris(erc_4626_vault.vault_address, note))
                 else:
-                    whitelist = module.functions.whitelistAtoma if isinstance(erc_4626_vault, AtomaVault) else module.functions.whitelistERC4626
-                    multicalls.append(whitelist(erc_4626_vault.vault_address, note))
+                    multicalls.append(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)

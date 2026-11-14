@@ -7,8 +7,8 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 23,816 | 96.9% | 760 |
-| GuardV0 | guard | 21,691 | 88.3% | 2,885 |
+| TradingStrategyModuleV0 | safe-integration | 23,942 | 97.4% | 634 |
+| GuardV0 | guard | 21,978 | 89.4% | 2,598 |
 | GmxLib | guard | 6,153 | 25.0% | 18,423 |
 | HypercoreVaultLib | guard | 3,927 | 16.0% | 20,649 |
 | LagoonLib | guard | 5,125 | 20.9% | 19,451 |
