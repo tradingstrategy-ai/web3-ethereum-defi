@@ -6,9 +6,10 @@ impersonates the real oracle owner and curator. Block timestamps are pinned
 so that fee accrual, and therefore every asserted amount, is reproducible.
 """
 
+import dataclasses
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 from types import SimpleNamespace
@@ -38,7 +39,8 @@ from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
+from eth_defi.erc_7540.deposit_redeem import ERC7540DepositTicket, ERC7540RedemptionTicket
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable, VaultRequestInvariantViolation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -228,6 +230,7 @@ def test_t3tris_guarded_lifecycle(web3: Web3, vault: T3trisVault, kind: str) -> 
     assert analysis.denomination_amount == Decimal(100)
     assert analysis.to == custody.address
     assert manager.get_deposit_request_status(ticket) is AsyncVaultRequestStatus.none
+    _assert_foreign_ticket_rejected(manager.analyse_deposit, claim, ticket)
 
     # 4. Request a full redemption, settle and claim the assets.
     request = manager.create_redemption_request(custody.address, raw_shares=raw_shares)
@@ -247,6 +250,20 @@ def test_t3tris_guarded_lifecycle(web3: Web3, vault: T3trisVault, kind: str) -> 
     assert analysis.share_count == vault.share_token.convert_to_decimals(raw_shares)
     assert manager.get_redemption_request_status(redemption) is AsyncVaultRequestStatus.none
     assert not manager.is_redemption_in_progress(custody.address)
+    _assert_foreign_ticket_rejected(manager.analyse_redemption, claim, redemption)
+
+
+def _assert_foreign_ticket_rejected(analyse: Callable, claim: HexBytes, ticket: ERC7540DepositTicket | ERC7540RedemptionTicket) -> None:
+    """A claim receipt analysed against another request's ticket must halt.
+
+    :param analyse: Manager claim analyser.
+    :param claim: Successful claim transaction.
+    :param ticket: The ticket the claim belongs to.
+    """
+    outsider = Web3.to_checksum_address("0x" + "88" * 20)
+    for foreign in [dataclasses.replace(ticket, request_id=ticket.request_id + 1), dataclasses.replace(ticket, owner=outsider), dataclasses.replace(ticket, to=outsider)]:
+        with pytest.raises(VaultRequestInvariantViolation):
+            analyse(claim, foreign)
 
 
 def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple_custody: Custody) -> None:
@@ -349,6 +366,7 @@ def test_t3tris_new_request_auto_claims_to_custody(web3: Web3, vault: T3trisVaul
     2. Request and settle a partial redemption, then request the rest without claiming.
     """
     c = simple_custody
+    _pin_clock(web3)
     manager = vault.get_deposit_manager()
     f = vault.vault_contract.functions
     usdc = vault.denomination_token
@@ -361,7 +379,7 @@ def test_t3tris_new_request_auto_claims_to_custody(web3: Web3, vault: T3trisVaul
     ticket = request.parse_deposit_transaction([c.transact(web3, request.funcs[0])])
     manager.force_settle(ticket)
     settled_shares = f.getSettledDepositShares(c.address, ticket.request_id).call()
-    assert settled_shares > 0
+    assert settled_shares == 98_471_112
     c.transact(web3, f.requestDeposit(c.address, False, raw_amount, b""))
     assert vault.share_token.fetch_raw_balance_of(c.address) == settled_shares
     assert manager.get_deposit_request_status(ticket) is AsyncVaultRequestStatus.none
@@ -373,7 +391,7 @@ def test_t3tris_new_request_auto_claims_to_custody(web3: Web3, vault: T3trisVaul
     manager.force_settle(redemption)
     # The claim pays previewClaimRedeem(), which rounds the settled assets down.
     claimable_assets, _silo_shares = f.previewClaimRedeem(c.address).call()
-    assert claimable_assets > 0
+    assert claimable_assets == 49_733_897
     c.transact(web3, f.requestRedeem(c.address, c.address, c.address, False, settled_shares - half))
     assert usdc.fetch_raw_balance_of(c.address) == claimable_assets
     assert manager.get_redemption_request_status(redemption) is AsyncVaultRequestStatus.none

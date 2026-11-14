@@ -29,5 +29,4 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.t3tris.vault
-   eth_defi.erc_4626.vault_protocol.t3tris.deposit_redeem
    eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata

@@ -468,3 +468,13 @@ the Python call-list helper, ending at 573 bytes of margin.
 and commit (step 3) with its measurements and regression gates, the T3tris
 guard work bumps the internal version, and an agent security review of the
 modified contracts (step 7) gates the published capability.
+
+**PR cleanup review, 2026-11-14.** Codex CLI `gpt-6.1-sol`, read-only and
+grounded, on the Python, migration, test and documentation changes. No
+blocking findings. Applied all three low findings: negative claim-analysis
+tests for a foreign request id, owner and receiver in both directions; the
+manager's API entry moved to `docs/source/api/erc_4626/index.rst`; a pinned
+clock and absolute amounts in the auto-claim test. Remaining gaps it listed:
+the outstanding deposit probe rerun, other deployments not fork-tested, and no
+direct tests of the pause, open-mode, end-of-fund and settlement-failure
+branches.
