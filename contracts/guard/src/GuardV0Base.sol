@@ -601,17 +601,17 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return VeloraLib.isAllowedVeloraSwapper(swapper);
     }
 
-    function validate_transfer(bytes memory callData) internal view {
+    function validate_transfer(bytes calldata callData) internal view {
         (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedWithdrawDestination(to), "Receiver not whitelisted");
     }
 
-    function validate_approve(bytes memory callData) internal view {
+    function validate_approve(bytes calldata callData) internal view {
         (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedApprovalDestination(to), "Approve address not allowed");
     }
 
-    function validate_approveDelegation(bytes memory callData) internal view {
+    function validate_approveDelegation(bytes calldata callData) internal view {
         (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedDelegationApprovalDestination(to), "Delegation address not allowed");
     }
@@ -882,7 +882,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     }
 
     // Gains/Ostium: validate makeWithdrawRequest(uint256,address owner).
-    function validate_makeWithdrawRequest(bytes memory callData) internal view {
+    function validate_makeWithdrawRequest(bytes calldata callData) internal view {
         (, address owner) = abi.decode(callData, (uint256, address));
         _requireAllowedOwner(owner);
     }
@@ -904,7 +904,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // the vault may pull under an existing allowance. Restricting only the
     // second argument would permit an asset manager to target an unrelated
     // approved share owner.
-    function _validate_ERC4626WithdrawOrRedeem(bytes memory callData) internal view {
+    function _validate_ERC4626WithdrawOrRedeem(bytes calldata callData) internal view {
         (, address receiver, address owner) = abi.decode(callData, (uint256, address, address));
         _requireAllowedReceiver(receiver);
         _requireAllowedOwner(owner);
@@ -916,7 +916,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // to a non-whitelisted address, effectively exfiltrating the deposited
     // assets. The approve() whitelist only controls which vault can pull
     // the Safe's tokens — it does NOT restrict who receives the minted shares.
-    function _validate_ERC4626Deposit(bytes memory callData) internal view {
+    function _validate_ERC4626Deposit(bytes calldata callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
         _requireAllowedReceiver(receiver);
     }
@@ -926,13 +926,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // Ember transfers the denomination assets to receiver later from an
     // operator processing transaction. Validating the receiver at request time
     // prevents an asset manager from redirecting that later payout.
-    function _validate_EmberRedeemShares(bytes memory callData) internal view {
+    function _validate_EmberRedeemShares(bytes calldata callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
         _requireAllowedReceiver(receiver);
     }
 
     // Plutus Hedge: validate redeem(uint256 requestId, address receiver).
-    function _validate_PlutusRedeem(bytes memory callData) internal view {
+    function _validate_PlutusRedeem(bytes calldata callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
         _requireAllowedReceiver(receiver);
     }
@@ -946,20 +946,20 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // is respectively the controller or the asset owner and must also be
     // restricted: either address can otherwise bind the vault to an unrelated
     // account's request or claim.
-    function _validate_ERC7540Deposit(bytes memory callData) internal view {
+    function _validate_ERC7540Deposit(bytes calldata callData) internal view {
         (, address receiver, address controllerOrOwner) = abi.decode(callData, (uint256, address, address));
         _requireAllowedReceiver(receiver);
         _requireAllowedOwner(controllerOrOwner);
     }
 
     // NaraUSD+: validate unstake(address receiver).
-    function _validate_NaraUnstake(bytes memory callData) internal view {
+    function _validate_NaraUnstake(bytes calldata callData) internal view {
         address receiver = abi.decode(callData, (address));
         _requireAllowedReceiver(receiver);
     }
 
     // Upshift: validate deposit(address asset,uint256 amount,address receiver).
-    function _validate_UpshiftDeposit(bytes memory callData) internal view {
+    function _validate_UpshiftDeposit(bytes calldata callData) internal view {
         (address asset,, address receiver) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(asset), "Token not allowed");
         _requireAllowedReceiver(receiver);
@@ -967,26 +967,26 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     // Upshift: instantRedeem(uint256 shares,address receiver) and
     // requestRedeem(uint256 shares,address receiver).
-    function _validate_UpshiftRedeemReceiver(bytes memory callData) internal view {
+    function _validate_UpshiftRedeemReceiver(bytes calldata callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
         _requireAllowedReceiver(receiver);
     }
 
     // Upshift: claim(uint256 year,uint256 month,uint256 day,address receiver).
-    function _validate_UpshiftClaimReceiver(bytes memory callData) internal view {
+    function _validate_UpshiftClaimReceiver(bytes calldata callData) internal view {
         (,,, address receiver) = abi.decode(callData, (uint256, uint256, uint256, address));
         _requireAllowedReceiver(receiver);
     }
 
     // Umami non-standard ERC-4626 deposit
-    function validate_UmamiDeposit(bytes memory callData) internal view {
+    function validate_UmamiDeposit(bytes calldata callData) internal view {
         (,, address receiver) = abi.decode(callData, (uint256, uint256, address));
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
     // Umami non-standard ERC-4626 redeem. The final owner argument controls
     // which account's shares the vault may transfer under an allowance.
-    function validate_UmamiRedeem(bytes memory callData) internal view {
+    function validate_UmamiRedeem(bytes calldata callData) internal view {
         (,, address receiver, address owner) = abi.decode(callData, (uint256, uint256, address, address));
         _requireAllowedReceiver(receiver);
         _requireAllowedOwner(owner);
@@ -1061,13 +1061,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     // Aave V3 implementation
     // supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)
-    function validate_aaveSupply(bytes memory callData) internal view {
+    function validate_aaveSupply(bytes calldata callData) internal view {
         (address token,, address onBehalfOf,) = abi.decode(callData, (address, uint256, address, uint256));
         require(isAllowedAsset(token), "Token not allowed");
         _requireAllowedReceiver(onBehalfOf);
     }
 
-    function validate_aaveWithdraw(bytes memory callData) internal view {
+    function validate_aaveWithdraw(bytes calldata callData) internal view {
         (address token,, address to) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(token), "Token not allowed");
         _requireAllowedReceiver(to);

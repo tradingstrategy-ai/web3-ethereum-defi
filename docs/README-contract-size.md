@@ -88,6 +88,7 @@ If additional space is needed in future:
 | Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
 | Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
 | Use `via_ir=false` for GuardV0 and TradingStrategyModuleV0 | Major | Config change; potentially higher runtime gas | Done |
+| Pass `bytes calldata` instead of `bytes memory` to the internal `GuardV0Base` validators, avoiding a calldata-to-memory copy per dispatch branch | ~1,200 bytes | One-word change per validator | Done |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
 
