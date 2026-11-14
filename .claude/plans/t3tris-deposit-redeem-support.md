@@ -121,7 +121,8 @@ needs. IPOR shows the floor: override only what differs.
   shared `check_deposit_whitelist()` preflight works.
 - `get_deposit_manager()` → `T3trisDepositManager`.
 - `get_deposit_manager_capability()` → both directions `asynchronous`,
-  `supports_anvil_settlement=True`. Add this last, once the tests pass.
+  `supports_anvil_settlement=True`. Add this last, once the tests and the
+  step 7 security review pass.
 
 ### 2. Deposit manager (new `t3tris/deposit_redeem.py`)
 
@@ -149,7 +150,7 @@ Overridden:
 | `can_create_deposit_request` / `can_create_redemption_request` | Boolean form of the preflights |
 | `get_redemption_event_signatures` | The `ClaimRedeem` topic; its layout matches what the inherited analyser reads |
 | `analyse_deposit` | Decode `ClaimDeposit`; its indexed topics are ordered differently from ERC-4626 `Deposit` |
-| `force_settle` | Step 4 |
+| `force_settle` | Step 5 |
 
 Preflights raise before any broadcast:
 
@@ -165,14 +166,43 @@ Estimates keep the inherited `convertToShares` / `convertToAssets`. They do
 not include entry and exit fees (about 0.4% low on redemption proceeds at the
 test block); document this rather than add fee maths.
 
-### 3. Guard
+### 3. Guard size optimisation (separate commit)
+
+Land this first, as its own commit with its own regression run, so the
+T3tris diff and the security review can tell the two changes apart.
+
+- In `contracts/guard/src/GuardV0Base.sol`, change the 17 internal validators
+  from `bytes memory callData` to `bytes calldata callData`. The dispatcher
+  already holds the arguments as `bytes calldata`, so today every branch
+  copies them into memory before decoding. Decoding logic, revert messages,
+  storage layout and the public ABI do not change.
+- Do not merge duplicate dispatch branches or remove the three duplicate
+  `(uint256, address receiver)` validators. Measured on top of the calldata
+  change, that saves only another 43 bytes and makes the diff harder to
+  review.
+- Measured with `forge build --sizes` (solc 0.8.26, `optimizer_runs = 1`,
+  `via_ir = false`) on a scratch copy of this branch:
+
+  | Contract | Today | After this step | After step 4 |
+  | --- | --- | --- | --- |
+  | `TradingStrategyModuleV0` | 24,259 (margin 317) | 23,059 (margin 1,517) | 24,003 (margin 573) |
+  | `GuardV0` | 22,173 | — | 22,039 |
+
+  The step 4 figures come from a sizing prototype and can move by a few bytes
+  in the final code.
+- Rebuild with `make guard safe-integration` and run the regression gates
+  before starting step 4: the Foundry tests in `contracts/guard/test` (18
+  pass on the prototype), `tests/guard` and `tests/safe-integration`.
+- Update `docs/README-contract-size.md` with the measured sizes.
+
+### 4. T3tris guard support
 
 All in `GuardV0Base.sol`:
 
-- Change the 17 `bytes memory callData` validator parameters to
-  `bytes calldata callData`. No other edit to existing validators.
-- Four selector constants, one dispatch branch per call, and three dedicated
-  validators (`claimDeposit` reuses the existing single-receiver validator):
+- Four selector constants with their full signatures, also added to
+  `contracts/guard/script/ComputeSelectors.s.sol`.
+- One dispatch branch per call and three dedicated validators;
+  `claimDeposit` reuses the existing single-receiver validator:
 
   | Call | Selector | Required |
   | --- | --- | --- |
@@ -183,23 +213,27 @@ All in `GuardV0Base.sol`:
 
 - `whitelistT3tris(address vault, string notes)`, modelled on
   `whitelistAtoma()`: the four call sites, the vault as approval destination
-  and asset, and the denomination token. Settlement and request decreases are
+  and asset, and the denomination token. Settlement, request decreases,
+  `forceClaimDeposit`, `unsafeRedeem`, `unsafeWithdraw` and `multicall` are
   not registered.
+- Bump `getInternalVersion()` from 4 to 5, as its comment requires for new
+  whitelisting.
 
 Around it:
 
-- Rebuild ABIs with `make guard safe-integration`, then run the existing
-  guard suites (`contracts/guard` Foundry tests, `tests/guard`,
-  `tests/safe-integration`), because the calldata change touches every
-  validator. Update the measured sizes in `docs/README-contract-size.md`.
+- Rebuild ABIs with `make guard safe-integration`, rerun the step 3
+  regression gates and record the final sizes in
+  `docs/README-contract-size.md`.
 - `lagoon/deployment.py` `setup_guard()`: add `T3trisVault` / `t3tris_like` to
   the existing policy resolution and pick `whitelistT3tris` in the whitelist
   loop, next to `whitelistAtoma`.
+- Add the T3tris row to the security model and whitelisting notes in
+  `contracts/guard/README.md`.
 
 Existing deployed modules do not contain the dispatch branch. T3tris vaults
 need a newly deployed guard.
 
-### 4. Anvil settlement driver
+### 5. Anvil settlement driver
 
 `T3trisDepositManager.force_settle()`, shaped like Atoma's:
 
@@ -216,7 +250,7 @@ need a newly deployed guard.
 5. Return `VaultForcedSettlementResult` with before/after status and
    transaction hashes; raise if the ticket did not become claimable.
 
-### 5. Tests
+### 6. Tests
 
 Both on the shared Arbitrum fork pool (midnight block, `xdist_group`,
 `evm_snapshot_revert`) against First USDC.
@@ -228,8 +262,8 @@ Both on the shared Arbitrum fork pool (midnight block, `xdist_group`,
     USDC assertions and analysed results;
   - guard rejections: an unapproved approval spender, a substituted address
     in every validated position of all four calls, `unsafe=true`, non-empty
-    `permit2Data`, and the unregistered `decreaseDepositRequest`, `settle`
-    and `multicall` selectors;
+    `permit2Data`, and the unregistered `decreaseDepositRequest`, `settle`,
+    `forceClaimDeposit`, `unsafeRedeem` and `multicall` selectors;
   - guard policy: feature-bearing and address-only descriptors resolve to the
     T3tris calls in `setup_guard()`, and a resolution failure sends no policy
     transaction.
@@ -239,7 +273,103 @@ Both on the shared Arbitrum fork pool (midnight block, `xdist_group`,
   open), ticket serialisation round trip, and a consumed ticket reporting
   `none` after a later request.
 
-### 6. Deposit probe and status data
+### 7. Agent security review of the modified contracts
+
+A dedicated security review of the Solidity changes, separate from the
+`clean-up-for-pr` cross-agent review of the whole PR. It runs after steps 3–6
+pass and before the capability metadata in step 1 is published.
+
+**Precedents followed.**
+
+- Guard hardening audits
+  [#769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/769)
+  and [#772](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/772):
+  a review of `GuardV0Base` and `TradingStrategyModuleV0` against the
+  compromised-asset-manager threat, findings with severity IDs (M-1, L-1),
+  each fixed finding paired with a negative test, and sizes reported after
+  the fixes. [#773](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/773)
+  added source comments for accepted findings.
+- Lighter guard plan reviews in
+  `docs/superpowers/plans/2026-10-27-lighter-core-vault-guard-review.md` and
+  `…-fable-review.md`: a metadata header (date, CLI version and confirmed
+  model, effort, method, exact invocation, reviewed revision), the reviewer
+  output preserved verbatim, and a primary-agent disposition table of
+  finding, assessment and action.
+- The invocation, streaming, timeout and result-validation rules in
+  `.claude/docs/agent-tricks-and-troubleshooting.md`.
+
+**Scope.** The diff to `contracts/guard/src/GuardV0Base.sol` from steps 3
+and 4, the selector script, the rebuilt `GuardV0` and
+`TradingStrategyModuleV0` sizes, and the guard tests from step 6 for test
+adequacy. The Python manager is out of scope here; `clean-up-for-pr` covers
+it.
+
+**Reviewers.** Two independent, grounded, read-only reviews, run in
+parallel in the background with a 15-minute deadline and raw JSONL output:
+
+1. Codex CLI with `gpt-6-astra`:
+   `codex exec --json --sandbox read-only -m gpt-6-astra "<brief>" < /dev/null`.
+2. Claude CLI with `claude-opus-5-5`, read-only tools, as in the Lighter
+   review: `claude -p "<brief>" --model claude-opus-5-5 --effort high
+   --permission-mode dontAsk --allowedTools "Bash,Read,Grep,Glob"
+   --disallowedTools "Edit,Write,MultiEdit,Skill,Task" --output-format
+   stream-json --verbose --no-session-persistence < /dev/null`.
+
+Smoke-test both model IDs first. Accept a review only from a final `result`
+or `turn.completed` event, and confirm it inspected this worktree and a
+non-empty diff. Tell both reviewers not to edit files, run tests or start
+other agents or cleanup skills; give them the test results instead, because
+a read-only sandbox cannot run pytest or Forge.
+
+**Brief.** Threat model: a compromised but allowed asset manager, not
+governance, trying to move, redirect or strand the Safe's tokens, shares or
+pending requests. Governance, the T3tris curator and the oracle owner are
+trusted; `anyAsset` is disabled in product deployments. The reviewers check:
+
+- *Calldata refactor:* each of the 17 validators accepts and rejects exactly
+  the same inputs as before, including short, malformed and dirty-bit
+  arguments and dynamic `bytes` offsets; no caller still passes a memory
+  argument; the Atoma payload-length check and every revert message are
+  unchanged.
+- *T3tris validation:* each selector constant matches its signature; the
+  decode types match the ABI; every address argument is validated at its ABI
+  position, including the auto-claim receivers (`receiver` on
+  `requestDeposit`, `previousClaimReceiver` on `requestRedeem`); `owner`
+  cannot name an account other than the Safe; `unsafe` and `permit2Data` are
+  pinned.
+- *Whitelisting:* `whitelistT3tris()` is `onlyGuardOwner`, registers only the
+  four call sites, and allows only the vault as approval destination. Check
+  what becomes reachable if governance also calls `whitelistERC4626()` on a
+  T3tris vault, and the interaction with `anyAsset` and the call-site check.
+- *Integration:* storage layout and library links are unchanged, existing
+  deployments behave as before, both contracts stay under EIP-170, and the
+  internal version is bumped.
+- *Tests:* every validated position and both pinned flags have a negative
+  case, the positive lifecycle runs through `performCall()`, and the
+  unregistered selectors are rejected.
+
+Findings first, each with a severity (critical, high, medium, low or
+informational), an ID, `file:line`, the exploit path (which call, what moves
+where) and the fix. Then state for each checklist area that no issue was
+found and what was checked, and give a verdict.
+
+**Disposition.**
+
+- Verify every finding against the code before acting.
+- Fix each valid critical, high or medium finding with a negative test that
+  fails before the fix, as in #772.
+- Fix a low finding or accept it with a short source comment beside the code
+  and a note in the `contracts/guard/README.md` security model, as in #773.
+- After fixes, rerun the guard regression gates and a blocking-only review
+  pass on the changed lines.
+- Record the review in `.claude/plans/t3tris-guard-security-review.md`, with
+  the Lighter review's metadata header, the verbatim outputs and a
+  disposition table, and post the findings table as a PR comment.
+
+The review passes when no critical, high or medium finding remains open and
+every low finding is fixed or documented as accepted.
+
+### 8. Deposit probe and status data
 
 - `deposit_probe.py`: pick `whitelistT3tris` for a `T3trisVault`, next to the
   existing `whitelistAtoma` choice. The existing asynchronous
@@ -247,7 +377,7 @@ Both on the shared Arbitrum fork pool (midnight block, `xdist_group`,
 - Rerun the probe for the two T3tris rows following
   `README-deposit-status.md`; do not hand-edit the JSON.
 
-### 7. Persisted metadata, docs and changelog
+### 9. Persisted metadata, docs and changelog
 
 - New numbered migration under `migration/scripts/` refreshing the persisted
   `_deposit_manager` capability for T3tris rows, with the PR run reminder.
@@ -260,8 +390,9 @@ Both on the shared Arbitrum fork pool (midnight block, `xdist_group`,
 ## Risks and open questions
 
 - **The calldata change touches every validator.** It is mechanical and the
-  Foundry suite passes on it, but the Python guard suites must be rerun on the
-  rebuilt ABIs before merge. It could also ship as its own small PR first.
+  Foundry suite passes on the sizing prototype. It lands as its own commit,
+  runs the full guard regression gates, and is the first item of the step 7
+  security review. It could also ship as its own small PR first.
 - **`unsafe` semantics are unverified.** Every historical call passes
   `false`; the guard pins it to `false`.
 - **No mock or Foundry case.** This follows Atoma but not the letter of the
@@ -304,3 +435,8 @@ existing validators to calldata parameters raises the module margin from 317
 to 1,517 bytes. That allows plain dedicated T3tris validators with `unsafe`
 and `permit2Data` pinned again, and an onchain `whitelistT3tris()` instead of
 the Python call-list helper, ending at 573 bytes of margin.
+
+**Plan update, 2026-11-14.** The guard size optimisation is now its own step
+and commit (step 3) with its measurements and regression gates, the T3tris
+guard work bumps the internal version, and an agent security review of the
+modified contracts (step 7) gates the published capability.
