@@ -53,6 +53,34 @@ repository and GraphQL endpoint return 404, so the committed
 | Pending | otherwise `getRequestDepositAmount(owner, id) > 0` | otherwise `getRequestRedeemAmount(owner, id) > 0` |
 | None | both 0 (claimed, auto-claimed or cancelled) | both 0 |
 
+## Implementation status
+
+Implemented on 2026-11-14 in commits `84596e7b4` (step 3), `03841b30b`
+(step 4), `a1f96cd4c` (steps 1, 2, 5 and 6), `ff255257b` (step 9) and
+`69ab8729d` (step 7 fixes). The security review record is
+[t3tris-guard-security-review.md](t3tris-guard-security-review.md).
+
+Deviations from the steps below:
+
+- Step 2: claim analysis decodes `ClaimDeposit` and `ClaimRedeem` in one
+  helper and raises `VaultRequestInvariantViolation` when the claim's request
+  id, owner or receiver differ from the ticket, instead of relying on the
+  inherited redemption analyser's topic positions.
+- Step 5: the inline oracle ABI fragment has `owner()` and
+  `setTotalAssets(uint256)`; the refreshed value is the vault's
+  `totalAssets()`.
+- Step 6: the guard test also covers the automatic claims made by a new
+  request, malformed calldata and the share-token calls, from the security
+  review.
+- Step 8 is not done. The probe selects candidates from
+  `~/.tradingstrategy/vaults/vault-metadata-db.pickle`, and the local copy
+  has no T3tris rows. An operator with a current database must rerun it with
+  `VAULT_SELECTION=protocol PROTOCOL=T3tris CHAIN_ID=42161`. Until then the
+  two T3tris rows in `vault-deposit-status.json` still record the old
+  `reverted` result; the guarded fork tests are the certification.
+- `tests/lagoon/test_lagoon_max_settlement.py` now checks the guard internal
+  version with `>=`, because the settlement limit constant is a minimum.
+
 ## Comparison with existing integrations
 
 | | Atoma | IPOR | Lagoon | T3tris (this plan) |
