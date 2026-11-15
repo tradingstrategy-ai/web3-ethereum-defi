@@ -29,7 +29,7 @@ VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
 
 class VaultDepositPermission(str, enum.Enum):
-    """Whether deposits require a pre-approved recipient account.
+    """Deposit account policy or an explicit unsupported-integration status.
 
     A pre-approval can be KYC, manual identity approval, or a source-proven
     recipient allowlist. It does not describe a particular account's balance,
@@ -59,6 +59,9 @@ class VaultDepositPermission(str, enum.Enum):
     #: The adapter cannot safely determine the applicable identity policy or
     #: native-perp public-participation status.
     unknown = "unknown"
+
+    #: Protocol integration is unsupported; exclude from new investment.
+    unsupported_protocol = "unsupported_protocol"
 
 
 @dataclass(frozen=True, slots=True)

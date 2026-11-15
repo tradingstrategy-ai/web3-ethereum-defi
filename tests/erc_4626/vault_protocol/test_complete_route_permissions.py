@@ -3,6 +3,9 @@ from unittest.mock import Mock, patch
 import pytest
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault
+from eth_defi.vault.exception import UnsupportedVaultProtocol
+from eth_defi.erc_4626.scan import fetch_deposit_permission
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 OWNER = "0x1111111111111111111111111111111111111111"
 ZERO = "0x" + "00" * 20
@@ -23,19 +26,14 @@ def morpho() -> MorphoV2Vault:
     '816dcddcb7949bd8556058b47e2f638b163d658d',
     '13d8602fa8dc916704194ec25bf73bffd6b39fed',
 ])
-def test_reviewed_vault_morpho_implementation_is_public(implementation: str) -> None:
+def test_vault_morpho_implementations_are_all_unsupported(implementation: str) -> None:
     vault = object.__new__(VaultMorphoVault)
     vault.web3 = Mock()
     vault.spec = Mock(vault_address=OWNER, chain_id=1)
-    vault.web3.eth.chain_id = 1
-    vault.default_block_identifier = 123
-    vault.web3.eth.get_storage_at.return_value = bytes(12) + bytes.fromhex(implementation)
-    assert vault.is_whitelisted_deposit() is False
-    assert vault.is_permissionless(OWNER) is True
-    assert vault.web3.eth.get_storage_at.call_args.kwargs['block_identifier'] == 123
-    vault.web3.eth.get_storage_at.return_value = bytes(32)
-    with pytest.raises(NotImplementedError, match='Unreviewed'):
+    assert fetch_deposit_permission(vault) is VaultDepositPermission.unsupported_protocol
+    with pytest.raises(UnsupportedVaultProtocol):
         vault.is_permissionless(OWNER)
+    vault.web3.eth.get_storage_at.assert_not_called()
 
 
 def test_public_outer_with_exit_gate_is_not_permissionless():
@@ -108,16 +106,30 @@ def test_reviewed_market_requires_its_parent_and_no_getter_fallback():
                 vault.is_permissionless(OWNER)
 
 
-def test_vault_morpho_proxy_read_rejects_malformed_storage_and_unreviewed_chain() -> None:
+@pytest.mark.parametrize('chain', [1, 8453, 999])
+def test_vault_morpho_unsupported_is_independent_of_chain_and_rpc(chain: int) -> None:
     vault = object.__new__(VaultMorphoVault)
     vault.web3 = Mock()
-    vault.spec = Mock(vault_address=OWNER, chain_id=1)
-    vault.default_block_identifier = 123
-    vault.web3.eth.get_storage_at.return_value = b''
-    with pytest.raises(NotImplementedError, match='Malformed ERC-1967'):
-        vault.is_whitelisted_deposit()
-    vault.spec.chain_id = 8453
-    vault.web3.eth.get_storage_at.reset_mock()
-    with pytest.raises(NotImplementedError, match='unreviewed on chain 8453'):
-        vault.is_whitelisted_deposit()
+    vault.spec = Mock(vault_address=OWNER, chain_id=chain)
+    assert fetch_deposit_permission(vault) is VaultDepositPermission.unsupported_protocol
+    with pytest.raises(UnsupportedVaultProtocol):
+        vault.get_deposit_manager().can_create_deposit_request(OWNER)
+    with pytest.raises(UnsupportedVaultProtocol):
+        vault.get_deposit_manager().fetch_depositable_raw_assets(OWNER)
+    with pytest.raises(UnsupportedVaultProtocol):
+        vault.get_deposit_manager().create_deposit_request(OWNER, raw_amount=100, check_max_deposit=False, check_enough_token=False)
+    assert vault.get_deposit_manager().can_create_redemption_request(OWNER) is True
     vault.web3.eth.get_storage_at.assert_not_called()
+
+
+def test_scan_failure_keeps_unsupported_protocol_status() -> None:
+    import datetime
+    from types import SimpleNamespace
+    from eth_defi.erc_4626.scan import create_vault_scan_record
+    adapter=Mock()
+    adapter.unsupported_protocol_reason='Unsupported integration'
+    adapter.get_fee_data.return_value=object()  # Force the existing broken-row fallback.
+    detection=SimpleNamespace(address=OWNER,features=set(),first_seen_at=datetime.datetime(2026,1,1))
+    with patch('eth_defi.erc_4626.scan.create_vault_instance',return_value=adapter):
+        row=create_vault_scan_record(Mock(),detection,123,token_cache={})
+    assert row['_deposit_permission']=='unsupported_protocol'

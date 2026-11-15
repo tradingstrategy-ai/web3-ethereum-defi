@@ -21,6 +21,7 @@ from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault, VaultMorphoDepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
+from eth_defi.vault.exception import UnsupportedVaultProtocol
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, UnsupportedVaultSimulation
 from eth_defi.vault.risk import get_vault_risk
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader
@@ -190,7 +191,7 @@ def test_vault_morpho_cap_does_not_change_canonical_morpho() -> None:
     assert "app.morpho.org" not in vault.get_link()
     assert not hasattr(vault, "morpho_api_result")
     provider.eth.get_storage_at.return_value = bytes(32)
-    with pytest.raises(NotImplementedError, match="Unreviewed VaultMorpho"):
+    with pytest.raises(UnsupportedVaultProtocol):
         vault.is_whitelisted_deposit()
     assert isinstance(vault, VaultMorphoVault)
     assert not isinstance(canonical, VaultMorphoVault)
@@ -203,12 +204,14 @@ def test_vault_morpho_cap_does_not_change_canonical_morpho() -> None:
     contract.functions.maxDeposit.return_value.call.return_value = 1000
     manager = vault.get_deposit_manager()
     assert isinstance(manager, VaultMorphoDepositManager)
-    assert manager.fetch_depositable_raw_assets(OWNER) == 10
+    assert vault.fetch_deposit_capacity() == 10
+    with pytest.raises(UnsupportedVaultProtocol):
+        manager.fetch_depositable_raw_assets(OWNER)
     contract.functions.tvlCap.return_value.call.assert_called_with(block_identifier=123)
     contract.functions.totalAssets.return_value.call.assert_called_with(block_identifier=123)
     # 3. An already exhausted cap is a genuine global refusal.
     contract.functions.totalAssets.return_value.call.return_value = 101
-    assert manager.fetch_depositable_raw_assets(OWNER) == 0
+    assert vault.fetch_deposit_capacity() == 0
     assert vault.fetch_deposit_closed_reason() == "VaultMorpho tvlCap reached"
 
 

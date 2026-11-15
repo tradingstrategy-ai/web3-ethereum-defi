@@ -107,36 +107,22 @@ API
 
    eth_defi.erc_4626.vault_protocol.vault_morpho.vault
 
-Permission inspection
----------------------
+Unsupported protocol status
+---------------------------
 
-The adapter now verifies the EIP-1967 implementation before classifying access.
-At Ethereum block 26402309 the four reviewed proxies use implementations
-``0xf392a5b96d3248440bb4841b4f50f0862060c1a3``,
-``0xfa0d6e598d13e9220e5de48db4ed087c8f8847b3``,
-``0x816dcddcb7949bd8556058b47e2f638b163d658d`` and
-``0x13d8602fa8dc916704194ec25bf73bffd6b39fed``. Their verified Solidity
-source is identical (SHA-256
-``4707c3641938c3d30f3c753de36a5a0ffe973a40a52f35bfbb067cb36308bf4c``).
-The reviewed deposit, mint, transfer, withdraw and redeem paths have no account
-allowlist. Administrative curator/allocator roles do not restrict depositors.
-An unreviewed implementation remains unknown after an upgrade.
+All VaultMorpho-family integrations report ``unsupported_protocol`` regardless
+of chain, implementation address or owner. The protocol/operator has not been
+properly identified and supported. Source review of selected implementations is
+not an exception to that decision. This supersedes the implementation-address
+permission support introduced during the initial repair.
 
-``is_permissionless(owner)`` is an opt-in complete-route policy check. It does
-not certify capacity, fees or successful execution. Existing cap checks and
-protocol attribution remain separate. Migration 078 refreshes only the six
-reviewed permission records, including two stale canonical Morpho V2 records;
-prices and discovery data are preserved. Production application and normal
-export publication remain operator actions. No price backfill is needed.
+The scanner and JSON export retain this distinct status in
+``deposit_permission`` and ``whitelist.status``. Consumers exclude it from new
+investment in the same way as a permissioned vault, without calling it an actual
+whitelist restriction or downgrading it to unknown. The test-trade command
+records ``unsupported_protocol`` before any deposit or Guard-only test.
 
-The permission check is an implementation-version support boundary, not a Safe
-or depositor allowlist. ``False`` means no whitelist is required; an unreviewed
-implementation or chain raises ``NotImplementedError`` so the scanner records
-unknown policy. It must not be interpreted as a proven account restriction.
-
-The proxy-to-implementation mapping and verified source links are recorded in
-``eth_defi/abi/vault_morpho/README.md``. ``fetch_implementation()`` reads the
-standard `ERC-1967 logic-contract slot <https://eips.ethereum.org/EIPS/eip-1967#logic-contract-address>`__
-at the chosen block. The slot is derived from the standard label instead of an
-unexplained hexadecimal literal. The proxy need not expose an ABI getter for
-this storage value; ordinary contract calls continue to use ABI-bound methods.
+The data-only adapter keeps price/history, attribution, cap diagnostics and
+legacy redemption/recovery paths. It rejects deposit request construction.
+Migration 078 refreshes every saved family record on all chains, preserving
+prices and discovery history. Apply and export publication remain operator work.

@@ -31,7 +31,7 @@ protocol. Keep pauses, caps, quotas, withdrawal windows and liquidity separate
 from identity approval.
 
 The shared scanner resolver, ``fetch_deposit_permission()``, persists
-``_deposit_permission`` as ``whitelisted``, ``permissionless`` or ``unknown``.
+``_deposit_permission`` as ``whitelisted``, ``permissionless``, ``unknown`` or ``unsupported_protocol``.
 An unreadable or unsupported policy must not become ``permissionless``.
 The metrics exporter copies this field to ``deposit_permission``,
 ``whitelist.status`` and the supported ``deposit_manager`` mapping. Capability
@@ -601,3 +601,7 @@ Accordingly, an outcome such as ``simulation unsupported async`` in the
 operational report is a useful request to run the appropriate mock or
 protocol-specific driver. It must not be re-labelled as a completed live-fork
 redemption when settlement authority or liquidity is absent.
+
+`unsupported_protocol` is a deliberate integration exclusion, not unknown access
+or evidence of an account whitelist. Export and exclude it like a permissioned
+vault. Upgrade client/consumer enums and filters before publishing this new value.

@@ -226,7 +226,7 @@ def test_vault_base_permission_methods_require_protocol_mapping() -> None:
 
 def test_deposit_permission_enum_values_are_json_safe() -> None:
     """Public report values remain stable snake-case strings."""
-    assert [permission.value for permission in VaultDepositPermission] == ["whitelisted", "permissionless", "unknown"]
+    assert [permission.value for permission in VaultDepositPermission] == ["whitelisted", "permissionless", "unknown", "unsupported_protocol"]
 
 
 def test_ipor_delayed_access_is_not_immediately_admissible() -> None:

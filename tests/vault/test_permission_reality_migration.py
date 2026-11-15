@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from eth_defi.vault.base import VaultSpec
+from eth_defi.erc_4626.core import ERC4626Feature
 
 
 def test_permission_refresh_changes_only_known_target_policy():
@@ -15,15 +16,17 @@ def test_permission_refresh_changes_only_known_target_policy():
     for address in module.TARGETS:
         identity = VaultSpec(1, address)
         rows[identity] = {'_detection_data': SimpleNamespace(get_spec=lambda identity=identity:identity, features=set()), '_deposit_permission':'unknown', 'NAV':123, 'First seen':'original'}
+    extra = VaultSpec(8453, '0x2222222222222222222222222222222222222222')
+    rows[extra] = {'_detection_data': SimpleNamespace(get_spec=lambda:extra, features={ERC4626Feature.vault_morpho_like}), '_deposit_permission':'permissionless', 'NAV':123, 'First seen':'original'}
     context = Mock()
     context.metadata.return_value.rows = rows
     web = Mock()
     web.eth.block_number = 456
-    policies = [SimpleNamespace(value=v) for v in ['permissionless']*4 + ['whitelisted','unknown']]
+    policies = [SimpleNamespace(value=v) for v in ['whitelisted','unknown']]
     with patch.object(module,'read_json_rpc_url',return_value='unused'), patch.object(module,'create_multi_provider_web3',return_value=web), patch.object(module,'create_vault_instance'), patch.object(module,'fetch_deposit_permission',side_effect=policies):
         module.migrate(context)
-    assert [r['_deposit_permission'] for r in rows.values()] == ['permissionless']*4+['whitelisted','unknown']
+    assert [r['_deposit_permission'] for r in rows.values()] == ['unsupported_protocol']*4+['whitelisted','unknown','unsupported_protocol']
     assert all(r['NAV']==123 and r['First seen']=='original' for r in rows.values())
-    assert context.report.call_args.kwargs['changed_rows']==5
+    assert context.report.call_args.kwargs['changed_rows']==6
     assert len(context.report.call_args.kwargs['unresolved_specs'])==1
     context.commit_metadata.assert_called_once()
