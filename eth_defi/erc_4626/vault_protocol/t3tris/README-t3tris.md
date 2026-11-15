@@ -24,7 +24,7 @@ The earlier T3tris documentation described the protocol architecture as:
 - `SyncSilo`, `DepositSilo` and `RedeemSilo`, ERC-4626 silo contracts used for
   open, pending deposit and pending redemption liquidity.
 
-The docs state that T3tris smart contract source code is not verified on-chain
+The docs state that T3tris smart contract source code is not verified onchain
 and that only interfaces are published. Treat the public interface docs and the
 live application ABI as the integration sources, not explorer-verified Solidity.
 
@@ -348,10 +348,12 @@ sources, and the measured one is preferred.
 `settlement.py` records every `DepositsSettled` event into the vault
 settlement database (`vault-settlements.duckdb`) through the shared
 settlement scanner. History backfills from each vault's first-seen block on
-the next scanner cycle. Backtests read these rows as `vault_settlement_at`
-markers, so a queued deposit completes at an actual onchain settlement
-rather than after a guessed delay. Use these markers, or intervals computed
-from them, wherever the timing matters.
+the next scanner cycle. The price cleaning pipeline exposes them as
+`vault_settlement_at` markers. A backtest that gates T3tris deposits on
+these markers completes a queued deposit at an actual onchain settlement
+rather than after a guessed delay; trade-executor does this for Lagoon and
+D2, and needs `t3tris_like` added to do it for T3tris. Use these markers, or
+intervals computed from them, wherever the timing matters.
 
 Only `DepositsSettled` is recorded. Curators settle with `settle()`,
 `settleDeposits()` or `settleRedemptions()`, and First USDC's history uses
@@ -367,8 +369,10 @@ from today; not a scheduled or guaranteed date". `offchain_metadata.py`
 subtracts the response's `Date` header to get the interval and caches the
 interval, not the timestamp. `T3trisVault.get_withdrawal_period()` publishes
 it as a non-binding `estimated_settlement`, as Lagoon does with its
-`averageSettlement`. Backtests use it as the delay for both directions where
-no measured settlement applies, which in practice means redemptions.
+`averageSettlement`. A backtest can use it as the delay for both
+directions where no measured settlement applies, which in practice means
+redemptions. trade-executor uses such estimates only for protocols it lists,
+and T3tris is not yet one of them.
 
 The estimate is weak. Values on 15 November 2026:
 
@@ -383,8 +387,9 @@ The estimate is weak. Values on 15 November 2026:
   it could not be reproduced from the API's activity feed.
 - It ignores how long ago the last settlement was, so a dormant vault can
   report a sub-day interval.
-- Intervals under one hour are discarded (`MIN_AVERAGE_SETTLEMENT_SECONDS`):
-  they only come from settlements in the same block.
+- Intervals under one hour are discarded (`MIN_AVERAGE_SETTLEMENT_SECONDS`).
+  This is a heuristic prompted by Kingfisher's 20-second value, which came
+  from two settlements in the same block.
 - A missing or `null` value, and the vault-list fallback response, give no
   estimate.
 - The field is undocumented and can change or disappear.

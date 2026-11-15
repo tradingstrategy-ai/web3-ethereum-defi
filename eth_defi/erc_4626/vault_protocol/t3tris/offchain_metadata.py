@@ -1,6 +1,6 @@
 """T3tris vault offchain metadata.
 
-- T3tris stores vault page descriptions in their backend, not on-chain
+- T3tris stores vault page descriptions in their backend, not onchain
 - The detail endpoint ``/api/vaults/{chainId}/{vaultAddress}`` on the
   `T3tris app <https://earn.t3tris.finance/vaults>`__ returns the same page
   view model shown in the app; it answers 404 for vaults the app does not list
@@ -39,10 +39,10 @@ RESPONSE_TIMESTAMP_KEY = "_response_ts"
 
 #: Shortest average settlement interval accepted as an estimate, in seconds.
 #:
-#: Settlement needs an oracle valuation and a curator transaction, so a
-#: sub-hour average only arises from settlements in the same block. In
-#: November 2026 the Kingfisher vault reported an interval of about 20
-#: seconds this way.
+#: A heuristic floor. In November 2026 the Kingfisher vault, whose two
+#: settlements were in the same block, reported an interval of about 20
+#: seconds. T3tris does not publish its averaging method, so a sub-hour value
+#: is treated as an artefact rather than a real settlement cadence.
 MIN_AVERAGE_SETTLEMENT_SECONDS = 3600
 
 logger = logging.getLogger(__name__)
@@ -240,6 +240,7 @@ def _fetch_vault_detail(
     chain_id: int,
     address: str,
     api_base_url: str = DEFAULT_API_BASE_URL,
+    strict: bool = False,
 ) -> dict | None:
     """Fetch detailed vault metadata from the T3tris web app API.
 
@@ -251,6 +252,12 @@ def _fetch_vault_detail(
 
     :param api_base_url:
         T3tris API base URL.
+
+    :param strict:
+        Raise transient failures instead of falling back to the vault list,
+        which carries no settlement estimate. A 404 still returns ``None``.
+        Migrations use this so that a failed fetch is retried rather than
+        recorded as a vault without an estimate.
 
     :return:
         Raw JSON response dict, or ``None`` if T3tris does not list the vault
@@ -272,9 +279,13 @@ def _fetch_vault_detail(
             # Vaults deployed on the protocol but not listed in the app
             logger.info("T3tris app does not list vault %s on chain %d", address, chain_id)
             return None
+        if strict:
+            raise
         logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
         return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
     except (requests.RequestException, JSONDecodeError) as e:
+        if strict:
+            raise
         logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
         return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
 

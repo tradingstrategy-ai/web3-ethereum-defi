@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 from hexbytes import HexBytes
+from web3 import Web3
+from web3.providers import BaseProvider
 from web3.datastructures import AttributeDict
 
 from eth_defi.erc_4626 import settlement_scan as settlement_scan_module
@@ -27,7 +29,6 @@ ACCOUNTABLE_ADDRESS = "0xa000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 T3TRIS_ADDRESS = "0x3300000000000000000000000000000000000000"
 #: T3tris First USDC on Arbitrum.
 T3TRIS_SCAN_ADDRESS = "0x98e43a491a464f0886bc5e57207c340bbed0d01f"
@@ -330,34 +331,98 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
     ]
 
 
-@pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run this test")
-def test_update_settlement_database_for_chain_records_t3tris_deposit_settlements_only(tmp_path: Path) -> None:
-    """T3tris scans record ``DepositsSettled`` and ignore redemption-only settlements.
+#: First USDC settlement logs, copied from the two transaction receipts.
+T3TRIS_SETTLEMENT_LOGS = [
+    # settle() at block 512,370,484: DepositsSettled then RedemptionsSettled.
+    AttributeDict(
+        {
+            "address": T3TRIS_SCAN_ADDRESS,
+            "blockNumber": T3TRIS_BOTH_SETTLED_BLOCK,
+            "logIndex": 30,
+            "transactionHash": HexBytes("0x82afa5fb88d863368f0c874f318571f8ae97fb69cca86996b0368d2010926c79"),
+            "blockHash": HexBytes("0xe5b8c893bc4eb871204a0d71c535d583549ca99c4ae82979306229f3d1e25311"),
+            "blockTimestamp": 1_791_323_539,
+            "topics": [HexBytes("0x43a8cab7b18b79866856f494aa7bf060d1ad376dc9e089c2e6a20b79f57fb016"), HexBytes("0x" + "00" * 31 + "0a")],
+            "data": HexBytes("0x" + "00" * 32),
+        }
+    ),
+    AttributeDict(
+        {
+            "address": T3TRIS_SCAN_ADDRESS,
+            "blockNumber": T3TRIS_BOTH_SETTLED_BLOCK,
+            "logIndex": 31,
+            "transactionHash": HexBytes("0x82afa5fb88d863368f0c874f318571f8ae97fb69cca86996b0368d2010926c79"),
+            "blockHash": HexBytes("0xe5b8c893bc4eb871204a0d71c535d583549ca99c4ae82979306229f3d1e25311"),
+            "blockTimestamp": 1_791_323_539,
+            "topics": [HexBytes("0x9ec2adc9d0f6e58450de3b9a314a4517095ee3c48a14cdd05e8b7f3bc947ee06"), HexBytes("0x" + "00" * 31 + "05")],
+            "data": HexBytes("0x" + "00" * 32),
+        }
+    ),
+    # settleRedemptions() at block 514,074,740: RedemptionsSettled only.
+    AttributeDict(
+        {
+            "address": T3TRIS_SCAN_ADDRESS,
+            "blockNumber": T3TRIS_REDEMPTIONS_ONLY_BLOCK,
+            "logIndex": 24,
+            "transactionHash": HexBytes("0xced97a21c1384bee72a83ce26f30c483daade6a43705bbdb69724b01790ee652"),
+            "blockHash": HexBytes("0x8c83a9f4a45a69abf1635ae69da084c05420f38c00179b64b35af0a38aad7493"),
+            "blockTimestamp": 1_791_797_533,
+            "topics": [HexBytes("0x9ec2adc9d0f6e58450de3b9a314a4517095ee3c48a14cdd05e8b7f3bc947ee06"), HexBytes("0x" + "00" * 31 + "06")],
+            "data": HexBytes("0x" + "00" * 32),
+        }
+    ),
+]
 
-    1. Scan a ``settle()`` block and a ``settleRedemptions()`` block of First USDC.
-    2. Only the deposit settlement is stored, and both blocks advance the scan watermark.
+
+class ArbitrumChainIdProvider(BaseProvider):
+    """Answer only ``eth_chainId`` so the test proves the scan makes no other RPC reads."""
+
+    def make_request(self, method: str, params: object) -> dict:
+        """Return Arbitrum's chain id and reject every other call.
+
+        :param method: RPC method name.
+        :param params: Request parameters.
+        :return: JSON-RPC envelope.
+        """
+        assert method == "eth_chainId", f"Unexpected RPC method {method}"
+        return {"jsonrpc": "2.0", "id": 1, "result": hex(42161)}
+
+
+def test_update_settlement_database_for_chain_records_t3tris_deposit_settlements_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """T3tris scans store ``DepositsSettled`` and ignore ``RedemptionsSettled``.
+
+    1. Serve First USDC's real settlement logs for a ``settle()`` and a
+       ``settleRedemptions()`` block from the log-fetch boundary.
+    2. Only the deposit settlement is stored, and the watermark reaches the
+       end of the range.
     """
     pytest.importorskip("duckdb")
     timestamp = datetime.datetime(2026, 7, 1)
     detection = ERC4262VaultDetection(chain=42161, address=T3TRIS_SCAN_ADDRESS, first_seen_at_block=T3TRIS_BOTH_SETTLED_BLOCK, first_seen_at=timestamp, features={ERC4626Feature.t3tris_like}, updated_at=timestamp, deposit_count=1, redeem_count=1)
     rows_by_key = {(42161, T3TRIS_SCAN_ADDRESS): {"Address": T3TRIS_SCAN_ADDRESS, "Protocol": "T3tris", "features": detection.features, "_detection_data": detection}}
-    database = VaultSettlementDatabase(tmp_path / "t3tris-settlements.duckdb")
-    web3 = create_multi_provider_web3(JSON_RPC_ARBITRUM)
-    try:
-        # 1. Scan a settle() block and a settleRedemptions() block of First USDC.
-        for block in (T3TRIS_BOTH_SETTLED_BLOCK, T3TRIS_REDEMPTIONS_ONLY_BLOCK):
-            settlement_scan_module._update_settlement_database_for_chain(
-                database=database,
-                web3=web3,
-                chain_id=42161,
-                ranges=[VaultSettlementScanRange(chain_id=42161, address=T3TRIS_SCAN_ADDRESS, start_block=block, end_block=block)],
-                rows_by_key=rows_by_key,
-                token_cache=TokenDiskCache(),
-                use_hypersync=False,
-                chunk_size=1,
-            )
+    requested_topics: list[list[str]] = []
 
-        # 2. Only the deposit settlement is stored, and both blocks advance the scan watermark.
+    # 1. Serve First USDC's real settlement logs from the log-fetch boundary.
+    def fake_fetch(*, topic0_list: list[str], **_kwargs) -> list[AttributeDict]:
+        requested_topics.append(topic0_list)
+        return T3TRIS_SETTLEMENT_LOGS
+
+    monkeypatch.setattr(settlement_scan_module, "fetch_vault_settlement_logs_for_addresses", fake_fetch)
+    database = VaultSettlementDatabase(tmp_path / "t3tris-settlements.duckdb")
+    try:
+        settlement_scan_module._update_settlement_database_for_chain(
+            database=database,
+            web3=Web3(ArbitrumChainIdProvider()),
+            chain_id=42161,
+            ranges=[VaultSettlementScanRange(chain_id=42161, address=T3TRIS_SCAN_ADDRESS, start_block=T3TRIS_BOTH_SETTLED_BLOCK, end_block=T3TRIS_REDEMPTIONS_ONLY_BLOCK)],
+            rows_by_key=rows_by_key,
+            token_cache=TokenDiskCache(),
+            use_hypersync=True,
+            chunk_size=50_000,
+        )
+
+        # 2. Only the deposit settlement is stored, and the watermark reaches the end of the range.
+        assert requested_topics == [["0x43a8cab7b18b79866856f494aa7bf060d1ad376dc9e089c2e6a20b79f57fb016"]]
         settlements = database.get_settlements(chain_id=42161, address=T3TRIS_SCAN_ADDRESS)
         assert settlements[["block_number", "event_name", "protocol"]].to_dict("records") == [{"block_number": T3TRIS_BOTH_SETTLED_BLOCK, "event_name": "DepositsSettled", "protocol": "T3tris"}]
         assert database.get_latest_scanned_block_number(42161, T3TRIS_SCAN_ADDRESS) == T3TRIS_REDEMPTIONS_ONLY_BLOCK

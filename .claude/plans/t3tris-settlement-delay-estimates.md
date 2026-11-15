@@ -21,8 +21,8 @@ Implemented on 2026-11-15 on branch `t3tris-delay-estimates`, both parts.
 Deviations from the steps below:
 
 - Intervals under one hour are discarded (`MIN_AVERAGE_SETTLEMENT_SECONDS`),
-  not only intervals ≤ 0. The live Kingfisher response gave about 20
-  seconds: its zero average plus server lag.
+  not only intervals ≤ 0. This is a heuristic: the live Kingfisher response
+  gave about 20 seconds, its zero average plus server lag.
 - `_fetch_vault_detail()` keeps returning the JSON dict and attaches the
   response time under a private key, so existing callers and stubs work.
 - `create_t3tris_withdrawal_period()` in `vault.py` is shared by the adapter
@@ -31,8 +31,13 @@ Deviations from the steps below:
   preferred timing source and the offchain interval as a weak fallback.
 - The Hypersync failure check needed no code: a log-fetch error raises before
   `upsert_scan_state()`, and `continues_after_failed_chain` covers it.
-- The scanner test reads two real First USDC blocks: a `settle()` gives one
-  `DepositsSettled` row and a `settleRedemptions()` gives none.
+- The scanner test serves First USDC's real logs, copied from two
+  transaction receipts, at the log-fetch boundary: a `settle()` gives one
+  `DepositsSettled` row and a `settleRedemptions()` gives none. It makes no
+  RPC reads.
+- `_fetch_vault_detail()` has a `strict` mode. Migration 079 uses it, so a
+  timeout or server error fails the migration for a retry instead of being
+  recorded as a vault without an estimate.
 
 The trade-executor follow-up below is not done.
 
@@ -262,3 +267,18 @@ the code and applied:
 - Nit: no extra deduplication in the row builder.
 - Nit: add the Sphinx API entry for the new module.
 
+
+
+**PR cleanup review, 2026-11-15.** Codex CLI `gpt-6.1-sol`, read-only and
+grounded, on the implementation. Verdict: revise before handoff. Applied:
+
+- Migration 079 failed open on transient API errors; it now fetches in strict
+  mode, with a test that a 500 fails the run and a later run applies.
+- The scanner test read historical logs through JSON-RPC, which the
+  repository forbids; it now serves saved receipt logs and makes no RPC reads.
+- Added tests of `T3trisVault.get_withdrawal_period()` and the manager's
+  `get_estimated_lock_up()`, including an old cache entry without the key.
+- The one-hour floor is now described as a heuristic.
+
+Not adopted: seeding a legacy cache file in the migration test. The test
+already fails if the migration calls the cached fetcher at all.

@@ -99,3 +99,35 @@ def test_t3tris_settlement_estimate_preview_apply_and_preservation(tmp_path: Pat
     assert result.rows[OTHER]["_withdrawal_period"] == other_period
     assert result.last_scanned_block == database.last_scanned_block
     assert runner.run_pending_migrations(dry_run=False, **options) == []
+
+
+def test_t3tris_settlement_estimate_server_error_fails_and_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transient API failure fails the migration instead of storing no estimate.
+
+    1. A 500 from the detail endpoint aborts apply and leaves the database unchanged.
+    2. The migration is not journalled, so a later run applies the estimate.
+    """
+    for name in ("VAULT_DB", "VAULT_DB_PATH"):
+        monkeypatch.delenv(name, raising=False)
+    database = VaultDatabase(rows={LISTED: _row(LISTED, {ERC4626Feature.t3tris_like})}, last_scanned_block={42161: 123})
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    path = data_dir / "vault-metadata-db.pickle"
+    database.write(path)
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    script = next(item for item in runner.discover_migrations() if item.name == SCRIPT_NAME)
+    (scripts_dir / script.name).write_bytes(script.source)
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+
+    # 1. A 500 from the detail endpoint aborts apply and leaves the database unchanged.
+    original = path.read_bytes()
+    monkeypatch.setattr(offchain_metadata.requests, "get", lambda url, **_kwargs: _Response({}, status_code=500))
+    with pytest.raises(offchain_metadata.requests.HTTPError):
+        runner.run_pending_migrations(dry_run=False, **options)
+    assert path.read_bytes() == original
+
+    # 2. The migration is not journalled, so a later run applies the estimate.
+    monkeypatch.setattr(offchain_metadata.requests, "get", _fake_get)
+    assert runner.run_pending_migrations(dry_run=False, **options) == [SCRIPT_NAME]
+    assert VaultDatabase.read(path).rows[LISTED]["_withdrawal_period"].estimated_settlement == datetime.timedelta(seconds=479_171)

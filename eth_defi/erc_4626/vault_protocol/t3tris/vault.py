@@ -70,7 +70,7 @@ def create_t3tris_withdrawal_period(average_settlement_seconds: int | None) -> W
     :return:
         Estimate-only withdrawal period, or ``None`` when unknown.
     """
-    if not average_settlement_seconds or average_settlement_seconds <= 0:
+    if not average_settlement_seconds:
         return None
     return WithdrawalPeriod(
         min_period=None,
@@ -170,7 +170,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         return self.vault.fetch_oracle_address(self.vault._get_block_identifier())
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
-        """Get on-chain calls needed for corrected T3tris historical prices.
+        """Get onchain calls needed for corrected T3tris historical prices.
 
         In addition to the generic ERC-4626 calls we read ``isVaultOpen()`` to
         distinguish sync and async vault modes, ``isDepositEnabled()`` for the
@@ -331,7 +331,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
           returns ``False`` so the caller accepts the new raw PPS as measured
           NAV. If the loss was real, it now appears in the series.
         - **Raw PPS recovered:** this method returns ``False`` because the
-          on-chain ERC-4626 PPS and held PPS are back in line.
+          onchain ERC-4626 PPS and held PPS are back in line.
         - **Sync vault:** correction is disabled regardless of supply/PPS shape,
           because sync T3tris vaults are not oracle-valued and should not have
           this settlement gap.
@@ -749,9 +749,9 @@ class T3trisVault(ERC4626Vault):
     def get_withdrawal_period(self) -> WithdrawalPeriod | None:
         """Return T3tris' non-binding average settlement interval.
 
-        Used as the backtest settlement delay for both directions, because
-        T3tris publishes one interval. It is a weak estimate: see
-        :py:func:`create_t3tris_withdrawal_period`.
+        T3tris publishes one interval for both directions, so a consumer such
+        as a backtest applies it to deposits and redemptions alike. It is a
+        weak estimate: see :py:func:`create_t3tris_withdrawal_period`.
 
         :return:
             Estimate-only withdrawal period, or ``None`` when T3tris does not

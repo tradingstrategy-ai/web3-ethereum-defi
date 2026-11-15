@@ -1,10 +1,12 @@
 """T3tris deposit settlement event reader.
 
 The settlement scanner stores these rows in the generic vault settlement
-DuckDB database. Backtests read them as ``vault_settlement_at`` markers, the
-measured settlement cycle that replaces the weak offchain estimate from
+DuckDB database, and the price cleaning pipeline exposes them as
+``vault_settlement_at`` markers. They are measured settlements, preferred over
+the weak offchain estimate from
 :py:func:`~eth_defi.erc_4626.vault_protocol.t3tris.vault.create_t3tris_withdrawal_period`
-where recorded events exist.
+wherever they exist. A backtest only waits for them if it gates T3tris
+deposits on settlement events.
 
 Only ``DepositsSettled`` is recorded. T3tris curators settle with
 ``settle()``, ``settleDeposits()`` or ``settleRedemptions()``, and the

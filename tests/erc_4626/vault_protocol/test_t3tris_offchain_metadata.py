@@ -7,8 +7,8 @@ import pytest
 import requests
 
 from eth_defi.erc_4626.vault_protocol.t3tris import offchain_metadata
-from eth_defi.erc_4626.vault_protocol.t3tris.vault import create_t3tris_withdrawal_period
-from eth_defi.vault.base import WithdrawalDelayType
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault, create_t3tris_withdrawal_period
+from eth_defi.vault.base import VaultSpec, WithdrawalDelayType
 
 
 class _ResponseStub:
@@ -193,3 +193,20 @@ def test_t3tris_vault_list_row_has_no_settlement_interval() -> None:
     metadata = offchain_metadata._parse_vault_detail({"chainId": 42161, "name": "First - USDC", "lastSettlementTs": "1794719970"})
 
     assert metadata["average_settlement_seconds"] is None
+
+
+@pytest.mark.parametrize(("average_settlement_seconds", "expected"), [(479_171, datetime.timedelta(seconds=479_171)), (None, None)])
+def test_t3tris_vault_and_manager_publish_settlement_estimate(average_settlement_seconds: int | None, expected: datetime.timedelta | None) -> None:
+    """The adapter and its manager expose the parsed interval as the estimate.
+
+    Older cache files without the key also give no estimate.
+    """
+    vault = T3trisVault(None, VaultSpec(42161, "0x98e43a491a464f0886bc5e57207c340bbed0d01f"))
+    metadata = {"name": "First - USDC"}
+    if average_settlement_seconds is not None:
+        metadata["average_settlement_seconds"] = average_settlement_seconds
+    vault.__dict__["t3tris_metadata"] = metadata
+
+    period = vault.get_withdrawal_period()
+    assert (period.estimated_settlement if period else None) == expected
+    assert vault.get_deposit_manager().get_estimated_lock_up() == expected

@@ -19,7 +19,9 @@ LLM-generated operational migration; changes require human review.
 Network reads: one HTTPS request per T3tris vault to
 ``earn.t3tris.finance/api/vaults/{chainId}/{address}``. No RPC, no price
 backfill. Detail responses are read fresh and are not written to the
-metadata cache, whose existing files predate the new field.
+metadata cache, whose existing files predate the new field. A timeout or
+server error fails the migration so it is retried; it is never recorded as
+a vault without an estimate.
 
 Run after merge. Include all pending migrations in the preview. Inspect the
 Compose mounts and build the merged, stamped image with
@@ -62,7 +64,7 @@ def migrate(context: MigrationContext) -> None:
         if not isinstance(detection, ERC4262VaultDetection) or ERC4626Feature.t3tris_like not in detection.features:
             continue
         inspected += 1
-        raw = _fetch_vault_detail(spec.chain_id, spec.vault_address)
+        raw = _fetch_vault_detail(spec.chain_id, spec.vault_address, strict=True)
         seconds = _parse_vault_detail(raw)["average_settlement_seconds"] if raw is not None else None
         period = create_t3tris_withdrawal_period(seconds)
         with_estimate += period is not None
