@@ -189,7 +189,8 @@ def test_vault_morpho_cap_does_not_change_canonical_morpho() -> None:
     assert get_vault_risk(vault.get_protocol_name(), OWNER) is None
     assert "app.morpho.org" not in vault.get_link()
     assert not hasattr(vault, "morpho_api_result")
-    with pytest.raises(NotImplementedError):
+    provider.eth.get_storage_at.return_value = bytes(32)
+    with pytest.raises(NotImplementedError, match="Unreviewed VaultMorpho"):
         vault.is_whitelisted_deposit()
     assert isinstance(vault, VaultMorphoVault)
     assert not isinstance(canonical, VaultMorphoVault)

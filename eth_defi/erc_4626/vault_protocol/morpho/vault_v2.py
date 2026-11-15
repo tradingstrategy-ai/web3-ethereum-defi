@@ -28,6 +28,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
 
+from eth_defi.vault.base import VaultSpec
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
@@ -67,6 +68,15 @@ SEND_ASSETS_GATE_SIGNATURE = Web3.keccak(text="sendAssetsGate()")[0:4]
 
 #: ABI return-word width for address getters
 ABI_ADDRESS_WORD_SIZE = 32
+
+
+#: Reviewed deployed adapter bytecode, including immutable parent/inner addresses.
+#: Ethereum/Base fixed-block source receipts are documented in the integration guide.
+REVIEWED_PERMISSION_ADAPTER_HASHES = {
+    "6742e053873a2f945bd03f0b65ee1bbdf994d1c07c93a4442611bff0faf22d4f": "market",
+    "b2223a7aa08e3b57af204b63a82f0c33c095fbdd3111f2833b2d459a5eedbca3": "vault",
+    "f37e81e6e2353d3b19fb8c3529ac5ba80cf75e52a9d5009ccc85a6edac457569": "vault",
+}
 
 
 class MorphoGateAddressMissing(BadFunctionCallOutput):
@@ -268,7 +278,72 @@ class MorphoV2Vault(ERC4626Vault):
         receive_shares_gate, send_assets_gate = self.fetch_deposit_gates()
         return any(gate.lower() != ZERO_ADDRESS_STR for gate in (receive_shares_gate, send_assets_gate))
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Inspect outer deposit/exit gates and the configured inner vault.
+
+        A refused custody owner is restricted; an admitted gated owner remains unknown.
+        An exit gate admitting this owner still needs policy review; one allowed
+        account does not prove permissionless access. All reads use one block.
+        Only the recognised liquidity-adapter route is inspected, not a graph.
+
+        :param owner: Intended sender, share owner and payout recipient.
+        :return: True for a proven ungated route, false for a known restriction.
+        :raises NotImplementedError: For unreadable or unresolved route policy.
+        """
+        block = self._get_block_identifier()
+        if block == "latest":
+            block = self.web3.eth.block_number
+        if not self._is_ungated(owner, block):
+            return False
+        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        adapter = contract.functions.liquidityAdapter().call(block_identifier=block)
+        if not int(adapter, 16):
+            return True
+        code_hash = Web3.keccak(self.web3.eth.get_code(adapter, block_identifier=block)).hex().removeprefix("0x")
+        if code_hash not in REVIEWED_PERMISSION_ADAPTER_HASHES:
+            raise NotImplementedError("Unreviewed Morpho liquidity adapter bytecode")
+        adapter_contract = get_deployed_contract(self.web3, "morpho/MorphoMarketV1AdapterV2.json", adapter)
+        if adapter_contract.functions.parentVault().call(block_identifier=block).lower() != self.address.lower():
+            raise NotImplementedError("Morpho liquidity adapter parent does not match vault")
+        if REVIEWED_PERMISSION_ADAPTER_HASHES[code_hash] == "market":
+            return True
+        try:
+            data = self.web3.eth.call({"to": adapter, "data": Web3.keccak(text="morphoVaultV1()")[:4]}, block_identifier=block)
+        except (ContractLogicError, ExtraValueError):
+            data = b""
+        if len(data) == 32 and int.from_bytes(data, "big"):
+            inner = Web3.to_checksum_address(data[-20:])
+            inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner), default_block_identifier=block)
+            if not inner_vault._is_ungated(adapter, block):
+                return False
+            inner_contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", inner)
+            if int(inner_contract.functions.liquidityAdapter().call(block_identifier=block), 16):
+                raise NotImplementedError("Further nested Morpho route policy is unresolved")
+            return True
+        raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
+
+    def _is_ungated(self, owner: HexAddress, block: BlockIdentifier) -> bool:
+        """Read this vault's entry and exit gates without traversing its route.
+
+        :param owner: Actual asset/share owner on this leg of the route.
+        :param block: Common block for every policy observation.
+        :return: Whether all four local gate slots are disabled.
+        :raises NotImplementedError: When gate policy remains unproven.
+        """
+        if any(int(gate, 16) for gate in self.fetch_deposit_gates(block)):
+            if not self.is_account_whitelisted(owner, block_identifier=block):
+                return False
+            raise NotImplementedError("Morpho deposit gate policy needs review despite owner admission")
+        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        for name, predicate in (("sendSharesGate", "canSendShares"), ("receiveAssetsGate", "canReceiveAssets")):
+            gate = self._fetch_gate_address(Web3.keccak(text=name + "()")[:4], name, block)
+            if int(gate, 16):
+                if not getattr(contract.functions, predicate)(Web3.to_checksum_address(owner)).call(block_identifier=block):
+                    return False
+                raise NotImplementedError(f"Morpho {name} policy needs review despite owner admission")
+        return True
+
+    def is_account_whitelisted(self, address: HexAddress, block_identifier: BlockIdentifier | None = None) -> bool:
         """Check deposit permission when one account sends assets and receives shares.
 
         Morpho checks the asset sender and share receiver separately. Query both
@@ -277,12 +352,14 @@ class MorphoV2Vault(ERC4626Vault):
         reported as an explicit denial or as permission to deposit.
 
         :param address: Account sending assets and receiving shares.
+        :param block_identifier: Optional common policy observation block.
         :return: Whether both permission checks allow the account.
         :raises NotImplementedError: If a predicate reverts or cannot be decoded.
         """
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
         account = Web3.to_checksum_address(address)
-        block_identifier = self._get_block_identifier()
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
         for predicate in (contract.functions.canReceiveShares(account), contract.functions.canSendAssets(account)):
             try:
                 allowed = predicate.call(block_identifier=block_identifier)

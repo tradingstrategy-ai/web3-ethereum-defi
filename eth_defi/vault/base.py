@@ -1660,6 +1660,19 @@ class VaultBase(ABC):
         """
         raise NotImplementedError()
 
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Inspect the required deposit and exit route without investing capital.
+
+        This opt-in policy check is independent of whether an admitted account
+        can trade. Adapters must verify the complete route before returning true.
+        Unsupported policy remains unknown; ordinary trading is unaffected.
+
+        :param owner: Intended asset sender, share owner and payout recipient.
+        :return: Whether the supported route is permissionless.
+        :raises NotImplementedError: If complete-route policy is not established.
+        """
+        raise NotImplementedError("Complete-route permission policy is not implemented")
+
     def get_whitelist_notes(self) -> str | None:
         """Return an export caveat for the vault-wide whitelist status.
 

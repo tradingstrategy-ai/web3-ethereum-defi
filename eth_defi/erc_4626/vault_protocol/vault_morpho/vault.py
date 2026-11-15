@@ -113,6 +113,47 @@ class VaultMorphoVault(ERC4626Vault):
     policy and withdrawal timing instead of borrowing canonical Morpho defaults.
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Recognise the reviewed implementation's public ERC-4626 entrypoints.
+
+        The verified implementation has no account gates in deposit, mint,
+        transfer, withdraw or redeem. Caps and market liquidity remain separate.
+        Check the EIP-1967 implementation at the selected block so an upgrade
+        cannot silently inherit this conclusion.
+
+        :return: False for the reviewed implementation.
+        :raises NotImplementedError: For an unreviewed implementation.
+        """
+        if self.chain_id != 1:
+            raise NotImplementedError("VaultMorpho implementation policy is reviewed on Ethereum only")
+        slot = int("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", 16)
+        block = self.default_block_identifier if self.default_block_identifier is not None else "latest"
+        implementation = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block)[-20:].hex()
+        if implementation.lower().removeprefix("0x") not in {
+            "f392a5b96d3248440bb4841b4f50f0862060c1a3",
+            "fa0d6e598d13e9220e5de48db4ed087c8f8847b3",
+            "816dcddcb7949bd8556058b47e2f638b163d658d",
+            "13d8602fa8dc916704194ec25bf73bffd6b39fed",
+        }:
+            raise NotImplementedError(f"Unreviewed VaultMorpho implementation {implementation}")
+        return False
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Allow any account only after verifying the public implementation.
+
+        :param address: Prospective depositor.
+        :return: True for a source-proven permissionless implementation.
+        """
+        return not self.is_whitelisted_deposit()
+
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Use the reviewed implementation's public entry and exit policy.
+
+        :param owner: Intended custody account.
+        :return: True when the implementation is reviewed and ungated.
+        """
+        return not self.is_whitelisted_deposit()
+
     def get_strategy_tags(self) -> set[StrategyTag]:
         """Describe the lending confirmed by contract source without guessing its operator.
 

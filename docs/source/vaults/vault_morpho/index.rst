@@ -106,3 +106,25 @@ API
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.vault_morpho.vault
+
+Permission inspection
+---------------------
+
+The adapter now verifies the EIP-1967 implementation before classifying access.
+At Ethereum block 26402309 the four reviewed proxies use implementations
+``0xf392a5b96d3248440bb4841b4f50f0862060c1a3``,
+``0xfa0d6e598d13e9220e5de48db4ed087c8f8847b3``,
+``0x816dcddcb7949bd8556058b47e2f638b163d658d`` and
+``0x13d8602fa8dc916704194ec25bf73bffd6b39fed``. Their verified Solidity
+source is identical (SHA-256
+``4707c3641938c3d30f3c753de36a5a0ffe973a40a52f35bfbb067cb36308bf4c``).
+The reviewed deposit, mint, transfer, withdraw and redeem paths have no account
+allowlist. Administrative curator/allocator roles do not restrict depositors.
+An unreviewed implementation remains unknown after an upgrade.
+
+``is_permissionless(owner)`` is an opt-in complete-route policy check. It does
+not certify capacity, fees or successful execution. Existing cap checks and
+protocol attribution remain separate. Migration 078 refreshes only the six
+reviewed permission records, including two stale canonical Morpho V2 records;
+prices and discovery data are preserved. Production application and normal
+export publication remain operator actions. No price backfill is needed.
