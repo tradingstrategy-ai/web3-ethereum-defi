@@ -23,6 +23,29 @@ Example:
     assert block.block_hash == "0x427b4ae39316c0df7ba6cd61a96bf668eff6e3ec01213b0fbc74f9b7a0726e7b"
     assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
 
+Testing
+-------
+
+Do not use the cached readers (``fetch_block_timestamps_using_hypersync_cached``,
+``fetch_exact_block_timestamps_using_hypersync_cached``,
+``fetch_sparse_block_timestamps_using_hypersync_cached``, their async variants
+and ``fetch_block_timestamps_multiprocess_auto_backend()`` with a Hypersync
+client) in unit or integration tests.
+
+They keep the cache dense: they download every block header between the
+earliest and latest requested block, and bridge any existing cache boundary.
+Production shares a prepared cache, so little is fetched there. A test starts
+from an empty temporary cache, so it downloads the whole span. Two event
+timestamps 35 million blocks apart become 35 million headers, which takes
+many minutes and longer when CI runs share one Hypersync rate limit.
+
+- Only the cache's own internal tests may call these readers, with at most
+  100 blocks per test.
+- Avoid even that where possible: use recorded timestamps, a seeded cache
+  fixture or a stub instead.
+- A test of code that reads timestamps for events spread across a large range
+  needs a prepared timestamp cache; skip it until one exists.
+
 """
 
 import asyncio
@@ -470,6 +493,9 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
       Progress is saved after each chunk so a provider failure retains
       earlier completed chunks. Nearby interior holes are fetched together.
 
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
+
     :param chunk_size:
         Maximum number of blocks in one durable cache chunk.
         Defaults to 100 000 (~2 days on Polygon, ~3 days on Binance).
@@ -711,6 +737,9 @@ def fetch_block_timestamps_using_hypersync_cached(
 
     See :py:func:`fetch_block_timestamps_using_hypersync_cached_async` for documentation.
 
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
+
     :param attempts:
         Work around Hypersync timeout issues
     :param chunk_size:
@@ -752,6 +781,9 @@ async def fetch_exact_block_timestamps_using_hypersync_cached_async(
     max_concurrency: int = 5,
 ) -> BlockTimestampSlicer:
     """Fetch event timestamps while keeping the shared cache dense.
+
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
 
     Read all headers between the earliest and latest requested block. The dense
     collector also bridges any existing cache boundary, so an event-only read
@@ -802,6 +834,9 @@ async def fetch_sparse_block_timestamps_using_hypersync_cached_async(
     max_concurrency: int = 5,
 ) -> BlockTimestampSlicer:
     """Resolve a historical sampling grid while retaining dense cache coverage.
+
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
 
     This compatibility entry point keeps its exclusive end bound. The common
     collector fills intervening headers regardless of the sampling step.
@@ -854,6 +889,9 @@ def fetch_exact_block_timestamps_using_hypersync_cached(
 
     Completed dense-cache chunks survive retries. Event requests fill every
     intervening header and bridge the existing cache boundary.
+
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
 
     :param client:
         Hypersync client for the requested chain.
@@ -912,6 +950,9 @@ def fetch_sparse_block_timestamps_using_hypersync_cached(
 
     The historical name is retained for compatibility. Intervening block
     headers are now cached too, preventing sparse shared databases.
+
+    Do not call this from unit or integration tests. See *Testing* in the
+    :py:mod:`eth_defi.hypersync.hypersync_timestamp` module documentation.
 
     :param attempts:
         Maximum Hypersync attempts; completed checkpoints survive retries.

@@ -28,7 +28,6 @@ from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.exception import UnsupportedVaultProtocol
 
 
-
 class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
     """Preserve lending measurements without assuming Morpho fees apply.
 

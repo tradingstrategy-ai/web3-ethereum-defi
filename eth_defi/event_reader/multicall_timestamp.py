@@ -179,6 +179,11 @@ def fetch_block_timestamps_multiprocess_auto_backend(
 
     - If Hypersync is available, use the optimised code path
 
+    Do not call this with a Hypersync client from unit or integration tests:
+    the Hypersync path fills every block in the range into the cache. See
+    *Testing* in the :py:mod:`eth_defi.hypersync.hypersync_timestamp` module
+    documentation.
+
     For arguments see :py:func:`fetch_block_timestamps_multiprocess`.
 
     :param step:
