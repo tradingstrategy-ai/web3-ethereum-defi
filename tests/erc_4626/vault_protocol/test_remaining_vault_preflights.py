@@ -261,7 +261,8 @@ def test_morpho_arithmetic_and_exit_gate_failures_remain_distinct() -> None:
     """
     # 1. The common request builder is covered separately; stub its valid request.
     manager = object.__new__(MorphoV2DepositManager)
-    manager.vault = SimpleNamespace(address=OWNER, chain_id=1, get_protocol_name=lambda: "Morpho")
+    # Match VaultBase's default: an arithmetic panic alone must not opt into recovery.
+    manager.vault = SimpleNamespace(address=OWNER, chain_id=1, get_protocol_name=lambda: "Morpho", redemption_recovery_max_fee_bps=None)
     func = Mock()
     request = SimpleNamespace(raw_shares=100, funcs=[func])
     cases = [(bytes.fromhex("4e487b71") + (17).to_bytes(32), "Panic(0x11)", "redemption_call_reverted"), (bytes.fromhex("876736d1"), "CannotSendShares", "whitelisting-needed")]
