@@ -90,6 +90,21 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Gen Wealth Algo (Hyperliquid).
     trend_following = "trend_following"
 
+    #: Seeks gains that accelerate with large market moves, potentially in
+    #: either direction. Strategy-based convexity depends on the price path
+    #: and time horizon; it does not require options or guarantee crash protection.
+    #: Use documented payoff evidence and retain supported mechanism tags.
+    #: See https://tradingstrategy.ai/glossary/positive-convexity.
+    positive_convexity = "positive_convexity"
+
+    #: Earns frequent small gains while exposing capital to losses that
+    #: accelerate during large adverse market moves, for example by selling
+    #: options or providing AMM liquidity. Classify the documented payoff profile,
+    #: rather than inferring it from a high win rate alone.
+    #: Retain supported mechanism tags alongside this payoff classification.
+    #: See https://tradingstrategy.ai/glossary/negative-convexity.
+    negative_convexity = "negative_convexity"
+
     #: Uses human judgement to select, approve or rebalance investments.
     #: Includes curator-selected yield allocations and credit deals, even
     #: when execution is automated; a curator identity alone is insufficient.
@@ -335,6 +350,14 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.trend_following: {
         "label": "Trend following",
         "description": "Rides [sustained price movements](https://tradingstrategy.ai/glossary/trend-following), buying strength or selling weakness.",
+    },
+    StrategyTag.positive_convexity: {
+        "label": "Positive convexity",
+        "description": "The strategy seeks [accelerating gains in large moves](https://tradingstrategy.ai/glossary/positive-convexity) but may lose in calm or choppy markets.",
+    },
+    StrategyTag.negative_convexity: {
+        "label": "Negative convexity",
+        "description": "The strategy earns frequent small gains but risks [accelerating losses in large market moves](https://tradingstrategy.ai/glossary/negative-convexity).",
     },
     StrategyTag.discretionary_trading: {
         "label": "Discretionary trading",
