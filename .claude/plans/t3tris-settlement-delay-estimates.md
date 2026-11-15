@@ -282,3 +282,22 @@ grounded, on the implementation. Verdict: revise before handoff. Applied:
 
 Not adopted: seeding a legacy cache file in the migration test. The test
 already fails if the migration calls the cached fetcher at all.
+
+**Independent subagent review of PR 1784, 2026-11-15.** A fresh
+general-purpose subagent, with no earlier conclusions, reviewed the PR
+read-only. No blocking findings. Applied:
+
+- The README recommended measured intervals for redemption timing, but only
+  `DepositsSettled` is recorded; it now limits measured markers to deposit
+  timing and records what adding redemptions later would need.
+- Cache files written before the estimate existed, and vault-list fallback
+  rows, could make the scanner overwrite migration 079's estimate with `None`.
+  The fetcher now refreshes a cache file without the key and does not write
+  fallback rows to disk, with tests for both.
+- The scan test fixture comment now says the log `data` is a placeholder.
+- `_fetch_response_timestamp()` is renamed `_read_response_timestamp()`, as
+  it makes no network read, and treats a naive `-0000` date as UTC.
+- The migration test also blocks the cached fetcher's binding in `vault.py`.
+
+Not adopted: replacing the migration's private helper imports with a public
+strict-fetch function.

@@ -1,7 +1,10 @@
 """Test T3tris offchain metadata parsing."""
 
 import datetime
+import json
 import logging
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import requests
@@ -210,3 +213,45 @@ def test_t3tris_vault_and_manager_publish_settlement_estimate(average_settlement
     period = vault.get_withdrawal_period()
     assert (period.estimated_settlement if period else None) == expected
     assert vault.get_deposit_manager().get_estimated_lock_up() == expected
+
+
+FIRST_USDC = "0x98e43a491a464f0886bc5e57207c340bbed0d01f"
+
+
+def test_t3tris_cache_without_estimate_key_is_refreshed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fresh cache file written before the estimate existed is fetched again.
+
+    1. Seed a current cache file without ``average_settlement_seconds``.
+    2. The fetcher refreshes it and writes the estimate.
+    """
+    monkeypatch.setattr(offchain_metadata, "_cached_vaults", {})
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=42161))
+    file = tmp_path / f"t3tris_vault_42161_{FIRST_USDC}.json"
+
+    # 1. Seed a current cache file without average_settlement_seconds.
+    file.write_text(json.dumps({"name": "First - USDC"}))
+    payload = {"vault": {"name": "First - USDC"}, "estimatedRedemptionTs": RESPONSE_TS + 479_171}
+    monkeypatch.setattr(offchain_metadata.requests, "get", lambda url, **_kwargs: _ResponseStub(payload, headers={"Date": "Sun, 15 Nov 2026 17:59:44 GMT"}))
+
+    # 2. The fetcher refreshes it and writes the estimate.
+    metadata = offchain_metadata.fetch_t3tris_vault_metadata(web3, FIRST_USDC, cache_path=tmp_path)
+    assert metadata["average_settlement_seconds"] == 479_171
+    assert json.loads(file.read_text())["average_settlement_seconds"] == 479_171
+
+
+def test_t3tris_vault_list_fallback_is_not_cached_on_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A vault-list fallback row, which has no estimate, is not written to disk."""
+    monkeypatch.setattr(offchain_metadata, "_cached_vaults", {})
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=42161))
+
+    def fake_get(url: str, **_kwargs) -> _ResponseStub:
+        if url.endswith("/vaults"):
+            return _ResponseStub({"items": [{"chainId": 42161, "address": FIRST_USDC, "name": "First - USDC"}]})
+        return _ResponseStub(status_code=500)
+
+    monkeypatch.setattr(offchain_metadata.requests, "get", fake_get)
+
+    metadata = offchain_metadata.fetch_t3tris_vault_metadata(web3, FIRST_USDC, cache_path=tmp_path)
+    assert metadata["name"] == "First - USDC"
+    assert metadata["average_settlement_seconds"] is None
+    assert not (tmp_path / f"t3tris_vault_42161_{FIRST_USDC}.json").exists()

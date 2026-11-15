@@ -331,7 +331,9 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
     ]
 
 
-#: First USDC settlement logs, copied from the two transaction receipts.
+#: First USDC settlement logs. Topics, hashes, blocks and timestamps come from
+#: the two transaction receipts; ``data`` is a placeholder the row builder
+#: does not decode.
 T3TRIS_SETTLEMENT_LOGS = [
     # settle() at block 512,370,484: DepositsSettled then RedemptionsSettled.
     AttributeDict(

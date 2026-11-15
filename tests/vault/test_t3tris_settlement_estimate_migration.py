@@ -7,6 +7,7 @@ import pytest
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.t3tris import offchain_metadata
+from eth_defi.erc_4626.vault_protocol.t3tris import vault as t3tris_vault_module
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
@@ -68,7 +69,12 @@ def test_t3tris_settlement_estimate_preview_apply_and_preservation(tmp_path: Pat
     for name in ("VAULT_DB", "VAULT_DB_PATH"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(offchain_metadata.requests, "get", _fake_get)
-    monkeypatch.setattr(offchain_metadata, "fetch_t3tris_vault_metadata", lambda *args, **kwargs: pytest.fail("migration must not use the cached fetcher"))
+
+    def fail_cached_fetch(*_args, **_kwargs) -> None:
+        pytest.fail("migration must not use the cached fetcher")
+
+    monkeypatch.setattr(offchain_metadata, "fetch_t3tris_vault_metadata", fail_cached_fetch)
+    monkeypatch.setattr(t3tris_vault_module, "fetch_t3tris_vault_metadata", fail_cached_fetch)
     other_period = WithdrawalPeriod(min_period=None, max_period=None, delay_type=WithdrawalDelayType.delay, estimated_settlement=datetime.timedelta(days=1))
     other = _row(OTHER, {ERC4626Feature.lagoon_like}) | {"_withdrawal_period": other_period}
     database = VaultDatabase(rows={LISTED: _row(LISTED, {ERC4626Feature.t3tris_like}), UNLISTED: _row(UNLISTED, {ERC4626Feature.t3tris_like}), OTHER: other}, last_scanned_block={42161: 123})

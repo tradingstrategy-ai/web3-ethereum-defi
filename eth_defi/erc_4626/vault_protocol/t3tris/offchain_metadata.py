@@ -220,7 +220,7 @@ def _fetch_vaults_list_entry(
     return None
 
 
-def _fetch_response_timestamp(resp: requests.Response) -> int:
+def _read_response_timestamp(resp: requests.Response) -> int:
     """Read the server's response time, falling back to the local clock.
 
     :param resp:
@@ -231,7 +231,9 @@ def _fetch_response_timestamp(resp: requests.Response) -> int:
     header = resp.headers.get("Date")
     if header:
         try:
-            return int(email.utils.parsedate_to_datetime(header).timestamp())
+            parsed = email.utils.parsedate_to_datetime(header)
+            # HTTP dates are GMT; a "-0000" zone parses as naive.
+            return int(parsed.replace(tzinfo=parsed.tzinfo or datetime.UTC).timestamp())
         except (TypeError, ValueError):
             logger.warning("Unparseable T3tris response Date header %r; using local time", header)
     return int(time.time())
@@ -273,7 +275,7 @@ def _fetch_vault_detail(
         resp.raise_for_status()
         raw = resp.json()
         if isinstance(raw, dict):
-            raw[RESPONSE_TIMESTAMP_KEY] = _fetch_response_timestamp(resp)
+            raw[RESPONSE_TIMESTAMP_KEY] = _read_response_timestamp(resp)
         return raw
     except requests.HTTPError as e:
         if getattr(e.response, "status_code", None) == 404:
@@ -339,29 +341,30 @@ def fetch_t3tris_vault_metadata(
 
     with wait_other_writers(file):
         should_refresh = not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0
-        if should_refresh:
-            detail = _fetch_vault_detail(chain_id, checksummed, api_base_url=api_base_url)
-            if detail is None:
-                return None
+        if not should_refresh:
+            try:
+                with file.open("rt") as f:
+                    metadata = json.load(f)
+            except JSONDecodeError as e:
+                content = file.read_text()
+                raise RuntimeError(f"Could not parse T3tris vault file for {checksummed} on chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
+            # Files written before the settlement estimate was parsed lack
+            # its key; refresh them rather than publish a missing estimate.
+            if "average_settlement_seconds" in metadata:
+                chain_cache[checksummed] = metadata
+                return metadata
 
-            metadata = _parse_vault_detail(detail)
-            with file.open("wt") as f:
-                json.dump(metadata, f, indent=2)
-
-            assert file.stat().st_size > 0, f"File {file} is empty after writing"
-            chain_cache[checksummed] = metadata
-            return metadata
-
-        if file_size == 0:
+        detail = _fetch_vault_detail(chain_id, checksummed, api_base_url=api_base_url)
+        if detail is None:
             return None
 
-        try:
-            with file.open("rt") as f:
-                metadata = json.load(f)
-        except JSONDecodeError as e:
-            content = file.read_text()
-            raise RuntimeError(f"Could not parse T3tris vault file for {checksummed} on chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
-
+        metadata = _parse_vault_detail(detail)
+        # A vault-list fallback row has no settlement estimate. Keep it for
+        # this process only, so the next run retries the detail endpoint.
+        if RESPONSE_TIMESTAMP_KEY in detail:
+            with file.open("wt") as f:
+                json.dump(metadata, f, indent=2)
+            assert file.stat().st_size > 0, f"File {file} is empty after writing"
         chain_cache[checksummed] = metadata
         return metadata
 

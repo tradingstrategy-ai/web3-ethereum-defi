@@ -353,9 +353,15 @@ the next scanner cycle. The price cleaning pipeline exposes them as
 these markers completes a queued deposit at an actual onchain settlement
 rather than after a guessed delay; trade-executor does this for Lagoon and
 D2, and needs `t3tris_like` added to do it for T3tris. Use these markers, or
-intervals computed from them, wherever the timing matters.
+intervals computed from them, for deposit timing. They say nothing about
+redemptions: redemption settlements can be months apart from deposit ones
+(First USDC below).
 
-Only `DepositsSettled` is recorded. Curators settle with `settle()`,
+Only `DepositsSettled` is recorded, a deliberate loss of the redemption
+history. Recording `RedemptionsSettled` later needs marker building that
+filters by `event_name`, and a forced settlement backfill with
+`forced_start_block`, because scan state already advances past those blocks.
+Curators settle with `settle()`,
 `settleDeposits()` or `settleRedemptions()`, and First USDC's history uses
 all three. The `vault_settlement_at` marker carries no direction, so storing
 `RedemptionsSettled` too would let a redemption-only settlement release
@@ -394,9 +400,9 @@ The estimate is weak. Values on 15 November 2026:
   estimate.
 - The field is undocumented and can change or disappear.
 
-Backtests that depend on redemption timing for such vaults are optimistic.
-Prefer an interval measured from the recorded settlements, or an explicit
-per-vault override, when the result matters.
+Backtests that depend on redemption timing for such vaults are optimistic,
+and no measured redemption interval is recorded to replace the estimate. Use
+an explicit per-vault override when the result matters.
 
 ## Reference links
 
