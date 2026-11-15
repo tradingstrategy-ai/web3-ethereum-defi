@@ -106,3 +106,18 @@ def test_reviewed_market_requires_its_parent_and_no_getter_fallback():
         with patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES',{digest:'vault'}):
             with pytest.raises(NotImplementedError,match='inner vault'):
                 vault.is_permissionless(OWNER)
+
+
+def test_vault_morpho_proxy_read_rejects_malformed_storage_and_unreviewed_chain() -> None:
+    vault = object.__new__(VaultMorphoVault)
+    vault.web3 = Mock()
+    vault.spec = Mock(vault_address=OWNER, chain_id=1)
+    vault.default_block_identifier = 123
+    vault.web3.eth.get_storage_at.return_value = b''
+    with pytest.raises(NotImplementedError, match='Malformed ERC-1967'):
+        vault.is_whitelisted_deposit()
+    vault.spec.chain_id = 8453
+    vault.web3.eth.get_storage_at.reset_mock()
+    with pytest.raises(NotImplementedError, match='unreviewed on chain 8453'):
+        vault.is_whitelisted_deposit()
+    vault.web3.eth.get_storage_at.assert_not_called()

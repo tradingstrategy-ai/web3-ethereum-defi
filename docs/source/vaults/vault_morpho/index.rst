@@ -128,3 +128,15 @@ protocol attribution remain separate. Migration 078 refreshes only the six
 reviewed permission records, including two stale canonical Morpho V2 records;
 prices and discovery data are preserved. Production application and normal
 export publication remain operator actions. No price backfill is needed.
+
+The permission check is an implementation-version support boundary, not a Safe
+or depositor allowlist. ``False`` means no whitelist is required; an unreviewed
+implementation or chain raises ``NotImplementedError`` so the scanner records
+unknown policy. It must not be interpreted as a proven account restriction.
+
+The proxy-to-implementation mapping and verified source links are recorded in
+``eth_defi/abi/vault_morpho/README.md``. ``fetch_implementation()`` reads the
+standard `ERC-1967 logic-contract slot <https://eips.ethereum.org/EIPS/eip-1967#logic-contract-address>`__
+at the chosen block. The slot is derived from the standard label instead of an
+unexplained hexadecimal literal. The proxy need not expose an ABI getter for
+this storage value; ordinary contract calls continue to use ABI-bound methods.

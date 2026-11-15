@@ -15,6 +15,7 @@ from decimal import Decimal
 from functools import cached_property
 
 from eth_typing import HexAddress
+from web3 import Web3
 from web3.types import BlockIdentifier
 from web3.contract import Contract
 
@@ -25,6 +26,28 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.strategy_tag import StrategyTag
+
+
+#: ERC-1967 defines this storage slot as keccak256(label) - 1. Transparent
+#: proxies need not expose an implementation() ABI getter, so read storage.
+#: https://eips.ethereum.org/EIPS/eip-1967#logic-contract-address
+ERC1967_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
+
+#: Only Ethereum deployments have been reviewed for this permission policy.
+#: This limits our evidence; it is not a protocol-level chain restriction.
+REVIEWED_PERMISSION_CHAIN_ID = 1
+
+#: Implementation contracts, not depositor/Safe addresses. Verified sources
+#: contain no account gates in deposit/mint/transfer/withdraw/redeem. The proxy
+#: mapping, explorer links, source hash and review date are documented under
+#: "Permission inspection" in docs/source/vaults/vault_morpho/index.rst and
+#: eth_defi/abi/vault_morpho/README.md. Unknown upgrades must stay unknown.
+REVIEWED_PUBLIC_IMPLEMENTATIONS = frozenset({
+    "0xf392a5b96d3248440bb4841b4f50f0862060c1a3",
+    "0xfa0d6e598d13e9220e5de48db4ed087c8f8847b3",
+    "0x816dcddcb7949bd8556058b47e2f638b163d658d",
+    "0x13d8602fa8dc916704194ec25bf73bffd6b39fed",
+})
 
 
 class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
@@ -109,33 +132,51 @@ class VaultMorphoVault(ERC4626Vault):
     """Read an unattributed capped vault without inheriting Morpho protocol metadata.
 
     The implementation uses Morpho Blue, but its operator and upstream source
-    repository are unidentified. Generic metadata retains unknown fees, access
-    policy and withdrawal timing instead of borrowing canonical Morpho defaults.
+    repository are unidentified. Generic metadata retains unknown fees and
+    withdrawal timing instead of borrowing canonical Morpho defaults. Account
+    policy is established only for the explicitly reviewed implementations.
     """
 
-    def is_whitelisted_deposit(self) -> bool:
-        """Recognise the reviewed implementation's public ERC-4626 entrypoints.
+    def fetch_implementation(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
+        """Read the logic contract selected by this ERC-1967 proxy.
 
-        The verified implementation has no account gates in deposit, mint,
-        transfer, withdraw or redeem. Caps and market liquidity remain separate.
-        Check the EIP-1967 implementation at the selected block so an upgrade
-        cannot silently inherit this conclusion.
+        This is proxy storage, not a VaultMorpho ABI function. Reading the slot
+        avoids assuming that matching ERC-4626 getters imply matching account
+        policy. It follows the existing Atoma adapter's proxy-reader pattern.
 
-        :return: False for the reviewed implementation.
-        :raises NotImplementedError: For an unreviewed implementation.
+        :param block_identifier: Exact chain state whose implementation is read.
+        :return: Lowercase, 0x-prefixed implementation address.
+        :raises NotImplementedError: If the node returns a malformed storage word.
         """
-        if self.chain_id != 1:
-            raise NotImplementedError("VaultMorpho implementation policy is reviewed on Ethereum only")
-        slot = int("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", 16)
+        word = self.web3.eth.get_storage_at(self.address, ERC1967_IMPLEMENTATION_SLOT, block_identifier=block_identifier)
+        if len(word) != 32:
+            raise NotImplementedError(f"Malformed ERC-1967 implementation slot for {self.address} at block {block_identifier}")
+        return HexAddress("0x" + bytes(word[-20:]).hex())
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Classify only source-reviewed implementations as public deposits.
+
+        This is an implementation-version support boundary, not a depositor
+        whitelist. At Ethereum block 26402309 the four reviewed proxies used
+        different implementation addresses with identical verified Solidity
+        source. That source has no account gate in its ERC-4626 entry/exit or
+        share-transfer methods. See :ref:`vault-morpho-unattributed` for the
+        proxy-to-implementation table and source provenance.
+
+        Re-read the proxy's implementation at the selected block on every
+        assessment. A new implementation or chain is unknown until reviewed;
+        matching getters, a successful deposit or a zero cap cannot establish
+        its policy. Cap, liquidity and administrative roles remain separate.
+
+        :return: False (no whitelist required) for a reviewed public implementation.
+        :raises NotImplementedError: If chain or implementation policy is unknown.
+        """
+        if self.chain_id != REVIEWED_PERMISSION_CHAIN_ID:
+            raise NotImplementedError(f"VaultMorpho permission policy is unreviewed on chain {self.chain_id}")
         block = self.default_block_identifier if self.default_block_identifier is not None else "latest"
-        implementation = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block)[-20:].hex()
-        if implementation.lower().removeprefix("0x") not in {
-            "f392a5b96d3248440bb4841b4f50f0862060c1a3",
-            "fa0d6e598d13e9220e5de48db4ed087c8f8847b3",
-            "816dcddcb7949bd8556058b47e2f638b163d658d",
-            "13d8602fa8dc916704194ec25bf73bffd6b39fed",
-        }:
-            raise NotImplementedError(f"Unreviewed VaultMorpho implementation {implementation}")
+        implementation = self.fetch_implementation(block)
+        if implementation not in REVIEWED_PUBLIC_IMPLEMENTATIONS:
+            raise NotImplementedError(f"Unreviewed VaultMorpho implementation {implementation} for proxy {self.address} at block {block}")
         return False
 
     def is_account_whitelisted(self, address: HexAddress) -> bool:
