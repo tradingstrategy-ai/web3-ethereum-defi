@@ -340,8 +340,11 @@ async def _fetch_source_chunk(client: ThrottledHypersyncClient, deployment: Anta
 def fetch_antarctic_settlements(*, hypersync_client: ThrottledHypersyncClient, deployment: AntarcticDeployment, start_block: int, end_block: int, timestamp_cache_path: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> Iterator[AntarcticSettlement]:
     """Fetch exact settlement observations, with cached source timestamps.
 
-    Uses only indexed Hypersync logs and exact block headers, never eth_getLogs
-    or a dense timestamp backfill. Reorg block hashes come from the source logs.
+    Uses indexed Hypersync logs, never eth_getLogs. Event timestamps go through
+    the shared dense timestamp cache, which fills every header between the
+    first and last event block; with a prepared production cache this fetches
+    little, but against an empty cache it downloads the whole span. Reorg block
+    hashes come from the source logs.
 
     :param hypersync_client: Configured Arbitrum client.
     :param deployment: Reviewed manager/token routing.

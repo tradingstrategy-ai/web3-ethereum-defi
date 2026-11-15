@@ -547,6 +547,13 @@ Apply the following rules when adding tests or reviewing existing coverage.
 - Preserve and reuse the per-chain DuckDB cache at
   `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`. Do not use
   the legacy `~/.tradingstrategy/block-timestamps.*` location.
+- Do not use these cached readers, or code that calls them, in unit or
+  integration tests. They fill every block between the first and last
+  requested block, and a test's empty cache turns a wide event range into
+  millions of header downloads. Only the cache's own internal tests may call
+  them, with at most 100 blocks per test, and even that should be avoided in
+  favour of recorded timestamps or a seeded cache. See *Testing* in
+  `docs/README-dense-timestamps.md`.
 
 For JSON-RPC URL configuration, environment variables. The variables are in the format `JSON_RPC_{CHAIN}` where `{CHAIN}` is the uppercase chain name:
 
@@ -627,7 +634,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | Path | Description |
 |------|-------------|
 | `README.md` | Web3-Ethereum-Defi project overview |
-| `docs/README-dense-timestamps.md` | Dense HyperSync timestamp coverage, numbered gap repair and local per-chain recovery |
+| `docs/README-dense-timestamps.md` | Dense HyperSync timestamp coverage, why tests must not use the cached readers, numbered gap repair and local per-chain recovery |
 | `eth_defi/neutral_trade/README-delta-neutral.md` | Neutral Trade read-only API inspection and manual data verification |
 | `docs/README-block-timestamp-storage.md` | Timestamp layout benchmarks, numbered compaction and recovery |
 | `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
