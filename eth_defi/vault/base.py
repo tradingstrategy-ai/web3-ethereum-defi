@@ -1406,6 +1406,10 @@ class VaultBase(ABC):
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
 
+    #: Explicit data-only integration decision; blocks new investment without RPC.
+    #: Existing-position redemption/recovery is assessed independently.
+    unsupported_protocol_reason: ClassVar[str | None] = None
+
     #: Whether NAV and historical total_assets already use synthetic USD units.
     #:
     #: Contextual adapters such as YieldBasis and Kinexys intentionally have no
@@ -1659,6 +1663,19 @@ class VaultBase(ABC):
             If the adapter cannot safely determine the policy.
         """
         raise NotImplementedError()
+
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Inspect the required deposit and exit route without investing capital.
+
+        This opt-in policy check is independent of whether an admitted account
+        can trade. Adapters must verify the complete route before returning true.
+        Unsupported policy remains unknown; ordinary trading is unaffected.
+
+        :param owner: Intended asset sender, share owner and payout recipient.
+        :return: Whether the supported route is permissionless.
+        :raises NotImplementedError: If complete-route policy is not established.
+        """
+        raise NotImplementedError("Complete-route permission policy is not implemented")
 
     def get_whitelist_notes(self) -> str | None:
         """Return an export caveat for the vault-wide whitelist status.

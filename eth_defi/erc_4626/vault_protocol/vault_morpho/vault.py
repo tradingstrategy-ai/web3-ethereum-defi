@@ -25,6 +25,8 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.exception import UnsupportedVaultProtocol
+
 
 
 class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
@@ -71,12 +73,10 @@ class VaultMorphoHistoricalReader(ERC4626HistoricalReader):
 
 
 class VaultMorphoDepositManager(ERC4626DepositManager):
-    """Apply the implementation's deposit cap before constructing a transaction.
+    """Reject new investment while retaining the existing redemption parser.
 
-    Its ``maxDeposit()`` can exceed the limit enforced by ``deposit()``.
-    :meth:`fetch_depositable_raw_assets` applies
-    :meth:`VaultMorphoVault.fetch_deposit_capacity` through the standard
-    :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager` capacity check.
+    Support for reading prices or recovering a legacy position does not establish
+    a supported deposit lifecycle. All deposit construction paths are blocked.
     """
 
     def _is_redemption_capacity_rounding(self, raw_shares: int, maximum: int) -> bool:
@@ -94,24 +94,80 @@ class VaultMorphoDepositManager(ERC4626DepositManager):
         """
         return 0 < maximum < raw_shares and self.vault.vault_contract.functions.previewRedeem(raw_shares - maximum).call() <= 1
 
-    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int:
-        """Prevent a request from passing the market limit but exceeding the vault cap.
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        """Block new deposits while leaving redemption/recovery available.
 
-        :param owner: Account used for the ordinary ERC-4626 maximum.
-        :return: Remaining raw denomination units, bounded by a reported maximum.
+        :param owner: Prospective depositing account.
+        :raises UnsupportedVaultProtocol: Always.
         """
-        maximum = super().fetch_depositable_raw_assets(owner)
-        remaining = self.vault.fetch_deposit_capacity()
-        return min(maximum, remaining) if maximum is not None else remaining
+        raise UnsupportedVaultProtocol("VaultMorpho protocol is unsupported")
+
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int:
+        """Prevent deposit construction from bypassing the support decision.
+
+        :param owner: Prospective depositing account.
+        :raises UnsupportedVaultProtocol: Always.
+        """
+        raise UnsupportedVaultProtocol("VaultMorpho protocol is unsupported")
 
 
 class VaultMorphoVault(ERC4626Vault):
     """Read an unattributed capped vault without inheriting Morpho protocol metadata.
 
     The implementation uses Morpho Blue, but its operator and upstream source
-    repository are unidentified. Generic metadata retains unknown fees, access
-    policy and withdrawal timing instead of borrowing canonical Morpho defaults.
+    repository are unidentified. Generic metadata retains unknown fees and
+    withdrawal timing instead of borrowing canonical Morpho defaults. The integration
+    remains unsupported for new investment on all deployments.
+
+    In the 15 November 2026 simulation investigation, four proxies had reviewed
+    implementation source and some completed fork trades. This established only
+    observed contract behaviour: the operator/upstream attribution and maintained
+    protocol integration were still missing. We therefore mark the whole family
+    ``unsupported_protocol`` instead of certifying selected implementation addresses.
+    See `the VaultMorpho support decision and affected-vault results
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782>`_.
+
+    Consumers must preserve this status and exclude new investment as they do
+    for permissioned vaults, regardless of owner, chain, cap or a successful probe.
+    It is not evidence of an account whitelist and must not fall back to unknown
+    or permissionless. Keep existing holdings visible for valuation and recovery;
+    redemption availability still requires its own checks. Lifting this exclusion
+    requires a properly supported integration, not another implementation exception.
     """
+
+    #: Family-wide support decision, including previously successful fork cases.
+    #: Block new investment without RPC; do not restore per-implementation exceptions.
+    #: Rationale and evidence: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782
+    unsupported_protocol_reason = "VaultMorpho is an unsupported, unattributed protocol"
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report this unattributed protocol as unsupported on every chain.
+
+        Source inspection of selected implementations is not a maintained
+        protocol integration. No implementation-address exception makes it
+        investable. The scanner exports ``unsupported_protocol`` and consumers
+        exclude it in the same way as a permissioned vault, without claiming
+        an actual account whitelist exists.
+
+        :raises UnsupportedVaultProtocol: Always; this is a data-only adapter.
+        """
+        raise UnsupportedVaultProtocol("VaultMorpho is an unsupported, unattributed protocol")
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Refuse investment regardless of the proposed custody owner.
+
+        :param address: Prospective depositor.
+        :raises UnsupportedVaultProtocol: Always.
+        """
+        raise UnsupportedVaultProtocol("VaultMorpho protocol is unsupported")
+
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Keep unsupported integration distinct from proven permissionless policy.
+
+        :param owner: Prospective custody owner.
+        :raises UnsupportedVaultProtocol: Always.
+        """
+        raise UnsupportedVaultProtocol("VaultMorpho protocol is unsupported")
 
     def get_strategy_tags(self) -> set[StrategyTag]:
         """Describe the lending confirmed by contract source without guessing its operator.

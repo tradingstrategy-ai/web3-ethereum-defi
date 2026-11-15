@@ -148,3 +148,30 @@ Morpho V2 API
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.morpho.vault_v2
+
+Complete-route admission inspection
+-----------------------------------
+
+``MorphoV2Vault.is_permissionless(owner)`` is an opt-in policy reader, separate
+from the outer ``is_whitelisted_deposit()`` classification. It pins the entry,
+exit and recognised inner-route reads to one block. A refused owner/adapter
+returns false. A gate admitting one account still has unresolved policy and
+raises ``NotImplementedError`` rather than proving public access.
+
+Nonzero liquidity adapters must match a reviewed deployed code hash and their
+parent vault. Initial support is deliberately bounded to the Keyrock Ethereum
+market adapter ``0x7CA32dCD9269b0BeB21a4F364DED5cfFCB7b3635`` at block 26402309
+and the two Muscadine Base adapters ``0x8B6E43CCE1961D3671a39Fe8D9E711E69ddD74ce``
+and ``0x5b211DA4Cd92cfb9CCCFbd1De78289955EB236CD`` at block 56688126.
+Their verified contract names are ``MorphoMarketV1AdapterV2`` and
+``MorphoVaultV1Adapter`` respectively. Matching a getter alone is insufficient.
+The latter getter's name does not prove the inner vault is MetaMorpho V1: these
+reviewed routes lead to gate-bearing vaults. Unreviewed adapters, inner vaults
+without the required policy interface, and further nested routes remain unknown;
+this is not a general permission certificate for every canonical V1/V2 route.
+
+The outer deposit label remains permissionless for these public outer vaults,
+even when an inner adapter or share-owner exit is refused. Transaction managers
+retain their exact-call admission checks and typed refusals. These observations
+are dated policy evidence, not guarantees against later upgrades or liquidity
+changes.

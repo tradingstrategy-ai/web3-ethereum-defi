@@ -27,7 +27,7 @@ from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultBase, WithdrawalPeriod, flatten_vault_text, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
-from eth_defi.vault.exception import UnsupportedVaultVersion
+from eth_defi.vault.exception import UnsupportedVaultVersion, UnsupportedVaultProtocol
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.rpc_batch import is_metadata_snapshot_compatible
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
@@ -151,6 +151,8 @@ def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
         if whitelisted:
             return VaultDepositPermission.whitelisted
         return VaultDepositPermission.permissionless
+    except UnsupportedVaultProtocol:
+        return VaultDepositPermission.unsupported_protocol
     except DEPOSIT_PERMISSION_READ_EXCEPTIONS as e:
         logger.debug(
             "Could not read deposit permission for vault %s: %s",
@@ -442,6 +444,11 @@ def create_vault_scan_record(
     if vault is None:
         # Probably not ERC-4626
         return empty_record
+
+    unsupported_reason = getattr(vault, "unsupported_protocol_reason", None)
+    if isinstance(unsupported_reason, str) and unsupported_reason:
+        # A failed NAV/fee read must not erase an explicit integration exclusion.
+        empty_record["_deposit_permission"] = VaultDepositPermission.unsupported_protocol.value
 
     if metadata_snapshot and is_metadata_snapshot_compatible(vault, metadata_snapshot, block_identifier):
         # Attach observations only at the source block used to construct the

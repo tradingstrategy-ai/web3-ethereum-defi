@@ -20,6 +20,7 @@ import datetime
 import logging
 from web3.exceptions import ContractLogicError
 from eth_defi.provider.fallback import ExtraValueError
+from eth_abi import decode
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -28,6 +29,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
 
+from eth_defi.vault.base import VaultSpec
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
@@ -62,11 +64,18 @@ FEE_DENOMINATOR = 10**18
 #: Keccak signatures for fee multicalls
 PERFORMANCE_FEE_SIGNATURE = Web3.keccak(text="performanceFee()")[0:4]
 MANAGEMENT_FEE_SIGNATURE = Web3.keccak(text="managementFee()")[0:4]
-RECEIVE_SHARES_GATE_SIGNATURE = Web3.keccak(text="receiveSharesGate()")[0:4]
-SEND_ASSETS_GATE_SIGNATURE = Web3.keccak(text="sendAssetsGate()")[0:4]
 
 #: ABI return-word width for address getters
 ABI_ADDRESS_WORD_SIZE = 32
+
+
+#: Reviewed deployed adapter bytecode, including immutable parent/inner addresses.
+#: Ethereum/Base fixed-block source receipts are documented in the integration guide.
+REVIEWED_PERMISSION_ADAPTER_HASHES = {
+    "6742e053873a2f945bd03f0b65ee1bbdf994d1c07c93a4442611bff0faf22d4f": "market",
+    "b2223a7aa08e3b57af204b63a82f0c33c095fbdd3111f2833b2d459a5eedbca3": "vault",
+    "f37e81e6e2353d3b19fb8c3529ac5ba80cf75e52a9d5009ccc85a6edac457569": "vault",
+}
 
 
 class MorphoGateAddressMissing(BadFunctionCallOutput):
@@ -268,7 +277,117 @@ class MorphoV2Vault(ERC4626Vault):
         receive_shares_gate, send_assets_gate = self.fetch_deposit_gates()
         return any(gate.lower() != ZERO_ADDRESS_STR for gate in (receive_shares_gate, send_assets_gate))
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Inspect outer deposit/exit gates and the configured inner vault.
+
+        A refused custody owner is restricted; an admitted gated owner remains unknown.
+        An exit gate admitting this owner still needs policy review; one allowed
+        account does not prove permissionless access. All reads use one block.
+        Only the recognised liquidity-adapter route is inspected, not a graph.
+
+        :param owner: Intended sender, share owner and payout recipient.
+        :return: True for a proven ungated route, false for a known restriction.
+        :raises NotImplementedError: For unreadable or unresolved route policy.
+        """
+        block = self._get_block_identifier()
+        if block == "latest":
+            block = self.web3.eth.block_number
+        if not self._is_ungated(owner, block):
+            return False
+        adapter = self._fetch_liquidity_adapter(block)
+        if adapter == ZERO_ADDRESS_STR:
+            return True
+
+        inner_address = self._fetch_reviewed_inner_vault(adapter, block)
+        if inner_address is None:
+            # The reviewed market adapter has no further vault policy to inspect.
+            return True
+
+        # On the inner leg, the adapter is the asset/share owner, not the outer owner.
+        inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner_address), default_block_identifier=block)
+        if not inner_vault._is_ungated(adapter, block):
+            return False
+        if inner_vault._fetch_liquidity_adapter(block) != ZERO_ADDRESS_STR:
+            raise NotImplementedError("Further nested Morpho route policy is unresolved")
+        return True
+
+    def _fetch_liquidity_adapter(self, block: BlockIdentifier) -> HexAddress:
+        """Read the configured route at the same block as its policy checks.
+
+        Both outer and inner checks use this getter so route discovery stays at
+        the selected observation block. A zero address means no configured route.
+        See `Morpho Vault V2 <https://docs.morpho.org/learn/concepts/vault-v2/>`__.
+
+        :param block: Common policy observation block.
+        :return: Checksummed adapter address, or the zero address for no route.
+        """
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
+        address = contract.functions.liquidityAdapter().call(block_identifier=block)
+        return Web3.to_checksum_address(address)
+
+    def _fetch_reviewed_inner_vault(self, adapter: HexAddress, block: BlockIdentifier) -> HexAddress | None:
+        """Verify route identity before interpreting its inner-vault getter.
+
+        Matching getters alone do not establish adapter behaviour. The reviewed
+        runtime bytecode includes immutable addresses; the parent check also
+        binds this route to the outer vault. Only reviewed market and single
+        inner-vault routes are supported. See the cases in
+        https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782.
+
+        :param adapter: Configured liquidity adapter.
+        :param block: Common policy observation block.
+        :return: Inner vault address, or None for a reviewed direct market route.
+        :raises NotImplementedError: For unreviewed bytecode or invalid route identity.
+        """
+        bytecode = self.web3.eth.get_code(adapter, block_identifier=block)
+        code_hash = Web3.keccak(bytecode).hex().removeprefix("0x")
+        adapter_kind = REVIEWED_PERMISSION_ADAPTER_HASHES.get(code_hash)
+        if adapter_kind is None:
+            raise NotImplementedError("Unreviewed Morpho liquidity adapter bytecode")
+
+        adapter_contract = get_deployed_contract(self.web3, "morpho/MorphoMarketV1AdapterV2.json", adapter)
+        parent = adapter_contract.functions.parentVault().call(block_identifier=block)
+        if parent.lower() != self.address.lower():
+            raise NotImplementedError("Morpho liquidity adapter parent does not match vault")
+        if adapter_kind == "market":
+            return None
+
+        vault_adapter = get_deployed_contract(self.web3, "morpho/MorphoVaultV1Adapter.json", adapter)
+        inner_address = vault_adapter.functions.morphoVaultV1().call(block_identifier=block)
+        if inner_address == ZERO_ADDRESS_STR:
+            raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
+        return Web3.to_checksum_address(inner_address)
+
+    def _is_ungated(self, owner: HexAddress, block: BlockIdentifier) -> bool:
+        """Read this vault's entry and exit gates without traversing its route.
+
+        :param owner: Actual asset/share owner on this leg of the route.
+        :param block: Common block for every policy observation.
+        :return: True when all four gates are disabled, false when a gate refuses the owner.
+        :raises NotImplementedError: When gate policy remains unproven.
+        """
+        deposit_gates = self.fetch_deposit_gates(block)
+        if any(gate != ZERO_ADDRESS_STR for gate in deposit_gates):
+            if not self.is_account_whitelisted(owner, block_identifier=block):
+                return False
+            raise NotImplementedError("Morpho deposit gate policy needs review despite owner admission")
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
+        exit_checks = (
+            (contract.functions.sendSharesGate, contract.functions.canSendShares),
+            (contract.functions.receiveAssetsGate, contract.functions.canReceiveAssets),
+        )
+        for gate_getter, admission_check in exit_checks:
+            gate = gate_getter().call(block_identifier=block)
+            if gate == ZERO_ADDRESS_STR:
+                continue
+            account = Web3.to_checksum_address(owner)
+            if not admission_check(account).call(block_identifier=block):
+                return False
+            # Admission for this owner cannot prove that the gate admits everyone.
+            raise NotImplementedError(f"Morpho {gate_getter.fn_name} policy needs review despite owner admission")
+        return True
+
+    def is_account_whitelisted(self, address: HexAddress, block_identifier: BlockIdentifier | None = None) -> bool:
         """Check deposit permission when one account sends assets and receives shares.
 
         Morpho checks the asset sender and share receiver separately. Query both
@@ -277,12 +396,14 @@ class MorphoV2Vault(ERC4626Vault):
         reported as an explicit denial or as permission to deposit.
 
         :param address: Account sending assets and receiving shares.
+        :param block_identifier: Optional common policy observation block.
         :return: Whether both permission checks allow the account.
         :raises NotImplementedError: If a predicate reverts or cannot be decoded.
         """
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
         account = Web3.to_checksum_address(address)
-        block_identifier = self._get_block_identifier()
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
         for predicate in (contract.functions.canReceiveShares(account), contract.functions.canSendAssets(account)):
             try:
                 allowed = predicate.call(block_identifier=block_identifier)
@@ -309,13 +430,13 @@ class MorphoV2Vault(ERC4626Vault):
         """
         if block_identifier is None:
             block_identifier = self._get_block_identifier()
+        if block_identifier == "latest":
+            block_identifier = self.web3.eth.block_number
         receive_shares_gate = self._fetch_gate_address(
-            RECEIVE_SHARES_GATE_SIGNATURE,
             "receiveSharesGate",
             block_identifier,
         )
         send_assets_gate = self._fetch_gate_address(
-            SEND_ASSETS_GATE_SIGNATURE,
             "sendAssetsGate",
             block_identifier,
         )
@@ -323,14 +444,11 @@ class MorphoV2Vault(ERC4626Vault):
 
     def _fetch_gate_address(
         self,
-        signature: bytes,
         function_name: str,
         block_identifier: BlockIdentifier,
     ) -> HexAddress:
-        """Read one Morpho V2 gate address without widening the ERC-4626 ABI.
+        """Read an ABI-backed gate call while preserving malformed-response diagnostics.
 
-        :param signature:
-            Four-byte getter selector.
         :param function_name:
             Human-readable getter name used in diagnostics.
         :param block_identifier:
@@ -343,13 +461,10 @@ class MorphoV2Vault(ERC4626Vault):
             block, and raw response for diagnosing stale classifications or
             inconsistent RPC responses.
         """
-        call = EncodedCall.from_keccak_signature(
-            address=self.address,
-            signature=signature,
-            function=function_name,
-            data=b"",
-            extra_data=None,
-        )
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
+        # Retain raw bytes for the existing typed malformed-response diagnostics;
+        # calldata is generated from the stored verified ABI.
+        call = EncodedCall.from_contract_call(getattr(contract.functions, function_name)())
         data = call.call(self.web3, block_identifier)
         if len(data) != ABI_ADDRESS_WORD_SIZE:
             raise MorphoGateAddressMissing(
@@ -358,7 +473,7 @@ class MorphoV2Vault(ERC4626Vault):
                 block_identifier,
                 data,
             )
-        return Web3.to_checksum_address(data[12:32])
+        return Web3.to_checksum_address(decode(["address"], data)[0])
 
     def get_deposit_manager(self) -> MorphoV2DepositManager:
         """Create a manager that simulates exact Morpho V2 redemptions.

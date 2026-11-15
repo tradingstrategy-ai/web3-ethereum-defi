@@ -5,6 +5,9 @@
 - fix: Group batched vault classification results by vault address regardless of letter case, so the checksummed `tvlCap()` probe no longer creates a second, broken classification for every vault and crashes metadata preparation. Lead discovery now refuses to persist classifications when it produces more detections than leads or marks a large share of working vaults as broken (2026-11-14).
 - feat: Add the long-short portfolio strategy tag, classify HyperNeutral #1, and add its curator profile, X feed and logo with a targeted strategy-tag migration (2026-11-14, [#1778](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1778)).
 
+- Mark all VaultMorpho integrations unsupported_protocol and add opt-in Morpho complete-route admission checks; prepare permission refresh migration 078 (2026-11-15).
+
+
 - fix: Separate the unattributed VaultMorpho adapter and ABI from canonical Morpho, remove inherited Morpho metadata assumptions, and correct existing catalogue attribution through migration 075 (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).
 
 - docs: Explain Morpho interface detection and the capped VaultMorpho variant in feature comments and the canonical integration guide, including verified sources and the distinction between compatibility and protocol identity (2026-11-14, [#1777](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1777)).

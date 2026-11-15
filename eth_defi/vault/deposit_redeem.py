@@ -29,7 +29,7 @@ VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
 
 class VaultDepositPermission(str, enum.Enum):
-    """Whether deposits require a pre-approved recipient account.
+    """Deposit account policy or an explicit unsupported-integration status.
 
     A pre-approval can be KYC, manual identity approval, or a source-proven
     recipient allowlist. It does not describe a particular account's balance,
@@ -59,6 +59,16 @@ class VaultDepositPermission(str, enum.Enum):
     #: The adapter cannot safely determine the applicable identity policy or
     #: native-perp public-participation status.
     unknown = "unknown"
+
+    #: Unsupported integration: exclude from investable universes and reject new
+    #: deposits at least as strictly as ``whitelisted``; historical closure
+    #: exceptions cannot override unsupported status. Preserve the
+    #: distinct status; it does not assert an on-chain whitelist or temporary closure.
+    #: Keep existing holdings visible for valuation and independently checked recovery.
+    #: Introduced for VaultMorpho: source inspection and successful fork trades did
+    #: not establish a maintained protocol integration. Case and decision:
+    #: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782
+    unsupported_protocol = "unsupported_protocol"
 
 
 @dataclass(frozen=True, slots=True)

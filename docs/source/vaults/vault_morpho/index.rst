@@ -106,3 +106,23 @@ API
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.vault_morpho.vault
+
+Unsupported protocol status
+---------------------------
+
+All VaultMorpho-family integrations report ``unsupported_protocol`` regardless
+of chain, implementation address or owner. The protocol/operator has not been
+properly identified and supported. Source review of selected implementations is
+not an exception to that decision. This supersedes the implementation-address
+permission support introduced during the initial repair.
+
+The scanner and JSON export retain this distinct status in
+``deposit_permission`` and ``whitelist.status``. Consumers exclude it from new
+investment in the same way as a permissioned vault, without calling it an actual
+whitelist restriction or downgrading it to unknown. The test-trade command
+records ``unsupported_protocol`` before any deposit or Guard-only test.
+
+The data-only adapter keeps price/history, attribution, cap diagnostics and
+legacy redemption/recovery paths. It rejects deposit request construction.
+Migration 078 refreshes every saved family record on all chains, preserving
+prices and discovery history. Apply and export publication remain operator work.
