@@ -294,50 +294,97 @@ class MorphoV2Vault(ERC4626Vault):
             block = self.web3.eth.block_number
         if not self._is_ungated(owner, block):
             return False
-        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
-        adapter = contract.functions.liquidityAdapter().call(block_identifier=block)
-        if not int(adapter, 16):
+        adapter = self._fetch_liquidity_adapter(block)
+        if adapter == ZERO_ADDRESS_STR:
             return True
-        code_hash = Web3.keccak(self.web3.eth.get_code(adapter, block_identifier=block)).hex().removeprefix("0x")
-        if code_hash not in REVIEWED_PERMISSION_ADAPTER_HASHES:
-            raise NotImplementedError("Unreviewed Morpho liquidity adapter bytecode")
-        adapter_contract = get_deployed_contract(self.web3, "morpho/MorphoMarketV1AdapterV2.json", adapter)
-        if adapter_contract.functions.parentVault().call(block_identifier=block).lower() != self.address.lower():
-            raise NotImplementedError("Morpho liquidity adapter parent does not match vault")
-        if REVIEWED_PERMISSION_ADAPTER_HASHES[code_hash] == "market":
+
+        inner_address = self._fetch_reviewed_inner_vault(adapter, block)
+        if inner_address is None:
+            # The reviewed market adapter has no further vault policy to inspect.
             return True
-        vault_adapter = get_deployed_contract(self.web3, "morpho/MorphoVaultV1Adapter.json", adapter)
-        inner = vault_adapter.functions.morphoVaultV1().call(block_identifier=block)
-        if not int(inner, 16):
-            raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
-        inner = Web3.to_checksum_address(inner)
-        inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner), default_block_identifier=block)
+
+        # On the inner leg, the adapter is the asset/share owner, not the outer owner.
+        inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner_address), default_block_identifier=block)
         if not inner_vault._is_ungated(adapter, block):
             return False
-        inner_contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", inner)
-        if int(inner_contract.functions.liquidityAdapter().call(block_identifier=block), 16):
+        if inner_vault._fetch_liquidity_adapter(block) != ZERO_ADDRESS_STR:
             raise NotImplementedError("Further nested Morpho route policy is unresolved")
         return True
+
+    def _fetch_liquidity_adapter(self, block: BlockIdentifier) -> HexAddress:
+        """Read the configured route at the same block as its policy checks.
+
+        Both outer and inner checks use this getter so route discovery stays at
+        the selected observation block. A zero address means no configured route.
+        See `Morpho Vault V2 <https://docs.morpho.org/learn/concepts/vault-v2/>`__.
+
+        :param block: Common policy observation block.
+        :return: Checksummed adapter address, or the zero address for no route.
+        """
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
+        address = contract.functions.liquidityAdapter().call(block_identifier=block)
+        return Web3.to_checksum_address(address)
+
+    def _fetch_reviewed_inner_vault(self, adapter: HexAddress, block: BlockIdentifier) -> HexAddress | None:
+        """Verify route identity before interpreting its inner-vault getter.
+
+        Matching getters alone do not establish adapter behaviour. The reviewed
+        runtime bytecode includes immutable addresses; the parent check also
+        binds this route to the outer vault. Only reviewed market and single
+        inner-vault routes are supported. See the cases in
+        https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782.
+
+        :param adapter: Configured liquidity adapter.
+        :param block: Common policy observation block.
+        :return: Inner vault address, or None for a reviewed direct market route.
+        :raises NotImplementedError: For unreviewed bytecode or invalid route identity.
+        """
+        bytecode = self.web3.eth.get_code(adapter, block_identifier=block)
+        code_hash = Web3.keccak(bytecode).hex().removeprefix("0x")
+        adapter_kind = REVIEWED_PERMISSION_ADAPTER_HASHES.get(code_hash)
+        if adapter_kind is None:
+            raise NotImplementedError("Unreviewed Morpho liquidity adapter bytecode")
+
+        adapter_contract = get_deployed_contract(self.web3, "morpho/MorphoMarketV1AdapterV2.json", adapter)
+        parent = adapter_contract.functions.parentVault().call(block_identifier=block)
+        if parent.lower() != self.address.lower():
+            raise NotImplementedError("Morpho liquidity adapter parent does not match vault")
+        if adapter_kind == "market":
+            return None
+
+        vault_adapter = get_deployed_contract(self.web3, "morpho/MorphoVaultV1Adapter.json", adapter)
+        inner_address = vault_adapter.functions.morphoVaultV1().call(block_identifier=block)
+        if inner_address == ZERO_ADDRESS_STR:
+            raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
+        return Web3.to_checksum_address(inner_address)
 
     def _is_ungated(self, owner: HexAddress, block: BlockIdentifier) -> bool:
         """Read this vault's entry and exit gates without traversing its route.
 
         :param owner: Actual asset/share owner on this leg of the route.
         :param block: Common block for every policy observation.
-        :return: Whether all four local gate slots are disabled.
+        :return: True when all four gates are disabled, false when a gate refuses the owner.
         :raises NotImplementedError: When gate policy remains unproven.
         """
-        if any(int(gate, 16) for gate in self.fetch_deposit_gates(block)):
+        deposit_gates = self.fetch_deposit_gates(block)
+        if any(gate != ZERO_ADDRESS_STR for gate in deposit_gates):
             if not self.is_account_whitelisted(owner, block_identifier=block):
                 return False
             raise NotImplementedError("Morpho deposit gate policy needs review despite owner admission")
         contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
-        for name, predicate in (("sendSharesGate", "canSendShares"), ("receiveAssetsGate", "canReceiveAssets")):
-            gate = getattr(contract.functions, name)().call(block_identifier=block)
-            if int(gate, 16):
-                if not getattr(contract.functions, predicate)(Web3.to_checksum_address(owner)).call(block_identifier=block):
-                    return False
-                raise NotImplementedError(f"Morpho {name} policy needs review despite owner admission")
+        exit_checks = (
+            (contract.functions.sendSharesGate, contract.functions.canSendShares),
+            (contract.functions.receiveAssetsGate, contract.functions.canReceiveAssets),
+        )
+        for gate_getter, admission_check in exit_checks:
+            gate = gate_getter().call(block_identifier=block)
+            if gate == ZERO_ADDRESS_STR:
+                continue
+            account = Web3.to_checksum_address(owner)
+            if not admission_check(account).call(block_identifier=block):
+                return False
+            # Admission for this owner cannot prove that the gate admits everyone.
+            raise NotImplementedError(f"Morpho {gate_getter.fn_name} policy needs review despite owner admission")
         return True
 
     def is_account_whitelisted(self, address: HexAddress, block_identifier: BlockIdentifier | None = None) -> bool:
