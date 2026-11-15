@@ -60,7 +60,14 @@ class VaultDepositPermission(str, enum.Enum):
     #: native-perp public-participation status.
     unknown = "unknown"
 
-    #: Protocol integration is unsupported; exclude from new investment.
+    #: Unsupported integration: exclude from investable universes and reject new
+    #: deposits at least as strictly as ``whitelisted``; historical closure
+    #: exceptions cannot override unsupported status. Preserve the
+    #: distinct status; it does not assert an on-chain whitelist or temporary closure.
+    #: Keep existing holdings visible for valuation and independently checked recovery.
+    #: Introduced for VaultMorpho: source inspection and successful fork trades did
+    #: not establish a maintained protocol integration. Case and decision:
+    #: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782
     unsupported_protocol = "unsupported_protocol"
 
 

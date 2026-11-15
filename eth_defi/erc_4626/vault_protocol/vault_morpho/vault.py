@@ -118,9 +118,26 @@ class VaultMorphoVault(ERC4626Vault):
     repository are unidentified. Generic metadata retains unknown fees and
     withdrawal timing instead of borrowing canonical Morpho defaults. The integration
     remains unsupported for new investment on all deployments.
+
+    In the 15 November 2026 simulation investigation, four proxies had reviewed
+    implementation source and some completed fork trades. This established only
+    observed contract behaviour: the operator/upstream attribution and maintained
+    protocol integration were still missing. We therefore mark the whole family
+    ``unsupported_protocol`` instead of certifying selected implementation addresses.
+    See `the VaultMorpho support decision and affected-vault results
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782>`_.
+
+    Consumers must preserve this status and exclude new investment as they do
+    for permissioned vaults, regardless of owner, chain, cap or a successful probe.
+    It is not evidence of an account whitelist and must not fall back to unknown
+    or permissionless. Keep existing holdings visible for valuation and recovery;
+    redemption availability still requires its own checks. Lifting this exclusion
+    requires a properly supported integration, not another implementation exception.
     """
 
-    #: Reading this unattributed implementation is not a supported trading integration.
+    #: Family-wide support decision, including previously successful fork cases.
+    #: Block new investment without RPC; do not restore per-implementation exceptions.
+    #: Rationale and evidence: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1782
     unsupported_protocol_reason = "VaultMorpho is an unsupported, unattributed protocol"
 
     def is_whitelisted_deposit(self) -> bool:
