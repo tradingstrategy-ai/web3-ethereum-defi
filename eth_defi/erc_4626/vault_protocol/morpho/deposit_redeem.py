@@ -87,13 +87,15 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.vault.address)
         adapter = contract.functions.liquidityAdapter().call()
         if int(adapter, 16):
-            # This optional adapter-identification getter has no stored ABI.
+            # This getter is optional for market adapters, but its verified ABI
+            # supplies calldata and return decoding for vault adapters.
+            vault_adapter = get_deployed_contract(self.web3, "morpho/MorphoVaultV1Adapter.json", adapter)
             try:
-                result = self.web3.eth.call({"to": adapter, "data": Web3.keccak(text="morphoVaultV1()")[:4]})
-            except (ContractLogicError, ExtraValueError):
-                result = b""
-            if len(result) == 32 and int.from_bytes(result, "big"):
-                inner = Web3.to_checksum_address(result[-20:])
+                inner = vault_adapter.functions.morphoVaultV1().call()
+            except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+                inner = None
+            if inner is not None and int(inner, 16):
+                inner = Web3.to_checksum_address(inner)
                 # The V2 ABI provides these optional predicates; inner vaults
                 # without them fall through to normal onchain validation.
                 inner_contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", inner)

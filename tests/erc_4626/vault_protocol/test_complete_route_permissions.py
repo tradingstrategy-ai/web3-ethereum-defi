@@ -41,8 +41,11 @@ def test_reviewed_vault_morpho_implementation_is_public(implementation: str) -> 
 def test_public_outer_with_exit_gate_is_not_permissionless():
     vault = morpho()
     contract = Mock()
+    contract.functions.sendSharesGate.return_value.call.return_value = ZERO
+    contract.functions.receiveAssetsGate.return_value.call.return_value = ZERO
+    contract.functions.sendSharesGate.return_value.call.return_value = OWNER
     contract.functions.canSendShares.return_value.call.return_value = False
-    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO, ZERO)), patch.object(MorphoV2Vault, '_fetch_gate_address', return_value=OWNER), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
+    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO, ZERO)), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
         assert vault.is_whitelisted_deposit() is False
         assert vault.is_permissionless(OWNER) is False
         contract.functions.canSendShares.return_value.call.return_value = True
@@ -53,15 +56,17 @@ def test_public_outer_with_exit_gate_is_not_permissionless():
 def test_ungated_route_and_restricted_nested_route():
     vault = morpho()
     contract = Mock()
+    contract.functions.sendSharesGate.return_value.call.return_value = ZERO
+    contract.functions.receiveAssetsGate.return_value.call.return_value = ZERO
     contract.functions.liquidityAdapter.return_value.call.return_value = ZERO
-    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO, ZERO)), patch.object(MorphoV2Vault, '_fetch_gate_address', return_value=ZERO), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
+    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO, ZERO)), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
         assert vault.is_permissionless(OWNER) is True
     contract.functions.liquidityAdapter.return_value.call.return_value = OWNER
     contract.functions.parentVault.return_value.call.return_value = OWNER
     vault.web3.eth.get_code.return_value = b"reviewed-test-bytecode"
     contract.functions.canReceiveShares.return_value.call.return_value = False
-    vault.web3.eth.call.return_value = bytes(12) + bytes.fromhex(OWNER[2:])
-    with patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES', {__import__('web3').Web3.keccak(b'reviewed-test-bytecode').hex().removeprefix('0x'): 'vault'}), patch.object(MorphoV2Vault, 'fetch_deposit_gates', side_effect=[(ZERO, ZERO), (OWNER, ZERO)]), patch.object(MorphoV2Vault, '_fetch_gate_address', return_value=ZERO), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
+    contract.functions.morphoVaultV1.return_value.call.return_value = OWNER
+    with patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES', {__import__('web3').Web3.keccak(b'reviewed-test-bytecode').hex().removeprefix('0x'): 'vault'}), patch.object(MorphoV2Vault, 'fetch_deposit_gates', side_effect=[(ZERO, ZERO), (OWNER, ZERO)]), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract', return_value=contract):
         assert vault.is_permissionless(OWNER) is False
 
 
@@ -75,10 +80,12 @@ def test_admitted_owner_does_not_override_configured_deposit_policy():
 def test_unreviewed_adapter_cannot_claim_permissionless_through_parent_getter():
     vault = morpho()
     contract = Mock()
+    contract.functions.sendSharesGate.return_value.call.return_value = ZERO
+    contract.functions.receiveAssetsGate.return_value.call.return_value = ZERO
     contract.functions.liquidityAdapter.return_value.call.return_value = OWNER
     contract.functions.parentVault.return_value.call.return_value = OWNER
     vault.web3.eth.get_code.return_value = b'unreviewed custom adapter'
-    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO,ZERO)), patch.object(MorphoV2Vault, '_fetch_gate_address', return_value=ZERO), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract',return_value=contract), pytest.raises(NotImplementedError,match='bytecode'):
+    with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO,ZERO)), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract',return_value=contract), pytest.raises(NotImplementedError,match='bytecode'):
         vault.is_permissionless(OWNER)
 
 
@@ -95,7 +102,7 @@ def test_reviewed_market_requires_its_parent_and_no_getter_fallback():
         with pytest.raises(NotImplementedError,match='parent'):
             vault.is_permissionless(OWNER)
         contract.functions.parentVault.return_value.call.return_value=OWNER
-        vault.web3.eth.call.return_value=b''
+        contract.functions.morphoVaultV1.return_value.call.return_value=ZERO
         with patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES',{digest:'vault'}):
             with pytest.raises(NotImplementedError,match='inner vault'):
                 vault.is_permissionless(OWNER)

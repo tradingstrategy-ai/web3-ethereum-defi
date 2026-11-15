@@ -226,6 +226,7 @@ def test_morpho_market_adapter_zero_cap_is_not_a_funding_failure() -> None:
     params = ("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", OWNER, OWNER, OWNER, 86)
     outer.functions.liquidityData.return_value.call.return_value = encode(["(address,address,address,address,uint256)"], [params])
     market.functions.parentVault.return_value.call.return_value = OWNER
+    market.functions.morphoVaultV1.return_value.call.side_effect = ContractLogicError("Optional vault getter absent")
     allocation_id = b"\x03" * 32
     market.functions.ids.return_value.call.return_value = [allocation_id]
     manager = object.__new__(MorphoV2DepositManager)

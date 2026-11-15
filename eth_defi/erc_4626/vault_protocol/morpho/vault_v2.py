@@ -20,6 +20,7 @@ import datetime
 import logging
 from web3.exceptions import ContractLogicError
 from eth_defi.provider.fallback import ExtraValueError
+from eth_abi import decode
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -63,8 +64,6 @@ FEE_DENOMINATOR = 10**18
 #: Keccak signatures for fee multicalls
 PERFORMANCE_FEE_SIGNATURE = Web3.keccak(text="performanceFee()")[0:4]
 MANAGEMENT_FEE_SIGNATURE = Web3.keccak(text="managementFee()")[0:4]
-RECEIVE_SHARES_GATE_SIGNATURE = Web3.keccak(text="receiveSharesGate()")[0:4]
-SEND_ASSETS_GATE_SIGNATURE = Web3.keccak(text="sendAssetsGate()")[0:4]
 
 #: ABI return-word width for address getters
 ABI_ADDRESS_WORD_SIZE = 32
@@ -295,7 +294,7 @@ class MorphoV2Vault(ERC4626Vault):
             block = self.web3.eth.block_number
         if not self._is_ungated(owner, block):
             return False
-        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
         adapter = contract.functions.liquidityAdapter().call(block_identifier=block)
         if not int(adapter, 16):
             return True
@@ -307,20 +306,18 @@ class MorphoV2Vault(ERC4626Vault):
             raise NotImplementedError("Morpho liquidity adapter parent does not match vault")
         if REVIEWED_PERMISSION_ADAPTER_HASHES[code_hash] == "market":
             return True
-        try:
-            data = self.web3.eth.call({"to": adapter, "data": Web3.keccak(text="morphoVaultV1()")[:4]}, block_identifier=block)
-        except (ContractLogicError, ExtraValueError):
-            data = b""
-        if len(data) == 32 and int.from_bytes(data, "big"):
-            inner = Web3.to_checksum_address(data[-20:])
-            inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner), default_block_identifier=block)
-            if not inner_vault._is_ungated(adapter, block):
-                return False
-            inner_contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", inner)
-            if int(inner_contract.functions.liquidityAdapter().call(block_identifier=block), 16):
-                raise NotImplementedError("Further nested Morpho route policy is unresolved")
-            return True
-        raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
+        vault_adapter = get_deployed_contract(self.web3, "morpho/MorphoVaultV1Adapter.json", adapter)
+        inner = vault_adapter.functions.morphoVaultV1().call(block_identifier=block)
+        if not int(inner, 16):
+            raise NotImplementedError("Reviewed vault adapter did not return its inner vault")
+        inner = Web3.to_checksum_address(inner)
+        inner_vault = MorphoV2Vault(self.web3, VaultSpec(self.chain_id, inner), default_block_identifier=block)
+        if not inner_vault._is_ungated(adapter, block):
+            return False
+        inner_contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", inner)
+        if int(inner_contract.functions.liquidityAdapter().call(block_identifier=block), 16):
+            raise NotImplementedError("Further nested Morpho route policy is unresolved")
+        return True
 
     def _is_ungated(self, owner: HexAddress, block: BlockIdentifier) -> bool:
         """Read this vault's entry and exit gates without traversing its route.
@@ -334,9 +331,9 @@ class MorphoV2Vault(ERC4626Vault):
             if not self.is_account_whitelisted(owner, block_identifier=block):
                 return False
             raise NotImplementedError("Morpho deposit gate policy needs review despite owner admission")
-        contract = get_deployed_contract(self.web3, "morpho/IVaultV2.json", self.address)
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
         for name, predicate in (("sendSharesGate", "canSendShares"), ("receiveAssetsGate", "canReceiveAssets")):
-            gate = self._fetch_gate_address(Web3.keccak(text=name + "()")[:4], name, block)
+            gate = getattr(contract.functions, name)().call(block_identifier=block)
             if int(gate, 16):
                 if not getattr(contract.functions, predicate)(Web3.to_checksum_address(owner)).call(block_identifier=block):
                     return False
@@ -386,13 +383,13 @@ class MorphoV2Vault(ERC4626Vault):
         """
         if block_identifier is None:
             block_identifier = self._get_block_identifier()
+        if block_identifier == "latest":
+            block_identifier = self.web3.eth.block_number
         receive_shares_gate = self._fetch_gate_address(
-            RECEIVE_SHARES_GATE_SIGNATURE,
             "receiveSharesGate",
             block_identifier,
         )
         send_assets_gate = self._fetch_gate_address(
-            SEND_ASSETS_GATE_SIGNATURE,
             "sendAssetsGate",
             block_identifier,
         )
@@ -400,14 +397,11 @@ class MorphoV2Vault(ERC4626Vault):
 
     def _fetch_gate_address(
         self,
-        signature: bytes,
         function_name: str,
         block_identifier: BlockIdentifier,
     ) -> HexAddress:
-        """Read one Morpho V2 gate address without widening the ERC-4626 ABI.
+        """Read an ABI-backed gate call while preserving malformed-response diagnostics.
 
-        :param signature:
-            Four-byte getter selector.
         :param function_name:
             Human-readable getter name used in diagnostics.
         :param block_identifier:
@@ -420,13 +414,10 @@ class MorphoV2Vault(ERC4626Vault):
             block, and raw response for diagnosing stale classifications or
             inconsistent RPC responses.
         """
-        call = EncodedCall.from_keccak_signature(
-            address=self.address,
-            signature=signature,
-            function=function_name,
-            data=b"",
-            extra_data=None,
-        )
+        contract = get_deployed_contract(self.web3, "morpho/VaultV2.json", self.address)
+        # Retain raw bytes for the existing typed malformed-response diagnostics;
+        # calldata is generated from the stored verified ABI.
+        call = EncodedCall.from_contract_call(getattr(contract.functions, function_name)())
         data = call.call(self.web3, block_identifier)
         if len(data) != ABI_ADDRESS_WORD_SIZE:
             raise MorphoGateAddressMissing(
@@ -435,7 +426,7 @@ class MorphoV2Vault(ERC4626Vault):
                 block_identifier,
                 data,
             )
-        return Web3.to_checksum_address(data[12:32])
+        return Web3.to_checksum_address(decode(["address"], data)[0])
 
     def get_deposit_manager(self) -> MorphoV2DepositManager:
         """Create a manager that simulates exact Morpho V2 redemptions.
