@@ -337,6 +337,62 @@ Settlement proof comes from `force_settle()` on the fork. The tests are
 `tests/guard/test_guard_simple_vault_t3tris.py` and
 `tests/erc_4626/vault_protocol/test_t3tris_deposit_redeem.py`.
 
+## Settlement timing
+
+T3tris has no contractual settlement deadline. The curator settles pending
+requests in vault-wide epochs, whenever it chooses. There are two timing
+sources, and the measured one is preferred.
+
+### Measured settlements (preferred)
+
+`settlement.py` records every `DepositsSettled` event into the vault
+settlement database (`vault-settlements.duckdb`) through the shared
+settlement scanner. History backfills from each vault's first-seen block on
+the next scanner cycle. Backtests read these rows as `vault_settlement_at`
+markers, so a queued deposit completes at an actual onchain settlement
+rather than after a guessed delay. Use these markers, or intervals computed
+from them, wherever the timing matters.
+
+Only `DepositsSettled` is recorded. Curators settle with `settle()`,
+`settleDeposits()` or `settleRedemptions()`, and First USDC's history uses
+all three. The `vault_settlement_at` marker carries no direction, so storing
+`RedemptionsSettled` too would let a redemption-only settlement release
+queued deposits in a backtest.
+
+### Offchain estimate (fallback)
+
+The vault detail API returns `estimatedRedemptionTs`, which the app shows as
+"Approx. redemption date" with the tooltip "One average settlement interval
+from today; not a scheduled or guaranteed date". `offchain_metadata.py`
+subtracts the response's `Date` header to get the interval and caches the
+interval, not the timestamp. `T3trisVault.get_withdrawal_period()` publishes
+it as a non-binding `estimated_settlement`, as Lagoon does with its
+`averageSettlement`. Backtests use it as the delay for both directions where
+no measured settlement applies, which in practice means redemptions.
+
+The estimate is weak. Values on 15 November 2026:
+
+| Vault | API interval | Observed |
+| --- | --- | --- |
+| Arbitrum First USDC `0x98e4…` | 5.5 days | settlement transactions median 7.9 days apart; redemption settlements 5.5–42 days apart |
+| Robinhood Morini `0x5b93…` | 6.4 hours | last settlement on 7 August 2026, three months earlier |
+| Robinhood Kingfisher `0xd4d6…` | 20 seconds | two settlements in one block |
+| Arbitrum Gami USDC `0x9984…`, `0x394c…` | none | no or one settlement |
+
+- T3tris computes the average server-side and does not publish the method;
+  it could not be reproduced from the API's activity feed.
+- It ignores how long ago the last settlement was, so a dormant vault can
+  report a sub-day interval.
+- Intervals under one hour are discarded (`MIN_AVERAGE_SETTLEMENT_SECONDS`):
+  they only come from settlements in the same block.
+- A missing or `null` value, and the vault-list fallback response, give no
+  estimate.
+- The field is undocumented and can change or disappear.
+
+Backtests that depend on redemption timing for such vaults are optimistic.
+Prefer an interval measured from the recorded settlements, or an explicit
+per-vault override, when the result matters.
+
 ## Reference links
 
 - T3tris homepage: https://t3tris.finance/

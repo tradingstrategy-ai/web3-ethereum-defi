@@ -27,6 +27,14 @@ ACCOUNTABLE_ADDRESS = "0xa000000000000000000000000000000000000000"
 OTHER_ADDRESS = "0xdef0000000000000000000000000000000000000"
 CHAIN2_ADDRESS = "0x2220000000000000000000000000000000000000"
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+T3TRIS_ADDRESS = "0x3300000000000000000000000000000000000000"
+#: T3tris First USDC on Arbitrum.
+T3TRIS_SCAN_ADDRESS = "0x98e43a491a464f0886bc5e57207c340bbed0d01f"
+#: ``settle()`` emitting both ``DepositsSettled`` and ``RedemptionsSettled``.
+T3TRIS_BOTH_SETTLED_BLOCK = 512_370_484
+#: ``settleRedemptions()`` emitting only ``RedemptionsSettled``.
+T3TRIS_REDEMPTIONS_ONLY_BLOCK = 514_074_740
 EMBER_SCAN_ADDRESS = "0xf3190a3ecc109f88e7947b849b281918c798a0c4"
 EMBER_SETTLEMENT_BLOCK = 24_290_495
 
@@ -290,7 +298,11 @@ def test_select_vault_settlement_scan_ranges_forced_lagoon_backfill(tmp_path: Pa
 
 
 def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> None:
-    """Generic settlement scans include Lagoon, D2, Ember and Accountable vaults."""
+    """Generic settlement scans include Lagoon, D2, Ember, Accountable and T3tris vaults."""
+    vault_db = make_vault_db()
+    now = datetime.datetime(2026, 2, 1, 0, 0, 0)
+    t3tris_detection = ERC4262VaultDetection(chain=1, address=T3TRIS_ADDRESS, first_seen_at_block=100, first_seen_at=now, features={ERC4626Feature.t3tris_like}, updated_at=now, deposit_count=10, redeem_count=5)
+    vault_db.rows[VaultSpec(1, T3TRIS_ADDRESS)] = {"Address": T3TRIS_ADDRESS, "Protocol": "T3tris", "features": t3tris_detection.features, "_detection_data": t3tris_detection}
     raw_prices = pd.DataFrame(
         [
             {"chain": 1, "address": LAGOON_ADDRESS, "block_number": 100},
@@ -301,18 +313,56 @@ def test_select_vault_settlement_scan_ranges_includes_supported_protocols() -> N
             {"chain": 1, "address": EMBER_ADDRESS, "block_number": 220},
             {"chain": 143, "address": ACCOUNTABLE_ADDRESS, "block_number": 130},
             {"chain": 143, "address": ACCOUNTABLE_ADDRESS, "block_number": 230},
+            {"chain": 1, "address": T3TRIS_ADDRESS, "block_number": 140},
+            {"chain": 1, "address": T3TRIS_ADDRESS, "block_number": 240},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 100},
             {"chain": 1, "address": OTHER_ADDRESS, "block_number": 200},
         ]
     )
-    ranges = select_vault_settlement_scan_ranges(make_vault_db(), raw_prices, EmptySettlementDb())
+    ranges = select_vault_settlement_scan_ranges(vault_db, raw_prices, EmptySettlementDb())
 
     assert [(item.address, item.start_block, item.end_block) for item in ranges] == [
+        (T3TRIS_ADDRESS, 140, 240),
         (LAGOON_ADDRESS, 100, 200),
         (D2_ADDRESS, 110, 210),
         (EMBER_ADDRESS, 120, 220),
         (ACCOUNTABLE_ADDRESS, 130, 230),
     ]
+
+
+@pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run this test")
+def test_update_settlement_database_for_chain_records_t3tris_deposit_settlements_only(tmp_path: Path) -> None:
+    """T3tris scans record ``DepositsSettled`` and ignore redemption-only settlements.
+
+    1. Scan a ``settle()`` block and a ``settleRedemptions()`` block of First USDC.
+    2. Only the deposit settlement is stored, and both blocks advance the scan watermark.
+    """
+    pytest.importorskip("duckdb")
+    timestamp = datetime.datetime(2026, 7, 1)
+    detection = ERC4262VaultDetection(chain=42161, address=T3TRIS_SCAN_ADDRESS, first_seen_at_block=T3TRIS_BOTH_SETTLED_BLOCK, first_seen_at=timestamp, features={ERC4626Feature.t3tris_like}, updated_at=timestamp, deposit_count=1, redeem_count=1)
+    rows_by_key = {(42161, T3TRIS_SCAN_ADDRESS): {"Address": T3TRIS_SCAN_ADDRESS, "Protocol": "T3tris", "features": detection.features, "_detection_data": detection}}
+    database = VaultSettlementDatabase(tmp_path / "t3tris-settlements.duckdb")
+    web3 = create_multi_provider_web3(JSON_RPC_ARBITRUM)
+    try:
+        # 1. Scan a settle() block and a settleRedemptions() block of First USDC.
+        for block in (T3TRIS_BOTH_SETTLED_BLOCK, T3TRIS_REDEMPTIONS_ONLY_BLOCK):
+            settlement_scan_module._update_settlement_database_for_chain(
+                database=database,
+                web3=web3,
+                chain_id=42161,
+                ranges=[VaultSettlementScanRange(chain_id=42161, address=T3TRIS_SCAN_ADDRESS, start_block=block, end_block=block)],
+                rows_by_key=rows_by_key,
+                token_cache=TokenDiskCache(),
+                use_hypersync=False,
+                chunk_size=1,
+            )
+
+        # 2. Only the deposit settlement is stored, and both blocks advance the scan watermark.
+        settlements = database.get_settlements(chain_id=42161, address=T3TRIS_SCAN_ADDRESS)
+        assert settlements[["block_number", "event_name", "protocol"]].to_dict("records") == [{"block_number": T3TRIS_BOTH_SETTLED_BLOCK, "event_name": "DepositsSettled", "protocol": "T3tris"}]
+        assert database.get_latest_scanned_block_number(42161, T3TRIS_SCAN_ADDRESS) == T3TRIS_REDEMPTIONS_ONLY_BLOCK
+    finally:
+        database.close()
 
 
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
