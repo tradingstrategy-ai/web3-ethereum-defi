@@ -8,7 +8,7 @@ Scope: Database-wide refresh of existing rows detected as ``t3tris_like``, on
     ``None`` because the scanner derives it from the binding ``max_period``.
 Branch: t3tris-delay-estimates
 PR title: feat: T3tris settlement delay estimates and settlement events
-PR: pending
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1784
 Preserves: All other fields, non-T3tris rows, leads, prices, reader state,
     timestamp caches and the T3tris metadata disk cache. No rows are created.
 Expected: One inspected row per existing T3tris deployment, about a dozen.

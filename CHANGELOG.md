@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Record T3tris `DepositsSettled` events in the vault settlement database, so backtests can settle queued deposits at measured onchain settlements, and publish T3tris' average settlement interval as a non-binding `estimated_settlement` fallback with its weaknesses documented, refreshed by numbered migration 079 (2026-11-15).
+- feat: Record T3tris `DepositsSettled` events in the vault settlement database, so backtests can settle queued deposits at measured onchain settlements, and publish T3tris' average settlement interval as a non-binding `estimated_settlement` fallback with its weaknesses documented, refreshed by numbered migration 079 (2026-11-15, [#1784](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1784)).
 - feat: Add positive and negative convexity strategy categories with glossary links, classify the +convexity Hyperliquid vault as positive convexity, algorithmic trading and directional trading, and refresh its persisted tags through migration 077 (2026-11-15, [#1781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1781)).
 
 - fix: Group batched vault classification results by vault address regardless of letter case, so the checksummed `tvlCap()` probe no longer creates a second, broken classification for every vault and crashes metadata preparation. Lead discovery now refuses to persist classifications when it produces more detections than leads or marks a large share of working vaults as broken (2026-11-14).
