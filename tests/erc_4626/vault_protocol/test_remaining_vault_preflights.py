@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from eth_abi import encode
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import ContractLogicError
 
@@ -20,6 +21,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDeposit
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault, VaultMorphoDepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
+from eth_defi.erc_4626.vault_protocol.morpho.recovery import MorphoRecoveryTicket
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
 from eth_defi.vault.exception import UnsupportedVaultProtocol
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, UnsupportedVaultSimulation
@@ -264,7 +266,7 @@ def test_morpho_arithmetic_and_exit_gate_failures_remain_distinct() -> None:
     # Match VaultBase's default: an arithmetic panic alone must not opt into recovery.
     manager.vault = SimpleNamespace(address=OWNER, chain_id=1, get_protocol_name=lambda: "Morpho", redemption_recovery_max_fee_bps=None)
     func = Mock()
-    request = SimpleNamespace(raw_shares=100, funcs=[func])
+    request = SimpleNamespace(owner=OWNER, raw_shares=100, funcs=[func])
     cases = [(bytes.fromhex("4e487b71") + (17).to_bytes(32), "Panic(0x11)", "redemption_call_reverted"), (bytes.fromhex("876736d1"), "CannotSendShares", "whitelisting-needed")]
     # 2. Exercise classification through the same exact-call path used in execution.
     with patch.object(ERC4626DepositManager, "create_redemption_request", return_value=request):
@@ -277,6 +279,31 @@ def test_morpho_arithmetic_and_exit_gate_failures_remain_distinct() -> None:
             assert exc.value.preflight_result == result
             assert exc.value.requested_raw_amount == 100
             assert exc.value.raw_revert_data == payload
+
+
+def test_paid_morpho_ticket_never_selects_another_recovery() -> None:
+    """A finishing panic must not spend a second recovery fee, even with an active cap.
+
+    1. Restore a paid ticket while fresh recovery is still authorised.
+    2. Make the exact remaining-share redemption fail with the qualifying panic.
+    3. Preserve that failure without selecting or constructing another recovery.
+    """
+    # 1. Only the contract boundary is mocked; the real finish and error reader run.
+    manager = object.__new__(MorphoV2DepositManager)
+    manager.vault = SimpleNamespace(address="0x" + "2" * 40, chain_id=1, get_protocol_name=lambda: "Morpho", redemption_recovery_max_fee_bps=1)
+    ticket = MorphoRecoveryTicket(vault_address=manager.vault.address, owner=OWNER, to=OWNER, raw_shares=100, tx_hash=HexBytes("0x" + "ab" * 32), penalty_shares=1, penalty_assets=1)
+    function = Mock()
+    request = SimpleNamespace(owner=OWNER, raw_shares=99, funcs=[function])
+    # 2. This would qualify for recovery on a new request, but this ticket is paid.
+    panic = bytes.fromhex("4e487b71") + (17).to_bytes(32)
+    function.call.side_effect = ContractLogicError("execution reverted", data="0x" + panic.hex())
+    with patch.object(ERC4626DepositManager, "create_redemption_request", return_value=request) as create, patch("eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem.prepare_recovery") as recover:
+        with pytest.raises(VaultFlowUnavailable) as exc:
+            manager.finish_redemption(ticket)
+        # 3. Only the 99 remaining shares were submitted; the first fee is final.
+        assert exc.value.decoded_error == "Panic(0x11)"
+        create.assert_called_once_with(OWNER, raw_shares=99)
+        recover.assert_not_called()
 
 
 @pytest.mark.parametrize("failure", [None, ContractLogicError("allowance not yet approved"), ValueError({"code": -32000, "message": "execution reverted", "data": "0x12345678"})])

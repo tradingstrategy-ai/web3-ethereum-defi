@@ -43,7 +43,9 @@ class MorphoRecoveryTicket(RedemptionTicket):
     transaction records provide signing, broadcast and restart idempotency.
     """
 
+    #: Exact share burn proven by the first transaction's Withdraw event.
     penalty_shares: int
+    #: Denomination assets retained by the vault for the mined penalty burn.
     penalty_assets: int
 
     @property
@@ -65,6 +67,7 @@ class MorphoRecoveryTicket(RedemptionTicket):
 class MorphoRecoveryAnalysis(DepositRedeemEventAnalysis):
     """Report total shares consumed and net cash, with the penalty disclosed once."""
 
+    #: Paid penalty for disclosure; denomination_amount is already the net cash.
     withdrawal_fee: Decimal
 
 
@@ -78,6 +81,7 @@ class MorphoRecoveryRequest(RedemptionRequest):
     """
 
     requires_settlement: ClassVar[bool] = True
+    #: Submitted adapter, raw assets and authorised rate cap, with schema version.
     plan: dict = field(default_factory=dict)
 
     def get_preflight_data(self) -> dict:
@@ -137,7 +141,10 @@ def prepare_recovery(manager: VaultDepositManager, request: RedemptionRequest) -
     most the authorised rate of that gross amount (plus integer rounding).
     The final exit can still use its ordinary configured market for any small
     accrual difference. The exact force call must preflight successfully; no
-    recovery is attempted when one alternate market cannot fund it.
+    recovery is attempted when the selected alternate market cannot fund it.
+    Select the largest non-exit supply position covering the gross claim, then
+    check its actual cash through the exact call. Do not try other markets after a
+    refusal or build a multi-market recovery plan.
     """
     vault, web3 = manager.vault, manager.web3
     limit = vault.redemption_recovery_max_fee_bps
@@ -163,6 +170,7 @@ def prepare_recovery(manager: VaultDepositManager, request: RedemptionRequest) -
     if gross <= idle + route_assets:
         return None
     penalty = outer.functions.forceDeallocatePenalty(adapter_address).call(block_identifier=block)
+    # Contract rates use 1e18 for 100%; the caller authorises basis points.
     if penalty > limit * 10**14:
         raise VaultFlowUnavailable("Morpho public recovery penalty exceeds the reviewed cap", protocol="Morpho", vault_address=vault.address, caller=request.owner, direction="redeem", phase="preflight", decoded_error="RecoveryPenaltyTooHigh")
     blue = get_deployed_contract(web3, "morpho/MorphoBlue.json", adapter.functions.morpho().call(block_identifier=block))

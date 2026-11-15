@@ -2,7 +2,7 @@
 
 - fix: Preserve synchronous guarded ERC-4626 redemption analysis without an async ticket and keep Guard fixtures compatible with added libraries and later interface versions (2026-11-15).
 
-- feat: Add explicitly authorised Morpho V2 public liquidity recovery with fee-burn tickets and capped Guard validation (2026-11-15).
+- feat: Add explicitly authorised Morpho V2 public liquidity recovery with fee-burn tickets and capped Guard validation. Reuse exact direct-redemption preflight and keep protocol evidence in request hooks (2026-11-15, [#1783](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1783)).
 
 - feat: Add positive and negative convexity strategy categories with glossary links, classify the +convexity Hyperliquid vault as positive convexity, algorithmic trading and directional trading, and refresh its persisted tags through migration 077 (2026-11-15, [#1781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1781)).
 

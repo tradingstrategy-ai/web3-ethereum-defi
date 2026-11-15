@@ -137,6 +137,23 @@ class AtomaRedemptionRequest(RedemptionRequest):
     #: Version checked before submission, retained for upgrade reconciliation.
     implementation: HexAddress
 
+    def get_preflight_data(self) -> dict:
+        """Retain the checked implementation using the existing saved field name."""
+        return {"implementation": self.implementation}
+
+    def restore_preflight_data(self, data: dict) -> None:
+        """Restore submission-time evidence without changing legacy requests.
+
+        Records predating this evidence have no implementation field; keep the
+        reconstructed request's default in that case. The executor must not
+        substitute the current implementation for a recorded one.
+
+        :param data: Preflight dictionary saved before the original broadcast.
+        :return: None; update this receipt-only request when evidence is present.
+        """
+        if data.get("implementation") is not None:
+            self.implementation = data["implementation"]
+
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> AtomaRedemptionTicket:
         manager = self.vault.get_deposit_manager()
         receipt = self.web3.eth.get_transaction_receipt(tx_hashes[-1])

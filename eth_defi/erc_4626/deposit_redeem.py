@@ -387,7 +387,7 @@ class ERC4626DepositManager(VaultDepositManager):
         return True
 
     def has_synchronous_redemption(self) -> bool:
-        """Does this vault support synchronous deposits?
+        """Does this vault support synchronous redemptions?
 
         - E.g. ERC-4626 vaults
         """
@@ -523,7 +523,8 @@ class ERC4626DepositManager(VaultDepositManager):
         :param claim_tx_hash:
             Mined redemption transaction hash.
         :param redemption_ticket:
-            Optional ticket for a guarded non-vault call.
+            Optional queued or staged request ticket. Custody wrapping does not
+            require a ticket.
         :return:
             Decoded executed redemption quantities or a revert description.
         """

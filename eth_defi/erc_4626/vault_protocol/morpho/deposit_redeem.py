@@ -18,12 +18,10 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.erc_4626.vault_protocol.morpho.recovery import MorphoRecoveryAnalysis, MorphoRecoveryRequest, MorphoRecoveryTicket, prepare_recovery, read_vault_events
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure
-
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil
-from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, WhitelistingRequired, VaultRedemptionSimulationIntervention, extract_revert_data
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, UnsupportedVaultSimulation, VaultFlowUnavailable, WhitelistingRequired, VaultRedemptionSimulationIntervention, extract_revert_data
 
 #: ``TransferReverted()`` from Morpho Vault V2's ``SafeERC20Lib.safeTransfer``.
 #: The library is used for the final redemption asset payout:
@@ -261,17 +259,8 @@ class MorphoV2DepositManager(ERC4626DepositManager):
             original_preflight_result=failure.preflight_result,
         )
 
-    def _create_direct_redemption_request(  # noqa: PLR0917
-        self,
-        owner: HexAddress,
-        to: HexAddress | None = None,
-        shares: Decimal | None = None,
-        raw_shares: int | None = None,
-        check_max_deposit: bool = True,  # noqa: FBT001, FBT002
-        check_enough_token: bool = True,  # noqa: FBT001, FBT002
-        check_max_redeem: bool = True,  # noqa: FBT001, FBT002
-    ) -> ERC4626RedemptionRequest:
-        """Build a redemption only when its exact call passes simulation.
+    def _preflight_redemption(self, request: ERC4626RedemptionRequest) -> None:
+        """Simulate the exact direct redemption and classify its refusal.
 
         Morpho Vault V2 may accept request construction even when its final
         denomination-token payout reverts. The protocol's
@@ -280,36 +269,19 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         claiming whether liquidity, token policy, or another token-level
         condition caused the transfer to revert.
 
-        :param owner:
-            Share owner and eventual redemption caller.
-        :param to:
-            Asset receiver. The generic Morpho V2 request currently requires it
-            to default to ``owner``.
-        :param shares:
-            Human-readable share amount, mutually exclusive with ``raw_shares``.
-        :param raw_shares:
-            Raw share amount, mutually exclusive with ``shares``.
-        :param check_max_deposit:
-            Compatibility argument forwarded to the generic manager.
-        :param check_enough_token:
-            Check the owner's current share balance.
-        :param check_max_redeem:
-            Compatibility argument forwarded to the generic manager.
+        Request construction and balance/access checks belong to the generic
+        manager. Keeping simulation separate lets recovery inspect the same
+        request that failed, without rebuilding it or repeating those checks.
+
+        :param request:
+            Already constructed direct redemption, including its exact caller
+            and raw share amount.
         :return:
-            A redemption request whose exact call completed successfully under
-            ``eth_call``.
+            None; success means the exact call completed under ``eth_call``.
         :raise VaultFlowUnavailable:
             If the exact Morpho redemption call reverts.
         """
-        request = super().create_redemption_request(
-            owner=owner,
-            to=to,
-            shares=shares,
-            raw_shares=raw_shares,
-            check_max_deposit=check_max_deposit,
-            check_enough_token=check_enough_token,
-            check_max_redeem=check_max_redeem,
-        )
+        owner = request.owner
         try:
             request.funcs[0].call({"from": owner})
         except (ContractLogicError, ValueError) as error:
@@ -355,7 +327,6 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                 available_raw_amount=available_raw if transfer_failed else None,
                 error_selector=error_selector,
             ) from error
-        return request
 
     def create_redemption_request(self, owner: HexAddress, to: HexAddress | None = None, shares: Decimal | None = None, raw_shares: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True, check_max_redeem: bool = True) -> ERC4626RedemptionRequest | MorphoRecoveryRequest:
         """Prefer exact direct redemption, then explicitly authorised public recovery.
@@ -366,13 +337,22 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         The returned request may need a persisted finish step even though ordinary
         Morpho redemptions are synchronous. Never retry the original share amount
         after recovery: its receipt proves some shares have paid the penalty.
+
+        :param owner: Share owner and eventual redemption caller.
+        :param to: Asset receiver; the generic request requires the owner.
+        :param shares: Human-readable shares, mutually exclusive with raw_shares.
+        :param raw_shares: Exact raw shares, mutually exclusive with shares.
+        :param check_max_deposit: Compatibility argument forwarded to the generic manager.
+        :param check_enough_token: Check the owner's current share balance.
+        :param check_max_redeem: Retain the generic redemption capacity check.
+        :return: A direct redemption or an explicitly authorised recovery request.
         """
+        request = super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token, check_max_redeem)
         try:
-            return self._create_direct_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token, check_max_redeem)
+            self._preflight_redemption(request)
         except VaultFlowUnavailable as error:
             if error.decoded_error != "Panic(0x11)" or self.vault.redemption_recovery_max_fee_bps is None:
                 raise
-            request = super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token, check_max_redeem)
             try:
                 recovery = prepare_recovery(self, request)
             except (BadFunctionCallOutput, ContractLogicError, ValueError) as recovery_error:
@@ -387,8 +367,9 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                     requested_raw_amount=request.raw_shares,
                 ) from recovery_error
             if recovery is None:
-                raise error
+                raise
             return recovery
+        return request
 
     def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> MorphoRecoveryRequest:
         """Rebuild only the staged receipt parser, without live admission checks.
@@ -448,7 +429,10 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         """
         assert redemption_ticket.vault_address.lower() == self.vault.address.lower()
         assert redemption_ticket.to.lower() == redemption_ticket.owner.lower()
-        request = self._create_direct_redemption_request(redemption_ticket.owner, raw_shares=redemption_ticket.remaining_shares)
+        # Deliberately bypass recovery selection: a paid ticket must never
+        # trigger a second fee when its finishing call fails.
+        request = super().create_redemption_request(redemption_ticket.owner, raw_shares=redemption_ticket.remaining_shares)
+        self._preflight_redemption(request)
         return request.funcs[0]
 
     def analyse_redemption(self, claim_tx_hash: HexBytes | str, redemption_ticket: MorphoRecoveryTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
@@ -460,7 +444,7 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         """
         analysis = super().analyse_redemption(claim_tx_hash, redemption_ticket)
         if isinstance(redemption_ticket, MorphoRecoveryTicket) and isinstance(analysis, DepositRedeemEventAnalysis):
-            # Guarded calls have the Safe as the transaction target. Validate
+            # Guarded calls can target custody or its module. Validate
             # the vault's own owner/receiver event as well as its share quantity.
             receipt = self.web3.eth.get_transaction_receipt(claim_tx_hash)
             events = read_vault_events(self.web3, self.vault.address, receipt, "Withdraw")
