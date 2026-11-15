@@ -31,6 +31,31 @@ so its history refresh was deferred while ordinary sampled scans continued.
 Arbitrum can skip a second without a block, so the mapping cannot require an
 exact timestamp match.
 
+## Testing
+
+Do not use the cached timestamp readers in unit or integration tests. This
+covers `fetch_block_timestamps_using_hypersync_cached()`,
+`fetch_exact_block_timestamps_using_hypersync_cached()`,
+`fetch_sparse_block_timestamps_using_hypersync_cached()`, their async variants
+and `fetch_block_timestamps_multiprocess_auto_backend()` with a HyperSync
+client, and any code that calls them, such as event history readers.
+
+Production reads a prepared, already dense cache, so these calls fetch
+little. A test starts from an empty temporary cache, so the reader downloads
+every header between the earliest and latest requested block. After this
+change landed, `test_antarctic_live_events_to_prices_and_json` asked for 23
+event timestamps spread over 35.6 million Arbitrum blocks and downloaded all
+of them: about 260 seconds on a CI runner alone, and over the 15-minute job
+limit when several CI runs shared the HyperSync rate limit. It is now skipped
+until it can use a prepared cache.
+
+- Only the cache's own internal tests may call these readers, with at most
+  100 blocks per test.
+- Avoid even that where possible: prefer recorded timestamps, a seeded cache
+  fixture or a stub.
+- Skip a test that needs timestamps for events spread across a large range
+  until it has a prepared cache.
+
 ## Numbered repair
 
 `070-dense-block-timestamp-caches.py` fills holes within each existing
