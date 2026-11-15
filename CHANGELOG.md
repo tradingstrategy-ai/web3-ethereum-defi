@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add explicitly authorised Morpho V2 public liquidity recovery with fee-burn tickets and capped Guard validation (2026-11-15).
+
 - feat: Add positive and negative convexity strategy categories with glossary links, classify the +convexity Hyperliquid vault as positive convexity, algorithmic trading and directional trading, and refresh its persisted tags through migration 077 (2026-11-15, [#1781](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1781)).
 
 - fix: Group batched vault classification results by vault address regardless of letter case, so the checksummed `tvlCap()` probe no longer creates a second, broken classification for every vault and crashes metadata preparation. Lead discovery now refuses to persist classifications when it produces more detections than leads or marks a large share of working vaults as broken (2026-11-14).

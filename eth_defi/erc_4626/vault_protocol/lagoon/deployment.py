@@ -1660,6 +1660,7 @@ def deploy_safe_trading_strategy_module(
     gmx_deployment: GMXDeployment | None = None,
     lighter_deployment: "LighterDeployment | None" = None,
     lagoon: bool = True,
+    redemption_recovery: bool = False,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -1690,6 +1691,11 @@ def deploy_safe_trading_strategy_module(
     :param enable_on_safe:
         Automatically enable this module on the Safe multisig.
         Must be 1-of-1 deployer address multisig.
+
+    :param redemption_recovery:
+        Deploy and link public redemption-recovery validation. Enable only when
+        at least one reviewed descriptor supplies a fee cap. Existing modules
+        without this library must be redeployed, not granted an unchecked call.
 
     :param lagoon:
         Deploy and link ``LagoonLib``. Satellite modules without
@@ -1760,6 +1766,10 @@ def deploy_safe_trading_strategy_module(
         chain_id = web3.eth.chain_id
 
         library_addresses = {}
+
+        # Link recovery only when a reviewed descriptor explicitly enables it.
+        # Existing deployments need a new module before adding this permission.
+        library_addresses["MorphoLib"] = deploy_contract(web3, "guard/MorphoLib.json", deployer).address if redemption_recovery else ZERO_ADDRESS
 
         if lagoon:
             lagoon_lib = deploy_contract(
@@ -2055,6 +2065,9 @@ def setup_guard(
                 resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
                 assert isinstance(resolved, (AtomaVault, T3trisVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
                 erc_4626_vaults[index] = resolved
+        if any(v.redemption_recovery_max_fee_bps is not None for v in erc_4626_vaults):
+            assert module.functions.getInternalVersion().call() >= 6, "Public recovery needs GuardV0 internal version 6; deploy a new module"
+            assert module.functions.supportsMorphoV2Recovery().call(), "MorphoLib is not linked; deploy a new module with redemption recovery enabled"
         if any(isinstance(descriptor, T3trisVault) for descriptor in erc_4626_vaults):
             internal_version = module.functions.getInternalVersion().call()
             assert internal_version >= T3TRIS_GUARD_INTERNAL_VERSION, f"T3tris vaults need GuardV0 internal version {T3TRIS_GUARD_INTERNAL_VERSION} or newer, got {internal_version}; deploy a new guard"
@@ -2160,6 +2173,8 @@ def setup_guard(
                     multicalls.append(module.functions.whitelistT3tris(erc_4626_vault.vault_address, note))
                 else:
                     multicalls.append(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
+                if erc_4626_vault.redemption_recovery_max_fee_bps is not None:
+                    multicalls.append(module.functions.whitelistMorphoV2Recovery(erc_4626_vault.vault_address, erc_4626_vault.redemption_recovery_max_fee_bps, note))
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
@@ -3331,6 +3346,7 @@ def deploy_automated_lagoon_vault(
         gmx_deployment=gmx_deployment,
         lighter_deployment=lighter_deployment,
         lagoon=not satellite_chain,
+        redemption_recovery=any(v.redemption_recovery_max_fee_bps is not None for v in (erc_4626_vaults or [])),
     )
 
     if not is_anvil(web3):
