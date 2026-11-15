@@ -95,13 +95,18 @@ Deposit permissions
 ~~~~~~~~~~~~~~~~~~~
 
 Canonical MetaMorpho V1 deposits are permissionless; compatible implementations
-still need their own admission assessment. Morpho V2 is also permissionless
-when ``receiveSharesGate`` and ``sendAssetsGate`` are both zero. A V2
+still need their own admission assessment. Morpho V2's outer deposit gate slots
+are disabled when ``receiveSharesGate`` and ``sendAssetsGate`` are both zero.
+This does not establish permissionless access through an inner vault or prove
+that the share owner can exit. A V2
 deployment may configure custom implementations of the `Morpho gate interfaces
 <https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__
-for the share receiver and asset sender independently. The adapter therefore
-reports a zero-gate deployment as permissionless and leaves an unrecognised
-custom gate unknown instead of assuming either KYC or public access.
+for the share receiver and asset sender independently.
+``is_whitelisted_deposit()`` reports whether either outer deposit gate is
+configured; it does not interpret the gate's policy or certify complete-route
+access. The separate ``is_permissionless(owner)`` inspection described below
+reports a refused account as restricted and leaves an unreviewed gate's policy
+unknown even when that account is admitted.
 
 Robinhood Chain temporary API workaround
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -148,6 +153,8 @@ Morpho V2 API
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.morpho.vault_v2
+   eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.morpho.recovery
 
 Complete-route admission inspection
 -----------------------------------
@@ -170,8 +177,56 @@ reviewed routes lead to gate-bearing vaults. Unreviewed adapters, inner vaults
 without the required policy interface, and further nested routes remain unknown;
 this is not a general permission certificate for every canonical V1/V2 route.
 
-The outer deposit label remains permissionless for these public outer vaults,
-even when an inner adapter or share-owner exit is refused. Transaction managers
+The outer deposit reader reports only outer gate configuration. Disabled outer
+gates can coexist with a refused inner adapter or share-owner exit; complete-route
+admission requires its separate policy inspection. Transaction managers
 retain their exact-call admission checks and typed refusals. These observations
 are dated policy evidence, not guarantees against later upgrades or liquidity
 changes.
+
+Public liquidity recovery
+-------------------------
+
+The Ethereum Api3 dCOMP USDC vault
+``0x36cfe1568461e499391ef0a555300f1ae2da2439`` and Purinta USDC vault
+``0xc92a37fd0250f4eecf092960a2f70a1334217528`` demonstrated a distinct exit
+failure at block 26402309. After a 1,001 USDC deposit and 24 hours of fork time,
+the whole-vault share claim exceeded the configured exit market's supply
+position. Morpho Blue's supply-share subtraction underflowed with
+``Panic(0x11)``. This failure was not repaired by changing price tolerances.
+
+:py:class:`~eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem.MorphoV2DepositManager`
+first constructs and simulates the exact direct redemption. Only a proven
+arithmetic panic, a separately verified exit-position shortfall and an explicit
+``vault.redemption_recovery_max_fee_bps`` authorisation can select recovery.
+``None`` disables recovery; zero permits no positive penalty rate. The library
+contains no built-in address allowlist: callers must supply their reviewed policy.
+The executor's manual rule enables these two identities with a one-basis-point
+maximum. This execution authorisation does not establish permissionless access.
+
+Recovery calls public ``forceDeallocate`` on one other market in the same
+registered adapter. It selects the largest non-exit supply position that covers
+the gross claim, then requires that exact call, including its cash and permission
+checks, to succeed. A refusal does not try another market or build a multi-market
+plan. Its receipt proves the penalty shares burned
+and assets retained by the vault. A second transaction redeems only the remaining
+shares. The ticket reserves the original disposal and records the shares still
+in custody; net cash is recognised only from the finishing receipt. The
+disclosed penalty must not be subtracted from that net payout again.
+
+This is a staged synchronous exit, not a protocol withdrawal queue. Persist
+the request's preflight data before broadcast, then its receipt-derived ticket.
+Use the existing transaction records when resuming the finishing step; do not
+submit another recovery or retry the original share amount. Freed idle assets
+can be consumed between the two transactions, leaving a paid ticket pending.
+No payout assets are injected, no allocator is impersonated and no oracle
+checks are relaxed by this recovery path.
+
+Guarded deployments require a linked ``MorphoLib`` and owner-configured recovery
+cap in addition to ordinary ERC-4626 whitelisting. The cap limits the per-call
+penalty rate, not cumulative losses. Existing modules require replacement;
+enabling the Python rule alone does not enable the guarded call.
+
+See the detailed source analysis, measured shortfalls and recorded Safe/Guard
+run in ``tradeexecutor/strategy/vault_protocol/morpho.py`` and
+`the research case <https://github.com/tradingstrategy-ai/vault-notebooks/pull/25#issuecomment-6896601999>`__.

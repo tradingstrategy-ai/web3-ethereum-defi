@@ -201,7 +201,7 @@ def test_fee_split_claim_quote(manager: AtomaDepositManager, ticket: AtomaRedemp
 
 
 def test_request_across_reviewed_upgrade(manager: AtomaDepositManager, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request preflighted before the fee-split upgrade and mined after it stays claimable."""
+    """Saved preflight evidence survives an upgrade and receipt-only reconstruction."""
     receipt = request_receipt(manager)
     monkeypatch.setattr(manager.web3.eth, "get_transaction_receipt", lambda tx: receipt)
     monkeypatch.setattr(manager.vault, "fetch_implementation", lambda b: ATOMA_FEE_SPLIT_IMPLEMENTATION)
@@ -210,6 +210,15 @@ def test_request_across_reviewed_upgrade(manager: AtomaDepositManager, monkeypat
     monkeypatch.setitem(manager.vault.__dict__, "vault_contract", contract)
     contract.events.WithdrawalRequested = get_deployed_contract(manager.web3, "atoma/AtomaVaultFeeSplit.json", manager.vault.address).events.WithdrawalRequested
     request = AtomaRedemptionRequest(vault=manager.vault, owner=OWNER, to=OWNER, raw_shares=10**12, shares=Decimal(1), funcs=[], implementation=ATOMA_IMPLEMENTATION)
+    saved_preflight = json.loads(json.dumps(request.get_preflight_data()))
+    assert saved_preflight == {"implementation": ATOMA_IMPLEMENTATION}
+    # Reconstruction initially sees the newer implementation. Legacy evidence
+    # keeps that default, while a saved preflight restores the checked version.
+    request = replace(request, implementation=ATOMA_FEE_SPLIT_IMPLEMENTATION)
+    for legacy in ({}, {"implementation": None}):
+        request.restore_preflight_data(legacy)
+        assert request.implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION
+    request.restore_preflight_data(saved_preflight)
     recovered = request.parse_redeem_transaction([TX])
     assert recovered.implementation == ATOMA_FEE_SPLIT_IMPLEMENTATION
     assert recovered.preflight_implementation == ATOMA_IMPLEMENTATION

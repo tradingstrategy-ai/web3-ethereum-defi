@@ -336,7 +336,9 @@ def test_t3tris_guard_rejects_redirection(web3: Web3, vault: T3trisVault, simple
     with pytest.raises(ValueError, match="Approve address not allowed"):
         c.validate(vault.denomination_token.contract.functions.approve(outsider, 1))
     assert not c.guard.functions.isAllowedCallSite(vault.address, Web3.keccak(text="settle(uint8,bool,bytes)")[:4]).call()
-    assert c.guard.functions.getInternalVersion().call() == 5
+    # T3tris needs version 5 or newer; later independent guard features retain
+    # this protocol surface rather than forcing a fixed latest-version value.
+    assert c.guard.functions.getInternalVersion().call() >= 5
 
     # 5. Reject malformed calldata and a non-governance whitelist call.
     def word(value: int) -> bytes:

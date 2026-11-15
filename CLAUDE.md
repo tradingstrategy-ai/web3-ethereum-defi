@@ -327,6 +327,17 @@ removing its flaky history comment.
 
 ### Python rules
 
+- Write docstrings and comments in clear, grammatical English and follow sound software
+  engineering practice. Explain why the code is needed and how the approach works; avoid
+  merely restating what each statement does. Document parameters and return values,
+  including units, ownership, side effects and failure conditions where relevant.
+
+- When a function’s purpose is not obvious from its local context, cross-reference
+  relevant callers in the rationale with Sphinx roles such as
+  :py:func:`package.function` or :py:meth:`package.Class.method`. Include a one-line
+  explanation of why each caller uses the function. Use real or explicitly documented
+  intended call sites; avoid speculative links and obvious boilerplate.
+
 - We use Python 3.14
 - Using `assert` for invariant and configuration checks is acceptable. We never run CPython with optimisation enabled (`python -O` or `PYTHONOPTIMIZE`), so assertions are not stripped at runtime.
 - For data structures, prefer `dataclass(slots=True)`
