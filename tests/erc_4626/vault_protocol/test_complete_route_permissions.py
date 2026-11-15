@@ -80,3 +80,22 @@ def test_unreviewed_adapter_cannot_claim_permissionless_through_parent_getter():
     vault.web3.eth.get_code.return_value = b'unreviewed custom adapter'
     with patch.object(MorphoV2Vault, 'fetch_deposit_gates', return_value=(ZERO,ZERO)), patch.object(MorphoV2Vault, '_fetch_gate_address', return_value=ZERO), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract',return_value=contract), pytest.raises(NotImplementedError,match='bytecode'):
         vault.is_permissionless(OWNER)
+
+
+def test_reviewed_market_requires_its_parent_and_no_getter_fallback():
+    from web3 import Web3
+    vault=morpho();contract=Mock()
+    contract.functions.liquidityAdapter.return_value.call.return_value=OWNER
+    contract.functions.parentVault.return_value.call.return_value=OWNER
+    vault.web3.eth.get_code.return_value=b'reviewed market'
+    digest=Web3.keccak(b'reviewed market').hex().removeprefix('0x')
+    with patch.object(MorphoV2Vault,'_is_ungated',return_value=True), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.get_deployed_contract',return_value=contract), patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES',{digest:'market'}):
+        assert vault.is_permissionless(OWNER) is True
+        contract.functions.parentVault.return_value.call.return_value=ZERO
+        with pytest.raises(NotImplementedError,match='parent'):
+            vault.is_permissionless(OWNER)
+        contract.functions.parentVault.return_value.call.return_value=OWNER
+        vault.web3.eth.call.return_value=b''
+        with patch('eth_defi.erc_4626.vault_protocol.morpho.vault_v2.REVIEWED_PERMISSION_ADAPTER_HASHES',{digest:'vault'}):
+            with pytest.raises(NotImplementedError,match='inner vault'):
+                vault.is_permissionless(OWNER)
