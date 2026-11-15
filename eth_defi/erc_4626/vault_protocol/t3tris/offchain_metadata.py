@@ -12,6 +12,7 @@ import datetime
 import email.utils
 import json
 import logging
+import time
 from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
@@ -227,13 +228,13 @@ def _fetch_response_timestamp(resp: requests.Response) -> int:
     :return:
         Unix timestamp in seconds.
     """
-    header = (getattr(resp, "headers", None) or {}).get("Date")
+    header = resp.headers.get("Date")
     if header:
         try:
             return int(email.utils.parsedate_to_datetime(header).timestamp())
         except (TypeError, ValueError):
             logger.warning("Unparseable T3tris response Date header %r; using local time", header)
-    return int(native_datetime_utc_now().replace(tzinfo=datetime.UTC).timestamp())
+    return int(time.time())
 
 
 def _fetch_vault_detail(
