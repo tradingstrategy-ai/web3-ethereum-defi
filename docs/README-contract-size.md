@@ -7,8 +7,8 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 23,942 | 97.4% | 634 |
-| GuardV0 | guard | 21,978 | 89.4% | 2,598 |
+| TradingStrategyModuleV0 | safe-integration | 24,530 | 99.8% | 46 |
+| GuardV0 | guard | 22,605 | 92.0% | 1,971 |
 | GmxLib | guard | 6,153 | 25.0% | 18,423 |
 | HypercoreVaultLib | guard | 3,927 | 16.0% | 20,649 |
 | LagoonLib | guard | 5,125 | 20.9% | 19,451 |
@@ -23,6 +23,10 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 `TradingStrategyModuleV0` is the critical contract — it inherits all guard logic
 from `GuardV0Base` and is closest to the EIP-170 limit.
+
+Measured on 15 November 2026 after adding externally linked `MorphoLib` recovery validation.
+The Safe module has only 46 bytes remaining; validate both deployed sizes after
+further changes.
 
 ## Compiler options
 

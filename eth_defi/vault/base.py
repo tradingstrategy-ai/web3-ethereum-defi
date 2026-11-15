@@ -1406,6 +1406,12 @@ class VaultBase(ABC):
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
 
+    #: Explicit execution authorisation for a public liquidity recovery step.
+    #: None disables recovery; an integer caps the onchain penalty in basis
+    #: points. Set per instance from the caller's reviewed vault rules. This
+    #: never authorises synthetic funding or changes deposit admission.
+    redemption_recovery_max_fee_bps: int | None = None
+
     #: Explicit data-only integration decision; blocks new investment without RPC.
     #: Existing-position redemption/recovery is assessed independently.
     unsupported_protocol_reason: ClassVar[str | None] = None

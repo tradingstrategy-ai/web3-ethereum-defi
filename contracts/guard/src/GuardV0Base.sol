@@ -14,6 +14,7 @@
 pragma solidity ^0.8.0;
 
 import "./IGuard.sol";
+import {MorphoLib, IMorphoRecoveryVault} from "./lib/MorphoLib.sol";
 
 import "./lib/IERC4626.sol";
 import "./lib/IERC20.sol";
@@ -344,9 +345,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
      * Version 3 makes the limit an amount-and-cooldown safety policy.
      * Version 4 changes it to a cumulative gross settlement-window budget.
      * Version 5 adds T3tris request and claim whitelisting.
+     * Version 6 adds explicitly capped public Morpho V2 recovery.
      */
     function getInternalVersion() public pure returns (uint8) {
-        return 5;
+        return 6;
     }
 
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
@@ -772,6 +774,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
             }
 
             // --- ERC-4626 / ERC-7540 vaults ---
+        } else if (selector == IMorphoRecoveryVault.forceDeallocate.selector) {
+            // This public method burns onBehalf's shares as a fee. The library
+            // checks the owner-configured cap and route; custody checks remain
+            // shared with other share-consuming vault calls.
+            _requireAllowedOwner(MorphoLib.validate(target, callData));
         } else if (selector == SEL_DEPOSIT) {
             _validate_ERC4626Deposit(callData);
         } else if (selector == SEL_DEPOSIT_7540) {
@@ -1131,6 +1138,19 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _whitelistToken(denominationToken, notes);
 
         emit ERC4626Approved(vault, notes);
+    }
+
+    /// Deployment preflight: a version number alone does not prove library linking.
+    function supportsMorphoV2Recovery() external view returns (bool) {
+        return address(MorphoLib).code.length != 0;
+    }
+
+    /// Explicitly authorise fee-paying recovery after ordinary vault whitelisting.
+    /// Removing its call site disables recovery through the standard revocation API.
+    function whitelistMorphoV2Recovery(address vault, uint256 maxFeeBps, string calldata notes) external onlyGuardOwner {
+        require(isAllowedCallSite(vault, SEL_REDEEM));
+        require(MorphoLib.configure(vault, maxFeeBps));
+        allowCallSite(vault, IMorphoRecoveryVault.forceDeallocate.selector, notes);
     }
 
     // Aave V3 implementation

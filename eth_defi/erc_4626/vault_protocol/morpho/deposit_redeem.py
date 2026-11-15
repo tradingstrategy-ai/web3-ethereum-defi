@@ -11,16 +11,17 @@ See the `official Vault V2 liquidity and ERC-4626 documentation
 from decimal import Decimal
 
 from eth_abi import decode
-from eth_typing import HexAddress
+from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.provider.fallback import ExtraValueError
-
+from eth_defi.erc_4626.vault_protocol.morpho.recovery import MorphoRecoveryAnalysis, MorphoRecoveryRequest, MorphoRecoveryTicket, prepare_recovery, read_vault_events
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil
-from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, WhitelistingRequired, VaultRedemptionSimulationIntervention, extract_revert_data
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, UnsupportedVaultSimulation, VaultFlowUnavailable, WhitelistingRequired, VaultRedemptionSimulationIntervention, extract_revert_data
 
 #: ``TransferReverted()`` from Morpho Vault V2's ``SafeERC20Lib.safeTransfer``.
 #: The library is used for the final redemption asset payout:
@@ -258,17 +259,8 @@ class MorphoV2DepositManager(ERC4626DepositManager):
             original_preflight_result=failure.preflight_result,
         )
 
-    def create_redemption_request(  # noqa: PLR0917
-        self,
-        owner: HexAddress,
-        to: HexAddress | None = None,
-        shares: Decimal | None = None,
-        raw_shares: int | None = None,
-        check_max_deposit: bool = True,  # noqa: FBT001, FBT002
-        check_enough_token: bool = True,  # noqa: FBT001, FBT002
-        check_max_redeem: bool = True,  # noqa: FBT001, FBT002
-    ) -> ERC4626RedemptionRequest:
-        """Build a redemption only when its exact call passes simulation.
+    def _preflight_redemption(self, request: ERC4626RedemptionRequest) -> None:
+        """Simulate the exact direct redemption and classify its refusal.
 
         Morpho Vault V2 may accept request construction even when its final
         denomination-token payout reverts. The protocol's
@@ -277,36 +269,24 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         claiming whether liquidity, token policy, or another token-level
         condition caused the transfer to revert.
 
-        :param owner:
-            Share owner and eventual redemption caller.
-        :param to:
-            Asset receiver. The generic Morpho V2 request currently requires it
-            to default to ``owner``.
-        :param shares:
-            Human-readable share amount, mutually exclusive with ``raw_shares``.
-        :param raw_shares:
-            Raw share amount, mutually exclusive with ``shares``.
-        :param check_max_deposit:
-            Compatibility argument forwarded to the generic manager.
-        :param check_enough_token:
-            Check the owner's current share balance.
-        :param check_max_redeem:
-            Compatibility argument forwarded to the generic manager.
+        Request construction and balance/access checks belong to the generic
+        manager. Keeping simulation separate lets recovery inspect the same
+        request that failed, without rebuilding it or repeating those checks.
+
+        :py:meth:`create_redemption_request` uses this failure classification to
+        decide whether a new request may qualify for public recovery.
+        :py:meth:`finish_redemption` uses the same check while forbidding another
+        recovery fee for an already paid ticket.
+
+        :param request:
+            Already constructed direct redemption, including its exact caller
+            and raw share amount.
         :return:
-            A redemption request whose exact call completed successfully under
-            ``eth_call``.
+            None; success means the exact call completed under ``eth_call``.
         :raise VaultFlowUnavailable:
             If the exact Morpho redemption call reverts.
         """
-        request = super().create_redemption_request(
-            owner=owner,
-            to=to,
-            shares=shares,
-            raw_shares=raw_shares,
-            check_max_deposit=check_max_deposit,
-            check_enough_token=check_enough_token,
-            check_max_redeem=check_max_redeem,
-        )
+        owner = request.owner
         try:
             request.funcs[0].call({"from": owner})
         except (ContractLogicError, ValueError) as error:
@@ -352,4 +332,186 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                 available_raw_amount=available_raw if transfer_failed else None,
                 error_selector=error_selector,
             ) from error
+
+    def create_redemption_request(self, owner: HexAddress, to: HexAddress | None = None, shares: Decimal | None = None, raw_shares: int | None = None, check_max_deposit: bool = True, check_enough_token: bool = True, check_max_redeem: bool = True) -> ERC4626RedemptionRequest | MorphoRecoveryRequest:
+        """Prefer exact direct redemption, then explicitly authorised public recovery.
+
+        Only the demonstrated arithmetic panic and a separately proven configured
+        market position shortfall qualify. Normal redemptions, unrelated failures
+        and vaults without an explicit fee cap retain their previous behaviour.
+        The returned request may need a persisted finish step even though ordinary
+        Morpho redemptions are synchronous. Never retry the original share amount
+        after recovery: its receipt proves some shares have paid the penalty.
+
+        :param owner: Share owner and eventual redemption caller.
+        :param to: Asset receiver; the generic request requires the owner.
+        :param shares: Human-readable shares, mutually exclusive with raw_shares.
+        :param raw_shares: Exact raw shares, mutually exclusive with shares.
+        :param check_max_deposit: Compatibility argument forwarded to the generic manager.
+        :param check_enough_token: Check the owner's current share balance.
+        :param check_max_redeem: Retain the generic redemption capacity check.
+        :return: A direct redemption or an explicitly authorised recovery request.
+        """
+        request = super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token, check_max_redeem)
+        try:
+            self._preflight_redemption(request)
+        except VaultFlowUnavailable as error:
+            if error.decoded_error != "Panic(0x11)" or self.vault.redemption_recovery_max_fee_bps is None:
+                raise
+            try:
+                recovery = prepare_recovery(self, request)
+            except (BadFunctionCallOutput, ContractLogicError, ValueError) as recovery_error:
+                raise VaultFlowUnavailable(
+                    "Morpho public recovery route cannot fulfil the requested redemption",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error="RecoveryUnavailable",
+                    requested_raw_amount=request.raw_shares,
+                ) from recovery_error
+            if recovery is None:
+                raise
+            return recovery
         return request
+
+    def create_redemption_request_for_analysis(self, owner: HexAddress, raw_shares: int) -> MorphoRecoveryRequest:
+        """Rebuild only the staged receipt parser, without live admission checks.
+
+        Morpho's only separately finished request is public recovery. The dummy
+        redeem binding supplies the original one-call cardinality to routing;
+        it is never broadcast. Saved preflight evidence must be restored before
+        parsing, including the original cap even if today's manual rule changed.
+
+        :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.settle_trade`
+        uses this parser because rechecking balances after a fee burn would refuse a
+        valid mined request before its ticket could be recovered.
+
+        :param owner: Original share owner and asset receiver.
+        :param raw_shares: Original requested disposal, including shares paid as the penalty.
+        :return: Receipt-only request; its placeholder redeem binding must never be sent.
+        """
+        call = self.vault.vault_contract.functions.redeem(raw_shares, owner, owner)
+        return MorphoRecoveryRequest(
+            vault=self.vault,
+            owner=owner,
+            to=owner,
+            shares=self.vault.share_token.convert_to_decimals(raw_shares),
+            raw_shares=raw_shares,
+            funcs=[call],
+        )
+
+    def serialize_redemption_ticket(self, ticket: MorphoRecoveryTicket) -> dict:
+        """Preserve the paid burn so a restart cannot charge or value it twice.
+
+        Extend the common ticket fields with exact integer fee evidence. Raw token
+        quantities are decimal strings to survive JSON consumers' integer limits.
+
+        :param ticket: Paid recovery ticket derived from the first mined receipt.
+        :return: JSON-safe ticket fields retaining the original disposal and both penalty amounts.
+        """
+        return {**super().serialize_redemption_ticket(ticket), "morpho_recovery_schema": 1, "morpho_penalty_shares": str(ticket.penalty_shares), "morpho_penalty_assets": str(ticket.penalty_assets)}
+
+    def reconstruct_redemption_ticket(self, data: dict) -> MorphoRecoveryTicket:
+        """Resume a paid disposal without running fresh recovery admission.
+
+        The executor's pending-settlement resolver uses this ticket to finish even
+        if the current manual rule has been removed. Saved receipt evidence governs
+        the remaining share quantity; no additional recovery is authorised here.
+
+        :param data: Stored common ticket fields and versioned Morpho penalty evidence.
+        :return: Recovery ticket with the original requested and paid share quantities.
+        :raises AssertionError: Schema, vault identity or penalty quantities are inconsistent.
+        """
+        assert data["morpho_recovery_schema"] == 1
+        assert data["vault_address"].lower() == self.vault.address.lower()
+        ticket = MorphoRecoveryTicket(
+            vault_address=self.vault.address,
+            owner=data["vault_owner"],
+            to=data["vault_to"],
+            raw_shares=int(data["vault_raw_amount"]),
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            penalty_shares=int(data["morpho_penalty_shares"]),
+            penalty_assets=int(data["morpho_penalty_assets"]),
+        )
+        assert 0 <= ticket.penalty_shares < ticket.raw_shares and ticket.penalty_assets >= 0
+        return ticket
+
+    def fetch_pending_redemption_value(self, ticket: MorphoRecoveryTicket, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Value remaining shares after the paid burn, without recognising cash.
+
+        The accounting position still tracks the original requested disposal
+        until the finishing receipt. Valuing all those shares would overstate
+        equity by the fee already paid in the first transaction.
+
+        :py:meth:`tradeexecutor.ethereum.vault.vault_valuation.VaultValuator.__call__`
+        uses this net claim value to avoid counting burned penalty shares in equity.
+
+        :param ticket: Paid ticket whose remaining shares are still reserved for this exit.
+        :param block_identifier: Block for the remaining-share redemption preview.
+        :return: Decimal denomination-token value, excluding the paid fee; this is not spendable cash.
+        """
+        assets = self.vault.vault_contract.functions.previewRedeem(ticket.remaining_shares).call(block_identifier=block_identifier)
+        return self.vault.denomination_token.convert_to_decimals(assets)
+
+    def finish_redemption(self, redemption_ticket: MorphoRecoveryTicket) -> ContractFunction:
+        """Redeem the exact remaining shares, with no second recovery attempt.
+
+        A later adverse route change leaves the existing trade pending for
+        inspection. Repeated resolver runs must not charge additional penalties
+        or silently reduce the requested disposal. Existing signed transaction
+        records, rather than a balance heuristic, identify a finished claim.
+
+        The executor's :py:func:`tradeexecutor.ethereum.vault.settlement_retry.check_and_resolve_vault_settlements`
+        requests this exact finishing call when retrying an existing paid ticket.
+
+        :param redemption_ticket: Original paid ticket; owner and receiver must match.
+        :return: Unsigned direct redeem call for the remaining raw shares, after exact preflight.
+        :raises VaultFlowUnavailable: The direct exit cannot currently execute; keep the ticket pending.
+        """
+        assert redemption_ticket.vault_address.lower() == self.vault.address.lower()
+        assert redemption_ticket.to.lower() == redemption_ticket.owner.lower()
+        # Deliberately bypass recovery selection: a paid ticket must never
+        # trigger a second fee when its finishing call fails.
+        request = super().create_redemption_request(redemption_ticket.owner, raw_shares=redemption_ticket.remaining_shares)
+        self._preflight_redemption(request)
+        return request.funcs[0]
+
+    def analyse_redemption(self, claim_tx_hash: HexBytes | str, redemption_ticket: MorphoRecoveryTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Account once for fee shares plus redeemed shares, and actual net cash.
+
+        The first transaction keeps penalty assets in the vault. The final
+        redemption pays the owner; do not subtract the disclosed fee a second
+        time. Synchronous redemptions retain the standard receipt analysis.
+
+        :param claim_tx_hash: Mined finishing or ordinary synchronous redemption transaction.
+        :param redemption_ticket: Paid recovery evidence, or None for an ordinary redemption.
+        :return: Receipt analysis with total disposed shares and actual net cash, or
+            a transaction failure. Recovery analyses disclose the already-paid fee separately.
+        :raises AssertionError: The finishing event does not match the paid ticket.
+        """
+        analysis = super().analyse_redemption(claim_tx_hash, redemption_ticket)
+        if isinstance(redemption_ticket, MorphoRecoveryTicket) and isinstance(analysis, DepositRedeemEventAnalysis):
+            # Guarded calls can target custody or its module. Validate
+            # the vault's own owner/receiver event as well as its share quantity.
+            receipt = self.web3.eth.get_transaction_receipt(claim_tx_hash)
+            events = read_vault_events(self.web3, self.vault.address, receipt, "Withdraw")
+            assert len(events) == 1, "Ambiguous finishing redemption"
+            event = events[0]
+            assert event["onBehalf"].lower() == redemption_ticket.owner.lower()
+            assert event["receiver"].lower() == redemption_ticket.to.lower()
+            assert event["shares"] == redemption_ticket.remaining_shares
+            expected = self.vault.share_token.convert_to_decimals(redemption_ticket.remaining_shares)
+            assert analysis.share_count == expected, "Finishing receipt burned unexpected shares"
+            return MorphoRecoveryAnalysis(
+                from_=analysis.from_,
+                to=analysis.to,
+                denomination_amount=analysis.denomination_amount,
+                share_count=self.vault.share_token.convert_to_decimals(redemption_ticket.raw_shares),
+                tx_hash=analysis.tx_hash,
+                block_number=analysis.block_number,
+                block_timestamp=analysis.block_timestamp,
+                withdrawal_fee=self.vault.denomination_token.convert_to_decimals(redemption_ticket.penalty_assets),
+            )
+        return analysis

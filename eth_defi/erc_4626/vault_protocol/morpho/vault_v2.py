@@ -265,8 +265,9 @@ class MorphoV2Vault(ERC4626Vault):
     def is_whitelisted_deposit(self) -> bool:
         """Determine whether Morpho V2 has depositor gates configured.
 
-        Canonical Morpho V2 vaults are permissionless when both optional gate
-        addresses are zero. Configured gates implement Morpho's
+        Zero addresses disable these two outer deposit gates; inner-route and
+        exit admission still need separate inspection by ``is_permissionless``.
+        Configured gates implement Morpho's
         ``IReceiveSharesGate`` and ``ISendAssetsGate`` predicates and cannot
         safely be called KYC merely because a gate is configured.
 

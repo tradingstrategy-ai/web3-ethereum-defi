@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pprint import pformat
-from typing import Literal
+from typing import ClassVar, Literal
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress, HexStr
 from hexbytes import HexBytes
@@ -610,6 +610,21 @@ class RedemptionTicket:
         assert type(self.raw_shares) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
         assert isinstance(self.tx_hash, HexBytes), f"Got {type(self.tx_hash)}: {self.tx_hash}"
 
+    @property
+    def raw_shares_remaining_in_wallet(self) -> int:
+        """Requested shares still in custody but unavailable for another trade.
+
+        Ordinary queued redemptions escrow all shares, hence zero. A staged
+        fee-paying recovery overrides this without changing the original
+        disposal quantity or making retained shares available for another sale.
+
+        :py:meth:`VaultDepositManager.serialize_redemption_ticket` records this
+        custody quantity independently of the trade's full reserved disposal.
+
+        :return: Non-negative raw share-token units still in the wallet; zero for full escrow.
+        """
+        return 0
+
     @abstractmethod
     def get_request_id(self) -> int:
         """Get the redemption request id.
@@ -833,7 +848,45 @@ class CannotParseRedemptionTransaction(Exception):
 
 @dataclass(slots=True)
 class RedemptionRequest:
-    """Wrap the different redeem functions async vaults implement."""
+    """Wrap the calls needed to start a redemption.
+
+    A normally synchronous vault can return a staged request when public
+    liquidity recovery must precede redemption. Consumers must persist and finish
+    that request like an asynchronous ticket; this does not reclassify the vault.
+    """
+
+    #: Whether this request needs an immediately available, persisted finish call.
+    #: Native asynchronous queues continue to use the manager's queue capability;
+    #: this request-level flag stages a synchronous flow without waiting a cycle.
+    requires_settlement: ClassVar[bool] = False
+
+    def get_preflight_data(self) -> dict:
+        """Keep receipt interpretation independent of later vault configuration changes.
+
+        Routing saves this dictionary before signing. Ordinary requests need no
+        additional evidence, while overrides retain inputs such as a checked proxy
+        implementation or a recovery fee cap for receipt-only reconstruction.
+
+        :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.deposit_or_redeem`
+        captures these fields before the first signed transaction can be broadcast.
+
+        :return: Additional JSON-safe preflight fields; empty for the default implementation.
+        """
+        return {}
+
+    def restore_preflight_data(self, data: dict) -> None:
+        """Restore request-time evidence without repeating transaction admission.
+
+        Routing calls this on a rebuilt parser after confirmation. The default
+        request has no extra evidence, so ``data`` is intentionally unused; adapters
+        with version or fee evidence override the hook.
+
+        :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.settle_trade`
+        restores these fields before attributing a confirmed receipt to a ticket.
+
+        :param data: Previously saved preflight dictionary, including routing metadata.
+        :return: None; overrides restore their parser state in place.
+        """
 
     #: Vault we are dealing with
     vault: "VaultBase"
@@ -1921,6 +1974,13 @@ class VaultDepositManager(ABC):
 
         Default implementation stores base :py:class:`RedemptionTicket` fields.
         Subclasses override to add protocol-specific fields.
+
+        The executor persists these fields before retrying settlement. Separate
+        custody and disposal quantities keep retained shares from being mistaken for
+        newly tradable shares or missing escrow.
+
+        :param ticket: Receipt-derived ticket, including shares still held in custody.
+        :return: JSON-safe common fields with raw share amounts encoded as decimal strings.
         """
         return {
             "vault_address": ticket.vault_address,
@@ -1929,6 +1989,7 @@ class VaultDepositManager(ABC):
             # Stored as a string: 18-decimal raw share amounts exceed the JavaScript
             # safe-integer limit that the trade-executor state file enforces.
             "vault_raw_amount": str(ticket.raw_shares),
+            "vault_wallet_retained_raw_shares": str(ticket.raw_shares_remaining_in_wallet),
             "vault_request_tx_hash": ticket.tx_hash.hex(),
         }
 

@@ -41,6 +41,8 @@ guard:
 	@(cd contracts/guard && forge build)
 	@find contracts/guard/out \
 		\(  \
+		-name "MorphoLib.json" \
+		-o \
 		-name "GuardV0.json" \
 		-o \
 		-name "SimpleVaultV0.json" \
