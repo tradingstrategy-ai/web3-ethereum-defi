@@ -24,6 +24,22 @@ NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: +convexity on Hypercore (9999).
+    #: Added: 2026-11-15.
+    #: Decision material: The maintainer explicitly assigned positive convexity,
+    #: algorithmic trading and directional trading. The current Trading Strategy
+    #: page and Hyperliquid vaultDetails response confirm this deployment's
+    #: identity. vaultDetails describes it only as "+convexity", so the strategy
+    #: classifications are maintainer-supplied, not inferred from its name.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/convexity?period=max
+    #: - https://app.hyperliquid.xyz/vaults/0x5661a070eb13c7c55ac3210b2447d4bea426cbf5
+    #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-15)
+    "0x5661a070eb13c7c55ac3210b2447d4bea426cbf5": {
+        StrategyTag.positive_convexity,
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+    },
     #: Vault: Bunny on Hypercore (9999).
     #: Added: 2026-11-09.
     #: Decision material: Maintainer requested the high-frequency, high-win-rate
