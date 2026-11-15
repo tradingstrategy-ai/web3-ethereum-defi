@@ -1557,6 +1557,19 @@ class VaultDepositManager(ABC):
             If the deposit cannot be safely prepared before broadcast.
         """
 
+    def create_deposit_request_for_analysis(self, owner: HexAddress, raw_amount: int) -> DepositRequest:
+        """Rebuild a mined deposit's parser without requiring its spent tokens.
+
+        Mirrors :meth:`create_redemption_request_for_analysis`. Protocols whose
+        admission changes after submitting a request must override this hook to
+        avoid repeating those preflights when analysing the mined request.
+
+        :param owner: Original deposit owner.
+        :param raw_amount: Exact requested denomination-token amount in native units.
+        :return: Request parser and original call shape; no transaction is sent.
+        """
+        return self.create_deposit_request(owner=owner, raw_amount=raw_amount, check_max_deposit=False, check_enough_token=False)
+
     def create_deposit_request_for_guard_validation(
         self,
         owner: HexAddress,

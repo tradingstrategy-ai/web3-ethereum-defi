@@ -282,6 +282,19 @@ class T3trisDepositManager(ERC7540DepositManager):
             raw_amount = token.convert_to_raw(amount)
         if check_enough_token and token.fetch_raw_balance_of(owner) < raw_amount:
             raise self._unavailable(f"Owner {owner} holds less than {raw_amount} raw {token.symbol}", owner, "deposit", "insufficient_assets")
+        return self.create_deposit_request_for_analysis(owner, raw_amount)
+
+    def create_deposit_request_for_analysis(self, owner: HexAddress, raw_amount: int) -> ERC7540DepositRequest:
+        """Rebuild a mined deposit's parser without repeating request admission.
+
+        The pending-request check would reject the request being analysed.
+        Request creation still runs all normal preflights before calling this.
+
+        :param owner: Original deposit owner and receiver.
+        :param raw_amount: Exact deposit amount in native denomination-token units.
+        :return: Request wrapper for receipt parsing; no transaction is sent.
+        """
+        token = self.vault.denomination_token
         func = self.vault.vault_contract.functions.requestDeposit(owner, False, raw_amount, b"")
         return self.deposit_request_class(
             vault=self.vault,
