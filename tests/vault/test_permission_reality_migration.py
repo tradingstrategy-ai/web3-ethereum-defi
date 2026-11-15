@@ -1,4 +1,5 @@
 """A targeted refresh preserves history and unresolved records."""
+
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,25 +9,42 @@ from eth_defi.erc_4626.core import ERC4626Feature
 
 
 def test_permission_refresh_changes_only_known_target_policy():
-    path = Path(__file__).parents[2] / 'migration/scripts/078-vault-permission-reality.py'
-    spec = importlib.util.spec_from_file_location('permission_refresh', path)
+    path = Path(__file__).parents[2] / "migration/scripts/078-vault-permission-reality.py"
+    spec = importlib.util.spec_from_file_location("permission_refresh", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     rows = {}
     for address in module.TARGETS:
         identity = VaultSpec(1, address)
-        rows[identity] = {'_detection_data': SimpleNamespace(get_spec=lambda identity=identity:identity, features=set()), '_deposit_permission':'unknown', 'NAV':123, 'First seen':'original'}
-    extra = VaultSpec(8453, '0x2222222222222222222222222222222222222222')
-    rows[extra] = {'_detection_data': SimpleNamespace(get_spec=lambda:extra, features={ERC4626Feature.vault_morpho_like}), '_deposit_permission':'permissionless', 'NAV':123, 'First seen':'original'}
+        rows[identity] = {"_detection_data": SimpleNamespace(get_spec=lambda identity=identity: identity, features=set()), "_deposit_permission": "unknown", "NAV": 123, "First seen": "original"}
+    extra = VaultSpec(8453, "0x2222222222222222222222222222222222222222")
+    rows[extra] = {"_detection_data": SimpleNamespace(get_spec=lambda: extra, features={ERC4626Feature.vault_morpho_like}), "_deposit_permission": "permissionless", "NAV": 123, "First seen": "original"}
     context = Mock()
     context.metadata.return_value.rows = rows
     web = Mock()
     web.eth.block_number = 456
-    policies = [SimpleNamespace(value=v) for v in ['whitelisted','unknown']]
-    with patch.object(module,'read_json_rpc_url',return_value='unused'), patch.object(module,'create_multi_provider_web3',return_value=web), patch.object(module,'create_vault_instance'), patch.object(module,'fetch_deposit_permission',side_effect=policies):
+    policies = [SimpleNamespace(value=v) for v in ["whitelisted", "unknown"]]
+    with patch.object(module, "read_json_rpc_url", return_value="unused"), patch.object(module, "create_multi_provider_web3", return_value=web), patch.object(module, "create_vault_instance"), patch.object(module, "fetch_deposit_permission", side_effect=policies):
         module.migrate(context)
-    assert [r['_deposit_permission'] for r in rows.values()] == ['unsupported_protocol']*4+['whitelisted','unknown','unsupported_protocol']
-    assert all(r['NAV']==123 and r['First seen']=='original' for r in rows.values())
-    assert context.report.call_args.kwargs['changed_rows']==6
-    assert len(context.report.call_args.kwargs['unresolved_specs'])==1
+    assert [r["_deposit_permission"] for r in rows.values()] == ["unsupported_protocol"] * 4 + ["whitelisted", "unknown", "unsupported_protocol"]
+    assert all(r["NAV"] == 123 and r["First seen"] == "original" for r in rows.values())
+    assert context.report.call_args.kwargs["changed_rows"] == 6
+    assert len(context.report.call_args.kwargs["unresolved_specs"]) == 1
     context.commit_metadata.assert_called_once()
+
+
+def test_permission_refresh_is_discoverable_by_migration_runner() -> None:
+    """A missing operational header must not break discovery of every migration.
+
+    1. Discover the packaged migration inventory using the production validator.
+    2. Confirm the permission refresh is present with its documented exclusion.
+    """
+    from eth_defi.vault_protocols.migration import discover_migrations
+
+    # 1. Validate all migration headers, including this pending refresh.
+    migrations = list(discover_migrations())
+
+    # 2. Ensure the runner can find the repair before preview or apply.
+    refresh = next(spec for spec in migrations if spec.number == 78)
+    assert refresh.name == "078-vault-permission-reality.py"
+    assert "unsupported" in refresh.description
