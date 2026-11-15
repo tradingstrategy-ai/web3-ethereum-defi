@@ -387,9 +387,12 @@ class ERC4626DepositManager(VaultDepositManager):
         return True
 
     def has_synchronous_redemption(self) -> bool:
-        """Does this vault support synchronous redemptions?
+        """Keep ordinary ERC-4626 exits on the immediate execution path.
 
-        - E.g. ERC-4626 vaults
+        Request-level staging can still require a finish call, so callers also
+        inspect :py:attr:`~eth_defi.vault.deposit_redeem.RedemptionRequest.requires_settlement`.
+
+        :return: True for the manager's ordinary redemption capability.
         """
         return True
 

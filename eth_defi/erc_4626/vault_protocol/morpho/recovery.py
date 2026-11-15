@@ -19,16 +19,31 @@ from decimal import Decimal
 from typing import ClassVar
 
 from eth_abi import encode
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.logs import DISCARD
+from web3.types import TxReceipt
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, RedemptionRequest, RedemptionTicket, VaultDepositManager, VaultFlowUnavailable
 
 
-def read_vault_events(web3: Web3, address: str, receipt: dict, name: str) -> list[dict]:
-    """Decode only this vault's events, excluding logs from adapters and wrappers."""
+def read_vault_events(web3: Web3, address: HexAddress, receipt: TxReceipt, name: str) -> list[dict]:
+    """Decode a receipt without attributing another contract's logs to this vault.
+
+    :py:meth:`MorphoRecoveryRequest.parse_redeem_transaction` uses this helper
+    to prove the first fee burn. The finishing manager's
+    :py:meth:`~eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem.MorphoV2DepositManager.analyse_redemption`
+    uses them to check the remaining-share burn. Both need a materialised list
+    so zero or ambiguous matching events can be refused before accounting.
+
+    :param web3: Connection used to bind the stored Vault V2 ABI; no RPC read is made.
+    :param address: Vault whose own emitted logs may establish the trade outcome.
+    :param receipt: Mined receipt, which may also contain adapter and custody logs.
+    :param name: ABI event name, such as ``ForceDeallocate`` or ``Withdraw``.
+    :return: Decoded argument dictionaries from this address only, in receipt order.
+    """
     contract = get_deployed_contract(web3, "morpho/VaultV2.json", address)
     return [event["args"] for event in getattr(contract.events, name)().process_receipt(receipt, errors=DISCARD) if event["address"].lower() == address.lower()]
 
@@ -50,16 +65,37 @@ class MorphoRecoveryTicket(RedemptionTicket):
 
     @property
     def remaining_shares(self) -> int:
-        """Exact requested shares still to burn, excluding the already mined fee."""
+        """Keep the second burn bounded to shares left after the paid penalty.
+
+        :py:meth:`~eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem.MorphoV2DepositManager.finish_redemption`
+        uses this amount because submitting the original disposal would try to burn
+        fee shares a second time.
+
+        :return: Non-negative raw share-token units reserved for the finishing redeem.
+        """
         return self.raw_shares - self.penalty_shares
 
     @property
     def raw_shares_remaining_in_wallet(self) -> int:
-        """The fee is burned; all other requested shares remain locked to this exit."""
+        """Retain custody evidence without releasing the pending disposal for trading.
+
+        :py:meth:`~eth_defi.vault.deposit_redeem.VaultDepositManager.serialize_redemption_ticket`
+        stores this amount so the executor can reconcile the wallet after the fee
+        burn while still reserving the full requested exit against duplicate sales.
+
+        :return: Remaining raw share-token units; these shares are still in custody.
+        """
         return self.remaining_shares
 
     def get_request_id(self) -> int:
-        """Use the mined request hash as a local identity, not an onchain queue ID."""
+        """Identify a staged exit without inventing a protocol withdrawal queue.
+
+        The mined first transaction uniquely identifies this local ticket. Generic
+        settlement consumers can use the usual integer identity even though Vault V2
+        has no separate onchain request ID for public recovery.
+
+        :return: Unsigned integer representation of the recovery transaction hash.
+        """
         return int.from_bytes(self.tx_hash, "big")
 
 
@@ -85,11 +121,27 @@ class MorphoRecoveryRequest(RedemptionRequest):
     plan: dict = field(default_factory=dict)
 
     def get_preflight_data(self) -> dict:
-        """Retain the rate cap and exact deallocation submitted for this trade."""
+        """Retain the authorisation that applied when the recovery was signed.
+
+        The executor's :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.deposit_or_redeem`
+        saves this evidence before broadcast, allowing receipt analysis to check the
+        submitted amount and cap after a restart or manual rule change.
+
+        :return: Preflight dictionary containing the versioned ``morpho_recovery`` plan.
+        """
         return {"morpho_recovery": self.plan}
 
     def restore_preflight_data(self, data: dict) -> None:
-        """Restore original authorisation rather than using today's manual rule."""
+        """Restore the submitted plan before interpreting an already mined fee burn.
+
+        The executor's :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.settle_trade`
+        rebuilds a receipt-only request, then restores this evidence so today's
+        authorisation cannot replace the cap that governed the signed transaction.
+
+        :param data: Saved preflight fields containing the original ``morpho_recovery`` plan.
+        :return: None; update this parser's plan in place.
+        :raises AssertionError: The stored plan uses an unsupported schema version.
+        """
         self.plan = data["morpho_recovery"]
         assert self.plan["schema"] == 1, "Unsupported Morpho recovery schema"
 
@@ -99,6 +151,13 @@ class MorphoRecoveryRequest(RedemptionRequest):
         Assets remain in this vault; the fee Withdraw receiver must be the vault
         itself. Never infer a burn from a balance difference, which could also
         include another wallet operation. Integer asset fees round upwards.
+
+        :py:meth:`tradeexecutor.ethereum.vault.vault_routing.VaultRouting.settle_trade`
+        calls this after confirmation to persist a paid ticket before any finish attempt.
+
+        :param tx_hashes: Exactly one confirmed recovery transaction; approval calls are excluded.
+        :return: Ticket containing the original disposal and receipt-proven penalty amounts.
+        :raises AssertionError: Receipt, ownership, amount or fee evidence is inconsistent.
         """
         assert len(tx_hashes) == 1 and self.plan
         receipt = self.web3.eth.get_transaction_receipt(tx_hashes[0])
@@ -145,6 +204,16 @@ def prepare_recovery(manager: VaultDepositManager, request: RedemptionRequest) -
     Select the largest non-exit supply position covering the gross claim, then
     check its actual cash through the exact call. Do not try other markets after a
     refusal or build a multi-market recovery plan.
+
+    :py:meth:`~eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem.MorphoV2DepositManager.create_redemption_request`
+    calls this only after the exact direct request proves the qualifying panic.
+
+    :param manager: Adapter supplying the chain connection, vault and explicit fee cap.
+    :param request: Failed direct request; its exact raw shares and owner remain binding.
+    :return: Unsigned recovery request, or None when the authorisation, route proof
+        or alternate supply position does not qualify. No transaction is broadcast.
+    :raises VaultFlowUnavailable: The configured live penalty exceeds the authorised rate.
+    :raises ValueError: The selected market's asset or simulated share burn is unsafe.
     """
     vault, web3 = manager.vault, manager.web3
     limit = vault.redemption_recovery_max_fee_bps

@@ -13,6 +13,8 @@ from collections.abc import Iterator
 from decimal import Decimal
 
 import pytest
+from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
@@ -57,15 +59,34 @@ def recovery_snapshot(anvil_fork_pool: AnvilForkPool) -> Iterator[None]:
         next(snapshots, None)
 
 
-def _send(web3: Web3, function: ContractFunction, sender: str):
-    """Check the actual receipt, including calls sent through guarded custody."""
+def _send(web3: Web3, function: ContractFunction, sender: str) -> HexBytes:
+    """Require a mined successful call so a receipt check cannot hide a revert.
+
+    :py:func:`_guarded` uses the same receipt validation as direct setup calls,
+    keeping the non-governance manager's results comparable to deployment setup.
+
+    :param web3: Disposable historical fork used by the recovery scenario.
+    :param function: Exact ABI-bound call to submit.
+    :param sender: Unlocked account signing this setup or manager transaction.
+    :return: Successful mined transaction hash.
+    """
     tx = function.transact({"from": sender, "gas": 8_000_000})
     assert_transaction_success_with_explanation(web3, tx)
     return tx
 
 
-def _guarded(web3: Web3, custody: Contract, function: ContractFunction, manager: str):
-    """Execute ABI-encoded adapter calls as a distinct non-governance manager."""
+def _guarded(web3: Web3, custody: Contract, function: ContractFunction, manager: str) -> HexBytes:
+    """Exercise Guard policy as a manager rather than relying on owner privileges.
+
+    :py:func:`test_guarded_morpho_recovery_restart` uses this path so recovery
+    success demonstrates the configured custody policy, including its fee cap.
+
+    :param web3: Disposable fork containing the deployed custody contract.
+    :param custody: Guarded contract that owns the vault shares and invokes the call.
+    :param function: Protocol operation encoded for custody's ``performCall``.
+    :param manager: Non-governance account granted manager permissions.
+    :return: Successful mined custody transaction hash.
+    """
     return _send(web3, custody.functions.performCall(*encode_simple_vault_transaction(function)), manager)
 
 
@@ -77,7 +98,7 @@ def _guarded(web3: Web3, custody: Contract, function: ContractFunction, manager:
     ],
     ids=["api3", "purinta"],
 )
-def test_guarded_morpho_recovery_restart(web3: Web3, address: str, expected_net: str, expected_fee: str, expected_shares: int):
+def test_guarded_morpho_recovery_restart(web3: Web3, address: str, expected_net: str, expected_fee: str, expected_shares: int) -> None:
     """Recover real existing assets and resume with exact remaining shares.
 
     1. Deposit 1,001 USDC through a Guard with a distinct asset manager.

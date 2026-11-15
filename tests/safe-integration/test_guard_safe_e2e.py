@@ -242,7 +242,7 @@ def test_enable_safe_module(
     safe: Safe,
     safe_deployer_hot_wallet: HotWallet,
     deployer: HexAddress,
-):
+) -> None:
     """Enable TradingStrategyModuleV0 module on Safe."""
 
     safe_contract = safe.contract
