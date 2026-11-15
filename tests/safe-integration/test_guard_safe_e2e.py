@@ -10,9 +10,8 @@ from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.compat import construct_sign_and_send_raw_middleware
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -198,15 +197,7 @@ def uniswap_v2_whitelisted_trading_strategy_module(
         deployer,
         owner,
         safe.address,
-        libraries={
-            "UniswapLib": uniswap_lib.address,
-            "VeloraLib": ZERO_ADDRESS,
-            "CowSwapLib": ZERO_ADDRESS,
-            "GmxLib": ZERO_ADDRESS,
-            "HypercoreVaultLib": ZERO_ADDRESS,
-            "LighterLib": ZERO_ADDRESS,
-            "LagoonLib": ZERO_ADDRESS,
-        },
+        libraries={**GUARD_LIBRARIES, "UniswapLib": uniswap_lib.address},
     )
 
     # Enable Safe module
@@ -263,15 +254,7 @@ def test_enable_safe_module(
         deployer,
         safe.address,
         safe.address,
-        libraries={
-            "UniswapLib": ZERO_ADDRESS,
-            "VeloraLib": ZERO_ADDRESS,
-            "CowSwapLib": ZERO_ADDRESS,
-            "GmxLib": ZERO_ADDRESS,
-            "HypercoreVaultLib": ZERO_ADDRESS,
-            "LighterLib": ZERO_ADDRESS,
-            "LagoonLib": ZERO_ADDRESS,
-        },
+        libraries=GUARD_LIBRARIES,
     )
 
     # Multisig owners can enable the module
@@ -450,15 +433,7 @@ def velora_whitelisted_trading_strategy_module(
         deployer,
         owner,
         safe.address,
-        libraries={
-            "VeloraLib": velora_lib.address,
-            "CowSwapLib": ZERO_ADDRESS,
-            "GmxLib": ZERO_ADDRESS,
-            "HypercoreVaultLib": ZERO_ADDRESS,
-            "LighterLib": ZERO_ADDRESS,
-            "LagoonLib": ZERO_ADDRESS,
-            "UniswapLib": ZERO_ADDRESS,
-        },
+        libraries={**GUARD_LIBRARIES, "VeloraLib": velora_lib.address},
     )
 
     # Enable Safe module

@@ -21,7 +21,7 @@ from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.vault_protocol.morpho.recovery import MorphoRecoveryRequest
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
-from eth_defi.provider.anvil import fund_erc20_on_anvil, make_anvil_custom_rpc_request, mine
+from eth_defi.provider.anvil import create_anvil_snapshot_state, fund_erc20_on_anvil, make_anvil_custom_rpc_request, mine, reset_anvil_snapshot
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
@@ -107,6 +107,21 @@ def test_guarded_morpho_recovery_restart(web3: Web3, address: str, expected_net:
     vault.redemption_recovery_max_fee_bps = 1
     assert not manager.create_redemption_request(custody.address, raw_shares=original).requires_settlement
     vault.redemption_recovery_max_fee_bps = None
+
+    # Api3 permits an ordinary exit in the next block. Confirm that the new
+    # protocol analyser recognises guarded synchronous custody without an async
+    # ticket, then restore the deposit for the 24-hour recovery check. Purinta's
+    # next-block arithmetic failure is independently covered below.
+    if address == "0x36cfe1568461e499391ef0a555300f1ae2da2439":
+        ordinary_snapshot = create_anvil_snapshot_state(web3)
+        try:
+            normal = manager.create_redemption_request(custody.address, raw_shares=original)
+            normal_tx = _guarded(web3, custody, normal.funcs[0], operator)
+            ordinary = manager.analyse_redemption(normal_tx, None)
+            assert ordinary.share_count == vault.share_token.convert_to_decimals(original)
+            assert vault.share_token.fetch_raw_balance_of(custody.address) == 0
+        finally:
+            reset_anvil_snapshot(web3, ordinary_snapshot)
 
     # 2. Direct exits remain the default, with the original typed panic.
     mine(web3, increase_timestamp=86400)

@@ -16,7 +16,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import ZERO_ADDRESS, get_abi_by_filename, get_deployed_contract
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
@@ -188,15 +188,7 @@ def vault(
         "guard/SimpleVaultV0.json",
         deployer,
         asset_manager,
-        libraries={
-            "HypercoreVaultLib": hypercore_vault_lib.address,
-            "CowSwapLib": cowswap_lib.address,
-            "GmxLib": ZERO_ADDRESS,
-            "LighterLib": ZERO_ADDRESS,
-            "LagoonLib": ZERO_ADDRESS,
-            "UniswapLib": ZERO_ADDRESS,
-            "VeloraLib": ZERO_ADDRESS,
-        },
+        libraries={**GUARD_LIBRARIES, "HypercoreVaultLib": hypercore_vault_lib.address, "CowSwapLib": cowswap_lib.address},
     )
 
     assert vault.functions.owner().call() == deployer
