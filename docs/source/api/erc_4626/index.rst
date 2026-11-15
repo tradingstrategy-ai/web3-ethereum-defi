@@ -46,6 +46,7 @@ More info
    eth_defi.erc_4626.warmup
    eth_defi.erc_4626.vault_protocol.lagoon.settlement
    eth_defi.erc_4626.vault_protocol.d2.settlement
+   eth_defi.erc_4626.vault_protocol.t3tris.settlement
    eth_defi.erc_4626.vault_protocol.ember.deposit_redeem
    eth_defi.erc_4626.vault_protocol.ember.settlement
    eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem

@@ -27,7 +27,7 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata import T3trisVaultMetadata, fetch_t3tris_vault_metadata
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
 
@@ -52,6 +52,32 @@ STALE_NAV_CORRECTED_ERROR = "t3tris_stale_nav_gap_corrected"
 
 #: Marker exported when a scan appears to start inside an uncorrectable gap.
 STALE_NAV_FIRST_SAMPLE_ERROR = "t3tris_stale_nav_gap_possible_first_sample"
+
+
+def create_t3tris_withdrawal_period(average_settlement_seconds: int | None) -> WithdrawalPeriod | None:
+    """Build the non-binding T3tris settlement estimate.
+
+    T3tris vaults have no contractual settlement deadline: the curator
+    settles pending requests in vault-wide epochs. The only published timing
+    figure is T3tris' offchain average settlement interval, so only
+    ``estimated_settlement`` is set. See
+    :py:attr:`~eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata.T3trisVaultMetadata.average_settlement_seconds`
+    for its weaknesses; recorded ``DepositsSettled`` events in the settlement
+    database are the preferred timing source where they exist.
+
+    :param average_settlement_seconds:
+        Positive interval from the T3tris API, or ``None``.
+    :return:
+        Estimate-only withdrawal period, or ``None`` when unknown.
+    """
+    if not average_settlement_seconds:
+        return None
+    return WithdrawalPeriod(
+        min_period=None,
+        max_period=None,
+        delay_type=WithdrawalDelayType.delay,
+        estimated_settlement=datetime.timedelta(seconds=average_settlement_seconds),
+    )
 
 
 def _wad_to_percent(value: int) -> float:
@@ -144,7 +170,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         return self.vault.fetch_oracle_address(self.vault._get_block_identifier())
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
-        """Get on-chain calls needed for corrected T3tris historical prices.
+        """Get onchain calls needed for corrected T3tris historical prices.
 
         In addition to the generic ERC-4626 calls we read ``isVaultOpen()`` to
         distinguish sync and async vault modes, ``isDepositEnabled()`` for the
@@ -305,7 +331,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
           returns ``False`` so the caller accepts the new raw PPS as measured
           NAV. If the loss was real, it now appears in the series.
         - **Raw PPS recovered:** this method returns ``False`` because the
-          on-chain ERC-4626 PPS and held PPS are back in line.
+          onchain ERC-4626 PPS and held PPS are back in line.
         - **Sync vault:** correction is disabled regardless of supply/PPS shape,
           because sync T3tris vaults are not oracle-valued and should not have
           this settlement gap.
@@ -719,6 +745,20 @@ class T3trisVault(ERC4626Vault):
             ``0.01`` means 1%.
         """
         return _wad_to_percent(self.vault_contract.functions.getExitFee().call(block_identifier=block_identifier))
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return T3tris' non-binding average settlement interval.
+
+        T3tris publishes one interval for both directions, so a consumer such
+        as a backtest applies it to deposits and redemptions alike. It is a
+        weak estimate: see :py:func:`create_t3tris_withdrawal_period`.
+
+        :return:
+            Estimate-only withdrawal period, or ``None`` when T3tris does not
+            publish an interval for this vault.
+        """
+        metadata = self.t3tris_metadata
+        return create_t3tris_withdrawal_period(metadata.get("average_settlement_seconds") if metadata else None)
 
     def get_link(self, referral: str | None = None) -> str:
         """Link to the T3tris vault app."""

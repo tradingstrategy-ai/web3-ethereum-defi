@@ -1,6 +1,6 @@
 """T3tris vault offchain metadata.
 
-- T3tris stores vault page descriptions in their backend, not on-chain
+- T3tris stores vault page descriptions in their backend, not onchain
 - The detail endpoint ``/api/vaults/{chainId}/{vaultAddress}`` on the
   `T3tris app <https://earn.t3tris.finance/vaults>`__ returns the same page
   view model shown in the app; it answers 404 for vaults the app does not list
@@ -9,8 +9,10 @@
 """
 
 import datetime
+import email.utils
 import json
 import logging
+import time
 from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
@@ -30,6 +32,19 @@ DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "t3tris"
 #: ``https://api.t3tris.finance/api/v1`` answered 404 for every path from
 #: October 2026; the app now serves the same routes itself.
 DEFAULT_API_BASE_URL = "https://earn.t3tris.finance/api"
+
+#: Private key under which :py:func:`_fetch_vault_detail` stores the response
+#: time, as a Unix timestamp, so the parser can turn ``estimatedRedemptionTs``
+#: into a duration.
+RESPONSE_TIMESTAMP_KEY = "_response_ts"
+
+#: Shortest average settlement interval accepted as an estimate, in seconds.
+#:
+#: A heuristic floor. In November 2026 the Kingfisher vault, whose two
+#: settlements were in the same block, reported an interval of about 20
+#: seconds. T3tris does not publish its averaging method, so a sub-hour value
+#: is treated as an artefact rather than a real settlement cadence.
+MIN_AVERAGE_SETTLEMENT_SECONDS = 3600
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +92,21 @@ class T3trisVaultMetadata(TypedDict):
     #: Optional IPFS hash copied from app/indexer metadata.
     ipfs_hash: str | None
 
+    #: T3tris' average settlement interval in seconds, or ``None``.
+    #:
+    #: Derived from the detail response's ``estimatedRedemptionTs``, which the
+    #: app labels "one average settlement interval from today; not a scheduled
+    #: or guaranteed date". T3tris computes it server-side and does not publish
+    #: the method. It ignores how long ago the last settlement was: a vault
+    #: last settled months ago can report a sub-day interval, and two
+    #: settlements in one block give zero. Treat it as a weak fallback;
+    #: recorded settlement events are the better timing source. ``None`` when
+    #: the field is absent, the interval is shorter than
+    #: :py:data:`MIN_AVERAGE_SETTLEMENT_SECONDS`, or the data came from the
+    #: vault-list fallback. Cache files written before this field existed
+    #: do not contain the key.
+    average_settlement_seconds: int | None
+
 
 def _normalise_optional_string(value: object) -> str | None:
     """Normalise blank API string fields to ``None``."""
@@ -84,6 +114,28 @@ def _normalise_optional_string(value: object) -> str | None:
         return None
     value = value.strip()
     return value or None
+
+
+def _parse_average_settlement_seconds(raw: dict) -> int | None:
+    """Turn the detail response's ``estimatedRedemptionTs`` into an interval.
+
+    T3tris returns the estimate as an absolute time: the response time plus
+    its average settlement interval. Store the interval rather than the time,
+    so a cached value does not shrink as the cache ages.
+
+    :param raw:
+        Raw detail response, with :py:data:`RESPONSE_TIMESTAMP_KEY` set by
+        :py:func:`_fetch_vault_detail`.
+    :return:
+        Interval in seconds, or ``None`` when unknown or shorter than
+        :py:data:`MIN_AVERAGE_SETTLEMENT_SECONDS`.
+    """
+    estimated = raw.get("estimatedRedemptionTs")
+    response_ts = raw.get(RESPONSE_TIMESTAMP_KEY)
+    if isinstance(estimated, bool) or not isinstance(estimated, int | float) or not isinstance(response_ts, int):
+        return None
+    interval = int(estimated) - response_ts
+    return interval if interval >= MIN_AVERAGE_SETTLEMENT_SECONDS else None
 
 
 def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
@@ -120,6 +172,7 @@ def _parse_vault_detail(raw: dict) -> T3trisVaultMetadata:
         rating=_normalise_optional_string(vault.get("rating")),
         visibility=_normalise_optional_string(vault.get("visibility")),
         ipfs_hash=_normalise_optional_string(vault.get("ipfsHash")),
+        average_settlement_seconds=_parse_average_settlement_seconds(raw),
     )
 
 
@@ -167,10 +220,30 @@ def _fetch_vaults_list_entry(
     return None
 
 
+def _read_response_timestamp(resp: requests.Response) -> int:
+    """Read the server's response time, falling back to the local clock.
+
+    :param resp:
+        Successful HTTP response.
+    :return:
+        Unix timestamp in seconds.
+    """
+    header = resp.headers.get("Date")
+    if header:
+        try:
+            parsed = email.utils.parsedate_to_datetime(header)
+            # HTTP dates are GMT; a "-0000" zone parses as naive.
+            return int(parsed.replace(tzinfo=parsed.tzinfo or datetime.UTC).timestamp())
+        except (TypeError, ValueError):
+            logger.warning("Unparseable T3tris response Date header %r; using local time", header)
+    return int(time.time())
+
+
 def _fetch_vault_detail(
     chain_id: int,
     address: str,
     api_base_url: str = DEFAULT_API_BASE_URL,
+    strict: bool = False,
 ) -> dict | None:
     """Fetch detailed vault metadata from the T3tris web app API.
 
@@ -183,24 +256,39 @@ def _fetch_vault_detail(
     :param api_base_url:
         T3tris API base URL.
 
+    :param strict:
+        Raise transient failures instead of falling back to the vault list,
+        which carries no settlement estimate. A 404 still returns ``None``.
+        Migrations use this so that a failed fetch is retried rather than
+        recorded as a vault without an estimate.
+
     :return:
         Raw JSON response dict, or ``None`` if T3tris does not list the vault
-        or both endpoints fail.
+        or both endpoints fail. A detail response also carries the response
+        time under :py:data:`RESPONSE_TIMESTAMP_KEY`, from the HTTP ``Date``
+        header or the local clock.
     """
     url = f"{api_base_url}/vaults/{chain_id}/{address}"
     logger.debug("Fetching T3tris vault detail from %s", url)
     try:
         resp = requests.get(url, timeout=30, headers={"Accept": "application/json"})
         resp.raise_for_status()
-        return resp.json()
+        raw = resp.json()
+        if isinstance(raw, dict):
+            raw[RESPONSE_TIMESTAMP_KEY] = _read_response_timestamp(resp)
+        return raw
     except requests.HTTPError as e:
         if getattr(e.response, "status_code", None) == 404:
             # Vaults deployed on the protocol but not listed in the app
             logger.info("T3tris app does not list vault %s on chain %d", address, chain_id)
             return None
+        if strict:
+            raise
         logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
         return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
     except (requests.RequestException, JSONDecodeError) as e:
+        if strict:
+            raise
         logger.warning("Failed to fetch T3tris vault detail for %s on chain %d: %s; falling back to vault list", address, chain_id, e)
         return _fetch_vaults_list_entry(chain_id, address, api_base_url=api_base_url)
 
@@ -253,29 +341,30 @@ def fetch_t3tris_vault_metadata(
 
     with wait_other_writers(file):
         should_refresh = not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0
-        if should_refresh:
-            detail = _fetch_vault_detail(chain_id, checksummed, api_base_url=api_base_url)
-            if detail is None:
-                return None
+        if not should_refresh:
+            try:
+                with file.open("rt") as f:
+                    metadata = json.load(f)
+            except JSONDecodeError as e:
+                content = file.read_text()
+                raise RuntimeError(f"Could not parse T3tris vault file for {checksummed} on chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
+            # Files written before the settlement estimate was parsed lack
+            # its key; refresh them rather than publish a missing estimate.
+            if "average_settlement_seconds" in metadata:
+                chain_cache[checksummed] = metadata
+                return metadata
 
-            metadata = _parse_vault_detail(detail)
-            with file.open("wt") as f:
-                json.dump(metadata, f, indent=2)
-
-            assert file.stat().st_size > 0, f"File {file} is empty after writing"
-            chain_cache[checksummed] = metadata
-            return metadata
-
-        if file_size == 0:
+        detail = _fetch_vault_detail(chain_id, checksummed, api_base_url=api_base_url)
+        if detail is None:
             return None
 
-        try:
-            with file.open("rt") as f:
-                metadata = json.load(f)
-        except JSONDecodeError as e:
-            content = file.read_text()
-            raise RuntimeError(f"Could not parse T3tris vault file for {checksummed} on chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
-
+        metadata = _parse_vault_detail(detail)
+        # A vault-list fallback row has no settlement estimate. Keep it for
+        # this process only, so the next run retries the detail endpoint.
+        if RESPONSE_TIMESTAMP_KEY in detail:
+            with file.open("wt") as f:
+                json.dump(metadata, f, indent=2)
+            assert file.stat().st_size > 0, f"File {file} is empty after writing"
         chain_cache[checksummed] = metadata
         return metadata
 

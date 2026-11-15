@@ -11,6 +11,7 @@ See ``README-t3tris.md`` in this package for the verified call semantics and
 the GuardV0 coverage.
 """
 
+import datetime
 import logging
 from collections.abc import Callable
 from decimal import Decimal
@@ -489,6 +490,19 @@ class T3trisDepositManager(ERC7540DepositManager):
         :return: Shares burned and assets received, or a failure.
         """
         return self._analyse_claim(claim_tx_hash, redemption_ticket, deposit=False)
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        """Return the vault's non-binding settlement estimate.
+
+        :py:meth:`T3trisVault.get_withdrawal_period` is the source of truth;
+        this keeps the estimate available through the manager API, as
+        Lagoon's manager does.
+
+        :return:
+            Average settlement interval, or ``None`` when unknown.
+        """
+        withdrawal_period = self.vault.get_withdrawal_period()
+        return withdrawal_period.estimated_settlement if withdrawal_period else None
 
     def _send_as(self, account: HexAddress, func: ContractFunction) -> HexBytes:
         """Send one transaction as an impersonated protocol actor on Anvil.

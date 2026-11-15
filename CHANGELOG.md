@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Record T3tris `DepositsSettled` events in the vault settlement database, so backtests can settle queued deposits at measured onchain settlements, and publish T3tris' average settlement interval as a non-binding `estimated_settlement` fallback with its weaknesses documented, refreshed by numbered migration 079 (2026-11-15, [#1784](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1784)).
 - fix: Preserve synchronous guarded ERC-4626 redemption analysis without an async ticket and keep Guard fixtures compatible with added libraries and later interface versions (2026-11-15).
 
 - feat: Add explicitly authorised Morpho V2 public liquidity recovery with fee-burn tickets and capped Guard validation. Reuse exact direct-redemption preflight and keep protocol evidence in request hooks (2026-11-15, [#1783](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1783)).
