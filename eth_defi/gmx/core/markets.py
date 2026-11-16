@@ -16,6 +16,7 @@ from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract, get_tokens_metadata_dict
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.keys import MARKET_LIST, is_market_disabled_key
 from eth_defi.gmx.symbols import SYMBOL_NORMALISE
@@ -278,7 +279,7 @@ class Markets:
                 0,
                 market_count + 1,
             ).call()
-            return {to_checksum_address(tup[0]) for tup in raw}
+            return {to_checksum_address(market["marketToken"]) for market in reader_named_output(raw, "getMarkets")}
         except Exception as exc:
             logger.warning(
                 "Could not read registered markets from the DataStore, skipping the registration filter: %s",
@@ -316,13 +317,13 @@ class Markets:
 
         result: list[dict] = [
             {
-                "market_address": tup[0],
-                "index_token_address": tup[1],
-                "long_token_address": tup[2],
-                "short_token_address": tup[3],
+                "market_address": market["marketToken"],
+                "index_token_address": market["indexToken"],
+                "long_token_address": market["longToken"],
+                "short_token_address": market["shortToken"],
                 "is_listed": True,
             }
-            for tup in raw
+            for market in reader_named_output(raw, "getMarkets")
         ]
 
         # Filter markets the DataStore reports as disabled.

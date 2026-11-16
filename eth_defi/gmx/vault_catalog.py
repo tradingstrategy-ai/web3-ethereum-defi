@@ -23,6 +23,7 @@ from web3 import Web3
 from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_glv_reader_contract, get_reader_contract
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.keys import is_glv_market_disabled_key, is_market_disabled_key
 from eth_defi.token import fetch_erc20_details
 
@@ -194,7 +195,11 @@ def _fetch_gm_products(
         return reader.functions.getMarkets(datastore_address, start, end)
 
     for raw_market in _fetch_paginated_reader_items(market_call, page_size=page_size, block_identifier=block_identifier):
-        market_address, index_token, long_token, short_token = (to_checksum_address(address) for address in raw_market)
+        named_market = reader_named_output([raw_market], "getMarkets")[0]
+        market_address = to_checksum_address(named_market["marketToken"])
+        index_token = to_checksum_address(named_market["indexToken"])
+        long_token = to_checksum_address(named_market["longToken"])
+        short_token = to_checksum_address(named_market["shortToken"])
         symbol, name, decimals = _fetch_token_metadata(web3, chain_id, market_address, token_cache)
         yield GMXVaultProduct(
             chain_id=chain_id,

@@ -336,11 +336,11 @@ def _fetch_market_token_addresses(
     raw_markets = reader.functions.getMarkets(datastore_address, 0, 1000).call(block_identifier=block_identifier)
 
     market_tokens: dict[HexAddress, MarketTokenAddresses] = {}
-    for raw_market in raw_markets:
-        market_addr = HexAddress(to_checksum_address(raw_market[0]))
-        index_token = HexAddress(to_checksum_address(raw_market[1]))
-        long_token = HexAddress(to_checksum_address(raw_market[2]))
-        short_token = HexAddress(to_checksum_address(raw_market[3]))
+    for raw_market in reader_named_output(raw_markets, "getMarkets"):
+        market_addr = HexAddress(to_checksum_address(raw_market["marketToken"]))
+        index_token = HexAddress(to_checksum_address(raw_market["indexToken"]))
+        long_token = HexAddress(to_checksum_address(raw_market["longToken"]))
+        short_token = HexAddress(to_checksum_address(raw_market["shortToken"]))
 
         if index_token == _ZERO_ADDRESS:
             if market_addr == _WSTETH_MARKET:
