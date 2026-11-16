@@ -1,8 +1,10 @@
 """Offline regression tests for the pinned GMX Reader tuple layout."""
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from eth_abi.exceptions import DecodingError
@@ -11,6 +13,7 @@ from web3 import Web3
 from eth_defi.gmx.core.abi_named import named_abi_value, reader_named_output, reader_output_abi
 from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.core.liquidation import _transform_position_data
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 
@@ -33,15 +36,26 @@ def _decode_return(raw_hex: str, abi_parameter: dict):
 
 
 @pytest.fixture(scope="module")
-def captured_calls() -> dict[str, dict]:
+def captured_calls() -> dict[str, Any]:
     """Read captured Arbitrum v2.2.1 return payloads."""
     fixture = json.loads((FIXTURES / "gmx_v221_reader_capture.json").read_text())
-    return {call["function"]: call for call in fixture["calls"] if call["function"] in {"getMarketInfo", "getAccountPositions"}}
+    return {
+        "getMarketInfo": [call for call in fixture["calls"] if call["function"] == "getMarketInfo"],
+        "getAccountPositions": next(call for call in fixture["calls"] if call["function"] == "getAccountPositions"),
+    }
 
 
-def test_market_info_formatter_uses_named_v221_output(captured_calls):
+@pytest.mark.parametrize(
+    ("label", "market_token", "funding_factor", "longs_pay_shorts"),
+    [
+        ("ETH/USD", "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336", 4393981092189802944630, False),
+        ("BTC/USD", "0x47c031236e19d024b42f8AE6780E44A573170703", 4675868391294009690720, True),
+        ("SOL/USD", "0x09400D9DB990D5ed3f35D7be61DfAEB900Af03C9", 4778895056858270138368, False),
+    ],
+)
+def test_market_info_formatter_uses_named_v221_output(captured_calls, label, market_token, funding_factor, longs_pay_shorts):
     """Market formatting and funding inputs match direct named ABI decoding."""
-    call = captured_calls["getMarketInfo"]
+    call = next(call for call in captured_calls["getMarketInfo"] if call["label"] == label)
     decoded = _decode_return(call["return_data"], reader_output_abi("getMarketInfo"))
     named = reader_named_output(decoded, "getMarketInfo")
     formatted = GetData._format_market_info_output(decoded)
@@ -50,9 +64,10 @@ def test_market_info_formatter_uses_named_v221_output(captured_calls):
     assert formatted["baseFunding_long_fundingFeeAmountPerSize_longToken"] == named["baseFunding"]["fundingFeeAmountPerSize"]["long"]["longToken"]
     assert formatted["nextFunding_baseFundingshort_claimableFundingAmountPerSize_shortToken"] == named["nextFunding"]["claimableFundingAmountPerSizeDelta"]["short"]["shortToken"]
     assert formatted["virtualInventoryForPositions"] == named["virtualInventory"]["virtualInventoryForPositions"]
-    funding_inputs = GetFundingFee._format_market_info_output(decoded)
-    assert funding_inputs["is_long_pays_short"] is named["nextFunding"]["longsPayShorts"]
-    assert funding_inputs["funding_factor_per_second"] == named["nextFunding"]["fundingFactorPerSecond"]
+    funding_inputs = GetFundingFee._format_funding_inputs(decoded)
+    assert formatted["market_address"].lower() == market_token.lower()
+    assert funding_inputs["is_long_pays_short"] is longs_pay_shorts
+    assert funding_inputs["funding_factor_per_second"] == funding_factor
     rate = GetFundingFee._get_funding_factor_per_period(funding_inputs, True, 3600, 10**30, 2 * 10**30)
     assert isinstance(rate, (int, float))
 
@@ -82,8 +97,6 @@ def test_open_position_processing_reads_v221_named_fields(captured_calls, monkey
 
     public = processor._get_data_processing(decoded[0])
     numbers = direct["numbers"]
-    with pytest.raises(KeyError, match="notAnAbiField"):
-        numbers["notAnAbiField"]
     assert public["market"] == market
     assert public["position_size_usd_raw"] == numbers["sizeInUsd"]
     assert public["pending_impact_amount"] == numbers["pendingImpactAmount"]
@@ -93,32 +106,107 @@ def test_open_position_processing_reads_v221_named_fields(captured_calls, monkey
     assert public["is_long"] is direct["flags"]["isLong"]
 
 
-def test_v22c_reader_abi_misdecodes_v221_position_payload(captured_calls):
-    """The previous Reader ABI decodes the new payload with a shifted flag."""
+def test_liquidation_position_transformer_handles_captured_position(captured_calls):
+    """The liquidation transformer preserves captured Position, fee and PnL values."""
+    captured = captured_calls["getAccountPositions"]
+    raw_position = _decode_return(captured["return_data"], reader_output_abi("getAccountPositions"))
+    named_position = reader_named_output(raw_position, "getAccountPositions")[0]
+    account_info_abi = reader_output_abi("getAccountPositionInfoList")
+
+    def build_value(parameter: dict[str, Any], values: Any = None) -> Any:
+        """Build a raw account-info tuple around the captured Position values.
+
+        :param parameter: Account-position ABI parameter to construct.
+        :param values: Named values to insert at this tuple level.
+        :return: ABI-shaped value for the account-position transformer.
+        """
+        abi_type = parameter["type"]
+        values = values or {}
+        if abi_type.endswith("[]"):
+            element = {**parameter, "type": abi_type[:-2]}
+            return [build_value(element, values)]
+        if abi_type == "tuple":
+            return tuple(build_value(component, values.get(component["name"])) for component in parameter["components"])
+        if abi_type == "address":
+            return values or "0x0000000000000000000000000000000000000000"
+        if abi_type == "bytes32":
+            return values or bytes(32)
+        if abi_type == "bool":
+            return bool(values)
+        if abi_type == "string":
+            return values or ""
+        return values or 0
+
+    info_values = {
+        "position": named_position,
+        "fees": {"funding": {"fundingFeeAmount": 101}, "borrowing": {"borrowingFeeUsd": 202}},
+        "basePnlUsd": -303,
+        "uncappedBasePnlUsd": -404,
+        "pnlAfterPriceImpactUsd": -505,
+        "positionValueInUsd": 606,
+    }
+    transformed = _transform_position_data(build_value(account_info_abi, info_values))
+
+    assert len(transformed) == 1
+    assert transformed[0]["position"]["addresses"]["market"] == named_position["addresses"]["market"]
+    assert transformed[0]["position"]["numbers"]["sizeInUsd"] == named_position["numbers"]["sizeInUsd"]
+    assert transformed[0]["fees"]["fundingFeeAmount"] == 101
+    assert transformed[0]["borrowing"]["borrowingFeeUsd"] == 202
+    assert transformed[0]["basePnlUsd"] == -303
+    assert transformed[0]["uncappedBasePnlUsd"] == -404
+    assert transformed[0]["pnlAfterPriceImpactUsd"] == -505
+    assert transformed[0]["positionValueInUsd"] == 606
+
+
+def test_v22c_reader_abi_rejects_v221_position_payload(captured_calls):
+    """The previous Reader ABI cannot decode the v2.2.1 position payload."""
     old_abi = json.loads((FIXTURES / "gmx_v22c_reader_fragments.json").read_text())
     old_output = next(entry["outputs"][0] for entry in old_abi if entry["name"] == "getAccountPositions")
-    new_output = reader_output_abi("getAccountPositions")
     payload = captured_calls["getAccountPositions"]["return_data"]
 
-    try:
-        old_decoded = _decode_return(payload, old_output)
-    except DecodingError:
-        return
-    old_named = named_abi_value(old_decoded, old_output)[0]
-    new_decoded = _decode_return(payload, new_output)
-    new_named = reader_named_output(new_decoded, "getAccountPositions")[0]
+    with pytest.raises(DecodingError):
+        _decode_return(payload, old_output)
 
-    assert old_named["flags"]["isLong"] is False
-    assert new_named["flags"]["isLong"] is True
-    assert old_named["numbers"]["borrowingFactor"] != new_named["numbers"]["borrowingFactor"]
+
+def test_named_abi_value_rejects_missing_and_duplicate_component_names():
+    """ABI tuples must have unique, non-empty names before being converted."""
+    missing_name_abi = {"type": "tuple", "components": [{"name": "", "type": "uint256"}]}
+    duplicate_name_abi = {
+        "type": "tuple",
+        "components": [{"name": "value", "type": "uint256"}, {"name": "value", "type": "uint256"}],
+    }
+    with pytest.raises(ValueError, match="missing ABI component name"):
+        named_abi_value((1,), missing_name_abi)
+    with pytest.raises(ValueError, match="duplicate sibling"):
+        named_abi_value((1, 2), duplicate_name_abi)
+
+
+def test_named_abi_value_rejects_fixed_size_arrays():
+    """Fixed-size tuple arrays are unsupported rather than partially traversed."""
+    with pytest.raises(ValueError, match="Fixed-size ABI arrays are not supported"):
+        named_abi_value((1, 2), {"type": "uint256[2]"})
 
 
 def test_reader_tuple_numeric_position_indexing_is_absent():
     """Catch regressions to numeric Position.Numbers tuple access."""
     package_root = Path(__file__).parents[2] / "eth_defi" / "gmx"
     offenders = []
+    safe_layout_allowlist = {
+        # EventEmitter EventData is a seven-family tuple; these accesses select each family's item list.
+        ("historical_oracle.py", "event_data["): "EventEmitter data family layout, independently covered by event decoding tests",
+        # GlvReader getGlvInfoList retains the stable (addresses, market addresses) layout.
+        ("glv_stats.py", "raw_glv["): "GlvReader getGlvInfoList output layout is unchanged and tuple lengths are asserted",
+        # Exchange CCXT position rows are third-party CCXT normalized data, not Reader output.
+        ("ccxt/exchange.py", "pos[0][1]"): "CCXT exchange position rows use the documented normalized symbol tuple",
+        ("ccxt/async_support/exchange.py", "pos[0][1]"): "CCXT exchange position rows use the documented normalized symbol tuple",
+        # OHLCV rows are CCXT candle tuples, not contract outputs.
+        ("ccxt/validation.py", "ohlcv[0][0]"): "CCXT OHLCV rows use the normalized timestamp-first tuple",
+        ("ccxt/exchange.py", "ohlcv[0][1]"): "CCXT OHLCV rows use the normalized open-price tuple",
+    }
     for source in package_root.rglob("*.py"):
         for line_number, line in enumerate(source.read_text().splitlines(), start=1):
-            if "[1][" in line and any(f"[1][{index}]" in line for index in range(10)):
-                offenders.append(f"{source}:{line_number}: {line.strip()}")
+            if re.search(r"\[[0-9]\]\[[0-9]\]", line):
+                relative_name = source.relative_to(package_root).as_posix()
+                if not any(relative_name.endswith(name) and token in line for (name, token) in safe_layout_allowlist):
+                    offenders.append(f"{source}:{line_number}: {line.strip()}")
     assert offenders == []

@@ -71,10 +71,9 @@ def decode_historical_share_price_event_data(web3: Web3, data: str | bytes, prod
     """
 
     _, event_name, event_data = web3.codec.decode(GMX_EVENT_LOG1_DATA_TYPES, HexBytes(data))
-    _, uint_items, int_items, _, bytes32_items = event_data
-    (uint_items,) = uint_items
-    (int_items,) = int_items
-    (bytes32_items,) = bytes32_items
+    uint_items = event_data[1][0]
+    int_items = event_data[2][0]
+    bytes32_items = event_data[4][0]
     product_address = to_checksum_address(HexBytes(product_topic)[-20:])
     if event_name == "MarketPoolValueUpdated":
         address_items = {"market": product_address}

@@ -81,7 +81,7 @@ class GetFundingFee(GetData):
         # Multithreaded call on contract
         threaded_output = self._execute_threading(output_list)
         for output, long_interest_usd, short_interest_usd, symbol in zip(threaded_output, long_interest_usd_list, short_interest_usd_list, mapper):
-            market_info_dict = self._format_market_info_output(output)
+            market_info_dict = self._format_funding_inputs(output)
 
             long_funding_fee = self._get_funding_factor_per_period(market_info_dict, True, 3600, long_interest_usd, short_interest_usd)
 
@@ -95,7 +95,7 @@ class GetFundingFee(GetData):
         return self.output
 
     @staticmethod
-    def _format_market_info_output(output: tuple) -> dict:
+    def _format_funding_inputs(output: tuple) -> dict:
         """Extract fields used by funding APR calculations from Reader output.
 
         :param output: Decoded ``getMarketInfo`` Reader result.

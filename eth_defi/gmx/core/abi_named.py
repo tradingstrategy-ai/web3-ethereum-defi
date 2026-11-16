@@ -6,10 +6,10 @@ value. This module converts those tuples recursively using the component
 names in the vendored v2.2.1 Reader ABI.
 """
 
-import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
+
+from eth_defi.abi import get_abi_by_filename
 
 
 @lru_cache(maxsize=1)
@@ -18,11 +18,10 @@ def _load_reader_abi() -> tuple[dict[str, Any], ...]:
 
     :returns: Immutable sequence of Reader ABI entries.
     """
-    abi_path = Path(__file__).parents[2] / "abi" / "gmx" / "Reader.json"
-    with abi_path.open(encoding="utf-8") as abi_file:
-        return tuple(json.load(abi_file))
+    return tuple(get_abi_by_filename("gmx/Reader.json"))
 
 
+@lru_cache(maxsize=None)
 def reader_output_abi(function_name: str) -> dict[str, Any]:
     """Return the sole output ABI parameter for a Reader function.
 
@@ -52,6 +51,8 @@ def named_abi_value(value: Any, abi_parameter: dict[str, Any]) -> Any:
         disagrees with the ABI.
     """
     abi_type = abi_parameter["type"]
+    if "[" in abi_type and not abi_type.endswith("[]"):
+        raise ValueError(f"Fixed-size ABI arrays are not supported: {abi_type}")
     if abi_type.endswith("[]"):
         if not isinstance(value, (list, tuple)):
             raise ValueError(f"Expected array for ABI type {abi_type}, got {type(value).__name__}")
@@ -63,12 +64,14 @@ def named_abi_value(value: Any, abi_parameter: dict[str, Any]) -> Any:
     components = abi_parameter.get("components", ())
     if len(value) != len(components):
         raise ValueError(f"ABI tuple has {len(components)} components but decoded value has {len(value)} fields")
+    component_names = [component.get("name") for component in components]
+    if any(not name for name in component_names):
+        raise ValueError("Cannot name Reader tuple field with a missing ABI component name")
+    if len(set(component_names)) != len(component_names):
+        raise ValueError("Cannot name Reader tuple with duplicate sibling ABI component names")
     named: dict[str, Any] = {}
     for component, component_value in zip(components, value):
         name = component.get("name")
-        if not name:
-            error_message = "Cannot name Reader tuple field with a missing ABI component name"
-            raise ValueError(error_message)
         named[name] = named_abi_value(component_value, component)
     return named
 
