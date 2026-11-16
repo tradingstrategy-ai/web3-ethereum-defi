@@ -2983,6 +2983,8 @@ def run_scan_tick(
     excluded_chains: list[str] | None = None,
     hypercore_mode: str = "daily",
     not_due_items: dict[str, float] | None = None,
+    capacity_chains: list[ChainConfig] | None = None,
+    capacity_refresh_tolerance: datetime.timedelta = datetime.timedelta(seconds=30),
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
@@ -3551,6 +3553,19 @@ def run_scan_tick(
         except duckdb.Error:
             logger.exception("Could not close JSON-RPC usage database %s", rpc_tracking_database_path)
 
+    # All chain writers have joined: optional capacity refresh must not race
+    # catalogue replacement in parallel metadata workers.
+    from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
+    for config in capacity_chains if capacity_chains is not None else chains:
+        rpc = os.environ.get(config.env_var)
+        if rpc:
+            try:
+                refresh_withdrawal_capacity(create_multi_provider_web3(rpc), vault_db_path, max_workers=min(max_workers, 4), tolerance=capacity_refresh_tolerance)
+            except Exception as error:
+                # Capacity is an optional export enrichment stage. Its failure
+                # must be visible without suppressing unrelated price exports.
+                logger.error("Withdrawal capacity refresh failed for %s (%s)", config.name, type(error).__name__)
+
     # Post-processing
     if skip_post_processing:
         logger.info("Skipping post-processing (SKIP_POST_PROCESSING=true)")
@@ -4105,7 +4120,7 @@ def _main() -> None:
                         logger.info("FORCE_LEAD_DISCOVERY is making all configured EVM chains due in this cycle")
                         due_chains = chains
 
-                    if due_chains or due_protocols:
+                    if due_chains or due_protocols or chains:
                         # Compute items not due in this cycle with hours remaining
                         now = native_datetime_utc_now()
                         due_chain_names = {c.name for c in due_chains}
@@ -4136,6 +4151,8 @@ def _main() -> None:
 
                         tick_results = run_scan_tick(
                             chains=due_chains,
+                            capacity_chains=chains,
+                            capacity_refresh_tolerance=schedule_tolerance,
                             active_protocols=due_protocols,
                             not_due_items=not_due_items,
                             cycle_intervals=cycle_intervals,

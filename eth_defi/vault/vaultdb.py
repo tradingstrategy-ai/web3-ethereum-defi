@@ -99,6 +99,9 @@ class VaultRow(TypedDict):
     #: Normal withdrawal wait bounds and mechanism.
     _withdrawal_period: NotRequired[WithdrawalPeriod | None]
 
+    #: Block-pinned primitive withdrawal capacity observation, refreshed independently.
+    _withdrawal_capacity_observation: NotRequired[dict]
+
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]

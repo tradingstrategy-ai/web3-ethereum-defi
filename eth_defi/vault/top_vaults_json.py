@@ -1546,6 +1546,9 @@ def main(
         stale_warning_age_days=stale_warning_age_days,
     )
     vaults = list(select_preferred_nest_routes(sticky_result.vaults))
+    from eth_defi.vault.withdrawal_capacity import enrich_withdrawal_capacity, configured_capacity_threshold
+
+    enrich_withdrawal_capacity(vaults, vault_db, threshold=configured_capacity_threshold(), now=now)
     omitted_routes = len(sticky_result.vaults) - len(vaults)
     if omitted_routes:
         logger.info("Nest route selection omitted %d alternative chain and deposit routes from the public export", omitted_routes)

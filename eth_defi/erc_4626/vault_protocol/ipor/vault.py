@@ -338,6 +338,16 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
     - `FeeAccount.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeAccount.sol>`__
     """
 
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read block-pinned assets while preserving unknown route constraints.
+
+        :param block_identifier: Numeric source block.
+        :return: Primitive buffer and TVL observation.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import ipor_observation
+
+        return ipor_observation(self, block_identifier)
+
     @cached_property
     def atomist(self) -> str | None:
         """IPOR Fusion atomist display name from cached IPOR metadata."""

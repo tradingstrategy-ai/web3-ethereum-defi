@@ -183,6 +183,21 @@ class FortyAcresVault(ERC4626Vault):
     - `Aerodrome vault on Base <https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5>`__
     """
 
+    #: Lenders cannot demand repayment of outstanding loans.
+    withdrawal_capacity_structural_warning = True
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import direct_cash_observation
+
+        data = direct_cash_observation(self, block_identifier)
+        data["structural_warning"] = True
+        return data
+
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return the maintained classifications for this reviewed deployment.
 

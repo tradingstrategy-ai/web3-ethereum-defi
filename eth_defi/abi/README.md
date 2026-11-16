@@ -247,3 +247,24 @@ probe = EncodedCall.from_keccak_signature(
   generated artifact. Commit verified / exported JSON for external deployments.
 - A fixed-block fork regression proves an ABI decodes for the tested route; it
   does not assert a later proxy upgrade is identical.
+
+### Euler capacity view
+
+`euler/EVaultCapacity.json` is a minimal, hand-declared interface for the public
+`cash() returns (uint256)` view of Euler Vault Kit. Source:
+https://github.com/euler-xyz/euler-vault-kit/blob/master/src/EVault/IEVault.sol.
+It contains no copied implementation code and does not claim complete EVK ABI
+coverage. Hook operation bits are documented in `src/EVault/shared/Constants.sol`.
+
+`ipor/WithdrawManagerCapacity.json` declares the public `getSharesToRelease()`
+view from IPOR Fusion's WithdrawManager. Capacity observation reads the corrected
+and legacy WithdrawManager address slots documented in
+https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/libraries/PlasmaVaultStorageLib.sol
+because PlasmaVault does not expose an equivalent public getter. It subtracts
+released claims from idle assets, never treats reserved cash as available to new
+instant withdrawals, and retains unknown on unsupported manager interfaces.
+
+`fluid/FTokenCapacity.json` is the minimal public `getData()` view from
+https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/fToken/main.sol.
+The five addresses, reward boolean and three exchange/balance integers are
+decoded through the ABI, preserving the existing fToken interface validation.

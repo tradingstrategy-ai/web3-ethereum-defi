@@ -1083,6 +1083,9 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
 
     native_family_names = {DenominationFamily.eth.value, DenominationFamily.btc.value}
     state["vaults"] = {key: value for key, value in state["vaults"].items() if key in current_ids and (value.get("denomination_family") not in native_family_names or key in admission.qualifying_ids)}
+    from eth_defi.vault.withdrawal_capacity import enrich_withdrawal_capacity, configured_capacity_threshold
+
+    enrich_withdrawal_capacity(selected_records, vault_db, threshold=configured_capacity_threshold())
     selected_records.sort(key=lambda record: str(record.get("id", "")))
     metadata = {
         "bundle": CRYPTO_VAULTS_BUNDLE_NAME,

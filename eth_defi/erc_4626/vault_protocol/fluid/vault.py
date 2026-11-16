@@ -56,6 +56,16 @@ class FluidVault(ERC4626Vault):
     - No explicit deposit or withdrawal fees
     """
 
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read block-pinned assets while preserving unknown route constraints.
+
+        :param block_identifier: Numeric source block.
+        :return: Primitive buffer and TVL observation.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import fluid_observation
+
+        return fluid_observation(self, block_identifier)
+
     def is_whitelisted_deposit(self) -> bool:
         """Fluid fToken and Lite deposits have no depositor allowlist.
 

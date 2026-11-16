@@ -1308,6 +1308,15 @@ class VaultDepositManager(ABC):
     never live redemption evidence or a way to bypass production preflights.
     """
 
+    def fetch_withdrawal_capacity_limit(self, block_identifier="latest", capacity_threshold=None):
+        """Query the bound vault's withdrawal buffer without constructing trades.
+
+        :param block_identifier: Source block; latest resolves once.
+        :param capacity_threshold: Minimum withdrawal buffer fraction of TVL.
+        :return: Shared WithdrawalCapacityLimit assessment with provenance.
+        """
+        return self.vault.fetch_withdrawal_capacity_limit(block_identifier, capacity_threshold)
+
     def __init__(
         self,
         vault: "eth_defi.vault.base.VaultBase",

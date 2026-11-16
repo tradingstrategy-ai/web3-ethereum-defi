@@ -751,6 +751,16 @@ class MorphoV2Vault(ERC4626Vault):
         """Withdrawal timing is unpredictable - utilisation-based."""
         return None
 
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read only the configured ordinary route's denomination-asset buffer.
+
+        :param block_identifier: Numeric block shared by all route reads.
+        :return: Primitive observation with unknown capacity for unsupported routes.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import morpho_v2_observation
+
+        return morpho_v2_observation(self, block_identifier)
+
     def can_check_redeem(self) -> bool:
         """Report that Morpho V2 ``maxRedeem`` cannot determine availability.
 

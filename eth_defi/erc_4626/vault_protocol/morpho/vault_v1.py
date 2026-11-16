@@ -166,6 +166,17 @@ class MorphoV1Vault(ERC4626Vault):
     for the newer adapter-based architecture.
     """
 
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import morpho_v1_observation
+
+        data = morpho_v1_observation(self, block_identifier)
+        return data
+
     def get_deposit_manager(self) -> MorphoV1DepositManager:
         """Use MetaMorpho's bounded redemption rounding preflight."""
         return MorphoV1DepositManager(self)

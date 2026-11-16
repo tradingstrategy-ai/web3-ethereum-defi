@@ -1,0 +1,14 @@
+[
+  {
+    "type": "function",
+    "name": "cash",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  }
+]

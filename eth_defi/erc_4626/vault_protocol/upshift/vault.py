@@ -253,6 +253,17 @@ class UpshiftVault(ERC4626Vault):
     for the fee collection logic.
     """
 
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        from eth_defi.vault.withdrawal_capacity_readers import upshift_observation
+
+        data = upshift_observation(self, block_identifier)
+        return data
+
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return the maintained strategy tags for this Upshift vault.
 

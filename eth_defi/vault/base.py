@@ -2077,6 +2077,28 @@ class VaultBase(ABC):
         """
         return None
 
+    #: Structural exit risk independent of transient buffer measurements.
+    withdrawal_capacity_structural_warning = False
+
+    def fetch_withdrawal_capacity_limit(self, block_identifier="latest", capacity_threshold=None):
+        """Assess current withdrawal buffer with one read-only, block-pinned call.
+
+        :param block_identifier: Numeric historical block or a block tag.
+        :param capacity_threshold: Minimum capacity/TVL fraction, default 15%.
+        :return: A WithdrawalCapacityLimit, retaining unknown unsupported readings.
+        """
+        from eth_defi.vault.withdrawal_capacity import fetch_withdrawal_capacity_limit
+
+        return fetch_withdrawal_capacity_limit(self, block_identifier, capacity_threshold)
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier):
+        """Read adapter-owned capacity facts; unimplemented capacity stays unknown.
+
+        :param block_identifier: Resolved numeric block for every underlying read.
+        :return: Primitive observation dictionary for the catalogue and assessor.
+        """
+        return {"status": "unsupported", "reason": f"{type(self).__name__} has no authoritative ownerless withdrawal capacity reader"}
+
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Read the adapter's available denomination-token liquidity.
 

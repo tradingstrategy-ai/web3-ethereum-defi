@@ -1,0 +1,14 @@
+[
+  {
+    "type": "function",
+    "name": "getSharesToRelease",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  }
+]
