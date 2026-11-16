@@ -46,6 +46,12 @@ def test_v221_error_selectors_match_signatures():
     assert checked > 20
 
 
+def test_every_registered_error_key_matches_its_signature():
+    """No selector key is derived from a shifted slice of the signature hash."""
+    for selector, (name, types) in GMX_ERROR_SELECTORS.items():
+        assert selector == _selector(name, types), f"{name}({','.join(types)}) has wrong selector {selector}"
+
+
 def test_decode_order_not_updatable():
     """decode_error_reason() names the v2.2.1 OrderNotUpdatable error with its label."""
     reason = bytes.fromhex(_selector("OrderNotUpdatable", ["uint256"])) + encode(["uint256"], [2])
