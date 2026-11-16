@@ -118,12 +118,12 @@ logger = logging.getLogger(__name__)
 #:     :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS` directly and therefore
 #:     cannot drift.
 #:
-#: Kept in sync with the ``v2.2c`` entry of
+#: Kept in sync with the ``v2.2.1`` entry of
 #: :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS`; the literals exist only to
 #: avoid a circular import between this module and :mod:`eth_defi.gmx.contracts`.
 #: ``test_whitelist_constants_track_the_pinned_release`` enforces the match.
 GMX_ARBITRUM_ADDRESSES: dict[str, HexAddress] = {
-    "exchange_router": "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1",
+    "exchange_router": "0x6776c2b52179BC737193DE3bc75262681006AA27",
     "synthetics_router": "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
     "order_vault": "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
 }
