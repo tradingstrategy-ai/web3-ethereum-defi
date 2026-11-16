@@ -5,20 +5,21 @@ This module provides the base class for retrieving various types of data from
 GMX protocol, replacing the gmx_python_sdk GetData functionality.
 """
 
-import logging
-import json
 import csv
+import json
+import logging
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from functools import cached_property
 from typing import Any, Optional
-from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses
+from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 
@@ -276,36 +277,45 @@ class GetData(ABC):
         :rtype: dict[str, Any]
         """
         try:
+            named = reader_named_output(output, "getMarketInfo")
+            market = named["market"]
+            base_funding = named["baseFunding"]
+            next_funding = named["nextFunding"]
+            virtual_inventory = named["virtualInventory"]
+            base_fee = base_funding["fundingFeeAmountPerSize"]
+            base_claimable = base_funding["claimableFundingAmountPerSize"]
+            next_fee = next_funding["fundingFeeAmountPerSizeDelta"]
+            next_claimable = next_funding["claimableFundingAmountPerSizeDelta"]
             return {
-                "market_address": output[0][0],
-                "index_address": output[0][1],
-                "long_address": output[0][2],
-                "short_address": output[0][3],
-                "borrowingFactorPerSecondForLongs": output[1],
-                "borrowingFactorPerSecondForShorts": output[2],
-                "baseFunding_long_fundingFeeAmountPerSize_longToken": output[3][0][0][0],
-                "baseFundinglong_fundingFeeAmountPerSize_shortToken": output[3][0][0][1],
-                "baseFundingshort_fundingFeeAmountPerSize_longToken": output[3][0][1][0],
-                "baseFundingshort_fundingFeeAmountPerSize_shortToken": output[3][0][1][1],
-                "baseFundinglong_claimableFundingAmountPerSize_longToken": output[3][1][0][0],
-                "baseFundinglong_claimableFundingAmountPerSize_shortToken": output[3][1][0][1],
-                "baseFundingshort_claimableFundingAmountPerSize_longToken": output[3][1][1][0],
-                "baseFundingshort_claimableFundingAmountPerSize_shortToken": output[3][1][1][1],
-                "longsPayShorts": output[4][0],
-                "fundingFactorPerSecond": output[4][1],
-                "nextSavedFundingFactorPerSecond": output[4][2],
-                "nextFunding_long_fundingFeeAmountPerSize_longToken": output[4][3][0][0],
-                "nextFunding_long_fundingFeeAmountPerSize_shortToken": output[4][3][0][1],
-                "nextFunding_baseFundingshort_fundingFeeAmountPerSize_longToken": output[4][3][1][0],
-                "nextFunding_baseFundingshort_fundingFeeAmountPerSize_shortToken": output[4][3][1][1],
-                "nextFunding_baseFundinglong_claimableFundingAmountPerSize_longToken": output[4][4][0][0],
-                "nextFunding_baseFundinglong_claimableFundingAmountPerSize_shortToken": output[4][4][0][1],
-                "nextFunding_baseFundingshort_claimableFundingAmountPerSize_longToken": output[4][4][1][0],
-                "nextFunding_baseFundingshort_claimableFundingAmountPerSize_shortToken": output[4][4][1][1],
-                "virtualPoolAmountForLongToken": output[5][0],
-                "virtualPoolAmountForShortToken": output[5][1],
-                "virtualInventoryForPositions": output[5][2],
-                "isDisabled": output[6],
+                "market_address": market["marketToken"],
+                "index_address": market["indexToken"],
+                "long_address": market["longToken"],
+                "short_address": market["shortToken"],
+                "borrowingFactorPerSecondForLongs": named["borrowingFactorPerSecondForLongs"],
+                "borrowingFactorPerSecondForShorts": named["borrowingFactorPerSecondForShorts"],
+                "baseFunding_long_fundingFeeAmountPerSize_longToken": base_fee["long"]["longToken"],
+                "baseFundinglong_fundingFeeAmountPerSize_shortToken": base_fee["long"]["shortToken"],
+                "baseFundingshort_fundingFeeAmountPerSize_longToken": base_fee["short"]["longToken"],
+                "baseFundingshort_fundingFeeAmountPerSize_shortToken": base_fee["short"]["shortToken"],
+                "baseFundinglong_claimableFundingAmountPerSize_longToken": base_claimable["long"]["longToken"],
+                "baseFundinglong_claimableFundingAmountPerSize_shortToken": base_claimable["long"]["shortToken"],
+                "baseFundingshort_claimableFundingAmountPerSize_longToken": base_claimable["short"]["longToken"],
+                "baseFundingshort_claimableFundingAmountPerSize_shortToken": base_claimable["short"]["shortToken"],
+                "longsPayShorts": next_funding["longsPayShorts"],
+                "fundingFactorPerSecond": next_funding["fundingFactorPerSecond"],
+                "nextSavedFundingFactorPerSecond": next_funding["nextSavedFundingFactorPerSecond"],
+                "nextFunding_long_fundingFeeAmountPerSize_longToken": next_fee["long"]["longToken"],
+                "nextFunding_long_fundingFeeAmountPerSize_shortToken": next_fee["long"]["shortToken"],
+                "nextFunding_baseFundingshort_fundingFeeAmountPerSize_longToken": next_fee["short"]["longToken"],
+                "nextFunding_baseFundingshort_fundingFeeAmountPerSize_shortToken": next_fee["short"]["shortToken"],
+                "nextFunding_baseFundinglong_claimableFundingAmountPerSize_longToken": next_claimable["long"]["longToken"],
+                "nextFunding_baseFundinglong_claimableFundingAmountPerSize_shortToken": next_claimable["long"]["shortToken"],
+                "nextFunding_baseFundingshort_claimableFundingAmountPerSize_longToken": next_claimable["short"]["longToken"],
+                "nextFunding_baseFundingshort_claimableFundingAmountPerSize_shortToken": next_claimable["short"]["shortToken"],
+                "virtualPoolAmountForLongToken": virtual_inventory["virtualPoolAmountForLongToken"],
+                "virtualPoolAmountForShortToken": virtual_inventory["virtualPoolAmountForShortToken"],
+                "virtualInventoryForPositions": virtual_inventory["virtualInventoryForPositions"],
+                "isDisabled": named["isDisabled"],
             }
         except (IndexError, TypeError) as e:
             logging.warning("Failed to format market info output: %s", e)
