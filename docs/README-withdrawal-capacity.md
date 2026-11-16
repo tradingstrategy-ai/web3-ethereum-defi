@@ -71,3 +71,55 @@ Unknown values also cover vault classes without an implemented observation
 reader. A plain ERC-4626 interface does not yet imply an authoritative liquidity
 reader or a USD TVL observation. The recognised USD address maps are deliberately
 limited; consumers must treat null as unknown rather than a negative warning.
+
+## Manual list scan
+
+Use the read-only scanner to check an explicit list without updating the
+catalogue, prices or strategy membership:
+
+```shell
+source .local-test.env
+VAULT_LIST_FILE=vaults.json OUTPUT_JSON=capacity.json COLOUR=always \
+    poetry run python scripts/erc-4626/check-withdrawal-capacity.py
+```
+
+The input is a JSON array of `"CHAIN-ADDRESS"` strings or objects:
+
+```json
+[
+  {
+    "chain_id": 8453,
+    "address": "0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e",
+    "name": "AlphaGrowth Base RWA",
+    "features": ["euler_like"]
+  }
+]
+```
+
+Omit `features` to probe the protocol, or supply catalogue feature names to
+select the same adapter as the catalogue. An empty array explicitly selects a
+generic ERC-4626 adapter. Feature names are validated before RPC reads; `null`
+and unknown names are rejected. `VAULTS="CHAIN-ADDRESS CHAIN-ADDRESS"` also works.
+The script pins one head-minus-three block per chain and records its number,
+hash and timestamp. Probe-based classification uses the detector's own current
+state; capacity measurements and constructed adapter reads use the recorded
+block. Use supplied features for reproducible adapter selection.
+
+The leftmost column is a green `✓` only when all three warning fields are
+known and false. Red `✗` includes both warnings and incomplete assessments;
+`Status` distinguishes `warning`, `warning + unknown` and `unknown`, while
+`Read` distinguishes measured, partial, unsupported and failed observations.
+An unknown pause check therefore prevents green even when the measured buffer
+is adequate. This does not assert a withdrawal failure. The scan does not check
+account permissions, asynchronous settlement requirements or trading windows.
+
+Native pools remain explicit unsupported rows, including Hypercore's
+Ethereum-shaped addresses and all catalogue features ending in `_native`.
+Individual vault failures and missing
+chain RPCs preserve the requested rows. Failure reasons record exception types
+without provider URLs. The JSON retains full precision and observations; the
+table displays token amounts to six decimal places. Optional settings:
+`WITHDRAWAL_CAPACITY_THRESHOLD` defaults to 0.15, `MAX_WORKERS` defaults to the
+smaller of four and the available CPU count, and `COLOUR` defaults to `auto`
+(colour on a terminal). Set `COLOUR=always` for saved ANSI tables or
+`COLOUR=never` for plain text. Reads use threaded Joblib with progress reporting.
