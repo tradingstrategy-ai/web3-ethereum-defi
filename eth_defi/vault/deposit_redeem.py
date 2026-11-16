@@ -8,7 +8,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pprint import pformat
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
+
+if TYPE_CHECKING:
+    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress, HexStr
 from hexbytes import HexBytes
@@ -1308,7 +1311,7 @@ class VaultDepositManager(ABC):
     never live redemption evidence or a way to bypass production preflights.
     """
 
-    def fetch_withdrawal_capacity_limit(self, block_identifier="latest", capacity_threshold=None):
+    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Decimal | str | None = None) -> "WithdrawalCapacityLimit":
         """Query the bound vault's withdrawal buffer without constructing trades.
 
         :param block_identifier: Source block; latest resolves once.

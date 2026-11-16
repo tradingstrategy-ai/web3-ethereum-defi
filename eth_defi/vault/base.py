@@ -48,6 +48,7 @@ from .risk import VaultTechnicalRisk, get_vault_risk
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
     import pandas as pd
     import pyarrow
 
@@ -2080,7 +2081,7 @@ class VaultBase(ABC):
     #: Structural exit risk independent of transient buffer measurements.
     withdrawal_capacity_structural_warning = False
 
-    def fetch_withdrawal_capacity_limit(self, block_identifier="latest", capacity_threshold=None):
+    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Decimal | str | None = None) -> "WithdrawalCapacityLimit":
         """Assess current withdrawal buffer with one read-only, block-pinned call.
 
         :param block_identifier: Numeric historical block or a block tag.
@@ -2091,7 +2092,7 @@ class VaultBase(ABC):
 
         return fetch_withdrawal_capacity_limit(self, block_identifier, capacity_threshold)
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read adapter-owned capacity facts; unimplemented capacity stays unknown.
 
         :param block_identifier: Resolved numeric block for every underlying read.

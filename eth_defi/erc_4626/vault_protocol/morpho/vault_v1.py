@@ -166,7 +166,7 @@ class MorphoV1Vault(ERC4626Vault):
     for the newer adapter-based architecture.
     """
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read same-block withdrawal facts through the verified protocol path.
 
         :param block_identifier: Resolved numeric source block.

@@ -338,7 +338,7 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
     - `FeeAccount.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeAccount.sol>`__
     """
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read block-pinned assets while preserving unknown route constraints.
 
         :param block_identifier: Numeric source block.

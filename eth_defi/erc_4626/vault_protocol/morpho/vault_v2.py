@@ -751,7 +751,7 @@ class MorphoV2Vault(ERC4626Vault):
         """Withdrawal timing is unpredictable - utilisation-based."""
         return None
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read only the configured ordinary route's denomination-asset buffer.
 
         :param block_identifier: Numeric block shared by all route reads.

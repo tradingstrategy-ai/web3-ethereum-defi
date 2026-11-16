@@ -56,7 +56,7 @@ class FluidVault(ERC4626Vault):
     - No explicit deposit or withdrawal fees
     """
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read block-pinned assets while preserving unknown route constraints.
 
         :param block_identifier: Numeric source block.

@@ -253,7 +253,7 @@ class UpshiftVault(ERC4626Vault):
     for the fee collection logic.
     """
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read same-block withdrawal facts through the verified protocol path.
 
         :param block_identifier: Resolved numeric source block.

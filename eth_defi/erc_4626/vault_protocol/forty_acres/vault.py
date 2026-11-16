@@ -186,7 +186,7 @@ class FortyAcresVault(ERC4626Vault):
     #: Lenders cannot demand repayment of outstanding loans.
     withdrawal_capacity_structural_warning = True
 
-    def fetch_withdrawal_capacity_observation(self, block_identifier):
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
         """Read same-block withdrawal facts through the verified protocol path.
 
         :param block_identifier: Resolved numeric source block.
