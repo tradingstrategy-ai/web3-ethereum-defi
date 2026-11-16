@@ -14,8 +14,8 @@ from eth_defi.vault_protocols import migration as runner
 
 #: Reviewed +convexity native deployment and its field-only migration.
 TARGET = VaultSpec(9999, "0x5661a070eb13c7c55ac3210b2447d4bea426cbf5")
-SCRIPT_NAME = "077-convexity-strategy-tags.py"
-EXPECTED_TAGS = {StrategyTag.positive_convexity, StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.perpetual_futures}
+SCRIPT_NAME = "080-convexity-bitcoin-only.py"
+EXPECTED_TAGS = {StrategyTag.btc_only, StrategyTag.positive_convexity, StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.perpetual_futures}
 
 
 def test_convexity_native_export() -> None:
@@ -44,7 +44,7 @@ def test_convexity_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
     :return: ``None`` after checking scope, persistence and idempotence.
     """
     _, fresh = create_hyperliquid_vault_row(HexAddress(TARGET.vault_address), "Keep name", "Keep description", 1_000, None)
-    old_row = fresh | {"_strategy_tags": {StrategyTag.perpetual_futures}, "_notes": "Keep notes"}
+    old_row = fresh | {"_strategy_tags": EXPECTED_TAGS - {StrategyTag.btc_only}, "_notes": "Keep notes"}
     other_chain = VaultSpec(999, TARGET.vault_address)
     other_vault = VaultSpec(9999, "0x0000000000000000000000000000000000000001")
     unrelated = {"_strategy_tags": {StrategyTag.lending}}
