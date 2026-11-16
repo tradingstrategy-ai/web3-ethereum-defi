@@ -2,6 +2,9 @@
 
 The deployment factories retain the original oracle-first ordering and real
 contract interactions. Callers own fork lifetime and EVM snapshot isolation.
+The GMX addresses resolved below are pinned to v2.2.1; callers must fork at a
+block after that deployment (GMX tests use
+:data:`eth_defi.testing.fork_blocks.ARBITRUM_GMX_V221_FORK_BLOCK`).
 """
 
 import logging

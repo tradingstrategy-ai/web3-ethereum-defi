@@ -44,7 +44,7 @@ from eth_defi.gmx.testing.constants import resolve_token_address
 from eth_defi.gmx.testing.oracle import set_mock_token_price
 from eth_defi.gmx.valuation import fetch_gmx_total_equity
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.testing.fork_blocks import ARBITRUM_GMX_V221_FORK_BLOCK
 from eth_defi.testing.gmx_lagoon import (
     USDC_ARBITRUM,
     USDC_WHALE,
@@ -124,7 +124,7 @@ def lagoon_gmx_fork_env(
     group = group_marker.args[0]
     launch = anvil_fork_pool.get_launch(
         os.environ["JSON_RPC_ARBITRUM"],
-        ARBITRUM_MIDNIGHT_BLOCK,
+        ARBITRUM_GMX_V221_FORK_BLOCK,
         isolation_group=group,
         unlocked_addresses=[USDC_WHALE, WETH_WHALE],
         test_request_timeout=100,

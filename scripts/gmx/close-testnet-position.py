@@ -158,10 +158,15 @@ def wait_until_flat(web3: Web3, safe_address: str, timeout: int = KEEPER_TIMEOUT
 
 
 def main() -> int:
-    """Close the vault's open GMX position.
+    """Reject the unsupported Sepolia position recovery before setup.
 
     :return: Process exit code.
+    :raises GMXReleaseMismatchError: The Sepolia Reader ABI is not vendored.
     """
+    raise GMXReleaseMismatchError(
+        "Sepolia position recovery is unsupported with the vendored v2.2.1 ABI; the Sepolia Reader has not migrated to this layout.",
+    )
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = parse_args()
 

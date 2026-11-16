@@ -322,16 +322,16 @@ def test_lagoon_wallet_rpc_preflight_failure_is_not_cached_or_blocking(mock_vaul
 
 
 def test_lagoon_wallet_does_not_ignore_guard_contract_reverts(mock_vault, mock_asset_manager):
-    """A deterministic guard revert is not treated as a transport outage."""
+    """A missing guard method blocks with actionable configuration context."""
     from eth_defi.gmx.contracts import get_contract_addresses
-    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+    from eth_defi.gmx.lagoon.wallet import GMXRouterPreflightConfigurationError, LagoonGMXTradingWallet
 
     router = get_contract_addresses("arbitrum").exchangerouter
     is_allowed = _configure_guard(mock_vault, allowed=True)
     is_allowed.return_value.call.side_effect = ContractLogicError("execution reverted")
     wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
 
-    with pytest.raises(ContractLogicError):
+    with pytest.raises(GMXRouterPreflightConfigurationError, match="check that the guard supports isAllowedGMXRouter"):
         wallet.sign_transaction_with_new_nonce({"to": router, "data": b"", "value": 0})
     mock_asset_manager.sign_bound_call_with_new_nonce.assert_not_called()
 

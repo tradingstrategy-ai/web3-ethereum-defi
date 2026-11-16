@@ -204,6 +204,22 @@ cp -r ~/.foundry/cache/rpc/mainnet/25598869 eth_defi/testing/rpc_cache_seed/main
 git add eth_defi/testing/rpc_cache_seed/ && git commit -m "test: refresh fork RPC cache seed"
 ```
 
+### GMX v2.2.1 Arbitrum fork seed
+
+GMX tests that use the v2.2.1 pinned contracts use
+`ARBITRUM_GMX_V221_FORK_BLOCK` (`522823868`), separate from the shared July
+`ARBITRUM_MIDNIGHT_BLOCK`. After changing this block, an operator with the
+archive RPC secret in `.local-test.env` must run the GMX fixed-fork tests,
+including `tests/gmx/lagoon/test_gmx_lagoon_integration.py`,
+`tests/gmx/lagoon/test_gmx_close_pnl_token.py` and GMX CCXT fork tests, and
+refresh the committed seed at
+`eth_defi/testing/rpc_cache_seed/arbitrum/522823868/`. Copy the warmed
+`~/.foundry/cache/rpc/arbitrum/522823868/` directory into that path after
+graceful Anvil shutdown. For mutating Lagoon tests, follow the warm-up procedure
+below so snapshot reverts do not leave the seed empty. This seed refresh was not
+run in this change because the archive RPC secret is unavailable here; CI or
+the repository owner must run the tests and refresh it.
+
 Per-test `evm_snapshot_revert` also reverts the remote reads Anvil cached
 during the test, so a seed captured from an isolated mutating fork group can
 hold almost no storage. For such a fixed-block group, run one warm-up pass with

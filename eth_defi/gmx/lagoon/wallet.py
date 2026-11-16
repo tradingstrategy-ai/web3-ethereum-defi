@@ -43,7 +43,7 @@ import requests
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
-from web3.exceptions import BadFunctionCallOutput, PersistentConnectionError, ProviderConnectionError, RequestTimedOut, TimeExhausted, TooManyRequests, Web3RPCError
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, PersistentConnectionError, ProviderConnectionError, RequestTimedOut, TimeExhausted, TooManyRequests, Web3RPCError
 
 from eth_defi.basewallet import BaseWallet
 from eth_defi.gmx.contracts import GMX_VENDORED_ABI_RELEASE, get_contract_addresses
@@ -165,6 +165,7 @@ class LagoonGMXTradingWallet(BaseWallet):
         #: Keyed by router address within the fixed v2.2.1 candidate set.
         self._verified_routers: set[str] = set()
         #: Chain identity is read lazily once, and only for a known GMX router.
+        #: Do not reuse this wallet after anvil_setChainId or provider changes.
         self._chain_id: int | None = None
         #: Known router addresses let unrelated transaction targets return
         #: before querying ``eth_chainId``.
@@ -224,10 +225,13 @@ class LagoonGMXTradingWallet(BaseWallet):
         not know reverts on-chain with ``Target not allowed`` and burns gas on
         every attempt. This asks the guard once per resolved router, before
         signing, and caches a success. Unrelated targets and verified routers
-        return before any RPC. The chain ID is read lazily once per wallet. A
-        transport failure warns and leaves the router uncached so the onchain
-        guard remains authoritative; an empty guard response is treated as a
-        configuration error and blocks signing.
+        return before any RPC. The preflight intentionally recognises only the
+        pinned v2.2.1 router candidates captured when the wallet is created;
+        ``get_contract_addresses()`` rejects other releases, so no other
+        release can be resolved today. The chain ID is read lazily once per
+        wallet; do not reuse this wallet after changing the provider or calling
+        ``anvil_setChainId``. Transport failures warn and rely on the onchain
+        guard, while deterministic guard errors block signing.
 
         :param target:
             Destination of the transaction about to be wrapped in ``performCall()``.
@@ -236,13 +240,14 @@ class LagoonGMXTradingWallet(BaseWallet):
             If the target is the resolved ExchangeRouter and the guard does not
             allow it. The message names the router and the guard.
         :raises GMXRouterPreflightConfigurationError:
-            If the guard returns no usable result for the router allowlist call.
+            If the guard returns no usable result or reverts during the router
+            allowlist call.
         """
         if not isinstance(target, str):
             return
 
         target_lower = target.lower()
-        if target_lower in {router.lower() for router in self._verified_routers}:
+        if target_lower in self._verified_routers:
             return
 
         candidate_chain = next((chain for chain, router in self._router_chains.items() if target_lower == router), None)
@@ -279,6 +284,10 @@ class LagoonGMXTradingWallet(BaseWallet):
             raise GMXRouterPreflightConfigurationError(
                 f"Could not read the GMX router allowlist for router {router} from vault guard {self.vault.trading_strategy_module.address}; check that the guard is deployed and supports isAllowedGMXRouter.",
             ) from exc
+        except ContractLogicError as exc:
+            raise GMXRouterPreflightConfigurationError(
+                f"Vault guard {self.vault.trading_strategy_module.address} reverted while checking GMX router {router}; check that the guard supports isAllowedGMXRouter.",
+            ) from exc
         except GMX_PREFLIGHT_TRANSPORT_ERRORS as exc:
             # The onchain guard enforces this mapping. An RPC outage must not
             # prevent order submission; leave it uncached so the next order retries.
@@ -289,7 +298,7 @@ class LagoonGMXTradingWallet(BaseWallet):
                 type(exc).__name__,
             )
             return
-        self._verified_routers.add(router)
+        self._verified_routers.add(router.lower())
 
     def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransactionWithNonce:
         """Sign a transaction with a new nonce.

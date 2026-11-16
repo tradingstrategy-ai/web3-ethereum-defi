@@ -31,7 +31,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.testing.fork_blocks import ARBITRUM_GMX_V221_FORK_BLOCK
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import addr
 from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
@@ -39,10 +39,10 @@ from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from
 #: Fast-fail retry config for tests — avoids burning minutes on API timeouts.
 GMX_TEST_RETRY_CONFIG = GMXRetryConfig.create_test_config()
 
-#: Every GMX fork test uses one recent, fixed Arbitrum state. The committed
-#: Foundry cache is keyed by this canonical block. See
+#: Every GMX fork test uses a fixed Arbitrum state after the v2.2.1 contracts
+#: were deployed. The committed Foundry cache is keyed by this block. See
 #: :mod:`eth_defi.testing.anvil_fork_pool`.
-GMX_ARBITRUM_FORK_BLOCK = ARBITRUM_MIDNIGHT_BLOCK
+GMX_ARBITRUM_FORK_BLOCK = ARBITRUM_GMX_V221_FORK_BLOCK
 
 #: Union of all Arbitrum accounts used by the GMX fork tests.
 GMX_ARBITRUM_UNLOCKED_ADDRESSES = (
@@ -92,7 +92,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """
     for item in items:
         if GMX_READ_ONLY_POOLED_FORK_FIXTURES.intersection(item.fixturenames):
-            item.add_marker(pytest.mark.xdist_group("fork:arbitrum:midnight:readonly"))
+            item.add_marker(pytest.mark.xdist_group("fork:arbitrum:gmx-v221:readonly"))
 
 
 def get_gmx_address(chain_id: int, symbol: str) -> str:

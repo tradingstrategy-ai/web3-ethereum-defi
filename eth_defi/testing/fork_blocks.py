@@ -21,8 +21,9 @@ easy to compute reproducibly (binary-search the archive for the last block at or
 before ``00:00 UTC``). Feel free to bump these to a newer date whenever
 convenient (then re-run the affected tests to refresh block-dependent asserts).
 
-The canonical block is the last block **at or immediately before midnight UTC**
-on that arbitrarily chosen recent date. What actually matters about it is:
+The shared canonical block is the last block **at or immediately before
+midnight UTC** on that arbitrarily chosen recent date. What actually matters
+about it is:
 
 - **recent**, so vaults integrated and live today generally have state at this
   block — but this is not a guarantee for a specific vault; validate per vault
@@ -42,9 +43,11 @@ Chains without archive history (e.g. Monad) cannot use a fixed historical block
 and must not be normalised here.
 
 Blocks were captured by binary-searching archive nodes for the last block at
-or before each documented midnight UTC timestamp. Most chains use
-``2026-07-24T00:00:00Z``; Robinhood Chain uses a later block because the first
-reviewed pTokens were deployed after that date.
+or before each documented midnight UTC timestamp. The protocol-specific
+Arbitrum GMX v2.2.1 constant below is a deliberate exception: its first block
+at or after 2026-11-10 00:00 UTC is needed to include the pinned deployment.
+Most shared chain constants use ``2026-07-24T00:00:00Z``; Robinhood Chain uses
+a later block because the first reviewed pTokens were deployed after that date.
 """
 
 # NOTE: these block heights are arbitrary — the last block before
@@ -57,6 +60,18 @@ ETHEREUM_MIDNIGHT_BLOCK = 25_598_869
 
 #: Arbitrum One (chain id 42161).
 ARBITRUM_MIDNIGHT_BLOCK = 487_039_644
+
+#: First Arbitrum block at or after 2026-11-10 00:00 UTC for GMX v2.2.1 forks.
+#: Found by binary-searching ``https://arb1.arbitrum.io/rpc``. The global July
+#: block predates the pinned v2.2.1 ExchangeRouter and Reader deployment, so
+#: GMX Lagoon and other GMX fork fixtures that use the pinned addresses need
+#: this later state. The public endpoint could not serve historical
+#: ``eth_getCode`` at this block (missing trie node), and the fork tests could
+#: not be run here because they require the archive ``JSON_RPC_ARBITRUM``
+#: secret. CI/the owner must run them and refresh
+#: ``rpc_cache_seed/arbitrum/522823868`` as described in
+#: :mod:`eth_defi.testing`.
+ARBITRUM_GMX_V221_FORK_BLOCK = 522_823_868
 
 #: Base (chain id 8453).
 BASE_MIDNIGHT_BLOCK = 49_030_926

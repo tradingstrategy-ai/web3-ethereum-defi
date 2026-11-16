@@ -209,7 +209,7 @@ def test_reader_tuple_numeric_position_indexing_is_absent():
     """Catch positional Reader tuple reads in package and GMX scripts."""
     repository_root = Path(__file__).parents[2]
     package_root = Path(__file__).parents[2] / "eth_defi" / "gmx"
-    scripts_root = repository_root / "scripts"
+    scripts_roots = (repository_root / "scripts" / "gmx", repository_root / "scripts" / "lagoon")
     offenders = []
     safe_layout_allowlist = [
         # EventEmitter EventData is a seven-family tuple; these accesses select each family's item list.
@@ -225,13 +225,12 @@ def test_reader_tuple_numeric_position_indexing_is_absent():
         ("eth_defi/gmx/order/swap_order.py", "result[1]", "Reader getSwapAmountOut has unnamed multiple outputs; three-field length assertion guards the ABI layout"),
         # These are local tuples unrelated to contract or Reader outputs.
         ("scripts/gmx/gmx_ccxt_order_creation.py", "result[1]", "Local order-creation check tuple, not a contract or Reader output"),
-        ("scripts/erc-4626/benchmark-sparklines.py", "result[5]", "Local render benchmark tuple, not a contract or Reader output"),
-        ("scripts/erc-4626/benchmark-sparklines.py", "result[0]", "Local render benchmark tuple, not a contract or Reader output"),
         ("scripts/gmx/gmx_ccxt_positions.py", "positions[0]", "CCXT positions are normalised dictionaries, not raw Reader tuples"),
         ("scripts/gmx/gmx_ccxt_trading.py", "orders[0]", "CCXT orders are normalised dictionaries, not raw Reader tuples"),
         ("eth_defi/gmx/graphql/client.py", "positions[0]", "Subsquid GraphQL records are named dictionaries, not Reader tuples"),
     ]
-    scan_roots = (package_root, scripts_root)
+    assert all(reason.strip() for _, _, reason in safe_layout_allowlist)
+    scan_roots = (package_root, *scripts_roots)
     for scan_root in scan_roots:
         for source in scan_root.rglob("*.py"):
             for line_number, line in enumerate(source.read_text().splitlines(), start=1):
@@ -240,6 +239,6 @@ def test_reader_tuple_numeric_position_indexing_is_absent():
                 reader_collection_index = re.search(r"\b(?:raw_(?:positions|orders|position|order)|positions|orders)\[\d+\]", line)
                 numeric_result = re.search(r"\bresult\[\d+\]", line)
                 if double_index or reader_collection_index or numeric_result:
-                    if not any(relative_name.endswith(name) and token in line and reason for (name, token, reason) in safe_layout_allowlist):
+                    if not any(relative_name.endswith(name) and token in line for (name, token, _reason) in safe_layout_allowlist):
                         offenders.append(f"{source}:{line_number}: {line.strip()}")
     assert offenders == []
