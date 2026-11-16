@@ -366,7 +366,7 @@ However, the asset manager **cannot steal funds** because:
 
 ## Testnet (Arbitrum Sepolia)
 
-GMX V2 is deployed on Arbitrum Sepolia (chain ID 421614) with full keeper support, so the complete trading flow (open/close positions, keeper execution) works on testnet.
+GMX V2 is deployed on Arbitrum Sepolia (chain ID 421614) with keeper support. Reader-dependent trading and market enumeration are unsupported until Sepolia is migrated: the Reader helper refuses to bind the vendored v2.2.1 ABI because Sepolia still returns the older v2.2c-era tuple layout. Address-only inspection remains available from `NETWORK_CONTRACTS`.
 
 ### Deployment differences
 
@@ -405,17 +405,17 @@ Using the wrong USDC variant causes `"Not a valid collateral for selected market
 
 ### GMX contract addresses
 
-All contract addresses resolve through `get_contract_addresses(chain)` in `eth_defi/gmx/contracts.py`, and all of them are **pinned** — nothing is fetched from GitHub on the order path.
+By default, contract addresses resolve through `get_contract_addresses(chain)` in `eth_defi/gmx/contracts.py` and are **pinned** — nothing is fetched from GitHub on the order path. Explicit remote resolution fetches GMX's published file and verifies it against the Arbitrum v2.2.1 pin.
 
 - **Mainnet** resolves from `PINNED_CONTRACTS`, keyed by GMX release. Only `GMX_VENDORED_ABI_RELEASE` is accepted, because the vendored ABIs decode that release only; v2.2.1 is pinned for `arbitrum` only. The default is `GMX_DEFAULT_CONTRACT_RELEASE` (`v2.2.1`).
-- **Testnet** (`arbitrum_sepolia`) resolves from the static `NETWORK_CONTRACTS` registry and is not release-pinned — it has a single known deployment.
+- **Testnet** (`arbitrum_sepolia`) addresses remain available in the static `NETWORK_CONTRACTS` registry, but the Reader helper refuses to bind the Arbitrum-mainnet v2.2.1 ABI until Sepolia's Reader is migrated.
 
 Pinning exists because the guard enforces a fixed address allowlist while GMX rotates its `ExchangeRouter` between releases. Addresses used to be fetched per order from the `updates` branch of `gmx-io/gmx-synthetics`, falling back to `main`. That meant the router a live bot traded through could change because of an upstream push — or flip back to the previous release when GitHub returned HTTP 429. When GMX shipped v2.2c, the resolved router moved to an address the guard did not allow and **every order, including exits, reverted with `Target not allowed`**.
 
-Rolling back to a previous GMX release means deploying the previous image/tag of this library, which ships the matching ABIs. Setting `GMX_CONTRACT_RELEASE` to another release raises `GMXReleaseMismatchError` (see `eth_defi/abi/gmx/README.md`). To follow GMX's published addresses live (refused if they resolve to an older known release):
+Rolling back to a previous GMX release means deploying the previous image/tag of this library, which ships the matching ABIs. Setting `GMX_CONTRACT_RELEASE` to another release raises `GMXReleaseMismatchError` (see `eth_defi/abi/gmx/README.md`). Remote resolution is accepted only when all published contract addresses match the Arbitrum v2.2.1 pinned set. GMOracleProvider is omitted by GMX's contracts file and does not participate in this check:
 
 ```shell
-export GMX_CONTRACT_RELEASE=remote     # live resolution, cached for 1h
+export GMX_CONTRACT_RELEASE=remote     # remote resolution, cached for 1h
 ```
 
 Whenever GMX rotates the router, whitelist the new address on the guard **before** moving the pin:

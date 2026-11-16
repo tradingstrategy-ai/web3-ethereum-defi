@@ -586,7 +586,7 @@ def assert_gmx_router_whitelisted(
 
     if not guard.functions.isAllowedGMXRouter(exchange_router).call():
         raise GMXRouterNotWhitelisted(
-            f"GMX ExchangeRouter {exchange_router} is not whitelisted on guard {guard.address}. Every order through this router will revert with 'Target not allowed'. Fix: the guard owner must call whitelistGMX(exchangeRouter, syntheticsRouter, orderVault, collateralTokens, notes) for this router, or pin GMX contract resolution to a release whose router is already allowed (see eth_defi.gmx.contracts.GMX_CONTRACT_RELEASE_ENV_VAR).",
+            f"GMX ExchangeRouter {exchange_router} is not whitelisted on guard {guard.address}. Every order through this router will revert with 'Target not allowed'. Fix: the guard owner must call whitelistGMX(exchangeRouter, syntheticsRouter, orderVault, collateralTokens, notes) for this router. Rollback uses the previous image/tag, not GMX_CONTRACT_RELEASE.",
         )
 
     if order_vault is not None:

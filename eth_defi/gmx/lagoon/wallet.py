@@ -39,9 +39,11 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
+import requests
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
+from web3.exceptions import BadFunctionCallOutput, PersistentConnectionError, ProviderConnectionError, RequestTimedOut, TimeExhausted, TooManyRequests, Web3RPCError
 
 from eth_defi.basewallet import BaseWallet
 from eth_defi.gmx.contracts import get_contract_addresses
@@ -58,7 +60,6 @@ PERFORM_CALL_GAS_BUFFER = 200_000
 #: Chains absent here are not checked.
 GMX_PREFLIGHT_CHAIN_NAMES: dict[int, str] = {
     42161: "arbitrum",
-    43114: "avalanche",
     421614: "arbitrum_sepolia",
 }
 
@@ -217,11 +218,37 @@ class LagoonGMXTradingWallet(BaseWallet):
         if chain is None or not isinstance(target, str):
             return
 
-        router = get_contract_addresses(chain).exchangerouter
+        addresses = get_contract_addresses(chain)
+        router = addresses.exchangerouter
         if target.lower() != router.lower() or router in self._verified_routers:
             return
 
-        assert_gmx_router_whitelisted(self.vault.trading_strategy_module, router)
+        try:
+            assert_gmx_router_whitelisted(
+                self.vault.trading_strategy_module,
+                router,
+                order_vault=addresses.ordervault,
+            )
+        except (
+            BadFunctionCallOutput,
+            PersistentConnectionError,
+            ProviderConnectionError,
+            RequestTimedOut,
+            TimeExhausted,
+            TooManyRequests,
+            Web3RPCError,
+            TimeoutError,
+            requests.RequestException,
+        ) as exc:
+            # The onchain guard enforces this mapping. An RPC outage must not
+            # prevent order submission; leave it uncached so the next order retries.
+            logger.warning(
+                "Could not preflight GMX router %s against vault guard %s (%s); continuing and relying on the onchain guard",
+                router,
+                self.vault.trading_strategy_module.address,
+                type(exc).__name__,
+            )
+            return
         self._verified_routers.add(router)
 
     def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransactionWithNonce:

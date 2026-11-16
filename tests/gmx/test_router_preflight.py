@@ -59,6 +59,7 @@ def test_raises_when_router_not_whitelisted():
     assert V22C_EXCHANGE_ROUTER in message
     assert "Target not allowed" in message, "error should name the on-chain revert it predicts"
     assert "whitelistGMX" in message, "error should state the remediation"
+    assert "previous image/tag" in message
 
 
 def test_order_vault_mismatch_raises():

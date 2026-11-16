@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from hexbytes import HexBytes
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3RPCError
 
 
 @pytest.fixture
@@ -72,6 +73,14 @@ def test_lagoon_wallet_is_base_wallet(mock_vault, mock_asset_manager):
 
     # Should be a BaseWallet subclass
     assert isinstance(wallet, BaseWallet)
+
+
+def test_lagoon_router_preflight_is_scoped_to_arbitrum(mock_vault, mock_asset_manager):
+    """The v2.2.1 router preflight has no Avalanche pin to resolve."""
+    from eth_defi.gmx.lagoon.wallet import GMX_PREFLIGHT_CHAIN_NAMES
+
+    assert GMX_PREFLIGHT_CHAIN_NAMES[42161] == "arbitrum"
+    assert GMX_PREFLIGHT_CHAIN_NAMES.get(43114) is None
 
 
 def test_lagoon_wallet_init(mock_vault, mock_asset_manager):
@@ -242,10 +251,13 @@ def test_approve_gmx_collateral_via_vault():
             mock_wallet.sign_bound_call_with_new_nonce.assert_called_once()
 
 
-def _configure_guard(mock_vault, allowed: bool):
+def _configure_guard(mock_vault, allowed: bool, order_vault: str | None = None):
     """Make the mocked TradingStrategyModuleV0 answer ``isAllowedGMXRouter``."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+
     guard_functions = mock_vault.trading_strategy_module.functions
     guard_functions.isAllowedGMXRouter.return_value.call.return_value = allowed
+    guard_functions.gmxOrderVaults.return_value.call.return_value = order_vault or get_contract_addresses("arbitrum").ordervault
     mock_vault.trading_strategy_module.address = "0x33e391A6dce6874198177BdCC89B2230A2BC6202"
     return guard_functions.isAllowedGMXRouter
 
@@ -282,7 +294,47 @@ def test_lagoon_wallet_caches_successful_router_preflight(mock_vault, mock_asset
     wallet.sign_transaction_with_new_nonce(tx)
 
     assert is_allowed.call_count == 1
+    mock_vault.trading_strategy_module.functions.gmxOrderVaults.assert_called_once_with(router)
     assert mock_asset_manager.sign_bound_call_with_new_nonce.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "rpc_error",
+    [Web3RPCError("connection failed: https://secret.example/rpc-key"), BadFunctionCallOutput("empty result")],
+    ids=["web3-rpc-error", "bad-function-call-output"],
+)
+def test_lagoon_wallet_rpc_preflight_failure_is_not_cached_or_blocking(mock_vault, mock_asset_manager, caplog, rpc_error):
+    """An unavailable RPC cannot prevent signing and is retried next time."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    is_allowed.return_value.call.side_effect = rpc_error
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+    tx = {"to": router, "data": b"", "value": 0, "gas": 1_000_000}
+
+    wallet.sign_transaction_with_new_nonce(tx)
+    wallet.sign_transaction_with_new_nonce(tx)
+
+    assert is_allowed.call_count == 2
+    assert mock_asset_manager.sign_bound_call_with_new_nonce.call_count == 2
+    assert "secret.example" not in caplog.text
+
+
+def test_lagoon_wallet_does_not_ignore_guard_contract_reverts(mock_vault, mock_asset_manager):
+    """A deterministic guard revert is not treated as a transport outage."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    is_allowed.return_value.call.side_effect = ContractLogicError("execution reverted")
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    with pytest.raises(ContractLogicError):
+        wallet.sign_transaction_with_new_nonce({"to": router, "data": b"", "value": 0})
+    mock_asset_manager.sign_bound_call_with_new_nonce.assert_not_called()
 
 
 def test_lagoon_wallet_rechecks_when_resolved_router_changes(mock_vault, mock_asset_manager):

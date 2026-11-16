@@ -5,12 +5,15 @@ This test suite verifies the functionality of the Markets class
 when fetching and processing GMX market information.
 """
 
+from types import SimpleNamespace
+
 import pytest
 import requests
 from flaky import flaky
 from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
+from eth_defi.gmx.contracts import GMXReleaseMismatchError, get_tokens_address_dict, _get_clean_api_urls
+from eth_defi.gmx.core.markets import Markets
 from eth_utils import to_checksum_address
 
 
@@ -41,6 +44,25 @@ def test_market_info_dataclass():
     assert market_info.market_metadata["symbol"] == "ETH"
     assert market_info.long_token_metadata["decimals"] == 18
     assert market_info.short_token_metadata["decimals"] == 6
+
+
+def test_market_registration_filter_propagates_release_mismatch(monkeypatch):
+    """Do not skip market registration filtering for a known incompatible Reader."""
+    from eth_defi.gmx.core import markets as markets_module
+
+    markets = Markets(SimpleNamespace(chain="arbitrum_sepolia", web3=object()))
+
+    def raise_release_mismatch(*args: object) -> None:
+        raise GMXReleaseMismatchError("Sepolia Reader is not migrated")
+
+    monkeypatch.setattr(
+        markets_module,
+        "get_reader_contract",
+        raise_release_mismatch,
+    )
+
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia Reader is not migrated"):
+        markets._fetch_onchain_market_addresses()
 
 
 def test_market_info_address_types():

@@ -15,7 +15,7 @@ from eth_utils import to_checksum_address
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import GMXReleaseMismatchError, get_contract_addresses, get_datastore_contract, get_reader_contract, get_tokens_metadata_dict
 from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.keys import MARKET_LIST, is_market_disabled_key
@@ -244,6 +244,10 @@ class Markets:
                 if not retry:
                     break
                 pending = retry
+        except GMXReleaseMismatchError:
+            # A known ABI/deployment mismatch is not an optional filter failure:
+            # returning None would let REST-only phantom markets reach orders.
+            raise
         except Exception as exc:
             logger.warning(
                 "_check_markets_disabled_onchain failed, treating all markets as enabled: %s",
@@ -280,6 +284,10 @@ class Markets:
                 market_count + 1,
             ).call()
             return {to_checksum_address(market["marketToken"]) for market in reader_named_output(raw, "getMarkets")}
+        except GMXReleaseMismatchError:
+            # A known ABI/deployment mismatch is not an optional filter failure:
+            # returning None would let REST-only phantom markets reach orders.
+            raise
         except Exception as exc:
             logger.warning(
                 "Could not read registered markets from the DataStore, skipping the registration filter: %s",

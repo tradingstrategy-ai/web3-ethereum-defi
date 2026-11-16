@@ -11,7 +11,6 @@ These tests lock in that address resolution is pinned, cached, and overridable.
 
 import dataclasses
 import json
-import logging
 from pathlib import Path
 
 import pytest
@@ -23,12 +22,14 @@ from eth_defi.gmx.contracts import (
     GMX_CONTRACT_RELEASE_REMOTE,
     GMX_DEFAULT_CONTRACT_RELEASE,
     GMX_VENDORED_ABI_RELEASE,
+    NETWORK_CONTRACTS,
     PINNED_CONTRACTS,
     ContractAddresses,
     GMXReleaseMismatchError,
     clear_contract_address_cache,
     get_contract_addresses,
     get_pinned_contract_release,
+    get_reader_contract,
 )
 
 #: v2.2.1 ExchangeRouter on Arbitrum — the current router.
@@ -50,9 +51,8 @@ ORDER_VAULT = "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"
 #: ``gmx-io/gmx-synthetics@updates:deployments/arbitrumSepolia/``.
 SEPOLIA_EXCHANGE_ROUTER = "0x6B489dD5bB1AAE8df246359d59aA7316760a75d2"
 
-#: Current Arbitrum Sepolia Reader. The previous entry pointed at a superseded
-#: deployment whose ``getAccountOrders`` returns an older struct, so decoding it
-#: against the vendored ABI failed once an order was actually pending.
+#: Arbitrum Sepolia Reader address, retained for address-only inspection. Its
+#: older tuple layout is incompatible with the vendored v2.2.1 ABI.
 SEPOLIA_READER = "0x92659fEf40582ceCC3CBa4D096d28291C238D358"
 
 
@@ -142,7 +142,7 @@ def test_explicit_vendored_release_is_accepted(monkeypatch, no_network):
 
 def test_avalanche_is_not_pinned_for_vendored_release(no_network):
     """v2.2.1 is Arbitrum only; Avalanche has no vendored-ABI-compatible pin."""
-    with pytest.raises(ValueError, match="Unsupported chain"):
+    with pytest.raises(GMXReleaseMismatchError, match="Arbitrum only"):
         get_contract_addresses("avalanche")
 
 
@@ -157,10 +157,12 @@ def test_unsupported_chain_raises(no_network):
         get_contract_addresses("dogechain")
 
 
-def test_testnet_ignores_release_pinning(no_network):
-    """Testnets have a single static deployment and are unaffected by the pin."""
-    assert get_contract_addresses("arbitrum_sepolia", release="v2.2b").exchangerouter == SEPOLIA_EXCHANGE_ROUTER
-    assert get_contract_addresses("arbitrum_sepolia").exchangerouter == SEPOLIA_EXCHANGE_ROUTER
+def test_sepolia_cannot_use_v221_abis(no_network):
+    """Sepolia's older Reader layout must not be paired with v2.2.1 ABIs."""
+    for release in ("v2.2b", None):
+        assert get_contract_addresses("arbitrum_sepolia", release=release).exchangerouter == SEPOLIA_EXCHANGE_ROUTER
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia contracts have not migrated"):
+        get_reader_contract(None, "arbitrum_sepolia")
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
@@ -296,24 +298,28 @@ def test_remote_release_does_not_mask_programming_errors(monkeypatch):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
 
-def test_remote_release_warns_on_an_unrecognised_router(monkeypatch, caplog):
-    """A router matching no pinned release is called out as unverified.
-
-    This is what a genuinely new GMX release looks like. It is not necessarily
-    wrong, but nothing has confirmed the new router is whitelisted on a vault
-    guard yet, which is the check that matters before pinning to it.
-    """
+def test_remote_release_refuses_an_unrecognised_router(monkeypatch):
+    """Unknown remote router addresses cannot be paired with vendored ABIs."""
     unknown = dataclasses.replace(
         PINNED_CONTRACTS["v2.2.1"]["arbitrum"],
         exchangerouter="0x" + "ab" * 20,
     )
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: unknown)
 
-    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+    with pytest.raises(GMXReleaseMismatchError, match="does not match the pinned"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
-    assert "unrecognised ExchangeRouter" in caplog.text
-    assert "whitelisted" in caplog.text
+
+@pytest.mark.parametrize("field", ["syntheticsreader", "ordervault", "syntheticsrouter"])
+def test_remote_release_refuses_mixed_contract_set(monkeypatch, field):
+    """A partial address match cannot route orders through a mixed deployment."""
+    mixed = dataclasses.replace(
+        PINNED_CONTRACTS["v2.2.1"]["arbitrum"],
+        **{field: "0x" + "ab" * 20},
+    )
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: mixed)
+    with pytest.raises(GMXReleaseMismatchError, match=field):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
 
 @pytest.mark.parametrize("old_release", ["v2.2b", "v2.2c"])
@@ -327,18 +333,29 @@ def test_remote_release_refuses_a_superseded_router(monkeypatch, old_release):
     older = PINNED_CONTRACTS[old_release]["arbitrum"]
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: older)
 
-    with pytest.raises(GMXReleaseMismatchError, match=old_release):
+    with pytest.raises(GMXReleaseMismatchError, match="does not match the pinned"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
 
-def test_remote_release_does_not_warn_on_the_current_router(monkeypatch, caplog):
+def test_remote_release_accepts_the_exact_pinned_contract_set(monkeypatch):
     current = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: current)
 
-    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
-        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE) is current
 
-    assert "ExchangeRouter" not in caplog.text
+
+def test_remote_release_refuses_chain_without_vendored_abi_set(monkeypatch):
+    """Remote Avalanche resolution is refused because only Arbitrum is vendored."""
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: PINNED_CONTRACTS["v2.2.1"]["arbitrum"])
+    with pytest.raises(GMXReleaseMismatchError, match="vendored for Arbitrum only"):
+        get_contract_addresses("avalanche", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_allows_unpublished_optional_gm_oracle_provider(monkeypatch):
+    """The upstream contracts file may omit the carried test-helper address."""
+    remote = dataclasses.replace(PINNED_CONTRACTS["v2.2.1"]["arbitrum"], gmoracleprovider=None)
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: remote)
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE).gmoracleprovider == PINNED_CONTRACTS["v2.2.1"]["arbitrum"].gmoracleprovider
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
@@ -388,17 +405,11 @@ def test_release_rotation_set_is_documented(no_network):
         assert getattr(old, field_name) == getattr(new, field_name), f"{field_name} rotated"
 
 
-def test_sepolia_addresses_match_the_current_deployment(no_network):
-    """Arbitrum Sepolia must point at GMX's current testnet deployment.
-
-    GMX shipped the same upgrade to Sepolia that produced mainnet v2.2c, but this
-    table was not updated with it. The stale Reader was the visible symptom:
-    ``getAccountOrders`` on the superseded deployment returns an older struct, so
-    decoding it against the vendored ABI failed whenever an order was pending —
-    an empty result decodes fine either way, which is why it looked healthy until
-    a live order existed.
-    """
-    sepolia = get_contract_addresses("arbitrum_sepolia")
+def test_sepolia_addresses_remain_available_for_address_only_use(no_network):
+    """Address inspection remains available although Reader ABI binding is refused."""
+    # Address-only inspection remains available from the registry; ABI binding
+    # helpers reject this Reader's old tuple layout.
+    sepolia = NETWORK_CONTRACTS["arbitrum_sepolia"]
     assert sepolia.exchangerouter == SEPOLIA_EXCHANGE_ROUTER
     assert sepolia.syntheticsreader == SEPOLIA_READER
     assert sepolia.glvreader == "0x45356cEE7f8668b7030577c13b4638802D3397Df"
