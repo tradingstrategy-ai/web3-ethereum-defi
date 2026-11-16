@@ -351,8 +351,8 @@ settlement scanner. History backfills from each vault's first-seen block on
 the next scanner cycle. The price cleaning pipeline exposes them as
 `vault_settlement_at` markers. A backtest that gates T3tris deposits on
 these markers completes a queued deposit at an actual onchain settlement
-rather than after a guessed delay; trade-executor does this for Lagoon and
-D2, and needs `t3tris_like` added to do it for T3tris. Use these markers, or
+rather than after a guessed delay. Consumers must classify `t3tris_like` as
+queued and enable deposit-event gating, as for Lagoon and D2. Use these markers, or
 intervals computed from them, for deposit timing. They say nothing about
 redemptions: redemption settlements can be months apart from deposit ones
 (First USDC below).
@@ -376,9 +376,10 @@ subtracts the response's `Date` header to get the interval and caches the
 interval, not the timestamp. `T3trisVault.get_withdrawal_period()` publishes
 it as a non-binding `estimated_settlement`, as Lagoon does with its
 `averageSettlement`. A backtest can use it as the delay for both
-directions where no measured settlement applies, which in practice means
-redemptions. trade-executor uses such estimates only for protocols it lists,
-and T3tris is not yet one of them.
+directions. The trade-executor T3tris integration uses the estimate as the minimum
+delay before checking deposit events, and as the simulated redemption delay.
+It requires an executor revision with T3tris timing enabled and a data loader
+that preserves the published estimate and settlement markers.
 
 The estimate is weak. Values on 15 November 2026:
 
