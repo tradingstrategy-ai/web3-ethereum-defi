@@ -5,7 +5,7 @@ positive convexity, algorithmic trading, directional trading and perpetual futur
 Scope: Only _strategy_tags for +convexity on Hypercore (9999).
 Branch: fix/convexity-bitcoin-only
 PR title: fix: add Bitcoin-only trading to +convexity
-PR: To be recorded when opened.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1787
 Preserves: Other metadata, unrelated rows, prices, leads, reader state and timestamp caches.
 Expected: At most one existing row and changed field; report an absent row without creating it.
 No network reads or historical price backfill are required for this tag-only refresh.

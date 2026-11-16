@@ -1,6 +1,6 @@
 # 1.2
 
-- fix: Add Bitcoin-only trading to the +convexity Hyperliquid vault while retaining its existing strategy tags, with a targeted persisted-tag refresh in migration 080 (2026-11-16).
+- fix: Add Bitcoin-only trading to the +convexity Hyperliquid vault while retaining its existing strategy tags, with a targeted persisted-tag refresh in migration 080 (2026-11-16, [#1787](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1787)).
 
 - feat: Record T3tris `DepositsSettled` events in the vault settlement database, so backtests can settle queued deposits at measured onchain settlements, and publish T3tris' average settlement interval as a non-binding `estimated_settlement` fallback with its weaknesses documented, refreshed by numbered migration 079 (2026-11-15, [#1784](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1784)).
 - fix: Preserve synchronous guarded ERC-4626 redemption analysis without an async ticket and keep Guard fixtures compatible with added libraries and later interface versions (2026-11-15).
