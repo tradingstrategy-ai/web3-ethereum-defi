@@ -2942,21 +2942,27 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
                 logger.info("Purged old backup: %s", entry)
 
 
-def refresh_withdrawal_capacity_for_chains(chains: list[ChainConfig], vault_db_path: Path, *, max_workers: int) -> int:
+def refresh_withdrawal_capacity_for_chains(chains: list[ChainConfig], vault_db_path: Path, *, max_workers: int, database: VaultDatabase | None = None) -> int:
     """Refresh local observations without triggering the publication pipeline.
 
     Both completed scan ticks and idle loop ticks call this under the pipeline
     writer lock. Only normal scan ticks proceed to post-processing and uploads.
+    A supplied catalogue is reused and updated in place, without reading disk.
+    It must reflect completed metadata writers: persisting a stale snapshot
+    would overwrite their updates when the whole catalogue is replaced.
 
     :param chains: All configured chains, independent of discovery due times.
-    :param vault_db_path: Existing catalogue; no price or export files are touched.
+    :param vault_db_path: Catalogue persistence path; no price or export files are touched.
     :param max_workers: Scanner concurrency, capped at four capacity RPC workers.
+    :param database: Optional fresh, complete catalogue loaded under the writer lock after
+        metadata workers join. If omitted, load the current catalogue once.
     :return: Number of observations refreshed across successful chains.
     """
-    if not vault_db_path.exists():
-        return 0
     try:
-        database = VaultDatabase.read(vault_db_path)
+        if database is None:
+            if not vault_db_path.exists():
+                return 0
+            database = VaultDatabase.read(vault_db_path)
         now = native_datetime_utc_now()
         limit = int(os.environ.get("WITHDRAWAL_CAPACITY_MAX_VAULTS_PER_CHAIN") or "100")
         due = select_due_capacity_vaults(database, now=now, max_vaults_per_chain=limit)

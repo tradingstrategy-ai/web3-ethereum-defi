@@ -308,14 +308,17 @@ def test_due_selection_uses_recorded_interval_until_refresh(days: int) -> None:
     assert refresh.select_due_capacity_vaults(database, now=NOW + timedelta(days=days)) == {1: [spec]}
 
 
-def test_capacity_coordinator_loads_once_and_skips_fresh_chains(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only due configured chains get providers, using one shared catalogue load."""
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_capacity_coordinator_loads_once_and_skips_fresh_chains(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, preloaded: bool) -> None:
+    """Only due chains get providers; a supplied catalogue bypasses disk entirely."""
     path = tmp_path / "catalogue.pickle"
     database = VaultDatabase()
     for chain in (1, 8453, 42161):
         database.rows[VaultSpec(chain, "0x" + "a" * 40)] = {"NAV": Decimal(10000), "Denomination": "USDC"}
     database.rows[VaultSpec(8453, "0x" + "a" * 40)]["_withdrawal_capacity_observation"] = {"checked_at": NOW.isoformat(), "refresh_interval_seconds": 86400}
     database.write(path)
+    if preloaded:
+        path.unlink()
     loaded = []
     providers = []
     updated = []
@@ -332,6 +335,8 @@ def test_capacity_coordinator_loads_once_and_skips_fresh_chains(tmp_path: Path, 
     def refresh_chain(web3: str, target: Path, **kwargs: Any) -> int:
         assert target == path and kwargs["max_workers"] == 4
         assert kwargs["database"].rows.keys() == database.rows.keys()
+        if preloaded:
+            assert kwargs["database"] is database
         updated.extend(kwargs["targets"])
         return len(kwargs["targets"])
 
@@ -343,8 +348,8 @@ def test_capacity_coordinator_loads_once_and_skips_fresh_chains(tmp_path: Path, 
     monkeypatch.setenv("JSON_RPC_CAPACITY_TEST", "ethereum")
     monkeypatch.setenv("JSON_RPC_CAPACITY_FRESH", "base")
     chains = [scan_all_chains.ChainConfig("Ethereum", "JSON_RPC_CAPACITY_TEST"), scan_all_chains.ChainConfig("Base", "JSON_RPC_CAPACITY_FRESH")]
-    assert scan_all_chains.refresh_withdrawal_capacity_for_chains(chains, path, max_workers=50) == 1
-    assert loaded == [path] and providers == ["ethereum"]
+    assert scan_all_chains.refresh_withdrawal_capacity_for_chains(chains, path, max_workers=50, database=database if preloaded else None) == 1
+    assert loaded == ([] if preloaded else [path]) and providers == ["ethereum"]
     assert updated == [VaultSpec(1, "0x" + "a" * 40)]
 
 

@@ -74,7 +74,11 @@ workers per chain and a cache that coalesces identical contract reads within the
 batch. After metadata workers finish, the loop updates only the capacity
 namespace under the existing pipeline writer lock and atomically writes the
 catalogue once per chain with results, reusing the same in-memory database
-across chains. Metadata replacements retain a previous
+across chains. The coordinator also accepts `database=existing_database` to
+reuse a supplied `VaultDatabase` without another disk read, updating it in place.
+Supply a fresh, complete snapshot under the writer lock after metadata workers join; an
+earlier settlement snapshot may be stale, and persisting it would overwrite
+newer catalogue rows. Metadata replacements retain a previous
 capacity observation when the protocol classification is unchanged.
 
 Both normal and idle scanner ticks run the capacity loop. Idle ticks update
