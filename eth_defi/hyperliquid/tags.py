@@ -31,11 +31,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: page and Hyperliquid vaultDetails response confirm this deployment's
     #: identity. vaultDetails describes it only as "+convexity", so the strategy
     #: classifications are maintainer-supplied, not inferred from its name.
+    #: Updated: 2026-11-16. Maintainer explicitly assigned Bitcoin-only trading;
+    #: identity reconfirmed on the current Trading Strategy vault page.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/convexity?period=max
     #: - https://app.hyperliquid.xyz/vaults/0x5661a070eb13c7c55ac3210b2447d4bea426cbf5
     #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-15)
     "0x5661a070eb13c7c55ac3210b2447d4bea426cbf5": {
+        StrategyTag.btc_only,
         StrategyTag.positive_convexity,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
