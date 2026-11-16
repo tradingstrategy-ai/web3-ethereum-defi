@@ -49,3 +49,5 @@ node_modules/.cache
 
 # Claude working on work trees
 .claude/worktrees
+# Local state and reports from the manual capacity refresh runner
+/data/withdrawal-capacity/

@@ -36,6 +36,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import direct_cash_observation
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,19 @@ class FortyAcresVault(ERC4626Vault):
     - `Velodrome vault on Optimism <https://optimistic.etherscan.io/address/0x08dCDBf7baDe91Ccd42CB2a4EA8e5D199d285957>`__
     - `Aerodrome vault on Base <https://basescan.org/address/0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5>`__
     """
+
+    #: Lenders cannot demand repayment of outstanding loans.
+    withdrawal_capacity_structural_warning = True
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        data = direct_cash_observation(self, block_identifier)
+        data["structural_warning"] = True
+        return data
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return the maintained classifications for this reviewed deployment.

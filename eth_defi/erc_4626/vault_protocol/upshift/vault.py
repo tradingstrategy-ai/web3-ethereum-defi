@@ -39,6 +39,7 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, With
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import upshift_observation
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,15 @@ class UpshiftVault(ERC4626Vault):
     See the `TokenizedAccount implementation <https://etherscan.io/address/0x83AF2736AD2f59BA60F2da1493DE95730Bc0649d#code>`__
     for the fee collection logic.
     """
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        data = upshift_observation(self, block_identifier)
+        return data
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return the maintained strategy tags for this Upshift vault.

@@ -38,6 +38,9 @@ at the same numeric block while no-argument callers retain latest-state reads.
    eth_defi.vault.price_source
    eth_defi.vault.strategy_tag
    eth_defi.vault.fee
+   eth_defi.vault.withdrawal_capacity
+   eth_defi.vault.withdrawal_capacity_readers
+   eth_defi.vault.withdrawal_capacity_refresh
    eth_defi.vault.deposit_redeem
    eth_defi.vault.vaultdb
    eth_defi.vault.valuation

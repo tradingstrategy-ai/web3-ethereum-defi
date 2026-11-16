@@ -1,7 +1,13 @@
-"""ABI loading from the precompiled bundle.
+"""ABI loading from verified interfaces and compiled contract artifacts.
 
 Provides functions to load ABI files and construct :py:class:`web3.contract.Contract` types.
 The results are cached for the speedup.
+
+External ABI files must contain the complete verified interface fetched from
+Sourcify (preferred) or Etherscan, not hand-written or reduced stubs. Each ABI
+folder's README inventory records Filename, Source, Fetched at (UTC) and Reason
+to fetch. Repo-integrated contracts use complete compiler artifacts generated
+by their build targets. See ``eth_defi/abi/README.md`` before adding or using ABIs.
 
 We also provide some helper functions to deal with ABI encode/decode.
 
@@ -52,22 +58,25 @@ ONE_ADDRESS_STR = "0x0000000000000000000000000000000000000001"
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
-def get_abi_by_filename(fname: str) -> dict:
-    """Reads a embedded ABI file and returns it.
+def get_abi_by_filename(fname: str | Path) -> dict | list:
+    """Load a complete bundled ABI array or compiler artifact.
 
     Example::
 
         abi = get_abi_by_filename("ERC20Mock.json")
 
-    You are most likely interested in the keys `abi` and `bytecode` of the JSON file.
+    External contracts use a complete verified ABI array fetched from Sourcify
+    (preferred) or Etherscan. Repo-integrated compiler artifacts are dictionaries
+    with ``abi`` and optional ``bytecode``. Do not generate or use a stub JSON
+    interface in place of a full verified ABI. Record each file in its folder's
+    README table with Filename, Source, Fetched at (UTC) and Reason to fetch.
 
-    Loaded ABI files are cache in in-process memory to speed up future loading.
+    This loader reads stored JSON; it does not fetch or verify remote ABIs.
+    Results are cached in process.
 
-    Any results are cached.
-
-    :param web3: Web3 instance
     :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
-    :return: Full contract interface, including `bytecode`.
+    :return: Complete ABI list, or compiler artifact dict containing ``abi`` and
+        optional deployment bytecode.
     """
 
     here = Path(__file__).resolve().parent
@@ -88,7 +97,10 @@ def get_contract(
     Read ABI file from
     - Our bundled contracts in the Python package
     - Filesystem using absolute path
-    - ABI file can be a solc compiling artifact or Etherscan copy-pasted ABI.
+    - Repo-integrated contracts use complete compiler artifacts.
+    - External contracts use complete verified ABI arrays from Sourcify
+      (preferred) or Etherscan, with provenance in the folder README table.
+      Never hand-declare or reduce the ABI to the methods currently needed.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
@@ -112,7 +124,7 @@ def get_contract(
         Override bytecode payload for the contract
 
     :param fname:
-        Solidity compiler artifact.
+        Complete verified ABI array or compiler artifact filename.
 
         Use slash prefixed path for absolute lookups.
 
@@ -273,7 +285,13 @@ def get_deployed_contract(
     address: Union[HexAddress, str],
     register_for_tracing: bool = True,
 ) -> Contract:
-    """Get a Contract proxy objec for a contract deployed at a specific address.
+    """Bind a complete stored ABI to a deployed contract address.
+
+    Use a full verified external ABI from Sourcify (preferred) or Etherscan,
+    recorded in the folder README inventory, or a repo-built compiler artifact.
+    For a proxy, select the resolved implementation ABI and pass the deployed
+    proxy address here. This loader does not resolve implementations or fill
+    missing functions from a stub interface.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 

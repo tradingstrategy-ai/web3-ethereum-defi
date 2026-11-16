@@ -8,7 +8,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pprint import pformat
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
+
+if TYPE_CHECKING:
+    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress, HexStr
 from hexbytes import HexBytes
@@ -20,6 +23,7 @@ from eth_defi.provider.anvil import is_anvil
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.types import Percent
 from eth_defi.vault.flow_events import PendingVaultFlow
 
 logger = logging.getLogger(__name__)
@@ -1307,6 +1311,15 @@ class VaultDepositManager(ABC):
     :attr:`VaultForcedSettlementResult.liquidity_constraints_ignored`; it is
     never live redemption evidence or a way to bypass production preflights.
     """
+
+    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Percent = 0.15) -> "WithdrawalCapacityLimit":
+        """Query the bound vault's withdrawal buffer without constructing trades.
+
+        :param block_identifier: Source block; latest resolves once.
+        :param capacity_threshold: Minimum withdrawal buffer fraction of TVL.
+        :return: Shared WithdrawalCapacityLimit assessment with provenance.
+        """
+        return self.vault.fetch_withdrawal_capacity_limit(block_identifier, capacity_threshold)
 
     def __init__(
         self,

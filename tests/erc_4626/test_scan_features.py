@@ -210,6 +210,35 @@ def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     )
 
 
+def test_scan_record_does_not_read_capacity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Normal metadata refresh leaves capacity to its independent loop."""
+    # Use the existing fake adapter to detect any metadata-to-capacity dispatch.
+    vault = _FakeVault()
+    vault.fetch_withdrawal_capacity_limit = lambda *args, **kwargs: pytest.fail("Metadata read capacity")
+    vault.fetch_withdrawal_capacity_observation = lambda *args, **kwargs: pytest.fail("Metadata read capacity")
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *args, **kwargs: vault)
+    record = scan_module.create_vault_scan_record(None, _create_detection({ERC4626Feature.morpho_like}), block_identifier=123, token_cache={})
+    assert record["Name"] == "Feature Vault"
+    assert "_withdrawal_capacity_observation" not in record
+
+
+@pytest.mark.parametrize("same_protocol", [False, True])
+def test_metadata_merge_preserves_independent_capacity(same_protocol: bool) -> None:
+    """A metadata replacement retains capacity only for an unchanged adapter identity."""
+    database = VaultDatabase()
+    detection = _create_detection({ERC4626Feature.morpho_like})
+    spec = detection.get_spec()
+    observation = {"status": "measured", "current_tvl": "10000", "refresh_interval_seconds": 86400}
+    database.rows[spec] = {"Name": "Before", "NAV": Decimal(10000), "Denomination": "USDC", "features": detection.features, "_withdrawal_capacity_observation": observation}
+    replacement = {"Name": "After", "NAV": Decimal(20000), "Denomination": "USDC", "features": detection.features if same_protocol else {ERC4626Feature.ipor_like}}
+    database.update_leads_and_rows(detection.chain, 123, {}, {spec: replacement})
+    assert database.rows[spec]["Name"] == "After"
+    assert ("_withdrawal_capacity_observation" in database.rows[spec]) is same_protocol
+    if same_protocol:
+        assert database.rows[spec]["_withdrawal_capacity_observation"] == observation
+    assert "_withdrawal_capacity_observation" not in replacement
+
+
 def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scan records persist feature flags both for humans and machines."""
 

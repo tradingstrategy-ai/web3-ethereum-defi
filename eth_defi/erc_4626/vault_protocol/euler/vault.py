@@ -29,6 +29,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.withdrawal_capacity_readers import euler_observation
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +276,14 @@ class EulerVault(ERC4626Vault):
 
     TODO: Fees
     """
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read the same-block EVK withdrawal buffer and directional hook state.
+
+        :param block_identifier: Numeric block shared by cash, TVL and hook reads.
+        :return: Primitive withdrawal-capacity observation in denomination units.
+        """
+        return euler_observation(self, block_identifier)
 
     def get_strategy_tags(self) -> set[StrategyTag]:
         """Return automatic lending plus any maintained Euler tags.
