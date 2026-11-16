@@ -31,39 +31,40 @@ def test_boundary(capacity, expected):
 
 def test_threshold_and_precision():
     data = observation("100.000000000000000001")
-    assert assess_withdrawal_capacity(data, Decimal("0.1"), now=NOW).capacity_warning is False
-    assert assess_withdrawal_capacity(data, Decimal("0.15"), now=NOW).capacity_warning is True
-    assert assess_withdrawal_capacity(data, Decimal("0.1"), now=NOW).to_dict()["current_capacity"] == "100.000000000000000001"
+    assert assess_withdrawal_capacity(data, 0.1, now=NOW).capacity_warning is False
+    assert assess_withdrawal_capacity(data, 0.15, now=NOW).capacity_warning is True
+    assert assess_withdrawal_capacity(data, 0.1, now=NOW).to_dict()["current_capacity"] == "100.000000000000000001"
 
 
-@pytest.mark.parametrize("bad", [Decimal("-0.1"), Decimal("1.1"), Decimal("NaN"), Decimal("Infinity")])
+@pytest.mark.parametrize("bad", [-0.1, 1.1, float("nan"), float("inf"), float("-inf")])
 def test_invalid_threshold(bad):
     with pytest.raises(ValueError):
         assess_withdrawal_capacity(None, bad)
 
 
-@pytest.mark.parametrize("bad", [None, True, 1, 0.15, "0.15"])
-def test_threshold_requires_decimal(bad):
+@pytest.mark.parametrize("bad", [None, True, 1, Decimal("0.15"), "0.15"])
+def test_threshold_requires_percent_float(bad):
     """Reject implicit conversion at API and direct-assessment boundaries."""
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         assess_withdrawal_capacity(None, bad)
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         enrich_withdrawal_capacity([], SimpleNamespace(rows={}), threshold=bad)
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         fetch_withdrawal_capacity_limit(SimpleNamespace(web3=None), capacity_threshold=bad)
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         VaultBase.fetch_withdrawal_capacity_limit(SimpleNamespace(web3=None), capacity_threshold=bad)
     query = partial(VaultBase.fetch_withdrawal_capacity_limit, SimpleNamespace(web3=None))
     manager = SimpleNamespace(vault=SimpleNamespace(fetch_withdrawal_capacity_limit=query))
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         VaultDepositManager.fetch_withdrawal_capacity_limit(manager, capacity_threshold=bad)
-    with pytest.raises(AssertionError, match="must be Decimal"):
+    with pytest.raises(AssertionError, match="must be a Percent float"):
         replace(assess_withdrawal_capacity(None), capacity_threshold=bad)
 
 
-def test_threshold_environment_converts_to_decimal(monkeypatch):
+def test_threshold_environment_converts_to_percent_float(monkeypatch):
     monkeypatch.setenv("WITHDRAWAL_CAPACITY_THRESHOLD", "0.20")
-    assert configured_capacity_threshold() == Decimal("0.20")
+    assert configured_capacity_threshold() == 0.20
+    assert isinstance(configured_capacity_threshold(), float)
 
 
 def test_unknown_and_stale_do_not_mean_safe():
@@ -250,3 +251,14 @@ def test_tiny_tvl_recognised_usdc_uses_face_value():
     assert data["current_tvl_usd"] == "9999.99"
     assert "face-value" in data["usd_valuation_source"]
     assert assess_withdrawal_capacity(data, now=NOW).tiny_tvl is True
+
+
+@pytest.mark.parametrize("capacity,warning", [("14.999999999999999999", True), ("15", False), ("15.000000000000000001", False)])
+def test_percent_threshold_preserves_decimal_amount_boundary(capacity: str, warning: bool) -> None:
+    """Float percentages must not introduce binary rounding into token comparisons."""
+    data = observation(capacity)
+    data["current_tvl"] = "100"
+    result = assess_withdrawal_capacity(data, 0.15, now=NOW)
+    assert result.capacity_warning is warning
+    assert result.to_dict()["capacity_threshold"] == 0.15
+    assert result.current_capacity == Decimal(capacity)

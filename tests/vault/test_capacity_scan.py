@@ -63,7 +63,7 @@ def test_native_addresses_do_not_use_rpc(monkeypatch):
 
     monkeypatch.setattr(scanner, "read_json_rpc_url", no_rpc)
     rows = scanner.load_vaults(None, [f"9999-{ADDRESS}", "9998-lighter-pool-123"])
-    report = scanner.fetch_capacity_report(rows, Decimal("0.15"), 1)
+    report = scanner.fetch_capacity_report(rows, 0.15, 1)
     assert report["summary"] == {"unknown": 2}
     assert all(row["withdrawal_capacity_observation"]["status"] == "unsupported" for row in report["rows"])
 
@@ -76,7 +76,7 @@ def test_native_feature_does_not_use_rpc(name, monkeypatch, tmp_path):
     path = tmp_path / "vaults.json"
     path.write_text(json.dumps([{"chain_id": 12345, "address": ADDRESS, "features": [name]}]))
     monkeypatch.setattr(scanner, "read_json_rpc_url", no_rpc)
-    report = scanner.fetch_capacity_report(scanner.load_vaults(path, []), Decimal("0.15"), 1)
+    report = scanner.fetch_capacity_report(scanner.load_vaults(path, []), 0.15, 1)
     assert report["rows"][0]["withdrawal_capacity_observation"]["status"] == "unsupported"
 
 
@@ -99,7 +99,7 @@ def test_chain_failure_preserves_rows_and_structural_warning(mismatch, monkeypat
     monkeypatch.setattr(scanner, "create_multi_provider_web3", lambda *_args, **_kwargs: SimpleNamespace(eth=SimpleNamespace(chain_id=2)))
     rows = scanner.load_vaults(None, [f"1-{ADDRESS}", f"1-{ADDRESS[:-1]}2"])
     rows[1]["features"] = ["forty_acres_like"]
-    report = scanner.fetch_capacity_report(rows, Decimal("0.15"), 1)
+    report = scanner.fetch_capacity_report(rows, 0.15, 1)
     assert [row["status"] for row in report["rows"]] == ["unknown", "warning + unknown"]
     assert all(row["withdrawal_capacity_observation"]["status"] == "failed" for row in report["rows"])
     assert "secret-provider-token" not in json.dumps(report)
@@ -135,8 +135,9 @@ def test_pinned_api_and_failure_isolation(monkeypatch):
     for row in rows:
         row["features"] = ["euler_like"]
     rows[1]["features"] = ["forty_acres_like"]
-    report = scanner.fetch_capacity_report(rows, Decimal("0.2"), 2)
-    assert queried == [{"block_identifier": 100, "capacity_threshold": Decimal("0.2")}]
+    report = scanner.fetch_capacity_report(rows, 0.2, 2)
+    assert queried == [{"block_identifier": 100, "capacity_threshold": 0.2}]
+    assert report["capacity_threshold"] == 0.2
     assert len(report["rows"]) == 2
     assert report["rows"][1]["withdrawal_capacity_observation"]["status"] == "failed"
     assert "Sensitive" not in json.dumps(report)

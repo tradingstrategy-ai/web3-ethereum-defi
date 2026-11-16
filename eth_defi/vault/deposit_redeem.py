@@ -23,6 +23,7 @@ from eth_defi.provider.anvil import is_anvil
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.types import Percent
 from eth_defi.vault.flow_events import PendingVaultFlow
 
 logger = logging.getLogger(__name__)
@@ -1311,7 +1312,7 @@ class VaultDepositManager(ABC):
     never live redemption evidence or a way to bypass production preflights.
     """
 
-    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Decimal = Decimal("0.15")) -> "WithdrawalCapacityLimit":
+    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Percent = 0.15) -> "WithdrawalCapacityLimit":
         """Query the bound vault's withdrawal buffer without constructing trades.
 
         :param block_identifier: Source block; latest resolves once.

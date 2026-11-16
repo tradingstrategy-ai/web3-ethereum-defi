@@ -36,6 +36,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.types import Percent
 from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit, assess_withdrawal_capacity, configured_capacity_threshold, validate_threshold
 
 
@@ -93,7 +94,7 @@ def assessment_status(limit: dict) -> str:
     return "unknown" if unknown else "clear"
 
 
-def fetch_capacity_report(rows: list[dict], threshold: Decimal, max_workers: int) -> dict:
+def fetch_capacity_report(rows: list[dict], threshold: Percent, max_workers: int) -> dict:
     """Query the universal capacity API with per-chain block pinning.
 
     Provider and adapter failures are isolated per chain or vault. Error text
@@ -157,7 +158,7 @@ def fetch_capacity_report(rows: list[dict], threshold: Decimal, max_workers: int
             for result in tqdm(reads, total=len(evm), desc=f"Capacity chain {chain}"):
                 results[result["id"]] = result
     ordered = [results[row["id"]] for row in rows]
-    return {"started_at": started, "completed_at": datetime.now(UTC).isoformat(), "capacity_threshold": str(threshold), "blocks": blocks, "summary": dict(Counter(row["status"] for row in ordered)), "rows": ordered}
+    return {"started_at": started, "completed_at": datetime.now(UTC).isoformat(), "capacity_threshold": threshold, "blocks": blocks, "summary": dict(Counter(row["status"] for row in ordered)), "rows": ordered}
 
 
 def render_table(report: dict, *, colour: bool = True) -> str:

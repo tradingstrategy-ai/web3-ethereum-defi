@@ -5,6 +5,7 @@ warning uses a separate USD valuation. Unknown capacity stays unknown: idle cash
 need not be the complete withdrawal buffer.
 """
 
+import math
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -12,9 +13,10 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultBase, VaultSpec
 
-DEFAULT_CAPACITY_THRESHOLD = Decimal("0.15")
+DEFAULT_CAPACITY_THRESHOLD: Percent = 0.15
 #: Capacity checks for vaults meeting the USD 10,000 guideline.
 CAPACITY_REFRESH_INTERVAL = timedelta(days=1)
 #: Capacity checks for smaller or unvalued vaults.
@@ -26,15 +28,15 @@ DEFAULT_MAX_AGE = CAPACITY_REFRESH_INTERVAL + CAPACITY_FRESHNESS_GRACE
 TINY_TVL_THRESHOLD_USD = Decimal("10000")
 
 
-def configured_capacity_threshold() -> Decimal:
+def configured_capacity_threshold() -> Percent:
     """Read the export threshold once without changing RPC observation policy."""
-    return validate_threshold(Decimal(os.environ.get("WITHDRAWAL_CAPACITY_THRESHOLD", str(DEFAULT_CAPACITY_THRESHOLD))))
+    return validate_threshold(float(os.environ.get("WITHDRAWAL_CAPACITY_THRESHOLD", str(DEFAULT_CAPACITY_THRESHOLD))))
 
 
-def validate_threshold(value: Decimal) -> Decimal:
-    """Require a Decimal fraction; text conversion belongs at the settings boundary."""
-    assert isinstance(value, Decimal), f"Capacity threshold must be Decimal, got {type(value)}"
-    if not value.is_finite() or not 0 <= value <= 1:
+def validate_threshold(value: Percent) -> Percent:
+    """Require a finite Percent float fraction between zero and one."""
+    assert isinstance(value, float), f"Capacity threshold must be a Percent float, got {type(value)}"
+    if not math.isfinite(value) or not 0 <= value <= 1:
         message = "Capacity threshold must be between zero and one"
         raise ValueError(message)
     return value
@@ -55,7 +57,7 @@ class WithdrawalCapacityLimit:
     #: Expanded denomination amounts, threshold and observation limitations.
     capacity_reason: str
     #: Minimum immediate withdrawal buffer as a fraction of TVL.
-    capacity_threshold: Decimal
+    capacity_threshold: Percent
     #: Gross immediate denomination assets, or unknown.
     current_capacity: Decimal | None
     #: Same-block total denomination assets, or unknown.
@@ -71,10 +73,10 @@ class WithdrawalCapacityLimit:
 
     def to_dict(self) -> dict:
         """Serialize the seven public fields using lossless token amounts."""
-        return {"tiny_tvl": self.tiny_tvl, "capacity_warning": self.capacity_warning, "pause_warning": self.pause_warning, "capacity_reason": self.capacity_reason, "capacity_threshold": float(self.capacity_threshold), "current_capacity": format(self.current_capacity, "f") if self.current_capacity is not None else None, "current_tvl": format(self.current_tvl, "f") if self.current_tvl is not None else None}
+        return {"tiny_tvl": self.tiny_tvl, "capacity_warning": self.capacity_warning, "pause_warning": self.pause_warning, "capacity_reason": self.capacity_reason, "capacity_threshold": self.capacity_threshold, "current_capacity": format(self.current_capacity, "f") if self.current_capacity is not None else None, "current_tvl": format(self.current_tvl, "f") if self.current_tvl is not None else None}
 
 
-def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta | None = None) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
+def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta | None = None) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
     """Evaluate a persisted snapshot without RPCs or modifying its contents.
 
     :param observation: Primitive dictionary from the adapter or ``None`` for an old row.
@@ -84,6 +86,8 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Dec
     :return: Assessment and independently machine-readable pause/warning scope.
     """
     threshold = validate_threshold(capacity_threshold)
+    # Keep denomination arithmetic exact while the public fraction uses Percent.
+    decimal_threshold = Decimal(str(threshold))
     data = dict(observation or {"status": "unsupported", "reason": "Withdrawal capacity has not been observed"})
     configured_age = os.environ.get("WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS")
     if max_age is None:
@@ -136,7 +140,7 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Dec
     structural = data.get("structural_warning") is True
     measured = None
     if data.get("status") == "measured" and tvl is not None and tvl > 0 and capacity is not None and capacity <= tvl:
-        measured = capacity < tvl * threshold
+        measured = capacity < tvl * decimal_threshold
     usd_tvl = amount("current_tvl_usd")
     # A USD valuation is independent of whether the exit route is supported.
     # It still needs the same source timestamp and freshness guarantees.
@@ -150,7 +154,7 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Dec
     reasons = [data.get("reason") or "No authoritative withdrawal capacity measurement"]
     if measured is not None:
         ratio = capacity / tvl
-        reasons.append(f"Immediate withdrawal capacity is {capacity:,f} {symbol} against TVL {tvl:,f} {symbol}: {ratio:.2%}; configured threshold {threshold:.2%} ({tvl * threshold:,f} {symbol})")
+        reasons.append(f"Immediate withdrawal capacity is {capacity:,f} {symbol} against TVL {tvl:,f} {symbol}: {ratio:.2%}; configured threshold {threshold:.2%} ({tvl * decimal_threshold:,f} {symbol})")
     elif stale:
         reasons.append("Observation is stale; current capacity and pause state are unknown")
     else:
@@ -165,7 +169,7 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Dec
     return WithdrawalCapacityLimit(warning, pause, "; ".join(reasons), threshold, capacity, tvl, tiny_tvl=tiny_tvl, observation=data)
 
 
-def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | str = "latest", capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD) -> WithdrawalCapacityLimit:
+def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | str = "latest", capacity_threshold: Percent = DEFAULT_CAPACITY_THRESHOLD) -> WithdrawalCapacityLimit:
     """Resolve a single block and assess the adapter's read-only observation."""
     validate_threshold(capacity_threshold)
     web3 = getattr(vault, "web3", None)
@@ -178,7 +182,7 @@ def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | st
     return assess_withdrawal_capacity(data, capacity_threshold, now=datetime.fromtimestamp(block["timestamp"], UTC))
 
 
-def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
+def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
     """Attach fresh assessments after sticky replay without changing existing fields."""
 
     validate_threshold(threshold)

@@ -1,6 +1,6 @@
 # Withdrawal capacity warnings
 
-`vault.fetch_withdrawal_capacity_limit(block_identifier=..., capacity_threshold=Decimal("0.15"))`
+`vault.fetch_withdrawal_capacity_limit(block_identifier=..., capacity_threshold=0.15)`
 returns `WithdrawalCapacityLimit`. The same query is available on the deposit
 manager. This is a read-only catalogue warning for current or near-term
 withdrawals, not an order authorisation or a prediction of future liquidity.
@@ -10,8 +10,10 @@ The JSON exports contain `withdrawal_capacity_limit` with `capacity_warning`,
 `current_tvl`, and `tiny_tvl`. Asset quantities are lossless decimal strings in the denomination
 token; the threshold is a JSON fraction. Exactly 15% does not warn. Configure
 `WITHDRAWAL_CAPACITY_THRESHOLD` at export time; changing it does not require RPC
-refresh. Python APIs accept `Decimal` thresholds only and assert the type; the
-environment boundary converts its text setting to `Decimal`. The sibling `withdrawal_capacity_observation` records the source block,
+refresh. Python APIs use the `Percent` type alias (`float`) for thresholds and assert
+the float type; the environment boundary parses its text setting as `float`.
+Token amounts remain `Decimal`; threshold arithmetic converts the float through
+its decimal string to preserve exact boundary comparisons. The sibling `withdrawal_capacity_observation` records the source block,
 time, measurement status, directional pauses and structural warning scope.
 
 Unknown, partial, failed and stale observations never become healthy or zero
