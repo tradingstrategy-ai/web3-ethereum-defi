@@ -4,7 +4,6 @@ Exporters do not select protocols: adapters opt into these readers only when
 their verified withdrawal path matches the measurement.
 """
 
-from concurrent.futures import Future
 from decimal import Decimal
 from typing import Any
 
@@ -27,8 +26,8 @@ def erc4626_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """Read TVL and idle cash without claiming idle cash is the full exit route."""
     contract = vault.vault_contract
     token = vault.denomination_token
-    total = _read(vault.web3, contract.functions.totalAssets(), block)
-    cash = _read(vault.web3, token.contract.functions.balanceOf(vault.address), block)
+    total = _read(contract.functions.totalAssets(), block)
+    cash = _read(token.contract.functions.balanceOf(vault.address), block)
     data = {"status": "partial", "current_tvl": str(token.convert_to_decimals(total)), "current_capacity": None, "idle_assets": str(token.convert_to_decimals(min(cash, total))), "denomination_symbol": token.symbol, "denomination_address": token.address, "reason": "Idle cash alone does not establish the complete withdrawal capacity", "deposits_paused": None, "withdrawals_paused": None}
     return _with_usd_tvl(data, token)
 
@@ -48,20 +47,20 @@ def morpho_v1_capacity(web3: Web3, address: str, block: int, token: TokenDetails
     :return: Conservative raw denomination assets, excluding stray direct token donations.
     """
     contract = get_deployed_contract(web3, "morpho/MetaMorpho.json", address)
-    morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", _read(web3, contract.functions.MORPHO(), block))
+    morpho = get_deployed_contract(web3, "morpho/MorphoBlue.json", _read(contract.functions.MORPHO(), block))
     result = 0
     visited = set()
-    for index in range(_read(web3, contract.functions.withdrawQueueLength(), block)):
-        market = _read(web3, contract.functions.withdrawQueue(index), block)
+    for index in range(_read(contract.functions.withdrawQueueLength(), block)):
+        market = _read(contract.functions.withdrawQueue(index), block)
         if market in visited:
             continue
         visited.add(market)
-        supply, shares, borrow, *_ = _read(web3, morpho.functions.market(market), block)
-        position = _read(web3, morpho.functions.position(market, address), block)[0]
+        supply, shares, borrow, *_ = _read(morpho.functions.market(market), block)
+        position = _read(morpho.functions.position(market, address), block)[0]
         # Morpho Blue includes one virtual asset and 1e6 virtual shares.
         supplied = position * (supply + 1) // (shares + 10**6)
         result += min(supplied, max(0, supply - borrow))
-    return min(result, _read(web3, token.contract.functions.balanceOf(morpho.address), block))
+    return min(result, _read(token.contract.functions.balanceOf(morpho.address), block))
 
 
 def morpho_v1_observation(vault: VaultBase, block: int) -> dict[str, Any]:
@@ -77,12 +76,12 @@ def upshift_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """Keep deposit-only pauses distinct from withdrawal capacity."""
     contract = vault.upshift_contract
     total_fn = contract.functions.getTotalAssets if vault.multi_asset_like else contract.functions.totalAssets
-    total = _read(vault.web3, total_fn(), block)
+    total = _read(total_fn(), block)
     data = {"status": "partial", "current_tvl": str(vault.denomination_token.convert_to_decimals(total)), "current_capacity": None, "denomination_symbol": vault.denomination_token.symbol, "denomination_address": vault.denomination_token.address, "reason": "Async or protocol-specific withdrawal capacity is not established by a deposit pause"}
 
     for key, name in [("deposits_paused", "depositsPaused"), ("withdrawals_paused", "withdrawalsPaused")]:
         try:
-            data[key] = _read(vault.web3, getattr(contract.functions, name)(), block)
+            data[key] = _read(getattr(contract.functions, name)(), block)
         except (ContractLogicError, BadFunctionCallOutput, ABIFunctionNotFound):
             data[key] = None
     if data["withdrawals_paused"]:
@@ -94,7 +93,7 @@ def ipor_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """Include IPOR fuse uncertainty instead of equating idle cash with exits."""
     data = erc4626_observation(vault, block)
     contract = get_deployed_contract(vault.web3, "ipor/PlasmaVaultBase.json", vault.address)
-    fuses = _read(vault.web3, contract.functions.getInstantWithdrawalFuses(), block)
+    fuses = _read(contract.functions.getInstantWithdrawalFuses(), block)
     if not fuses:
         reserved = 0
         # PlasmaVaultStorageLib corrected slot and deployed legacy fallback.
@@ -103,8 +102,8 @@ def ipor_observation(vault: VaultBase, block: int) -> dict[str, Any]:
             word = vault.web3.eth.get_storage_at(vault.address, slot, block_identifier=block)
             if int.from_bytes(word[-20:]):
                 manager = get_deployed_contract(vault.web3, "ipor/WithdrawManagerCapacity.json", Web3.to_checksum_address(word[-20:]))
-                shares = _read(vault.web3, manager.functions.getSharesToRelease(), block)
-                reserved = _read(vault.web3, vault.vault_contract.functions.convertToAssets(shares), block)
+                shares = _read(manager.functions.getSharesToRelease(), block)
+                reserved = _read(vault.vault_contract.functions.convertToAssets(shares), block)
                 break
         cash = vault.denomination_token.convert_to_raw(Decimal(data.pop("idle_assets")))
         data.update(status="measured", current_capacity=str(vault.denomination_token.convert_to_decimals(max(0, cash - reserved))), reason="IPOR has no instant withdrawal fuses; idle denomination assets minus assets reserved for released withdrawal requests")
@@ -122,7 +121,7 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
 
     data = erc4626_observation(vault, block)
     fluid = get_deployed_contract(vault.web3, "fluid/FTokenCapacity.json", vault.address)
-    raw = _read(vault.web3, fluid.functions.getData(), block)
+    raw = _read(fluid.functions.getData(), block)
     if len(raw) != FLUID_DATA_FIELDS:
         data["reason"] = "Unrecognised Fluid liquidity configuration"
         return data
@@ -131,7 +130,7 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     # rewardsActive, not a native-asset flag. WETH.balanceOf(Liquidity) does
     # not measure the native currency that these contracts wrap on withdrawal.
     try:
-        native = _read(vault.web3, fluid.functions.NATIVE_TOKEN_ADDRESS(), block)
+        native = _read(fluid.functions.NATIVE_TOKEN_ADDRESS(), block)
     except (ContractLogicError, BadFunctionCallOutput, ABIFunctionNotFound, ExtraValueError):
         native = None
     if native is not None:
@@ -147,7 +146,7 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
                 data["liquidity_native_cash"] = str(vault.denomination_token.convert_to_decimals(vault.web3.eth.get_balance(liquidity, block_identifier=block)))
             data["reason"] = "Fluid's liquidity asset could not be confirmed; a wrapped-token balance does not establish native liquidity"
             return data
-        cash = _read(vault.web3, vault.denomination_token.contract.functions.balanceOf(liquidity), block)
+        cash = _read(vault.denomination_token.contract.functions.balanceOf(liquidity), block)
         data["liquidity_asset"] = vault.denomination_token.address
     data["liquidity_cash"] = str(vault.denomination_token.convert_to_decimals(cash))
     if cash == 0:
@@ -162,36 +161,36 @@ def morpho_v2_observation(vault: VaultBase, block: int) -> dict[str, Any]:  # ru
 
     data = erc4626_observation(vault, block)
     outer = get_deployed_contract(vault.web3, "morpho/VaultV2.json", vault.address)
-    address = _read(vault.web3, outer.functions.liquidityAdapter(), block)
+    address = _read(outer.functions.liquidityAdapter(), block)
     token = vault.denomination_token
-    idle = _read(vault.web3, token.contract.functions.balanceOf(vault.address), block)
+    idle = _read(token.contract.functions.balanceOf(vault.address), block)
     available = idle
     try:  # ruff: ignore[too-many-statements-in-try-clause] - Treat unsupported ABI reads across either route as one partial observation.
         if int(address, 16):
-            route = _read(vault.web3, outer.functions.liquidityData(), block)
+            route = _read(outer.functions.liquidityData(), block)
             if len(route) == MORPHO_MARKET_ROUTE_BYTES:
                 adapter = get_deployed_contract(vault.web3, "morpho/MorphoMarketV1AdapterV2.json", address)
-                if _read(vault.web3, adapter.functions.parentVault(), block).lower() != vault.address.lower():
+                if _read(adapter.functions.parentVault(), block).lower() != vault.address.lower():
                     data["reason"] = "Liquidity adapter parent does not match the outer vault"
                     return data
                 market_id = Web3.keccak(route)
-                position = _read(vault.web3, adapter.functions.expectedSupplyAssets(market_id), block)
-                blue = get_deployed_contract(vault.web3, "morpho/MorphoBlue.json", _read(vault.web3, adapter.functions.morpho(), block))
-                supply, _, borrow, *_ = _read(vault.web3, blue.functions.market(market_id), block)
+                position = _read(adapter.functions.expectedSupplyAssets(market_id), block)
+                blue = get_deployed_contract(vault.web3, "morpho/MorphoBlue.json", _read(adapter.functions.morpho(), block))
+                supply, _, borrow, *_ = _read(blue.functions.market(market_id), block)
                 available += min(position, max(0, supply - borrow))
             else:
                 adapter = get_deployed_contract(vault.web3, "morpho/MorphoVaultV1Adapter.json", address)
                 try:
-                    inner_address = _read(vault.web3, adapter.functions.morphoVaultV1(), block)
+                    inner_address = _read(adapter.functions.morphoVaultV1(), block)
                 except (ContractLogicError, BadFunctionCallOutput):
                     data["reason"] = "Unsupported Morpho V2 liquidity adapter; accessible capacity is unknown"
                     return data
-                if _read(vault.web3, adapter.functions.parentVault(), block).lower() != vault.address.lower():
+                if _read(adapter.functions.parentVault(), block).lower() != vault.address.lower():
                     data["reason"] = "Liquidity adapter parent does not match the outer vault"
                     return data
                 inner = get_deployed_contract(vault.web3, "morpho/MetaMorpho.json", inner_address)
                 # This is the real route owner, not an arbitrary zero-share account.
-                available += _read(vault.web3, inner.functions.maxWithdraw(address), block)
+                available += _read(inner.functions.maxWithdraw(address), block)
 
     except (ContractLogicError, BadFunctionCallOutput, ABIFunctionNotFound, ExtraValueError):
         data["reason"] = "Unsupported Morpho V2 route interface; accessible capacity is unknown"
@@ -211,7 +210,7 @@ def euler_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """
     data = erc4626_observation(vault, block)
     contract = get_deployed_contract(vault.web3, "euler/EVaultCapacity.json", vault.address)
-    cash = _read(vault.web3, contract.functions.cash(), block)
+    cash = _read(contract.functions.cash(), block)
     target, operations = vault.fetch_hook_config(block)
     custom = int(target, 16) != 0
     withdrawal_bits = (1 << 2) | (1 << 3)
@@ -227,30 +226,9 @@ def euler_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     return data
 
 
-def _read(web3: Web3, call: ContractFunction, block: int) -> Any:
-    """Coalesce identical same-block reads within one refresh observation batch.
-
-    The cache is bound to this Web3 instance and numeric block, never global.
-    Futures share both results and provider errors without serialising unrelated
-    market reads. Standalone API callers need no cache or mutable global state.
-    """
-    context = getattr(web3, "_withdrawal_capacity_read_context", None)
-    if context is None:
-        return call.call(block_identifier=block)
-
-    cache, lock = context
-    key = (call.address.lower(), call._encode_transaction_data(), block)
-    with lock:
-        owner = key not in cache
-        if owner:
-            cache[key] = Future()
-        future = cache[key]
-    if owner:
-        try:
-            future.set_result(call.call(block_identifier=block))
-        except Exception as error:
-            future.set_exception(error)
-    return future.result()
+def _read(call: ContractFunction, block: int) -> Any:
+    """Read one contract function at the metadata observation block."""
+    return call.call(block_identifier=block)
 
 
 def _with_usd_tvl(data: dict[str, Any], token: TokenDetails) -> dict[str, Any]:

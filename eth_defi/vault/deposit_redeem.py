@@ -1311,7 +1311,7 @@ class VaultDepositManager(ABC):
     never live redemption evidence or a way to bypass production preflights.
     """
 
-    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Decimal | str | None = None) -> "WithdrawalCapacityLimit":
+    def fetch_withdrawal_capacity_limit(self, block_identifier: BlockIdentifier = "latest", capacity_threshold: Decimal = Decimal("0.15")) -> "WithdrawalCapacityLimit":
         """Query the bound vault's withdrawal buffer without constructing trades.
 
         :param block_identifier: Source block; latest resolves once.

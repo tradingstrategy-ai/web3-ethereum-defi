@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.vault.base import VaultBase, VaultSpec
 
 DEFAULT_CAPACITY_THRESHOLD = Decimal("0.15")
@@ -21,19 +22,16 @@ TINY_TVL_THRESHOLD_USD = Decimal("10000")
 
 def configured_capacity_threshold() -> Decimal:
     """Read the export threshold once without changing RPC observation policy."""
-    return validate_threshold(os.environ.get("WITHDRAWAL_CAPACITY_THRESHOLD", str(DEFAULT_CAPACITY_THRESHOLD)))
+    return validate_threshold(Decimal(os.environ.get("WITHDRAWAL_CAPACITY_THRESHOLD", str(DEFAULT_CAPACITY_THRESHOLD))))
 
 
-def validate_threshold(value: Decimal | str) -> Decimal:
-    """Validate a finite fraction without accepting ambiguous binary floats."""
-    if isinstance(value, bool) or not isinstance(value, (Decimal, str)):
-        message = "Capacity threshold must be a Decimal or decimal string"
-        raise ValueError(message)
-    result = Decimal(value)
-    if not result.is_finite() or not 0 <= result <= 1:
+def validate_threshold(value: Decimal) -> Decimal:
+    """Require a Decimal fraction; text conversion belongs at the settings boundary."""
+    assert isinstance(value, Decimal), f"Capacity threshold must be Decimal, got {type(value)}"
+    if not value.is_finite() or not 0 <= value <= 1:
         message = "Capacity threshold must be between zero and one"
         raise ValueError(message)
-    return result
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,12 +59,16 @@ class WithdrawalCapacityLimit:
     #: Source measurement and machine-readable pause and warning scope.
     observation: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Apply the same threshold contract to directly constructed assessments."""
+        validate_threshold(self.capacity_threshold)
+
     def to_dict(self) -> dict:
         """Serialize the seven public fields using lossless token amounts."""
         return {"tiny_tvl": self.tiny_tvl, "capacity_warning": self.capacity_warning, "pause_warning": self.pause_warning, "capacity_reason": self.capacity_reason, "capacity_threshold": float(self.capacity_threshold), "current_capacity": format(self.current_capacity, "f") if self.current_capacity is not None else None, "current_tvl": format(self.current_tvl, "f") if self.current_tvl is not None else None}
 
 
-def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Decimal | str = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta = DEFAULT_MAX_AGE) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
+def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta = DEFAULT_MAX_AGE) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
     """Evaluate a persisted snapshot without RPCs or modifying its contents.
 
     :param observation: Primitive dictionary from the adapter or ``None`` for an old row.
@@ -152,9 +154,8 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Dec
     return WithdrawalCapacityLimit(warning, pause, "; ".join(reasons), threshold, capacity, tvl, tiny_tvl=tiny_tvl, observation=data)
 
 
-def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | str = "latest", capacity_threshold: Decimal | str | None = DEFAULT_CAPACITY_THRESHOLD) -> WithdrawalCapacityLimit:
+def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | str = "latest", capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD) -> WithdrawalCapacityLimit:
     """Resolve a single block and assess the adapter's read-only observation."""
-    capacity_threshold = DEFAULT_CAPACITY_THRESHOLD if capacity_threshold is None else capacity_threshold
     validate_threshold(capacity_threshold)
     web3 = getattr(vault, "web3", None)
     if web3 is None:
@@ -166,12 +167,20 @@ def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | st
     return assess_withdrawal_capacity(data, capacity_threshold, now=datetime.fromtimestamp(block["timestamp"], UTC))
 
 
-def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Decimal | str = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
+def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
     """Attach fresh assessments after sticky replay without changing existing fields."""
 
+    validate_threshold(threshold)
     for row in rows:
         spec = VaultSpec(int(row["chain_id"]), row["address"])
         source = database.rows.get(spec, {})
-        result = assess_withdrawal_capacity(source.get("_withdrawal_capacity_observation"), threshold, now=now)
+        observation = dict(source.get("_withdrawal_capacity_observation") or {})
+        features = source.get("features")
+        if features is None:
+            features = getattr(source.get("_detection_data"), "features", ())
+        if ERC4626Feature.forty_acres_like in (features or ()):
+            observation["structural_warning"] = True
+            observation.setdefault("status", "unsupported")
+        result = assess_withdrawal_capacity(observation or None, threshold, now=now)
         row["withdrawal_capacity_limit"] = result.to_dict()
         row["withdrawal_capacity_observation"] = result.observation

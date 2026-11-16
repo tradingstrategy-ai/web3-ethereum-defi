@@ -1,14 +1,18 @@
 """Warning decisions exercise units, unknowns and independent pause directions."""
 
 import copy
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from functools import partial
 from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity, enrich_withdrawal_capacity
+from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.vault.deposit_redeem import VaultDepositManager
+from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity, configured_capacity_threshold, enrich_withdrawal_capacity, fetch_withdrawal_capacity_limit
 
 NOW = datetime(2026, 11, 16, tzinfo=UTC)
 
@@ -27,15 +31,39 @@ def test_boundary(capacity, expected):
 
 def test_threshold_and_precision():
     data = observation("100.000000000000000001")
-    assert assess_withdrawal_capacity(data, "0.1", now=NOW).capacity_warning is False
-    assert assess_withdrawal_capacity(data, "0.15", now=NOW).capacity_warning is True
-    assert assess_withdrawal_capacity(data, "0.1", now=NOW).to_dict()["current_capacity"] == "100.000000000000000001"
+    assert assess_withdrawal_capacity(data, Decimal("0.1"), now=NOW).capacity_warning is False
+    assert assess_withdrawal_capacity(data, Decimal("0.15"), now=NOW).capacity_warning is True
+    assert assess_withdrawal_capacity(data, Decimal("0.1"), now=NOW).to_dict()["current_capacity"] == "100.000000000000000001"
 
 
-@pytest.mark.parametrize("bad", [True, 0.15, "-0.1", "1.1", "NaN", "Infinity"])
+@pytest.mark.parametrize("bad", [Decimal("-0.1"), Decimal("1.1"), Decimal("NaN"), Decimal("Infinity")])
 def test_invalid_threshold(bad):
     with pytest.raises(ValueError):
         assess_withdrawal_capacity(None, bad)
+
+
+@pytest.mark.parametrize("bad", [None, True, 1, 0.15, "0.15"])
+def test_threshold_requires_decimal(bad):
+    """Reject implicit conversion at API and direct-assessment boundaries."""
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        assess_withdrawal_capacity(None, bad)
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        enrich_withdrawal_capacity([], SimpleNamespace(rows={}), threshold=bad)
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        fetch_withdrawal_capacity_limit(SimpleNamespace(web3=None), capacity_threshold=bad)
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        VaultBase.fetch_withdrawal_capacity_limit(SimpleNamespace(web3=None), capacity_threshold=bad)
+    query = partial(VaultBase.fetch_withdrawal_capacity_limit, SimpleNamespace(web3=None))
+    manager = SimpleNamespace(vault=SimpleNamespace(fetch_withdrawal_capacity_limit=query))
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        VaultDepositManager.fetch_withdrawal_capacity_limit(manager, capacity_threshold=bad)
+    with pytest.raises(AssertionError, match="must be Decimal"):
+        replace(assess_withdrawal_capacity(None), capacity_threshold=bad)
+
+
+def test_threshold_environment_converts_to_decimal(monkeypatch):
+    monkeypatch.setenv("WITHDRAWAL_CAPACITY_THRESHOLD", "0.20")
+    assert configured_capacity_threshold() == Decimal("0.20")
 
 
 def test_unknown_and_stale_do_not_mean_safe():
@@ -69,36 +97,27 @@ def test_export_keeps_existing_fields_and_old_rows():
     assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
 
 
-def test_refresh_is_due_independently_of_discovery(tmp_path, monkeypatch):
-    """The persisted observation changes without modifying other row fields."""
-    import eth_defi.vault.withdrawal_capacity_refresh as refresh
-    from eth_defi.vault.vaultdb import VaultDatabase
-
-    address = "0x" + "a" * 40
-    spec = VaultSpec(1, address)
-    database = VaultDatabase()
-    database.rows[spec] = {"Name": "Retained", "features": set(), "NAV": Decimal(1000)}
-    path = tmp_path / "vaults.pickle"
-    database.write(path)
-    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, get_block=lambda _: {"number": 123, "hash": bytes(32), "timestamp": int(NOW.timestamp())}))
-    calls = []
-
-    def construct(*args, **kwargs):
-        calls.append(kwargs["default_block_identifier"])
-        return SimpleNamespace(fetch_withdrawal_capacity_observation=lambda _: observation())
-
-    monkeypatch.setattr(refresh, "create_vault_instance", construct)
-    assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW) == 1
-    assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + timedelta(minutes=30)) == 0
-    saved = VaultDatabase.read(path).rows[spec]
-    assert saved["Name"] == "Retained" and saved["NAV"] == Decimal(1000)
-    assert calls == [123]
-    assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + timedelta(hours=1)) == 1
-
-
 def test_corrupt_numeric_observation_stays_unknown():
     result = assess_withdrawal_capacity(observation("not-an-amount"), now=NOW)
     assert result.capacity_warning is None and result.current_capacity is None
+
+
+@pytest.mark.parametrize("field", ["features", "_detection_data"])
+@pytest.mark.parametrize("old", [None, {"status": "failed"}, {"status": "measured", "observed_at": "2020-01-01T00:00:00+00:00", "current_capacity": "1000", "current_tvl": "1000"}])
+def test_legacy_40acres_structural_warning_survives_metadata_failure(field, old):
+    """A retained legacy row needs no successful RPC observation to warn."""
+    features = {ERC4626Feature.forty_acres_like}
+    source = {field: features if field == "features" else SimpleNamespace(features=features)}
+    if old is not None:
+        source["_withdrawal_capacity_observation"] = old
+    before = copy.deepcopy(old)
+    spec = VaultSpec(1, "0x" + "a" * 40)
+    rows = [{"chain_id": 1, "address": spec.vault_address}]
+    enrich_withdrawal_capacity(rows, SimpleNamespace(rows={spec: source}), now=NOW)
+    assert rows[0]["withdrawal_capacity_limit"]["capacity_warning"] is True
+    assert rows[0]["withdrawal_capacity_limit"]["current_capacity"] is None
+    assert "40acres" in rows[0]["withdrawal_capacity_limit"]["capacity_reason"]
+    assert old == before
 
 
 def test_zero_tvl_and_partial_cannot_be_safe():
@@ -108,119 +127,6 @@ def test_zero_tvl_and_partial_cannot_be_safe():
     data = observation("500")
     data["status"] = "partial"
     assert assess_withdrawal_capacity(data, now=NOW).capacity_warning is None
-
-
-@pytest.mark.parametrize("fails", [False, True])
-def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path, monkeypatch, fails):
-    """A normal scan tick retains optional refresh and its existing publication."""
-    from eth_defi.vault import scan_all_chains
-
-    observed = []
-    published = []
-
-    def read(web3, path, **kwargs):
-        observed.append(web3)
-        if fails:
-            raise RuntimeError("Capacity stage failed")
-        return 1
-
-    monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity", read)
-    monkeypatch.setenv("JSON_RPC_CAPACITY_TEST", "unused-test-provider")
-    monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda _: "configured-chain")
-    monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_all_chains, "run_post_processing", lambda **kwargs: published.append(True) or {})
-    results = scan_all_chains.run_scan_tick(
-        chains=[],
-        capacity_chains=[scan_all_chains.ChainConfig("Configured", "JSON_RPC_CAPACITY_TEST")],
-        active_protocols=[],
-        scan_prices=False,
-        scan_hypercore=False,
-        scan_grvt=False,
-        scan_lighter=False,
-        scan_hibachi=False,
-        scan_apex=False,
-        scan_core3=False,
-        scan_currency_rates=False,
-        max_workers=1,
-        core3_max_workers=1,
-        currency_api_max_workers=1,
-        frequency="1h",
-        retry_count=0,
-        skip_post_processing=False,
-        skip_cleaning=True,
-        skip_top_vaults=True,
-        skip_sparklines=True,
-        skip_metadata=True,
-        skip_data=True,
-        skip_samples=True,
-        vault_db_path=tmp_path / "vault-metadata-db.pickle",
-        uncleaned_price_path=tmp_path / "vault-prices-1h.parquet",
-        reader_state_path=tmp_path / "vault-reader-state-1h.pickle",
-        hyperliquid_db_path=tmp_path / "hyperliquid-vaults.duckdb",
-        hyperliquid_hf_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
-        grvt_db_path=tmp_path / "grvt-vaults.duckdb",
-        lighter_db_path=tmp_path / "lighter-pools.duckdb",
-        hibachi_db_path=tmp_path / "hibachi-vaults.duckdb",
-        apex_db_path=tmp_path / "apex-vaults.duckdb",
-        bkp_files=[],
-        bkp_dir=tmp_path / "backups",
-        core3_db_path=tmp_path / "core3.duckdb",
-    )
-    assert observed == ["configured-chain"]
-    assert published == [True]
-
-
-@pytest.mark.parametrize("fails", [False, True])
-def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path, monkeypatch, fails):
-    """The real loop's idle branch must not enter any scan/publication pipeline."""
-    import logging
-
-    from eth_defi.vault import scan_all_chains
-
-    monkeypatch.chdir(tmp_path)
-    settings = {
-        "PIPELINE_DATA_DIR": str(tmp_path),
-        "LOOP_INTERVAL_SECONDS": "3600",
-        "MAX_CYCLES": "1",
-        "TEST_CHAINS": "Ethereum",
-        "SKIP_CORE3": "true",
-        "SKIP_XERBERUS": "true",
-        "SKIP_CURRENCY_RATES": "true",
-        "SKIP_POST_PROCESSING": "false",
-        "FORCE_LEAD_DISCOVERY": "false",
-        "JSON_RPC_CAPACITY_TEST": "test-provider",
-    }
-    for name, value in settings.items():
-        monkeypatch.setenv(name, value)
-    for name in ("SCAN_PRICES", "SCAN_HYPERCORE", "SCAN_GRVT", "SCAN_LIGHTER", "SCAN_HIBACHI", "SCAN_APEX", "SCAN_DERIVE_V3", "SCAN_NEUTRAL_TRADE"):
-        monkeypatch.setenv(name, "false")
-    observed = []
-
-    def read(web3, path, **kwargs):
-        observed.append((web3, path))
-        if fails:
-            raise RuntimeError("Capacity stage failed")
-        return 1
-
-    monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity", read)
-    monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda _: "configured-chain")
-    monkeypatch.setattr(scan_all_chains, "build_chain_configs", lambda: [scan_all_chains.ChainConfig("Ethereum", "JSON_RPC_CAPACITY_TEST"), scan_all_chains.ChainConfig("Hyperliquid", "JSON_RPC_UNUSED")])
-    monkeypatch.setattr(scan_all_chains, "get_due_items", lambda *args, **kwargs: ([], []))
-    monkeypatch.setattr(scan_all_chains, "refresh_stale_proxy_state", lambda: None)
-    monkeypatch.setattr(scan_all_chains, "clear_sqlite_rate_limit_databases", lambda: [])
-    monkeypatch.setattr(scan_all_chains, "validate_top_vaults_config", lambda **kwargs: None)
-    monkeypatch.setattr(scan_all_chains, "run_scan_tick", lambda **kwargs: pytest.fail("Idle loop entered full scan/publication pipeline"))
-    monkeypatch.setattr(scan_all_chains, "run_post_processing", lambda **kwargs: pytest.fail("Idle loop started publication"))
-    handlers = set(logging.getLogger().handlers)
-    original_level = logging.getLogger().level
-    try:
-        scan_all_chains._main()
-    finally:
-        for handler in set(logging.getLogger().handlers) - handlers:
-            logging.getLogger().removeHandler(handler)
-            handler.close()
-        logging.getLogger().setLevel(original_level)
-    assert observed == [("configured-chain", tmp_path / "vault-metadata-db.pickle")]
 
 
 @pytest.mark.parametrize(

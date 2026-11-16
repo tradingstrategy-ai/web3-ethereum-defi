@@ -148,7 +148,6 @@ from eth_defi.vault.settlement_data import (
     get_default_vault_settlement_database_path,
 )
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
-from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
 from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
 from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
@@ -2942,30 +2941,6 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
                 logger.info("Purged old backup: %s", entry)
 
 
-def refresh_withdrawal_capacity_for_chains(chains: list[ChainConfig], vault_db_path: Path, *, max_workers: int, tolerance: datetime.timedelta = datetime.timedelta(0)) -> int:
-    """Refresh local observations without triggering the publication pipeline.
-
-    Both completed scan ticks and idle loop ticks call this under the pipeline
-    writer lock. Only normal scan ticks proceed to post-processing and uploads.
-
-    :param chains: All configured chains, independent of discovery due times.
-    :param vault_db_path: Existing catalogue; no price or export files are touched.
-    :param max_workers: Scanner concurrency, capped at four capacity RPC workers.
-    :param tolerance: Scheduling tolerance for the per-vault refresh interval.
-    :return: Number of observations refreshed across successful chains.
-    """
-    refreshed = 0
-    for config in chains:
-        rpc = os.environ.get(config.env_var)
-        if rpc:
-            try:
-                refreshed += refresh_withdrawal_capacity(create_multi_provider_web3(rpc), vault_db_path, max_workers=min(max_workers, 4), tolerance=tolerance)
-            except Exception as error:
-                # Optional observations must not suppress other chains or exports.
-                logger.error("Withdrawal capacity refresh failed for %s (%s)", config.name, type(error).__name__)
-    return refreshed
-
-
 def run_scan_tick(
     chains: list[ChainConfig],
     active_protocols: list[str],
@@ -3008,8 +2983,6 @@ def run_scan_tick(
     excluded_chains: list[str] | None = None,
     hypercore_mode: str = "daily",
     not_due_items: dict[str, float] | None = None,
-    capacity_chains: list[ChainConfig] | None = None,
-    capacity_refresh_tolerance: datetime.timedelta = datetime.timedelta(seconds=30),
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
@@ -3577,10 +3550,6 @@ def run_scan_tick(
             rpc_usage_database.close()
         except duckdb.Error:
             logger.exception("Could not close JSON-RPC usage database %s", rpc_tracking_database_path)
-
-    # All chain writers have joined: optional capacity refresh must not race
-    # catalogue replacement in parallel metadata workers.
-    refresh_withdrawal_capacity_for_chains(capacity_chains if capacity_chains is not None else chains, vault_db_path, max_workers=max_workers, tolerance=capacity_refresh_tolerance)
 
     # Post-processing
     if skip_post_processing:
@@ -4167,8 +4136,6 @@ def _main() -> None:
 
                         tick_results = run_scan_tick(
                             chains=due_chains,
-                            capacity_chains=chains,
-                            capacity_refresh_tolerance=schedule_tolerance,
                             active_protocols=due_protocols,
                             not_due_items=not_due_items,
                             cycle_intervals=cycle_intervals,
@@ -4179,8 +4146,7 @@ def _main() -> None:
                             logger.info("FORCE_LEAD_DISCOVERY was applied; restoring normal cache behaviour for later loop cycles")
                             tick_kwargs["force_lead_discovery"] = False
                     else:
-                        refreshed = refresh_withdrawal_capacity_for_chains(chains, vault_db_path, max_workers=max_workers, tolerance=schedule_tolerance)
-                        logger.info("Cycle %d: no scans due; refreshed %d local capacity observations, sleeping without publication", cycle, refreshed)
+                        logger.info("Cycle %d: nothing due, sleeping", cycle)
                 else:
                     # Single-run: scan everything once, ignore cycle state
                     tick_results = run_scan_tick(

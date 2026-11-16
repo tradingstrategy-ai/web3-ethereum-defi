@@ -1,6 +1,6 @@
 # Withdrawal capacity warnings
 
-`vault.fetch_withdrawal_capacity_limit(block_identifier=..., capacity_threshold="0.15")`
+`vault.fetch_withdrawal_capacity_limit(block_identifier=..., capacity_threshold=Decimal("0.15"))`
 returns `WithdrawalCapacityLimit`. The same query is available on the deposit
 manager. This is a read-only catalogue warning for current or near-term
 withdrawals, not an order authorisation or a prediction of future liquidity.
@@ -10,7 +10,8 @@ The JSON exports contain `withdrawal_capacity_limit` with `capacity_warning`,
 `current_tvl`, and `tiny_tvl`. Asset quantities are lossless decimal strings in the denomination
 token; the threshold is a JSON fraction. Exactly 15% does not warn. Configure
 `WITHDRAWAL_CAPACITY_THRESHOLD` at export time; changing it does not require RPC
-refresh. The sibling `withdrawal_capacity_observation` records the source block,
+refresh. Python APIs accept `Decimal` thresholds only and assert the type; the
+environment boundary converts its text setting to `Decimal`. The sibling `withdrawal_capacity_observation` records the source block,
 time, measurement status, directional pauses and structural warning scope.
 
 Unknown, partial, failed and stale observations never become healthy or zero
@@ -40,19 +41,21 @@ These limits must not be inferred from a zero-share account's maxima.
 At the recorded stcUSD fork, available cash after reserved withdrawal claims is 42.590261 USDC against
 57.010412 USDC TVL, so it does not warn: the earlier 42.953828-USDC limit was a **deposit** limit.
 
-The all-chain coordinator refreshes due capacity observations after parallel
-chain writers have joined and before post-processing. It changes only the new
-observation namespace, uses bounded RPC workers with shared same-block contract reads, and checks an
-hourly due time on every configured-chain tick, including idle ticks. Idle ticks
-refresh only the local catalogue: they do not run cleaning, post-processing or
-uploads. JSON exports retain their existing normal scan/publication cadence.
-Idle refreshes hold the existing pipeline writer lock until catalogue updates finish.
-Warning booleans are assessed when an export is generated; consumers reusing an
-export must also check its observation timestamp for freshness.
-This does not force discovery, rewrite prices or change flags,
-permissions, execution preflights or strategy membership. Old rows become unknown
-until refreshed, so no one-off database migration is needed. Code changes do not
-publish a production export or add trade-executor consumption.
+`create_vault_scan_record()` collects the capacity observation as part of the
+normal vault metadata refresh. It reuses the already constructed adapter and
+metadata source block, stores the observation in the catalogue row and
+isolates optional read failures from otherwise valid metadata. Both JSON
+exports assess the stored observation after cached-row replay. No separate
+capacity scheduler, chain loop or catalogue rewrite is involved. Discovery,
+metadata refresh and publication retain their existing cadence.
+
+Warnings are assessed when the export is generated. Observations older than
+the configured maximum age become unknown; consumers reusing an exported file
+must also check its observation timestamp. Metadata refresh can be less frequent
+than the freshness limit, so this change does not promise hourly capacity data.
+It does not alter flags, permissions, execution preflights or strategy membership.
+Old rows remain unknown until their next normal metadata refresh; no one-off
+catalogue migration is needed. Trade-executor consumption remains separate.
 
 Euler EVK vaults use `cash()` (accounted unborrowed assets), bounded by total
 assets and global withdrawal-hook configuration. Custom exit hooks leave
@@ -63,12 +66,10 @@ example: Base `0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e`, pinned at block
 EulerEarn metavault strategy aggregation needs its own capacity reader; EVK cash
 must not be applied to those metavaults.
 
-Configure `WITHDRAWAL_CAPACITY_REFRESH_SECONDS` (default 3,600) and
-`WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS` (default 7,200) to match the operator's
-refresh/freshness policy. A failure of this optional enrichment stage is logged
-without suppressing unrelated price exports. Numeric coverage is incomplete for
-IPOR routes with configured fuses and Fluid routes with nonzero liquidity; these
-remain explicit partial results, rather than claiming complete family coverage.
+Configure `WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS` (default 7,200) for the export
+freshness policy. Capacity acquisition follows the existing metadata lifecycle;
+there is no capacity-specific refresh interval. Numeric coverage remains partial
+for IPOR routes with configured fuses and Fluid routes with nonzero liquidity.
 
 `tiny_tvl` warns when total USD TVL is strictly below **USD 10,000**; exactly
 USD 10,000 does not warn. It is independent of the 15% withdrawal-buffer rule.
