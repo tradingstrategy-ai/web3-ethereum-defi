@@ -111,6 +111,9 @@ def test_t3tris_consumed_ticket_stays_consumed(web3: Web3) -> None:
 
     # 1. Request, settle and claim a deposit.
     first = manager.create_deposit_request(owner, raw_amount=raw_amount).broadcast(from_=owner)
+    # Mined request analysis must not repeat admission, which now rejects this owner.
+    parser = manager.create_deposit_request_for_analysis(owner, raw_amount)
+    assert parser.parse_deposit_transaction([first.tx_hash]).request_id == first.request_id
     assert manager.can_create_deposit_request(owner) is False
     with pytest.raises(VaultFlowUnavailable, match=T3TRIS_REQUEST_IN_PROGRESS):
         manager.create_deposit_request(owner, raw_amount=raw_amount)
