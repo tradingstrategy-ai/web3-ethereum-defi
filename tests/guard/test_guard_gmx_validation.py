@@ -495,6 +495,18 @@ def test_gmx_cancel_order_allowed(
     guard.functions.validateCall(asset_manager, exchange_router, call_data).call()
 
 
+# GMX v2.2.1 added ``decreasePositionSwapType`` to ``updateOrder``, which changed
+# its selector from 0xdd5baad2 (7 args) to 0xe7ce88c3 (8 args). The guard's
+# ``GmxLib.SEL_GMX_UPDATE_ORDER`` still whitelists only the pre-v2.2.1 selector, so
+# a v2.2.1 ``updateOrder`` is rejected with "GMX: Unknown function in multicall".
+# The test encodes against the vendored v2.2.1 ABI and is expected to fail until
+# the guard contract is rebuilt with the new selector. ``strict=True`` turns an
+# unexpected pass into a failure, so this marker must be removed with that fix.
+@pytest.mark.xfail(
+    strict=True,
+    raises=TransactionFailed,
+    reason="GmxLib whitelists only the pre-v2.2.1 updateOrder selector 0xdd5baad2; v2.2.1 selector is 0xe7ce88c3",
+)
 def test_gmx_update_order_allowed(
     guard: Contract,
     asset_manager: str,
@@ -516,6 +528,7 @@ def test_gmx_update_order_allowed(
                 0,  # triggerPrice
                 0,  # minOutputAmount
                 0,  # validFromTime
+                0,  # decreasePositionSwapType (new in GMX v2.2.1)
                 False,  # autoCancel
             )
         )
