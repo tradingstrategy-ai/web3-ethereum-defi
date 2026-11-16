@@ -148,6 +148,7 @@ from eth_defi.vault.settlement_data import (
     get_default_vault_settlement_database_path,
 )
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
+from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
 from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
 from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
@@ -2953,8 +2954,6 @@ def refresh_withdrawal_capacity_for_chains(chains: list[ChainConfig], vault_db_p
     :param tolerance: Scheduling tolerance for the per-vault refresh interval.
     :return: Number of observations refreshed across successful chains.
     """
-    from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
-
     refreshed = 0
     for config in chains:
         rpc = os.environ.get(config.env_var)

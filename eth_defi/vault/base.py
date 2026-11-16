@@ -2088,6 +2088,8 @@ class VaultBase(ABC):
         :param capacity_threshold: Minimum capacity/TVL fraction, default 15%.
         :return: A WithdrawalCapacityLimit, retaining unknown unsupported readings.
         """
+        # withdrawal_capacity imports VaultSpec from this module at runtime.
+        # Import here to avoid a cycle while the base classes are initialising.
         from eth_defi.vault.withdrawal_capacity import fetch_withdrawal_capacity_limit
 
         return fetch_withdrawal_capacity_limit(self, block_identifier, capacity_threshold)

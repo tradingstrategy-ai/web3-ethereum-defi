@@ -35,6 +35,7 @@ from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, 
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.withdrawal_capacity_readers import morpho_v1_observation
 
 logger = logging.getLogger(__name__)
 
@@ -172,8 +173,6 @@ class MorphoV1Vault(ERC4626Vault):
         :param block_identifier: Resolved numeric source block.
         :return: Primitive capacity, TVL and directional pause observation.
         """
-        from eth_defi.vault.withdrawal_capacity_readers import morpho_v1_observation
-
         data = morpho_v1_observation(self, block_identifier)
         return data
 

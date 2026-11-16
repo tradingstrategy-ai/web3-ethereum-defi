@@ -113,7 +113,6 @@ def test_zero_tvl_and_partial_cannot_be_safe():
 @pytest.mark.parametrize("fails", [False, True])
 def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path, monkeypatch, fails):
     """A normal scan tick retains optional refresh and its existing publication."""
-    import eth_defi.vault.withdrawal_capacity_refresh as refresh
     from eth_defi.vault import scan_all_chains
 
     observed = []
@@ -125,7 +124,7 @@ def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path, mo
             raise RuntimeError("Capacity stage failed")
         return 1
 
-    monkeypatch.setattr(refresh, "refresh_withdrawal_capacity", read)
+    monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity", read)
     monkeypatch.setenv("JSON_RPC_CAPACITY_TEST", "unused-test-provider")
     monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda _: "configured-chain")
     monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *args, **kwargs: None)
@@ -176,7 +175,6 @@ def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path, monk
     """The real loop's idle branch must not enter any scan/publication pipeline."""
     import logging
 
-    import eth_defi.vault.withdrawal_capacity_refresh as refresh
     from eth_defi.vault import scan_all_chains
 
     monkeypatch.chdir(tmp_path)
@@ -204,7 +202,7 @@ def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path, monk
             raise RuntimeError("Capacity stage failed")
         return 1
 
-    monkeypatch.setattr(refresh, "refresh_withdrawal_capacity", read)
+    monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity", read)
     monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda _: "configured-chain")
     monkeypatch.setattr(scan_all_chains, "build_chain_configs", lambda: [scan_all_chains.ChainConfig("Ethereum", "JSON_RPC_CAPACITY_TEST"), scan_all_chains.ChainConfig("Hyperliquid", "JSON_RPC_UNUSED")])
     monkeypatch.setattr(scan_all_chains, "get_due_items", lambda *args, **kwargs: ([], []))

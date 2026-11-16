@@ -39,6 +39,7 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, With
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import upshift_observation
 
 logger = logging.getLogger(__name__)
 
@@ -259,8 +260,6 @@ class UpshiftVault(ERC4626Vault):
         :param block_identifier: Resolved numeric source block.
         :return: Primitive capacity, TVL and directional pause observation.
         """
-        from eth_defi.vault.withdrawal_capacity_readers import upshift_observation
-
         data = upshift_observation(self, block_identifier)
         return data
 

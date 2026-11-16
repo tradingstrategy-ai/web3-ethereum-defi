@@ -34,6 +34,7 @@ from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import ipor_observation
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: PlasmaVaultLib.sol
@@ -344,8 +345,6 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
         :param block_identifier: Numeric source block.
         :return: Primitive buffer and TVL observation.
         """
-        from eth_defi.vault.withdrawal_capacity_readers import ipor_observation
-
         return ipor_observation(self, block_identifier)
 
     @cached_property

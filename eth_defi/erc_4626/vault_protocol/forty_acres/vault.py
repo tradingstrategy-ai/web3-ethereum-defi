@@ -36,6 +36,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import direct_cash_observation
 
 logger = logging.getLogger(__name__)
 
@@ -192,8 +193,6 @@ class FortyAcresVault(ERC4626Vault):
         :param block_identifier: Resolved numeric source block.
         :return: Primitive capacity, TVL and directional pause observation.
         """
-        from eth_defi.vault.withdrawal_capacity_readers import direct_cash_observation
-
         data = direct_cash_observation(self, block_identifier)
         data["structural_warning"] = True
         return data

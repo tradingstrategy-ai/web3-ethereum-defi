@@ -49,6 +49,7 @@ from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, 
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.withdrawal_capacity_readers import morpho_v2_observation
 
 logger = logging.getLogger(__name__)
 
@@ -757,8 +758,6 @@ class MorphoV2Vault(ERC4626Vault):
         :param block_identifier: Numeric block shared by all route reads.
         :return: Primitive observation with unknown capacity for unsupported routes.
         """
-        from eth_defi.vault.withdrawal_capacity_readers import morpho_v2_observation
-
         return morpho_v2_observation(self, block_identifier)
 
     def can_check_redeem(self) -> bool:

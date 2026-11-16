@@ -83,6 +83,7 @@ from eth_defi.vault.export_post_processing import run_vault_export_post_processo
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
+from eth_defi.vault.withdrawal_capacity import configured_capacity_threshold, enrich_withdrawal_capacity
 from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_database_path
 from eth_defi.xerberus.database import XerberusDatabase
@@ -1546,8 +1547,6 @@ def main(
         stale_warning_age_days=stale_warning_age_days,
     )
     vaults = list(select_preferred_nest_routes(sticky_result.vaults))
-    from eth_defi.vault.withdrawal_capacity import enrich_withdrawal_capacity, configured_capacity_threshold
-
     enrich_withdrawal_capacity(vaults, vault_db, threshold=configured_capacity_threshold(), now=now)
     omitted_routes = len(sticky_result.vaults) - len(vaults)
     if omitted_routes:
