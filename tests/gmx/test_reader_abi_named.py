@@ -106,6 +106,24 @@ def test_open_position_processing_reads_v221_named_fields(captured_calls, monkey
     assert public["is_long"] is direct["flags"]["isLong"]
 
 
+def test_ccxt_reader_position_matching_uses_named_market_address(captured_calls):
+    """Sync and async CCXT resolvers read the market address through ABI names."""
+    from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
+    from eth_defi.gmx.ccxt.exchange import GMX
+
+    call = captured_calls["getAccountPositions"]
+    raw_positions = _decode_return(call["return_data"], reader_output_abi("getAccountPositions"))
+    market_address = reader_named_output(raw_positions, "getAccountPositions")[0]["addresses"]["market"]
+
+    class FakeExchange:
+        def _map_market_to_symbol(self, address: str) -> str | None:
+            return "ETH/USD" if address == market_address else None
+
+    expected = reader_named_output(raw_positions, "getAccountPositions")[0]
+    assert GMX._find_matching_reader_position(FakeExchange(), raw_positions, "ETH/USD") == expected
+    assert AsyncGMX._find_matching_reader_position(FakeExchange(), raw_positions, "ETH/USD") == expected
+
+
 def test_liquidation_position_transformer_handles_captured_position(captured_calls):
     """The liquidation transformer preserves captured Position, fee and PnL values."""
     captured = captured_calls["getAccountPositions"]
@@ -188,25 +206,40 @@ def test_named_abi_value_rejects_fixed_size_arrays():
 
 
 def test_reader_tuple_numeric_position_indexing_is_absent():
-    """Catch regressions to numeric Position.Numbers tuple access."""
+    """Catch positional Reader tuple reads in package and GMX scripts."""
+    repository_root = Path(__file__).parents[2]
     package_root = Path(__file__).parents[2] / "eth_defi" / "gmx"
+    scripts_root = repository_root / "scripts"
     offenders = []
-    safe_layout_allowlist = {
+    safe_layout_allowlist = [
         # EventEmitter EventData is a seven-family tuple; these accesses select each family's item list.
-        ("historical_oracle.py", "event_data["): "EventEmitter data family layout, independently covered by event decoding tests",
+        ("eth_defi/gmx/historical_oracle.py", "event_data[", "EventEmitter data-family tuple access, independently covered by event decoding tests"),
         # GlvReader getGlvInfoList retains the stable (addresses, market addresses) layout.
-        ("glv_stats.py", "raw_glv["): "GlvReader getGlvInfoList output layout is unchanged and tuple lengths are asserted",
-        # Exchange CCXT position rows are third-party CCXT normalized data, not Reader output.
-        ("ccxt/exchange.py", "pos[0][1]"): "CCXT exchange position rows use the documented normalized symbol tuple",
-        ("ccxt/async_support/exchange.py", "pos[0][1]"): "CCXT exchange position rows use the documented normalized symbol tuple",
+        ("eth_defi/gmx/core/glv_stats.py", "raw_glv[", "GlvReader getGlvInfoList output layout is unchanged and tuple lengths are asserted"),
         # OHLCV rows are CCXT candle tuples, not contract outputs.
-        ("ccxt/validation.py", "ohlcv[0][0]"): "CCXT OHLCV rows use the normalized timestamp-first tuple",
-        ("ccxt/exchange.py", "ohlcv[0][1]"): "CCXT OHLCV rows use the normalized open-price tuple",
-    }
-    for source in package_root.rglob("*.py"):
-        for line_number, line in enumerate(source.read_text().splitlines(), start=1):
-            if re.search(r"\[[0-9]\]\[[0-9]\]", line):
-                relative_name = source.relative_to(package_root).as_posix()
-                if not any(relative_name.endswith(name) and token in line for (name, token) in safe_layout_allowlist):
-                    offenders.append(f"{source}:{line_number}: {line.strip()}")
+        ("eth_defi/gmx/ccxt/validation.py", "ohlcv[0][0]", "CCXT OHLCV rows use the normalised timestamp-first tuple"),
+        ("eth_defi/gmx/ccxt/exchange.py", "ohlcv[0][1]", "CCXT OHLCV rows use the normalised open-price tuple"),
+        # These ABI outputs have multiple unnamed top-level return values; existing length checks guard this layout.
+        ("eth_defi/gmx/core/gm_prices.py", "result[0]", "Reader getMarketTokenPrice has unnamed multiple outputs; two-field length assertion guards the ABI layout"),
+        ("eth_defi/gmx/order/swap_order.py", "result[0]", "Reader getSwapAmountOut has unnamed multiple outputs; three-field length assertion guards the ABI layout"),
+        ("eth_defi/gmx/order/swap_order.py", "result[1]", "Reader getSwapAmountOut has unnamed multiple outputs; three-field length assertion guards the ABI layout"),
+        # These are local tuples unrelated to contract or Reader outputs.
+        ("scripts/gmx/gmx_ccxt_order_creation.py", "result[1]", "Local order-creation check tuple, not a contract or Reader output"),
+        ("scripts/erc-4626/benchmark-sparklines.py", "result[5]", "Local render benchmark tuple, not a contract or Reader output"),
+        ("scripts/erc-4626/benchmark-sparklines.py", "result[0]", "Local render benchmark tuple, not a contract or Reader output"),
+        ("scripts/gmx/gmx_ccxt_positions.py", "positions[0]", "CCXT positions are normalised dictionaries, not raw Reader tuples"),
+        ("scripts/gmx/gmx_ccxt_trading.py", "orders[0]", "CCXT orders are normalised dictionaries, not raw Reader tuples"),
+        ("eth_defi/gmx/graphql/client.py", "positions[0]", "Subsquid GraphQL records are named dictionaries, not Reader tuples"),
+    ]
+    scan_roots = (package_root, scripts_root)
+    for scan_root in scan_roots:
+        for source in scan_root.rglob("*.py"):
+            for line_number, line in enumerate(source.read_text().splitlines(), start=1):
+                relative_name = source.relative_to(repository_root).as_posix()
+                double_index = re.search(r"\[[0-9]+\]\[[0-9]+\]", line)
+                reader_collection_index = re.search(r"\b(?:raw_(?:positions|orders|position|order)|positions|orders)\[\d+\]", line)
+                numeric_result = re.search(r"\bresult\[\d+\]", line)
+                if double_index or reader_collection_index or numeric_result:
+                    if not any(relative_name.endswith(name) and token in line and reason for (name, token, reason) in safe_layout_allowlist):
+                        offenders.append(f"{source}:{line_number}: {line.strip()}")
     assert offenders == []

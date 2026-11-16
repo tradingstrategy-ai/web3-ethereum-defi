@@ -28,6 +28,7 @@ from eth_defi.gmx.contracts import (
     GMXReleaseMismatchError,
     clear_contract_address_cache,
     get_contract_addresses,
+    get_glv_reader_contract,
     get_pinned_contract_release,
     get_reader_contract,
 )
@@ -163,6 +164,8 @@ def test_sepolia_cannot_use_v221_abis(no_network):
         assert get_contract_addresses("arbitrum_sepolia", release=release).exchangerouter == SEPOLIA_EXCHANGE_ROUTER
     with pytest.raises(GMXReleaseMismatchError, match="Sepolia contracts have not migrated"):
         get_reader_contract(None, "arbitrum_sepolia")
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia contracts have not migrated"):
+        get_glv_reader_contract(None, "arbitrum_sepolia")
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])

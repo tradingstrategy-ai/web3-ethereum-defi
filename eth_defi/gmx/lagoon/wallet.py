@@ -46,7 +46,7 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import BadFunctionCallOutput, PersistentConnectionError, ProviderConnectionError, RequestTimedOut, TimeExhausted, TooManyRequests, Web3RPCError
 
 from eth_defi.basewallet import BaseWallet
-from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.contracts import GMX_VENDORED_ABI_RELEASE, get_contract_addresses
 from eth_defi.gmx.whitelist import assert_gmx_router_whitelisted
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 
@@ -62,6 +62,21 @@ GMX_PREFLIGHT_CHAIN_NAMES: dict[int, str] = {
     42161: "arbitrum",
     421614: "arbitrum_sepolia",
 }
+
+GMX_PREFLIGHT_TRANSPORT_ERRORS = (
+    PersistentConnectionError,
+    ProviderConnectionError,
+    RequestTimedOut,
+    TimeExhausted,
+    TooManyRequests,
+    Web3RPCError,
+    TimeoutError,
+    requests.RequestException,
+)
+
+
+class GMXRouterPreflightConfigurationError(RuntimeError):
+    """A guard call returned no usable result while checking a GMX router."""
 
 
 class LagoonGMXTradingWallet(BaseWallet):
@@ -147,8 +162,13 @@ class LagoonGMXTradingWallet(BaseWallet):
         self.gas_buffer = gas_buffer
         self.forward_eth = forward_eth
         #: ExchangeRouter addresses already confirmed as allowed by the guard.
-        #: Keyed by router, so a change of the resolved release is re-checked.
+        #: Keyed by router address within the fixed v2.2.1 candidate set.
         self._verified_routers: set[str] = set()
+        #: Chain identity is read lazily once, and only for a known GMX router.
+        self._chain_id: int | None = None
+        #: Known router addresses let unrelated transaction targets return
+        #: before querying ``eth_chainId``.
+        self._router_chains = {chain: get_contract_addresses(chain, release=GMX_VENDORED_ABI_RELEASE).exchangerouter.lower() for chain in GMX_PREFLIGHT_CHAIN_NAMES.values()}
 
         logger.info(
             "LagoonGMXTradingWallet initialised: safe=%s, asset_manager=%s, forward_eth=%s",
@@ -203,9 +223,11 @@ class LagoonGMXTradingWallet(BaseWallet):
         GMX rotated to (or that contract resolution now pins) but the guard does
         not know reverts on-chain with ``Target not allowed`` and burns gas on
         every attempt. This asks the guard once per resolved router, before
-        signing, and caches a success. Targets other than the currently resolved
-        ExchangeRouter are ignored. A failure is not cached, so it is retried
-        once the guard owner has whitelisted the router.
+        signing, and caches a success. Unrelated targets and verified routers
+        return before any RPC. The chain ID is read lazily once per wallet. A
+        transport failure warns and leaves the router uncached so the onchain
+        guard remains authoritative; an empty guard response is treated as a
+        configuration error and blocks signing.
 
         :param target:
             Destination of the transaction about to be wrapped in ``performCall()``.
@@ -213,15 +235,39 @@ class LagoonGMXTradingWallet(BaseWallet):
         :raises eth_defi.gmx.whitelist.GMXRouterNotWhitelisted:
             If the target is the resolved ExchangeRouter and the guard does not
             allow it. The message names the router and the guard.
+        :raises GMXRouterPreflightConfigurationError:
+            If the guard returns no usable result for the router allowlist call.
         """
-        chain = GMX_PREFLIGHT_CHAIN_NAMES.get(self.web3.eth.chain_id)
-        if chain is None or not isinstance(target, str):
+        if not isinstance(target, str):
+            return
+
+        target_lower = target.lower()
+        if target_lower in {router.lower() for router in self._verified_routers}:
+            return
+
+        candidate_chain = next((chain for chain, router in self._router_chains.items() if target_lower == router), None)
+        if candidate_chain is None:
+            return
+
+        router = target
+        if self._chain_id is None:
+            try:
+                self._chain_id = self.web3.eth.chain_id
+            except GMX_PREFLIGHT_TRANSPORT_ERRORS as exc:
+                logger.warning(
+                    "Could not read chain ID while preflighting GMX router %s against vault guard %s (%s); continuing and relying on the onchain guard",
+                    router,
+                    self.vault.trading_strategy_module.address,
+                    type(exc).__name__,
+                )
+                return
+
+        chain = GMX_PREFLIGHT_CHAIN_NAMES.get(self._chain_id)
+        if chain != candidate_chain:
             return
 
         addresses = get_contract_addresses(chain)
         router = addresses.exchangerouter
-        if target.lower() != router.lower() or router in self._verified_routers:
-            return
 
         try:
             assert_gmx_router_whitelisted(
@@ -229,17 +275,11 @@ class LagoonGMXTradingWallet(BaseWallet):
                 router,
                 order_vault=addresses.ordervault,
             )
-        except (
-            BadFunctionCallOutput,
-            PersistentConnectionError,
-            ProviderConnectionError,
-            RequestTimedOut,
-            TimeExhausted,
-            TooManyRequests,
-            Web3RPCError,
-            TimeoutError,
-            requests.RequestException,
-        ) as exc:
+        except BadFunctionCallOutput as exc:
+            raise GMXRouterPreflightConfigurationError(
+                f"Could not read the GMX router allowlist for router {router} from vault guard {self.vault.trading_strategy_module.address}; check that the guard is deployed and supports isAllowedGMXRouter.",
+            ) from exc
+        except GMX_PREFLIGHT_TRANSPORT_ERRORS as exc:
             # The onchain guard enforces this mapping. An RPC outage must not
             # prevent order submission; leave it uncached so the next order retries.
             logger.warning(

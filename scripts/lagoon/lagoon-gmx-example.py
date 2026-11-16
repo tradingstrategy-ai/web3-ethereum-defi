@@ -180,6 +180,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses, get_reader_contract
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, resolve_gmx_market_labels
@@ -857,7 +858,8 @@ def wait_for_position(
         positions = reader.functions.getAccountPositions(datastore, safe_address, 0, 10).call()
         if bool(positions) == expect_open:
             if positions:
-                size_usd = positions[0][1][0] / 10**30
+                named_positions = reader_named_output(positions, "getAccountPositions")
+                size_usd = named_positions[0]["numbers"]["sizeInUsd"] / 10**30
                 print(f"  keeper filled: position open, sizeUsd=${size_usd:,.2f}")
             else:
                 print("  keeper settled: account flat")

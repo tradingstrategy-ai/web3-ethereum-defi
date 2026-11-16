@@ -4,7 +4,6 @@ These tests use mocks to verify the wallet logic without requiring
 real blockchain access or GMX API calls.
 """
 
-import dataclasses
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -300,8 +299,8 @@ def test_lagoon_wallet_caches_successful_router_preflight(mock_vault, mock_asset
 
 @pytest.mark.parametrize(
     "rpc_error",
-    [Web3RPCError("connection failed: https://secret.example/rpc-key"), BadFunctionCallOutput("empty result")],
-    ids=["web3-rpc-error", "bad-function-call-output"],
+    [Web3RPCError("connection failed: https://secret.example/rpc-key")],
+    ids=["web3-rpc-error"],
 )
 def test_lagoon_wallet_rpc_preflight_failure_is_not_cached_or_blocking(mock_vault, mock_asset_manager, caplog, rpc_error):
     """An unavailable RPC cannot prevent signing and is retried next time."""
@@ -337,11 +336,64 @@ def test_lagoon_wallet_does_not_ignore_guard_contract_reverts(mock_vault, mock_a
     mock_asset_manager.sign_bound_call_with_new_nonce.assert_not_called()
 
 
-def test_lagoon_wallet_rechecks_when_resolved_router_changes(mock_vault, mock_asset_manager):
-    """A different resolved ExchangeRouter is not covered by an earlier success."""
+def test_lagoon_wallet_empty_guard_result_is_configuration_error(mock_vault, mock_asset_manager):
+    """An empty guard response blocks signing with guard and router context."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import GMXRouterPreflightConfigurationError, LagoonGMXTradingWallet
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    is_allowed.return_value.call.side_effect = BadFunctionCallOutput("empty result")
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    with pytest.raises(GMXRouterPreflightConfigurationError, match=f"router {router}.*guard {mock_vault.trading_strategy_module.address}"):
+        wallet.sign_transaction_with_new_nonce({"to": router, "data": b"", "value": 0})
+    mock_asset_manager.sign_bound_call_with_new_nonce.assert_not_called()
+
+
+def test_lagoon_wallet_chain_id_transport_failure_is_fail_open_and_uncached(mock_vault, mock_asset_manager, caplog):
+    """Chain-ID transport failures fail open, while unrelated and cached targets avoid the RPC."""
     from eth_defi.gmx.contracts import get_contract_addresses
     from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
-    from eth_defi.gmx.whitelist import GMXRouterNotWhitelisted
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    class UnavailableChainId:
+        def __init__(self):
+            self.calls = 0
+
+        @property
+        def chain_id(self):
+            self.calls += 1
+            raise Web3RPCError("connection failed: https://secret.example/rpc-key")
+
+    failing_eth = UnavailableChainId()
+    mock_vault.web3.eth = failing_eth
+    wallet.preflight_exchange_router("0x0000000000000000000000000000000000000001")
+    assert failing_eth.calls == 0
+
+    wallet.preflight_exchange_router(router)
+    assert failing_eth.calls == 1
+    assert router not in wallet._verified_routers
+    assert is_allowed.call_count == 0
+    assert "secret.example" not in caplog.text
+
+    mock_vault.web3.eth = Mock(chain_id=42161)
+    wallet.preflight_exchange_router(router)
+    assert is_allowed.call_count == 1
+
+    mock_vault.web3.eth = failing_eth
+    wallet.preflight_exchange_router(router)
+    assert failing_eth.calls == 1
+    assert is_allowed.call_count == 1
+
+
+def test_lagoon_wallet_skips_unpinned_router_target(mock_vault, mock_asset_manager):
+    """Unknown router addresses are not candidates under the fixed release pin."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
     old_router = get_contract_addresses("arbitrum").exchangerouter
     new_router = "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1"
@@ -350,13 +402,9 @@ def test_lagoon_wallet_rechecks_when_resolved_router_changes(mock_vault, mock_as
     wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
     wallet.sign_transaction_with_new_nonce({"to": old_router, "data": b"", "value": 0})
 
-    is_allowed.return_value.call.return_value = False
-    resolved = dataclasses.replace(get_contract_addresses("arbitrum"), exchangerouter=new_router)
-    with patch("eth_defi.gmx.lagoon.wallet.get_contract_addresses", return_value=resolved):
-        with pytest.raises(GMXRouterNotWhitelisted):
-            wallet.sign_transaction_with_new_nonce({"to": new_router, "data": b"", "value": 0})
+    wallet.sign_transaction_with_new_nonce({"to": new_router, "data": b"", "value": 0})
 
-    assert is_allowed.call_count == 2
+    assert is_allowed.call_count == 1
 
 
 def test_lagoon_wallet_ignores_non_router_targets(mock_vault, mock_asset_manager):

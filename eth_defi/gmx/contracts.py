@@ -3,6 +3,15 @@ GMX Protocol Contract Infrastructure
 
 This module provides contract addresses, ABIs, and utility functions for interacting
 with GMX protocol contracts across supported networks.
+
+The vendored v2.2.1 Reader and GLV Reader ABIs are compatible with Arbitrum only.
+Arbitrum Sepolia Reader-dependent flows (market loading via the registration
+filter, onchain position reads, CCXT GMX market loading, and the Lagoon testnet
+position helpers) and Avalanche contract resolution are unsupported in this
+release. Reader helpers and Avalanche resolution raise
+:class:`GMXReleaseMismatchError` until matching per-chain ABIs are vendored.
+Static Sepolia address inspection remains available through
+:data:`NETWORK_CONTRACTS` and :func:`get_contract_addresses`.
 """
 
 import json
@@ -917,16 +926,18 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
     :param chain: Network name
     :return: Web3 contract instance for GLV Reader
     """
+    _assert_reader_abi_compatible_chain(chain)
     addresses = get_contract_addresses(chain)
     return get_deployed_contract(web3, "gmx/GlvReader.json", addresses.glvreader)
 
 
 def _assert_reader_abi_compatible_chain(chain: str) -> None:
-    """Reject Sepolia before binding the Arbitrum Reader ABI.
+    """Reject Sepolia before binding either Arbitrum Reader ABI.
 
-    Sepolia's static Reader address still exposes the older tuple layout, so
-    binding the Arbitrum v2.2.1 Reader ABI there can fail decoding or produce
-    incorrect values. Address-only resolution remains available.
+    Sepolia's static Reader and GLV Reader addresses have not migrated to the
+    Arbitrum v2.2.1 tuple layouts. Binding either vendored ABI there can fail
+    decoding or produce incorrect values. Address-only resolution remains
+    available.
 
     :param chain: GMX network name.
     :return: None when Reader binding is compatible.
@@ -934,7 +945,7 @@ def _assert_reader_abi_compatible_chain(chain: str) -> None:
     """
     if chain == "arbitrum_sepolia":
         raise GMXReleaseMismatchError(
-            "GMX vendored Reader ABI is v2.2.1 for Arbitrum mainnet only; Arbitrum Sepolia contracts have not migrated and its Reader uses an older layout.",
+            "GMX vendored Reader and GLV Reader ABIs are v2.2.1 for Arbitrum mainnet only; Arbitrum Sepolia contracts have not migrated and use older layouts.",
         )
 
 
