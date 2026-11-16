@@ -70,7 +70,7 @@ def test_capacity_source(anvil_fork_pool, chain, block, address, kind):
         elif kind == "euler":
             from eth_defi.abi import get_deployed_contract
 
-            cash = get_deployed_contract(web3, "euler/EVaultCapacity.json", vault.address).functions.cash().call(block_identifier=block)
+            cash = get_deployed_contract(web3, "euler/EVault.json", vault.address).functions.cash().call(block_identifier=block)
             assert result.current_capacity == token.convert_to_decimals(min(cash, total))
             assert result.capacity_warning is True
             assert type(vault).__name__ == "EulerVault"
@@ -93,7 +93,7 @@ def test_fluid_native_liquidity_is_not_zero_weth(anvil_fork_pool):
     address = "0x90551c1795392094FE6D29B758EcCD233cFAa260"
     vault = create_vault_instance_autodetect(web3, address)
     assert vault.denomination_token.address.lower() == WRAPPED_NATIVE_TOKEN[1].lower()
-    contract = get_deployed_contract(web3, "fluid/FTokenCapacity.json", address)
+    contract = get_deployed_contract(web3, "fluid/FTokenNativeUnderlying.json", address)
     liquidity = contract.functions.getData().call(block_identifier=block)[0]
     native_cash = web3.eth.get_balance(liquidity, block_identifier=block)
     wrapped_cash = vault.denomination_token.contract.functions.balanceOf(liquidity).call(block_identifier=block)

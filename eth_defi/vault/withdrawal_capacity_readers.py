@@ -1,7 +1,9 @@
 """Block-pinned measurement helpers reused by protocol adapters.
 
 Exporters do not select protocols: adapters opt into these readers only when
-their verified withdrawal path matches the measurement.
+their verified withdrawal path matches the measurement. Contract bindings use
+complete verified ABI files; fetch provenance is recorded in the Euler, Fluid
+and IPOR ABI-folder README inventories, never in hand-declared view stubs.
 """
 
 from concurrent.futures import Future
@@ -102,7 +104,7 @@ def ipor_observation(vault: VaultBase, block: int) -> dict[str, Any]:
         for slot in ("0x465d2ff0062318fe6f4c7e9ac78cfcd70bc86a1d992722875ef83a9770513100", "0xb37e8684757599da669b8aea811ee2b3693b2582d2c730fab3f4965fa2ec3e11"):
             word = vault.web3.eth.get_storage_at(vault.address, slot, block_identifier=block)
             if int.from_bytes(word[-20:]):
-                manager = get_deployed_contract(vault.web3, "ipor/WithdrawManagerCapacity.json", Web3.to_checksum_address(word[-20:]))
+                manager = get_deployed_contract(vault.web3, "ipor/WithdrawManager.json", Web3.to_checksum_address(word[-20:]))
                 shares = _read(vault.web3, manager.functions.getSharesToRelease(), block)
                 reserved = _read(vault.web3, vault.vault_contract.functions.convertToAssets(shares), block)
                 break
@@ -121,7 +123,7 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """
 
     data = erc4626_observation(vault, block)
-    fluid = get_deployed_contract(vault.web3, "fluid/FTokenCapacity.json", vault.address)
+    fluid = get_deployed_contract(vault.web3, "fluid/iToken.json", vault.address)
     raw = _read(vault.web3, fluid.functions.getData(), block)
     if len(raw) != FLUID_DATA_FIELDS:
         data["reason"] = "Unrecognised Fluid liquidity configuration"
@@ -131,7 +133,8 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     # rewardsActive, not a native-asset flag. WETH.balanceOf(Liquidity) does
     # not measure the native currency that these contracts wrap on withdrawal.
     try:
-        native = _read(vault.web3, fluid.functions.NATIVE_TOKEN_ADDRESS(), block)
+        native_contract = get_deployed_contract(vault.web3, "fluid/FTokenNativeUnderlying.json", vault.address)
+        native = _read(vault.web3, native_contract.functions.NATIVE_TOKEN_ADDRESS(), block)
     except (ContractLogicError, BadFunctionCallOutput, ABIFunctionNotFound, ExtraValueError):
         native = None
     if native is not None:
@@ -210,7 +213,7 @@ def euler_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     Euler Vault Kit's Constants.sol (deposit/mint 0/1, withdraw/redeem 2/3).
     """
     data = erc4626_observation(vault, block)
-    contract = get_deployed_contract(vault.web3, "euler/EVaultCapacity.json", vault.address)
+    contract = get_deployed_contract(vault.web3, "euler/EVault.json", vault.address)
     cash = _read(vault.web3, contract.functions.cash(), block)
     target, operations = vault.fetch_hook_config(block)
     custom = int(target, 16) != 0

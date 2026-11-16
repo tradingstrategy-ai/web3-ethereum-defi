@@ -1,5 +1,7 @@
 # 1.2
 
+- Replace withdrawal-capacity ABI stubs with complete verified Sourcify/Etherscan interfaces and require per-folder source inventories (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).
+
 - Add a resumable single-chain manual withdrawal-capacity runner using normal scanner batches and isolated state, with published-catalogue JSON input and tabulated scheduling/warnings (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).
 
 - Refresh withdrawal capacity independently every 24 hours for vaults meeting the shared USD 10,000 denomination guideline and weekly otherwise, with matching export freshness; use the Percent float alias for thresholds at Python API boundaries (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).

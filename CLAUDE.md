@@ -526,7 +526,7 @@ Apply the following rules when adding tests or reviewing existing coverage.
   and are loaded through the shared helpers in `eth_defi.abi`.
 - **Before fetching a new ABI, or loading/using any ABI file, read
   `eth_defi/abi/README.md` first.** It explains what EVM ABIs are, how to fetch
-  verified ABIs from Sourcify, Etherscan and GitHub (including proxy →
+  complete verified ABIs from Sourcify (preferred) or Etherscan (including proxy →
   implementation resolution), where to store them, and the API references for
   loading and using ABI files in their different roles (contract binding,
   deployment, ABI-less encoded calls, event decoding).
@@ -581,8 +581,10 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
   return decoding for readability and maintainability. For multicalls, use
   `EncodedCall.from_contract_call()`. Reserve ABI-less probes for interfaces
   without an available ABI and explain that reason in the code.
-- Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
-- Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
+- **Do not generate stub, minimal, hand-written or selectively reduced ABI JSON files.** Do not assemble an ABI from manually declared functions or merge fragments to replace an unavailable verified interface.
+- For external contracts, fetch and store the **complete verified ABI** from **Sourcify (preferred)** or **Etherscan**. Preserve every function, event, error and tuple component from the returned ABI. Resolve proxies to their verified implementations and record both addresses. If neither source has a verified ABI, report the gap instead of inventing one.
+- Every ABI folder must include a `README.md` inventory with a Markdown table containing **Filename**, **Source**, **Fetched at (UTC)** and **Reason to fetch**. Add one row per ABI JSON file. Link the exact verified source and record the chain, deployment/implementation addresses and actual retrieval timestamp. For pre-existing files with missing provenance, mark the source or fetch time as unrecorded rather than inventing it.
+- Regenerate complete ABI/compiler artifacts for this repository's integrated smart contracts with the compiler/Makefile; never hand-edit them. Record the build source in the folder inventory.
 
 ## Documentation
 
@@ -652,8 +654,10 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
 | `docs/source/api/derive/README.md` | Derive.xyz integration — implementation summary |
 | `eth_defi/aave_v3/README.md` | About Aave v3 integration |
-| `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify/Etherscan/GitHub, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
-| `eth_defi/abi/ipor/README.md` | IPOR ABI source links |
+| `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify (preferred) or Etherscan, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
+| `eth_defi/abi/euler/README.md` | Euler ABI inventory, verified EVault implementation and legacy provenance |
+| `eth_defi/abi/fluid/README.md` | Fluid ABI inventory for ERC-20 and native lending routes |
+| `eth_defi/abi/ipor/README.md` | IPOR ABI inventory, verified withdrawal manager and legacy provenance |
 | `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
 | `eth_defi/abi/yield_basis/README.md` | YieldBasis ABI sources and reviewed deployment interfaces |
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
