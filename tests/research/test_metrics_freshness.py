@@ -514,9 +514,9 @@ def test_crypto_two_run_patch_keeps_previous_record(tmp_path: Path, monkeypatch:
     assert len(mock_calls) == 1
     assert [record["id"] for record in metadata["vaults"]] == [vault_id]
     assert metadata["vaults"][0]["generated_at"] == fixed_generated_at.isoformat()
-    # Patched crypto rows keep their original record verbatim (accepted
-    # staleness): no scrubbing or extra markers, unlike the stablecoin
-    # bundle's sticky fallback.
+    # Patched crypto rows retain their original metrics (accepted staleness),
+    # while capacity is assessed separately from current observations. Unlike
+    # the stablecoin bundle's sticky fallback, metrics need no extra markers.
     assert metadata["vaults"][0]["sticky_export"] is False
     state_after_run2 = json.loads(metrics_state_path.read_text(encoding="utf-8"))["vaults"]
     assert state_after_run2[vault_id]["metrics_updated_at"] == first_run_updated_at

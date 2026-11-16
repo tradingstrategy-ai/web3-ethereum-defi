@@ -5,6 +5,7 @@ warning uses a separate USD valuation. Unknown capacity stays unknown: idle cash
 need not be the complete withdrawal buffer.
 """
 
+import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -15,6 +16,8 @@ from typing import Any
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultBase, VaultSpec
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CAPACITY_THRESHOLD: Percent = 0.15
 #: Capacity checks for vaults meeting the USD 10,000 guideline.
@@ -183,12 +186,32 @@ def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | st
 
 
 def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
-    """Attach fresh assessments after sticky replay without changing existing fields."""
+    """Attach fresh assessments without changing non-capacity export fields.
+
+    Legacy records may carry only the combined vault ``id``. Resolve that
+    identity without adding fields to the record; unresolvable identities get
+    an unknown assessment instead of interrupting catalogue publication.
+
+    :param rows: Export records enriched in place, including retained legacy rows.
+    :param database: Catalogue supplying the latest persisted observations.
+    :param threshold: Minimum withdrawal buffer as a fraction of TVL.
+    :param now: Optional UTC clock for observation freshness.
+    :return: ``None`` after updating capacity fields on each record.
+    """
 
     validate_threshold(threshold)
     for row in rows:
-        spec = VaultSpec(int(row["chain_id"]), row["address"])
-        source = database.rows.get(spec, {})
+        spec = None
+        try:
+            if row.get("chain_id") is not None and row.get("address") is not None:
+                spec = VaultSpec(int(row["chain_id"]), row["address"])
+            elif isinstance(row.get("id"), str):
+                spec = VaultSpec.parse_string(row["id"])
+        except (AssertionError, TypeError, ValueError, OverflowError) as error:
+            # Retained export rows must not prevent publication when their
+            # identity cannot be matched to a current catalogue observation.
+            logger.warning("Cannot resolve withdrawal capacity export identity (%s); exporting unknown capacity", type(error).__name__)
+        source = database.rows.get(spec, {}) if spec is not None else {}
         observation = dict(source.get("_withdrawal_capacity_observation") or {})
         features = source.get("features")
         if features is None:

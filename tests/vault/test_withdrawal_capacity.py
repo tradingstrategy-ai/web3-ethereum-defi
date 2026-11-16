@@ -103,9 +103,49 @@ def test_corrupt_numeric_observation_stays_unknown():
     assert result.capacity_warning is None and result.current_capacity is None
 
 
+@pytest.mark.parametrize("missing_field", ["chain_id", "address", "both"])
+@pytest.mark.parametrize("uppercase", [False, True])
+def test_export_resolves_legacy_id(missing_field: str, uppercase: bool) -> None:
+    """Sticky records with only a combined identity retain measured warnings."""
+    spec = VaultSpec(1, "0x" + "a" * 40)
+    row = {"id": spec.as_string_id(), "chain_id": 1, "address": spec.vault_address}
+    if uppercase:
+        row["id"] = row["id"].upper()
+    for field in ("chain_id", "address") if missing_field == "both" else (missing_field,):
+        row.pop(field)
+    original = dict(row)
+    database = SimpleNamespace(rows={spec: {"_withdrawal_capacity_observation": observation("100")}})
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    assert {key: row[key] for key in original} == original
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is True
+    assert row["withdrawal_capacity_limit"]["current_capacity"] == "100"
+    assert set(row) == set(original) | {"withdrawal_capacity_limit", "withdrawal_capacity_observation"}
+
+
+@pytest.mark.parametrize("identity", [{}, {"id": "invalid"}, {"id": 42}, {"chain_id": "invalid", "address": "invalid"}, {"chain_id": 1, "address": "invalid"}])
+def test_export_unresolvable_identity_is_unknown(identity: dict) -> None:
+    """Unmatched legacy identities cannot replay an old safe capacity claim."""
+    row = {**identity, "withdrawal_capacity_limit": {"capacity_warning": False, "current_capacity": "1000"}, "withdrawal_capacity_observation": observation("1000")}
+    enrich_withdrawal_capacity([row], SimpleNamespace(rows={}), now=NOW)
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
+    assert row["withdrawal_capacity_limit"]["current_capacity"] is None
+    assert row["withdrawal_capacity_limit"]["pause_warning"] is None
+    assert row["withdrawal_capacity_observation"]["status"] == "unsupported"
+
+
+def test_export_does_not_override_invalid_explicit_identity() -> None:
+    """A conflicting legacy id must not override invalid explicit identity fields."""
+    spec = VaultSpec(1, "0x" + "a" * 40)
+    row = {"id": spec.as_string_id(), "chain_id": "invalid", "address": spec.vault_address}
+    database = SimpleNamespace(rows={spec: {"_withdrawal_capacity_observation": observation("1000")}})
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
+
+
 @pytest.mark.parametrize("field", ["features", "_detection_data"])
 @pytest.mark.parametrize("old", [None, {"status": "failed"}, {"status": "measured", "observed_at": "2020-01-01T00:00:00+00:00", "current_capacity": "1000", "current_tvl": "1000"}])
-def test_legacy_40acres_structural_warning_survives_metadata_failure(field, old):
+@pytest.mark.parametrize("id_only", [False, True])
+def test_legacy_40acres_structural_warning_survives_metadata_failure(field: str, old: dict | None, id_only: bool) -> None:
     """A retained legacy row needs no successful RPC observation to warn."""
     features = {ERC4626Feature.forty_acres_like}
     source = {field: features if field == "features" else SimpleNamespace(features=features)}
@@ -113,7 +153,7 @@ def test_legacy_40acres_structural_warning_survives_metadata_failure(field, old)
         source["_withdrawal_capacity_observation"] = old
     before = copy.deepcopy(old)
     spec = VaultSpec(1, "0x" + "a" * 40)
-    rows = [{"chain_id": 1, "address": spec.vault_address}]
+    rows = [{"id": spec.as_string_id()} if id_only else {"chain_id": 1, "address": spec.vault_address}]
     enrich_withdrawal_capacity(rows, SimpleNamespace(rows={spec: source}), now=NOW)
     assert rows[0]["withdrawal_capacity_limit"]["capacity_warning"] is True
     assert rows[0]["withdrawal_capacity_limit"]["current_capacity"] is None
