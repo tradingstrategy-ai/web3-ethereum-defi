@@ -4,6 +4,7 @@ These tests use mocks to verify the wallet logic without requiring
 real blockchain access or GMX API calls.
 """
 
+import dataclasses
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -239,3 +240,80 @@ def test_approve_gmx_collateral_via_vault():
             assert tx_hash is not None
             mock_vault.transact_via_trading_strategy_module.assert_called_once()
             mock_wallet.sign_bound_call_with_new_nonce.assert_called_once()
+
+
+def _configure_guard(mock_vault, allowed: bool):
+    """Make the mocked TradingStrategyModuleV0 answer ``isAllowedGMXRouter``."""
+    guard_functions = mock_vault.trading_strategy_module.functions
+    guard_functions.isAllowedGMXRouter.return_value.call.return_value = allowed
+    mock_vault.trading_strategy_module.address = "0x33e391A6dce6874198177BdCC89B2230A2BC6202"
+    return guard_functions.isAllowedGMXRouter
+
+
+def test_lagoon_wallet_refuses_unwhitelisted_exchange_router(mock_vault, mock_asset_manager):
+    """An order to a router the guard rejects raises before any gas is spent."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+    from eth_defi.gmx.whitelist import GMXRouterNotWhitelisted
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    _configure_guard(mock_vault, allowed=False)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    with pytest.raises(GMXRouterNotWhitelisted) as exc_info:
+        wallet.sign_transaction_with_new_nonce({"to": router, "data": b"", "value": 0, "gas": 1_000_000})
+
+    assert router in str(exc_info.value)
+    assert mock_vault.trading_strategy_module.address in str(exc_info.value)
+    mock_asset_manager.sign_bound_call_with_new_nonce.assert_not_called()
+
+
+def test_lagoon_wallet_caches_successful_router_preflight(mock_vault, mock_asset_manager):
+    """An allowed router is checked on the guard once, then served from the cache."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+
+    router = get_contract_addresses("arbitrum").exchangerouter
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    tx = {"to": router, "data": b"", "value": 0, "gas": 1_000_000}
+    wallet.sign_transaction_with_new_nonce(tx)
+    wallet.sign_transaction_with_new_nonce(tx)
+
+    assert is_allowed.call_count == 1
+    assert mock_asset_manager.sign_bound_call_with_new_nonce.call_count == 2
+
+
+def test_lagoon_wallet_rechecks_when_resolved_router_changes(mock_vault, mock_asset_manager):
+    """A different resolved ExchangeRouter is not covered by an earlier success."""
+    from eth_defi.gmx.contracts import get_contract_addresses
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+    from eth_defi.gmx.whitelist import GMXRouterNotWhitelisted
+
+    old_router = get_contract_addresses("arbitrum").exchangerouter
+    new_router = "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1"
+    assert old_router != new_router
+    is_allowed = _configure_guard(mock_vault, allowed=True)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+    wallet.sign_transaction_with_new_nonce({"to": old_router, "data": b"", "value": 0})
+
+    is_allowed.return_value.call.return_value = False
+    resolved = dataclasses.replace(get_contract_addresses("arbitrum"), exchangerouter=new_router)
+    with patch("eth_defi.gmx.lagoon.wallet.get_contract_addresses", return_value=resolved):
+        with pytest.raises(GMXRouterNotWhitelisted):
+            wallet.sign_transaction_with_new_nonce({"to": new_router, "data": b"", "value": 0})
+
+    assert is_allowed.call_count == 2
+
+
+def test_lagoon_wallet_ignores_non_router_targets(mock_vault, mock_asset_manager):
+    """Token approvals and other calls do not trigger the guard preflight."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
+
+    is_allowed = _configure_guard(mock_vault, allowed=False)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
+
+    wallet.sign_transaction_with_new_nonce({"to": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "data": b"", "value": 0})
+
+    is_allowed.assert_not_called()

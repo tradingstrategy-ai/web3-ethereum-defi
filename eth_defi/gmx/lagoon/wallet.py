@@ -44,6 +44,8 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from eth_defi.basewallet import BaseWallet
+from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.whitelist import assert_gmx_router_whitelisted
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 
 
@@ -51,6 +53,14 @@ logger = logging.getLogger(__name__)
 
 #: Default gas buffer to add for performCall overhead
 PERFORM_CALL_GAS_BUFFER = 200_000
+
+#: EVM chain id -> GMX network name, for resolving the ExchangeRouter to preflight.
+#: Chains absent here are not checked.
+GMX_PREFLIGHT_CHAIN_NAMES: dict[int, str] = {
+    42161: "arbitrum",
+    43114: "avalanche",
+    421614: "arbitrum_sepolia",
+}
 
 
 class LagoonGMXTradingWallet(BaseWallet):
@@ -135,6 +145,9 @@ class LagoonGMXTradingWallet(BaseWallet):
         self.web3 = vault.web3
         self.gas_buffer = gas_buffer
         self.forward_eth = forward_eth
+        #: ExchangeRouter addresses already confirmed as allowed by the guard.
+        #: Keyed by router, so a change of the resolved release is re-checked.
+        self._verified_routers: set[str] = set()
 
         logger.info(
             "LagoonGMXTradingWallet initialised: safe=%s, asset_manager=%s, forward_eth=%s",
@@ -182,6 +195,35 @@ class LagoonGMXTradingWallet(BaseWallet):
         """
         return self.asset_manager.allocate_nonce()
 
+    def preflight_exchange_router(self, target: HexAddress | str) -> None:
+        """Refuse to sign an order to a GMX ExchangeRouter the guard does not allow.
+
+        A Lagoon vault guard enforces a fixed router allowlist, so a router that
+        GMX rotated to (or that contract resolution now pins) but the guard does
+        not know reverts on-chain with ``Target not allowed`` and burns gas on
+        every attempt. This asks the guard once per resolved router, before
+        signing, and caches a success. Targets other than the currently resolved
+        ExchangeRouter are ignored. A failure is not cached, so it is retried
+        once the guard owner has whitelisted the router.
+
+        :param target:
+            Destination of the transaction about to be wrapped in ``performCall()``.
+
+        :raises eth_defi.gmx.whitelist.GMXRouterNotWhitelisted:
+            If the target is the resolved ExchangeRouter and the guard does not
+            allow it. The message names the router and the guard.
+        """
+        chain = GMX_PREFLIGHT_CHAIN_NAMES.get(self.web3.eth.chain_id)
+        if chain is None or not isinstance(target, str):
+            return
+
+        router = get_contract_addresses(chain).exchangerouter
+        if target.lower() != router.lower() or router in self._verified_routers:
+            return
+
+        assert_gmx_router_whitelisted(self.vault.trading_strategy_module, router)
+        self._verified_routers.add(router)
+
     def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransactionWithNonce:
         """Sign a transaction with a new nonce.
 
@@ -199,6 +241,8 @@ class LagoonGMXTradingWallet(BaseWallet):
         calldata = tx.get("data", b"")
         value = tx.get("value", 0)
         original_gas = tx.get("gas", 1_500_000)
+
+        self.preflight_exchange_router(target)
 
         logger.debug(
             "Wrapping transaction through performCall: target=%s, value=%s, gas=%s",
@@ -261,6 +305,7 @@ class LagoonGMXTradingWallet(BaseWallet):
         """
         # Get the target address and calldata from the function
         target = func.address
+        self.preflight_exchange_router(target)
         # Build the calldata
         calldata = func._encode_transaction_data()
         tx_value = value or (tx_params.get("value", 0) if tx_params else 0)
