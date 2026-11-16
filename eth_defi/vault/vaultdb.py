@@ -99,7 +99,7 @@ class VaultRow(TypedDict):
     #: Normal withdrawal wait bounds and mechanism.
     _withdrawal_period: NotRequired[WithdrawalPeriod | None]
 
-    #: Block-pinned withdrawal capacity observation collected with vault metadata.
+    #: Block-pinned withdrawal capacity observation refreshed on its own TVL cadence.
     _withdrawal_capacity_observation: NotRequired[dict]
 
     features: set[ERC4626Feature]
@@ -395,6 +395,12 @@ class VaultDatabase:
                 retained["_deposit_manager"] = None
                 self.rows[spec] = retained
                 continue
+
+            # Capacity has its own refresh schedule. A metadata-only replacement
+            # must retain it while the protocol identity remains the same.
+            if existing is not None and "_withdrawal_capacity_observation" not in new_row and existing.get("features") == new_row.get("features") and "_withdrawal_capacity_observation" in existing:
+                new_row = new_row.copy()
+                new_row["_withdrawal_capacity_observation"] = existing["_withdrawal_capacity_observation"]
 
             # An adapter may not have a maintained classification yet. Keep a
             # previously persisted value instead of erasing manual metadata on

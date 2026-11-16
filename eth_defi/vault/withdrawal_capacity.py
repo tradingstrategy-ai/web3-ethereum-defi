@@ -15,7 +15,13 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.vault.base import VaultBase, VaultSpec
 
 DEFAULT_CAPACITY_THRESHOLD = Decimal("0.15")
-DEFAULT_MAX_AGE = timedelta(hours=2)
+#: Capacity checks for vaults meeting the USD 10,000 guideline.
+CAPACITY_REFRESH_INTERVAL = timedelta(days=1)
+#: Capacity checks for smaller or unvalued vaults.
+LOW_TVL_CAPACITY_REFRESH_INTERVAL = timedelta(days=7)
+#: Allow the scanner to reach its next hourly tick before expiring a snapshot.
+CAPACITY_FRESHNESS_GRACE = timedelta(hours=2)
+DEFAULT_MAX_AGE = CAPACITY_REFRESH_INTERVAL + CAPACITY_FRESHNESS_GRACE
 #: USD TVL strictly below this amount triggers the tiny-vault warning.
 TINY_TVL_THRESHOLD_USD = Decimal("10000")
 
@@ -68,20 +74,25 @@ class WithdrawalCapacityLimit:
         return {"tiny_tvl": self.tiny_tvl, "capacity_warning": self.capacity_warning, "pause_warning": self.pause_warning, "capacity_reason": self.capacity_reason, "capacity_threshold": float(self.capacity_threshold), "current_capacity": format(self.current_capacity, "f") if self.current_capacity is not None else None, "current_tvl": format(self.current_tvl, "f") if self.current_tvl is not None else None}
 
 
-def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta = DEFAULT_MAX_AGE) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
+def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Decimal = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta | None = None) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
     """Evaluate a persisted snapshot without RPCs or modifying its contents.
 
     :param observation: Primitive dictionary from the adapter or ``None`` for an old row.
     :param capacity_threshold: Buffer/TVL fraction; equality does not warn.
     :param now: UTC clock injected by deterministic export tests.
-    :param max_age: Maximum permitted age of a current observation.
+    :param max_age: Explicit age limit, otherwise the observation cadence plus grace.
     :return: Assessment and independently machine-readable pause/warning scope.
     """
     threshold = validate_threshold(capacity_threshold)
     data = dict(observation or {"status": "unsupported", "reason": "Withdrawal capacity has not been observed"})
     configured_age = os.environ.get("WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS")
-    if configured_age is not None and max_age == DEFAULT_MAX_AGE:
-        max_age = timedelta(seconds=int(configured_age))
+    if max_age is None:
+        if configured_age:
+            max_age = timedelta(seconds=int(configured_age))
+        elif data.get("refresh_interval_seconds") == int(LOW_TVL_CAPACITY_REFRESH_INTERVAL.total_seconds()):
+            max_age = LOW_TVL_CAPACITY_REFRESH_INTERVAL + CAPACITY_FRESHNESS_GRACE
+        else:
+            max_age = DEFAULT_MAX_AGE
     if max_age <= timedelta(0):
         message = "Withdrawal capacity maximum age must be positive"
         raise ValueError(message)

@@ -4,7 +4,7 @@ import datetime
 import json
 from decimal import Decimal
 from pathlib import Path
-from types import MethodType, SimpleNamespace
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -17,9 +17,8 @@ from eth_defi.erc_4626.vault_protocol.lagoon import vault as lagoon
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import MorphoVaultAPIStatus
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
-from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
-from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultBase, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
@@ -29,7 +28,6 @@ from eth_defi.vault.rpc_scan_state import is_metadata_due
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.top_vaults_json import add_exported_vault
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.vault.withdrawal_capacity import enrich_withdrawal_capacity
 
 
 class _FakeToken:
@@ -212,64 +210,33 @@ def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     )
 
 
-@pytest.mark.parametrize("fails", [False, TimeoutError, AssertionError, ArithmeticError, ExtraValueError])
-@pytest.mark.parametrize("structural", [False, True])
-def test_scan_record_collects_capacity_and_exports_it(monkeypatch, tmp_path, fails, structural):
-    """Normal metadata refresh owns the observation, using its existing adapter once."""
-    features = {ERC4626Feature.forty_acres_like if structural else ERC4626Feature.morpho_like}
-    detection = _create_detection(features)
-    observed_at = datetime.datetime(2026, 7, 3, tzinfo=datetime.UTC)
-    calls = []
-
-    def get_block(number):
-        assert number == 123
-        return {"number": number, "timestamp": int(observed_at.timestamp()), "hash": bytes(32)}
-
+def test_scan_record_does_not_read_capacity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Normal metadata refresh leaves capacity to its independent loop."""
+    # Use the existing fake adapter to detect any metadata-to-capacity dispatch.
     vault = _FakeVault()
-    vault.web3 = SimpleNamespace(eth=SimpleNamespace(get_block=get_block))
-    vault.chain_id = detection.chain
-    vault.fetch_withdrawal_capacity_limit = MethodType(VaultBase.fetch_withdrawal_capacity_limit, vault)
-
-    def read_capacity(number):
-        calls.append(number)
-        if fails:
-            raise fails("Capacity reader unavailable")
-        return {"status": "measured", "current_capacity": "25", "current_tvl": "100", "denomination_symbol": "USDC", "deposits_paused": False, "withdrawals_paused": False}
-
-    vault.fetch_withdrawal_capacity_observation = read_capacity
-    constructions = []
-
-    def construct(*args, **kwargs):
-        constructions.append(kwargs["default_block_identifier"])
-        return vault
-
-    monkeypatch.setattr(scan_module, "create_vault_instance", construct)
-    if fails is ExtraValueError:
-        with pytest.raises(ExtraValueError):
-            scan_module.create_vault_scan_record(vault.web3, detection, block_identifier=123, token_cache={})
-        assert constructions == [123] and calls == [123]
-        return
-    record = scan_module.create_vault_scan_record(vault.web3, detection, block_identifier=123, token_cache={})
-    assert constructions == [123] and calls == [123]
+    vault.fetch_withdrawal_capacity_limit = lambda *args, **kwargs: pytest.fail("Metadata read capacity")
+    vault.fetch_withdrawal_capacity_observation = lambda *args, **kwargs: pytest.fail("Metadata read capacity")
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *args, **kwargs: vault)
+    record = scan_module.create_vault_scan_record(None, _create_detection({ERC4626Feature.morpho_like}), block_identifier=123, token_cache={})
     assert record["Name"] == "Feature Vault"
-    observation = record["_withdrawal_capacity_observation"]
-    assert observation["block_number"] == 123
-    assert observation["structural_warning"] is structural
-    assert observation["status"] == ("failed" if fails else "measured")
-    if fails:
-        assert fails.__name__ in observation["reason"]
-    if not fails:
-        assert observation["observed_at"] == observed_at.isoformat()
-        assert observation["block_hash"] == bytes(32).hex()
+    assert "_withdrawal_capacity_observation" not in record
+
+
+@pytest.mark.parametrize("same_protocol", [False, True])
+def test_metadata_merge_preserves_independent_capacity(same_protocol: bool) -> None:
+    """A metadata replacement retains capacity only for an unchanged adapter identity."""
     database = VaultDatabase()
-    database.rows[detection.get_spec()] = record
-    path = tmp_path / "metadata.pickle"
-    database.write(path)
-    rows = [{"chain_id": detection.chain, "address": detection.address}]
-    enrich_withdrawal_capacity(rows, VaultDatabase.read(path), now=observed_at)
-    limit = rows[0]["withdrawal_capacity_limit"]
-    assert limit["capacity_warning"] is (True if structural else None if fails else False)
-    assert limit["current_capacity"] == (None if fails else "25")
+    detection = _create_detection({ERC4626Feature.morpho_like})
+    spec = detection.get_spec()
+    observation = {"status": "measured", "current_tvl": "10000", "refresh_interval_seconds": 86400}
+    database.rows[spec] = {"Name": "Before", "NAV": Decimal(10000), "Denomination": "USDC", "features": detection.features, "_withdrawal_capacity_observation": observation}
+    replacement = {"Name": "After", "NAV": Decimal(20000), "Denomination": "USDC", "features": detection.features if same_protocol else {ERC4626Feature.ipor_like}}
+    database.update_leads_and_rows(detection.chain, 123, {}, {spec: replacement})
+    assert database.rows[spec]["Name"] == "After"
+    assert ("_withdrawal_capacity_observation" in database.rows[spec]) is same_protocol
+    if same_protocol:
+        assert database.rows[spec]["_withdrawal_capacity_observation"] == observation
+    assert "_withdrawal_capacity_observation" not in replacement
 
 
 def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -68,7 +68,7 @@ def test_threshold_environment_converts_to_decimal(monkeypatch):
 
 def test_unknown_and_stale_do_not_mean_safe():
     assert assess_withdrawal_capacity(None, now=NOW).capacity_warning is None
-    result = assess_withdrawal_capacity(observation(), now=NOW + timedelta(hours=3))
+    result = assess_withdrawal_capacity(observation(), now=NOW + timedelta(hours=27))
     assert result.capacity_warning is None and result.current_capacity is None
     assert result.observation["status"] == "stale"
 
@@ -202,7 +202,7 @@ def test_morpho_v1_ignores_donations_and_deduplicates_queue(monkeypatch):
 def test_stale_observation_removes_current_claims():
     data = observation("0", deposits_paused=True, withdrawals_paused=True)
     data["reason"] = "Withdrawals are administratively paused"
-    result = assess_withdrawal_capacity(data, now=NOW + timedelta(hours=3))
+    result = assess_withdrawal_capacity(data, now=NOW + timedelta(hours=27))
     assert result.pause_warning is None
     assert "administratively paused" not in result.capacity_reason
     assert "current_capacity" not in result.observation
@@ -226,7 +226,7 @@ def test_tiny_tvl_unknown_without_usd_and_after_expiry():
     assert assess_withdrawal_capacity(data, now=NOW).tiny_tvl is None
     data["current_tvl_usd"] = "15000"
     assert assess_withdrawal_capacity(data, now=NOW).tiny_tvl is False
-    expired = assess_withdrawal_capacity(data, now=NOW + timedelta(hours=3))
+    expired = assess_withdrawal_capacity(data, now=NOW + timedelta(hours=27))
     assert expired.tiny_tvl is None
     assert "current_tvl_usd" not in expired.observation
 

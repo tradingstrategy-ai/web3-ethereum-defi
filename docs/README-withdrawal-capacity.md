@@ -15,7 +15,8 @@ environment boundary converts its text setting to `Decimal`. The sibling `withdr
 time, measurement status, directional pauses and structural warning scope.
 
 Unknown, partial, failed and stale observations never become healthy or zero
-capacity. Measurements older than two hours are stale. Historical API queries
+capacity. Measurements expire after their refresh interval plus two hours of
+scanner grace. Historical API queries
 are assessed at the source block's timestamp, while JSON export checks freshness
 against its clock. Capacity is gross before fees. Pause warnings include deposit
 pauses: inspect `deposits_paused` and `withdrawals_paused` before interpreting one
@@ -41,21 +42,52 @@ These limits must not be inferred from a zero-share account's maxima.
 At the recorded stcUSD fork, available cash after reserved withdrawal claims is 42.590261 USDC against
 57.010412 USDC TVL, so it does not warn: the earlier 42.953828-USDC limit was a **deposit** limit.
 
-`create_vault_scan_record()` collects the capacity observation as part of the
-normal vault metadata refresh. It reuses the already constructed adapter and
-metadata source block, stores the observation in the catalogue row and
-isolates optional read failures from otherwise valid metadata. Both JSON
-exports assess the stored observation after cached-row replay. No separate
-capacity scheduler, chain loop or catalogue rewrite is involved. Discovery,
-metadata refresh and publication retain their existing cadence.
+Withdrawal capacity has its own loop, separate from `create_vault_scan_record()`.
+Vaults whose latest known TVL meets the **USD 10,000** guideline are checked every
+24 hours; smaller vaults and unknown denominations are checked every seven days.
+The scheduler reuses `convert_usd_threshold_to_denomination()` with the existing
+policy rates: USD 1 per stablecoin unit, USD 2,000 per ETH-like unit and
+USD 60,000 per BTC-like unit. Thus 5 WETH meets the daily boundary, while
+0.16 WBTC stays weekly. This is a scheduling guideline, not a live USD valuation
+or a new source for the `tiny_tvl` warning.
 
-Warnings are assessed when the export is generated. Observations older than
-the configured maximum age become unknown; consumers reusing an exported file
-must also check its observation timestamp. Metadata refresh can be less frequent
-than the freshness limit, so this change does not promise hourly capacity data.
-It does not alter flags, permissions, execution preflights or strategy membership.
-Old rows remain unknown until their next normal metadata refresh; no one-off
-catalogue migration is needed. Trade-executor consumption remains separate.
+The last capacity TVL takes precedence over metadata NAV; metadata supplies the
+fallback when the reader has no TVL. A successful read can promote or demote the
+next interval. A failed read retains a previously daily schedule rather than
+falling back to an older, smaller metadata NAV. New rows without an observation
+join the due queue on the next loop tick, subject to the per-chain batch limit. Missing or malformed scheduling timestamps
+are also due immediately.
+
+The scanner loads the catalogue once per tick and selects due rows before
+constructing providers or adapters. Chains with no due rows do not open an RPC
+provider. Each tick attempts at most 100 vaults per chain by default; configure
+`WITHDRAWAL_CAPACITY_MAX_VAULTS_PER_CHAIN` to change this positive limit. Older
+overdue observations are selected first, and the log reports due, selected and
+deferred counts. Large initial catalogues catch up across ticks, so consumers
+may see unknown observations while that backlog drains. The recorded interval
+governs scheduling until the next read, keeping its deadline aligned with
+export freshness even if metadata NAV changes. The scanner skips fresh rows
+before reading capacity. Due rows share a single numeric block (head minus three), at most four
+workers per chain and a cache that coalesces identical contract reads within the
+batch. After metadata workers finish, the loop updates only the capacity
+namespace under the existing pipeline writer lock and atomically writes the
+catalogue once per chain with results, reusing the same in-memory database
+across chains. Metadata replacements retain a previous
+capacity observation when the protocol classification is unchanged.
+
+Both normal and idle scanner ticks run the capacity loop. Idle ticks update
+local observations without starting post-processing or uploads; normal scan
+ticks retain the existing publication cadence. Both JSON exports assess stored
+observations after cached-row replay. Discovery, flags, permissions, execution
+preflights and strategy membership retain their existing behaviour.
+
+Warnings are assessed when the export is generated. Daily observations expire
+after 26 hours and weekly observations after seven days plus two hours. Legacy
+observations without a recorded interval use 26 hours. Older observations become
+unknown; consumers reusing an exported file must also check its observation
+timestamp. Old rows without an observation remain unknown until the loop reads
+them. No one-off catalogue migration is needed. Trade-executor consumption
+remains separate.
 
 Euler EVK vaults use `cash()` (accounted unborrowed assets), bounded by total
 assets and global withdrawal-hook configuration. Custom exit hooks leave
@@ -66,10 +98,11 @@ example: Base `0x4c1aeda9b43efcf1da1d1755b18802aabe90f61e`, pinned at block
 EulerEarn metavault strategy aggregation needs its own capacity reader; EVK cash
 must not be applied to those metavaults.
 
-Configure `WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS` (default 7,200) for the export
-freshness policy. Capacity acquisition follows the existing metadata lifecycle;
-there is no capacity-specific refresh interval. Numeric coverage remains partial
-for IPOR routes with configured fuses and Fluid routes with nonzero liquidity.
+`WITHDRAWAL_CAPACITY_MAX_AGE_SECONDS`, when set to a nonempty value, overrides
+the adaptive export freshness limit for all vaults. It does not change the daily
+or weekly acquisition schedule. Leave it unset or empty to use each observation's
+recorded cadence plus grace. Numeric coverage remains partial for IPOR routes
+with configured fuses and Fluid routes with nonzero liquidity.
 
 `tiny_tvl` warns when total USD TVL is strictly below **USD 10,000**; exactly
 USD 10,000 does not warn. It is independent of the 15% withdrawal-buffer rule.

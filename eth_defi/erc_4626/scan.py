@@ -13,9 +13,8 @@ from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, MismatchedABI, Web3Exception, Web3RPCError, Web3ValueError
 from web3.types import BlockIdentifier
 
-from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_lending_protocol
+from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -420,11 +419,6 @@ def create_vault_scan_record(
         "_minimum_deposit": None,
         "_minimum_redemption": None,
         "_share_price_source": None,
-        "_withdrawal_capacity_observation": {
-            "status": "unsupported",
-            "reason": "No constructed vault was available during metadata refresh",
-            "structural_warning": ERC4626Feature.forty_acres_like in detection.features,
-        },
     }
 
     try:
@@ -461,28 +455,6 @@ def create_vault_scan_record(
         # adapter. Each consuming method still guards its own requested block;
         # specialised methods are free to bypass these ordinary raw inputs.
         vault._rpc_metadata_snapshot = metadata_snapshot
-
-    # Use the already constructed, source-block-pinned adapter. Capacity is an
-    # optional metadata field and must not erase otherwise readable vault data.
-    try:
-        capacity = vault.fetch_withdrawal_capacity_limit(block_identifier).observation
-    except ExtraValueError:
-        # Preserve the main metadata reader's provider fail-fast behaviour.
-        raise
-    except ROW_READ_EXCEPTIONS as error:
-        logger.warning("Capacity metadata unavailable for %s (%s)", detection.address, type(error).__name__)
-        capacity = {"status": "failed", "reason": f"Withdrawal capacity metadata read failed ({type(error).__name__})"}
-    if not isinstance(capacity, dict):
-        capacity = {"status": "failed", "reason": "Withdrawal capacity could not be read during metadata refresh"}
-    capacity = dict(capacity)
-    capacity.pop("capacity_warning_source", None)
-    capacity["structural_warning"] = capacity.get("structural_warning") is True or getattr(vault, "withdrawal_capacity_structural_warning", False) is True or ERC4626Feature.forty_acres_like in detection.features
-    capacity.setdefault("chain_id", detection.chain)
-    capacity.setdefault("vault_address", detection.address)
-    if isinstance(block_identifier, int):
-        capacity.setdefault("block_number", block_identifier)
-    capacity["checked_at"] = native_datetime_utc_now().isoformat()
-    empty_record["_withdrawal_capacity_observation"] = capacity
 
     try:
         if isinstance(vault, LagoonVault):
@@ -578,7 +550,6 @@ def create_vault_scan_record(
             "_whitelist_notes": whitelist_notes,
             "_minimum_deposit": minimum_deposit,
             "_minimum_redemption": minimum_redemption,
-            "_withdrawal_capacity_observation": capacity,
         }
         data.update(activity_status)
         data.update(lending_stats)
