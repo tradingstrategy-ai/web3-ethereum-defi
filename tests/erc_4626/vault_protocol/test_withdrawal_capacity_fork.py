@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.testing.fork_blocks import get_midnight_block
 
 # Preserve the November states rather than replacing these with moving heads.
 CASES = [
@@ -76,3 +77,40 @@ def test_capacity_source(anvil_fork_pool, chain, block, address, kind):
         elif kind == "fluid":
             assert result.current_capacity == Decimal(0)
             assert result.capacity_warning is True
+
+
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_fluid_native_liquidity_is_not_zero_weth(anvil_fork_pool):
+    """Wrapped-token dust is not the native-backed fWETH route's reserve balance."""
+    from eth_defi.abi import get_deployed_contract
+    from eth_defi.token import WRAPPED_NATIVE_TOKEN
+
+    rpc = os.environ.get("JSON_RPC_ETHEREUM")
+    if not rpc:
+        pytest.skip("JSON_RPC_ETHEREUM archive provider needed")
+    block = get_midnight_block(1)
+    web3 = anvil_fork_pool.get_web3(rpc, block)
+    address = "0x90551c1795392094FE6D29B758EcCD233cFAa260"
+    vault = create_vault_instance_autodetect(web3, address)
+    assert vault.denomination_token.address.lower() == WRAPPED_NATIVE_TOKEN[1].lower()
+    contract = get_deployed_contract(web3, "fluid/FTokenCapacity.json", address)
+    liquidity = contract.functions.getData().call(block_identifier=block)[0]
+    native_cash = web3.eth.get_balance(liquidity, block_identifier=block)
+    wrapped_cash = vault.denomination_token.contract.functions.balanceOf(liquidity).call(block_identifier=block)
+    assert native_cash == 20_272_873_023_509_267_077_386
+    assert wrapped_cash == 100_000_000_000
+    result = vault.fetch_withdrawal_capacity_limit(block)
+    assert result.observation["status"] == "partial"
+    assert result.current_capacity is None
+    assert result.capacity_warning is None
+    assert result.tiny_tvl is None
+    recorded_native_cash = result.observation.get("liquidity_native_cash", result.observation.get("liquidity_cash"))
+    assert Decimal(recorded_native_cash) == vault.denomination_token.convert_to_decimals(native_cash)
+    evidence_path = os.environ.get("WITHDRAWAL_CAPACITY_TEST_EVIDENCE")
+    if evidence_path:
+        import json
+        from pathlib import Path
+
+        target = Path(evidence_path)
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "fluid-native.json").write_text(json.dumps({"vault": address, "block": block, "native_cash_raw": native_cash, "wrapped_cash_raw": wrapped_cash, **result.to_dict(), "observation": result.observation}, indent=2))

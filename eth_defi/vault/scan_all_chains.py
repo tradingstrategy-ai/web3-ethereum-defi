@@ -2941,6 +2941,32 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
                 logger.info("Purged old backup: %s", entry)
 
 
+def refresh_withdrawal_capacity_for_chains(chains: list[ChainConfig], vault_db_path: Path, *, max_workers: int, tolerance: datetime.timedelta = datetime.timedelta(0)) -> int:
+    """Refresh local observations without triggering the publication pipeline.
+
+    Both completed scan ticks and idle loop ticks call this under the pipeline
+    writer lock. Only normal scan ticks proceed to post-processing and uploads.
+
+    :param chains: All configured chains, independent of discovery due times.
+    :param vault_db_path: Existing catalogue; no price or export files are touched.
+    :param max_workers: Scanner concurrency, capped at four capacity RPC workers.
+    :param tolerance: Scheduling tolerance for the per-vault refresh interval.
+    :return: Number of observations refreshed across successful chains.
+    """
+    from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
+
+    refreshed = 0
+    for config in chains:
+        rpc = os.environ.get(config.env_var)
+        if rpc:
+            try:
+                refreshed += refresh_withdrawal_capacity(create_multi_provider_web3(rpc), vault_db_path, max_workers=min(max_workers, 4), tolerance=tolerance)
+            except Exception as error:
+                # Optional observations must not suppress other chains or exports.
+                logger.error("Withdrawal capacity refresh failed for %s (%s)", config.name, type(error).__name__)
+    return refreshed
+
+
 def run_scan_tick(
     chains: list[ChainConfig],
     active_protocols: list[str],
@@ -3555,16 +3581,7 @@ def run_scan_tick(
 
     # All chain writers have joined: optional capacity refresh must not race
     # catalogue replacement in parallel metadata workers.
-    from eth_defi.vault.withdrawal_capacity_refresh import refresh_withdrawal_capacity
-    for config in capacity_chains if capacity_chains is not None else chains:
-        rpc = os.environ.get(config.env_var)
-        if rpc:
-            try:
-                refresh_withdrawal_capacity(create_multi_provider_web3(rpc), vault_db_path, max_workers=min(max_workers, 4), tolerance=capacity_refresh_tolerance)
-            except Exception as error:
-                # Capacity is an optional export enrichment stage. Its failure
-                # must be visible without suppressing unrelated price exports.
-                logger.error("Withdrawal capacity refresh failed for %s (%s)", config.name, type(error).__name__)
+    refresh_withdrawal_capacity_for_chains(capacity_chains if capacity_chains is not None else chains, vault_db_path, max_workers=max_workers, tolerance=capacity_refresh_tolerance)
 
     # Post-processing
     if skip_post_processing:
@@ -4120,7 +4137,7 @@ def _main() -> None:
                         logger.info("FORCE_LEAD_DISCOVERY is making all configured EVM chains due in this cycle")
                         due_chains = chains
 
-                    if due_chains or due_protocols or chains:
+                    if due_chains or due_protocols:
                         # Compute items not due in this cycle with hours remaining
                         now = native_datetime_utc_now()
                         due_chain_names = {c.name for c in due_chains}
@@ -4163,7 +4180,8 @@ def _main() -> None:
                             logger.info("FORCE_LEAD_DISCOVERY was applied; restoring normal cache behaviour for later loop cycles")
                             tick_kwargs["force_lead_discovery"] = False
                     else:
-                        logger.info("Cycle %d: nothing due, sleeping", cycle)
+                        refreshed = refresh_withdrawal_capacity_for_chains(chains, vault_db_path, max_workers=max_workers, tolerance=schedule_tolerance)
+                        logger.info("Cycle %d: no scans due; refreshed %d local capacity observations, sleeping without publication", cycle, refreshed)
                 else:
                     # Single-run: scan everything once, ignore cycle state
                     tick_results = run_scan_tick(

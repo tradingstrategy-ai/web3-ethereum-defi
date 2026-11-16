@@ -1,6 +1,13 @@
 [
   {
     "type": "function",
+    "name": "NATIVE_TOKEN_ADDRESS",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{"name": "", "type": "address"}]
+  },
+  {
+    "type": "function",
     "name": "getData",
     "stateMutability": "view",
     "inputs": [],

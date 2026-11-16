@@ -31,14 +31,25 @@ IPOR with no instant-withdrawal fuses uses idle assets; configured fuses current
 produce an explicit partial result because idle cash alone cannot describe their
 market exits. Fluid with zero cash in its configured liquidity contract has zero
 capacity; nonzero cash remains partial until its expanding withdrawal limit is
-resolved. These limits must not be inferred from a zero-share account's maxima.
+resolved. Native fTokens use the Liquidity contract's native balance, identified
+by `NATIVE_TOKEN_ADDRESS()`, instead of its WETH balance. Wrapped-token donations
+or dust do not measure native reserves. An older wrapped-native deployment that
+does not expose this interface remains partial, with its observed native balance
+recorded separately. An unknown chain wrapper mapping also remains partial.
+These limits must not be inferred from a zero-share account's maxima.
 At the recorded stcUSD fork, available cash after reserved withdrawal claims is 42.590261 USDC against
 57.010412 USDC TVL, so it does not warn: the earlier 42.953828-USDC limit was a **deposit** limit.
 
 The all-chain coordinator refreshes due capacity observations after parallel
 chain writers have joined and before post-processing. It changes only the new
 observation namespace, uses bounded RPC workers with shared same-block contract reads, and checks an
-hourly due time on every configured-chain tick, including capacity-only ticks. This does not force discovery, rewrite prices or change flags,
+hourly due time on every configured-chain tick, including idle ticks. Idle ticks
+refresh only the local catalogue: they do not run cleaning, post-processing or
+uploads. JSON exports retain their existing normal scan/publication cadence.
+Idle refreshes hold the existing pipeline writer lock until catalogue updates finish.
+Warning booleans are assessed when an export is generated; consumers reusing an
+export must also check its observation timestamp for freshness.
+This does not force discovery, rewrite prices or change flags,
 permissions, execution preflights or strategy membership. Old rows become unknown
 until refreshed, so no one-off database migration is needed. Code changes do not
 publish a production export or add trade-executor consumption.

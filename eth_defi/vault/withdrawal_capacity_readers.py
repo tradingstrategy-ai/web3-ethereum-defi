@@ -14,7 +14,7 @@ from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.provider.fallback import ExtraValueError
-from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, TokenDetails
+from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN, TokenDetails
 from eth_defi.vault.base import VaultBase
 
 #: Verified fToken configuration tuple length.
@@ -127,7 +127,29 @@ def fluid_observation(vault: VaultBase, block: int) -> dict[str, Any]:
         data["reason"] = "Unrecognised Fluid liquidity configuration"
         return data
     liquidity = Web3.to_checksum_address(raw[0])
-    cash = _read(vault.web3, vault.denomination_token.contract.functions.balanceOf(liquidity), block)
+    # Native-underlying fTokens expose the sentinel; getData's boolean is
+    # rewardsActive, not a native-asset flag. WETH.balanceOf(Liquidity) does
+    # not measure the native currency that these contracts wrap on withdrawal.
+    try:
+        native = _read(vault.web3, fluid.functions.NATIVE_TOKEN_ADDRESS(), block)
+    except (ContractLogicError, BadFunctionCallOutput, ABIFunctionNotFound, ExtraValueError):
+        native = None
+    if native is not None:
+        if native.lower() != "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":
+            data["reason"] = "Fluid returned an unexpected native-token address; withdrawal capacity is unknown"
+            return data
+        cash = vault.web3.eth.get_balance(liquidity, block_identifier=block)
+        data["liquidity_asset"] = native
+    else:
+        wrapped_native = WRAPPED_NATIVE_TOKEN.get(vault.chain_id)
+        if wrapped_native is None or vault.denomination_token.address.lower() == wrapped_native.lower():
+            if wrapped_native is not None:
+                data["liquidity_native_cash"] = str(vault.denomination_token.convert_to_decimals(vault.web3.eth.get_balance(liquidity, block_identifier=block)))
+            data["reason"] = "Fluid's liquidity asset could not be confirmed; a wrapped-token balance does not establish native liquidity"
+            return data
+        cash = _read(vault.web3, vault.denomination_token.contract.functions.balanceOf(liquidity), block)
+        data["liquidity_asset"] = vault.denomination_token.address
+    data["liquidity_cash"] = str(vault.denomination_token.convert_to_decimals(cash))
     if cash == 0:
         data.update(status="measured", current_capacity="0", reason="Fluid liquidity contract has zero denomination assets available for withdrawal")
     else:

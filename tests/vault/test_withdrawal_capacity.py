@@ -111,8 +111,8 @@ def test_zero_tvl_and_partial_cannot_be_safe():
 
 
 @pytest.mark.parametrize("fails", [False, True])
-def test_capacity_tick_runs_when_chain_scan_is_not_due(tmp_path, monkeypatch, fails):
-    """A capacity-only tick observes configured chains and still publishes on failure."""
+def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path, monkeypatch, fails):
+    """A normal scan tick retains optional refresh and its existing publication."""
     import eth_defi.vault.withdrawal_capacity_refresh as refresh
     from eth_defi.vault import scan_all_chains
 
@@ -123,6 +123,7 @@ def test_capacity_tick_runs_when_chain_scan_is_not_due(tmp_path, monkeypatch, fa
         observed.append(web3)
         if fails:
             raise RuntimeError("Capacity stage failed")
+        return 1
 
     monkeypatch.setattr(refresh, "refresh_withdrawal_capacity", read)
     monkeypatch.setenv("JSON_RPC_CAPACITY_TEST", "unused-test-provider")
@@ -168,6 +169,113 @@ def test_capacity_tick_runs_when_chain_scan_is_not_due(tmp_path, monkeypatch, fa
     )
     assert observed == ["configured-chain"]
     assert published == [True]
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path, monkeypatch, fails):
+    """The real loop's idle branch must not enter any scan/publication pipeline."""
+    import logging
+
+    import eth_defi.vault.withdrawal_capacity_refresh as refresh
+    from eth_defi.vault import scan_all_chains
+
+    monkeypatch.chdir(tmp_path)
+    settings = {
+        "PIPELINE_DATA_DIR": str(tmp_path),
+        "LOOP_INTERVAL_SECONDS": "3600",
+        "MAX_CYCLES": "1",
+        "TEST_CHAINS": "Ethereum",
+        "SKIP_CORE3": "true",
+        "SKIP_XERBERUS": "true",
+        "SKIP_CURRENCY_RATES": "true",
+        "SKIP_POST_PROCESSING": "false",
+        "FORCE_LEAD_DISCOVERY": "false",
+        "JSON_RPC_CAPACITY_TEST": "test-provider",
+    }
+    for name, value in settings.items():
+        monkeypatch.setenv(name, value)
+    for name in ("SCAN_PRICES", "SCAN_HYPERCORE", "SCAN_GRVT", "SCAN_LIGHTER", "SCAN_HIBACHI", "SCAN_APEX", "SCAN_DERIVE_V3", "SCAN_NEUTRAL_TRADE"):
+        monkeypatch.setenv(name, "false")
+    observed = []
+
+    def read(web3, path, **kwargs):
+        observed.append((web3, path))
+        if fails:
+            raise RuntimeError("Capacity stage failed")
+        return 1
+
+    monkeypatch.setattr(refresh, "refresh_withdrawal_capacity", read)
+    monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda _: "configured-chain")
+    monkeypatch.setattr(scan_all_chains, "build_chain_configs", lambda: [scan_all_chains.ChainConfig("Ethereum", "JSON_RPC_CAPACITY_TEST"), scan_all_chains.ChainConfig("Hyperliquid", "JSON_RPC_UNUSED")])
+    monkeypatch.setattr(scan_all_chains, "get_due_items", lambda *args, **kwargs: ([], []))
+    monkeypatch.setattr(scan_all_chains, "refresh_stale_proxy_state", lambda: None)
+    monkeypatch.setattr(scan_all_chains, "clear_sqlite_rate_limit_databases", lambda: [])
+    monkeypatch.setattr(scan_all_chains, "validate_top_vaults_config", lambda **kwargs: None)
+    monkeypatch.setattr(scan_all_chains, "run_scan_tick", lambda **kwargs: pytest.fail("Idle loop entered full scan/publication pipeline"))
+    monkeypatch.setattr(scan_all_chains, "run_post_processing", lambda **kwargs: pytest.fail("Idle loop started publication"))
+    handlers = set(logging.getLogger().handlers)
+    original_level = logging.getLogger().level
+    try:
+        scan_all_chains._main()
+    finally:
+        for handler in set(logging.getLogger().handlers) - handlers:
+            logging.getLogger().removeHandler(handler)
+            handler.close()
+        logging.getLogger().setLevel(original_level)
+    assert observed == [("configured-chain", tmp_path / "vault-metadata-db.pickle")]
+
+
+@pytest.mark.parametrize(
+    "native,wrapped,token_cash,native_cash,status",
+    [(True, True, 0, 10**18, "partial"), (True, True, 10**18, 0, "measured"), (False, False, 0, 10**18, "measured"), (False, False, 10**18, 0, "partial"), (False, True, 0, 10**18, "partial")],
+)
+def test_fluid_selects_actual_liquidity_asset(monkeypatch, native, wrapped, token_cash, native_cash, status):
+    """Native reserves and wrapped-token donations must not be confused."""
+    from web3.exceptions import ContractLogicError
+
+    from eth_defi.token import USDC_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN
+    from eth_defi.vault import withdrawal_capacity_readers as readers
+
+    address, liquidity = "0x" + "a" * 40, "0x" + "b" * 40
+    sentinel = "0x" + "e" * 40
+    calls = []
+
+    class Call:
+        def __init__(self, name, target=None):
+            self.name, self.target = name, target
+
+        def call(self, *, block_identifier):
+            assert block_identifier == 123
+            calls.append((self.name, self.target))
+            if self.name == "getData":
+                return [liquidity, address, address, address, address, False, 0, 0, 0]
+            if self.name == "NATIVE_TOKEN_ADDRESS":
+                if not native:
+                    raise ContractLogicError("Selector unavailable")
+                return sentinel
+            if self.name == "totalAssets":
+                return 100 * 10**18
+            return token_cash if self.target.lower() == liquidity else 0
+
+    functions = SimpleNamespace(totalAssets=lambda: Call("totalAssets"), balanceOf=lambda target: Call("balanceOf", target), getData=lambda: Call("getData"), NATIVE_TOKEN_ADDRESS=lambda: Call("NATIVE_TOKEN_ADDRESS"))
+    contract = SimpleNamespace(functions=functions)
+    token = SimpleNamespace(address=WRAPPED_NATIVE_TOKEN[1] if wrapped else USDC_NATIVE_TOKEN[1], chain_id=1, symbol="WETH" if wrapped else "USDC", contract=contract, convert_to_decimals=lambda raw: Decimal(raw) / 10**18)
+
+    def balance(target, *, block_identifier):
+        assert target.lower() == liquidity and block_identifier == 123
+        calls.append(("native_balance", target))
+        return native_cash
+
+    vault = SimpleNamespace(address=address, chain_id=1, vault_contract=contract, denomination_token=token, web3=SimpleNamespace(eth=SimpleNamespace(get_balance=balance)))
+    monkeypatch.setattr(readers, "get_deployed_contract", lambda *args: contract)
+    data = readers.fluid_observation(vault, 123)
+    assert data["status"] == status
+    assert data["current_capacity"] == ("0" if status == "measured" else None)
+    assert any(name == "native_balance" for name, _ in calls) is (native or wrapped)
+    if native:
+        assert not any(name == "balanceOf" and target.lower() == liquidity for name, target in calls)
+    data["observed_at"] = NOW.isoformat()
+    assert assess_withdrawal_capacity(data, now=NOW).capacity_warning is (True if status == "measured" else None)
 
 
 def test_morpho_v1_ignores_donations_and_deduplicates_queue(monkeypatch):

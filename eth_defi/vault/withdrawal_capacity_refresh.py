@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 def refresh_withdrawal_capacity(web3: Web3, database_path: Path, *, interval: timedelta = timedelta(hours=1), max_workers: int = 4, now: datetime | None = None, tolerance: timedelta = timedelta(0)) -> int:
     """Refresh due same-chain rows without rediscovering vaults or changing prices.
 
-    Called under the scanner's normal writer lock before its discovery-cache
-    shortcut. Provider failures affect this optional observation, not membership.
+    Called under the scanner's writer lock after scan workers join or during
+    local-only idle ticks. Provider failures affect this observation, not membership.
     :param web3: Verified chain provider with the scanner's retry configuration.
     :param database_path: Existing catalogue pickle, atomically replaced on success.
     :param interval: Minimum time between observations, independent of discovery.

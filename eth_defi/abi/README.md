@@ -264,7 +264,11 @@ because PlasmaVault does not expose an equivalent public getter. It subtracts
 released claims from idle assets, never treats reserved cash as available to new
 instant withdrawals, and retains unknown on unsupported manager interfaces.
 
-`fluid/FTokenCapacity.json` is the minimal public `getData()` view from
+`fluid/FTokenCapacity.json` includes the minimal public `getData()` view from
 https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/fToken/main.sol.
 The five addresses, reward boolean and three exchange/balance integers are
 decoded through the ABI, preserving the existing fToken interface validation.
+The optional `NATIVE_TOKEN_ADDRESS()` getter comes from
+https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/protocols/lending/fToken/nativeUnderlying/fTokenNativeUnderlying.sol.
+It identifies native-currency Liquidity reserves even though `asset()` returns
+the wrapped token. The `getData()` boolean is a rewards flag, not a native flag.
