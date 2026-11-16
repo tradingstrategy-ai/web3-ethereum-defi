@@ -38,6 +38,7 @@ def test_yearn_without_deposit_limit_module_is_permissionless() -> None:
     """
     # 1. Prepare a Yearn V3 vault with its deposit-limit module disabled.
     vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(1, ZERO_ADDRESS_STR)
     vault.__dict__["vault_contract"] = MagicMock()
     vault.vault_contract.functions.deposit_limit_module.return_value.call.return_value = ZERO_ADDRESS_STR
     vault._get_block_identifier = MagicMock(return_value=123)
@@ -62,6 +63,7 @@ def test_yearn_custom_deposit_limit_module_remains_unknown() -> None:
     # 1. Prepare a Yearn V3 vault with a non-zero deposit-limit module.
     module = "0x1111111111111111111111111111111111111111"
     vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(1, ZERO_ADDRESS_STR)
     vault.__dict__["vault_contract"] = MagicMock()
     vault.vault_contract.functions.deposit_limit_module.return_value.call.return_value = module
     vault._get_block_identifier = MagicMock(return_value=123)
@@ -85,6 +87,7 @@ def test_legacy_yearn_without_deposit_limit_module_defaults_permissionless() -> 
     """
     # 1. Prepare a Yearn deployment whose deposit-limit module call reverts.
     vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(1, ZERO_ADDRESS_STR)
     vault.__dict__["vault_contract"] = MagicMock()
     vault.vault_contract.functions.deposit_limit_module.return_value.call.side_effect = ValueError("execution reverted")
     vault._get_block_identifier = MagicMock(return_value=123)
@@ -109,6 +112,7 @@ def test_yearn_permission_read_does_not_hide_rpc_failures() -> None:
     """
     # 1. Prepare a Yearn deposit-limit read that fails without an EVM revert.
     vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(1, ZERO_ADDRESS_STR)
     vault.__dict__["vault_contract"] = MagicMock()
     vault._get_block_identifier = MagicMock(return_value=123)
     vault.vault_contract.functions.deposit_limit_module.return_value.call.side_effect = ValueError("RPC request timed out")
@@ -194,7 +198,7 @@ def test_upshift_live_admission_does_not_use_delayed_metadata_head(monkeypatch: 
     vault.vault_contract.functions.sendersWhitelistAddress.return_value.call.side_effect = lambda *, block_identifier: "0x1111111111111111111111111111111111111111" if block_identifier == "latest" else ZERO_ADDRESS_STR
     whitelist = MagicMock()
     whitelist.functions.isWhitelisted.return_value.call.return_value = False
-    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.upshift.vault.get_deployed_contract", lambda *args: whitelist)
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.upshift.vault.get_deployed_contract", lambda *_args: whitelist)
     owner = "0x2222222222222222222222222222222222222222"
 
     with pytest.raises(WhitelistingRequired):

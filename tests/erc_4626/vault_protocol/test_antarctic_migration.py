@@ -12,7 +12,7 @@ from eth_defi.erc_4626.vault_protocol.antarctic import migration as module
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore
 from eth_defi.erc_4626.vault_protocol.antarctic.migration import parse_antarctic_migration_dry_run
-from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, load_antarctic_settlements, write_antarctic_test_prices
+from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, fetch_recorded_antarctic_timestamps, load_antarctic_settlements, write_antarctic_test_prices
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -81,6 +81,7 @@ def test_antarctic_migration_rehearsal_and_apply(tmp_path: Path, monkeypatch: py
         return RecordedAntarcticStream(query, records)
 
     monkeypatch.setattr(historical_context, "open_hypersync_stream", open_stream)
+    monkeypatch.setattr(historical_context, "fetch_exact_block_timestamps_using_hypersync_cached", fetch_recorded_antarctic_timestamps)
     monkeypatch.setattr(module, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(module, "create_multi_provider_web3", lambda *a, **k: web3)  # noqa: ARG005
     monkeypatch.setattr(module, "MultiProviderWeb3Factory", lambda *a, **k: lambda: web3)  # noqa: ARG005

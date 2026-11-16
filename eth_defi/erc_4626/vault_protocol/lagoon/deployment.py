@@ -48,6 +48,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
@@ -115,6 +116,9 @@ DEFAULT_PERFORMANCE_RATE = 2000
 #: Earliest GuardV0 internal ABI version with the complete Lagoon v0.5
 #: asset-manager settlement safety policy: cumulative gross cap plus window.
 LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 4
+
+#: Earliest GuardV0 internal ABI version with ``whitelistT3tris()``.
+T3TRIS_GUARD_INTERNAL_VERSION = 5
 
 #: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
 #: setup / deployment broadcasts.
@@ -276,14 +280,14 @@ class LagoonDeploymentParameters:
     feeReceiver: str = None
     feeRegistry: str = None
 
-    #: Management fee in BPS
-    managementRate: int = DEFAULT_MANAGEMENT_RATE  # Assuming these are integers, adjust type if different
+    #: Integer basis points match the rate expected by Lagoon initialisation.
+    managementRate: int = DEFAULT_MANAGEMENT_RATE
 
-    #: Performance fee in BPS
+    #: Performance-fee rate in basis points, passed unchanged to Lagoon.
     performanceRate: int = DEFAULT_PERFORMANCE_RATE
     enableWhitelist: bool = False
 
-    #: Max rate update frequency, seconds
+    #: Fee-rate update cooldown in seconds.
     rateUpdateCooldown: int = DEFAULT_RATE_UPDATE_COOLDOWN
 
     #: If set None, then autoresolve
@@ -1641,14 +1645,14 @@ def deploy_lagoon(
 
 
 def deploy_safe_trading_strategy_module(
-    web3,
+    web3: Web3,
     deployer: LocalAccount | HotWallet,
     safe: Safe,
-    use_forge=False,
-    etherscan_api_key: str = None,
+    use_forge: bool = False,
+    etherscan_api_key: str | None = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
-    enable_on_safe=True,
+    enable_on_safe: bool = True,
     uniswap_v2: UniswapV2Deployment | None = None,
     uniswap_v3: UniswapV3Deployment | None = None,
     cowswap: bool = False,
@@ -1656,6 +1660,7 @@ def deploy_safe_trading_strategy_module(
     gmx_deployment: GMXDeployment | None = None,
     lighter_deployment: "LighterDeployment | None" = None,
     lagoon: bool = True,
+    redemption_recovery: bool = False,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -1675,22 +1680,35 @@ def deploy_safe_trading_strategy_module(
     caller from attaching the execution module to a Safe with an unnecessary
     second authentication surface.
 
+    :param web3: Connection for the chain receiving the deployment or policy transactions.
     :param deployer:
         Deployer account. When a :class:`~eth_defi.hotwallet.HotWallet` is
         passed, nonces are managed internally (avoids stale RPC nonce reads
         on load-balanced public endpoints).
-
+    :param safe: Custody Safe to pair with the execution module.
     :param use_forge:
-        Deploy Etherscan verified build with Forge
-
+        Must be False: this module needs dynamic library linking through the
+        precompiled ABI path. True raises NotImplementedError because
+        ``forge create`` does not support that linking path.
+    :param etherscan_api_key: Optional explorer credential for source verification; never include it in reports.
+    :param verifier: Explorer verification backend used by the selected deployment tool.
+    :param verifier_url: Custom verification API endpoint when the chain needs one.
     :param enable_on_safe:
         Automatically enable this module on the Safe multisig.
         Must be 1-of-1 deployer address multisig.
-
+    :param uniswap_v2: Select deployment/linking of Uniswap V2 validation. Router permissions are configured later by :py:func:`setup_guard`.
+    :param uniswap_v3: Select deployment/linking of Uniswap V3 validation. This does not whitelist its router.
+    :param cowswap: Deploy and link CoW Swap validation; :py:func:`setup_guard` configures its permissions separately.
+    :param velora: Deploy and link Velora validation; this function does not grant swap permissions.
+    :param gmx_deployment: Select GMX validation-library deployment/linking; Guard contract and market permissions are configured separately.
+    :param lighter_deployment: Select Lighter validation-library deployment/linking; this function does not configure Guard permissions.
     :param lagoon:
         Deploy and link ``LagoonLib``. Satellite modules without
         a Lagoon vault link the zero address and fail closed on Lagoon calls.
-
+    :param redemption_recovery:
+        Deploy and link public redemption-recovery validation. Enable only when
+        at least one reviewed descriptor supplies a fee cap. Existing modules
+        without this library must be redeployed, not granted an unchecked call.
     :return:
         TradingStrategyModuleV0 instance
     """
@@ -1756,6 +1774,10 @@ def deploy_safe_trading_strategy_module(
         chain_id = web3.eth.chain_id
 
         library_addresses = {}
+
+        # Link recovery only when a reviewed descriptor explicitly enables it.
+        # Existing deployments need a new module before adding this permission.
+        library_addresses["MorphoLib"] = deploy_contract(web3, "guard/MorphoLib.json", deployer).address if redemption_recovery else ZERO_ADDRESS
 
         if lagoon:
             lagoon_lib = deploy_contract(
@@ -1925,9 +1947,9 @@ def setup_guard(
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
-    hack_sleep=20.0,
+    hack_sleep: float = 20.0,
     assets: list[HexAddress | str] | None = None,
-    multicall_chunk_size=40,
+    multicall_chunk_size: int = 40,
     underlying_token_address: HexAddress | None = None,
     lagoon_pending_silo_address: HexAddress | None = None,
     lagoon_max_settlement_amount_raw: int | None = None,
@@ -1948,7 +1970,7 @@ def setup_guard(
     transactions whenever a limit is requested.
 
     External vault callers pass ordinary ERC-4626 descriptors with known
-    feature metadata. This shared setup resolves Atoma and Upshift through the
+    feature metadata. This shared setup resolves Atoma, T3tris and Upshift through the
     existing vault factory and installs their existing policies. Plain address
     descriptors without features are detected here. Other protocol descriptors
     retain the generic policy; metadata-only subclasses are not probed without
@@ -1965,38 +1987,55 @@ def setup_guard(
     valid strict cap. Every enabled cap also requires a positive window;
     ``lagoon_settlement_window`` defaults to 24 hours.
 
+    :py:func:`deploy_automated_lagoon_vault` uses this lower-level entry point to apply owner-approved permissions after linking the module.
+
+    :param web3: Connection for the chain receiving the deployment or policy transactions.
+    :param safe: Custody Safe to pair with the execution module.
+    :param deployer: Account funding and signing deployment transactions; HotWallet manages its nonce sequence.
+    :param owner: Custody owner recorded in Guard policy, normally the Safe address.
+    :param asset_managers: Manager addresses sharing the configured Guard trading permissions.
     :param vault:
         The stock Lagoon v0.5 vault paired with ``safe`` and ``module``.
         ``None`` is accepted only on satellite chains, where no Lagoon
         settlement selectors or settlement safety controls are configured.
-
+    :param module: Deployed execution module whose onchain permissions will be configured.
+    :param broadcast_func: Submit one ABI-bound policy call and return its transaction hash.
+    :param any_asset: Enable the unsafe broad ERC-20 asset policy; explicit vault recovery authorisation is still required.
+    :param uniswap_v2: Whitelist the deployment router for Uniswap V2 calls; token permissions are configured separately.
+    :param uniswap_v3: Deployment whose router calls need Guard permissions; None omits this integration.
+    :param aave_v3: Lending deployment whose supported asset operations need Guard permissions.
+    :param erc_4626_vaults: External vault descriptors to admit. An explicit recovery cap additionally configures the guarded public recovery call.
+    :param cowswap: Whitelist CoW Swap calls using the validation library already linked into the module.
+    :param velora: Whitelist Velora calls using the validation library already linked into the module.
+    :param gmx_deployment: GMX contracts and markets to support; None leaves this integration disabled.
+    :param lighter_deployment: Lighter integration descriptor; None leaves its Guard integration disabled.
+    :param cctp_deployment: Bridge deployment whose contracts and messages need Guard permissions.
+    :param hypercore_vaults: Explicit native HyperCore vault addresses available to the manager.
+    :param any_hypercore_vault:
+        Enable the narrow, HyperEVM-only dynamic native-vault policy. It
+        bypasses only the CoreWriter action-2 vault address list and does not
+        enable the unsafe generic ``any_asset`` ERC-20 policy.
+    :param hack_sleep: Seconds to wait after live-chain policy batches so RPC readbacks can catch up.
+    :param assets: Additional ERC-20 addresses permitted by the deployment policy.
+    :param multicall_chunk_size: Maximum vault or asset descriptors per policy batch, subject to chain-specific limits.
     :param underlying_token_address:
         Address returned by the Lagoon vault's ``asset()`` function. It is also
         used for Hypercore whitelisting when ``vault`` is ``None``. The onchain
         Lagoon configuration call verifies that this address matches the vault.
-
     :param lagoon_pending_silo_address:
         Stock Lagoon v0.5 pending-deposit Silo whose underlying-token decrease
         measures the deposit side of a settlement. The onchain configuration
         call verifies that the Silo has approved the vault to pull the asset.
-
     :param lagoon_max_settlement_amount_raw:
         Maximum gross asset-manager settlement in the underlying ERC-20's
         smallest units. This is a safety limit, not a partial-settlement size.
         Gross settlement is ``Silo decrease + vault increase`` for one
         asset-manager ``performCall()`` transaction. ``None`` preserves the
         unlimited legacy policy; ``0`` enables a zero-movement-only policy.
-
     :param lagoon_settlement_window:
         Fixed duration in seconds for the capped asset-manager's cumulative
         gross settlement budget. Defaults to 24 hours. Empty and direct Safe
         governance transactions remain available.
-
-    :param any_hypercore_vault:
-        Enable the narrow, HyperEVM-only dynamic native-vault policy. It
-        bypasses only the CoreWriter action-2 vault address list and does not
-        enable the unsafe generic ``any_asset`` ERC-20 policy.
-
     :return:
         List of :class:`WhitelistEntry` recording everything that was whitelisted.
     """
@@ -2041,16 +2080,22 @@ def setup_guard(
         erc_4626_vaults = list(erc_4626_vaults)
         for index, descriptor in enumerate(erc_4626_vaults):
             assert isinstance(descriptor, ERC4626Vault), f"Expected ERC4626Vault, got {type(descriptor)}"
-            if isinstance(descriptor, (AtomaVault, UpshiftVault)):
+            if isinstance(descriptor, (AtomaVault, T3trisVault, UpshiftVault)):
                 continue
             logger.info("Resolving vault guard policy at %s", descriptor.vault_address)
             features = descriptor.features
             if not features and type(descriptor) is ERC4626Vault:
                 features = detect_vault_features(web3, descriptor.vault_address, verbose=False)
-            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.upshift_like}:
+            if features and features & {ERC4626Feature.atoma_like, ERC4626Feature.t3tris_like, ERC4626Feature.upshift_like}:
                 resolved = create_vault_instance(web3, descriptor.vault_address, features=features, token_cache=descriptor.token_cache, default_block_identifier=descriptor.default_block_identifier, require_denomination_token=descriptor.require_denomination_token)
-                assert isinstance(resolved, (AtomaVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
+                assert isinstance(resolved, (AtomaVault, T3trisVault, UpshiftVault)), f"Conflicting guard policy features for {descriptor.vault_address}: {features}"
                 erc_4626_vaults[index] = resolved
+        if any(v.redemption_recovery_max_fee_bps is not None for v in erc_4626_vaults):
+            assert module.functions.getInternalVersion().call() >= 6, "Public recovery needs GuardV0 internal version 6; deploy a new module"
+            assert module.functions.supportsMorphoV2Recovery().call(), "MorphoLib is not linked; deploy a new module with redemption recovery enabled"
+        if any(isinstance(descriptor, T3trisVault) for descriptor in erc_4626_vaults):
+            internal_version = module.functions.getInternalVersion().call()
+            assert internal_version >= T3TRIS_GUARD_INTERNAL_VERSION, f"T3tris vaults need GuardV0 internal version {T3TRIS_GUARD_INTERNAL_VERSION} or newer, got {internal_version}; deploy a new guard"
 
     _broadcast = broadcast_func
     entries: list[WhitelistEntry] = []
@@ -2147,17 +2192,22 @@ def setup_guard(
                 note = f"Whitelisting {erc_4626_vault.name}"
                 if isinstance(erc_4626_vault, UpshiftVault):
                     multicalls.extend(fetch_upshift_guard_calls(module, erc_4626_vault, note))
+                elif isinstance(erc_4626_vault, AtomaVault):
+                    multicalls.append(module.functions.whitelistAtoma(erc_4626_vault.vault_address, note))
+                elif isinstance(erc_4626_vault, T3trisVault):
+                    multicalls.append(module.functions.whitelistT3tris(erc_4626_vault.vault_address, note))
                 else:
-                    whitelist = module.functions.whitelistAtoma if isinstance(erc_4626_vault, AtomaVault) else module.functions.whitelistERC4626
-                    multicalls.append(whitelist(erc_4626_vault.vault_address, note))
+                    multicalls.append(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
+                if erc_4626_vault.redemption_recovery_max_fee_bps is not None:
+                    multicalls.append(module.functions.whitelistMorphoV2Recovery(erc_4626_vault.vault_address, erc_4626_vault.redemption_recovery_max_fee_bps, note))
 
             call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
             assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
             if not anvil:
-                # TODO: A hack on Base mainnet inconsitency
-                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+                # Allow live-chain RPC readbacks to catch up with the confirmed policy batch.
+                logger.info("Waiting %.1f seconds for live-chain policy readbacks", hack_sleep)
                 time.sleep(hack_sleep)
 
         logger.info("Total %d ERC-4626 vaults whitelisted", len(erc_4626_vaults))
@@ -2200,8 +2250,8 @@ def setup_guard(
             assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
             if not anvil:
-                # TODO: A hack on Base mainnet inconsitency
-                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+                # Allow live-chain RPC readbacks to catch up with the confirmed policy batch.
+                logger.info("Waiting %.1f seconds for live-chain policy readbacks", hack_sleep)
                 time.sleep(hack_sleep)
 
         logger.info("Total %d assets whitelisted", len(assets))
@@ -2821,17 +2871,17 @@ def deploy_automated_lagoon_vault(
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
     any_asset: bool = False,
-    etherscan_api_key: str = None,
+    etherscan_api_key: str | None = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
-    use_forge=False,
-    between_contracts_delay_seconds=5.0,
+    use_forge: bool = False,
+    between_contracts_delay_seconds: float = 5.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
     existing_safe_address: HexAddress | str | None = None,
-    vault_abi=DEFAULT_LAGOON_VAULT_JSON,
-    factory_contract=True,
+    vault_abi: str = DEFAULT_LAGOON_VAULT_JSON,
+    factory_contract: bool = True,
     from_the_scratch: bool = False,
     assets: list[HexAddress | str] | None = None,
     safe_salt_nonce: int | None = None,
@@ -2859,7 +2909,8 @@ def deploy_automated_lagoon_vault(
 
     .. warning::
 
-        Because we need to mix Forge, Safe lib and Web3.py transaction nonce management becomes a madness.
+        Deployment combines Forge, Safe and Web3 signing. Reuse one deployer
+        and let this coordinator keep their transaction nonces consistent.
 
     .. note ::
 
@@ -2893,76 +2944,91 @@ def deploy_automated_lagoon_vault(
     <https://github.com/hopperlabsxyz/lagoon-v0>`__ for the underlying v0.5
     settlement implementation.
 
+    :param web3: Connection for the chain receiving the deployment or policy transactions.
+    :param deployer: Account funding and signing deployment transactions; HotWallet manages its nonce sequence.
     :param config:
         Pass a :class:`LagoonConfig` object instead of individual kwargs.
         When provided, all individual deployment kwargs, including
         ``max_settlement_amount`` and ``settlement_window``, are ignored in favour of the values on the
         configuration object.
-
+    :param asset_manager: Legacy single-manager address, superseded when asset_managers is provided.
+    :param asset_managers: Manager addresses sharing the configured Guard trading permissions.
+    :param parameters: Vault name, denomination asset, fee rates and role addresses, unless supplied through config.
+    :param safe_owners: Final multisig owners to configure after temporary deployer-only setup.
+    :param safe_threshold: Required signatures after final ownership configuration.
+    :param uniswap_v2: Deployment whose routers and tokens need Guard permissions; None omits this integration.
+    :param uniswap_v3: Deployment whose router calls need Guard permissions; None omits this integration.
+    :param aave_v3: Lending deployment whose supported asset operations need Guard permissions.
+    :param cowswap: Link and configure CoW Swap support for this execution module.
+    :param velora: Link and configure Velora swap support for this execution module.
+    :param gmx_deployment: GMX contracts and markets to support; None leaves this integration disabled.
+    :param lighter_deployment: Lighter integration descriptor; None leaves its Guard integration disabled.
     :param generate_lighter_api_key:
         Activate a canonical Ethereum Lighter account after a fixed
         :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` Lagoon bootstrap subscription,
         the 1 USDC activation minimum, and register a new API key before the
         Safe owners are finalised. Defaults to ``False``.
-
     :param lighter_api_key_index:
         Automated Lighter API-key slot to register when activation is enabled.
-
     :param lighter_sub_account_count:
         Number of Lighter sub-accounts to create during activation, each with
         one API key for an external trading process. Requires
         ``generate_lighter_api_key``.
-
     :param lighter_sub_account_api_key_index:
         API-key slot registered on each created sub-account.
-
     :param lighter_sub_account_labels:
         Stable ids of the sub-accounts to create, in creation order. When
         given, one sub-account is created per id and the count is ignored.
-
     :param lighter_api_key_callback:
         Called with each generated Lighter API key and its role before the
         key is registered, see :attr:`LagoonConfig.lighter_api_key_callback`.
+    :param cctp_deployment: Bridge deployment whose contracts and messages need Guard permissions.
+    :param hypercore_vaults: Explicit native HyperCore vault addresses available to the manager.
+    :param any_hypercore_vault:
+        Enable the narrow, HyperEVM-only dynamic native-vault policy instead
+        of relying on the generic ``any_asset`` escape hatch. Ignored when
+        ``config`` is supplied, like every other individual deployment kwarg.
+    :param any_asset: Enable the unsafe broad ERC-20 asset policy; explicit vault recovery authorisation is still required.
+    :param etherscan_api_key: Optional explorer credential for source verification; never include it in reports.
+    :param verifier: Explorer verification backend used by the selected deployment tool.
+    :param verifier_url: Custom verification API endpoint when the chain needs one.
+    :param use_forge: Use Forge deployment with optional explorer source verification.
+    :param between_contracts_delay_seconds: Seconds between live-chain deployment stages to allow nonce propagation; skipped on Anvil.
+    :param erc_4626_vaults: External vault descriptors to admit. An explicit recovery cap additionally configures the guarded public recovery call.
+    :param guard_only:
+        Deploy a new version of the guard smart contract and skip deploying the actual vault.
+    :param existing_vault_address: Existing Lagoon vault to reuse when replacing its execution module.
+    :param existing_safe_address: Existing custody Safe paired with the reused vault.
+    :param vault_abi: Stored ABI identifier for the selected Lagoon contract version.
+    :param factory_contract: Use the chain factory deployment path instead of direct proxy deployment.
+    :param from_the_scratch:
+        Deploy a fee registry contract as well.
 
+        A new chain deployment.
+    :param assets: Additional ERC-20 addresses permitted by the deployment policy.
+    :param safe_salt_nonce:
+        If set, deploy the Safe using CREATE2 via the canonical SafeProxyFactory
+        for a deterministic address. Use the same value across chains to get the
+        same Safe address everywhere.
+    :param safe_proxy_factory_address:
+        Override the Safe ProxyFactory address. Defaults to the canonical v1.4.1
+        factory (``0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67``).
+        See `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__
+        and `Safe contract deployment docs <https://docs.safe.global/core-api/safe-contracts-deployment>`__.
     :param max_settlement_amount:
         Optional maximum gross Lagoon settlement for one asset-manager module
         transaction, expressed in human-readable underlying-token units as a
         :class:`~decimal.Decimal`. ``None`` keeps unlimited backwards-compatible
         behaviour. See :attr:`LagoonConfig.max_settlement_amount` for security
         semantics and supported topology.
-
     :param settlement_window:
         Positive fixed duration in seconds for the capped asset-manager's
         cumulative gross settlement budget. Defaults to 24 hours. Ignored when
         the maximum amount safety feature is disabled.
-
     :param _defer_safe_owners:
         Internal multichain hook: retain temporary sole deployer ownership until
         the coordinator completes funding and verifies the Lighter API key.
-
-    :param any_hypercore_vault:
-        Enable the narrow, HyperEVM-only dynamic native-vault policy instead
-        of relying on the generic ``any_asset`` escape hatch. Ignored when
-        ``config`` is supplied, like every other individual deployment kwarg.
-
-    :param guard_only:
-        Deploy a new version of the guard smart contract and skip deploying the actual vault.
-
-    :param from_the_scratch:
-        Deploy a fee registry contract as well.
-
-        A new chain deployment.
-
-    :param safe_salt_nonce:
-        If set, deploy the Safe using CREATE2 via the canonical SafeProxyFactory
-        for a deterministic address. Use the same value across chains to get the
-        same Safe address everywhere.
-
-    :param safe_proxy_factory_address:
-        Override the Safe ProxyFactory address. Defaults to the canonical v1.4.1
-        factory (``0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67``).
-        See `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__
-        and `Safe contract deployment docs <https://docs.safe.global/core-api/safe-contracts-deployment>`__.
+    :return: Deployment report containing the bound vault/Safe module, role addresses and deployment receipts.
     """
 
     if config is not None:
@@ -3321,6 +3387,7 @@ def deploy_automated_lagoon_vault(
         gmx_deployment=gmx_deployment,
         lighter_deployment=lighter_deployment,
         lagoon=not satellite_chain,
+        redemption_recovery=any(v.redemption_recovery_max_fee_bps is not None for v in (erc_4626_vaults or [])),
     )
 
     if not is_anvil(web3):

@@ -24,7 +24,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, D2Vault, format_d2_vault_note
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
-from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
+from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS, VERANTA_VAULT_MANAGER_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
@@ -969,6 +969,45 @@ def test_calculate_vault_rankings_excludes_disabled_gmx_products() -> None:
     assert disabled.ranking_curator is None
 
 
+def test_calculate_vault_rankings_hyperliquid_lower_chain_protocol_threshold() -> None:
+    """Rank Hyperliquid native vaults from $5,000 TVL in chain and protocol cohorts.
+
+    Hyperliquid native vaults are typically small, so their chain and protocol
+    rankings use a $5,000 threshold instead of the default $10,000. Other
+    protocols and the $50,000 overall threshold must stay unchanged.
+
+    1. Build a $6,800 Hyperliquid vault, a $4,999 Hyperliquid vault and a $6,800 Morpho vault
+    2. Calculate rankings
+    3. Check only the $6,800 Hyperliquid vault gets chain and protocol rankings, and no vault gets an overall ranking
+    """
+    # 1. Build a $6,800 Hyperliquid vault, a $4,999 Hyperliquid vault and a $6,800 Morpho vault
+    hyperliquid = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=6_800)
+    hyperliquid_too_small = PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=4_999)
+    morpho = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=6_800)
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Hypercore", "Hypercore", "Ethereum"],
+            "protocol_slug": ["hyperliquid", "hyperliquid", "morpho"],
+            "curator_slug": [None, None, None],
+            "risk": [VaultTechnicalRisk.negligible] * 3,
+            "period_results": [[hyperliquid], [hyperliquid_too_small], [morpho]],
+        },
+    )
+
+    # 2. Calculate rankings
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    # 3. Check only the $6,800 Hyperliquid vault gets chain and protocol rankings, and no vault gets an overall ranking
+    assert hyperliquid.ranking_chain == 1
+    assert hyperliquid.ranking_protocol == 1
+    assert hyperliquid.ranking_overall is None
+    assert hyperliquid_too_small.ranking_chain is None
+    assert hyperliquid_too_small.ranking_protocol is None
+    assert morpho.ranking_chain is None
+    assert morpho.ranking_protocol is None
+    assert morpho.ranking_overall is None
+
+
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
     """Euler vaults may charge the valid 100% performance-fee boundary."""
     start = pd.Timestamp("2026-01-01").to_pydatetime()
@@ -1327,7 +1366,7 @@ def test_extend_notes_with_vault_scan_cycle_appends_lower_cycle_note() -> None:
     assert vault_metrics.extend_notes_with_vault_scan_cycle(None, None) is None
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def vault_db() -> VaultDatabase:
     """Load sample vault database for testing.
 
@@ -2868,20 +2907,61 @@ def test_period_metrics_daily_window_starts_at_first_duplicate_day() -> None:
     assert result.daily_samples == 41
 
 
-def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """One vault without any usable share price is skipped, not fatal to the export."""
+@pytest.mark.parametrize("already_slugged", [False, True])
+def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame, *, already_slugged: bool) -> None:
+    """Skip an unusable vault while exporting a healthy one from mixed metadata.
+
+    Exercise both fresh metadata and a batch whose first vault already has a
+    public URL, independently of the order in which other tests have run.
+
+    :param vault_db: Isolated metadata snapshot.
+    :param price_df: Historical observations for the snapshot vaults.
+    :param already_slugged: Whether only the first row has been exported before.
+    :return: None after checking the surviving vault identity.
+    """
     vault_ids = sorted(price_df["id"].unique())[:2]
     broken_id, healthy_id = vault_ids
     prices = price_df.loc[price_df["id"].isin(vault_ids)].copy()
     prices.loc[prices["id"] == broken_id, "share_price"] = np.nan
     metadata = {spec: dict(row) for spec, row in vault_db.rows.items() if spec.as_string_id() in vault_ids}
+    if already_slugged:
+        first_spec = next(iter(metadata))
+        vault_metrics.slugify_vaults({first_spec: metadata[first_spec]})
 
     metrics = calculate_lifetime_metrics(prices, metadata)
 
     assert metrics["id"].tolist() == [healthy_id]
 
 
-def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_slugify_vaults_preserves_existing_urls_and_reserves_their_names(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Fill mixed metadata without renaming public URLs or duplicating slugs.
+
+    An older newly encountered vault may share the name of an already published
+    vault. Keep the published URL and assign the next available suffix.
+
+    :param vault_db: Isolated metadata snapshot.
+    :param price_df: Snapshot identifying two representative vaults.
+    :return: None after checking stable URLs and complete protocol slugs.
+    """
+    specs = [VaultSpec.parse_string(value) for value in sorted(price_df["id"].unique())[:2]]
+    existing, new = (dict(vault_db.rows[spec]) for spec in specs)
+    existing.update({"Name": "Shared vault", "vault_slug": "shared-vault", "protocol_slug": "published-protocol"})
+    new.update({"Name": "Shared vault", "Protocol": "Morpho"})
+    new.pop("vault_slug", None)
+    new.pop("protocol_slug", None)
+    metadata = dict(zip(specs, (existing, new), strict=True))
+
+    vault_metrics.slugify_vaults(metadata)
+
+    assert existing["vault_slug"] == "shared-vault"
+    assert existing["protocol_slug"] == "published-protocol"
+    assert new["vault_slug"] == "shared-vault-2"
+    assert new["protocol_slug"] == "morpho"
+    assert vault_metrics.slugify_vaults(metadata) is None
+
+
+@pytest.mark.parametrize("reviewed", [True, False])
+def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch, reviewed: bool) -> None:
     """Carry real adapter copy through the scanner, metrics and public JSON.
 
     Keep contract reads deterministic while exercising the production text
@@ -2892,6 +2972,7 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     :param vault_db: Existing sample detection and catalogue metadata.
     :param price_df: Historical price DataFrame with the scanner price schema.
     :param monkeypatch: Replace network reads without replacing text accessors.
+    :param reviewed: Whether the manager implementation has verified fee paths.
     :return: None after checking both website-facing description fields.
     """
     source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
@@ -2900,10 +2981,14 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     detection = replace(vault_db.rows[source]["_detection_data"], chain=8453, address=spec.vault_address, features={ERC4626Feature.veranta_like})
     web3 = Mock()
     web3.eth.chain_id = 8453
-    web3.eth.get_storage_at.return_value = bytes.fromhex("00" * 12 + "e79184763b27fa8bb0eb2d6af1f0123d43af0e89")
-    vault = VerantaVault(web3, spec, features=detection.features)
+    manager_impl = "f0207407beb82902186321e3dd84a7050add275a" if reviewed else "11" * 20
+    web3.eth.get_storage_at.side_effect = lambda address, *args, **kwargs: bytes.fromhex("00" * 12 + (manager_impl if address.lower() == VERANTA_VAULT_MANAGER_ADDRESS else "e79184763b27fa8bb0eb2d6af1f0123d43af0e89"))
+    vault = VerantaVault(web3, spec, features=detection.features, default_block_identifier=123)
     contract = Mock()
-    contract.functions.feesOn.return_value.call.return_value = False
+    contract.functions.vaultManager.return_value.call.return_value = VERANTA_VAULT_MANAGER_ADDRESS
+    contract.functions.feesOn.return_value.call.return_value = True
+    contract.functions.balancingFee.return_value.call.return_value = 0
+    contract.functions.collateralHealthFee.return_value.call.return_value = 1500
     vault.__dict__["vault_contract"] = contract
     for key, symbol, name in (("share_token", "avUSDC", "Avantis USDC Vault"), ("denomination_token", "USDC", "USD Coin")):
         token = Mock(symbol=symbol)
@@ -2929,3 +3014,13 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
     assert exported["short_description"] == metadata.short_description
     assert "\n\n#### Payouts and withdrawals\n\n" in exported["description"]
     assert exported["vault_slug"] == "veranta-usdc-vault"
+    assert exported["fee_mode"] == "externalised"
+    assert exported["gross_fees"]["management"] == (0.0 if reviewed else None)
+    assert exported["gross_fees"]["performance"] == (0.0 if reviewed else None)
+    assert exported["gross_fees"]["withdraw"] == pytest.approx(0.005)
+    if reviewed:
+        assert exported["net_fees"]["performance"] == 0.0
+        # Only the explicit withdrawal charge affects the measured return.
+        assert exported["lifetime_return_net"] == pytest.approx((1 + exported["lifetime_return"]) * (1 - 0.005) - 1)
+    else:
+        assert exported["lifetime_return_net"] is None

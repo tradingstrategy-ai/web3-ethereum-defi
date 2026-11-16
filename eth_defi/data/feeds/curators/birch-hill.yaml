@@ -4,18 +4,33 @@ role: curator
 website: https://birchhill.io/
 morpho-curator: Birch Hill
 twitter: BirchHill_io
-short_description: Birch Hill specialises in onchain credit backed by real-world assets, starting with tokenised property equity.
+rss: https://research.birchhill.io/feed
+short_description: Birch Hill assesses loans backed by real-world assets and manages onchain lending products.
 long_description: |
-  [Birch Hill](https://birchhill.io/) applies credit underwriting to loans backed by tokenised real-world
-  assets. Its [first product, launched in July
-  2026](https://research.birchhill.io/p/birch-hills-first-onchain-product), lends USDC on Base against GRO
-  tokens representing shares in GromaREIT, a private real estate investment trust focused on residential
-  property in the northeastern United States. The vault combines Morpho lending markets with Yearn vault
-  infrastructure. Both lenders and borrowers must pass identity and accredited-investor checks; Birch Hill
-  publishes the strategy's underwriting and risk documentation.
+  [Birch Hill](https://birchhill.io/) is a New York-based financial services firm that assesses loans
+  backed by real-world assets and manages onchain lending products. Its work includes reviewing borrowers,
+  selecting the assets accepted as loan security and setting lending limits.
+
+  Its [Groma Ecosystem vault](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc) lends USDC
+  against GRO, tokenised shares in GromaREIT's residential property portfolio, and earns interest from
+  borrowers. Its separate [RWA USDC Flagship](https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc-2)
+  allocates to Ecosystem vaults for verified accredited and institutional investors.
+
+  The restricted RWA USDC product [launched in July 2026](https://research.birchhill.io/p/birch-hills-first-onchain-product)
+  using Yearn vault infrastructure and Morpho lending. In October 2026, Birch Hill
+  [raised a $4 million seed round led by Multicoin Capital](https://www.businesswire.com/news/home/20261028277814/en/Birch-Hill-Raises-%244-Million-Seed-Round-Led-by-Multicoin-Capital-to-Bring-U.S.-Credit-Onchain),
+  with ParaFi Capital, Castle Island Ventures and Nascent participating, bringing total company financing to $6.5 million.
 other-links:
 - title: Official organisation website
   url: https://birchhill.io/
-- title: Birch Hill RWA USDC on Base - vault details and attribution
-  url: https://app.morpho.org/base/vault/0xb038cf3e233b78225f6d350ac8319bec8457db4a
+- title: Groma Ecosystem USDC vault on Trading Strategy
+  url: https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc
+- title: RWA USDC Flagship vault on Trading Strategy
+  url: https://tradingstrategy.ai/vaults/birch-hill-rwa-usdc-2
+- title: Birch Hill Groma Ecosystem vault launch - open Morpho deposits and separate RWA USDC (Flagship) vault
+  url: https://research.birchhill.io/p/introducing-birch-hill-ecosystem
+- title: Birch Hill's first product launch - permissioned RWA USDC vault using Yearn v3 and Morpho
+  url: https://research.birchhill.io/p/birch-hills-first-onchain-product
+- title: October 2026 seed funding - $4 million led by Multicoin Capital and Morpho curator role
+  url: https://www.businesswire.com/news/home/20261028277814/en/Birch-Hill-Raises-%244-Million-Seed-Round-Led-by-Multicoin-Capital-to-Bring-U.S.-Credit-Onchain
 linkedin: birch-hill-holdings

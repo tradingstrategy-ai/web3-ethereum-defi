@@ -18,6 +18,7 @@ from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import ANTARCTIC_ADD_TOPIC, ANTARCTIC_REMOVE_TOPIC, AntarcticSettlement
 from eth_defi.erc_4626.vault_protocol.antarctic.vault import AntarcticVault
+from eth_defi.event_reader.timestamp_cache import BlockTimestampSlicer, load_timestamp_cache
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -100,6 +101,22 @@ def load_antarctic_settlements(path: Path) -> list[AntarcticSettlement]:
     :return: Small reusable test fixture.
     """
     return [AntarcticSettlement(**row) for row in json.loads(path.read_text())]
+
+
+def fetch_recorded_antarctic_timestamps(*, chain_id: int, cache_path: Path, **_kwargs: object) -> BlockTimestampSlicer:
+    """Read the exact event headers already supplied by recorded source transport.
+
+    Protocol tests exercise decoding, persistence and publication independently
+    of dense timestamp collection. Dedicated timestamp-reader tests cover dense
+    cache filling; these fixtures contain only settlement-associated headers.
+    The caller owns and closes the returned slicer.
+
+    :param chain_id: Recorded chain identity.
+    :param cache_path: Isolated cache populated by the settlement collector.
+    :param _kwargs: Remaining arguments from the production timestamp reader.
+    :return: Slicer over the recorded event timestamps.
+    """
+    return load_timestamp_cache(chain_id, cache_path).get_slicer()
 
 
 def create_antarctic_test_metadata(web3: Web3, token_cache: TokenDiskCache) -> VaultDatabase:

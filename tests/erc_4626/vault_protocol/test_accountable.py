@@ -92,8 +92,7 @@ def test_accountable_susn_vault(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "accountable_redemption_settlement_is_strategy_operator_controlled",
+        "supports_anvil_settlement": True,
     }
 
     # Investor-facing fees now come from the onchain fee manager.
@@ -192,7 +191,7 @@ def test_accountable_current_fee_manager_configuration(web3: Web3) -> None:
 
 @pytest.mark.timeout(180)
 @flaky.flaky
-def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> None:
+def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3, monkeypatch: pytest.MonkeyPatch) -> None:
     """Execute the depositor-controlled Accountable lifecycle on the fork.
 
     :param web3:
@@ -266,13 +265,12 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
         AsyncVaultRequestStatus.pending,
         AsyncVaultRequestStatus.claimable,
     }
-    with pytest.raises(UnsupportedVaultSimulation, match="strategy-operator controlled") as exc_info:
-        manager.force_settle(ticket)
-    assert exc_info.value.unsupported_reason == "accountable_redemption_settlement_is_strategy_operator_controlled"
-    assert exc_info.value.protocol == vault.get_protocol_name()
-    assert exc_info.value.vault_address == vault.address
-    assert exc_info.value.direction == "redeem"
-    assert exc_info.value.phase == "settlement"
+    # A real chain must never impersonate the strategy to fulfil a request.
+    with monkeypatch.context() as context:
+        context.setattr("eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem.is_anvil", lambda _: False)
+        with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+            manager.force_settle(ticket)
+        assert exc_info.value.unsupported_reason == "anvil_provider_required"
 
 
 @pytest.mark.timeout(180)

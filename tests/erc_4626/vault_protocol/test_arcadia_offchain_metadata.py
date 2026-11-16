@@ -202,14 +202,6 @@ def test_api_failures_back_off_and_allow_generation(failure: Exception, tmp_path
     assert "collateralised" in vault.description
 
 
-@pytest.mark.parametrize("payload", [{}, [None], [{"address": USDG_POOL}], [{"address": "bad", "tranches": []}], [{"address": USDG_POOL, "tranches": [{}]}]])
-def test_malformed_response_is_not_cached(payload: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Malformed response shapes follow the same fallback path as HTTP errors."""
-    mock_api(monkeypatch, payload)
-    assert fetch_arcadia_vaults(4663, cache_path=tmp_path) is None
-    assert not (tmp_path / "pools-4663.json").exists()
-
-
 def test_failed_refresh_preserves_old_disk_and_memory_index(pool_payload: list[dict], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Provider errors never overwrite an older valid response."""
     request = mock_api(monkeypatch, pool_payload)

@@ -372,7 +372,7 @@ def test_migrate_vault_strategy_tags_resolves_threejane_rows(address: str) -> No
 @pytest.mark.parametrize(
     ("chain_id", "address", "feature", "expected_tags"),
     (
-        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx}),
+        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.market_making, StrategyTag.carry_trade}),
         (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a", ERC4626Feature.midas_like, {StrategyTag.fx}),
         (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326", ERC4626Feature.midas_like, {StrategyTag.fx}),
         (1, "0x810b29d043eb851ba4cf80b1b194ed5177e70958", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
@@ -511,7 +511,7 @@ def test_nova_strategy_refresh_is_chain_scoped() -> None:
         (8453, "0xf56bfe07b8d6e6d74258cdb6969a633629b06b08", {ERC4626Feature.lagoon_like}, {StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.multistrategy}),
         (1, "0xdcd0f5ab30856f28385f641580bbd85f88349124", {ERC4626Feature.lagoon_like}, {StrategyTag.algorithmic_trading, StrategyTag.lending, StrategyTag.lending_optimisation}),
         (1, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
-        (8453, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
+        (8453, "0xb09f761cb13baca8ec087ac476647361b6314f98", {ERC4626Feature.lagoon_like}, {StrategyTag.discretionary_trading, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.lending, StrategyTag.lending_looping, StrategyTag.liquidity_provider, StrategyTag.multistrategy}),
     ),
 )
 def test_migrate_reviewed_curator_strategy_tags(chain_id: int, address: str, features: set[ERC4626Feature], expected: set[StrategyTag], tmp_path: Path) -> None:

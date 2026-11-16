@@ -106,6 +106,22 @@ contract GuardVaultProtocolTest is Test {
         assertEq(abi.decode(transferLog.data, (uint256)), expectedAmount, "Asset transfer amount");
     }
 
+    function testLagoonSyncDepositValidatesReceiverNotReferral() public {
+        MockERC4626Vault vault = new MockERC4626Vault(asset);
+        guard.whitelistERC4626(address(vault), "Lagoon sync deposit");
+        // The third argument is a referral, so zero is valid.
+        guard.validateCall(
+            ASSET_MANAGER, address(vault),
+            abi.encodeWithSignature("syncDeposit(uint256,address,address)", AMOUNT, address(simpleVault), address(0))
+        );
+        // The share receiver must remain in guarded custody.
+        vm.expectRevert(bytes("Receiver not whitelisted"));
+        guard.validateCall(
+            ASSET_MANAGER, address(vault),
+            abi.encodeWithSignature("syncDeposit(uint256,address,address)", AMOUNT, OUTSIDER, address(0))
+        );
+    }
+
     function testERC7540AcceptsSelfControlledRequestAndClaim() public {
         MockERC7540Vault vault = new MockERC7540Vault(asset);
         guard.whitelistERC4626(address(vault), "ERC-7540 test vault");
@@ -499,5 +515,54 @@ contract GuardVaultProtocolTest is Test {
         );
         _assertWithdrawEvent(vm.getRecordedLogs(), address(vault), AMOUNT, AMOUNT);
         assertEq(asset.balanceOf(address(simpleVault)), AMOUNT, "Upshift queued claim transfer amount");
+    }
+}
+
+/// Minimal policy fixture: tests validate the real Guard, not Morpho economics.
+contract RecoveryPolicyVault {
+    address public asset;
+    address public adapter;
+    uint256 public fee = 1e14;
+    constructor(address token) { asset = token; }
+    function setAdapter(address value) external { adapter = value; }
+    function setFee(uint256 value) external { fee = value; }
+    function isAdapter(address value) external view returns (bool) { return value == adapter; }
+    function forceDeallocatePenalty(address) external view returns (uint256) { return fee; }
+    function balanceOf(address) external pure returns (uint256) { return 1001e6; }
+    function previewRedeem(uint256 shares) external pure returns (uint256) { return shares; }
+}
+contract RecoveryPolicyAdapter {
+    address public parentVault;
+    constructor(address vault) { parentVault = vault; }
+}
+contract MorphoRecoveryGuardTest is Test {
+    function testRecoveryRequiresExplicitCapAndCustodyOwner() public {
+        // 1. The ordinary vault allowlist never authorises fee-paying recovery.
+        GuardV0 guard = new GuardV0();
+        guard.allowSender(address(0xA55E7), "asset manager");
+        RecoveryPolicyVault vault = new RecoveryPolicyVault(address(1));
+        RecoveryPolicyAdapter adapter = new RecoveryPolicyAdapter(address(vault));
+        vault.setAdapter(address(adapter));
+        guard.whitelistERC4626(address(vault), "ordinary");
+        address custody = address(0xCAFE);
+        guard.allowReceiver(custody, "custody");
+        bytes memory payload = abi.encodeCall(IMorphoRecoveryVault.forceDeallocate, (address(adapter), bytes(""), 1001e6, custody));
+        vm.expectRevert();
+        guard.validateCall(address(0xA55E7), address(vault), payload);
+        // 2. The reviewed cap admits the public operation for guarded custody.
+        guard.whitelistMorphoV2Recovery(address(vault), 1, "reviewed");
+        guard.validateCall(address(0xA55E7), address(vault), payload);
+        // 3. Refuse changed fees, an unrelated adapter, an unrelated owner and
+        // an amount larger than the owner's position before any call executes.
+        vault.setFee(2e14);
+        vm.expectRevert(bytes("Recovery fee exceeds cap"));
+        guard.validateCall(address(0xA55E7), address(vault), payload);
+        vault.setFee(1e14);
+        vm.expectRevert(bytes("Invalid recovery adapter"));
+        guard.validateCall(address(0xA55E7), address(vault), abi.encodeCall(IMorphoRecoveryVault.forceDeallocate, (address(0xBAD), bytes(""), 1001e6, custody)));
+        vm.expectRevert(bytes("Owner not whitelisted"));
+        guard.validateCall(address(0xA55E7), address(vault), abi.encodeCall(IMorphoRecoveryVault.forceDeallocate, (address(adapter), bytes(""), 1001e6, address(0xBAD))));
+        vm.expectRevert(bytes("Recovery exceeds owner position"));
+        guard.validateCall(address(0xA55E7), address(vault), abi.encodeCall(IMorphoRecoveryVault.forceDeallocate, (address(adapter), bytes(""), 1002e6, custody)));
     }
 }

@@ -24,6 +24,28 @@ from eth_defi.vault.curator import build_curator_metadata_json, get_curator_avai
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
+def test_identify_hyperneutral() -> None:
+    """Attribute the reviewed HyperNeutral vault and export its curator profile.
+
+    Exact attribution survives renamed vaults and stale declarations while
+    leaving an unbranded deployment at the same address on another chain alone.
+
+    :return: ``None`` after checking identity and public curator metadata.
+    """
+    address = "0x8bb033130be354eed1110ce7228d7095f001d9fe"
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "HyperNeutral #1", address, "hyperliquid") == "hyperneutral"
+    assert identify_curator(HYPERCORE_CHAIN_ID, "", "Renamed vault", address.upper(), "hyperliquid", declared_curator_slug="stale") == "hyperneutral"
+    assert identify_curator(999, "", "Unbranded vault", address, "hyperliquid") is None
+    assert get_curator_name("hyperneutral") == "HyperNeutral"
+    assert not is_protocol_curator("hyperneutral")
+    assert get_strategy_tags(address) == {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    yaml_path = Path(__file__).resolve().parents[2] / "eth_defi/data/feeds/curators/hyperneutral.yaml"
+    metadata = build_curator_metadata_json(yaml_path)
+    assert metadata["twitter"] == "https://x.com/HyprNeutral"
+    assert metadata["short_description"]
+    assert metadata["long_description"]
+
+
 def test_identify_nuwealth_ai_rocksteady() -> None:
     """Keep the reviewed Hypercore vault separate from the Morpho curator.
 

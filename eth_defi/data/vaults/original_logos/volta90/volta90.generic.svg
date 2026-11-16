@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    SYMBOL - V SIGIL - Volta brand mark (favicon / app icon).
+    Stripped variant: just the V monogram on the volt-green tile.
+    Optimized for small sizes (16/32px favicons, app tiles, avatars).
+
+    Composition:
+    - Volt-green rounded tile = brand presence at small sizes
+    - Bold "V" centered, parallel arms, sharp tip = Volta monogram
+  -->
+
+  <rect width="64" height="64" rx="11" fill="#c8ff00"/>
+
+  <path d="M 10 14 L 18 14 L 32 42 L 46 14 L 54 14 L 36 50 L 28 50 Z" fill="#0a0a0b"/>
+</svg>

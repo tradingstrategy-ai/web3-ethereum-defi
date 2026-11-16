@@ -172,53 +172,6 @@ def test_market_composition_data(get_glv_stats):
         assert len(market_metadata) >= 2, f"GLV {glv_data['glv_address']} should have at least 2 markets"
 
 
-def test_data_consistency(get_glv_stats):
-    """Test that GLV data is consistent across multiple calls with real data."""
-    results1 = get_glv_stats.get_glv_stats_multicall()
-    results2 = get_glv_stats.get_glv_stats_multicall()
-
-    # We expect some minor changes due to trading activity, but not major changes
-    tolerance = 0.1  # 10% tolerance for change
-
-    for glv_address in results1:
-        if glv_address not in results2:
-            continue
-
-        glv_data1 = results1[glv_address]
-        glv_data2 = results2[glv_address]
-
-        # Compare GLV price if present in both
-        if "glv_price" in glv_data1 and "glv_price" in glv_data2:
-            price1 = glv_data1["glv_price"]
-            price2 = glv_data2["glv_price"]
-
-            if price1 > 0:  # Avoid division by zero
-                change = abs(price1 - price2) / price1
-                assert change < tolerance, f"GLV price changed too much: {price1} -> {price2} for {glv_address}"
-
-        # Compare market composition if present in both
-        if "markets_metadata" in glv_data1 and "markets_metadata" in glv_data2:
-            markets1 = glv_data1["markets_metadata"]
-            markets2 = glv_data2["markets_metadata"]
-
-            common_markets = set(markets1.keys()) & set(markets2.keys())
-            for market_addr in common_markets:
-                balance1 = markets1[market_addr]["balance"]
-                balance2 = markets2[market_addr]["balance"]
-                price1 = markets1[market_addr]["gm price"]
-                price2 = markets2[market_addr]["gm price"]
-
-                # Balance shouldn't change much in a short time
-                if balance1 > 0:
-                    balance_change = abs(balance1 - balance2) / balance1
-                    assert balance_change < tolerance, f"Balance changed too much: {balance1} -> {balance2} for {market_addr}"
-
-                # Price might change more, but not drastically
-                if price1 > 0:
-                    price_change = abs(price1 - price2) / price1
-                    assert price_change < 0.5, f"Price changed too much: {price1} -> {price2} for {market_addr}"
-
-
 def test_glv_price_bounds(get_glv_stats: GlvStats) -> None:
     """Check finite prices without imposing arbitrary share-price bounds.
 

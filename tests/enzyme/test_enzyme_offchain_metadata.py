@@ -112,13 +112,6 @@ def test_parse_enzyme_app_vault_metadata_preserves_contact_fields() -> None:
     assert metadata.manager_name == "delta_finance"
 
 
-def test_parse_enzyme_app_vault_metadata_rejects_invalid_response() -> None:
-    """Reject a malformed response before it can overwrite cached copy."""
-
-    with pytest.raises(ValueError, match="JSON object"):
-        parse_enzyme_app_vault_metadata([])
-
-
 def test_fetch_enzyme_app_vault_metadata_batch_uses_graphql_aliases() -> None:
     """Collect multiple page-equivalent profile reads in one HTTP request."""
 

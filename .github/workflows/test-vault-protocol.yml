@@ -163,6 +163,7 @@ jobs:
           JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}
           JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+          HYPERSYNC_CONCURRENCY: "1"
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
 
       # Prove the committed caches were actually applied: the seeding fixtures

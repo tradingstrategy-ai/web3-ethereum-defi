@@ -764,7 +764,7 @@ class UpshiftVault(ERC4626Vault):
             slot = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
             value = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block_identifier)
             implementation = "0x" + bytes(value[-20:]).hex()
-            if implementation != "0xaacc687cea8cd706bd7a56be0f7ad85d420767dc":
+            if implementation not in {"0xaacc687cea8cd706bd7a56be0f7ad85d420767dc", "0xff33f4042bd18572e1e1568fdaf3348df5113908"}:
                 raise
             return None
 
@@ -777,6 +777,11 @@ class UpshiftVault(ERC4626Vault):
         """
 
         if not self.multi_asset_like:
+            # Legacy TokenizedAccount can advertise capacity while deposits are
+            # paused. Honour the selected block so a later pause does not
+            # rewrite a saved metadata observation.
+            if self.upshift_contract.functions.depositsPaused().call(block_identifier=self._get_block_identifier()):
+                return "Upshift depositsPaused() is true"
             return super().fetch_deposit_closed_reason()
 
         if self.upshift_contract.functions.depositsPaused().call():

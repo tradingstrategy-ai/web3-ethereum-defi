@@ -235,6 +235,13 @@ class RoycoVault(ERC4626Vault):
     See: https://docs.royco.org/for-incentive-providers/audits
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Royco WrappedVault deposits are public; reward administration is separate.
+
+        :return: ``False`` for the public deposit policy.
+        """
+        return False
+
     @cached_property
     def royco_metadata(self) -> RoycoOffchainVaultMetadata | None:
         """Offchain metadata from Royco's first-party API.
@@ -322,6 +329,13 @@ class RoycoTrancheVault(RoycoVault):
     - `ROY-JT-eEARN <https://etherscan.io/address/0x059bc7aa5000a26aae2601cfbf060653adf8fd91>`__
     - `ROY-ST-eEARN <https://etherscan.io/address/0x1ba515a409dd702105415cdaae439059aa0b402a>`__
     """
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Keep tranche admission unknown until its distinct policy is reviewed.
+
+        :raise NotImplementedError: WrappedVault policy does not cover tranches.
+        """
+        raise NotImplementedError("Royco tranche admission has not been reviewed")
 
     @cached_property
     def vault_contract(self) -> Contract:

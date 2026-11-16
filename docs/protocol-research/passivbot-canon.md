@@ -35,8 +35,14 @@ remains the source for current positions and operating status.
 The maintainer explicitly assigned `high_frequency_high_win_rate`. This is a
 strategy classification, not a measured win rate or evidence of latency-based
 HFT. The other maintained tags describe algorithmic, directional,
-mean-reversion, grid and orderbook market-making behaviour, alongside the
+mean-reversion and orderbook market-making behaviour, alongside the
 native perpetual-futures default.
+
+The grid trading tag was removed at the maintainer's request on 2026-11-14.
+Migration `073-passivbot-canon-strategy-tags.py` refreshes only this vault's
+persisted strategy tags. Run it after merge using the production procedure below;
+do not rerun migration 020. It inspects at most one row and changes at most one
+field. No historical price backfill is needed for this tag removal.
 
 Background reading in the public curator profile includes:
 
@@ -57,14 +63,16 @@ reconstructed from these API samples alone. No local snapshot was modified.
 
 Migration `020-passivbot-canon-metadata.py` refreshes only the full description,
 summary and strategy tags of the exact native vault. It uses the same maintained
-resolvers as future scanner exports. Curator identity is resolved during export
+resolvers as future scanner exports. Migration
+`073-passivbot-canon-strategy-tags.py` subsequently removes the grid trading
+tag from persisted metadata. Curator identity is resolved during export
 and requires no persisted curator-field repair.
 
 The migration is validated on isolated test data, including preview, apply,
 backup, repeat execution, missing targets and invalid classification. Production
 application is a separate operator action after merge and deployment. Follow the
 [numbered migration runbook](../../.claude/docs/migration-scripts.md#production-runbook);
-the runner executes **all pending migrations** in order, not just migration 020.
+the runner executes **all pending migrations** in order, including 073 when pending.
 
 On the production host, update the checkout to the merged revision and inspect
 `docker-compose.yml`, including its persistent state mounts. Build the stamped
@@ -80,7 +88,8 @@ docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vau
 ```
 
 Inspect the preview before applying. Migration 020 should inspect at most one
-existing row and change at most three fields, with no historical writes:
+existing row and change at most three fields; migration 073 should inspect at
+most one row and change at most one field. Neither performs historical writes:
 
 ```shell
 docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run

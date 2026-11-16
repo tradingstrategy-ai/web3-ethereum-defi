@@ -61,7 +61,7 @@ def create_lagoon_vault(chain_id: int, address: HexAddress, metadata: offchain_m
 
     vault = object.__new__(LagoonVault)
     vault.spec = VaultSpec(chain_id=chain_id, vault_address=address)
-    vault.__dict__["lagoon_metadata"] = metadata
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, False, "success", None)
     return vault
 
 
@@ -171,7 +171,7 @@ def test_private_lagoon_vault_detail_is_fetched_outside_visible_listing(tmp_path
         }
 
     monkeypatch.setattr(offchain_metadata, "_fetch_vault_listing_page", fetch_listing_page)
-    monkeypatch.setattr(offchain_metadata, "_fetch_vault_detail", fetch_vault_detail)
+    monkeypatch.setattr(offchain_metadata, "_fetch_detail_response", lambda *args, **kwargs: offchain_metadata.LagoonDetailResponse(fetch_vault_detail(args[0], args[1]), "success"))
 
     vaults = offchain_metadata.fetch_lagoon_vaults_for_chain(
         ETHEREUM_CHAIN_ID,
@@ -211,13 +211,12 @@ def test_empty_visible_listing_does_not_replace_complete_stale_cache_with_privat
     monkeypatch.setattr(offchain_metadata, "LAGOON_PRIVATE_VAULT_ALLOWLIST", frozenset({(ETHEREUM_CHAIN_ID, PRIVATE_VAULT_ADDRESS)}))
     monkeypatch.setattr(offchain_metadata, "_fetch_vault_listing_page", lambda *_args, **_kwargs: {"vaults": [], "hasNextPage": False})
 
-    def fail_detail_fetch(*_args: object, **_kwargs: object) -> None:
-        """Fail if private details are fetched after an invalid empty listing."""
+    def fail_detail_fetch(*_args: object, **_kwargs: object) -> offchain_metadata.LagoonDetailResponse:
+        """Simulate a deferred private detail while retaining the stale catalogue."""
 
-        message = "Private detail fetch must not replace a complete stale catalogue"
-        raise AssertionError(message)
+        return offchain_metadata.LagoonDetailResponse()
 
-    monkeypatch.setattr(offchain_metadata, "_fetch_vault_detail", fail_detail_fetch)
+    monkeypatch.setattr(offchain_metadata, "_fetch_detail_response", fail_detail_fetch)
 
     vaults = offchain_metadata.fetch_lagoon_vaults_for_chain(
         ETHEREUM_CHAIN_ID,
@@ -227,3 +226,20 @@ def test_empty_visible_listing_does_not_replace_complete_stale_cache_with_privat
     )
 
     assert vaults == stale_metadata
+
+
+@pytest.mark.parametrize("membership", [False, None])
+@pytest.mark.parametrize("manual_note", [None, "Operator warning"])
+def test_reviewed_private_description_never_gets_unverified_note(membership: bool | None, manual_note: str | None, monkeypatch: MonkeyPatch) -> None:
+    """Keep reviewed private copy or manual notes despite catalogue omission.
+
+    Explicit approval applies independently from both provider text and
+    temporary catalogue availability. Missing text retains the existing
+    private-vault note in the other allowlist tests.
+    """
+    monkeypatch.setattr(ERC7540Vault, "get_flags", lambda _self: set())
+    monkeypatch.setattr(ERC7540Vault, "get_notes", lambda _self: manual_note)
+    vault = create_lagoon_vault(1, PRIVATE_VAULT_ADDRESS)
+    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot({"description": "Reviewed private strategy."}, membership, "success", None)
+    assert vault.get_flags() == set()
+    assert vault.get_notes() == (manual_note or "Reviewed private strategy.")

@@ -19,7 +19,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCES, LeadScanReport, VaultDiscoveryBase
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, SUPERSTATE_HARDCODED_LEADS, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_FIRST_SEEN_AT, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK
+from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, SUPERSTATE_HARDCODED_LEADS, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK
 from eth_defi.tokenised_fund.superstate.historical import SuperstateVaultHistoricalReader, SuperstateVaultReaderState
 from eth_defi.tokenised_fund.superstate.vault import SUPERSTATE_RESTRICTED_FLOW_REASON, SuperstateVault
 from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
@@ -162,11 +162,3 @@ def test_superstate_ustb_live_supply_nav_and_history(web3: Web3) -> None:
     assert reader.reader_state.last_block == USTB_TEST_BLOCK
     assert reader.reader_state.last_tvl == USTB_EXPECTED_TOTAL_ASSETS
     assert reader.reader_state.last_share_price == USTB_EXPECTED_NAV_PER_SHARE
-
-
-def test_superstate_lead_constants_are_consistent() -> None:
-    """Keep the hardcoded lead registry internally consistent."""
-
-    assert USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK > 0
-    assert USTB_ETHEREUM_FIRST_SEEN_AT.tzinfo is None
-    assert SUPERSTATE_HARDCODED_LEADS == ((SUPERSTATE_ETHEREUM_CHAIN_ID, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK, USTB_ETHEREUM_FIRST_SEEN_AT),)

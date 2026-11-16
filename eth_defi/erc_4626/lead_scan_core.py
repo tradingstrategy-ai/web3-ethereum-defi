@@ -38,6 +38,41 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 logger = logging.getLogger(__name__)
 
+#: Minimum number of previously working vaults that must turn ``broken`` in one
+#: classification pass before :py:func:`check_mass_broken_reclassification` aborts.
+MASS_BROKEN_RECLASSIFICATION_MIN_VAULTS = 10
+
+#: Share of previously working, freshly reclassified vaults that must turn
+#: ``broken`` before :py:func:`check_mass_broken_reclassification` aborts.
+MASS_BROKEN_RECLASSIFICATION_FRACTION = 0.2
+
+
+def check_mass_broken_reclassification(chain_id: int, previous_entries: dict[str, dict], fresh_entries: dict[str, dict]) -> None:
+    """Refuse to persist a classification pass that breaks many working vaults.
+
+    Real contracts rarely stop answering ERC-4626 probes, and transport failures
+    raise rather than becoming features. A large share of working vaults turning
+    ``broken`` at once therefore indicates a classifier bug. On 2026-11-14 a
+    probe-grouping bug reclassified 8,080 of 8,589 Arbitrum vaults as ``broken``;
+    persisting that cache would have stopped pricing them for up to a week.
+
+    The check compares only addresses classified in this pass with their
+    previous cached features, regardless of classifier version.
+
+    :param chain_id: Chain being scanned, for the error message.
+    :param previous_entries: Classification cache entries before this pass, keyed by lower-case address.
+    :param fresh_entries: Entries produced by this pass, keyed by lower-case address.
+    :return: None.
+    :raise RuntimeError: If at least :py:data:`MASS_BROKEN_RECLASSIFICATION_MIN_VAULTS`
+        previously working vaults, and at least :py:data:`MASS_BROKEN_RECLASSIFICATION_FRACTION`
+        of the previously working vaults reclassified here, became ``broken``.
+    """
+    broken = [ERC4626Feature.broken.name]
+    previously_working = [address for address in fresh_entries if (previous := previous_entries.get(address)) is not None and ERC4626Feature.broken.name not in previous.get("features", ())]
+    newly_broken = [address for address in previously_working if fresh_entries[address]["features"] == broken]
+    if len(newly_broken) >= MASS_BROKEN_RECLASSIFICATION_MIN_VAULTS and len(newly_broken) >= MASS_BROKEN_RECLASSIFICATION_FRACTION * len(previously_working):
+        raise RuntimeError(f"Vault classification on chain {chain_id} would mark {len(newly_broken)} of {len(previously_working)} previously working vaults as broken, e.g. {newly_broken[:3]}; refusing to persist a likely classifier bug")
+
 
 def display_vaults_table(
     df: pd.DataFrame,
@@ -304,6 +339,7 @@ def scan_leads(
         raise RuntimeError(message)
     existing_db.update_leads_and_rows(chain_id, end_block, report.leads, {})
     vault_detections = list(report.detections.values())
+    fresh_classification_entries = {}
     for detection in vault_detections:
         address = detection.address.lower()
         if address in vault_discover.cached_features:
@@ -313,7 +349,9 @@ def scan_leads(
         # rollout without moving the observation time on every scheduler tick.
         # Negative classifications expire sooner so repaired contracts recover.
         jitter = int(hashlib.sha256(address.encode()).hexdigest()[:4], 16) % 24
-        classification_entries[address] = {"features": sorted(feature.name for feature in detection.features), "checked_at": detection.updated_at.isoformat(), "expires_at": (detection.updated_at + datetime.timedelta(days=days, hours=jitter)).isoformat(), "classifier_version": classifier_version}
+        fresh_classification_entries[address] = {"features": sorted(feature.name for feature in detection.features), "checked_at": detection.updated_at.isoformat(), "expires_at": (detection.updated_at + datetime.timedelta(days=days, hours=jitter)).isoformat(), "classifier_version": classifier_version}
+    check_mass_broken_reclassification(chain_id, classification_entries, fresh_classification_entries)
+    classification_entries.update(fresh_classification_entries)
     save_rpc_scan_state(classification_path, classification_entries)
 
     # Keep metadata requests on threads so phase accounting is shared.

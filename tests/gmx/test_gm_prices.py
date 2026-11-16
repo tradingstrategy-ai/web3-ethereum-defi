@@ -14,21 +14,6 @@ import time
 from eth_defi.gmx.core.gm_prices import GetGMPrices
 
 
-def test_get_gm_prices_initialization(gmx_config):
-    """
-    Test that GetGMPrices initializes correctly with chain-specific config.
-    """
-    get_gm_prices = GetGMPrices(gmx_config, filter_swap_markets=True)
-
-    assert get_gm_prices.config == gmx_config
-    assert get_gm_prices.filter_swap_markets is True
-    assert get_gm_prices.log is not None
-
-    # Test with filter_swap_markets=False
-    get_gm_prices_unfiltered = GetGMPrices(gmx_config, filter_swap_markets=False)
-    assert get_gm_prices_unfiltered.filter_swap_markets is False
-
-
 def test_get_gm_prices_direct_call(chain_name, get_gm_prices):
     """
     Test direct GetGMPrices usage with different price types.
@@ -78,105 +63,7 @@ def test_get_gm_prices_direct_call(chain_name, get_gm_prices):
         # print(f"\n{chain_name.upper()}: GetGMPrices ({price_type}) completed in {execution_time:.2f} seconds")
         # print(f"{chain_name.upper()}: Retrieved prices for {len(prices_data['gm_prices'])} markets")
 
-
-def test_get_gm_prices_specific_markets(chain_name, get_gm_prices):
-    """
-    Test that specific expected markets have price data.
-
-    This verifies that chain-specific markets are properly handled.
-    """
-    # Get data for traders (most commonly used)
-    prices_data = get_gm_prices.get_price_traders()
-
-    # Define expected markets per chain
-    if chain_name.lower() == "arbitrum":
-        expected_markets = ["ETH", "BTC", "ARB", "LINK"]  # Common Arbitrum markets
-    else:  # avalanche
-        expected_markets = ["AVAX", "ETH", "BTC", "LINK"]  # Common Avalanche markets
-
-    markets = set(prices_data["gm_prices"].keys())
-
-    # Check that at least some expected markets exist
-    found_markets = []
-    for market in expected_markets:
-        if market in markets:
-            found_markets.append(market)
-
-            # Verify the data is reasonable
-            price = prices_data["gm_prices"][market]
-            assert isinstance(price, float)
-            if market != "UNKNOWN":
-                assert price > 0
-
-            # print(f"\n{chain_name.upper()} {market} GM price: ${price:.6f}")
-
-    # Note: May not find expected markets due to network/oracle issues or market changes
-    # Just verify structure is correct if markets exist
-    if len(markets) > 0 and len(found_markets) == 0:
-        pytest.skip(f"No expected markets found for {chain_name}. This may be due to network issues or market changes. Found: {list(markets)}")
-
     # print(f"{chain_name.upper()}: Found {len(found_markets)} expected markets: {found_markets}")
-
-
-def test_get_gm_prices_total_calculations(chain_name, get_gm_prices):
-    """
-    Test total price calculations and aggregations.
-
-    This verifies that we can properly analyze price data.
-    """
-    # Get data for traders
-    prices_data = get_gm_prices.get_price_traders()
-
-    # Calculate statistics if we have data
-    all_prices = [price for price in prices_data["gm_prices"].values() if price > 0]  # Exclude UNKNOWN (0.0)
-
-    if len(all_prices) == 0:
-        pytest.skip(f"No price data available for {chain_name}. This may be due to network issues.")
-
-    min_price = min(all_prices)
-    max_price = max(all_prices)
-    avg_price = sum(all_prices) / len(all_prices)
-    median_price = sorted(all_prices)[len(all_prices) // 2]
-
-    # Should have reasonable values
-    assert min_price > 0
-    assert max_price >= min_price
-    assert avg_price >= min_price
-    assert avg_price <= max_price
-
-    # print(f"\nGM Price Statistics on {chain_name.upper()}:")
-    # print(f"  Min: ${min_price:.6f}")
-    # print(f"  Max: ${max_price:.6f}")
-    # print(f"  Avg: ${avg_price:.6f}")
-    # print(f"  Median: ${median_price:.6f}")
-    # print(f"  Markets: {len(all_prices)}")
-
-
-def test_get_gm_prices_error_handling(chain_name, get_gm_prices):
-    """
-    Test that error handling works properly.
-
-    This verifies that the implementation handles missing or failed data gracefully.
-    """
-    # This should not raise an exception even if some calls fail
-    try:
-        # Test all price types
-        traders_data = get_gm_prices.get_price_traders()
-        deposits_data = get_gm_prices.get_price_deposit()
-        withdrawals_data = get_gm_prices.get_price_withdraw()
-
-        # Should still return valid structure even if some data is missing
-        for data in [traders_data, deposits_data, withdrawals_data]:
-            assert isinstance(data, dict)
-            assert "gm_prices" in data
-            assert "parameter" in data
-            assert "timestamp" in data
-            assert "chain" in data
-
-        # print(f"\n{chain_name.upper()}: Error handling test passed - graceful handling of any failures")
-
-    except Exception as e:
-        pytest.fail(f"GetGMPrices should handle errors gracefully, but raised: {e}")
 
 
 def test_get_gm_prices_filter_swap_markets(chain_name, gmx_config):

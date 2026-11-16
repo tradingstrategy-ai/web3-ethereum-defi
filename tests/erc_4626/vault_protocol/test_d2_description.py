@@ -11,6 +11,9 @@ from eth_defi.erc_4626.vault_protocol.d2.vault import (
     D2_GLOBAL_MACRO_BLOG_URL,
     D2_GLOBAL_MACRO_DESCRIPTION,
     D2_GLOBAL_MACRO_UPDATE_URL,
+    D2_UNDISCLOSED_DESCRIPTION,
+    D2_VAULT_DESCRIPTIONS,
+    D2_VAULT_SHORT_DESCRIPTIONS,
     D2Vault,
 )
 from eth_defi.vault.base import VaultSpec, normalise_vault_description
@@ -18,7 +21,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
 TARGET = VaultSpec(4663, D2_GLOBAL_MACRO_ADDRESS)
-SCRIPT_NAME = "033-d2-globalmacro-description.py"
+SCRIPT_NAMES = ("033-d2-globalmacro-description.py", "045-d2-globalmacro-strategy-description.py")
 
 
 @pytest.mark.parametrize("address", [D2_GLOBAL_MACRO_ADDRESS, Web3.to_checksum_address(D2_GLOBAL_MACRO_ADDRESS)])
@@ -34,6 +37,11 @@ def test_globalmacro_description(address: str) -> None:
     vault = D2Vault(None, VaultSpec(4663, address), features={ERC4626Feature.d2_like})
     description = vault.description
     assert description == normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
+    assert description.startswith("#### Vault's trading strategy\n\n")
+    assert "USDG" not in description
+    assert "Pendle Boros" not in description
+    assert "GM 2.0" not in description
+    assert "Overnight Edge" not in description
     assert "\n\n#### " in description
     assert "**10% loss-limit policy per trading cycle**" in description
     assert "6% net" not in description
@@ -41,7 +49,7 @@ def test_globalmacro_description(address: str) -> None:
     assert "5 to 20 November" not in description
     assert D2_GLOBAL_MACRO_BLOG_URL in description
     assert D2_GLOBAL_MACRO_UPDATE_URL in description
-    assert vault.short_description == "Trades equity indices, commodities and currencies alongside income from USDG lending."
+    assert vault.short_description == "The vault strategy trades equity indices, commodities and currencies alongside lending income."
     assert "**Deposits and withdrawals are closed during the trading phase.**" in vault.get_notes()
 
 
@@ -58,8 +66,8 @@ def test_other_d2_description(spec: VaultSpec) -> None:
     assert D2Vault(None, spec, features={ERC4626Feature.d2_like}).description is None
 
 
-@pytest.fixture
-def globalmacro_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+@pytest.fixture(params=SCRIPT_NAMES)
+def globalmacro_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> tuple[Path, Path]:
     """Prepare an isolated stale record and historical sentinel files.
 
     Make only the GlobalMacro migration available to the real runner, including
@@ -67,6 +75,7 @@ def globalmacro_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tu
 
     :param tmp_path: Temporary directory owned by pytest.
     :param monkeypatch: Environment isolation for legacy database overrides.
+    :param request: Initial or subsequent GlobalMacro description migration.
     :return: Pipeline data and migration resource directories.
     """
     for name in ("VAULT_DB", "VAULT_DB_PATH"):
@@ -83,7 +92,7 @@ def globalmacro_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tu
         (data_dir / name).write_bytes(b"Preserve historical data")
     scripts_dir = tmp_path / "scripts"
     scripts_dir.mkdir()
-    script = next(spec for spec in runner.discover_migrations() if spec.name == SCRIPT_NAME)
+    script = next(spec for spec in runner.discover_migrations() if spec.name == request.param)
     (scripts_dir / script.name).write_bytes(script.source)
     return data_dir, scripts_dir
 
@@ -98,6 +107,7 @@ def test_globalmacro_preview_apply_and_retry(globalmacro_migration: tuple[Path, 
     :return: ``None`` after checking persistence and repeat execution.
     """
     data_dir, scripts_dir = globalmacro_migration
+    script_name = next(scripts_dir.glob("*.py")).name
     path = data_dir / "vault-metadata-db.pickle"
     original = {file.name: file.read_bytes() for file in data_dir.iterdir()}
     before = VaultDatabase.read(path)
@@ -108,12 +118,12 @@ def test_globalmacro_preview_apply_and_retry(globalmacro_migration: tuple[Path, 
     before.rows[TARGET]["_description"] = normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
     assert VaultDatabase.read(path) == before
     assert all((data_dir / name).read_bytes() == value for name, value in original.items() if name != path.name)
-    entry = runner.load_state(data_dir / "migration.json")[SCRIPT_NAME]
+    entry = runner.load_state(data_dir / "migration.json")[script_name]
     assert entry["other_data"]["updated_fields"] == 1
     assert Path(entry["other_data"]["backup_paths"][0]).read_bytes() == original[path.name]
     applied = {file.name: file.read_bytes() for file in data_dir.iterdir()}
     assert runner.run_pending_migrations(dry_run=False, **options) == []
-    script = next(spec for spec in runner.discover_migrations() if spec.name == SCRIPT_NAME)
+    script = next(spec for spec in runner.discover_migrations() if spec.name == script_name)
     context = runner.MigrationContext(data_dir, False, script_name=script.name)
     runner._execute(script, context)
     assert context.other_data["updated_fields"] == 0
@@ -131,6 +141,7 @@ def test_globalmacro_target_states(globalmacro_migration: tuple[Path, Path], sta
     :return: ``None`` after checking failure/reporting and unchanged storage.
     """
     data_dir, scripts_dir = globalmacro_migration
+    script_name = next(scripts_dir.glob("*.py")).name
     path = data_dir / "vault-metadata-db.pickle"
     database = VaultDatabase.read(path)
     if state == "missing":
@@ -145,7 +156,7 @@ def test_globalmacro_target_states(globalmacro_migration: tuple[Path, Path], sta
             runner.run_pending_migrations(**options)
     else:
         runner.run_pending_migrations(**options)
-        entry = runner.load_state(data_dir / "migration.json")[SCRIPT_NAME]
+        entry = runner.load_state(data_dir / "migration.json")[script_name]
         assert entry["other_data"]["missing_specs"] == [TARGET.as_string_id()]
         assert entry["other_data"]["updated_fields"] == 0
     assert path.read_bytes() == before
@@ -168,3 +179,25 @@ def test_d2_same_address_different_products(chain_id: int, expected: str) -> Non
     assert expected in vault.short_description
     unknown = D2Vault(None, VaultSpec(1, address), features={ERC4626Feature.d2_like})
     assert unknown.short_description == "Strategy details are unavailable for this vault."
+
+
+@pytest.mark.parametrize("key", tuple(D2_VAULT_DESCRIPTIONS))
+def test_d2_catalogue_descriptions(key: tuple[int, str]) -> None:
+    """Resolve the full catalogue by chain and checksum-insensitive address.
+
+    Check the adapter publication boundary for both explained and undocumented
+    products, and prevent a deployment on another chain inheriting the copy.
+
+    :param key: Reviewed chain ID and lowercase vault address.
+    :return: ``None`` after checking the maintained display fields.
+    """
+    chain_id, address = key
+    vault = D2Vault(None, VaultSpec(chain_id, Web3.to_checksum_address(address)), features={ERC4626Feature.d2_like})
+    assert vault.description == normalise_vault_description(D2_VAULT_DESCRIPTIONS[key])
+    assert vault.description.startswith("#### Vault's trading strategy\n\n")
+    assert vault.short_description.startswith(("The ", "Strategy details"))
+    assert "\n" not in vault.short_description
+    if key not in D2_VAULT_SHORT_DESCRIPTIONS:
+        assert vault.description == normalise_vault_description(D2_UNDISCLOSED_DESCRIPTION)
+    other_chain = D2Vault(None, VaultSpec(999999, address), features={ERC4626Feature.d2_like})
+    assert other_chain.description is None

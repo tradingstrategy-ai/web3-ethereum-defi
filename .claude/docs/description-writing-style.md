@@ -17,9 +17,40 @@ Assume the reader wants to understand the investment or business but does not
 know its specialist vocabulary. Lead with what it does, how it uses money and
 where returns come from. Use familiar words, concrete verbs and short paragraphs.
 
+- Write complete sentences with an explicit subject, including in short
+  descriptions and the opening of long descriptions. Do not use fragments
+  such as “Uses algorithmic trend signals”. Write “The vault strategy uses
+  algorithmic trend signals” instead. A heading or nearby vault name does not
+  replace the sentence's subject.
 - Write a short description as one useful sentence about the product or strategy.
-- Use the longer description to explain the fundamentals and add relevant facts.
+- Make the short description specific whenever the available sources provide
+  concrete details. Name the business types funded, their location and what
+  the money pays for when these facts distinguish the product or organisation.
+  Avoid generic wording such as “connects investors with businesses” when we
+  know the actual borrowers or activities. For example, describe Travessia's
+  vaults as lending to Brazilian grain trader Tauri Agrícola for grain purchases
+  and transport. Keep the scope accurate: one verified borrower does not
+  establish lending to an entire industry.
+- Lead the long description with the same concrete business context, then
+  explain how it works and who is responsible. Add relevant supporting facts.
   Do not pad it to reach a sentence or paragraph count.
+- Start every non-empty full vault description with `#### Vault's trading strategy`.
+  Explain the current trading strategy and how it generates returns first,
+  before risks, withdrawal conditions or other background.
+- Explain how trading decisions are made: whether they are discretionary,
+  algorithmic or a combination; the rules or inputs used; who makes or approves
+  decisions; and how often positions are reviewed, traded or rebalanced.
+  Distinguish signal generation from human discretion and trade execution.
+  State the actual cadence or triggers; a venue being open 24/7 does not prove
+  that an algorithm runs continuously. Within an otherwise useful description,
+  identify material missing details rather than inferring them from labels such
+  as “systematic” or “managed”. Do not pad copy with lists of undisclosed details.
+- Name and link every trading venue, mapping each instrument or strategy leg
+  to its venue. If options are mentioned, identify and link the options venue;
+  a named futures exchange does not establish where options trade. Also name
+  and link lending or other capital-allocation platforms. Verify these for
+  the specific vault. If a venue is undisclosed, state that gap explicitly
+  beside the affected instrument instead of guessing or implying full coverage.
 - Follow the field's output format. Individual vault summaries are one plain
   sentence of single-line text. Full vault descriptions, protocol descriptions
   and source-linked notes are Markdown: split them into paragraphs of two or
@@ -53,15 +84,20 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   description; the page already displays them in dedicated boxes. Start with
   what the money funds. Name other products or venues only when needed to explain
   an investment mechanism, cost, risk or withdrawal condition.
-- Keep token names when they identify an actual deposit asset or investment,
-  but avoid strings of unexplained acronyms.
+  Naming the party responsible for trading decisions and identifying execution
+  venues are necessary strategy details, even when names appear elsewhere.
+- Do not repeat the deposit stablecoin's name or definition in the long
+  description; the denomination and other page context already identify it.
+  Name tokens only when needed to distinguish investments or explain a
+  mechanism, and avoid strings of unexplained acronyms.
 - Use British English, spell “onchain” without a hyphen, and use sentence case
   for headings.
 
 ## Describe each vault in small protocols
 
 For protocols with **1–9 known supported vaults**, provide researched,
-handwritten short and full descriptions for every covered vault. Count the
+handwritten short and full descriptions for every covered vault where evidence
+supports useful copy. Leave unsupported fields empty under the rule below. Count the
 known supported vault inventory across chains, not just the example deployment.
 This is an onboarding and maintained-content requirement, not a runtime rule
 that removes descriptions when a protocol grows.
@@ -71,13 +107,38 @@ Protocol and curator descriptions do not populate the individual vault's
 `description` and `short_description` accessors and verify the scanner record
 and individual vault JSON export, separately from protocol metadata export.
 Use the existing address-scoped handwritten metadata workflow where available.
-Research each vault's actual strategy; leave undisclosed details explicitly
-unknown rather than applying generic protocol copy to every vault.
+Research each vault's actual strategy rather than applying generic protocol
+copy to every vault. Record research gaps in internal notes, not as substitute
+descriptions.
+
+## Leave missing descriptions empty
+
+An empty description means that no useful, supported description is available.
+Preserve that distinction so the website and data consumers can identify vaults
+that still need descriptions.
+
+- If there is no substantive source material explaining the particular vault,
+  leave both `short_description` and `description` completely empty, using the
+  existing schema's missing value (`null` or an empty string). Do not fill them with “The investment strategy
+  and sources of returns are not disclosed”, “No information available”, or any
+  equivalent placeholder. Do not leave a heading, whitespace or a source link
+  alone in an otherwise empty field.
+- Evaluate each field separately. A supported short summary does not justify
+  padding a long description; retain only fields that convey useful facts.
+- A vault name, its closed badge or the curator's general business objective
+  does not establish an individual vault description. Keep research gaps and
+  unverified operator associations in internal research notes.
+- A brief evidence limitation is appropriate beside a supported investment
+  mechanism when it materially affects understanding. A description whose only
+  content is missing information must remain empty.
+- Do not create empty manual overrides that suppress future provider content.
+  When no useful copy exists, use the normal missing-description behaviour.
 
 ## Describe current terms first
 
 Focus descriptions on how the product works now: what depositors fund, what
-they receive, what they pay and how they can withdraw. Explain current fee
+they receive, and any costs or withdrawal conditions that need explanation
+beyond the displayed metrics. Explain current fee
 allocations directly instead of narrating when they changed or comparing them
 with superseded rates. A dated announcement can support current terms without
 putting its publication month or year in the description; link the relevant
@@ -99,10 +160,19 @@ For example:
 Keep superseded fee schedules and detailed roadmap speculation in research
 notes. Include history in public descriptions only when it helps readers
 understand the current product, identify a former name or assess a material
-track record or loss. Include a scheduled future change when it affects a
-depositor's decision, clearly distinguishing it from current terms.
+track record or loss. Do not describe future plans or proposed strategy
+variants in the long description. If a roadmap is relevant, add one short
+sentence linking to it; leave the details at that destination. Keep announced
+deadlines or access changes that affect depositors in a separate dated note.
 
 ## Do not repeat charts and metrics
+
+Do not repeat a closed-status badge in either description. Avoid “The closed
+vault…” and standalone statements such as “This vault is closed”; the website
+already displays that status. A known historical strategy can still be described
+in the past tense. Retain a documented migration, loss or redemption restriction
+only when it adds material information beyond the badge, such as explaining what
+happened to an old share token.
 
 Do not narrate routine returns, performance paths, deposited amounts, capacity
 limits or trading-cycle dates already shown in the page's charts and metrics.
@@ -114,9 +184,16 @@ and risk policies such as a manager's loss limit; these are not chart summaries.
 
 Keep all relevant announcement links, each with a short sentence explaining
 what it introduced or changed. An update about performance can instead explain
-the costs or proposed strategy changes it discusses. Label proposals as plans,
-without presenting them as current investments. Do not preserve redundant
-figures merely to justify retaining their source link.
+the costs it discusses. For future plans, retain only a short sentence linking
+to the roadmap, without listing proposals. Do not preserve redundant figures
+merely to justify retaining their source link.
+
+Long descriptions do not need to repeat fees or lock-up periods already
+available in the chart and key metrics context. Leave routine fee rates and
+withdrawal timing in those dedicated displays, and use the description for the
+investment strategy and facts that need explanation. Include fee or withdrawal
+details only when they add material context that the displayed metrics do not
+convey, such as a complex charging basis or an exceptional withdrawal restriction.
 
 ## Cover the facts that matter
 
@@ -141,13 +218,15 @@ A short note does not need to become a full product profile.
   the history of a particular vault.
 - **Fees, funding and business model:** where applicable, explain how the
   operator earns money, who provides capital, who receives payments and who
-  bears losses. For vaults, cover material management or performance fees,
-  borrowing costs, withdrawal charges, use of borrowed money and any arrangement
-  under which one party absorbs losses first. Explain what a fee is charged on
-  and how often when those terms are known.
-- **Access and limitations:** include withdrawal restrictions, eligibility and
-  concrete risks when they materially affect how the product works. Tie them
-  to the strategy instead of appending a generic list of risk categories.
+  bears losses. For vaults, include fee details only when they add material
+  context beyond the displayed rates. Cover borrowing costs, withdrawal charges,
+  use of borrowed money and any arrangement under which one party absorbs
+  losses first. When including a fee, explain what it is charged on and how
+  often when those terms are known.
+- **Access and limitations:** include withdrawal restrictions beyond displayed
+  lock-up periods, eligibility and concrete risks when they materially affect
+  how the product works. Tie them to the strategy instead of appending a
+  generic list of risk categories.
 
 ## Remove AI slop and technical clutter
 
@@ -175,6 +254,21 @@ the reader understand access, strategy, costs or a material limitation.
 
 ## Keep claims traceable and current
 
+All vault links must point to the vault's `https://tradingstrategy.ai/vaults/<slug>`
+page unless the user explicitly requests another destination. This includes
+linked vault names, product references and vault detail links in descriptions,
+notes and related-link lists. Apply this rule when adding or editing maintained
+public copy, including its associated vault destination fields such as
+`HandwrittenVaultMetadata.link`. Verify the published page's chain and contract
+address; names and URL slugs can differ after a rename. Do not guess a slug
+or link to a different vault with a similar name. If no page is available,
+leave the vault name unlinked and record the missing page in research notes.
+
+Keep links to supporting documentation, terms, reports and announcements when
+they substantiate a claim. Use link text that identifies the supported claim or
+source, rather than the vault's name alone. These source citations do not replace
+the Trading Strategy destination for links to the vault itself.
+
 Use authoritative sources for factual claims, preferably official product
 documentation, terms, fee schedules, reports and dated announcements. An
 attributable official social post can support an announcement; it does not
@@ -192,7 +286,7 @@ sentences into blocks of linked text. Link a whole sentence only when it is
 short and the full wording is needed to make the source connection clear.
 For example:
 
-> The vault's planned investment is [Axiym AXI payment financing](https://api.nest.credit/v1/vaults/nest-axi-vault).
+> The vault's [investment mandate](https://api.nest.credit/v1/vaults/nest-axi-vault) describes planned financing for payment businesses.
 
 Direct linking does not make an unverified claim a verified fact. Retain
 necessary qualifications in the sentence, such as “targets”, “aims to”

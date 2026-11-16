@@ -20,7 +20,8 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.blue_discovery import create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, create_enzyme_factory_candidate, decode_enzyme_deposit_handler_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
-from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_enzyme_blue_factory_candidate_lead, add_enzyme_factory_candidate_lead, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
+from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_enzyme_blue_factory_candidate_lead, add_enzyme_factory_candidate_lead, add_mellow_factory_candidate_lead, add_wildcat_market_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
+from eth_defi.erc_4626.vault_protocol.wildcat.discovery import create_wildcat_market_candidate, fetch_wildcat_deployment, fetch_wildcat_market_added_event_topic, is_wildcat_registry_log
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
 from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain, is_mellow_factory_log
@@ -143,6 +144,15 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 hypersync.LogSelection(
                     address=enzyme_blue_dispatchers,
                     topics=[[fetch_enzyme_blue_vault_deployed_event_topic()]],
+                )
+            )
+
+        wildcat_deployment = fetch_wildcat_deployment(self.web3.eth.chain_id)
+        if wildcat_deployment is not None:
+            log_selections.append(
+                hypersync.LogSelection(
+                    address=[wildcat_deployment.arch_controller],
+                    topics=[[fetch_wildcat_market_added_event_topic()]],
                 )
             )
 
@@ -326,6 +336,24 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 return
 
             add_enzyme_blue_factory_candidate_lead(report, leads, candidate)
+            return
+
+        if is_wildcat_registry_log(chain, log.address, log.topics[0]):
+            try:
+                candidate = create_wildcat_market_candidate(chain, log, block_timestamp)
+            except (DecodingError, ValueError) as e:
+                logger.warning(
+                    "Could not decode Wildcat MarketAdded log at %s:%s tx %s: %s",
+                    log.block_number,
+                    getattr(log, "log_index", None),
+                    log.transaction_hash,
+                    e,
+                )
+                return
+
+            # Version 1 markets are registered by per-borrower controllers and are not supported
+            if candidate is not None:
+                add_wildcat_market_candidate_lead(report, leads, candidate)
             return
 
         address_key = HexAddress(log.address.lower())

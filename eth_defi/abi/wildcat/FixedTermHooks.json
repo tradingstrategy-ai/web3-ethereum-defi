@@ -1,0 +1,2288 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_deployer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "args",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "MaximumLoanTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "addRoleProvider",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timeToLive",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "blockFromDeposits",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "blockFromDeposits",
+    "inputs": [
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "borrower",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "config",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "HooksDeploymentConfig"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createRoleProvider",
+    "inputs": [
+      {
+        "name": "providerFactory",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timeToLive",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "factory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getHookedMarket",
+    "inputs": [
+      {
+        "name": "marketAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct HookedMarket",
+        "components": [
+          {
+            "name": "isHooked",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "transferRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "depositRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "withdrawalRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "minimumDeposit",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "fixedTermEndTime",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "transfersDisabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "allowClosureBeforeTerm",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "allowTermReduction",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getHookedMarkets",
+    "inputs": [
+      {
+        "name": "marketAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "hookedMarkets",
+        "type": "tuple[]",
+        "internalType": "struct HookedMarket[]",
+        "components": [
+          {
+            "name": "isHooked",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "transferRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "depositRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "withdrawalRequiresAccess",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "minimumDeposit",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "fixedTermEndTime",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "transfersDisabled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "allowClosureBeforeTerm",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "allowTermReduction",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLenderStatus",
+    "inputs": [
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "status",
+        "type": "tuple",
+        "internalType": "struct LenderStatus",
+        "components": [
+          {
+            "name": "isBlockedFromDeposits",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "lastProvider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "canRefresh",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "lastApprovalTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getParameterConstraints",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "constraints",
+        "type": "tuple",
+        "internalType": "struct MarketParameterConstraints",
+        "components": [
+          {
+            "name": "minimumDelinquencyGracePeriod",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "maximumDelinquencyGracePeriod",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumReserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maximumReserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minimumDelinquencyFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maximumDelinquencyFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minimumWithdrawalBatchDuration",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "maximumWithdrawalBatchDuration",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumAnnualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maximumAnnualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getPreviousLenderStatus",
+    "inputs": [
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "status",
+        "type": "tuple",
+        "internalType": "struct LenderStatus",
+        "components": [
+          {
+            "name": "isBlockedFromDeposits",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "lastProvider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "canRefresh",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "lastApprovalTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPullProviders",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "RoleProvider[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPushProviders",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "RoleProvider[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRoleProvider",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "RoleProvider"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roleGrantedTimestamp",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantRoles",
+    "inputs": [
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "roleGrantedTimestamps",
+        "type": "uint32[]",
+        "internalType": "uint32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isKnownLenderOnMarket",
+    "inputs": [
+      {
+        "name": "lender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "name",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "onBorrow",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onCloseMarket",
+    "inputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onCreateMarket",
+    "inputs": [
+      {
+        "name": "deployer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "marketAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "parameters",
+        "type": "tuple",
+        "internalType": "struct DeployMarketInputs",
+        "components": [
+          {
+            "name": "asset",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "namePrefix",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "symbolPrefix",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "delinquencyFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "withdrawalBatchDuration",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "delinquencyGracePeriod",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "hooks",
+            "type": "uint256",
+            "internalType": "HooksConfig"
+          }
+        ]
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "HooksConfig"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onDeposit",
+    "inputs": [
+      {
+        "name": "lender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "scaledAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "state",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "hooksData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onExecuteWithdrawal",
+    "inputs": [
+      {
+        "name": "lender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "hooksData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onNukeFromOrbit",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onQueueWithdrawal",
+    "inputs": [
+      {
+        "name": "lender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "hooksData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onRepay",
+    "inputs": [
+      {
+        "name": "normalizedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "state",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "hooksData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onSetAnnualInterestAndReserveRatioBips",
+    "inputs": [
+      {
+        "name": "annualInterestBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "reserveRatioBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "intermediateState",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "hooksData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "updatedAnnualInterestBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "updatedReserveRatioBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onSetMaxTotalSupply",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onSetProtocolFeeBips",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onTransfer",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketState",
+        "components": [
+          {
+            "name": "isClosed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxTotalSupply",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "accruedProtocolFees",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "normalizedUnclaimedWithdrawals",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "scaledTotalSupply",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "scaledPendingWithdrawals",
+            "type": "uint104",
+            "internalType": "uint104"
+          },
+          {
+            "name": "pendingWithdrawalExpiry",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "isDelinquent",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timeDelinquent",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "protocolFeeBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "annualInterestBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveRatioBips",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "scaleFactor",
+            "type": "uint112",
+            "internalType": "uint112"
+          },
+          {
+            "name": "lastInterestAccruedTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeRoleProvider",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRoles",
+    "inputs": [
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setFixedTermEndTime",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "newFixedTermEndTime",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinimumDeposit",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "newMinimumDeposit",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setName",
+    "inputs": [
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "temporaryExcessReserveRatio",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "originalAnnualInterestBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "originalReserveRatioBips",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "expiry",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unblockFromDeposits",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "version",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "event",
+    "name": "AccountAccessGranted",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "credentialTimestamp",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountAccessRevoked",
+    "inputs": [
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountBlockedFromDeposits",
+    "inputs": [
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountMadeFirstDeposit",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountUnblockedFromDeposits",
+    "inputs": [
+      {
+        "name": "accountAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FixedTermUpdated",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "fixedTermEndTime",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinimumDepositUpdated",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newMinimumDeposit",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NameUpdated",
+    "inputs": [
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleProviderAdded",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timeToLive",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "pullProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      },
+      {
+        "name": "pushProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleProviderRemoved",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "pullProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      },
+      {
+        "name": "pushProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleProviderUpdated",
+    "inputs": [
+      {
+        "name": "providerAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timeToLive",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "pullProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      },
+      {
+        "name": "pushProviderIndex",
+        "type": "uint24",
+        "indexed": false,
+        "internalType": "uint24"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TemporaryExcessReserveRatioActivated",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "originalReserveRatioBips",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "temporaryReserveRatioBips",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "temporaryReserveRatioExpiry",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TemporaryExcessReserveRatioCanceled",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TemporaryExcessReserveRatioExpired",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TemporaryExcessReserveRatioUpdated",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "originalReserveRatioBips",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "temporaryReserveRatioBips",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "temporaryReserveRatioExpiry",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AnnualInterestBipsOutOfBounds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CallerNotBorrower",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CallerNotFactory",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ClosureDisabledBeforeTerm",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreateRoleProviderFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DelinquencyFeeBipsOutOfBounds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DelinquencyGracePeriodOutOfBounds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DepositBelowMinimum",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FixedTermNotProvided",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "GrantedCredentialExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncreaseFixedTerm",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidArrayLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCredentialReturned",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFixedTerm",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoReducingAprBeforeTermEnd",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotApprovedLender",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotHookedMarket",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderCanNotReplaceCredential",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderCanNotRevokeCredential",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReserveRatioBipsOutOfBounds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TermReductionDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransfersDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawBeforeTermEnd",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalBatchDurationOutOfBounds",
+    "inputs": []
+  }
+]

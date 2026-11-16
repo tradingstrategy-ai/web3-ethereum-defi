@@ -128,7 +128,7 @@ def test_royco_tranche_redeem_topic_is_withdraw():
             Decimal("751.607955"),
             Decimal("110279.428414"),
             Decimal("111743.688965435143396373"),
-            Decimal("1.157920892373161954235709850E+71"),
+            Decimal(f"{2**256 - 1}e-6"),
         ),
         (
             ROYCO_SENIOR_TRANCHE,

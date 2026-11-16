@@ -3803,3 +3803,11 @@ placeholders with unavailable decimals fail metadata validation; successful
 HyperCore calls alone do not establish historical NAV semantics. As recorded in
 the 2026-10-23 validation results, the two regular controls passed while HYPED's
 native-HYPE denomination metadata failed.
+
+## Neutral Trade native source
+
+`SCAN_NEUTRAL_TRADE=true` enables the partner REST collector, requiring
+`NEUTRAL_TRADE_API_KEY`. It follows the native DuckDB-to-shared-price pipeline,
+with a four-hour scheduling default. See the
+[operator guide](../../eth_defi/neutral_trade/README-delta-neutral.md) for manual
+collection, resumable backfills, data-quality review and migration 066.

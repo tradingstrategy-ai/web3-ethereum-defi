@@ -219,6 +219,8 @@ def test_hypersync_payout_failure_uses_full_rpc_range(chain: SimpleNamespace, mo
 
 
 @pytest.mark.skipif(not JSON_RPC_ETHEREUM or not HYPERSYNC_API_KEY, reason="Needs Ethereum RPC and HyperSync credentials")
+# 2026-11-13: CI reported Envio remaining=0/100; earlier PR runs passed.
+@pytest.mark.hypersync_retry
 def test_hypersync_reads_real_relayer_payouts() -> None:
     """Compare real HyperSync payout data with RPC without hiding fallback.
 

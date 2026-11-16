@@ -60,10 +60,12 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import flaky
 import pytest
 import requests
+from filelock import Timeout
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp
@@ -125,6 +127,7 @@ class _FakeResponse:
 
     def __init__(self, body: dict):
         self.body = body
+        self.status_code = 200
 
     def raise_for_status(self) -> None:
         """No-op for successful fake responses."""
@@ -138,18 +141,11 @@ def _patch_morpho_api(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) ->
     """Patch Morpho API HTTP calls and return captured payloads."""
     calls: list[dict] = []
 
-    def fake_post(url: str, json: dict, timeout: int, headers: dict) -> _FakeResponse:
-        calls.append(
-            {
-                "url": url,
-                "json": json,
-                "timeout": timeout,
-                "headers": headers,
-            }
-        )
+    def fake_fetch_response(payload: dict) -> _FakeResponse:
+        calls.append(payload)
         return _FakeResponse(responses.pop(0))
 
-    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fake_post)
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.create_morpho_session", lambda: SimpleNamespace(fetch_response=fake_fetch_response))
     return calls
 
 
@@ -302,7 +298,7 @@ def test_morpho_unsupported_chain_short_circuits(monkeypatch: pytest.MonkeyPatch
         message = "Morpho API must not be called for unsupported chains"
         raise AssertionError(message)
 
-    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fail_post)
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.create_morpho_session", fail_post)
 
     # 3. Lookup is NOT_FOUND, no HTTP call, no cache written.
     result = fetch_morpho_vault_api_result(web3, NOT_FOUND_TEST_VAULT, cache_path=tmp_path)
@@ -355,7 +351,7 @@ def test_morpho_transient_error_does_not_add_not_found_flag(monkeypatch: pytest.
         message = "temporary timeout"
         raise requests.Timeout(message)
 
-    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.requests.post", fake_post)
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.create_morpho_session", lambda: SimpleNamespace(fetch_response=lambda payload: fake_post("https://api.morpho.org/graphql", json=payload)))
 
     vault = _make_morpho_v1_vault(NOT_FOUND_TEST_VAULT)
     result = fetch_morpho_vault_api_result(vault.web3, vault.vault_address, cache_path=tmp_path)
@@ -408,7 +404,12 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
     cache_write_record = next(record for record in caplog.records if record.getMessage().startswith("Wrote Morpho vault data cache"))
     assert cache_write_record.levelno == logging.DEBUG
 
-    cache_key = f"{tmp_path}:1:{DUNE_USDC_ETHEREUM.lower()}"
+    def fail_session() -> None:
+        pytest.fail("fresh cache lookup entered the transport/cooldown path")
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.create_morpho_session", fail_session)
+    assert fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path) == result_1
+    cache_key = f"{tmp_path}:v1:1:{DUNE_USDC_ETHEREUM.lower()}"
     _cached_vault_data.pop(cache_key, None)
 
     result_2 = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
@@ -458,6 +459,23 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
     assert result_3.data is not None
     assert result_3.data["manager_name"] == "Steakhouse Financial"
     assert len(v2_calls) == 1
+
+
+def test_morpho_cache_lock_timeout_is_transient(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Cache contention must not classify a good vault as broken or missing.
+
+    No HTTP session should be constructed when the cache lock cannot be taken.
+
+    :param monkeypatch: Replace local cache locking.
+    :param tmp_path: Isolated response-cache directory.
+    """
+
+    def fail_lock(*_args: object, **_kwargs: object) -> None:
+        raise Timeout(str(tmp_path))
+
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata.wait_other_writers", fail_lock)
+    result = fetch_morpho_vault_api_result(_FakeWeb3(), DUNE_USDC_ETHEREUM, cache_path=tmp_path)
+    assert result.status is MorphoVaultAPIStatus.transient_error
 
 
 def test_morpho_in_process_cache_expires_after_one_day(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

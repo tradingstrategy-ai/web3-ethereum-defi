@@ -116,6 +116,9 @@ AMM_POOL_FEATURE = ERC4626Feature.amm_pool_like.value
 #: Vault flag for tokenised funds, such as money market and treasury funds
 TOKENISED_FUND_FLAG = VaultFlag.tokenised_fund.value
 
+#: Vault flag for lending markets whose borrower has defaulted
+DELINQUENT_MARKETS_FLAG = VaultFlag.delinquent_markets.value
+
 #: Protocol slugs that mean the vault's protocol has not been identified yet: generic ERC-4626 and
 #: ERC-7540 vaults and placeholders. The same set as the website's ``isUnknownVaultProtocol()``
 #: in ``src/lib/top-vaults/helpers.ts``.
@@ -372,6 +375,9 @@ def filter_eligible_vaults(
       or one-month return, which cannot be ranked
     - stale vaults whose ``end_date`` is more than
       :py:attr:`ReportCriteria.max_data_age` before ``data_end_at``
+    - lending markets whose borrower has defaulted, flagged
+      ``delinquent_markets``, because their share price keeps rising with
+      penalty interest that may never be paid
 
     Staleness is measured against the report data date, the newest
     ``end_date`` in the export, not the wall clock, so regenerating an old
@@ -380,7 +386,8 @@ def filter_eligible_vaults(
     :param vaults_df:
         Vault metrics from :py:func:`eth_defi.vault_report.data.prepare_vault_metrics`,
         with ``risk``, ``address``, ``protocol``, ``current_nav``,
-        ``one_month_cagr_best`` and ``end_date`` (naive UTC) columns.
+        ``one_month_cagr_best``, ``end_date`` (naive UTC) and ``flags``
+        columns.
 
     :param data_end_at:
         The report data date, :py:attr:`eth_defi.vault_report.data.VaultReportData.data_end_at`, naive UTC.
@@ -392,7 +399,8 @@ def filter_eligible_vaults(
         Filtered vault metrics, the same columns.
     """
     stale_before = pd.Timestamp(data_end_at - criteria.max_data_age)
-    mask = ~is_blacklisted(vaults_df) & vaults_df["current_nav"].notna() & vaults_df["one_month_cagr_best"].notna() & (vaults_df["end_date"] >= stale_before)
+    defaulted = vaults_df["flags"].apply(lambda flags: isinstance(flags, list) and DELINQUENT_MARKETS_FLAG in flags)
+    mask = ~is_blacklisted(vaults_df) & ~defaulted & vaults_df["current_nav"].notna() & vaults_df["one_month_cagr_best"].notna() & (vaults_df["end_date"] >= stale_before)
     eligible = vaults_df.loc[mask]
     logger.info("Eligible vaults for the report: %d out of %d", len(eligible), len(vaults_df))
     return eligible

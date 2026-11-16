@@ -1,0 +1,14 @@
+# Identity and source evidence reviewed 2026-11-10.
+feeder-id: navi
+name: NAVI Protocol
+role: curator
+lagoon-curator: NAVI Protocol
+website: https://naviprotocol.io/
+short_description: NAVI Protocol develops lending and borrowing markets and curates crypto yield vaults.
+long_description: |
+  [NAVI Protocol](https://naviprotocol.io/) develops [lending and borrowing markets on Sui](https://docs.naviprotocol.io/), where depositors earn interest from borrowers who pledge assets as security. Its [Ethereum vault offering](https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da) aims to earn Sui ecosystem yield without requiring users to bridge assets or use a Sui wallet. The allocation mechanism for that product is not disclosed.
+other-links:
+- title: Lagoon exact-address metadata identifying the curator organisation
+  url: https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da
+- title: NAVI documentation describing lending and borrowing markets
+  url: https://docs.naviprotocol.io/

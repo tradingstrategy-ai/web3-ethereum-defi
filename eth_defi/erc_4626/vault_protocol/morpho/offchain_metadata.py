@@ -38,15 +38,18 @@ import enum
 import json
 import logging
 from dataclasses import dataclass
+from http import HTTPStatus
 from pathlib import Path
 from typing import Literal, TypedDict
 
 import requests
 from eth_typing import HexAddress
+from filelock import Timeout
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
+from eth_defi.erc_4626.vault_protocol.morpho.session import MORPHO_GRAPHQL_URL, create_morpho_session
 from eth_defi.types import Percent
 from eth_defi.utils import wait_other_writers
 
@@ -54,7 +57,7 @@ from eth_defi.utils import wait_other_writers
 DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "morpho"
 
 #: Morpho public GraphQL API endpoint
-MORPHO_BLUE_GRAPHQL_URL = "https://api.morpho.org/graphql"
+MORPHO_BLUE_GRAPHQL_URL = MORPHO_GRAPHQL_URL
 
 #: Chain IDs the Morpho GraphQL API (``api.morpho.org``) indexes.
 #:
@@ -539,54 +542,58 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
     cache_path.mkdir(parents=True, exist_ok=True)
     file = _get_cache_file(cache_path, chain_id, address_lower, api_version)
 
-    with wait_other_writers(file):
-        if file.exists() and file.stat().st_size > 0:
-            age = now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)
-            if age <= max_cache_duration:
-                logger.debug(
-                    "Using cached Morpho vault data for %s on chain %d from %s (age %s)",
-                    checksum_address,
-                    chain_id,
-                    file,
-                    age,
-                )
-                cached = _parse_cached_json(file)
-                if cached is _NOT_FOUND_CACHE_MARKER:
-                    logger.info("Ignoring legacy Morpho NOT_FOUND cache marker %s", file)
-                    file.unlink(missing_ok=True)
-                    cached = _TRANSIENT_ERROR
-                if cached is not _TRANSIENT_ERROR:
-                    _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(
-                        data=cached,  # type: ignore[arg-type]
-                        cached_at=native_datetime_utc_fromtimestamp(file.stat().st_mtime),
+    try:
+        with wait_other_writers(file, timeout=60):
+            if file.exists() and file.stat().st_size > 0:
+                age = now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)
+                if age <= max_cache_duration:
+                    logger.debug(
+                        "Using cached Morpho vault data for %s on chain %d from %s (age %s)",
+                        checksum_address,
+                        chain_id,
+                        file,
+                        age,
                     )
-                    return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached)  # type: ignore[arg-type]
+                    cached = _parse_cached_json(file)
+                    if cached is _NOT_FOUND_CACHE_MARKER:
+                        logger.info("Ignoring legacy Morpho NOT_FOUND cache marker %s", file)
+                        file.unlink(missing_ok=True)
+                        cached = _TRANSIENT_ERROR
+                    if cached is not _TRANSIENT_ERROR:
+                        _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(
+                            data=cached,  # type: ignore[arg-type]
+                            cached_at=native_datetime_utc_fromtimestamp(file.stat().st_mtime),
+                        )
+                        return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached)  # type: ignore[arg-type]
 
-        # 3. Fetch from API
-        logger.debug("Fetching Morpho vault warnings for %s on chain %d", checksum_address, chain_id)
-        result = _query_morpho_api(chain_id, checksum_address, api_version=api_version)
+            # 3. Fetch from API
+            logger.debug("Fetching Morpho vault warnings for %s on chain %d", checksum_address, chain_id)
+            result = _query_morpho_api(chain_id, checksum_address, api_version=api_version)
 
-        if result.status == MorphoVaultAPIStatus.transient_error:
+            if result.status == MorphoVaultAPIStatus.transient_error:
+                return result
+
+            if result.status == MorphoVaultAPIStatus.not_found:
+                logger.debug("Morpho API: vault %s on chain %d is not indexed (NOT_FOUND)", checksum_address, chain_id)
+                file.unlink(missing_ok=True)
+                return result
+
+            # Successful fetch — write to disk and populate in-process cache
+            assert result.data is not None
+            serialisable = {
+                "vault_warnings": result.data["vault_warnings"],
+                "market_warnings": [dict(w) for w in result.data["market_warnings"]],
+                "manager_name": result.data.get("manager_name"),
+            }
+            with file.open("wt") as f:
+                json.dump(serialisable, f, indent=2)
+            logger.debug("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
+
+            _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(data=result.data, cached_at=now_)
             return result
-
-        if result.status == MorphoVaultAPIStatus.not_found:
-            logger.debug("Morpho API: vault %s on chain %d is not indexed (NOT_FOUND)", checksum_address, chain_id)
-            file.unlink(missing_ok=True)
-            return result
-
-        # Successful fetch — write to disk and populate in-process cache
-        assert result.data is not None
-        serialisable = {
-            "vault_warnings": result.data["vault_warnings"],
-            "market_warnings": [dict(w) for w in result.data["market_warnings"]],
-            "manager_name": result.data.get("manager_name"),
-        }
-        with file.open("wt") as f:
-            json.dump(serialisable, f, indent=2)
-        logger.debug("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
-
-        _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(data=result.data, cached_at=now_)
-        return result
+    except Timeout:
+        logger.warning("Morpho cache lookup deferred for %s on chain %s: cache lock unavailable", checksum_address, chain_id)
+        return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
 
 
 def fetch_morpho_vault_data(  # noqa: PLR0917
@@ -655,7 +662,7 @@ def _is_definitive_morpho_error(error: dict) -> bool:
     return status == "BAD_USER_INPUT" and "unsupported chainid" in str(error.get("message", "")).lower()
 
 
-def _query_morpho_api(chain_id: int, address: str, api_version: MorphoVaultAPIVersion = "v1") -> MorphoVaultAPIResult:
+def _query_morpho_api(chain_id: int, address: HexAddress, api_version: MorphoVaultAPIVersion = "v1") -> MorphoVaultAPIResult:
     """Execute the GraphQL query against the Morpho API.
 
     :param chain_id:
@@ -676,13 +683,13 @@ def _query_morpho_api(chain_id: int, address: str, api_version: MorphoVaultAPIVe
         "variables": {"address": address, "chainId": chain_id},
     }
     try:
-        resp = requests.post(
-            MORPHO_BLUE_GRAPHQL_URL,
-            json=payload,
-            timeout=30,
-            headers={"Content-Type": "application/json"},
-        )
+        resp = create_morpho_session().fetch_response(payload)
+        if resp is None:
+            return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
         resp.raise_for_status()
+        if HTTPStatus.MULTIPLE_CHOICES <= resp.status_code < HTTPStatus.BAD_REQUEST:
+            logger.warning("Morpho API redirected a metadata read for %s on chain %d; deferring", address, chain_id)
+            return MorphoVaultAPIResult(MorphoVaultAPIStatus.transient_error)
         body = resp.json()
     except requests.RequestException as e:
         logger.warning("Morpho API request failed for %s on chain %d: %s", address, chain_id, e)

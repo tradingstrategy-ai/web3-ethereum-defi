@@ -86,6 +86,7 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
+    "K3": None,
     # Verified upgradeable vault/manager and published audits, but no maintained
     # public core-contract development repository. The public SDK and audit
     # reports do not establish ongoing contract-development transparency.
@@ -126,6 +127,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # The Rysk contracts and the NAV committee process require separate review.
     "Antarctic": None,
     "Rysk": None,
+    # Wildcat markets are mostly unsecured loans to single borrowers. Credit
+    # risk depends on the borrower and needs human assessment.
+    "Wildcat": None,
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.
     "Franklin Templeton": None,
@@ -292,6 +296,12 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Hibachi": VaultTechnicalRisk.severe,
     # Native managed exchange subaccounts; a vault-specific risk review is pending.
     "Derive": None,
+    # Transparency dashboards do not remove centralised counterparty, custody
+    # and asset-freeze risks when capital is deployed to external venues.
+    # Execution is not restricted to decentralised exchanges: the documented
+    # venue mix includes centralised exchanges, DEXs and DeFi protocols.
+    # https://docs.neutral.trade/neutral-strategy-vaults/how-they-work
+    "Neutral Trade": VaultTechnicalRisk.high,
     # ApeX - closed-source native perp venue with centrally published metrics
     "ApeX": VaultTechnicalRisk.severe,
     # Inverse Finance - sDOLA savings vault, open source but limited audits

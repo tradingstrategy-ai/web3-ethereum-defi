@@ -47,6 +47,40 @@ DEFAULT_PROXY_STATE_PATH = Path("~/.tradingstrategy/webshare-proxy-state.json").
 GRACE_PERIOD_DAYS = 14
 
 
+def refresh_stale_proxy_state(state_path: Path | None = None) -> bool:
+    """Retry cached proxy failures after a day without state updates.
+
+    The all-chain scanner calls this before each loop tick, including ticks
+    with no scans due. Removing a state file untouched for 24 hours lets the
+    next proxy load retry the pool instead of falling back to a direct
+    connection for the full 14-day grace period. Fresh failures postpone the
+    refresh; file age also preserves the cadence across scanner restarts.
+    This resets local failure status, without contacting Webshare or changing
+    its proxy credentials.
+
+    :param state_path:
+        Failure state file; defaults to :data:`DEFAULT_PROXY_STATE_PATH`.
+    :return:
+        Whether a stale state file was removed. Missing or recent files are
+        left alone; filesystem failures are logged for retry on the next tick.
+    """
+    path = state_path if state_path is not None else DEFAULT_PROXY_STATE_PATH
+    try:
+        modified_at = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.UTC).replace(tzinfo=None)
+        age = native_datetime_utc_now() - modified_at
+        if age < datetime.timedelta(days=1):
+            return False
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        logger.warning("Webshare proxy state refresh deferred for %s: %s", path, exc)
+        return False
+
+    logger.info("Reset stale Webshare proxy state at %s (age %.1f hours); blocked proxies will be retried", path, age.total_seconds() / 3600)
+    return True
+
+
 def get_proxy_status_reset_instructions() -> str:
     """Return operator instructions for clearing Webshare proxy status.
 

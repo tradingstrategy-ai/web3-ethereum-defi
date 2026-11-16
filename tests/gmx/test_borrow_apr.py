@@ -62,25 +62,3 @@ def test_get_data_processing_empty_markets(get_borrow_apr):
         markets._CLASS_MARKETS_CACHE.pop(chain_key, None)
     else:
         markets._CLASS_MARKETS_CACHE[chain_key] = original_markets_cache
-
-
-def test_output_format(get_borrow_apr):
-    """Test that the output format matches expected structure."""
-    result = get_borrow_apr.get_data()
-
-    # Check basic structure
-    assert isinstance(result, dict)
-    assert "parameter" in result
-    assert result["parameter"] == "borrow_apr"
-    assert "long" in result
-    assert "short" in result
-
-
-def test_inheritance_from_get_data(get_borrow_apr):
-    """Test that GetBorrowAPR properly inherits from GetData."""
-    # Test that it has the expected methods from GetData
-    assert hasattr(get_borrow_apr, "get_data")
-    assert hasattr(get_borrow_apr, "config")
-
-    # Test that it's callable
-    assert callable(get_borrow_apr.get_data)

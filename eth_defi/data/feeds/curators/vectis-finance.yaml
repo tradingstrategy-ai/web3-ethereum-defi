@@ -1,0 +1,21 @@
+# Accountable public API loan 608280921 identifies company_name: Vectis Finance
+# and Ethereum share vault 0x05ed3da1deeaaa57c8e09986e95ac271572dcf89.
+# Verified live on 2026-11-09; the loan address differs from the share token.
+feeder-id: vectis-finance
+name: Vectis Finance
+role: curator
+accountable-company: Vectis Finance
+website: https://www.vectis.finance/
+twitter: vectis_finance
+short_description: Vectis Finance manages crypto investment strategies that seek income from lending and price differences between markets.
+long_description: |
+  [Vectis Finance](https://www.vectis.finance/) manages crypto investment strategies, including lending and trades that seek to offset market exposure.
+  It manages the [Vectis UltraX Arb vault](https://tradingstrategy.ai/vaults/vectis-ultrax-arb), which uses Accountable infrastructure.
+  The [Ethereum vault documentation](https://docs.vectis.finance/vaults/ultrax-arb-vault-v2-eth) describes returns from differences in futures prices and recurring payments between traders across exchanges, including Binance, Hyperliquid and OKX.
+other-links:
+  - title: Vectis Finance documentation - investment strategies and lending products
+    url: https://docs.vectis.finance/
+  - title: Vectis Finance Ethereum vault documentation - Accountable infrastructure and cross-exchange arbitrage
+    url: https://docs.vectis.finance/vaults/ultrax-arb-vault-v2-eth
+  - title: Accountable public API - Vectis Finance manager and share-vault identity
+    url: https://yield.accountable.capital/api/loan/608280921

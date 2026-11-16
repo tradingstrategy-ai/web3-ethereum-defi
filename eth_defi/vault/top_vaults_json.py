@@ -45,6 +45,7 @@ import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
 from eth_defi.chain import CHAIN_NAMES
+from eth_defi.neutral_trade.constants import SOLANA_DATASET_CHAIN_ID, is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
@@ -345,12 +346,12 @@ def _find_stale_post_processed_vault_ids(
     changed_vault_ids: set[str],
     sticky_state: dict,
 ) -> set[str]:
-    """Find changed vaults whose sticky records still contain old metadata.
+    """Find repaired attribution or native copy still stale in export records.
 
-    The cleanup hook runs on every export because the scanner metadata pickle is
-    intentionally unchanged. Only a sticky record whose exported attribution is
-    still different is forced through metrics. This comparison avoids repeatedly
-    recalculating metrics for already-corrected low-TVL vaults.
+    Cleanup hooks can repair attribution in memory, while native editorial
+    fields also change through collectors or numbered migrations. Compare their
+    persisted export records so low-TVL freshness gates cannot replay old
+    curator names or descriptions. Already-corrected rows keep their cadence.
 
     :param vault_db:
         Cleaned in-memory vault metadata database.
@@ -364,7 +365,8 @@ def _find_stale_post_processed_vault_ids(
 
     stale_ids: set[str] = set()
     state_vaults = sticky_state.get("vaults", {})
-    for vault_id in changed_vault_ids:
+    native_ids = {spec.as_string_id() for spec, row in vault_db.rows.items() if spec.chain_id == SOLANA_DATASET_CHAIN_ID and row.get("Protocol") == "Neutral Trade"}
+    for vault_id in changed_vault_ids | native_ids:
         state_entry = state_vaults.get(vault_id)
         if not isinstance(state_entry, dict):
             continue
@@ -379,6 +381,12 @@ def _find_stale_post_processed_vault_ids(
             continue
         row = vault_db.get(spec)
         if row is None:
+            continue
+        if vault_id in native_ids:
+            native_copy = (row.get("_curator_slug"), normalise_vault_description(row.get("_description")), normalise_vault_short_description(row.get("_short_description")))
+            previous_copy = (last_record.get("curator_slug"), last_record.get("description"), last_record.get("short_description"))
+            if native_copy != previous_copy:
+                stale_ids.add(vault_id)
             continue
         detection = row.get("_detection_data")
         expected_features = sorted(feature.name for feature in getattr(detection, "features", set()))
@@ -1391,6 +1399,15 @@ def main(
     price_columns = pq.read_metadata(parquet_path).num_columns - 1
 
     logger.info("Loaded %d vault metadata entries and %d price rows across %d chains from %s to %s; price columns: %d", len(vault_db), len(gate_df), len(chains), gate_df.index.min(), gate_df.index.max(), price_columns)
+
+    # Fail closed for revoked native approvals, including stale cleaned rows
+    # and sticky records from an earlier successful catalogue observation.
+    native_prefix = f"{SOLANA_DATASET_CHAIN_ID}-solana-vault-"
+    approved_native_ids = {spec.as_string_id() for spec, row in vault_db.rows.items() if spec.chain_id == SOLANA_DATASET_CHAIN_ID and is_neutral_trade_public_metadata(row)}
+    gate_df = gate_df[~gate_df["id"].str.startswith(native_prefix) | gate_df["id"].isin(approved_native_ids)]
+    for native_id in list(sticky_state.get("vaults", {})):
+        if native_id.startswith(native_prefix) and native_id not in approved_native_ids:
+            del sticky_state["vaults"][native_id]
 
     errors = cross_check_data(
         vault_db,

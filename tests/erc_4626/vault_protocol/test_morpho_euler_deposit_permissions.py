@@ -61,7 +61,7 @@ def test_morpho_v2_gate_policy() -> None:
 
     1. Supply zero and non-zero gate configurations.
     2. Query the canonical ungated vault policy.
-    3. Confirm an arbitrary custom gate remains explicitly unknown.
+    3. Confirm a configured canonical gate is recognised as an admission policy.
     """
     # 1. Supply zero and non-zero gate configurations.
     vault = object.__new__(MorphoV2Vault)
@@ -71,10 +71,9 @@ def test_morpho_v2_gate_policy() -> None:
     with patch.object(MorphoV2Vault, "fetch_deposit_gates", return_value=(ZERO_ADDRESS_STR, ZERO_ADDRESS_STR)):
         assert vault.is_whitelisted_deposit() is False
 
-    # 3. Confirm an arbitrary custom gate remains explicitly unknown.
+    # 3. Confirm a configured canonical gate is recognised as an admission policy.
     with (
         patch.object(MorphoV2Vault, "fetch_deposit_gates", return_value=(custom_gate, ZERO_ADDRESS_STR)),
         patch.object(MorphoV2Vault, "address", custom_gate),
-        pytest.raises(NotImplementedError, match="custom gates"),
     ):
-        vault.is_whitelisted_deposit()
+        assert vault.is_whitelisted_deposit() is True

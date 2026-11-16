@@ -1,25 +1,22 @@
+# Identity and source evidence reviewed 2026-11-10.
 feeder-id: detrade
 name: DeTrade
 role: curator
 lagoon-curator: DeTrade
 website: https://detrade.fund/
 curatorwatch: https://curatorwatch.com/curator/detrade
-short_description: DeTrade Fund offers actively managed DeFi vaults powered by real-time data and protocol integrations.
+short_description: DeTrade manages USD, euro and ETH yield strategies through its Core vaults.
 long_description: |
-  DeTrade Fund describes its product as actively managed DeFi vaults built on real-time data and protocol integrations.
-  Its official website lists DeTrade vault strategies across Ethereum, Base and Monad, including Lagoon and Morpho vaults.
-  The site describes the team as deploying capital across major protocols through risk-aware, adaptive strategies since 2020.
-  CuratorWatch tracks DeTrade as the curator of three Ethereum Morpho vaults, with about $62k AUM.
-twitter: DeTradeFund
+  [DeTrade](https://detrade.fund/) presents three Core vaults on Base with USD, euro and ETH investment mandates. Its strategies fund token exchanges, hold assets that earn interest or staking rewards, use [Pendle](https://pendle.finance/) to trade rights to future income, and collect incentive tokens. Some Core strategies borrow money to increase their investments, adding financing costs and the risk of forced sales when pledged assets lose value.
 
-# Evidence and background references.
-#
-# CuratorWatch lists DeTrade with approximately $62k AUM and three Morpho
-# vaults: DeTrade Serenity USDC, DeTrade Serenity EURC, and DeTrade Serenity WETH.
+  Some USDC lending portfolios retain DeTrade branding but appear in [Murmurr's current product book](https://murmurr.xyz/); a company-wide rebrand or management-handover date is not disclosed.
+twitter: DeTradeFund
 other-links:
-  - title: DeTrade Fund website - official vault, strategy, social and logo source
-    url: https://detrade.fund/
-  - title: DeTrade Fund app - official vault interface linked from the DeTrade website
-    url: https://app.detrade.fund/
-  - title: CuratorWatch - DeTrade curator profile with Morpho vaults and AUM
-    url: https://curatorwatch.com/curator/detrade
+- title: DeTrade Fund website - official vault, strategy, social and logo source
+  url: https://detrade.fund/
+- title: DeTrade Fund app - official vault interface linked from the DeTrade website
+  url: https://app.detrade.fund/
+- title: CuratorWatch - DeTrade curator profile with Morpho vaults and AUM
+  url: https://curatorwatch.com/curator/detrade
+- title: Murmurr product book lists USDC portfolios with earlier DeTrade branding
+  url: https://murmurr.xyz/

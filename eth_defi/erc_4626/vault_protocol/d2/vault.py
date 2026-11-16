@@ -319,23 +319,21 @@ D2_GLOBAL_MACRO_BLOG_URL = "https://medium.com/@D2.Finance/globalmacro-gm-vault-
 D2_GLOBAL_MACRO_UPDATE_URL = "https://x.com/D2_Finance/status/2117815338616152350"
 
 #: Maintained Markdown for this deployment only; historical claims are dated.
-D2_GLOBAL_MACRO_DESCRIPTION = f"""Deposited USDG, a US dollar stablecoin, funds short-term bets on rising or falling equity indices, commodities and currencies. The [launch design]({D2_GLOBAL_MACRO_BLOG_URL}) combines options, contracts giving the right to buy or sell at an agreed price, with [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that track prices without an expiry date. The trading signals come from HYPE++, a separate investment strategy whose performance history does not belong to this vault.
+D2_GLOBAL_MACRO_DESCRIPTION = f"""#### Vault's trading strategy
 
-#### Lending and trading
+The vault strategy uses algorithmic trend signals to trade equity indices, commodities and currencies. Returns come from trading profits and lending interest.
 
-At launch in August 2026, the principal was allocated to a USDG lending vault managed by Steakhouse on Morpho, a lending platform. A smaller allocation supported trades on Hyperliquid, a derivatives exchange. Lending income supplements trading results but introduces borrower and smart contract risks.
+The [published strategy design]({D2_GLOBAL_MACRO_BLOG_URL}) uses several simple moving-average rules, which smooth past prices, to trigger trades. D2's [investment team](https://docs.d2.finance/docs/vault-design) runs the strategy. Signal calculation frequency and the extent of human approval or overrides are not disclosed.
+
+The design favours options, rights to buy or sell at agreed prices, when they are cheap relative to the expected market move, and futures otherwise. [Hyperliquid](https://hyperliquid.xyz/) provides round-the-clock trading in [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts without expiry. **The options venue is not identified in the published design.** The lending allocation is a Steakhouse-managed vault on [Morpho](https://morpho.org/).
 
 #### Risk and withdrawals
 
-The strategy uses **leverage**, taking positions larger than the money backing them, which magnifies gains and losses. The manager's **10% loss-limit policy per trading cycle**, called an epoch, is not guaranteed protection or a limit on losses measured from an earlier peak. Lending income may offset only part of a trading loss.
+Positions can exceed the money backing them, magnifying gains and losses. The manager's **10% loss-limit policy per trading cycle** is not a guarantee: losses can exceed it, and it does not cap losses accumulated across cycles. Lending interest may offset only part of a trading loss, and the lending vault adds borrower and smart contract risks.
 
-**Deposits and withdrawals close during trading.** Under the [vault design](https://docs.d2.finance/docs/vault-design), the trader may take custody of funds, which must be returned before withdrawals reopen. An announced epoch-end date does not guarantee withdrawal availability.
+**Deposits and withdrawals close during trading.** The trader may take custody of funds, which must be returned before withdrawals reopen. An announced trading-cycle end date does not guarantee withdrawal availability.
 
-#### Announced changes
-
-The [November 2026 update]({D2_GLOBAL_MACRO_UPDATE_URL}) reviewed substantial funding costs, announced another trading cycle and proposed changes to the strategy. [Funding payments](https://tradingstrategy.ai/glossary/funding-rate) pass periodically between traders on opposite sides of perpetual futures and can reduce trading returns.
-
-Plans included Pendle Boros, a market for trading funding rates, and a possible split into GM 2.0 and Overnight Edge, two proposed strategy variants. These were proposals, not confirmed changes to the vault's investments.
+The [future roadmap]({D2_GLOBAL_MACRO_UPDATE_URL}) outlines proposed changes to the strategy.
 """
 
 #: Reviewed against the official catalogue on 2026-11-05, including hidden entries.
@@ -343,104 +341,460 @@ Plans included Pendle Boros, a market for trading funding rates, and a possible 
 #: Chain/address keys distinguish different products deployed at the same address.
 D2_VAULT_SHORT_DESCRIPTIONS: dict[tuple[int, str], str] = {
     # DRV++
-    (1, "0x07dff4087b43c4a759f4fc69511c26d51929daf4"): "Combines lending income with trading contracts whose value follows other assets.",
+    (1, "0x07dff4087b43c4a759f4fc69511c26d51929daf4"): "The strategy combines lending income with options and futures trading.",
     # ftUSDC
-    (1, "0x09dfcf4731149582d163a763e7dd553ebc18852d"): "Lends USDC at a fixed rate to finance the HYPE++ trading strategy.",
+    (1, "0x09dfcf4731149582d163a763e7dd553ebc18852d"): "The vault earns fixed-rate interest by lending to the HYPE++ trading strategy.",
     # Debasement++
-    (1, "0x1f7bae0549f9f0baf15d0d637900056bb9434c36"): "Combines gold and bitcoin exposure with options income and bets against shares in Strategy, a bitcoin-holding company.",
+    (1, "0x1f7bae0549f9f0baf15d0d637900056bb9434c36"): "The strategy combines gold and bitcoin exposure with options and bets against Strategy shares.",
     # HYPE++ Ethena
-    (1, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "Trades major cryptoasset contracts to profit from differences in prices, payments between traders and expected price fluctuations.",
+    (1, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "The strategy trades cryptoasset contracts to profit from price differences and payments between traders.",
     # Kimchi Corridor
-    (10, "0x20833f2e96ab236d66d18a0064e1e8171b70e22e"): "Bets that Korean share price swings will shrink relative to bitcoin's.",
+    (10, "0x20833f2e96ab236d66d18a0064e1e8171b70e22e"): "The strategy bets that Korean share price swings will shrink relative to bitcoin's.",
     # Kimchi Premium
-    (10, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "Earns income when Korean stock-market price fluctuations are smaller than the level agreed in its contracts.",
+    (10, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "The strategy earns a contract payment when Korean stock-market price swings stay below an agreed level.",
     # HGB
-    (999, "0x0f00008223b4d4c2c466b4456df1d483743cbd60"): "Borrows against HYPE tokens to invest in gold and bitcoin.",
+    (999, "0x0f00008223b4d4c2c466b4456df1d483743cbd60"): "The strategy borrows against HYPE to add gold and bitcoin investments.",
     # dgnHYPE++
-    (999, "0x140e81f8c033c0705036e55be2f2fbce43e4595c"): "Borrows against HYPE tokens to buy fixed-maturity investments linked to the HYPE++ trading strategy.",
+    (999, "0x140e81f8c033c0705036e55be2f2fbce43e4595c"): "The strategy borrows against HYPE to buy fixed-maturity claims on HYPE++.",
     # Alpha Strategies
-    (999, "0x195eb4d088f222c982282b5dd495e76dba4bc7d1"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    (999, "0x195eb4d088f222c982282b5dd495e76dba4bc7d1"): "The strategy trades cryptoasset contracts to profit from price differences and payments between traders.",
     # texasHedge
-    (999, "0x208f63a7f60c319597c05fa5ec67fde41839bad6"): "Makes concentrated bets across asset markets using options and borrowed money.",
+    (999, "0x208f63a7f60c319597c05fa5ec67fde41839bad6"): "The strategy makes concentrated, actively managed bets using options and borrowed money.",
     # d2HYPE
-    (999, "0x3ebb11ba6a5b61c04d1a703ea10728d519945440"): "Earns income by selling rights to future HYPE price gains, alongside lending and offsetting trades.",
+    (999, "0x3ebb11ba6a5b61c04d1a703ea10728d519945440"): "The strategy earns HYPE option premiums alongside lending and trading income.",
     # hKRAKEN
-    (999, "0x4de611ed46aaf54a6850f97542ce7a58e7c8d0fe"): "Sells rights to future Kraken share price gains against claims on shares held before a public listing.",
+    (999, "0x4de611ed46aaf54a6850f97542ce7a58e7c8d0fe"): "The strategy sells rights to future Kraken share price gains against tokenised investment claims.",
     # dgnVengeance
-    (999, "0x6bf9345b5d6b27b5cbf2e463dc5e0b2afcedc21c"): "Uses ether as backing for options that increase exposure to ether price rises.",
+    (999, "0x6bf9345b5d6b27b5cbf2e463dc5e0b2afcedc21c"): "The documented strategy bought ether options to increase returns from a strong ether price rise.",
     # USDT0 hRWA
-    (999, "0x7410e69958a8ece2a51c231c8528513d4d668c7a"): "Combines contracts tied to traditional financial markets with cryptoasset lending and trading income.",
+    (999, "0x7410e69958a8ece2a51c231c8528513d4d668c7a"): "The strategy combines lending and liquidity income with contracts tied to traditional markets.",
     # hSOL
-    (999, "0x8ef30c5ce9a460bfae82f1f039f7c5e5427d7018"): "Earns income from selling SOL options alongside other trading income.",
+    (999, "0x8ef30c5ce9a460bfae82f1f039f7c5e5427d7018"): "The strategy earns SOL option premiums and reinvests them in trading strategies.",
     # USDT0 Hyperliquid-RWA Strategies
-    (999, "0xade27c7dec9211973278876f3819aedc28cd50ca"): "Combines contracts tied to traditional financial markets with cryptoasset lending and trading income.",
+    (999, "0xade27c7dec9211973278876f3819aedc28cd50ca"): "The strategy combines lending and liquidity income with contracts tied to traditional markets.",
     # hXXI BTC
-    (999, "0xf44f49e6577b3934f981c6f0629d15154d2606e6"): "Earns income from bitcoin options and price differences while using offsetting trades to manage risk.",
+    (999, "0xf44f49e6577b3934f981c6f0629d15154d2606e6"): "The strategy seeks additional bitcoin through options, price differences and payments between futures traders.",
     # CoreSolvBTC Covered Call
-    (1116, "0xa6c99234ebcda225ef32cefb8472363e09a51aea"): "Earns income by selling rights to future bitcoin price gains against bitcoin-backed SolvBTC holdings.",
+    (1116, "0xa6c99234ebcda225ef32cefb8472363e09a51aea"): "The strategy earns premiums by selling some future bitcoin gains against bitcoin-backed holdings.",
     # Global Macro
-    (4663, "0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8"): "Trades equity indices, commodities and currencies alongside income from USDG lending.",
+    (4663, "0x3a87f340c7aa52694c3dd806ba13d1b2ebf48dd8"): "The vault strategy trades equity indices, commodities and currencies alongside lending income.",
     # Alpha Strategies
-    (8453, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    (8453, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): "The strategy trades cryptoasset contracts to profit from price differences and payments between traders.",
     # dgnBTC v2
-    (8453, "0x6c05a7d2c24b48fc3c615d294fec2eb068548897"): "Uses options to increase exposure to bitcoin price rises.",
+    (8453, "0x6c05a7d2c24b48fc3c615d294fec2eb068548897"): "The strategy increases exposure to bitcoin price rises through derivative positions.",
     # Hot7
-    (8453, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "Trades a basket of seven US stocks with options income and protection against some price falls.",
+    (8453, "0xafd240a8e564ad34663b6c42475027ed083088a2"): "The strategy selects seven US stocks by price momentum and adds options income and partial downside protection.",
     # HyperBera.weETH
-    (42161, "0x0178b56fea3d7b5b9f9e0cdad486522de948730f"): "Combines ether price exposure with trading income and liquidity rewards.",
+    (42161, "0x0178b56fea3d7b5b9f9e0cdad486522de948730f"): "The strategy combines ether exposure with trading income and liquidity rewards.",
     # dgnETH v2
-    (42161, "0x0f76de33a3679a6065d14780618b54584a3907d4"): "Uses options to increase exposure to ether price rises.",
+    (42161, "0x0f76de33a3679a6065d14780618b54584a3907d4"): "The strategy increases exposure to ether price rises through derivative positions.",
     # GTxD2
-    (42161, "0x1176c3760af6a1dbaa5bbd0cc6cda8a2ed6b785e"): "Executes large trades gradually to spread purchases and sales over time.",
+    (42161, "0x1176c3760af6a1dbaa5bbd0cc6cda8a2ed6b785e"): "The strategy spreads large purchases and sales over time.",
     # d2ETH
-    (42161, "0x195a9e0f29f96d4ab2139ee1272380a4aa352890"): "Borrows USDC against ether to invest partly in the ETH++ trading strategy while retaining ether price exposure.",
+    (42161, "0x195a9e0f29f96d4ab2139ee1272380a4aa352890"): "The strategy borrows against ether to invest in ETH++ while retaining ether price exposure.",
     # ETH++
-    (42161, "0x27d22eb71f00495eccc89bb02c2b68e6988c6a42"): "Trades ether and other major cryptoassets to profit from differences in price fluctuations and payments between traders.",
+    (42161, "0x27d22eb71f00495eccc89bb02c2b68e6988c6a42"): "The strategy trades ether contracts to earn income from price differences and payments between traders.",
     # ARB++
-    (42161, "0x291344fbaac4fe14632061e4c336fe3b94c52320"): "Seeks income while retaining partial exposure to ARB price movements.",
+    (42161, "0x291344fbaac4fe14632061e4c336fe3b94c52320"): "The strategy seeks additional income while retaining partial exposure to ARB prices.",
     # Dewhales v2
-    (42161, "0x34f0fdd80a51dfd8ba42343c20f89217280d760e"): "Allocates investments to suit an institutional investor.",
+    (42161, "0x34f0fdd80a51dfd8ba42343c20f89217280d760e"): "The vault holds investments selected for an institutional client.",
     # PlsDAO++ v2
-    (42161, "0x36b1939adf539a4ac94b57dbad32faecd5bcf4d0"): "Allocates investments to suit an institutional investor.",
+    (42161, "0x36b1939adf539a4ac94b57dbad32faecd5bcf4d0"): "The vault holds investments selected for an institutional client.",
     # Alpha Strategies
-    (42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"): "Trades bitcoin and ether contracts to profit from differences in prices and expected price fluctuations.",
+    (42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"): "The strategy trades cryptoasset contracts to profit from price differences and payments between traders.",
     # wHLP
-    (42161, "0x907a9f69061736ad82811cccd6add9dc4a2352a9"): "Uses borrowed money to increase investment in Hyperliquid's trading liquidity pool.",
+    (42161, "0x907a9f69061736ad82811cccd6add9dc4a2352a9"): "The strategy uses borrowed money to increase its investment in Hyperliquid's trading liquidity pool.",
     # xD2e
-    (42161, "0x999a57ae7694298126a5db2e44f778ca486b14fc"): "Holds a transferable form of xD2 tokens for participation in protocol rewards.",
+    (42161, "0x999a57ae7694298126a5db2e44f778ca486b14fc"): "The vault holds a transferable form of xD2 tokens for participation in protocol rewards.",
     # GMX++
-    (42161, "0xab2743a3a2e06d457368e901f5f927f271fa1374"): "Borrows against GMX tokens to fund other investments while retaining exposure to GMX prices.",
+    (42161, "0xab2743a3a2e06d457368e901f5f927f271fa1374"): "The strategy borrows against GMX tokens to fund additional investments and trading.",
     # wHYPE
-    (42161, "0xac75f0c46723432a2303f2a7c7769535a179ed56"): "Holds wrapped HYPE tokens, a transferable form of the Hyperliquid exchange token.",
+    (42161, "0xac75f0c46723432a2303f2a7c7769535a179ed56"): "The vault holds a wrapped form of HYPE, retaining exposure to HYPE prices.",
     # iARB
-    (42161, "0xb0730aa7d6e880f901b5d71a971096db56895a0f"): "Seeks income while retaining partial exposure to ARB price movements.",
+    (42161, "0xb0730aa7d6e880f901b5d71a971096db56895a0f"): "The strategy seeks additional income while retaining partial exposure to ARB prices.",
     # HyperBera
-    (42161, "0xc027ec28f76d92d4124fcbffcf6b25137a84968c"): "Combines bitcoin price exposure with trading income and liquidity rewards.",
+    (42161, "0xc027ec28f76d92d4124fcbffcf6b25137a84968c"): "The strategy combines bitcoin exposure with trading income and liquidity rewards.",
     # d2USDC v2
-    (42161, "0xd1d64daeed7504ef3eb056aa2d973bd064843a84"): "Uses USDC to earn investment rewards and profit from price fluctuations and differences in payments between traders.",
+    (42161, "0xd1d64daeed7504ef3eb056aa2d973bd064843a84"): "The strategy combines trading profits, payments between futures traders and investment rewards.",
     # HyperTRUMP
-    (42161, "0xfddd73ecd0d0d75e902a567811a70e167a262fab"): "Trades TRUMP tokens and related contracts to profit from price swings and payments between traders.",
+    (42161, "0xfddd73ecd0d0d75e902a567811a70e167a262fab"): "The strategy trades TRUMP price swings and payments between futures traders.",
     # Kodiak++
-    (80094, "0x2b8d0420996a2753ef21c25c94eae9fc0c0aed1e"): "Uses borrowed money to supply trading liquidity on Kodiak and earn rewards, with options to manage risk.",
+    (80094, "0x2b8d0420996a2753ef21c25c94eae9fc0c0aed1e"): "The strategy uses borrowed money to earn trading fees and liquidity rewards on Kodiak.",
     # HyperBERA.USDC
-    (80094, "0x36b933554782b108bb9962ac00c498acbceb706d"): "Seeks income from investment rewards, options trading and differences in payments between traders.",
+    (80094, "0x36b933554782b108bb9962ac00c498acbceb706d"): "The strategy seeks income from options, investment rewards and payments between futures traders.",
     # hBERA
-    (80094, "0xace42f7e3f4672607897bf1951468031f0214359"): "Holds BERA while betting against other blockchain tokens to offset some market risk.",
+    (80094, "0xace42f7e3f4672607897bf1951468031f0214359"): "The strategy holds BERA and bets against other blockchain tokens to offset some market exposure.",
     # dgnBeraland
-    (80094, "0xbe75c8a7e58c7901d2e128dc8d3b6de2481f1f79"): "Uses options to increase exposure to BERA price rises.",
+    (80094, "0xbe75c8a7e58c7901d2e128dc8d3b6de2481f1f79"): "The strategy uses options to increase exposure to BERA price rises.",
     # dgnUpside
-    (80094, "0xbf075980792f8cc89dfb74b553acf6750a7e941b"): "Uses options to increase exposure to bitcoin, ether and BERA prices alongside liquidity rewards.",
+    (80094, "0xbf075980792f8cc89dfb74b553acf6750a7e941b"): "The strategy uses options to increase exposure to bitcoin, ether and BERA prices.",
     # dgnOOGA
-    (80094, "0xc4fee8c68293a63241b64e5a2ef07fcf89005dd3"): "Moves BERA investments between lending and trading platforms to earn fees and rewards.",
+    (80094, "0xc4fee8c68293a63241b64e5a2ef07fcf89005dd3"): "The strategy invests in OOGA and adjusts BERA allocations to earn fees and rewards.",
     # 2xBERA
-    (80094, "0xcd18006cc69c6d5fa4fd4eaf99910b58464fa3ae"): "Uses borrowed money to increase exposure to BERA prices and earn rewards.",
+    (80094, "0xcd18006cc69c6d5fa4fd4eaf99910b58464fa3ae"): "The strategy increases BERA exposure through derivatives while earning staking rewards and futures payments.",
     # HyperEuler
-    (80094, "0xf650ba4303ce164e1f6b215d4cbb5e212d307056"): "Uses borrowed money to earn lending and trading liquidity rewards and trade differences in payments between traders.",
+    (80094, "0xf650ba4303ce164e1f6b215d4cbb5e212d307056"): "The strategy borrows to earn lending and liquidity rewards, alongside futures trading income.",
 }
 
 #: Do not guess strategies for test, retired or undocumented deployments.
 D2_UNDISCLOSED_SHORT_DESCRIPTION = "Strategy details are unavailable for this vault."
 
+
+#: Explicit evidence gap for the seven undocumented catalogue entries.
+D2_UNDISCLOSED_DESCRIPTION = """#### Vault's trading strategy
+
+The [published catalogue](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) does not explain this vault's strategy or source of returns. It also does not identify trading venues, a decision-maker, decision rules or trading frequency.
+"""
+
+
+#: Deployment-specific strategy explanations, researched on 2026-11-09.
+#: Sources and undisclosed details: docs/protocol-research/d2-vault-descriptions.md.
+D2_VAULT_DESCRIPTIONS: dict[tuple[int, str], str] = {
+    # DRV++
+    (1, "0x07dff4087b43c4a759f4fc69511c26d51929daf4"): """#### Vault's trading strategy
+
+The strategy combines interest income with trades that seek profits from differences between options and futures prices. The [published design](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) uses [Aave](https://aave.com/) for lending, [Pendle](https://pendle.finance/) for fixed-maturity investment claims and [Ethena](https://ethena.fi/) for its yield-bearing token, alongside futures on [Hyperliquid](https://hyperliquid.xyz/) and options on [Derive](https://www.derive.xyz/).
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) actively manages the trading allocation. The entry rules, extent of automation and rebalance frequency are not disclosed. The catalogue's launch allocations and reward programmes do not establish current holdings or continuing incentives.
+""",
+    # ftUSDC
+    (1, "0x09dfcf4731149582d163a763e7dd553ebc18852d"): """#### Vault's trading strategy
+
+The vault earns fixed-rate interest by lending to the HYPE++ trading strategy. The [lending mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) allows the borrower to use the funds as backing for trades when opportunities arise.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) decides when to deploy the borrowed funds. The lending vault does not describe a separate trading algorithm; drawdown rules, lending decision frequency and the borrower's complete trading venues are not disclosed. Repayment depends on the borrower, so a fixed interest rate does not make the loan risk-free.
+""",
+    # Debasement++
+    (1, "0x1f7bae0549f9f0baf15d0d637900056bb9434c36"): """#### Vault's trading strategy
+
+The strategy holds gold exposure, sells contracts that pay the buyer if gold falls, buys rights to bitcoin price gains and bets against shares in Strategy, the bitcoin-holding company. The [published design](https://medium.com/@D2.Finance/debasement-do-not-fade-the-money-printer-8f39a12eb777) seeks gains from gold and bitcoin alongside option premiums and falls in the share price.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the positions within stated exposure limits, using option prices and the relationship between Strategy shares and bitcoin as inputs. The options venues, share-trading venue, automation and adjustment frequency are not disclosed. Several positions can lose money together.
+""",
+    # HYPE++ Ethena
+    (1, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): """#### Vault's trading strategy
+
+The strategy trades mispriced bitcoin and ether options and futures, including price differences across markets. It also seeks [funding payments](https://tradingstrategy.ai/glossary/funding-rate), periodic transfers between traders holding opposing futures positions. Positions can also respond to events such as regulatory decisions.
+
+The [strategy explanation](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9) describes active portfolio management with rule-based offsetting trades. D2's [investment team](https://docs.d2.finance/docs/vault-design) runs the strategy, but the division between human judgement and algorithms, and the trading frequency, are not disclosed.
+
+[Hyperliquid](https://hyperliquid.xyz/) is identified for futures trading. The [shared fund's venue design](https://medium.com/@D2.Finance/hype-base-institutional-grade-defi-bdce160e66b6) names [Derive](https://www.derive.xyz/) for options, with [Flowdesk](https://www.flowdesk.co/) and [Hyperdelta](https://hyperdelta.com/) as counterparties. The vault shares strategy results with the other HYPE++ access points; current balances at each venue are not disclosed.
+""",
+    # Kimchi Corridor
+    (10, "0x20833f2e96ab236d66d18a0064e1e8171b70e22e"): """#### Vault's trading strategy
+
+The strategy uses a contract that profits when Korean share price swings fall relative to bitcoin's. The published contract measures the difference using daily closing prices of funds tracking the two markets.
+
+D2 fixes the terms at the start and holds the contract to expiry without discretionary trading during the cycle. The contract is matched with HYPE++ through [D2's internal Central Book](https://medium.com/@D2.Finance/texas-hedge-got-twins-kimchi-premium-and-the-ibit-ewy-volatility-corridor-e88c72b03ec0); Bloomberg supplies pricing inputs rather than an execution venue. Its 40% contractual loss floor applies to scheduled settlement, not to counterparty or contract failures. The documented cycle ended in September 2026; terms of a later cycle are not established by that announcement.
+""",
+    # Kimchi Premium
+    (10, "0xafd240a8e564ad34663b6c42475027ed083088a2"): """#### Vault's trading strategy
+
+The strategy sells a contract that pays out when Korean stock-market price swings are below an agreed level, and loses money when they are higher. The published contract uses daily closing prices to calculate the outcome.
+
+D2 fixes the terms at the start and holds the contract to expiry without discretionary trading during the cycle. The contract is matched with HYPE++ through [D2's internal Central Book](https://medium.com/@D2.Finance/texas-hedge-got-twins-kimchi-premium-and-the-ibit-ewy-volatility-corridor-e88c72b03ec0); Bloomberg supplies pricing inputs rather than an execution venue. Its 40% contractual loss floor applies to scheduled settlement, not to counterparty or contract failures. The documented cycle ended in September 2026; terms of a later cycle are not established by that announcement.
+""",
+    # HGB
+    (999, "0x0f00008223b4d4c2c466b4456df1d483743cbd60"): """#### Vault's trading strategy
+
+The strategy retains HYPE exposure and borrows against it to add gold and bitcoin investments. The [published design](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) also refers to basket options, contracts whose returns depend on several assets.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation. The lending platform, options venue or counterparty, decision rules and adjustment frequency are not disclosed. Borrowing adds interest costs and the risk of a forced sale if the collateral loses value.
+""",
+    # dgnHYPE++
+    (999, "0x140e81f8c033c0705036e55be2f2fbce43e4595c"): """#### Vault's trading strategy
+
+The strategy borrows against HYPE and buys principal tokens on [Pendle](https://pendle.finance/), which are claims redeemable against the HYPE++ investment at maturity. The [published rule](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) is to invest when the price difference is favourable.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the borrowing and purchases, but the required price difference, lending platform, automation and review frequency are not disclosed. Returns depend on the purchase price, borrowing costs and the underlying HYPE++ investment.
+""",
+    # Alpha Strategies
+    (999, "0x195eb4d088f222c982282b5dd495e76dba4bc7d1"): """#### Vault's trading strategy
+
+The strategy trades mispriced bitcoin and ether options and futures, including price differences across markets. It also seeks [funding payments](https://tradingstrategy.ai/glossary/funding-rate), periodic transfers between traders holding opposing futures positions. Positions can also respond to events such as regulatory decisions.
+
+The [strategy explanation](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9) describes active portfolio management with rule-based offsetting trades. D2's [investment team](https://docs.d2.finance/docs/vault-design) runs the strategy, but the division between human judgement and algorithms, and the trading frequency, are not disclosed.
+
+[Hyperliquid](https://hyperliquid.xyz/) is identified for futures trading. The [shared fund's venue design](https://medium.com/@D2.Finance/hype-base-institutional-grade-defi-bdce160e66b6) names [Derive](https://www.derive.xyz/) for options, with [Flowdesk](https://www.flowdesk.co/) and [Hyperdelta](https://hyperdelta.com/) as counterparties. The vault shares strategy results with the other HYPE++ access points; current balances at each venue are not disclosed.
+""",
+    # texasHedge
+    (999, "0x208f63a7f60c319597c05fa5ec67fde41839bad6"): """#### Vault's trading strategy
+
+The strategy makes concentrated bets on asset prices using options and borrowed money. D2's [investment team](https://docs.d2.finance/docs/vault-design) changes the positions between trading cycles; a fixed algorithm or regular intra-cycle trading schedule is not disclosed.
+
+The [June 2026 design](https://medium.com/@D2.Finance/texas-hedge-epoch-2-elon-takes-us-to-space-x-fec66a354ad3) combined SpaceX exposure with options on US stock indices, Tesla and memory-chip companies. HYPE++ supplied the loan for the SpaceX position and bought the sold memory-chip options. The design increased exposure only after gains and used a stop intended to close positions after a fall from their peak. The source does not identify all external venues or the counterparties for the purchased options. This was a discretionary trade idea, not a permanent portfolio, and **the entire deposit can be lost**.
+""",
+    # d2HYPE
+    (999, "0x3ebb11ba6a5b61c04d1a703ea10728d519945440"): """#### Vault's trading strategy
+
+The strategy sells rights to some future HYPE price gains and trades differences in option prices. Its [published design](https://medium.com/@D2.Finance/d2hype-turn-hype-volatility-into-20-apr-yield-b570d72a4ec0) sets call-option terms weekly, while D2's [investment team](https://docs.d2.finance/docs/vault-design) adjusts other positions using market-price and onchain signals.
+
+The design names [Flowdesk](https://www.flowdesk.co/) among the dealers supplying protective options and [HypurrFi](https://hypurrfi.com/) for lending. It describes algorithmic execution but does not publish the signal rules, adjustment frequency or every options counterparty. Selling calls limits gains above their agreed price; protective options and lending do not remove the risk of loss.
+""",
+    # hKRAKEN
+    (999, "0x4de611ed46aaf54a6850f97542ce7a58e7c8d0fe"): """#### Vault's trading strategy
+
+The strategy earns premiums by selling rights to Kraken share price gains above an agreed price. The [published structure](https://medium.com/@D2.Finance/introducing-hkraken-pioneering-tokenized-pre-ipo-options-6292f2f3d03c) uses tokenised investment claims as backing and pays premiums in dgnUpside, a separate strategy exposed to cryptoasset prices.
+
+D2's contracts handle option selling and collateral. HYPE++ is the named option buyer in this internally arranged product. The article does not identify an external exchange, how terms are selected or how often they change. Returns depend on both the share-linked contract and the value of dgnUpside.
+""",
+    # dgnVengeance
+    (999, "0x6bf9345b5d6b27b5cbf2e463dc5e0b2afcedc21c"): """#### Vault's trading strategy
+
+The documented strategy bought ether options that paid off above an agreed price, seeking a larger gain from a strong ether rally. The [rationale for that cycle](https://medium.com/@D2.Finance/dgnvengeance-dgnupsides-last-dance-969739fb2325) compared option prices with their historical range and with technology-share options to identify inexpensive ether exposure.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) selected the positions. The options venue, counterparty, repeatable entry thresholds, automation and adjustment frequency were not disclosed. The described final cycle ended in November 2026; the announcement does not establish a subsequent strategy. Its 40% loss limit applied to the scheduled derivative payoff, not to contract or counterparty failures.
+""",
+    # USDT0 hRWA
+    (999, "0x7410e69958a8ece2a51c231c8528513d4d668c7a"): """#### Vault's trading strategy
+
+The strategy combines lending and liquidity income with trades tied to traditional markets, including S&P 500 option pricing. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation, but the decision rules, automation and trading frequency are not disclosed.
+
+The [published design](https://medium.com/@D2.Finance/introducing-usdt0-hrwa-the-ultimate-stablecoin-yield-engine-on-hyperevm-f7e8b58068db) names [Felix](https://www.usefelix.xyz/) and [Hyperlend](https://hyperlend.finance/) for lending, [Hyperswap](https://hyperswap.exchange/) for trading liquidity and [Kinetiq](https://kinetiq.xyz/) for staking. It does not identify the options venues or counterparties, or confirm the current allocation to each platform.
+""",
+    # Hype EVM++
+    (999, "0x7da637df83778704464208f092dbdbf9f386df96"): D2_UNDISCLOSED_DESCRIPTION,
+    # hSOL
+    (999, "0x8ef30c5ce9a460bfae82f1f039f7c5e5427d7018"): """#### Vault's trading strategy
+
+The strategy sells contracts that compensate the buyer if SOL falls below an agreed price, earning premiums in return. Its published structure reinvests that income in trades that collect differences in futures payments or in the hRWA strategy.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) selects the options and allocations. HYPE++ is the [named options counterparty](https://medium.com/@D2.Finance/introducing-hsol-20-apr-target-on-sol-with-hyperliquid-5b10672f6369), rather than an external options exchange; the article describes access through [Hyperliquid](https://hyperliquid.xyz/). It does not disclose the complete execution venues, automated decision rules or trading frequency. Falling SOL prices can produce option losses larger than the premiums.
+""",
+    # USDT0 Hyperliquid-RWA Strategies
+    (999, "0xade27c7dec9211973278876f3819aedc28cd50ca"): """#### Vault's trading strategy
+
+The strategy combines lending and liquidity income with trades tied to traditional markets, including S&P 500 option pricing. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation, but the decision rules, automation and trading frequency are not disclosed.
+
+The [published design](https://medium.com/@D2.Finance/introducing-usdt0-hrwa-the-ultimate-stablecoin-yield-engine-on-hyperevm-f7e8b58068db) names [Felix](https://www.usefelix.xyz/) and [Hyperlend](https://hyperlend.finance/) for lending, [Hyperswap](https://hyperswap.exchange/) for trading liquidity and [Kinetiq](https://kinetiq.xyz/) for staking. It does not identify the options venues or counterparties, or confirm the current allocation to each platform.
+""",
+    # hXXI BTC
+    (999, "0xf44f49e6577b3934f981c6f0629d15154d2606e6"): """#### Vault's trading strategy
+
+The strategy seeks to increase its bitcoin holdings by selling rights to future bitcoin gains, trading differences in option prices and collecting [funding payments](https://tradingstrategy.ai/glossary/funding-rate) between opposing futures positions. D2's [investment team](https://docs.d2.finance/docs/vault-design) actively adjusts positions and offsetting trades, but the entry rules, automation and trading frequency are not disclosed.
+
+The [published design](https://medium.com/@D2.Finance/introducing-hyperliquid-xxi-hxxi-the-future-of-bitcoin-accumulation-on-chain-499c488e67ca) describes deployment on HyperEVM without identifying each execution venue or the synthetic-options counterparties.
+""",
+    # CoreSolvBTC Covered Call
+    (1116, "0xa6c99234ebcda225ef32cefb8472363e09a51aea"): """#### Vault's trading strategy
+
+The strategy sells rights to bitcoin gains above an agreed price, backed by SolvBTC, a token representing bitcoin holdings. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes rule-based option selling, combining external orders with purchases by other internal portfolios.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) operates the strategy. The external options venues, internal counterparties, strike-selection rules and sale frequency are not disclosed. Premium income comes at the cost of giving up some gains if bitcoin rises beyond the agreed price.
+""",
+    # Alpha Strategies
+    (8453, "0x2406aacbdf8463176deb285adaa81768415b6c7e"): """#### Vault's trading strategy
+
+The strategy trades mispriced bitcoin and ether options and futures, including price differences across markets. It also seeks [funding payments](https://tradingstrategy.ai/glossary/funding-rate), periodic transfers between traders holding opposing futures positions. It shares strategy results with the other HYPE++ access points.
+
+The [Base strategy design](https://medium.com/@D2.Finance/hype-base-institutional-grade-defi-bdce160e66b6) names [Derive](https://www.derive.xyz/) for options, [Flowdesk](https://www.flowdesk.co/) and [Hyperdelta](https://hyperdelta.com/) as trading counterparties, and [Aave](https://aave.com/) and [ether.fi](https://www.ether.fi/) for collateral.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the portfolio using active positioning and rule-based offsetting trades. The [shared fund](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9) also uses [Hyperliquid](https://hyperliquid.xyz/) for futures. The division between human judgement and algorithms, the trading frequency and current venue balances are not disclosed.
+""",
+    # dgnBTC v2
+    (8453, "0x6c05a7d2c24b48fc3c615d294fec2eb068548897"): """#### Vault's trading strategy
+
+The strategy increases exposure to bitcoin price rises through contracts whose value depends on bitcoin. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes protection intended to reduce exposure to falling prices, without publishing its implementation.
+
+A [completed trading cycle](https://medium.com/@D2.Finance/hype-base-institutional-grade-defi-bdce160e66b6) used options on [Derive](https://www.derive.xyz/) and D2's internal options system. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the strategy; current venue allocation, decision rules and trading frequency are not disclosed. The earlier cycle does not establish current holdings.
+""",
+    # Hot7
+    (8453, "0xafd240a8e564ad34663b6c42475027ed083088a2"): """#### Vault's trading strategy
+
+The strategy selects seven US stocks using a rule that ranks recent price strength. The published design gives them equal weights and resets the selection at monthly option expiry, rather than trading the ranking every day.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) implements the rules. Stock-price exposure trades through futures on [Hyperliquid](https://hyperliquid.xyz/); options are matched with HYPE++ in [D2's internal Central Book](https://medium.com/@D2.Finance/hot7-structured-products-rwas-are-boring-d2-brings-the-spice-7b8d14dcd662). Selling some upside pays for limited protection against falls in the S&P 500. The catalogue also identifies [Aave](https://aave.com/) for the initial lending allocation; the current capital venue is set at each scheduled reset. The options do not protect against every loss.
+""",
+    # HyperBera.weETH
+    (42161, "0x0178b56fea3d7b5b9f9e0cdad486522de948730f"): """#### Vault's trading strategy
+
+The strategy retains ether exposure while seeking trading income and rewards for supplying capital. Its [original design](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) allocated to HLP on [Hyperliquid](https://hyperliquid.xyz/), [Derive](https://www.derive.xyz/) and Berachain reward programmes.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) actively manages the allocation, but the trading rules, automation and adjustment frequency are not disclosed. The catalogue refers to the 2025 Boyco launch programme and does not identify the current pool allocations or map every instrument to a venue. Those historical rewards should not be assumed to continue.
+""",
+    # dgnETH v2
+    (42161, "0x0f76de33a3679a6065d14780618b54584a3907d4"): """#### Vault's trading strategy
+
+The strategy increases exposure to ether price rises through contracts whose value depends on ether. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes protection designed to reduce exposure when prices fall, but does not explain how that protection is implemented.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the positions. The venues, rules for changing exposure, use of algorithms and trading frequency are not disclosed. The protection should not be treated as a guarantee against losses.
+""",
+    # GTxD2
+    (42161, "0x1176c3760af6a1dbaa5bbd0cc6cda8a2ed6b785e"): """#### Vault's trading strategy
+
+The strategy executes large trades in smaller portions over time, aiming for an average price across the execution period. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes an on-demand trading service rather than a separate source of investment yield.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) operates the strategy. The mandate does not disclose the trading venues, order intervals, algorithm parameters or who chooses the start and end times.
+""",
+    # LYRA++
+    (42161, "0x183424d5ae5ec9fd486634bc566d0f75ad9c9109"): D2_UNDISCLOSED_DESCRIPTION,
+    # d2ETH
+    (42161, "0x195a9e0f29f96d4ab2139ee1272380a4aa352890"): """#### Vault's trading strategy
+
+The strategy borrows against ether and invests part of the proceeds in ETH++, which trades ether and other cryptoasset contracts. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) aims to add trading income while retaining ether price exposure.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the borrowing and offsetting positions. The lending platforms, allocation rules, use of algorithms and adjustment frequency are not disclosed. Borrowing costs and losses in ETH++ can reduce returns.
+""",
+    # VERTEXMOBY++
+    (42161, "0x23f556f4df7a263ce68ee29659aa4ea632a6a5bc"): D2_UNDISCLOSED_DESCRIPTION,
+    # ETH++
+    (42161, "0x27d22eb71f00495eccc89bb02c2b68e6988c6a42"): """#### Vault's trading strategy
+
+The strategy buys and sells ether and other cryptoasset contracts when their prices or expected price swings differ across markets. It also trades differences in [funding payments](https://tradingstrategy.ai/glossary/funding-rate), the periodic transfers between opposing futures positions.
+
+The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) names [Hyperliquid](https://hyperliquid.xyz/) and [GMX](https://gmx.io/) for adjusting positions that offset market exposure. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the trades; the entry rules, use of algorithms and adjustment frequency are not disclosed. The [launch article](https://medium.com/@D2.Finance/d2-finance-eth-market-launching-on-camelot-5e420cff0181) explains the original ether strategy.
+""",
+    # ARB++
+    (42161, "0x291344fbaac4fe14632061e4c336fe3b94c52320"): """#### Vault's trading strategy
+
+The strategy seeks investment income while retaining some exposure to ARB price changes. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes this objective but does not explain which trades generate the income.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the strategy. Its trading venues, decision rules and trading frequency are not disclosed.
+""",
+    # Dewhales v2
+    (42161, "0x34f0fdd80a51dfd8ba42343c20f89217280d760e"): """#### Vault's trading strategy
+
+The vault holds investments selected for an institutional client. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) does not identify the investments or explain how they generate returns.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation, but the client's approval rights, trading venues, decision rules and rebalance frequency are not disclosed.
+""",
+    # PlsDAO++ v2
+    (42161, "0x36b1939adf539a4ac94b57dbad32faecd5bcf4d0"): """#### Vault's trading strategy
+
+The vault holds investments selected for an institutional client. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) does not identify the investments or explain how they generate returns.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation, but the client's approval rights, trading venues, decision rules and rebalance frequency are not disclosed.
+""",
+    # GEARPENDLE++
+    (42161, "0x5b49d7fae00de64779ddcd6b067c8eb046bd9a0b"): D2_UNDISCLOSED_DESCRIPTION,
+    # Alpha Strategies
+    (42161, "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"): """#### Vault's trading strategy
+
+The strategy trades mispriced bitcoin and ether options and futures, including price differences across markets. It also seeks [funding payments](https://tradingstrategy.ai/glossary/funding-rate), periodic transfers between traders holding opposing futures positions. Positions can also respond to events such as regulatory decisions.
+
+The [strategy explanation](https://medium.com/@D2.Finance/hype-strategy-faq-654bc8d0efc9) describes active portfolio management with rule-based offsetting trades. D2's [investment team](https://docs.d2.finance/docs/vault-design) runs the strategy, but the division between human judgement and algorithms, and the trading frequency, are not disclosed.
+
+[Hyperliquid](https://hyperliquid.xyz/) is identified for futures trading. The [shared fund's venue design](https://medium.com/@D2.Finance/hype-base-institutional-grade-defi-bdce160e66b6) names [Derive](https://www.derive.xyz/) for options, with [Flowdesk](https://www.flowdesk.co/) and [Hyperdelta](https://hyperdelta.com/) as counterparties. The vault shares strategy results with the other HYPE++ access points; current balances at each venue are not disclosed.
+""",
+    # renzoSilo++
+    (42161, "0x80c403807b1032d7cb19b6d612ce23f05a213d36"): D2_UNDISCLOSED_DESCRIPTION,
+    # wHLP
+    (42161, "0x907a9f69061736ad82811cccd6add9dc4a2352a9"): """#### Vault's trading strategy
+
+The strategy uses borrowed money to increase its investment in [Hyperliquid](https://hyperliquid.xyz/)'s HLP liquidity pool. Returns depend on the pool's trading results and fees, less borrowing costs.
+
+The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) targets increased HLP exposure but does not identify the lending platform or the rules for adjusting debt. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation; its rebalance frequency and use of algorithms are not disclosed. Losses in HLP are amplified by borrowing.
+""",
+    # xD2e
+    (42161, "0x999a57ae7694298126a5db2e44f778ca486b14fc"): """#### Vault's trading strategy
+
+The vault holds a transferable form of xD2 tokens. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes participation in protocol rewards, but does not specify a contractual income stream or explain how rewards are valued.
+
+No active trading process, execution venues, decision-maker or rebalance schedule is disclosed. Holding a transferable token does not itself establish a source of yield.
+""",
+    # dgnLYRA
+    (42161, "0x9aa9bd7b032e527b0820c85cee89093dc33df8bd"): D2_UNDISCLOSED_DESCRIPTION,
+    # GMX++
+    (42161, "0xab2743a3a2e06d457368e901f5f927f271fa1374"): """#### Vault's trading strategy
+
+The strategy borrows against GMX tokens and uses the money for trading and other investments, while retaining GMX price exposure. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) names [Silo](https://www.silo.finance/) and [Dolomite](https://dolomite.io/) as lending platforms, with allocations to GMX liquidity vaults and the ETH++ trading strategy.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the borrowing and allocations. The venue for trades between GMX tokens and futures, the decision rules and the rebalance frequency are not disclosed. Borrowing adds interest costs and the risk of a forced sale if collateral loses value.
+""",
+    # wHYPE
+    (42161, "0xac75f0c46723432a2303f2a7c7769535a179ed56"): """#### Vault's trading strategy
+
+The vault holds a wrapped, transferable form of HYPE. Its value remains exposed to HYPE price changes; wrapping a token does not itself generate lending or trading income.
+
+The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) also mentions reward points without specifying a cash entitlement. It does not disclose an active trading process, execution venues, decision-maker or rebalance schedule.
+""",
+    # iARB
+    (42161, "0xb0730aa7d6e880f901b5d71a971096db56895a0f"): """#### Vault's trading strategy
+
+The strategy seeks investment income while retaining some exposure to ARB price changes. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes this objective but does not explain which trades generate the income.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the strategy. Its trading venues, decision rules and trading frequency are not disclosed.
+""",
+    # HyperBera
+    (42161, "0xc027ec28f76d92d4124fcbffcf6b25137a84968c"): """#### Vault's trading strategy
+
+The strategy retains bitcoin exposure while seeking trading income and rewards for supplying capital. Its [original design](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) allocated to HLP on [Hyperliquid](https://hyperliquid.xyz/), [Derive](https://www.derive.xyz/) and Berachain reward programmes.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) actively manages the allocation, but the trading rules, automation and adjustment frequency are not disclosed. The catalogue refers to the 2025 Boyco launch programme and does not identify the current pool allocations or map every instrument to a venue. Those historical rewards should not be assumed to continue.
+""",
+    # d2USDC v2
+    (42161, "0xd1d64daeed7504ef3eb056aa2d973bd064843a84"): """#### Vault's trading strategy
+
+The strategy seeks profits from price differences, payments between futures traders and token rewards. It adjusts offsetting positions on [GMX](https://gmx.io/) to reduce exposure to market direction.
+
+The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes continuous monitoring with periodic adjustments by D2's [investment team](https://docs.d2.finance/docs/vault-design). It does not specify the adjustment rules, the extent of automation or the venues used for the other trades and reward allocations.
+""",
+    # Test
+    (42161, "0xeb3194d69201b04729f1a618d95519cdae24d6c0"): D2_UNDISCLOSED_DESCRIPTION,
+    # HyperTRUMP
+    (42161, "0xfddd73ecd0d0d75e902a567811a70e167a262fab"): """#### Vault's trading strategy
+
+The strategy trades around TRUMP-related events, seeking profits from price swings and differences in payments between futures traders. Its [published design](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) also allocates to HyperBera.weETH for additional trading income and liquidity rewards.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the positions in response to events. The exact triggers, use of algorithms, trading frequency and venue for the TRUMP trades are not disclosed. [Hyperliquid](https://hyperliquid.xyz/) is named for activity within the underlying allocation; the TRUMP execution venue is unspecified.
+""",
+    # Kodiak++
+    (80094, "0x2b8d0420996a2753ef21c25c94eae9fc0c0aed1e"): """#### Vault's trading strategy
+
+The strategy uses borrowed money to supply trading liquidity on [Kodiak](https://www.kodiak.finance/), seeking fees and Berachain rewards. Its [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) also includes options intended to manage risk.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) actively manages the liquidity positions. The borrowing platform, options venue, rules for moving liquidity and adjustment frequency are not disclosed. Borrowing magnifies losses, and the catalogue's historical Boyco incentives should not be treated as ongoing income.
+""",
+    # HyperBERA.USDC
+    (80094, "0x36b933554782b108bb9962ac00c498acbceb706d"): """#### Vault's trading strategy
+
+The strategy combines options trading, investment rewards and differences in payments between futures traders. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) aims to offset market exposure but does not explain the individual trades.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the strategy. The options and futures venues, reward platforms, decision rules, automation and trading frequency are not disclosed. Historical Boyco incentives in the catalogue do not establish ongoing income.
+""",
+    # hBERA
+    (80094, "0xace42f7e3f4672607897bf1951468031f0214359"): """#### Vault's trading strategy
+
+The strategy holds BERA and takes positions that profit when selected other blockchain tokens fall. The [selection approach](https://medium.com/@D2.Finance/hedged-bera-hbera-betting-on-berachains-community-hedging-against-ghost-towns-72d6332e95e2) targets tokens with high valuations and low activity, seeking to benefit if BERA outperforms them.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) adjusts the positions as opportunities change; the precise ranking rules, automation and review frequency are not disclosed. The design borrows against BERA on [Dolomite](https://dolomite.io/) or [Beraborrow](https://www.beraborrow.com/) and trades on [Hyperliquid](https://hyperliquid.xyz/). The opposing positions can both lose money.
+""",
+    # dgnBeraland
+    (80094, "0xbe75c8a7e58c7901d2e128dc8d3b6de2481f1f79"): """#### Vault's trading strategy
+
+The strategy uses [options](https://tradingstrategy.ai/glossary/options), contracts giving rights to buy or sell at agreed prices, to increase exposure to BERA price rises. Returns depend on the price move being large enough to cover the cost of those contracts.
+
+The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) does not identify the options venue or counterparty. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the strategy, but its strike selection, entry rules, automation and trading frequency are not disclosed. Historical Boyco incentives in the catalogue do not establish a continuing source of income.
+""",
+    # dgnUpside
+    (80094, "0xbf075980792f8cc89dfb74b553acf6750a7e941b"): """#### Vault's trading strategy
+
+The strategy combines liquidity rewards with options that increase exposure to bitcoin, ether and BERA price rises. The [published mandate](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) describes automatic option purchases and adjustments to exposure, but does not publish the signals or their calculation frequency.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) operates the strategy. The options venues, counterparties, reward pools and human override rights are not disclosed. Purchased options can lose their cost if the expected price rise does not occur.
+""",
+    # dgnOOGA
+    (80094, "0xc4fee8c68293a63241b64e5a2ef07fcf89005dd3"): """#### Vault's trading strategy
+
+The strategy invests in OOGA, a token linked to a trading aggregator whose fees fund token purchases. Its [published design](https://medium.com/@D2.Finance/4f10c3fbf0a3) combines that exposure with lending and liquidity rewards, taking profits after price rises and reducing exposure during falls.
+
+The [catalogue](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) names [Kodiak](https://www.kodiak.finance/) for trading liquidity, [Infrared](https://infrared.finance/) for staking those liquidity positions, [Origami](https://origami.finance/) for reinvesting rewards and [Dolomite](https://dolomite.io/) for lending and borrowing. D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation, but the entry thresholds, automation and rebalance frequency are not disclosed. OOGA price falls can outweigh the fees supporting its token purchases.
+""",
+    # 2xBERA
+    (80094, "0xcd18006cc69c6d5fa4fd4eaf99910b58464fa3ae"): """#### Vault's trading strategy
+
+The strategy increases BERA price exposure while earning staking rewards and payments from futures trades. Its [published design](https://medium.com/@D2.Finance/infrared-origami-d2-2xbera-df7e7129df9a) uses [Origami](https://origami.finance/) and [Infrared](https://infrared.finance/) for the staking allocation, and [Hyperliquid](https://hyperliquid.xyz/) for futures.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the allocation. A protective contract is intended to reduce exposure as BERA falls, but its counterparty and the complete automation rules are not disclosed. The rebalance frequency is also unspecified. The launch claim of protection against liquidation should not be read as a guarantee against loss.
+""",
+    # HyperEuler
+    (80094, "0xf650ba4303ce164e1f6b215d4cbb5e212d307056"): """#### Vault's trading strategy
+
+The strategy combines lending incentives on [Euler](https://www.euler.finance/) with trading fees and liquidity rewards on [Kodiak](https://www.kodiak.finance/). The [catalogue](https://d2.finance/api/vaults?page=1&per_page=100&sort=recently_added&direction=desc) also names [Hyperliquid](https://hyperliquid.xyz/) for trades that collect differences in payments between futures positions.
+
+D2's [investment team](https://docs.d2.finance/docs/vault-design) manages the borrowing and allocations. The [launch design](https://medium.com/@D2.Finance/hypereuler-x-pol-pol-is-here-is-time-to-supercharge-your-bera-4dfaa8805d23) describes borrowed assets flowing into liquidity pools, but does not publish decision rules, automation or rebalance frequency. Borrowing costs and pool losses can outweigh rewards.
+""",
+}
 
 #: Optional D2-authored strategy articles from the D2 vault API.
 D2_VAULT_ARTICLE_URLS: dict[str, str] = {
@@ -850,15 +1204,19 @@ class D2Vault(ERC4626Vault):  # noqa: PLR0904 - Implements the shared vault inte
 
     @property
     def description(self) -> str | None:
-        """Expose the researched GlobalMacro strategy explanation.
+        """Expose a researched explanation for each reviewed D2 deployment.
 
-        Scope the maintained copy to the reviewed Robinhood deployment so
-        unrelated D2 vaults retain their inherited metadata behaviour.
+        Match both chain and address because different products reuse addresses.
+        Reviewed entries with no disclosed strategy receive an explicit evidence
+        gap; deployments outside the catalogue retain inherited behaviour.
 
-        :return: Normalised Markdown for GlobalMacro, or the inherited description.
+        :return: Normalised maintained Markdown, or the inherited description.
         """
         if self.chain_id == D2_GLOBAL_MACRO_CHAIN_ID and self.address.lower() == D2_GLOBAL_MACRO_ADDRESS:
             return normalise_vault_description(D2_GLOBAL_MACRO_DESCRIPTION)
+        description = D2_VAULT_DESCRIPTIONS.get((self.chain_id, self.address.lower()))
+        if description is not None:
+            return normalise_vault_description(description)
         return super().description
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002

@@ -5,6 +5,7 @@
 import datetime
 import os
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import flaky
@@ -164,8 +165,16 @@ def test_jtrsy_live_token_surface(web3: Web3) -> None:
 
 
 @flaky.flaky
-def test_jtrsy_scan_record_is_unpriced_not_broken(web3: Web3) -> None:
-    """Keep the direct token's scan record useful without fabricating TVL."""
+def test_jtrsy_scan_record_is_unpriced_not_broken(web3: Web3, tmp_path: Path) -> None:
+    """Keep the direct token's scan record useful without fabricating TVL.
+
+    Read ERC-20 metadata into an isolated cache. The operator's persistent
+    cache can contain an older token name and must not affect this live check.
+
+    :param web3: Ethereum archive connection supplied by the private environment.
+    :param tmp_path: Private directory for this test's token metadata cache.
+    :return: ``None`` after checking the token name and unavailable valuation.
+    """
 
     detection = ERC4262VaultDetection(
         chain=ETHEREUM_CHAIN_ID,
@@ -181,7 +190,7 @@ def test_jtrsy_scan_record_is_unpriced_not_broken(web3: Web3) -> None:
         web3,
         detection=detection,
         block_identifier=JTRSY_TEST_BLOCK,
-        token_cache=TokenDiskCache(),
+        token_cache=TokenDiskCache(tmp_path / "tokens.sqlite"),
     )
 
     assert record["Name"] == JTRSY_ETHEREUM.product_name

@@ -105,6 +105,14 @@ contract ComputeSelectors is Script {
         logSelector("reclaimWithdraw(uint32)");
         console.log("");
 
+        // T3tris
+        console.log("// T3tris");
+        logSelector("requestDeposit(address,bool,uint256,bytes)");
+        logSelector("claimDeposit(address)");
+        logSelector("requestRedeem(address,address,address,bool,uint256)");
+        logSelector("claimRedeem(address,address,bool)");
+        console.log("");
+
         // Orderly
         console.log("// Orderly");
         logSelector("delegateSigner((bytes32,address))");

@@ -1,0 +1,1 @@
+"""MAAT strategy vaults."""

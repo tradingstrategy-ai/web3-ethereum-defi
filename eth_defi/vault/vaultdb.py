@@ -9,16 +9,18 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from io import BufferedIOBase
 from pathlib import Path
-from typing import NotRequired, TypeAlias, TypedDict
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 
 import pandas as pd
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -133,6 +135,9 @@ class VaultRow(TypedDict):
     #: TypedDict when populated.
     _morpho_offchain_data: dict | None
 
+    #: Last Morpho lookup outcome; old pickle rows may lack this private key.
+    _morpho_api_status: NotRequired[Literal["found", "not_found", "transient_error"] | None]
+
     #: First-party Nest contract catalogue and CMS snapshot for a Nest vault.
     _nest_offchain_data: NotRequired[dict | None]
 
@@ -178,6 +183,12 @@ class VaultRow(TypedDict):
     #: vault name itself does not contain the curator brand.
     _manager_name: str | None
 
+    #: Last Lagoon detail request outcome, independent of retained text.
+    _lagoon_metadata_outcome: NotRequired[str]
+
+    #: Last successful Lagoon detail timestamp, as naive UTC ISO text.
+    _lagoon_metadata_fetched_at: NotRequired[str | None]
+
     #: Reviewed curator identity declared by a vault adapter. A display
     #: partner name alone is not sufficient evidence for this field.
     _curator_slug: NotRequired[str | None]
@@ -205,6 +216,9 @@ class VaultRow(TypedDict):
 
     #: Derive v3 curator wallet address, retained for later identity verification.
     _derive_curator: NotRequired[str | None]
+
+    #: Native source identity, provenance and public eligibility decisions.
+    _neutral_trade: NotRequired[dict | None]
 
     #: Source used to produce the vault share-price series.
     #:
@@ -386,6 +400,43 @@ class VaultDatabase:
             if existing is not None and new_row.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
                 new_row = new_row.copy()
                 new_row["_strategy_tags"] = existing["_strategy_tags"]
+
+            # Missing provider text is not an instruction to delete previously
+            # published Lagoon descriptions, including migration-filled rows.
+            if existing is not None and ERC4626Feature.lagoon_like in new_row.get("features", set()):
+                new_row = new_row.copy()
+                for field in ("_description", "_short_description"):
+                    if not (new_row.get(field) or "").strip() and (existing.get(field) or "").strip():
+                        new_row[field] = existing[field]
+                        observed_at = existing.get("_lagoon_metadata_fetched_at")
+                        age = str(native_datetime_utc_now() - datetime.datetime.fromisoformat(observed_at)) if observed_at else "age unknown"
+                        log = logger.info if new_row.get("_lagoon_metadata_outcome") == "success" else logger.warning
+                        log(
+                            "Retaining Lagoon text for %s field %s after %s/empty response; retained text age unknown; previous detail observation age: %s",
+                            spec,
+                            field,
+                            new_row.get("_lagoon_metadata_outcome", "unavailable"),
+                            age,
+                        )
+
+            if existing is not None and new_row.get("_morpho_api_status") == "transient_error":
+                # A provider cooldown is not evidence that a previously flagged
+                # vault is clean. Keep API-derived warnings while onchain data
+                # and maintained descriptions continue to update.
+                new_row = new_row.copy()
+                for name in ("_morpho_offchain_data", "_manager_name"):
+                    if existing.get(name) is not None:
+                        new_row[name] = existing[name]
+                morpho_flags = {VaultFlag.morpho_issues, VaultFlag.not_in_morpho_api}
+                retained_flags = set(existing.get("_flags") or ()) & morpho_flags
+                new_row["_flags"] = set(new_row.get("_flags") or ()) | retained_flags
+                # Match adapter note priority: new maintained notes win. Rebuild
+                # API warnings from retained data rather than reviving old copy.
+                if not new_row.get("_notes"):
+                    if VaultFlag.not_in_morpho_api in retained_flags:
+                        new_row["_notes"] = NOT_IN_MORPHO_API
+                    elif new_row.get("_morpho_offchain_data"):
+                        new_row["_notes"] = analyze_morpho_flags(new_row["_morpho_offchain_data"]).note
 
             self.rows[spec] = new_row
 

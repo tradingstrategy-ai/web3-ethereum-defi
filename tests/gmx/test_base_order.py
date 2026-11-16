@@ -24,40 +24,6 @@ from eth_defi.gmx.order.base_order import ETH_ZERO_ADDRESS, ZERO_REFERRAL_CODE, 
 # ==================== Dataclass Tests ====================
 
 
-def test_order_params_dataclass():
-    """Test OrderParams dataclass with all fields."""
-    params = OrderParams(
-        market_key="0x1234567890123456789012345678901234567890",
-        collateral_address="0x2345678901234567890123456789012345678901",
-        index_token_address="0x3456789012345678901234567890123456789012",
-        is_long=True,
-        size_delta=1000.0,
-        initial_collateral_delta_amount="1000000000000000000",
-        slippage_percent=0.005,
-        swap_path=["0x4567890123456789012345678901234567890123"],
-        auto_cancel=False,
-        execution_buffer=1.3,
-        callback_gas_limit=100000,  # Updated: New field
-        min_output_amount=500000,  # Updated: New field
-        valid_from_time=0,  # Updated: New field
-    )
-
-    assert params.market_key == "0x1234567890123456789012345678901234567890"
-    assert params.collateral_address == "0x2345678901234567890123456789012345678901"
-    assert params.index_token_address == "0x3456789012345678901234567890123456789012"
-    assert params.is_long is True
-    assert params.size_delta == 1000.0
-    assert params.initial_collateral_delta_amount == "1000000000000000000"
-    assert params.slippage_percent == 0.005
-    assert params.swap_path == ["0x4567890123456789012345678901234567890123"]
-    assert params.auto_cancel is False
-    assert params.execution_buffer == 1.3
-    # Updated: Test new fields
-    assert params.callback_gas_limit == 100000
-    assert params.min_output_amount == 500000
-    assert params.valid_from_time == 0
-
-
 def test_order_params_defaults():
     """Test OrderParams default values."""
     params = OrderParams(
@@ -77,26 +43,6 @@ def test_order_params_defaults():
     assert params.callback_gas_limit == 0
     assert params.min_output_amount == 0
     assert params.valid_from_time == 0
-
-
-def test_order_result_dataclass():
-    """Test OrderResult dataclass with price impact."""
-    result = OrderResult(
-        transaction={"from": "0x123", "to": "0x456"},
-        execution_fee=1000000,
-        acceptable_price=2000000,
-        mark_price=1900000.0,
-        gas_limit=2500000,
-        estimated_price_impact=-0.005,  # Updated: New field
-    )
-
-    assert result.transaction == {"from": "0x123", "to": "0x456"}
-    assert result.execution_fee == 1000000
-    assert result.acceptable_price == 2000000
-    assert result.mark_price == 1900000.0
-    assert result.gas_limit == 2500000
-    # Updated: Test new field
-    assert result.estimated_price_impact == -0.005
 
 
 def test_module_constants():

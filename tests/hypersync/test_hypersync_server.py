@@ -51,6 +51,8 @@ def test_nest_hypersync_servers(chain_id: int, hostname: str) -> None:
 
 @pytest.mark.skipif(not os.environ.get("HYPERSYNC_API_KEY"), reason="Set HYPERSYNC_API_KEY to check the live Envio endpoints")
 @pytest.mark.parametrize("chain_id", [480, 98866])
+# 2026-11-13: CI exhausted the shared Envio quota; these checks passed in earlier PR runs.
+@pytest.mark.hypersync_retry
 def test_nest_hypersync_endpoints_live(chain_id: int, tmp_path: Path) -> None:
     """Read real timestamp pages through the authenticated, throttled client.
 

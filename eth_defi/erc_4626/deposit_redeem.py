@@ -205,6 +205,7 @@ class ERC4626DepositManager(VaultDepositManager):
                     phase="preflight",
                     requested_raw_amount=raw_amount,
                     available_raw_amount=limit,
+                    preflight_result="deposit_closed" if limit == 0 else "deposit_capacity_limited",
                 )
 
         func = deposit_4626(
@@ -386,9 +387,12 @@ class ERC4626DepositManager(VaultDepositManager):
         return True
 
     def has_synchronous_redemption(self) -> bool:
-        """Does this vault support synchronous deposits?
+        """Keep ordinary ERC-4626 exits on the immediate execution path.
 
-        - E.g. ERC-4626 vaults
+        Request-level staging can still require a finish call, so callers also
+        inspect :py:attr:`~eth_defi.vault.deposit_redeem.RedemptionRequest.requires_settlement`.
+
+        :return: True for the manager's ordinary redemption capability.
         """
         return True
 
@@ -448,19 +452,26 @@ class ERC4626DepositManager(VaultDepositManager):
         deposit_ticket: DepositTicket | None,
         *,
         deposit_event_signature: str | None = None,
+        hot_wallet: bool | None = None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse an ERC-4626 deposit with an optional explicit event signature.
 
-        Vaults with an overloaded Solidity event name can use this hook to
-        select the canonical ERC-4626 ``Deposit`` event without changing the
-        default behaviour for ordinary ERC-4626 deployments.
+        An explicit signature selects the event when a vault defines several
+        ``Deposit`` events or uses a different name, such as Lagoon's
+        ``DepositSync``. Read quantities from the mined receipt so later changes
+        to the vault's deposit mode cannot change how the trade is interpreted.
 
         :param claim_tx_hash:
             Mined deposit transaction hash.
         :param deposit_ticket:
             Optional ticket for a guarded non-vault call.
         :param deposit_event_signature:
-            Solidity event signature when the vault overloads ``Deposit``.
+            Full Solidity signature when the default ``Deposit`` event is ambiguous
+            or the vault uses a different event.
+        :param hot_wallet:
+            Whether the transaction must target the vault directly. ``False``
+            permits a wrapper contract; ``None`` infers this from the ticket and
+            transaction recipient.
         :return:
             Decoded executed deposit quantities or a revert description.
         """
@@ -473,7 +484,7 @@ class ERC4626DepositManager(VaultDepositManager):
             tx_hash=claim_tx_hash,
             tx_receipt=receipt,
             direction="deposit",
-            hot_wallet=not guarded_call,
+            hot_wallet=not guarded_call if hot_wallet is None else hot_wallet,
             deposit_event_signature=deposit_event_signature,
         )
 
@@ -508,14 +519,15 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse a mined ERC-4626 redemption or guarded SimpleVault wrapper.
 
-        A ticket permits a non-vault transaction target for a guarded
-        settlement; the decoded ``Withdraw`` event must still originate from
-        this vault.
+        A wrapper transaction may be synchronous or ticket-based. The decoded
+        ``Withdraw`` event must still originate from this vault, regardless of
+        whether the transaction targets the vault directly or guarded custody.
 
         :param claim_tx_hash:
             Mined redemption transaction hash.
         :param redemption_ticket:
-            Optional ticket for a guarded non-vault call.
+            Optional queued or staged request ticket. Custody wrapping does not
+            require a ticket.
         :return:
             Decoded executed redemption quantities or a revert description.
         """
@@ -537,7 +549,8 @@ class ERC4626DepositManager(VaultDepositManager):
         :param claim_tx_hash:
             Mined redemption transaction hash.
         :param redemption_ticket:
-            Optional ticket for a guarded non-vault call.
+            Retained for the shared manager interface. Synchronous requests need
+            no ticket; custody wrapping is determined from the mined transaction.
         :param redemption_event_signature:
             Solidity event signature when the vault overloads ``Withdraw``.
         :return:
@@ -546,7 +559,13 @@ class ERC4626DepositManager(VaultDepositManager):
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
-        guarded_call = redemption_ticket is not None and tx["to"].lower() != vault.address.lower()
+        # A synchronous protocol override also enters here with no ticket.
+        # In particular, Morpho's recovery-aware analyser must still accept an
+        # ordinary redemption through a Safe/Guard wrapper. The recipient tells
+        # us whether this is a direct call; requiring a queued ticket confuses
+        # custody wrapping with asynchronous settlement. Event analysis below
+        # still requires exactly one Withdraw emitted by this vault.
+        guarded_call = tx["to"].lower() != vault.address.lower()
         analysis = analyse_4626_flow_transaction(
             vault=vault,
             tx_hash=claim_tx_hash,

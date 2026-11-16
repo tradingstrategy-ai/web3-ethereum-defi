@@ -416,9 +416,9 @@ STABLECOIN_LIKE = set(
 )
 
 
-#: Stablecoins which can be used as collateral, but which also have built-in yield bearing function
-#: with rebasing.
-YIELD_BEARING_STABLES = {"sfrxUSD", "sUSDe", "sUSDai", "sBOLD", "sAUSD", "sUSG", "sUSN", "ynUSDx", "sNUSD", "savUSD", "syrupUSDC", "stcUSD", "apyUSD", "sUSD3", "sUSDx"}
+#: Dollar-denominated yield tokens that accrue returns through rebasing or an
+#: appreciating redemption value; their value can fall with underlying losses.
+YIELD_BEARING_STABLES = {"sfrxUSD", "sUSDe", "sUSDai", "sBOLD", "sAUSD", "sUSG", "sUSN", "ynUSDx", "sNUSD", "savUSD", "syrupUSDC", "stcUSD", "apyUSD", "sUSD3", "sUSDx", "limUSD"}
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.

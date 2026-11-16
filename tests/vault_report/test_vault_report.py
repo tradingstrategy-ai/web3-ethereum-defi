@@ -220,6 +220,13 @@ def test_average_yields(vaults_df: pd.DataFrame):
     assert calculate_high_yield_protocols(yield_vaults, ReportCriteria(yield_high_yield_min_protocol_tvl=10e9)).empty
 
 
+def test_filter_excludes_defaulted_lending_markets():
+    """A lending market flagged ``delinquent_markets`` is left out of every listing."""
+    records = [make_vault_record("0xaa"), make_vault_record("0xbb", protocol="Wildcat", protocol_slug="wildcat", flags=["delinquent_markets"])]
+    eligible = filter_eligible_vaults(prepare_vault_metrics(records), DATA_END_AT, ReportCriteria())
+    assert list(eligible["address"]) == ["0xaa"]
+
+
 def test_tvl_changes(vaults_df: pd.DataFrame):
     """TVL changes come from the one-month period, the largest increases first."""
     eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, ReportCriteria())

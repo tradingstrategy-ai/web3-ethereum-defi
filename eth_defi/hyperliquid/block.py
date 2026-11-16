@@ -38,6 +38,7 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from eth_utils import keccak, to_hex
 from web3 import Web3
+from web3.types import BlockData
 
 from eth_defi.provider.fallback import ExtraValueError
 
@@ -62,6 +63,12 @@ HYPEREVM_CHAIN_IDS: set[int] = {998, 999}
 #: Used to override ``eth_getBlock("latest")["gasLimit"]`` which may return
 #: a small block's limit even when the deployer has big blocks enabled.
 HYPEREVM_BIG_BLOCK_GAS_LIMIT: int = 30_000_000
+
+#: How many blocks :py:func:`fetch_small_block_base_fee` inspects before giving up, including the first.
+#:
+#: Big blocks were about 61 blocks apart on 2026-11-06, so one lookup is normal.
+#: The bound stops a faulty provider from causing an endless walk.
+HYPEREVM_SMALL_BLOCK_LOOKBACK: int = 10
 
 #: Conservative gas cap for HyperEVM fast-block transactions.
 #:
@@ -155,6 +162,61 @@ def fetch_using_big_blocks(web3: Web3, address: HexAddress | str) -> bool:
         assert not ("does not exist" in error_message or "not available" in error_message or "-32601" in error_message), unsupported_rpc_message
 
     return bool(result.get("result", False))
+
+
+def fetch_small_block_base_fee(web3: Web3, block: BlockData) -> int:
+    """Read the base fee of the latest small block at or before a block.
+
+    A big block's base fee belongs to a different fee market, so a small block
+    sender must not be priced from it. Big blocks arrive about once a minute,
+    so this normally reads one extra block at most.
+
+    This reads block headers because ``eth_gasPrice`` differs between RPC
+    providers. See :py:func:`eth_defi.gas.estimate_gas_price` for the
+    measurements.
+
+    See `Dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.
+
+    :param web3:
+        Web3 connected to a HyperEVM node, not an Anvil fork: a fork has one
+        fee market and its locally mined blocks can have the big block gas limit.
+
+    :param block:
+        Block to start from, normally ``latest``. Needs ``number``,
+        ``gasLimit`` and ``baseFeePerGas``.
+
+    :return:
+        Base fee in wei.
+
+    :raise RuntimeError:
+        If no small block was found within
+        :py:data:`HYPEREVM_SMALL_BLOCK_LOOKBACK` blocks. Falling back to a big
+        block's base fee could leave the transaction stuck.
+    """
+    start_number = block["number"]
+    for distance in range(HYPEREVM_SMALL_BLOCK_LOOKBACK):
+        if distance > 0:
+            block = web3.eth.get_block(start_number - distance)
+        if block["gasLimit"] < HYPEREVM_BIG_BLOCK_GAS_LIMIT:
+            return block["baseFeePerGas"]
+    raise RuntimeError(f"No small block within {HYPEREVM_SMALL_BLOCK_LOOKBACK} blocks of block {start_number}")
+
+
+def fetch_big_block_gas_price(web3: Web3) -> int:
+    """Read the base fee of the next big block.
+
+    The two block types have independent fee markets, so a sender with the
+    ``usingBigBlocks`` flag set needs this instead of a small block's base fee.
+
+    See `HyperEVM JSON-RPC <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/json-rpc>`__.
+
+    :param web3:
+        Web3 connected to a HyperEVM node.
+
+    :return:
+        Base fee in wei.
+    """
+    return int(web3.manager.request_blocking("eth_bigBlockGasPrice", []), 16)
 
 
 def wait_for_using_big_blocks(

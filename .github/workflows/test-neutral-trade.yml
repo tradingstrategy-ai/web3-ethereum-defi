@@ -1,0 +1,24 @@
+name: Test Neutral Trade authenticated collection
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: pip install poetry
+      - run: poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
+      - name: Check real partner reads and isolated persistence
+        env:
+          NEUTRAL_TRADE_API_KEY: ${{ secrets.NEUTRAL_TRADE_API_KEY }}
+          REQUIRE_NEUTRAL_TRADE_LIVE_TESTS: 'true'
+          PYTHONPATH: .
+        run: |
+          test -n "$NEUTRAL_TRADE_API_KEY"
+          timeout 180 poetry run pytest tests/neutral_trade -m live -q

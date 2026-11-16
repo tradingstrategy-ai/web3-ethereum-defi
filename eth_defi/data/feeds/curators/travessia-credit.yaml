@@ -1,0 +1,16 @@
+feeder-id: travessia-credit
+name: Travessia Credit
+role: curator
+website: https://www.travessiacredit.com/
+short_description: Travessia Credit offers vaults that lend to Brazilian grain trader Tauri Agrícola to fund grain purchases and transport.
+long_description: |
+  [Travessia Credit](https://www.travessiacredit.com/) offers vaults, including the [Avalanche vault](https://tradingstrategy.ai/vaults/travessia-tauri-vault-3), that lend to Tauri Agrícola, a Brazilian grain trader. The loans pay for grain purchases and transport until buyers pay Tauri's invoices.
+
+  Travessia [reviews and monitors borrowers](https://docs.travessiacredit.com/pages/full-platform-flow.html), and its vaults use software supplied by Accountable. Tauri must repay the loans with interest under the [lending terms](https://www.travessiacredit.com/vaults/43114/tauri/0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2), and that interest is depositors' income. The intended source of repayment is income from Tauri's grain trades.
+# Official product pages establish the organisation's role, not admin-key custody.
+# No social feed is added without a link from a verified official source.
+other-links:
+  - title: Travessia platform documentation - borrower review, monitoring and Accountable partnership
+    url: https://docs.travessiacredit.com/pages/full-platform-flow.html
+  - title: Travessia official product documentation - Tauri borrower and Avalanche deployment address
+    url: https://www.travessiacredit.com/vaults/43114/tauri/0x9c3da70cD7feDEAeF528d060ea99AcE133E08Fd2

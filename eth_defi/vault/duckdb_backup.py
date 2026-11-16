@@ -113,6 +113,7 @@ def database_registry(base_path: Path, existing_paths: list[Path]) -> list[DuckD
         "hibachi-vaults.duckdb": "HIBACHI_DB_PATH",
         "apex-vaults.duckdb": "APEX_DB_PATH",
         "derive-v3-mainnet-vaults.duckdb": "DERIVE_V3_DB_PATH",
+        "neutral-trade-vaults.duckdb": "NEUTRAL_TRADE_DB_PATH",
         "vault-historical-context.duckdb": "HISTORICAL_CONTEXT_DB_PATH",
         "rpc-tracking.duckdb": "RPC_TRACKING_DB_PATH",
     }

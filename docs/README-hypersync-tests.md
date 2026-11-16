@@ -39,6 +39,36 @@ environment:
 source .local-test.env && poetry run pytest tests/erc_4626/test_scan.py -k "hypersync"
 ```
 
+## Transient failures in live tests
+
+Tests marked `pytest.mark.hypersync_retry` use the existing `flaky` plugin with
+one five-minute total deadline, including fixtures, requests and retry waits.
+The policy retries recognised Hypersync rate limits, pagination failures and
+transient transport errors. Assertions, metadata errors and unrelated runtime
+errors fail immediately. Quota outages remain test failures when the budget
+expires; they are never converted to skips.
+
+Backoff starts at 15 seconds, doubles to 30 seconds, then stays at 60 seconds.
+An Envio `resets_in` hint increases the wait when needed. A five-second margin
+keeps waits away from the hard deadline. Each deferred attempt
+logs its wait and remaining budget. Function fixtures are recreated by pytest
+between attempts. The signal-based deadline fails the affected test without
+terminating the worker; this policy requires a platform supporting `SIGALRM`.
+
+Standalone marked tests share the `hypersync-live` xdist group. Existing fork
+groups are preserved so their warm RPC caches and snapshot isolation still work.
+CI also sets `HYPERSYNC_CONCURRENCY=1` to limit each Rust stream's request burst.
+The SQLite limiter coordinates configured clients on one runner; separate CI
+runners using the same token still share the remote quota. Create clients with
+`configure_hypersync_from_env()` rather than bypassing the limiter with raw SDK
+clients.
+
+The plugin lives in `eth_defi.testing.hypersync_retry` and is loaded by the root
+test configuration. Use the marker on live reads with observed transient
+failures, retaining the dated failure and recovery evidence required by
+`AGENTS.md`. Offline tests verify scheduling, fixture cleanup, final failure and
+the timeout without querying the provider.
+
 ## Running on CI when needed
 
 Run them on CI when touching the Hypersync discovery code

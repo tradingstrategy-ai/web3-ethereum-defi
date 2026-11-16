@@ -82,6 +82,24 @@ class SymbioticVault(ERC4626Vault):
         """
         return self.symbiotic_metadata.get("curator_name") if self.symbiotic_metadata else None
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Read Symbiotic V2's optional depositor allowlist.
+
+        :return: Whether the depositor whitelist is enabled.
+        """
+        return bool(self.fetch_uint256("depositWhitelist()", "latest"))
+
+    def is_account_whitelisted(self, address: str) -> bool:
+        """Check the sender against the enabled Symbiotic whitelist.
+
+        :param address: Account submitting the deposit.
+        :return: Whether the deposit policy admits this sender.
+        """
+        if not self.is_whitelisted_deposit():
+            return True
+        result = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text="isDepositorWhitelisted(address)")[:4] + bytes.fromhex(address.removeprefix("0x")).rjust(32, b"\x00")})
+        return bool(int.from_bytes(result, "big"))
+
     def fetch_uint256(self, function_signature: str, block_identifier: BlockIdentifier) -> int:
         """Read a no-argument unsigned integer method from the vault.
 

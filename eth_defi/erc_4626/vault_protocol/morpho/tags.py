@@ -91,12 +91,49 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
 }
 
 
-def get_strategy_tags(address: HexAddress) -> set[StrategyTag]:
+#: Additional classifications restricted to reviewed deployments.
+CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
+    #: Vault: Murmurr USDC Blue-Chip (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The official book links this exact diversified sleeve.
+    #: Curator expertise selects markets alongside scored, rules-driven allocation.
+    #: The allocator rotates lending exposure under liquidity and concentration limits.
+    #: Sources:
+    #: - https://murmurr.xyz/
+    #: - https://docs.murmurr.xyz/how-it-works/allocator
+    (1, "0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac"): {StrategyTag.discretionary_trading, StrategyTag.algorithmic_trading, StrategyTag.lending_optimisation},
+    #: Vault: Murmurr USDC Frontier (chain 1).
+    #: Added: 2026-11-10.
+    #: Decision material: The official book links this exact diversified sleeve.
+    #: Curator expertise selects markets alongside scored, rules-driven allocation.
+    #: The allocator rotates lending exposure under liquidity and concentration limits.
+    #: Sources:
+    #: - https://murmurr.xyz/
+    #: - https://docs.murmurr.xyz/how-it-works/allocator
+    (1, "0x29ca54dd3ae9e43abb10880f5e08da439bf25f99"): {StrategyTag.discretionary_trading, StrategyTag.algorithmic_trading, StrategyTag.lending_optimisation},
+    #: Vault: Murmurr USDC cbAssets (chain 8453).
+    #: Added: 2026-11-10.
+    #: Decision material: The official book links this exact diversified sleeve.
+    #: Curator expertise selects markets alongside scored, rules-driven allocation.
+    #: The allocator rotates lending exposure under liquidity and concentration limits.
+    #: Sources:
+    #: - https://murmurr.xyz/
+    #: - https://docs.murmurr.xyz/how-it-works/allocator
+    (8453, "0xcda5dbf58a016158ecd4a226109752cc3a627ec8"): {StrategyTag.discretionary_trading, StrategyTag.algorithmic_trading, StrategyTag.lending_optimisation},
+}
+
+
+def get_strategy_tags(address: HexAddress, chain_id: int | None = None) -> set[StrategyTag]:
     """Return automatic Morpho lending and any address-specific tags.
+
+    Combine the lending default with reviewed mappings. Chain-scoped additions
+    require a chain ID; legacy address-only callers retain their prior behaviour.
 
     :param address:
         Morpho vault address.
+    :param chain_id:
+        Deployment chain, required to include chain-scoped classifications.
     :return:
         A copy of the default lending tag plus any manually maintained tags.
     """
-    return set(DEFAULT_STRATEGY_TAGS) | (lookup_strategy_tags(STRATEGY_TAGS, address) or set())
+    return set(DEFAULT_STRATEGY_TAGS) | (lookup_strategy_tags(STRATEGY_TAGS, address) or set()) | CHAIN_STRATEGY_TAGS.get((chain_id, address.lower()), set())

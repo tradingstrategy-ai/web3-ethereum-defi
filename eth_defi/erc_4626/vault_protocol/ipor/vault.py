@@ -521,6 +521,24 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
         """
         access_manager = self.access_manager
         if access_manager is None:
+            # WrappedPlasmaVault has a public ERC-4626 entry point; its own
+            # address is the depositor into the underlying Plasma vault.
+            try:
+                wrapped = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text="PLASMA_VAULT()")[:4]})
+            except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+                wrapped = b""
+            if len(wrapped) == 32 and int.from_bytes(wrapped, "big") != 0:
+                try:
+                    authority = self.web3.eth.call({"to": self.address, "data": Web3.keccak(text="authority()")[:4]})
+                except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as error:
+                    response = error.args[0] if error.args and isinstance(error.args[0], dict) else {}
+                    if response.get("code") == 3 and "execution reverted" in str(response.get("message", "")).lower() and response.get("data") in (None, "0x"):
+                        authority = bytes(32)
+                    else:
+                        raise NotImplementedError(f"Unreadable IPOR wrapper authority for {self.address}") from error
+                if len(authority) == 32 and int.from_bytes(authority, "big") == 0:
+                    return False
+                raise NotImplementedError(f"IPOR wrapper {self.address} has an unreviewed authority")
             raise NotImplementedError(f"IPOR vault {self.address} has no readable access manager")
         role = access_manager.functions.getTargetFunctionRole(Web3.to_checksum_address(self.address), self.get_deposit_function_selector()).call()
         public_role = access_manager.functions.PUBLIC_ROLE().call()

@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from eth_defi.event_reader.timestamp_lock import timestamp_access_lock
+
 try:
     import duckdb
 except ImportError:
@@ -58,6 +60,7 @@ class BlockTimestampDatabase:
         :return: ``None`` after the cache schema is ready.
         """
         self.con = None
+        self._access_guard = None
         if duckdb is None:
             message = "Timestamp caches require the optional duckdb extra: pip install web3-ethereum-defi[duckdb]"
             raise ImportError(message)
@@ -72,13 +75,18 @@ class BlockTimestampDatabase:
 
         self.chain_id = chain_id
         self.path = path
-        self.con = duckdb.connect(self.path)
-        self._init_schema()
+        if str(path) != ":memory:":
+            self._access_guard = timestamp_access_lock(path.parent)
+            self._access_guard.__enter__()
+        try:
+            self.con = duckdb.connect(self.path)
+            self._init_schema()
+        except BaseException:
+            self.close()
+            raise
 
     def __del__(self) -> None:
-        if self.con is not None:
-            self.con.close()
-            self.con = None
+        self.close()
 
     def _init_schema(self) -> None:
         """Create the timestamp table and migrate legacy ART constraints.
@@ -108,7 +116,7 @@ class BlockTimestampDatabase:
             self.con.execute("BEGIN TRANSACTION")
             try:
                 self.con.execute("CREATE TABLE block_timestamps_migrated (block_number UINT64, timestamp UINT32)")
-                self.con.execute("INSERT INTO block_timestamps_migrated SELECT block_number, timestamp FROM block_timestamps")
+                self.con.execute("INSERT INTO block_timestamps_migrated SELECT block_number, timestamp FROM block_timestamps ORDER BY block_number")
                 migrated_count = self.con.execute("SELECT COUNT(*) FROM block_timestamps_migrated").fetchone()[0]
                 assert migrated_count == row_count, f"Timestamp migration changed row count: {row_count} -> {migrated_count}"
                 self.con.execute("DROP TABLE block_timestamps")
@@ -123,7 +131,9 @@ class BlockTimestampDatabase:
         """Import data from raw dictionary format to the database.
 
         Stage deduplicated input, update changed timestamps through a hash join,
-        then insert missing block numbers through an anti-join. Repeated chunks
+        then insert missing block numbers through an anti-join ordered by block
+        number. Historical gap fills can still overlap older row groups; whole-file
+        compaction is explicit maintenance, never a side effect of reading. Repeated chunks
         retain one row per block without requiring an ART-backed unique index.
 
         :param chain_id: Chain ID for the data being imported.
@@ -159,6 +169,9 @@ class BlockTimestampDatabase:
         if df_new.empty:
             return
         df_new = df_new.drop_duplicates(subset="block_number", keep="last")
+        if df_new["block_number"].isna().any() or df_new["block_number"].min() < 0 or df_new["block_number"].max() > 2**64 - 1:
+            raise ValueError("Block numbers must fit uint64")
+        df_new["block_number"] = df_new["block_number"].astype("uint64")
         bounds = [int(df_new["block_number"].min()), int(df_new["block_number"].max())]
         self.con.register("df_view", df_new)
         self.con.execute("BEGIN TRANSACTION")
@@ -168,7 +181,7 @@ class BlockTimestampDatabase:
                 UPDATE block_timestamps AS cached SET timestamp = incoming.timestamp
                 FROM df_view AS incoming
                 WHERE cached.block_number = incoming.block_number
-                  AND cached.block_number BETWEEN ? AND ?
+                  AND cached.block_number BETWEEN ?::UBIGINT AND ?::UBIGINT
                   AND cached.timestamp IS DISTINCT FROM incoming.timestamp
                 """,
                 bounds,
@@ -180,8 +193,9 @@ class BlockTimestampDatabase:
                 FROM df_view AS incoming
                 ANTI JOIN (
                     SELECT block_number FROM block_timestamps
-                    WHERE block_number BETWEEN ? AND ?
+                    WHERE block_number BETWEEN ?::UBIGINT AND ?::UBIGINT
                 ) AS cached ON cached.block_number = incoming.block_number
+                ORDER BY incoming.block_number
                 """,
                 bounds,
             )
@@ -326,18 +340,23 @@ class BlockTimestampDatabase:
             message = "start_block must be <= end_block"
             raise ValueError(message)
 
+        # Preserve empty/intersecting ranges outside the unsigned storage domain.
+        if end_block < 0 or start_block > 2**64 - 1:
+            return pd.Series([], dtype="datetime64[s]")
+        start_block = max(0, start_block)
+        end_block = min(2**64 - 1, end_block)
         df = self.con.execute(
             """
             SELECT block_number, timestamp
             FROM block_timestamps
-            WHERE block_number BETWEEN ? AND ?
+            WHERE block_number BETWEEN ?::UBIGINT AND ?::UBIGINT
             ORDER BY block_number ASC
             """,
             [start_block, end_block],
         ).df()
 
         if df.empty:
-            return pd.Series([])
+            return pd.Series([], dtype="datetime64[s]")
 
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
@@ -382,7 +401,11 @@ class BlockTimestampDatabase:
         requested = tuple(dict.fromkeys(block_numbers))
         if not requested:
             return []
-        requested_df = pd.DataFrame({"block_number": requested})
+        outside = [number for number in requested if not 0 <= number <= 2**64 - 1]
+        valid = [number for number in requested if 0 <= number <= 2**64 - 1]
+        if not valid:
+            return sorted(outside)
+        requested_df = pd.DataFrame({"block_number": valid}, dtype="uint64")
         self.con.register("requested_block_numbers", requested_df)
         try:
             rows = self.con.execute(
@@ -397,7 +420,7 @@ class BlockTimestampDatabase:
             ).fetchall()
         finally:
             self.con.unregister("requested_block_numbers")
-        return [int(row[0]) for row in rows]
+        return sorted(outside + [int(row[0]) for row in rows])
 
     def find_gaps(self) -> list[tuple[int, int, int]]:
         """Find all gaps in the block timestamp database.
@@ -441,6 +464,9 @@ class BlockTimestampDatabase:
         if self.con is not None:
             self.con.close()
             self.con = None
+        if self._access_guard is not None:
+            self._access_guard.__exit__(None, None, None)
+            self._access_guard = None
 
     def is_closed(self) -> bool:
         """Check if the database connection is closed."""

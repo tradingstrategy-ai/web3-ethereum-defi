@@ -15,7 +15,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault_protocol.antarctic import historical_context
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_DEPLOYMENTS
 from eth_defi.erc_4626.vault_protocol.antarctic.historical_context import AntarcticHistoricalContextStore
-from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, load_antarctic_settlements
+from eth_defi.testing.antarctic import RecordedAntarcticProvider, RecordedAntarcticStream, create_antarctic_test_metadata, fetch_recorded_antarctic_timestamps, load_antarctic_settlements
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault import scan_all_chains, top_vaults_json
 from eth_defi.vault.base import VaultSpec
@@ -52,6 +52,7 @@ def test_antarctic_all_chain_tick_prices_and_publication(tmp_path: Path, monkeyp
             return RecordedAntarcticStream(query, records)
 
         monkeypatch.setattr(historical_context, "open_hypersync_stream", open_stream)
+        monkeypatch.setattr(historical_context, "fetch_exact_block_timestamps_using_hypersync_cached", fetch_recorded_antarctic_timestamps)
         prefill = scan_all_chains.fetch_and_store_antarctic_history
         monkeypatch.setattr(scan_all_chains, "fetch_and_store_antarctic_history", lambda **kwargs: prefill(**kwargs, timestamp_cache_path=tmp_path / "timestamps"))
         monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", lambda *args, **kwargs: web3)  # noqa: ARG005

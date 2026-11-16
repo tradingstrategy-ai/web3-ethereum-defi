@@ -48,24 +48,3 @@ def test_open_positions_1(gmx_open_positions, account_with_positions):
     assert "market_symbol" in first_position
     assert "collateral_token" in first_position
     assert isinstance(first_position["position_size"], float)
-
-
-def test_open_positions_2(gmx_open_positions, account_with_positions):
-    """Test data processing structure and method availability."""
-
-    open_positions = gmx_open_positions.get_data(account_with_positions)
-
-    # Note: Address may not have positions at test time (positions can be closed)
-    # This is not a code bug - positions are dynamic
-    if len(open_positions) == 0:
-        pytest.skip(f"Address {account_with_positions} has no open positions at test time. This is expected as positions are dynamic.")
-
-    # Verify structure if positions exist
-    # Just check the first position to verify structure
-    first_position_key = list(open_positions.keys())[0]
-    first_position = open_positions[first_position_key]
-
-    assert first_position["account"] == account_with_positions
-    assert "market_symbol" in first_position
-    assert "collateral_token" in first_position
-    assert isinstance(first_position["position_size"], float)

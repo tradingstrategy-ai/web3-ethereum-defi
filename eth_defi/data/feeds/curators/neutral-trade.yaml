@@ -6,13 +6,13 @@ website: https://www.neutral.trade/
 twitter: TradeNeutral
 linkedin: neutraltrade
 rss: https://www.neutral.trade/rss.xml
-short_description: Neutral Trade runs onchain vaults in which vetted trading firms trade depositors' money, many with strategies designed to limit exposure to market direction.
+short_description: Neutral Trade offers vaults that put deposits into trading strategies and lending markets, with different levels of review for each product range.
 long_description: |
-  [Neutral Trade](https://www.neutral.trade/) runs a marketplace of trading vaults on Solana. Each vault holds depositors' money, and a trading firm, usually an outside one, runs its strategy, such as arbitrage, market making or options trading. Its [September and October 2026 update](https://www.neutral.trade/blog/september-october-2026-update) says these firms can open and close positions but cannot withdraw deposits, and that money used for trading on centralised exchanges stays with the custodians Ceffu or Copper.
+  [Neutral Trade](https://www.neutral.trade/) offers vaults where trading firms use depositors' money to trade price differences, place buy and sell orders, or take positions on expected market moves. For its Curated and Marketplace strategies, [custody arrangements](https://www.neutral.trade/blog/september-october-2026-update) give firms permission to trade but not withdraw deposits; centralised exchange strategies use [Ceffu](https://www.ceffu.com/) or [Copper](https://copper.co/) to hold assets outside the exchange. Voltr vaults listed alongside them have different terms: their curators control the funds.
 
-  Its main product, Neutral Autopilot, spreads one deposit across several of these strategies. Neutral Trade offers Autopilot to Ethereum and Monad users through vaults built with [Accountable](https://yield.accountable.capital/), which pass deposits into the Solana Autopilot vault.
+  Neutral Autopilot spreads deposits across several strategies, while NT Earn moves money between [Kamino](https://kamino.com/) and [Jupiter Lend](https://jup.ag/lend) to earn borrower interest. [Accountable](https://yield.accountable.capital/) provides vaults that pass deposits from Ethereum and Monad into the Solana Autopilot vault.
 
-  Neutral Trade was founded in 2024. Its [FAQ](https://www.neutral.trade/faq) names Solana Labs, YZi Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures as investors in the company; they do not guarantee vault returns.
+  The company was [founded in 2024](https://www.neutral.trade/faq), with investors including Solana Labs, YZi Labs, DRW Labs, Skyland Ventures, BlackPine and Monke Ventures. These are investors in the company, not guarantors of vault returns.
 
 # Evidence and background references.
 #
@@ -21,15 +21,16 @@ long_description: |
 # no manager name yet, so both are also attributed by exact address overrides
 # in eth_defi/vault/curator.py. "Autopilot" alone also matches Harvest's IPOR
 # Fusion Autopilot vaults, so the name must not decide this attribution.
+# Provider vault pages retained as identity evidence, not public destinations:
+# https://yield.accountable.capital/vaults/1/0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff
+# https://yield.accountable.capital/vaults/0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c
+# https://www.neutral.trade/strategies/neutral-autopilot?tab=deposit
+# No Trading Strategy destination was verified for these accounts in this pass.
 other-links:
-  - title: Accountable YieldApp - Neutral Trade Autopilot vault on Ethereum
-    url: https://yield.accountable.capital/vaults/1/0x56B935Fe5183cC0DE489233d032F9A4B8ec2f9Ff
-  - title: Accountable YieldApp - Neutral Trade Autopilot vault on Monad
-    url: https://yield.accountable.capital/vaults/0x5ee57E42DF67e5707F0CAE1a18DfeaDB4F0Df86c
   - title: Accountable public vault API - Neutral Trade listed as manager of the Ethereum and Monad Autopilot vaults
     url: https://yield.accountable.capital/api/loan
-  - title: Neutral Trade - Neutral Autopilot strategy page with Ethereum and Monad deposit options
-    url: https://www.neutral.trade/strategies/neutral-autopilot?tab=deposit
+  - title: Neutral Trade - Autopilot allocation rules and deposit mechanics
+    url: https://docs.neutral.trade/for-capital-allocators/neutral-autopilot
   - title: Neutral Trade blog - September and October 2026 update, Autopilot opened to Ethereum capital with Accountable
     url: https://www.neutral.trade/blog/september-october-2026-update
   - title: Neutral Trade on X - Neutral Autopilot launch announcement (2026-08-06)

@@ -47,6 +47,11 @@ from eth_defi.erc_4626.vault_protocol.lagoon.settlement import (
     get_settlement_events_by_topic,
 )
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.t3tris.settlement import (
+    build_t3tris_settlement_rows_from_logs,
+    get_t3tris_settlement_events_by_topic,
+)
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.settlement_data import (
@@ -69,6 +74,7 @@ SUPPORTED_SETTLEMENT_FEATURES = frozenset(
         ERC4626Feature.d2_like,
         ERC4626Feature.ember_like,
         ERC4626Feature.accountable_like,
+        ERC4626Feature.t3tris_like,
     }
 )
 
@@ -130,7 +136,7 @@ class PreparedSettlementVault:
         Normalised event topic to event class/name mapping.
     """
 
-    vault: LagoonVault | D2Vault | EmberVault | AccountableVault
+    vault: LagoonVault | D2Vault | EmberVault | AccountableVault | T3trisVault
     event_by_topic: dict[str, object]
 
 
@@ -759,6 +765,8 @@ def _prepare_settlement_vault(
         event_by_topic = get_ember_settlement_events_by_topic(vault)
     elif isinstance(vault, AccountableVault):
         event_by_topic = get_accountable_settlement_events_by_topic(vault)
+    elif isinstance(vault, T3trisVault):
+        event_by_topic = get_t3tris_settlement_events_by_topic(vault)
     else:
         raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
 
@@ -790,6 +798,8 @@ def _build_settlement_rows_for_prepared_vault(
         return build_ember_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
     if isinstance(vault, AccountableVault):
         return build_accountable_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
+    if isinstance(vault, T3trisVault):
+        return build_t3tris_settlement_rows_from_logs(vault, logs, event_by_topic=prepared_vault.event_by_topic)
     raise RuntimeError(f"Unsupported settlement scanner vault type: {type(vault)}")
 
 

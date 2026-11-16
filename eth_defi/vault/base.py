@@ -31,6 +31,7 @@ from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
+from eth_defi.solana import SOLANA_CHAIN_ID, is_solana_vault_address, make_solana_vault_address
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
@@ -414,22 +415,36 @@ class VaultSpec:
       related to its deployment. Usually this contract is vault contract itself.
 
     - We need both chain and address to specify vault we mean.
+    - Native Solana base58 accounts resolve to reversible storage keys under
+      :py:data:`eth_defi.solana.SOLANA_CHAIN_ID` without folding their text case.
     """
 
-    #: Ethereum chain id
+    #: EVM chain ID or reserved native dataset ID (Solana mainnet is 9992).
     chain_id: int
 
-    #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol.
+    #: Primary vault address or provider-neutral native identity.
     #:
-    #: Always forced to lowercase.
+    #: EVM/platform keys are lowercased. Raw Solana base58 input is decoded
+    #: first, retaining its case-sensitive bytes in a reversible storage key.
     vault_address: HexAddress | str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Canonicalise a chain-scoped identity without folding base58 account text.
+
+        Raw and encoded Solana identities resolve to the same existing storage
+        key, preserving hash/database lookups and collected price history.
+        Solana identities cannot be paired with an EVM chain ID.
+
+        :return: ``None`` after validating and canonicalising the identity.
+        """
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
-        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, hibachi-vault-, or apex-vault- prefix, got: {self.vault_address}"
+        assert is_good_multichain_address(self.vault_address, self.chain_id), f"Unsupported vault address for chain {self.chain_id}: {self.vault_address}"
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
-        self.vault_address = self.vault_address.lower()
+        if self.chain_id == SOLANA_CHAIN_ID and not is_solana_vault_address(self.vault_address):
+            self.vault_address = make_solana_vault_address(self.vault_address)
+        else:
+            self.vault_address = self.vault_address.lower()
 
     def __hash__(self):
         return hash((self.chain_id, self.vault_address))
@@ -1391,6 +1406,16 @@ class VaultBase(ABC):
     #: Optional qualification for the exported whitelist status.
     whitelist_notes: ClassVar[str | None] = None
 
+    #: Explicit execution authorisation for a public liquidity recovery step.
+    #: None disables recovery; an integer caps the onchain penalty in basis
+    #: points. Set per instance from the caller's reviewed vault rules. This
+    #: never authorises synthetic funding or changes deposit admission.
+    redemption_recovery_max_fee_bps: int | None = None
+
+    #: Explicit data-only integration decision; blocks new investment without RPC.
+    #: Existing-position redemption/recovery is assessed independently.
+    unsupported_protocol_reason: ClassVar[str | None] = None
+
     #: Whether NAV and historical total_assets already use synthetic USD units.
     #:
     #: Contextual adapters such as YieldBasis and Kinexys intentionally have no
@@ -1644,6 +1669,19 @@ class VaultBase(ABC):
             If the adapter cannot safely determine the policy.
         """
         raise NotImplementedError()
+
+    def is_permissionless(self, owner: HexAddress) -> bool:
+        """Inspect the required deposit and exit route without investing capital.
+
+        This opt-in policy check is independent of whether an admitted account
+        can trade. Adapters must verify the complete route before returning true.
+        Unsupported policy remains unknown; ordinary trading is unaffected.
+
+        :param owner: Intended asset sender, share owner and payout recipient.
+        :return: Whether the supported route is permissionless.
+        :raises NotImplementedError: If complete-route policy is not established.
+        """
+        raise NotImplementedError("Complete-route permission policy is not implemented")
 
     def get_whitelist_notes(self) -> str | None:
         """Return an export caveat for the vault-wide whitelist status.

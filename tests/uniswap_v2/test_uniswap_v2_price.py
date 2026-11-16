@@ -380,46 +380,6 @@ def test_estimate_buy_price_decimals(
     assert usdc_per_eth == pytest.approx(Decimal(1877.504385026952658944))
 
 
-def test_estimate_buy_price_for_amount(
-    web3: Web3,
-    deployer: str,
-    uniswap_v2: UniswapV2Deployment,
-    weth: Contract,
-    usdc: Contract,
-):
-    """Estimate the asset Price for a given amount."""
-
-    # Create the trading pair and add initial liquidity
-    deploy_trading_pair(
-        web3,
-        deployer,
-        uniswap_v2,
-        weth,
-        usdc,
-        1_000 * 10**18,  # 1000 ETH liquidity
-        1_700_000 * 10**18,  # 1.7M USDC liquidity
-    )
-
-    # Estimate the price of buying 1 ETH
-    usdc_per_eth = estimate_buy_price_decimals(
-        uniswap_v2,
-        weth.address,
-        usdc.address,
-        Decimal(1.0),
-    )
-    assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
-
-    # Estimate the price of buying 1 ETH with 10% slippage
-    usdc_per_eth = estimate_buy_price_decimals(
-        uniswap_v2,
-        weth.address,
-        usdc.address,
-        Decimal(1.0),
-        slippage=10 * 100,
-    )
-    assert usdc_per_eth == pytest.approx(Decimal(1877.504385026952658944))
-
-
 def test_buy_sell_round_trip(
     web3: Web3,
     deployer: str,

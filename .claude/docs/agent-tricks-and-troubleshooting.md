@@ -144,6 +144,11 @@ codex exec --json --sandbox read-only "Review uncommitted changes for correctnes
   > /tmp/codex-review.jsonl
 ```
 
+`--sandbox read-only` blocks writes, not reads. A review on 6 November 2026 left
+its worktree and tried to `source` the main checkout's `.local-test.env`. Prohibit
+env and secrets files in the prompt, and check the JSONL afterwards. Pytest also
+fails at setup in this sandbox because it has no writable temporary directory.
+
 ### Codex short model names (e.g. sol) need the full id — observed on one build
 
 The following is a **version- and auth-specific observation**, not general Codex

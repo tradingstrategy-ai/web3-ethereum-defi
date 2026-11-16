@@ -1,0 +1,14 @@
+# Identity and source evidence reviewed 2026-11-10.
+feeder-id: stake-capital
+name: Stake Capital
+role: curator
+lagoon-curator: Stake Capital
+website: https://www.stake.capital/
+short_description: Stake Capital invests in technology companies and operates digital infrastructure.
+long_description: |
+  [Stake Capital](https://www.stake.capital/) invests in companies working on AI, computing, cryptography and other technology fields, and operates digital infrastructure. Its work includes investment, company building and advisory services. Stake Capital also [co-curates a strategy using lvlUSD, a US dollar-pegged stablecoin](https://app.lagoon.finance/api/vault?chainId=1&address=0x59b7942f7d2afd085691ce65c152e0d38d4eff22) with Gami through Lagoon Finance.
+twitter: stakecapital
+linkedin: stake-capital
+other-links:
+- title: Lagoon exact-address metadata identifying the curator organisation
+  url: https://app.lagoon.finance/api/vault?chainId=1&address=0x59b7942f7d2afd085691ce65c152e0d38d4eff22

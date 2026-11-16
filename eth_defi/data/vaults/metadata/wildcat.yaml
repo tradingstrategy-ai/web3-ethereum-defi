@@ -1,0 +1,61 @@
+name: Wildcat
+slug: wildcat
+short_description: |
+  Lenders fund mostly unsecured loans to a single named company and earn the interest rate that borrower sets.
+long_description: |
+  [Wildcat](https://wildcat.finance/) lets companies such as
+  [market makers](https://tradingstrategy.ai/glossary/market-making), trading firms and funds
+  borrow stablecoins and other tokens from lenders through their own lending markets. Each
+  market has **one borrower**, and lenders earn the interest that borrower pays. The loans are
+  [mostly unsecured](https://docs.wildcat.finance/overview/introduction): the borrower usually
+  pledges no [collateral](https://tradingstrategy.ai/glossary/collateral), assets that could be
+  sold to repay lenders if it fails to pay, so repayment depends on the borrower's ability and
+  willingness to pay.
+
+  #### How a market works
+
+  The borrower sets the interest rate, the size of the loan, the share of deposits that must
+  stay in the market as a **reserve** for withdrawals, and how long lenders wait for a
+  withdrawal. The rate does not move with demand, but the borrower can change it. An increase
+  applies at once, while a cut of more than a quarter within two weeks forces the borrower to
+  [return extra money to the market](https://docs.wildcat.finance/using-wildcat/day-to-day-usage/borrowers)
+  for two weeks so lenders can leave first.
+
+  #### Who borrows
+
+  Borrowers are registered companies that pass a business identity and sanctions check before
+  they can open a market. The check confirms who the borrower is, not whether it can repay:
+  the legal name is verified, but
+  [descriptions and market copy are written by the borrower](https://docs.wildcat.finance/using-wildcat/how-borrowers-are-onboarded)
+  and are not checked. Most markets accept deposits only from lenders the borrower has approved.
+
+  #### Withdrawals and defaults
+
+  A withdrawal request joins a batch that closes when the market's withdrawal period ends.
+  Lenders can then claim their share of whatever the market holds; any shortfall waits until
+  the borrower repays more, with **no fixed payment date**.
+
+  If the market holds less than its required reserve, the borrower is delinquent, and after a
+  grace period a [penalty interest rate](https://docs.wildcat.finance/using-wildcat/delinquency)
+  is added to the lenders' rate. A borrower that never repays leaves lenders with only a claim
+  against the company, so a market is worth what its borrower will pay.
+fee_description: |
+  Lenders pay no fees and receive the market's full interest rate. The borrower pays a
+  [protocol fee](https://docs.wildcat.finance/using-wildcat/protocol-usage-fees) on top of
+  the lenders' rate: a share of the base interest rate, capped at **10%** of that rate, which
+  does not apply to penalty interest. Wildcat can also charge the borrower a one-off fee when a
+  market opens.
+links:
+  homepage: https://wildcat.finance/
+  app: https://app.wildcat.finance/lender
+  twitter: https://x.com/wildcatfi
+  github: https://github.com/wildcat-finance/v2-protocol
+  documentation: https://docs.wildcat.finance/
+  defillama: https://defillama.com/protocol/wildcat-protocol
+  audits: https://docs.wildcat.finance/security-measures/code-security-reviews
+  fees: https://docs.wildcat.finance/using-wildcat/protocol-usage-fees
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/wildcat
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/wildcat/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xfEB516d9D946dD487A9346F6fee11f40C6945eE4
+  - https://etherscan.io/address/0xC9499006a149C553d18171747ED19Aa7C6Dd19E2

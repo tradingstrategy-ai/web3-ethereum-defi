@@ -31,6 +31,7 @@ result to the owner's shares, and the zero address normally owns none.
 | Silo | `getLiquidity()` | `getDebtAssets() / getCollateralAssets()` |
 | Llama Lend V1/V2 | `max(totalAssets() - controller.total_debt(), 0)` | `min(controller.total_debt() / totalAssets(), 1)` |
 | Euler Earn, Morpho V1/V2, IPOR, Fluid | `asset().balanceOf(vault)` | `(totalAssets - idle) / totalAssets` |
+| Wildcat | `totalAssets() − unclaimed withdrawals − protocol fees − pending withdrawals` | `(totalSupply − lender cash) / totalSupply`, see `wildcat/README-Wildcat.md` |
 
 The idle-balance formula describes these adapters' implementation; it does not
 establish that every protocol stores all withdrawable assets in its vault.

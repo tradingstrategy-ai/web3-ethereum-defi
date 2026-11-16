@@ -191,5 +191,5 @@ def test_axis_staked_usdx_v2_historical_state_reader(web3: Web3) -> None:
     assert vault_read.total_assets == Decimal("33894352.49999999999998724")
     assert vault_read.total_supply == Decimal("33624357.38864116626185574")
     assert vault_read.share_price == Decimal("1.008029747847316252")
-    assert vault_read.max_deposit == Decimal("1.157920892373161954235709850E+59")
+    assert vault_read.max_deposit == Decimal(f"{2**256 - 1}e-18")
     assert vault_read.errors is None

@@ -250,7 +250,7 @@ These require a session cookie / JWT obtained via wallet signature through the w
 
 ---
 
-## Known vaults (as of 2026-04-30)
+## Known vaults (as of 2026-11-09)
 
 The ``/vault/info`` response does not expose whether public deposits are open
 or whether an account allow-list applies. Hibachi vaults therefore export
@@ -260,7 +260,11 @@ not sufficient evidence that deposits are permissionless.
 | vaultId | symbol | Name | Strategy |
 |---|---|---|---|
 | 2 | GAV | Growi Alpha Vault | Mean-reversion on crypto perps (long/short), operated by Growi Finance |
-| 3 | FLP | Fire Liquidity Provider | Market making across all Hibachi markets, operated by Kappa Lab |
+| 4 | FLP2 | Fire Liquidity Provider | Market making across all Hibachi markets, operated by Kappa Lab |
+| 5 | ROBO | Robonet - Allora Woodpecker | Systematic AI-enhanced long/short perpetual strategy, developed by Allora and operated by Robonet |
+
+The current public inventory contains these three vaults. Historical Fire vault 3
+(FLP) retains its maintained tags but is no longer returned in this inventory.
 
 The platform denomination is USDT (`marginingAssetId=1`).
 

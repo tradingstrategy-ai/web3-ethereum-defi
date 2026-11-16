@@ -42,3 +42,17 @@ and greylisted isolation remain separate limits.
    eth_defi.event_reader.json_state
    eth_defi.event_reader.lazy_timestamp_reader
    eth_defi.event_reader.timestamp_cache
+
+Timestamp storage maintenance
+-----------------------------
+
+HyperSync timestamp caches retain every block across their cached interval,
+independently of hourly or daily price sampling. Event reads extend the same
+dense cache. Numbered migration 070 repairs gaps in existing supported files;
+RPC-only backends retain sampled timestamp reads.
+
+.. automodule:: eth_defi.event_reader.timestamp_storage
+    :members:
+
+.. automodule:: eth_defi.event_reader.timestamp_lock
+    :members:

@@ -171,6 +171,7 @@ def main() -> None:
         "scan_hibachi": _read_boolean("MERGE_HIBACHI"),
         "scan_apex": _read_boolean("MERGE_APEX"),
         "scan_derive_v3": _read_boolean("MERGE_DERIVE_V3"),
+        "scan_neutral_trade": _read_boolean("MERGE_NEUTRAL_TRADE"),
     }
     skip_options = {
         "skip_cleaning": _read_boolean("SKIP_CLEANING"),
@@ -202,6 +203,7 @@ def main() -> None:
         "hibachi_db_path": data_dir / "hibachi-vaults.duckdb",
         "apex_db_path": data_dir / "apex-vaults.duckdb",
         "derive_v3_db_path": data_dir / "derive-v3-mainnet-vaults.duckdb",
+        "neutral_trade_db_path": data_dir / "neutral-trade-vaults.duckdb",
         "settlement_db_path": get_default_vault_settlement_database_path(),
     }
 

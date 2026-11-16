@@ -90,7 +90,7 @@ def test_upshift_permission_refresh_preserves_other_fields(permission_database: 
     result = upshift.refresh_upshift_deposit_permissions(permission_database, lambda chain: permission_provider)
     assert result["inspected_rows"] == 4
     assert result["changed_rows"] == 2
-    assert result["permission_counts"] == {"whitelisted": 2, "permissionless": 2, "unknown": 0}
+    assert result["permission_counts"] == {"whitelisted": 2, "permissionless": 2, "unknown": 0, "unsupported_protocol": 0}
     assert result["read_blocks"] == {"1": 123}
     for spec, row in permission_database.rows.items():
         if spec in {USPC, RESTRICTED_OUTSIDE_018}:

@@ -1,7 +1,7 @@
 Test helper API
 ---------------
 
-Reusable helpers for writing fast, reliable Anvil mainnet-fork tests. These live
+Reusable helpers for reliable Anvil mainnet-fork and live Hypersync tests. These live
 under ``eth_defi.testing`` rather than ``tests`` so they can be imported from
 test suites in this repository and in downstream projects.
 
@@ -41,3 +41,4 @@ provided by :py:mod:`eth_defi.testing.evm_snapshot_fixture`.
    eth_defi.testing.evm_snapshot_fixture
    eth_defi.testing.gmx_lagoon
    eth_defi.testing.slow_tests
+   eth_defi.testing.hypersync_retry

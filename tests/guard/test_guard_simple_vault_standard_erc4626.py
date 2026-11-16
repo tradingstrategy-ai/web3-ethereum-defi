@@ -367,11 +367,16 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
     redemption_request = manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
     assert redemption_request.raw_shares == raw_shares
     assert len(redemption_request.funcs) == 1
+    # Compare the fee-aware executable quote with the mined payout. One raw
+    # asset unit covers conversion rounding; one ppm covers inter-block yield.
+    quoted_raw_assets = redemption_request.funcs[0].call({"from": simple_vault.address})
+    quoted_assets = protocol_vault.denomination_token.convert_to_decimals(quoted_raw_assets)
     redemption_hash = _perform_guarded_call(web3, simple_vault, control, redemption_request.funcs[0])
     redemption_ticket = redemption_request.parse_redeem_transaction([redemption_hash])
     redemption_analysis = manager.analyse_redemption(redemption_hash, redemption_ticket)
     analysed_raw_shares = protocol_vault.share_token.convert_to_raw(redemption_analysis.share_count)
     assert analysed_raw_shares == raw_shares
     assert redemption_analysis.denomination_amount > 0
+    assert redemption_analysis.denomination_amount == pytest.approx(quoted_assets, rel=Decimal("0.000001"), abs=protocol_vault.denomination_token.convert_to_decimals(1))
     assert protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address) == 0
     assert protocol_vault.denomination_token.fetch_raw_balance_of(simple_vault.address) == profile.required_remaining_denomination_raw + protocol_vault.denomination_token.convert_to_raw(redemption_analysis.denomination_amount)

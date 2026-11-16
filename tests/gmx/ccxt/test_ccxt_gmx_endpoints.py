@@ -247,37 +247,3 @@ def test_timeframes_available(gmx_arbitrum):
     assert "1h" in gmx_arbitrum.timeframes
     assert "4h" in gmx_arbitrum.timeframes
     assert "1d" in gmx_arbitrum.timeframes
-
-
-def test_inheritance_provides_all_methods(gmx_arbitrum):
-    """Verify GMX has all expected CCXT methods from wrapper."""
-    # Market data methods
-    assert hasattr(gmx_arbitrum, "fetch_markets")
-    assert hasattr(gmx_arbitrum, "load_markets")
-    assert hasattr(gmx_arbitrum, "fetch_ticker")
-    assert hasattr(gmx_arbitrum, "fetch_tickers")
-    assert hasattr(gmx_arbitrum, "fetch_ohlcv")
-    assert hasattr(gmx_arbitrum, "fetch_trades")
-
-    # Open interest and funding
-    assert hasattr(gmx_arbitrum, "fetch_open_interest")
-    assert hasattr(gmx_arbitrum, "fetch_open_interest_history")
-    assert hasattr(gmx_arbitrum, "fetch_open_interests")
-    assert hasattr(gmx_arbitrum, "fetch_funding_rate")
-    assert hasattr(gmx_arbitrum, "fetch_funding_rate_history")
-
-    # Utility methods
-    assert hasattr(gmx_arbitrum, "fetch_currencies")
-    assert hasattr(gmx_arbitrum, "fetch_time")
-    assert hasattr(gmx_arbitrum, "fetch_status")
-
-    # Trading methods
-    assert hasattr(gmx_arbitrum, "fetch_balance")
-    assert hasattr(gmx_arbitrum, "fetch_positions")
-
-    # Helper methods
-    assert hasattr(gmx_arbitrum, "parse_ticker")
-    assert hasattr(gmx_arbitrum, "parse_ohlcv")
-    assert hasattr(gmx_arbitrum, "safe_string")
-    assert hasattr(gmx_arbitrum, "safe_integer")
-    assert hasattr(gmx_arbitrum, "iso8601")

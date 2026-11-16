@@ -162,6 +162,8 @@ def test_guarded_upshift_round_trip(web3: Web3, custody: tuple[Contract, Contrac
 
 
 @pytest.mark.skipif(not os.environ.get("HYPERSYNC_API_KEY"), reason="HYPERSYNC_API_KEY required")
+# 2026-11-13: CI reported Envio remaining=0/100; earlier PR runs passed.
+@pytest.mark.hypersync_retry
 def test_upshift_historical_payout_recovery(web3: Web3) -> None:
     """Recover a real historical payout through the actual Hypersync provider.
 

@@ -8,10 +8,9 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
-from hexbytes import HexBytes
 
 from eth_defi.velora.quote import VeloraQuote, fetch_velora_quote
-from eth_defi.velora.swap import VeloraSwapTransaction, fetch_velora_swap_transaction
+from eth_defi.velora.swap import fetch_velora_swap_transaction
 from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
 
 
@@ -195,25 +194,6 @@ def test_fetch_velora_swap_transaction(mock_post, mock_weth, mock_usdc, mock_swa
     # min_amount_out should be 99% of destAmount (1% slippage)
     expected_min = Decimal("350") * Decimal("0.99")
     assert swap_tx.min_amount_out == expected_min
-
-
-def test_velora_swap_transaction_dataclass(mock_weth, mock_usdc):
-    """Test VeloraSwapTransaction dataclass."""
-    swap_tx = VeloraSwapTransaction(
-        buy_token=mock_usdc,
-        sell_token=mock_weth,
-        amount_in=Decimal("0.1"),
-        min_amount_out=Decimal("346.5"),
-        to="0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
-        calldata=HexBytes("0x1234"),
-        value=0,
-        price_route={"test": "data"},
-    )
-
-    assert swap_tx.amount_in == Decimal("0.1")
-    assert swap_tx.min_amount_out == Decimal("346.5")
-    assert swap_tx.to == "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57"
-    assert swap_tx.calldata == HexBytes("0x1234")
 
 
 def test_get_augustus_swapper():

@@ -1,0 +1,15 @@
+# Identity and source evidence reviewed 2026-11-10.
+feeder-id: volta90
+name: VOLTA90
+role: curator
+lagoon-curator: VOLTA90
+website: https://volta90.trade/
+short_description: VOLTA90 actively manages trading strategies across traditional and crypto markets.
+long_description: |
+  [VOLTA90](https://volta90.trade/) manages positions on [Hyperliquid](https://hyperliquid.xyz/) that track equities, commodities, indices and crypto markets. Human operators select and approve positions, supported by automated screening, execution and risk controls. The strategy can take positions larger than its capital, with total market exposure capped at twice the portfolio value; adverse moves can force positions to close.
+
+  Access is invite-only. Its [migration announcement](https://volta90.trade/blog/volta90-ethereum-migration) identifies its current Ethereum vault and former Arbitrum vault, which closed in September 2026.
+twitter: volta90x
+other-links:
+- title: Lagoon exact-address metadata identifying the curator organisation
+  url: https://app.lagoon.finance/api/vault?chainId=1&address=0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8

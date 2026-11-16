@@ -12,11 +12,13 @@ No live HyperSync connection needed — uses mocked async generators.
 
 import asyncio
 import datetime
+from collections.abc import AsyncIterator
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase, BlockTimestampSlicer
@@ -118,11 +120,11 @@ def test_timestamp_cache_coalesces_nearby_holes(tmp_path: Path) -> None:
         slicer.close()
 
 
-def test_timestamp_cache_does_not_extend_before_requested_start(tmp_path: Path) -> None:
-    """Keep a recent scan bounded when its old cache ends before deployment.
+def test_timestamp_cache_bridges_existing_and_requested_ranges(tmp_path: Path) -> None:
+    """Keep the shared database dense when a caller requests a distant range.
 
-    The gap between an old cache and a recent vault is not required by this
-    caller and must not consume provider quota.
+    A previous cache boundary must be bridged even if price sampling starts
+    later, so protocols can rely on complete timestamp coverage.
 
     :param tmp_path: Isolated timestamp-cache directory.
     """
@@ -141,8 +143,8 @@ def test_timestamp_cache_does_not_extend_before_requested_start(tmp_path: Path) 
     with patch("eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async", side_effect=fetch_headers):
         slicer = fetch_block_timestamps_using_hypersync_cached(MagicMock(), 1, 1000, 1010, cache_path=tmp_path, display_progress=False)
     try:
-        assert requested == [(1000, 1010)]
-        assert len(slicer) == 111
+        assert requested == [(101, 1010)]
+        assert len(slicer) == 1010  # noqa: PLR2004 -- fixed synthetic interval row count.
     finally:
         slicer.close()
 
@@ -299,12 +301,11 @@ def test_hypersync_gap_healing_no_gaps(tmp_path):
     slicer.close()
 
 
-def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_path):
-    """Wide historical scans fetch only exact missing sample blocks.
+def test_legacy_sparse_hypersync_fetch_keeps_dense_cache(tmp_path):
+    """Wide historical sampling still fills every intervening block.
 
-    1. Seed one of four requested samples in the shared DuckDB cache.
-    2. Run the sparse Hypersync fetch with a 100-block step.
-    3. Verify only the three cache misses were requested and all samples resolve.
+    The compatibility entry point keeps its exclusive end and sampling inputs,
+    while the shared database covers the complete resulting interval.
     """
 
     chain_id = 1
@@ -316,7 +317,8 @@ def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_pa
 
     async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
         fetch_calls.append((start_block, end_block))
-        yield _make_block_header(start_block)
+        for number in range(start_block, end_block + 1):
+            yield _make_block_header(number)
 
     async def _run():
         with patch(
@@ -336,13 +338,14 @@ def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_pa
 
     slicer = asyncio.run(_run())
 
-    assert fetch_calls == [(1_000, 1_000), (1_200, 1_200), (1_300, 1_300)]
+    assert fetch_calls == [(1_000, 1_300)]
+    assert len(slicer) == 301  # noqa: PLR2004 -- fixed synthetic interval row count.
     assert all(slicer[block_number] is not None for block_number in (1_000, 1_100, 1_200, 1_300))
     slicer.close()
 
 
 def test_exact_hypersync_timestamp_fetch_accepts_irregular_blocks(tmp_path: Path) -> None:
-    """Fetch distinct event blocks without filling the gaps between them.
+    """Fetch irregular event blocks and all intervening timestamps.
 
     :param tmp_path:
         Isolated persistent timestamp-cache directory.
@@ -353,10 +356,11 @@ def test_exact_hypersync_timestamp_fetch_accepts_irregular_blocks(tmp_path: Path
     fetch_calls: list[tuple[int, int]] = []
 
     async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
-        """Yield one deterministic header for each exact request."""
+        """Yield every header in a dense request."""
 
         fetch_calls.append((start_block, end_block))
-        yield _make_block_header(start_block)
+        for number in range(start_block, end_block + 1):
+            yield _make_block_header(number)
 
     async def _run() -> BlockTimestampSlicer:
         """Run the exact collector with its network stream mocked."""
@@ -375,10 +379,42 @@ def test_exact_hypersync_timestamp_fetch_accepts_irregular_blocks(tmp_path: Path
 
     slicer = asyncio.run(_run())
 
-    assert fetch_calls == [(1_000, 1_000), (1_333, 1_333)]
+    assert fetch_calls == [(1_000, 1_333)]
+    assert len(slicer) == 334  # noqa: PLR2004 -- fixed synthetic interval row count.
     assert slicer[1_000] is not None
     assert slicer[1_333] is not None
     slicer.close()
+
+
+def test_exact_timestamp_beyond_indexed_height_is_deferred(tmp_path: Path) -> None:
+    """Never approximate an event timestamp from the indexed head's neighbour.
+
+    The range collector may clip to the provider height, but an exact caller
+    must receive a retryable failure if its event block is still unavailable.
+
+    :param tmp_path: Isolated persistent timestamp-cache directory.
+    :return: None after checking failure and retained partial indexed coverage.
+    """
+
+    async def fetch_headers(_client: object, _chain_id: int, start_block: int, end_block: int, **_kwargs: object) -> AsyncIterator[BlockHeader]:  # noqa: RUF029 -- fake asynchronous header iterator.
+        """Return every header inside the provider's indexed range."""
+        for number in range(start_block, end_block + 1):
+            yield _make_block_header(number)
+
+    with (
+        patch("eth_defi.hypersync.hypersync_timestamp.is_hypersync_client", return_value=True),
+        patch("eth_defi.hypersync.hypersync_timestamp._validate_hypersync_chain_id_async", new_callable=AsyncMock),
+        patch("eth_defi.hypersync.hypersync_timestamp._fetch_hypersync_block_height_async", new_callable=AsyncMock, return_value=1005),
+        patch("eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async", side_effect=fetch_headers),
+    ):
+        with pytest.raises(HypersyncFlaky, match="not indexed yet"):
+            asyncio.run(fetch_exact_block_timestamps_using_hypersync_cached_async(client=MagicMock(), chain_id=1, block_numbers=[1000, 1010], cache_path=tmp_path, display_progress=False))
+    database = BlockTimestampDatabase(1, tmp_path / "1-timestamps.duckdb")
+    try:
+        assert database.get_first_and_last_block() == (1000, 1005)
+        assert database.get_count() == 6  # noqa: PLR2004 -- fixed synthetic interval row count.
+    finally:
+        database.close()
 
 
 def test_hypersync_next_block_range_error_is_flaky():
@@ -632,8 +668,8 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
     """Verify behaviour when a gap persists across all healing attempts.
 
     If HyperSync consistently drops the same blocks, the healing loop
-    should retry up to max_heal_attempts (3) and then continue without
-    crashing.
+    must retry up to max_heal_attempts (3), then fail instead of returning
+    an incomplete dense database. Completed chunks remain available on retry.
     """
 
     chain_id = 1
@@ -677,15 +713,42 @@ def test_hypersync_gap_healing_persistent_gap(tmp_path):
 
         return slicer
 
-    slicer = asyncio.run(_run())
-
-    # 50 blocks total minus 5 persistently dropped = 45
-    assert len(slicer) == 45
-
-    # 1 initial fetch + 3 heal attempts (max_heal_attempts)
+    with pytest.raises(HypersyncFlaky, match="dense timestamp coverage incomplete"):
+        asyncio.run(_run())
     assert call_count == 4
+    database = BlockTimestampDatabase(chain_id, tmp_path / f"{chain_id}-timestamps.duckdb")
+    try:
+        assert database.get_count() == 45
+    finally:
+        database.close()
 
-    slicer.close()
+
+@pytest.mark.parametrize("missing", [1000, 1049])
+def test_dense_timestamp_omitted_boundary_is_rejected(tmp_path: Path, missing: int) -> None:
+    """Reject silent omissions at the first or last requested block.
+
+    Interior-gap detection cannot see absent boundary rows. A final interval
+    count must refuse to report dense coverage while retaining committed rows.
+
+    :param tmp_path: Isolated persistent cache directory.
+    :param missing: Boundary deliberately omitted by the provider.
+    :return: None after confirming failure and durable partial progress.
+    """
+
+    async def fetch_headers(_client: object, _chain_id: int, start_block: int, end_block: int, **_kwargs: object) -> AsyncIterator[BlockHeader]:  # noqa: RUF029 -- fake asynchronous header iterator.
+        """Yield the range with one missing boundary header."""
+        for number in range(start_block, end_block + 1):
+            if number != missing:
+                yield _make_block_header(number)
+
+    with patch("eth_defi.hypersync.hypersync_timestamp.fetch_timestamp_cache_headers_async", side_effect=fetch_headers):
+        with pytest.raises(HypersyncFlaky, match="dense timestamp coverage incomplete"):
+            asyncio.run(fetch_block_timestamps_using_hypersync_cached_async(MagicMock(), 1, 1000, 1049, cache_path=tmp_path, display_progress=False))
+    database = BlockTimestampDatabase(1, tmp_path / "1-timestamps.duckdb")
+    try:
+        assert database.get_count() == 49  # noqa: PLR2004 -- fixed synthetic interval row count.
+    finally:
+        database.close()
 
 
 def test_hypersync_head_backfill_no_holes(tmp_path):

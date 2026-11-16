@@ -19,11 +19,12 @@ from filelock import FileLock
 from eth_defi.coloured_logging import setup_console_logging as setup_console_logging
 from eth_defi.rpc_url import get_url_domain as get_url_domain
 from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.solana import SOLANA_CHAIN_ID, is_solana_address, is_solana_vault_address
 
 logger = logging.getLogger(__name__)
 
 
-def is_good_multichain_address(address: str) -> bool:
+def is_good_multichain_address(address: str, chain_id: int | None = None) -> bool:
     """Check if a vault address has a recognised format.
 
     - EVM vaults use ``0x``-prefixed hex addresses
@@ -32,14 +33,27 @@ def is_good_multichain_address(address: str) -> bool:
     - Hibachi vaults use synthetic IDs (e.g. ``hibachi-vault-2``)
     - ApeX vaults use synthetic IDs (e.g. ``apex-vault-2044287989957394432``)
     - Derive v3 vaults use synthetic IDs (e.g. ``derive-v3-vault-12345``)
+    - Solana uses canonical 32-byte base58 accounts or reversible storage keys.
+
+    Supply a chain ID when constructing an identity: Solana encodings require
+    the reserved native dataset, and EVM/pool identifiers are rejected there.
+    Without a chain ID, this only recognises supported address formats.
 
     :param address:
         The vault address string to validate.
+    :param chain_id:
+        Optional chain or native dataset ID, including :py:data:`eth_defi.solana.SOLANA_CHAIN_ID`.
     :return:
-        ``True`` if the address starts with a known prefix.
+        Whether the format is recognised and, when supplied, valid for the chain.
     """
+    if chain_id == SOLANA_CHAIN_ID:
+        return is_solana_vault_address(address) or is_solana_address(address)
     addr_lower = address.lower()
-    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:") or addr_lower.startswith("lighter-pool-") or addr_lower.startswith("hibachi-vault-") or addr_lower.startswith("apex-vault-") or addr_lower.startswith("derive-v3-vault-")
+    if addr_lower.startswith("solana-vault-"):
+        return chain_id is None and is_solana_vault_address(address)
+    if addr_lower.startswith(("0x", "vlt:", "lighter-pool-", "hibachi-vault-", "apex-vault-", "derive-v3-vault-")):
+        return True
+    return chain_id is None and is_solana_address(address)
 
 
 def sanitise_string(s: str, max_length: int | None = None) -> str:

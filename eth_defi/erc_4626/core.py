@@ -99,6 +99,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.antarctic.exchange/lp/amlp
     antarctic_like = "antarctic_like"
 
+    #: Wildcat Finance version 2 lending market.
+    #:
+    #: Not ERC-4626. A single-borrower credit market whose rebasing market
+    #: token is the lender's share, discovered from the ``WildcatArchController``
+    #: registry. https://app.wildcat.finance/lender
+    wildcat_like = "wildcat_like"
+
     #: Infinit managed trading vaults: https://www.infinit.tech/.
     infinit_like = "infinit_like"
 
@@ -248,10 +255,54 @@ class ERC4626Feature(enum.Enum):
     #: Moonwell protocol
     moonwell_like = "moonwell_like"
 
-    #: Morpho protocol (V1)
+    #: MetaMorpho-compatible interface, used by Morpho Vault V1 and compatible implementations.
     #:
-    #: Uses MORPHO() function for identification
+    #: The classifier sets this flag after a successful ``MORPHO()`` probe.
+    #: In canonical MetaMorpho, that getter returns the underlying Morpho Blue
+    #: lending contract. It identifies an interface family, not the vault's
+    #: operator, investor permissions, available liquidity or whether Morpho maintains it.
+    #:
+    #: The factory normally selects
+    #: :py:class:`~eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`,
+    #: but checks implementation-specific flags such as
+    #: :attr:`~eth_defi.erc_4626.core.ERC4626Feature.vault_morpho_like`
+    #: first. Those additional flags coexist with this one, so callers must not
+    #: treat it as a promise that every deployment has canonical deposit rules.
+    #: A recognised third-party implementation may therefore receive generic
+    #: protocol attribution despite retaining this compatibility feature.
+    #: Morpho Vault V2 has a separate ``morpho_v2_like`` feature.
+    #:
+    #: Canonical Solidity source:
+    #: https://github.com/morpho-org/metamorpho/blob/87ee5faf910d7224cee70120a94b0921c15ecab7/src/MetaMorpho.sol
+    #:
+    #: See :ref:`morpho-vault-classification` for detection checks, adapter
+    #: selection, protocol naming and verified contract sources.
     morpho_like = "morpho_like"
+
+    #: Unattributed VaultMorpho implementation with a vault-wide deposit cap.
+    #:
+    #: Set alongside ``morpho_like`` when ``MORPHO()`` succeeds and ``tvlCap()``
+    #: returns one 32-byte word. The common getter exposes its Morpho Blue lending
+    #: dependency; it does not establish that Morpho owns or maintains the vault.
+    #:
+    #: The verified ``deposit()`` checks ``totalAssets() + assets <= tvlCap``,
+    #: although market-based ``maxDeposit()`` can remain positive after the cap
+    #: is exhausted. The factory selects the separate
+    #: :py:class:`~eth_defi.erc_4626.vault_protocol.vault_morpho.vault.VaultMorphoVault`
+    #: adapter. Its :meth:`~eth_defi.erc_4626.vault_protocol.vault_morpho.vault.VaultMorphoVault.fetch_deposit_capacity`
+    #: supplies the missing limit to deposit checks.
+    #:
+    #: The implementation's owning protocol and upstream GitHub repository are
+    #: unidentified. Attribute it to generic ``ERC-4626`` instead of inheriting
+    #: Morpho's website, fee mode, risk rating, API coverage or permission policy.
+    #: The canonical MetaMorpho GitHub source linked on ``morpho_like`` is not
+    #: the source of this capped implementation and must not be substituted for it.
+    #:
+    #: Verified implementation source:
+    #: https://etherscan.io/address/0xf392a5b96d3248440bb4841b4f50f0862060c1a3#code
+    #: See :ref:`vault-morpho-unattributed` for deployment/owner evidence,
+    #: classification, cap units and the still unidentified GitHub source repository.
+    vault_morpho_like = "vault_morpho_like"
 
     #: Morpho Vault V2
     #:
@@ -328,6 +379,9 @@ class ERC4626Feature(enum.Enum):
     #: Fluid
     #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
+
+    #: MAAT strategies restrict deposits to token vaults registered by their provider.
+    maat_like = "maat_like"
 
     #: Kiln OmniVaults.
     #:
@@ -843,6 +897,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.axis.to/susdx-the-rewards-vault/susdx
     axis_like = "axis_like"
 
+    #: K3 epoch-staged vaults: https://github.com/K3-Capital/k3-vault-contracts
+    k3_like = "k3_like"
+
     #: Hyperdrive (HyperEVM)
     #:
     #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
@@ -888,6 +945,9 @@ class ERC4626Feature(enum.Enum):
     #: Not an ERC-4626 vault but shares the same metrics interface.
     #: https://hibachi.xyz/vaults
     hibachi_native = "hibachi_native"
+
+    #: Neutral Trade native Solana vault data from partner REST API.
+    neutral_trade_native = "neutral_trade_native"
 
     #: Derive v3 native vault
     #:
@@ -1020,6 +1080,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
         ERC4626Feature.forty_acres_like,
+        ERC4626Feature.wildcat_like,
     }
 )
 
@@ -1084,6 +1145,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
             ERC4626Feature.antarctic_like,
+            ERC4626Feature.wildcat_like,
             ERC4626Feature.asseto_royalty_like,
             ERC4626Feature.infinit_like,
             ERC4626Feature.nest_like,
@@ -1167,10 +1229,16 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Atoma"
     elif ERC4626Feature.symbiotic_like in features:
         return "Symbiotic"
+    elif ERC4626Feature.vault_morpho_like in features:
+        # Supporting the same functions does not establish who operates a vault.
+        # This implementation has no identified operator or upstream repository.
+        return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
+    elif ERC4626Feature.maat_like in features:
+        return "MAAT"
     elif ERC4626Feature.fluid_like in features:
         return "Fluid"
     elif ERC4626Feature.harvest_finance in features:
@@ -1199,6 +1267,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Infinit"
     elif ERC4626Feature.rysk_premium_like in features:
         return "Rysk"
+    elif ERC4626Feature.wildcat_like in features:
+        return "Wildcat"
     elif ERC4626Feature.franklin_like in features:
         return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:
@@ -1483,6 +1553,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
 
+    elif ERC4626Feature.k3_like in features:
+        return "K3"
+
     elif ERC4626Feature.axis_like in features:
         return "Axis"
 
@@ -1506,6 +1579,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hibachi_native in features:
         return "Hibachi"
+
+    elif ERC4626Feature.neutral_trade_native in features:
+        return "Neutral Trade"
 
     elif ERC4626Feature.derive_v3_native in features:
         return "Derive"

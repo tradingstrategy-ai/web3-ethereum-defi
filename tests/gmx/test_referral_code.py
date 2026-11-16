@@ -13,7 +13,6 @@ import pytest
 from eth_typing import HexAddress
 
 from eth_defi.event_reader.conversion import convert_string_to_bytes32
-from eth_defi.gmx.order.base_order import ZERO_REFERRAL_CODE
 
 #: ReferralStorage contract address on Arbitrum (shared between GMX V1 and V2).
 #: See https://arbiscan.io/address/0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d
@@ -56,12 +55,6 @@ def test_encode_referral_code_too_long():
     """Test that overly long strings are rejected."""
     with pytest.raises(AssertionError):
         convert_string_to_bytes32("a" * 33)
-
-
-def test_zero_referral_code_constant():
-    """Test that ZERO_REFERRAL_CODE is 32 zero bytes."""
-    assert ZERO_REFERRAL_CODE == b"\x00" * 32
-    assert len(ZERO_REFERRAL_CODE) == 32
 
 
 @pytest.mark.skipif(

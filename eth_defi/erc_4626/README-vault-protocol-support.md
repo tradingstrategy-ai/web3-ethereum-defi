@@ -31,7 +31,7 @@ protocol. Keep pauses, caps, quotas, withdrawal windows and liquidity separate
 from identity approval.
 
 The shared scanner resolver, ``fetch_deposit_permission()``, persists
-``_deposit_permission`` as ``whitelisted``, ``permissionless`` or ``unknown``.
+``_deposit_permission`` as ``whitelisted``, ``permissionless``, ``unknown`` or ``unsupported_protocol``.
 An unreadable or unsupported policy must not become ``permissionless``.
 The metrics exporter copies this field to ``deposit_permission``,
 ``whitelist.status`` and the supported ``deposit_manager`` mapping. Capability
@@ -135,6 +135,19 @@ EulerEarn, Morpho V1 and Yearn V3 recognise narrowly bounded capacity rounding a
 a positive simulation of the exact redemption before accepting it. These rules
 belong to the shared managers and apply equally to strategy execution and manual
 test trades. Callers should report residual shares after execution.
+
+Rounding tests use ``pytest.approx`` with an explicit absolute tolerance of one
+raw denomination or share unit and ``rel=0`` for decimal conversions. Raw
+request quantities, calldata, receipt share counts and zero residual shares
+remain exact. The guarded synchronous matrix compares the executable,
+fee-aware payout quote with the receipt using one raw asset unit or one ppm
+for inter-block interest. This tolerance does not relax transaction capacity
+checks or classify a real liquidity shortfall as rounding. The Fluid regression
+separately checks immediate redemption and the artificial 24-hour fork delay.
+The shared ``TokenDetails`` conversions retain all raw units through uint256
+balances using a local Decimal context, without changing the caller's precision.
+Fractional raw units are truncated towards zero. A common request invariant
+refuses amounts that truncate to zero; one-raw-share requests remain valid.
 
 ### Minimum amounts
 
@@ -405,6 +418,16 @@ hashes. If the protocol cannot be safely advanced on an Anvil fork, publish
 that limitation in ``VaultDepositManagerCapability`` rather than claiming a
 complete tested lifecycle.
 
+Accountable's fork driver impersonates the vault's configured strategy and
+calls ``fulfillRedeemRequest(controller, shares)`` for the exact recorded,
+self-controlled request. Existing vault liquidity checks remain enforced;
+there is no denomination-token injection or production authority grant. This
+proves vault settlement/claim mechanics, not the strategy's external approval
+policy or ability to unwind its investments. Direct fulfilment can serve this
+request ahead of earlier queued requests, so FIFO liquidity availability is not
+validated. The local mock driver retains
+its separate ``fulfillRedeemRequest(requestId)`` interface.
+
 Synchronous managers use the inherited no-op: call ``force_settle(None)`` and
 assert that settlement is not required. The cSigma reference does this after
 its deposit and before its immediate redemption; it has no onchain request
@@ -569,6 +592,7 @@ GuardV0 simulation evidence for every protocol named in that comment.
 | --- | --- | --- |
 | cSigma, D2, Forty Acres, Gains, IPOR Fusion, Euler, Yearn, standard ERC-4626 families | Non-governance guarded fork lifecycle with approval, deposit and redemption | Individual live vaults can still be paused, capped or unwhitelisted. |
 | Lagoon Finance | Non-governance guarded Base-fork request, real settlement and claim in both directions | A selected vault may require whitelisting. |
+| T3tris | Non-governance guarded Arbitrum-fork request, real curator settlement and claim in both directions, through `SimpleVaultV0` and a Safe module | Closed mode only. Fork redemption settlement needs curator liquidity. No Solidity mock, as for Atoma. |
 | Accountable, Ember, Plutus Hedge, Ostium V1.5, Upshift | Guarded request/claim simulation with stateful protocol mocks; settlement event and raw payout are parsed | Operator settlement is intentionally not granted to the asset manager. Some production forks cannot be advanced safely. |
 | Morpho V1/V2 | Guarded standard deposit and bounded ``maxRedeem`` path remain callable | The tested V1 states intentionally retain the protocol's max-redeem epsilon; the V2 state had zero redeem capacity. Do not advertise a complete immediate redemption. |
 | YieldNest | Guarded standard deposit and redemption-refusal preflight, plus a dedicated mock-only ``ignore_liquidity`` guarded redemption | Tested ``ynRWAx`` states have zero ``maxRedeem`` and no buffer, including after maturity; it remains deposit-only until a real redemption lifecycle is evidenced. |
@@ -577,3 +601,7 @@ Accordingly, an outcome such as ``simulation unsupported async`` in the
 operational report is a useful request to run the appropriate mock or
 protocol-specific driver. It must not be re-labelled as a completed live-fork
 redemption when settlement authority or liquidity is absent.
+
+`unsupported_protocol` is a deliberate integration exclusion, not unknown access
+or evidence of an account whitelist. Export and exclude it like a permissioned
+vault. Upgrade client/consumer enums and filters before publishing this new value.

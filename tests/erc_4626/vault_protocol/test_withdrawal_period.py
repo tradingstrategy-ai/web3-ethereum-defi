@@ -27,6 +27,7 @@ from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
 from eth_defi.erc_4626.vault_protocol.inverse_finance.vault import InverseFinanceVault
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonMetadataSnapshot
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -162,7 +163,7 @@ def test_zero_legacy_lockup_can_use_a_non_instant_lifecycle(monkeypatch: pytest.
 def test_lagoon_withdrawal_period_exports_non_binding_settlement_estimate() -> None:
     """Lagoon leaves contractual timing empty and exports curator cadence only."""
     vault = object.__new__(LagoonVault)
-    vault.__dict__["lagoon_metadata"] = {"average_settlement": 86_400}
+    vault.__dict__["_lagoon_scan_snapshot"] = LagoonMetadataSnapshot({"average_settlement": 86_400}, True, "success", None)
 
     period = vault.get_withdrawal_period()
 

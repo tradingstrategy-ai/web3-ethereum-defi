@@ -8,6 +8,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
@@ -66,7 +67,7 @@ def test_autopilot_migration_preview_apply_and_retry(autopilot_migration: tuple[
     """Refresh both feeder vaults without changing unrelated state or preview bytes.
 
     1. Preview leaves every file byte-identical.
-    2. Apply persists the same values the Accountable adapter and notes return.
+    2. Apply persists the adapter copy and notes plus the original curator tags.
     3. Names, flags, fees, manager names and historical files are preserved.
     4. The backup holds the original database and a repeat run is skipped.
 
@@ -81,7 +82,7 @@ def test_autopilot_migration_preview_apply_and_retry(autopilot_migration: tuple[
     assert len(runner.run_pending_migrations(dry_run=True, **options)) == 1
     assert {path.name: path.read_bytes() for path in data_dir.iterdir()} == original
 
-    # 2. Apply persists the same values the Accountable adapter and notes return.
+    # 2. Apply persists the adapter copy and notes plus the original curator tags.
     assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
     database = VaultDatabase.read(data_dir / "vault-metadata-db.pickle")
     assert database.last_scanned_block == {1: 12345}
@@ -95,7 +96,10 @@ def test_autopilot_migration_preview_apply_and_retry(autopilot_migration: tuple[
         assert row["Link"] == vault.get_link()
         assert row["Link"].startswith("https://yield.accountable.capital/vaults/")
         assert row["_notes"] == get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name="Accountable")
-        assert row["_strategy_tags"] == vault.get_strategy_tags()
+        # Migration 011 predates the address-specific tags added by 047.
+        # Preserve its historical contract; current adapters include more tags.
+        assert row["_strategy_tags"] == {StrategyTag.multistrategy, StrategyTag.delta_neutral}
+        assert row["_strategy_tags"] <= vault.get_strategy_tags()
 
         # 3. Names, flags, fees and manager names are preserved.
         assert row["Name"] == "Neutral Trade Autopilot"

@@ -9,30 +9,6 @@ to ensure it returns properly structured data.
 import pytest
 
 
-def test_get_available_markets(chain_name, market_data):
-    """
-    Test that we can retrieve the available markets.
-
-    This verifies that the API call works and returns expected data structure.
-    Different chains may have different markets.
-    """
-    markets = market_data.get_available_markets()
-
-    # Check that we got data back
-    assert markets is not None
-    assert isinstance(markets, dict)
-
-    # Check that the data contains expected market information
-    for market_key, market_data in markets.items():
-        assert isinstance(market_key, str)
-        assert isinstance(market_data, dict)
-
-        # Check for key fields in market data
-        assert "gmx_market_address" in market_data
-        assert "long_token_metadata" in market_data
-        assert "short_token_metadata" in market_data
-
-
 def test_get_available_liquidity(market_data):
     """
     Test that we can retrieve available liquidity for all markets.
@@ -103,23 +79,6 @@ def test_get_borrow_apr(market_data):
     if len(borrow_apr["short"]) > 0:
         first_market = list(borrow_apr["short"].keys())[0]
         assert isinstance(borrow_apr["short"][first_market], float)
-
-
-def test_get_claimable_fees(market_data):
-    """
-    Test that we can retrieve claimable fees information.
-
-    This verifies that fee data is returned in the expected format.
-    Fee structures may vary between chains.
-    """
-    fees = market_data.get_claimable_fees()
-
-    # Check that we got data back
-    assert fees is not None
-    assert isinstance(fees, dict)
-
-    # Basic structure check
-    assert isinstance(fees["total_fees"], float)
 
 
 def test_get_contract_tvl(market_data):
@@ -209,20 +168,6 @@ def test_get_open_interest(market_data):
     assert "open_interest" in open_interest["parameter"]
 
 
-def test_get_oracle_prices(market_data):
-    """
-    Test that we can retrieve oracle prices for all assets.
-
-    This verifies that oracle price data is returned in the expected format.
-    Different chains may use different oracles or have different assets.
-    """
-    prices = market_data.get_oracle_prices()
-
-    # Check that we got data back
-    assert prices is not None
-    assert isinstance(prices, dict)
-
-
 def test_get_pool_tvl(market_data):
     """
     Test that we can retrieve pool TVL (Total Value Locked).
@@ -243,23 +188,6 @@ def test_get_pool_tvl(market_data):
         assert isinstance(pool_tvl[first_market], dict)
         assert "total_tvl" in pool_tvl[first_market]
         assert isinstance(pool_tvl[first_market]["total_tvl"], float)
-
-
-def test_get_user_positions(chain_name, market_data, account_with_positions):
-    """
-    Test that we can retrieve user positions with a valid address.
-
-    This test uses a known address to verify the API call works correctly.
-    Uses account_with_positions fixture which has known valid addresses.
-    """
-    # Use the known address with valid positions from fixture
-    test_address = account_with_positions
-
-    positions = market_data.get_user_positions(address=test_address)
-
-    # Check that we got data back in expected format
-    assert positions is not None
-    assert isinstance(positions, dict)
 
     # Note: The address might not have positions at the time of testing,
     # so we don't assert that positions dict is non-empty

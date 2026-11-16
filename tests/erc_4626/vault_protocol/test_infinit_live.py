@@ -11,6 +11,7 @@ from eth_defi.erc_4626.vault_protocol.infinit.api import fetch_infinit_history
 from eth_defi.erc_4626.vault_protocol.infinit.constants import APEX_PRODUCT
 from eth_defi.erc_4626.vault_protocol.infinit.events import fetch_infinit_events
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
+from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -38,6 +39,8 @@ def test_infinit_live_creation(tmp_path: Path) -> None:
     """Use the supplied Hypersync token for one complete deployment block."""
     client = configure_hypersync_from_env(42161).hypersync_client
     assert client is not None
+    timestamps = fetch_block_timestamps_using_hypersync_cached(client, 42161, APEX_PRODUCT.deployment_block, APEX_PRODUCT.deployment_block, cache_path=tmp_path)
+    timestamps.close()
     events = tuple(fetch_infinit_events(client, APEX_PRODUCT, APEX_PRODUCT.deployment_block + 1, tmp_path, start_block=APEX_PRODUCT.deployment_block))
     creations = [event for event in events if event.kind == "created"]
     assert len(creations) == 1

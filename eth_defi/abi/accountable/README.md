@@ -3,6 +3,20 @@
 `AccountableAsyncRedeemVault.json` is the Accountable vault interface used by
 the adapter (synchronous deposits, operator-finalised async redemptions).
 
+Its ``fulfillRedeemRequest(address controller, uint256 shares)`` function is
+restricted to ``strategy()`` and checks actual free vault liquidity. The Anvil
+driver impersonates that strategy to advance one exact self-controlled ticket;
+it never grants this permission to the executor's asset manager or injects
+denomination tokens. A successful forced settlement validates the vault claim
+path, not the strategy's investment unwind or external approval policy. Direct
+fulfilment can serve this request ahead of earlier queued requests; it does not
+validate FIFO liquidity availability.
+Verified sources inspected on 14 November 2026:
+
+- https://etherscan.io/address/0x05ed3da1deeaaa57c8e09986e95ac271572dcf89#code
+- https://monadscan.com/address/0x1a5b77cef5e4b6f806aeac6f6ea9213a617dc7e3#code
+- https://monadscan.com/address/0x23b148d8f389c5821739381f1ff87bb7e1162566#code
+
 ## Deposit permissions
 
 The verified vault source exposes an explicit `PermissionLevel` enum:

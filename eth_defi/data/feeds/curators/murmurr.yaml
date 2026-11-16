@@ -1,0 +1,12 @@
+# Identity and source evidence reviewed 2026-11-10.
+feeder-id: murmurr
+name: Murmurr
+role: curator
+lagoon-curator: Murmurr
+website: https://murmurr.xyz/
+short_description: Murmurr manages stablecoin lending portfolios on Morpho.
+long_description: |
+  [Murmurr](https://murmurr.xyz/) manages stablecoin lending portfolios on [Morpho](https://morpho.org/), where borrowers pay interest on loans secured by assets that can be sold if borrowers fail to repay. Its portfolios compare expected interest with the risk of borrowers failing to repay, and limit how much can be invested against particular assets or in markets with little money available for withdrawals. Some portfolios retain older DeTrade branding; a handover date is not disclosed in the published product information.
+other-links:
+- title: Lagoon exact-address metadata identifying the curator organisation
+  url: https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb

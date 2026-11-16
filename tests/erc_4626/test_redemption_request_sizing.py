@@ -1,5 +1,6 @@
 """Shared redemption sizing used by strategies and manual test trades."""
 
+from decimal import Decimal, ROUND_DOWN
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,8 +14,55 @@ from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV1Depos
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.token import TokenDetails
 
 OWNER = "0x0000000000000000000000000000000000000001"
+
+
+@pytest.mark.parametrize("manager_class", [ERC4626DepositManager, EulerEarnDepositManager, MorphoV1DepositManager, YearnV3DepositManager])
+@pytest.mark.parametrize("decimals", [6, 8, 18])
+def test_redemption_decimal_rounding_preserves_calldata(manager_class: type[ERC4626DepositManager], decimals: int) -> None:
+    """Bound decimal conversion by one token unit without resizing an order.
+
+    1. Model token precision independently of the selected protocol manager.
+    2. Request an amount with more fractional digits than the token supports.
+    3. Check exact raw calldata and token-unit tolerance on decimal values.
+    4. Reject a positive decimal amount that truncates below one raw share.
+    """
+    # 1. Model token precision independently of the selected protocol manager.
+    vault = MagicMock(spec=ERC4626Vault)
+    vault.share_token = TokenDetails(contract=vault.vault_contract, decimals=decimals)
+    funcs = vault.vault_contract.functions
+    quantum = Decimal(1).scaleb(-decimals)
+    requested = Decimal("1001.1234567890123456789")
+    expected = requested.quantize(quantum, rounding=ROUND_DOWN)
+    expected_raw = int(expected.scaleb(decimals))
+    funcs.balanceOf.return_value.call.return_value = expected_raw + 1
+    funcs.maxRedeem.return_value.call.return_value = expected_raw + 1
+
+    # 2. Request an amount with more fractional digits than the token supports.
+    request = manager_class(vault).create_redemption_request(owner=OWNER, shares=requested)
+    actual = vault.share_token.convert_to_decimals(request.raw_shares)
+
+    # 3. Check exact raw calldata and token-unit tolerance on decimal values.
+    assert request.raw_shares == expected_raw
+    funcs.redeem.assert_called_once_with(expected_raw, OWNER, OWNER)
+    assert actual == expected
+    assert actual == pytest.approx(requested, rel=0, abs=quantum)
+    assert request.shares == pytest.approx(actual, rel=0, abs=quantum)
+    # A relative default could conceal several raw units at larger balances.
+    assert actual - 2 * quantum != pytest.approx(expected, rel=0, abs=quantum)
+    funcs.redeem.return_value.call.assert_not_called()
+
+    # 4. Reject a positive decimal amount that truncates below one raw share.
+    funcs.redeem.reset_mock()
+    # The common RedemptionRequest invariant owns this check for all managers.
+    with pytest.raises(AssertionError):
+        manager_class(vault).create_redemption_request(owner=OWNER, shares=quantum / 2)
+    funcs.redeem.assert_called_once_with(0, OWNER, OWNER)
+    minimum = manager_class(vault).create_redemption_request(owner=OWNER, shares=quantum)
+    assert minimum.raw_shares == 1
+    funcs.redeem.assert_called_with(1, OWNER, OWNER)
 
 
 @pytest.mark.parametrize("manager_class", [ERC4626DepositManager, EulerEarnDepositManager, MorphoV1DepositManager, YearnV3DepositManager])

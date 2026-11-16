@@ -54,6 +54,9 @@ from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_D
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
+from eth_defi.neutral_trade.constants import NEUTRAL_TRADE_DATABASE, SOLANA_DATASET_CHAIN_ID
+from eth_defi.neutral_trade.metrics import NeutralTradeDatabase
+from eth_defi.neutral_trade.vault_data_export import build_raw_prices_dataframe as build_neutral_trade_prices
 from eth_defi.perp_dex.adapter import PerpDexCapability, PerpDexCapabilityRegistry, embed_perp_capability_registry
 from eth_defi.perp_dex.parquet import attach_perp_metrics_to_price_rows, derive_perp_vault_metric_snapshots
 from eth_defi.perp_dex.storage import read_perp_vault_observations
@@ -599,6 +602,8 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     merge_hibachi: bool = False,
     merge_apex: bool = False,
     merge_derive_v3: bool = False,
+    merge_neutral_trade: bool = False,
+    neutral_trade_vault_ids: set[str] | None = None,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
@@ -609,6 +614,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     hibachi_db_path: Path | None = None,
     apex_db_path: Path | None = None,
     derive_v3_db_path: Path | None = None,
+    neutral_trade_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet in one pass.
 
@@ -640,6 +646,8 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param merge_lighter: Merge Lighter native pool data
     :param merge_hibachi: Merge Hibachi native vault data
     :param merge_apex: Merge ApeX native vault data
+    :param merge_neutral_trade: Merge admitted Neutral Trade native observations.
+    :param neutral_trade_vault_ids: Optional fixed inventory for numbered onboarding.
     :param merge_derive_v3: Merge Derive v3 mainnet native vault data
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
@@ -650,6 +658,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param apex_db_path: Override for the ApeX DuckDB path
+    :param neutral_trade_db_path: Private Neutral Trade archive override.
     :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
@@ -813,6 +822,22 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.exception("Derive v3 price merge failed")
             steps["derive-v3-price-merge"] = False
 
+    if merge_neutral_trade:
+        source_path = neutral_trade_db_path or NEUTRAL_TRADE_DATABASE
+        if source_path.exists():
+            with NeutralTradeDatabase(source_path) as source:
+                fresh = build_neutral_trade_prices(source, vault_ids=neutral_trade_vault_ids)
+            if not fresh.empty:
+                merged = _merge_native_history_with_existing_parquet(parquet_path, fresh, SOLANA_DATASET_CHAIN_ID)
+            elif parquet_path.exists():
+                merged = pq.read_table(parquet_path, filters=[("chain", "=", SOLANA_DATASET_CHAIN_ID)]).to_pandas()
+            else:
+                merged = pd.DataFrame()
+            replacements[SOLANA_DATASET_CHAIN_ID] = merged
+        else:
+            logger.info("No Neutral Trade source database; merge is a no-op")
+        steps["neutral-trade-price-merge"] = True
+
     if not replacements:
         logger.info("Native protocol merge stage complete: 0 replacement rows in %.2f seconds", time.perf_counter() - started_at)
         return steps
@@ -854,6 +879,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             ("hibachi-price-merge", HIBACHI_CHAIN_ID),
             ("apex-price-merge", APEX_CHAIN_ID),
             ("derive-v3-price-merge", DERIVE_V3_CHAIN_ID),
+            ("neutral-trade-price-merge", SOLANA_DATASET_CHAIN_ID),
         ):
             if chain_id in replacements:
                 steps[step_name] = False
@@ -1333,6 +1359,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     scan_hibachi: bool = False,
     scan_apex: bool = False,
     scan_derive_v3: bool = False,
+    scan_neutral_trade: bool = False,
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
@@ -1347,6 +1374,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     hibachi_db_path: Path | None = None,
     apex_db_path: Path | None = None,
     derive_v3_db_path: Path | None = None,
+    neutral_trade_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     settlement_db_path: Path | None = None,
@@ -1367,6 +1395,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param scan_lighter: Whether to merge Lighter data
     :param scan_hibachi: Whether to merge Hibachi data
     :param scan_apex: Whether to merge ApeX data
+    :param scan_neutral_trade: Include Neutral Trade native REST collection/merge.
     :param scan_derive_v3: Whether to merge Derive v3 mainnet data
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
@@ -1381,6 +1410,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param apex_db_path: Override for the ApeX DuckDB path
+    :param neutral_trade_db_path: Private Neutral Trade archive override.
     :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
@@ -1404,6 +1434,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         merge_hibachi=scan_hibachi,
         merge_apex=scan_apex,
         merge_derive_v3=scan_derive_v3,
+        merge_neutral_trade=scan_neutral_trade,
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
@@ -1414,6 +1445,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         hibachi_db_path=hibachi_db_path,
         apex_db_path=apex_db_path,
         derive_v3_db_path=derive_v3_db_path,
+        neutral_trade_db_path=neutral_trade_db_path,
     )
     steps.update(merge_results)
 

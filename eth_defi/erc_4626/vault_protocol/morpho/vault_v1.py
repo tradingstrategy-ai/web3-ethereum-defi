@@ -174,12 +174,12 @@ class MorphoV1Vault(ERC4626Vault):
         """Return automatic lending plus any maintained Morpho tags.
 
         MetaMorpho vaults supply assets to Morpho lending markets. Address-
-        specific classifications are merged in by the Morpho tag registry.
+        and chain-specific classifications are merged in by the Morpho tag registry.
 
         :return:
             Strategy tags including :attr:`StrategyTag.lending`.
         """
-        return get_morpho_strategy_tags(self.vault_address)
+        return get_morpho_strategy_tags(self.vault_address, self.chain_id)
 
     def is_whitelisted_deposit(self) -> bool:
         """Report canonical MetaMorpho deposits as permissionless.

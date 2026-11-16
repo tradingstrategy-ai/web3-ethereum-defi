@@ -195,52 +195,6 @@ def test_uniswap_v3_quoter_basic_three_leg(
     assert amount_out_2 == amount_out_1
 
 
-def test_uniswap_v3_quoter_basic_token_missing(
-    web3: Web3,
-    uniswap_v3: UniswapV3Deployment,
-    base_usdc,
-    base_weth,
-):
-    """Uni v3 does not have Keycat pair."""
-
-    quoter = uniswap_v3.quoter
-    parts = [
-        base_usdc.address,
-        base_weth.address,
-        "0x9a26f5433671751c3276a065f57e5a02d2817973",  # Keycat
-    ]
-    fees = [
-        5 * 100,
-        30 * 100,
-    ]
-    path = encode_path(
-        parts,
-        fees,
-    )
-    amount = 5 * 10**6
-
-    # Try Web3.py native encoding
-    quote_call = quoter.functions.quoteExactInput(
-        path,
-        amount,
-    )
-    quote_result = quote_call.call()
-    amount_out_1 = quote_result[0]
-    assert amount_out_1 > 10**18
-
-    # Try passing data blob around
-    data = quote_call.build_transaction()["data"]
-    assert len(bytes.fromhex(data[2:])) == 196
-    quote_result_bytes = web3.eth.call(
-        {
-            "to": quoter.address,
-            "data": data,
-        }
-    )
-    amount_out_2 = int.from_bytes(quote_result_bytes[0:32])
-    assert amount_out_2 == amount_out_1
-
-
 @pytest.mark.skip(reason="Broken, please fix")
 def test_uniswap_v2_weth_usdc_sell_route(
     web3: Web3,

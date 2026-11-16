@@ -17,7 +17,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
@@ -28,6 +28,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.shares import FrankencoinShare
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.infinit.constants import INFINIT_CHAIN_ID, INFINIT_PRODUCTS
+from eth_defi.erc_4626.vault_protocol.k3.constants import K3_VAULTS
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
@@ -35,6 +36,7 @@ from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
+from eth_defi.erc_4626.vault_protocol.vault_morpho.vault import VaultMorphoVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_CHAIN_ID, VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
@@ -350,6 +352,9 @@ VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_str
 #: the reviewed sFRAX and sfrxUSD deployments are routed by address.
 FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
 
+#: Reviewed current K3 wrappers. Chain matching is enforced before selection.
+K3_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.k3_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like} for chain, address in K3_VAULTS}
+
 #: Axis's reviewed vaults cannot be identified safely from a protocol-specific
 #: accessor. V2 implements ERC-7540 and ERC-7575; Plasma V1 implements neither.
 AXIS_HARDCODED_PROTOCOLS_BY_CHAIN = {
@@ -426,6 +431,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         return set(features) if features is not None else None
     if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
         return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
+
+    if normalised_address in K3_HARDCODED_PROTOCOLS:
+        return set(K3_HARDCODED_PROTOCOLS[normalised_address]) if (chain_id, normalised_address) in K3_VAULTS else None
 
     if chain_id is not None:
         if normalised_address in ODA_FACT_HARDCODED_PROTOCOLS:
@@ -922,6 +930,15 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # An unattributed VaultMorpho implementation adds a global deposit cap.
+        # Bind the stored contract interface without a provider: the existing
+        # batch reader executes the call alongside the other detection calls.
+        # The contract proxy checksums the address; restore the caller's form
+        # so every probe for one vault carries an identical address string.
+        cap_call = EncodedCall.from_contract_call(get_deployed_contract(Web3(), "vault_morpho/VaultMorpho.json", address).functions.tvlCap(), extra_data=None)
+        cap_call.address = address
+        yield cap_call
+
         # Morpho V2 - newer adapter-based architecture
         # https://docs.morpho.org/learn/concepts/vault-v2/
         # https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
@@ -1162,6 +1179,14 @@ def create_probe_calls(
                 data=b"",
                 extra_data=None,
             )
+
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MaatAddressProvider()")[0:4],
+            function="MaatAddressProvider",
+            data=b"",
+            extra_data=None,
+        )
 
         # Yearn TokenizedStrategy / Fluid conflicting
         # https://arbiscan.io/address/0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2#code
@@ -1623,6 +1648,8 @@ def identify_vault_features(
 
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
+        if calls["tvlCap"].success and len(calls["tvlCap"].result) == 32:
+            features.add(ERC4626Feature.vault_morpho_like)
 
     # Morpho V2 - uses adaptersLength() instead of MORPHO()
     # Must check that MORPHO() fails to distinguish from V1
@@ -1759,6 +1786,10 @@ def identify_vault_features(
         features.add(ERC4626Feature.centrifuge_like)
         features.add(ERC4626Feature.erc_7540_like)
 
+    if calls["MaatAddressProvider"].success:
+        features.discard(ERC4626Feature.fluid_like)
+        features.add(ERC4626Feature.maat_like)
+
     # Royco Protocol - WrappedVault with reward distribution
     # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
     if calls["previewRateAfterDeposit"].success:
@@ -1864,7 +1895,7 @@ def identify_vault_features(
             features.add(ERC4626Feature.athena_like)
         elif "RightsToken" in name:
             features.add(ERC4626Feature.reserve_like)
-        elif "Fluid" in name:
+        elif "Fluid" in name and ERC4626Feature.maat_like not in features:
             features.add(ERC4626Feature.fluid_like)
         elif "Peapods" in name:
             features.add(ERC4626Feature.peapods_like)
@@ -1954,7 +1985,11 @@ def probe_vaults(
         pinned blocks and the multiprocessing backend.
 
     :return:
-        Iterator of what vault smart contract features we detected for each potential vault address
+        Iterator of what vault smart contract features we detected for each
+        potential vault address. Results are grouped case-insensitively and
+        yielded at most once per input address, using the caller's address form.
+    :raise ValueError:
+        If the reader returns a result for an address that was not requested.
     """
 
     assert type(chain_id) == int
@@ -1973,6 +2008,14 @@ def probe_vaults(
     # batching can split one candidate's ABI probes across multiple chunks.
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
+    # Group by the caller's address, not the call's address string. Probes built
+    # from a Web3 contract proxy, such as ``tvlCap()``, carry a checksummed
+    # address while signature probes keep the caller's (usually lower-case)
+    # form. Grouping by the raw string split each vault into a full result set
+    # and a ``tvlCap``-only set that decoded as ``broken``, yielding two probes
+    # per address and overwriting cached classifications.
+    input_addresses = {address.lower(): address for address in addresses}
+
     parent_stats = getattr(web3factory, "rpc_request_stats", None)
     probe_stats = RPCRequestStats(operation="feature_probe") if parent_stats is not None else None
     try:
@@ -1989,7 +2032,11 @@ def probe_vaults(
             refresh_current_block=current_state and chain_id == 999,
             greylist=greylist,
         ):
-            address = call_result.call.address
+            address = input_addresses.get(call_result.call.address.lower())
+            if address is None:
+                # A result for an address we did not request would become an
+                # extra, partial classification. Fail before callers persist it.
+                raise ValueError(f"Vault probe returned a result for unrequested address {call_result.call.address} on chain {chain_id}")
             address_calls = results_per_address[address]
             address_calls[call_result.call.func_name] = call_result
 
@@ -2385,6 +2432,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
 
         return RyskVault(web3, spec, **kwargs)
+    elif ERC4626Feature.wildcat_like in features:
+        from eth_defi.erc_4626.vault_protocol.wildcat.vault import WildcatMarket
+
+        return WildcatMarket(web3, spec, **kwargs)
     elif ERC4626Feature.ondo_like in features:
         from eth_defi.tokenised_fund.ondo.vault import OndoVault
 
@@ -2426,7 +2477,10 @@ def create_vault_instance(
 
         return VaultStreetVault(web3, spec, **kwargs)
 
-    # TODO: Some module deadlock sheningans for Morpho
+    # Check the capped implementation first: it also exposes MORPHO(), but
+    # must not inherit canonical Morpho fees or deposit rules.
+    elif ERC4626Feature.vault_morpho_like in features:
+        return VaultMorphoVault(web3, spec, **kwargs)
     elif ERC4626Feature.morpho_like in features:
         # Morpho V1 instance
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -2776,6 +2830,10 @@ def create_vault_instance(
 
         return HypurrFiVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.maat_like in features:
+        from eth_defi.erc_4626.vault_protocol.maat.vault import MaatVault
+
+        return MaatVault(web3, spec, **kwargs)
     elif ERC4626Feature.fluid_like in features:
         from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
 
@@ -2840,6 +2898,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.frax.vault import FraxlendPairVault
 
         return FraxlendPairVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.k3_like in features:
+        from eth_defi.erc_4626.vault_protocol.k3.vault import K3Vault
+
+        return K3Vault(web3, spec, **kwargs)
 
     elif ERC4626Feature.axis_like in features:
         from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
@@ -2940,6 +3003,7 @@ HARDCODED_PROTOCOLS = {
     **FRANKENCOIN_HARDCODED_PROTOCOLS,
     **VAULT_STREET_HARDCODED_PROTOCOLS,
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
+    **K3_HARDCODED_PROTOCOLS,
     **AXIS_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
     **FLYING_TULIP_HARDCODED_PROTOCOLS,

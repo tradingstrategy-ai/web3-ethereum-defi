@@ -1,0 +1,48 @@
+symbol: limUSD
+name: Liminal USD
+slug: limusd
+category: yield_bearing
+short_description: limUSD represents a share of Liminal's dollar-valued trading and lending investments, with earnings reflected in the amount holders can redeem.
+long_description: |
+  [Liminal](https://liminal.money/) issues limUSD as a share of its pooled trading and lending investments on Hyperliquid. It holds xTokens, each representing a share of one of Liminal's strategies. limUSD starts at $1, but **its value can rise or fall** with investment performance rather than staying at a fixed dollar price.
+
+  The [investment portfolio](https://docs.liminal.money/tokenized/limusd) allocates money across Liminal's trading and lending strategies. Its lending strategy, xLEND, lends stablecoins through onchain lending markets and earns the interest borrowers pay.
+
+  Its [xBTC and xHYPE strategies](https://docs.liminal.money/tokenized/xtokens) buy bitcoin or Hyperliquid's HYPE token and open matching short positions in [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts that follow the asset's price without an expiry date. The short position gains when the asset's price falls, aiming to offset the loss on the asset held.
+
+  When [funding rates](https://tradingstrategy.ai/glossary/funding-rate) are positive, traders holding long positions, which gain when prices rise, periodically pay traders holding short positions; the strategies collect these payments. Where a strategy holds staked versions of assets, it can also earn rewards for helping secure the blockchain. These earnings increase the value of each limUSD token rather than the number of tokens held.
+
+  #### Withdrawals
+
+  Users deposit supported stablecoins to receive limUSD and [redeem for USDC](https://docs.liminal.money/tokenized/developers/limusd) at the value of their share of the investments. [Standard withdrawals](https://docs.liminal.money/tokenized/flows) join a queue on HyperEVM and normally take up to three days, with longer waits possible for large exits. Instant withdrawals depend on available reserves and cost **0.3%**, which goes to remaining holders.
+
+  #### Fees
+
+  Returns reflect two layers of charges in Liminal's [fee schedule](https://docs.liminal.money/more/fees):
+
+  - limUSD charges a [performance fee](https://tradingstrategy.ai/glossary/performance-fee) of **10% of profits**.
+  - Its underlying xTokens also charge **10% of profits** and a **1%** [management fee](https://tradingstrategy.ai/glossary/management-fee), a recurring charge for managing the investments.
+
+  #### Risks
+
+  [Trading losses](https://docs.liminal.money/tokenized/risks) can arise when funding rates turn negative, so the short positions pay long positions, or when costs exceed income. Problems with asset custodians, the firms holding the investments, or the systems reporting their value can also cause losses. Disruption to Hyperliquid can prevent trades from being adjusted or closed, delaying withdrawals.
+links:
+  homepage: https://liminal.money/
+  coingecko: ''
+  defillama: https://defillama.com/token/LIMUSD
+  twitter: https://x.com/liminalmoney
+#: Official deployments: https://docs.liminal.money/tokenized/developers/limusd
+#: symbol() returned limUSD on 2026-11-10 at blocks 50892813 (999),
+#: 26384648 (1) and 522982403 (42161), using the configured RPC providers.
+contract_addresses:
+  - chain: hyperliquid
+    address: '0x1822bd335489d84abdd0779a7dCAeDa0625e83c8'
+  - chain: ethereum
+    address: '0x9B74D3BD96f54dE689CfFDeb27EE34f68dFf086d'
+  - chain: arbitrum
+    address: '0x9B74D3BD96f54dE689CfFDeb27EE34f68dFf086d'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: '2026-11-10'
+  marked_dead_at: ''
+  information_found_missing_at: ''
