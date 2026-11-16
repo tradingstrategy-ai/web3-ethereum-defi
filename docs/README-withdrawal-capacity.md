@@ -168,3 +168,40 @@ table displays token amounts to six decimal places. Optional settings:
 smaller of four and the available CPU count, and `COLOUR` defaults to `auto`
 (colour on a terminal). Set `COLOUR=always` for saved ANSI tables or
 `COLOUR=never` for plain text. Reads use threaded Joblib with progress reporting.
+
+## Run the scheduled refresh manually
+
+`refresh-withdrawal-capacity.py` exercises the production due selector, readers,
+cache and atomic persistence for one chain in a separate diagnostic catalogue.
+The default chain is Monad (143). It accepts `VAULT_DATABASE` (default normal
+pipeline catalogue) or `VAULT_METADATA_JSON` (a published vault export). A JSON
+export supplies its listed vaults, not an exhaustive discovery result. Published
+`current_nav`, its denomination and supplied features seed the local catalogue;
+`source_denomination` is retained separately as provenance;
+actual capacity observations come from current chain state.
+
+```shell
+source .local-test.env
+CHAIN_ID=143 VAULT_METADATA_JSON=vault-metadata.json MAX_BATCHES=2 \
+    poetry run python scripts/erc-4626/refresh-withdrawal-capacity.py
+```
+
+Defaults are one batch, 100 vaults per batch and at most four reader threads.
+`MAX_BATCHES`, `MAX_VAULTS_PER_CHAIN` and `MAX_WORKERS` control these limits.
+`STATE_DIR` defaults to `data/withdrawal-capacity/<chain>/<UTC run timestamp>`;
+reuse the displayed directory to verify that fresh observations are skipped
+without opening a provider. The source bytes are read once for loading and
+SHA-256 recording on initialisation. Resume uses the saved catalogue and identity
+without rereading the source, so a live source update or removal cannot break it.
+Start a new `STATE_DIR` to select a new input snapshot. Pickle input retains
+existing production observation timestamps; already-fresh rows stay skipped. Input files and the production catalogue remain
+unchanged; this diagnostic is not a production repair or migration.
+
+Each invocation saves a timestamped JSON report with complete observations,
+next-check times, read/cadence counts and deferred-vault counts. The table shows
+the three independent warnings, denomination amounts and daily/weekly cadence.
+Green means all three checks are known and clear; red includes warnings and
+unknowns. A deferred vault with no observation is labelled `unchecked`. Set
+`COLOUR=always` for ANSI-coloured saved output or `COLOUR=never` for plain text.
+On Monad the reader uses current head minus three, never an arbitrary historical
+state block; no discovery, historical scanning, uploads or transactions occur.
