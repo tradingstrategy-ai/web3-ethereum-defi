@@ -48,8 +48,10 @@ GMX_ORDER_VAULT = _GMX_ADDRESSES.ordervault
 WETH_ARBITRUM = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
 USDC_ARBITRUM = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
 
-#: Impersonated token holders used to fund the Safe.
-USDC_WHALE = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+#: Impersonated token holders used to fund the Safe. At the fixed fork block
+#: (``ARBITRUM_GMX_V221_FORK_BLOCK``) this account holds about 109 million USDC;
+#: the previous holder, 0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055, holds 3 USDC.
+USDC_WHALE = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 WETH_WHALE = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
 

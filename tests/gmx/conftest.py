@@ -690,12 +690,12 @@ def wallet_with_usdc(
         usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_arbitrum
-        amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
+        amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
     else:  # avalanche
         usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_avalanche
-        amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
+        amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
 
     # Fund the whale holder with ETH for gas
     eth_amount_wei = 10 * 10**18  # 10 ETH for gas
@@ -971,7 +971,7 @@ def test_wallet(
             )
 
             # Transfer USDC to test wallet
-            usdc_amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
+            usdc_amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
             usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
                 {"from": large_usdc_holder_arbitrum},
             )
@@ -1410,7 +1410,7 @@ def test_wallet_tenderly(web3_tenderly: Web3, anvil_private_key) -> HotWallet:
     # Fund with USDC
     usdc_address = config["usdc_address"]
     usdc = fetch_erc20_details(web3_tenderly, usdc_address)
-    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 
     try:
         web3_tenderly.provider.make_request(
@@ -1423,7 +1423,7 @@ def test_wallet_tenderly(web3_tenderly: Web3, anvil_private_key) -> HotWallet:
             [large_usdc_holder, hex(10 * 10**18)],
         )
 
-    usdc_amount = 100_000_000 * 10**6
+    usdc_amount = 100_000 * 10**6
     try:
         usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
             {"from": large_usdc_holder},
@@ -1480,14 +1480,14 @@ def arbitrum_tenderly_config(
     # Fund USDC
     usdc_address = config["usdc_address"]
     usdc = fetch_erc20_details(web3_tenderly, usdc_address)
-    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 
     try:
         web3_tenderly.provider.make_request(
             "tenderly_setBalance",
             [large_usdc_holder, hex(10 * 10**18)],
         )
-        usdc.contract.functions.transfer(wallet_address, 100_000_000 * 10**6).transact(
+        usdc.contract.functions.transfer(wallet_address, 100_000 * 10**6).transact(
             {"from": large_usdc_holder},
         )
     except Exception as e:
@@ -1556,7 +1556,7 @@ def _create_isolated_fork_env(
         IsolatedForkEnv with all components
     """
     # Whale addresses for token transfers
-    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
     large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
     # === Step 1: Connect to fixed-block Anvil fork ===
@@ -1595,7 +1595,7 @@ def _create_isolated_fork_env(
     # Transfer USDC from whale
     usdc_address = config["usdc_address"]
     usdc = fetch_erc20_details(web3, usdc_address)
-    usdc_amount = 100_000_000 * 10**6
+    usdc_amount = 100_000 * 10**6
     usdc.contract.functions.transfer(wallet_address, usdc_amount).transact(
         {"from": large_usdc_holder},
     )
