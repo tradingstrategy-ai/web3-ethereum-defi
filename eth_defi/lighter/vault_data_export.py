@@ -50,7 +50,7 @@ from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
-from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.flag import VaultFlag, get_notes, get_vault_special_flags
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import get_vault_risk
@@ -118,6 +118,12 @@ def create_lighter_pool_row(
     compatibility value because public deposits are unavailable. Missing or
     unrecognised statuses export ``unknown``.
 
+    Manual descriptions in :py:mod:`eth_defi.vault.handwritten_metadata`
+    take precedence over API descriptions. Manual flags and notes come from
+    :py:mod:`eth_defi.vault.flag`, using deployment-specific synthetic pool
+    identifiers. ``deposits_closed`` overrides even an active API status and
+    qualifies the exported deposit permission without changing redemptions.
+
     :param account_index:
         Pool account index on the Lighter platform.
     :param name:
@@ -161,7 +167,7 @@ def create_lighter_pool_row(
     perf_fee = operator_fee / 100.0 if operator_fee is not None else None
     operator_share_fraction: Percent | None = operator_shares / total_shares if total_shares and operator_shares is not None else None
 
-    flags = {VaultFlag.perp_dex_trading_vault}
+    flags = {VaultFlag.perp_dex_trading_vault} | get_vault_special_flags(address, protocol_name="Lighter")
 
     detection = ERC4262VaultDetection(
         chain=chain_id,
@@ -182,7 +188,10 @@ def create_lighter_pool_row(
         withdraw=0.0,
     )
 
-    if status == 0:
+    if VaultFlag.deposits_closed in flags:
+        public_deposits_open = False
+        deposit_closed_reason = "Public deposits are closed."
+    elif status == 0:
         public_deposits_open = True
         deposit_closed_reason = None
     elif status in _CLOSED_PUBLIC_DEPOSIT_STATUSES:

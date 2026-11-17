@@ -49,6 +49,27 @@ regeneration. Pass affected vault IDs to
 cached or sticky metrics immediately. See the pipeline README below for the
 isolated live export check and regeneration procedure.
 
+Manual vault metadata
+~~~~~~~~~~~~~~~~~~~~~
+
+Lighter exports use the shared handwritten description and flag registries.
+Add descriptions to ``eth_defi/vault/handwritten_metadata.py`` and flags or
+notes to ``eth_defi/vault/flag.py``. Use synthetic chain ``9998`` for
+description lookups, with ``lighter-pool-<account_index>`` for Ethereum and
+``lighter-pool-robinhood-<account_index>`` for Robinhood. Deployment-specific
+identifiers keep pools with the same account index separate.
+
+Handwritten descriptions replace API copy. Manual flags are combined with the
+native perpetual-vault flag. ``VaultFlag.deposits_closed`` takes precedence
+over the API's pool status and populates the deposit-closure reason and
+qualified deposit permission. It does not change withdrawal availability or
+exclude the pool from the catalogue.
+
+The ordinary metadata merge reapplies these overrides. For existing persisted
+rows, add a numbered refresh following ``.claude/docs/migration-scripts.md``;
+migration ``081-lighter-robinhood-deposits-closed.py`` refreshes Robinhood LLP's
+deposit access without fetching prices or replacing descriptions.
+
 Guarded custody
 ~~~~~~~~~~~~~~~
 

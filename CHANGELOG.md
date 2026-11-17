@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Apply manual Lighter vault flags alongside description overrides and mark Robinhood LLP deposits closed (2026-11-17).
+
 - Replace withdrawal-capacity ABI stubs with complete verified Sourcify/Etherscan interfaces and require per-folder source inventories (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).
 
 - Add a resumable single-chain manual withdrawal-capacity runner using normal scanner batches and isolated state, with published-catalogue JSON input and tabulated scheduling/warnings (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).
