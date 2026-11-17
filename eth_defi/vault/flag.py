@@ -68,7 +68,8 @@ class VaultFlag(str, enum.Enum):
     #: We can deposit now
     deposit = "deposit"
 
-    #: Public deposits are manually disabled, independently of the API status.
+    #: Lighter's exporter treats public deposits as closed despite API status.
+    #: Other adapters do not currently interpret this manual access override.
     #: This access restriction does not exclude the vault from the catalogue.
     deposits_closed = "deposits_closed"
 

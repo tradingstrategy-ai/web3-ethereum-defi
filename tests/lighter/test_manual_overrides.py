@@ -1,6 +1,7 @@
 """Manual Lighter metadata takes precedence over provider status."""
 
 import runpy
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LIGHTER_ROBINHOOD_LLP_ACCOUNT_INDEX
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.flag import VAULT_FLAGS_AND_NOTES, VaultFlag
+from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -47,7 +49,8 @@ def test_manual_flags_preserve_descriptions(monkeypatch: pytest.MonkeyPatch) -> 
     _, row = create_lighter_pool_row(281474976488848, "Post Fiat", "Provider copy.", 100, None, status=0)
     assert row["_flags"] == {VaultFlag.perp_dex_trading_vault, VaultFlag.review_needed}
     assert "goodalexander" in row["_description"]
-    assert row["_short_description"] != "Provider copy."
+    metadata = get_handwritten_vault_metadata(LIGHTER_ETHEREUM.chain_id, row["Address"])
+    assert row["_short_description"] == metadata.short_description
     assert row["_notes"] == "Review requested."
     assert row["_deposit_permission"] == "permissionless"
 
@@ -60,7 +63,7 @@ def test_closure_migration_preserves_metadata() -> None:
 
     :return: ``None``; assertions validate preservation and repeatability.
     """
-    migration = runpy.run_path("migration/scripts/081-lighter-robinhood-deposits-closed.py")
+    migration = runpy.run_path(Path(__file__).parents[2] / "migration/scripts/081-lighter-robinhood-deposits-closed.py")
     spec, row = create_lighter_pool_row(LIGHTER_ROBINHOOD_LLP_ACCOUNT_INDEX, "LLP", "Saved copy.", 100, None, deployment=LIGHTER_ROBINHOOD)
     row.update(_flags={VaultFlag.perp_dex_trading_vault, VaultFlag.review_needed}, _deposit_closed_reason=None, _deposit_permission="permissionless", _whitelist_notes=None)
     original = row.copy()

@@ -5,7 +5,7 @@ Scope: Synthetic chain 9998, lighter-pool-robinhood-281474976710654;
 _flags, _deposit_closed_reason, _deposit_permission and _whitelist_notes only.
 Branch: lighter-vault-manual-overrides-deposits-closed
 PR title: feat: honour manual Lighter vault flags and close Robinhood LLP deposits
-PR: Not opened yet.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1792
 Preserves: Descriptions, notes, unrelated metadata, prices, leads and timestamp caches.
 Expected: At most one existing row and four changed fields. Missing rows are reported.
 No network reads or historical price backfill are needed. Safe to retry.
