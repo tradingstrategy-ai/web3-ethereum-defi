@@ -113,8 +113,10 @@ applies in exactly this state, which can last for a while after the borrower
 cures the delinquency, see
 [delinquency](https://docs.wildcat.finance/using-wildcat/delinquency). The
 flag refreshes with ordinary metadata scans, currently every seven days. It is
-outside `BAD_FLAGS`, so markets stay visible, and the monthly vault report
-leaves flagged markets out of its listings.
+included in `BAD_FLAGS`, so these markets are blacklisted, and the monthly
+vault report leaves flagged markets out of its listings. Existing stored flags
+are covered without a metadata migration; deploy the updated flag policy to
+consumers to apply the blacklist.
 
 ## Offchain metadata
 

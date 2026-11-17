@@ -80,6 +80,18 @@ def test_not_in_morpho_api_is_bad_flag():
     assert VaultFlag.not_in_morpho_api in BAD_FLAGS
 
 
+def test_delinquent_markets_is_bad_flag() -> None:
+    """Blacklist Wildcat markets that have exceeded the delinquency grace period.
+
+    The adapter already persists this flag. Including it in the shared policy
+    also blacklists existing metadata without waiting for a fresh onchain scan.
+
+    :return:
+        None. Assertions validate the blacklist policy for persisted flags.
+    """
+    assert {VaultFlag.delinquent_markets} & BAD_FLAGS
+
+
 def test_controversial_is_bad_flag():
     """Controversial vaults are blacklisted."""
     assert VaultFlag.controversial in BAD_FLAGS

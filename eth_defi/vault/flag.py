@@ -181,8 +181,8 @@ class VaultFlag(str, enum.Enum):
     #: grace period. During a default the market's share price keeps rising
     #: with accrued and penalty interest, so the curve must not be read as
     #: realised yield. Set by the protocol adapter from onchain state and
-    #: deliberately outside :py:data:`BAD_FLAGS`, so the market stays visible
-    #: with a warning; the monthly vault report leaves it out of its listings.
+    #: included in :py:data:`BAD_FLAGS` to blacklist these markets; the
+    #: monthly vault report also leaves them out of its listings.
     delinquent_markets = "delinquent_markets"
 
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
@@ -228,6 +228,7 @@ BAD_FLAGS = {
     VaultFlag.morpho_issues,
     VaultFlag.not_in_morpho_api,
     VaultFlag.depegged_denomination_token,
+    VaultFlag.delinquent_markets,
 }
 
 
