@@ -68,6 +68,11 @@ class VaultFlag(str, enum.Enum):
     #: We can deposit now
     deposit = "deposit"
 
+    #: Lighter's exporter treats public deposits as closed despite API status.
+    #: Other adapters do not currently interpret this manual access override.
+    #: This access restriction does not exclude the vault from the catalogue.
+    deposits_closed = "deposits_closed"
+
     #: We can redeem now
     redeem = "redeem"
 
@@ -1391,10 +1396,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
     # Lighter Liquidity Provider (LLP) — requires LIT token staking for deposits
     "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
-    # Lighter LLP on Robinhood Chain. For now this has a separate note because
-    # the deployment uses USDG and Robinhood's documentation does not state
-    # that Ethereum LLP's USDC/LIT staking requirements apply here.
-    "lighter-pool-robinhood-281474976710654": (None, LIGHTER_ROBINHOOD_LLP_INSURANCE),
+    # Lighter Robinhood Liquidity Provider (LLP), Robinhood deployment.
+    # 2026-11-17: Maintainer reports public deposits closed and requests a
+    # manual override even when the API reports an active pool. This is an
+    # access restriction, not evidence that trading or withdrawals are paused.
+    # Native pool identifier; there is no ERC-4626 vault contract to link.
+    # https://tradingstrategy.ai/vaults/lighter-robinhood-liquidity-provider-llp
+    # https://robinhood.com/us/en/support/articles/robinhood-wallet-perpetual-futures/
+    "lighter-pool-robinhood-281474976710654": (VaultFlag.deposits_closed, LIGHTER_ROBINHOOD_LLP_INSURANCE),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
     # Morpho Moonwell Flagship USDC Compounder (Base)
