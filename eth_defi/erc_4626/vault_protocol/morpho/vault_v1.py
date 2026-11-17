@@ -35,6 +35,7 @@ from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, 
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.withdrawal_capacity_readers import morpho_v1_observation
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,15 @@ class MorphoV1Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault`
     for the newer adapter-based architecture.
     """
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read same-block withdrawal facts through the verified protocol path.
+
+        :param block_identifier: Resolved numeric source block.
+        :return: Primitive capacity, TVL and directional pause observation.
+        """
+        data = morpho_v1_observation(self, block_identifier)
+        return data
 
     def get_deposit_manager(self) -> MorphoV1DepositManager:
         """Use MetaMorpho's bounded redemption rounding preflight."""

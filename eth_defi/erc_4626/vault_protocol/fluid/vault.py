@@ -33,6 +33,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import fluid_observation
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,14 @@ class FluidVault(ERC4626Vault):
     - Fees are internalised into the share price through interest accrual
     - No explicit deposit or withdrawal fees
     """
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read block-pinned assets while preserving unknown route constraints.
+
+        :param block_identifier: Numeric source block.
+        :return: Primitive buffer and TVL observation.
+        """
+        return fluid_observation(self, block_identifier)
 
     def is_whitelisted_deposit(self) -> bool:
         """Fluid fToken and Lite deposits have no depositor allowlist.

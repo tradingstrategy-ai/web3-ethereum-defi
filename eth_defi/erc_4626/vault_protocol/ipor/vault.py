@@ -34,6 +34,7 @@ from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.withdrawal_capacity_readers import ipor_observation
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: PlasmaVaultLib.sol
@@ -337,6 +338,14 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
     - `FeeManager.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeManager.sol>`__
     - `FeeAccount.sol <https://github.com/IPOR-Labs/ipor-fusion/blob/main/contracts/managers/fee/FeeAccount.sol>`__
     """
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read block-pinned assets while preserving unknown route constraints.
+
+        :param block_identifier: Numeric source block.
+        :return: Primitive buffer and TVL observation.
+        """
+        return ipor_observation(self, block_identifier)
 
     @cached_property
     def atomist(self) -> str | None:

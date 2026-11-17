@@ -42,12 +42,17 @@ in the protocol README.
 - **Per protocol** `eth_defi/abi/<protocol>/*.json` — protocol-specific
   interfaces (`lagoon/`, `ipor/`, `plutus/`, `accountable/`, …). Use
   `eth_defi/abi/lagoon/` as the structural reference.
-- **Per-protocol `README.md`** — each protocol directory that holds an
-  externally-fetched ABI must record its **canonical source**: the chain, the
-  proxy address, the implementation address, the explorer/Sourcify URL and the
-  fetch date. See `eth_defi/abi/yieldnest/README.md`,
-  `eth_defi/abi/plutus/README.md` and `eth_defi/abi/accountable/README.md` for
-  the expected format.
+- **A `README.md` in every ABI folder** — maintain a Markdown inventory with
+  one row per JSON file and the columns **Filename**, **Source**, **Fetched at
+  (UTC)** and **Reason to fetch**. Link the exact Sourcify/Etherscan source;
+  record the chain, deployment address, implementation address where applicable,
+  and the actual retrieval timestamp. Do not confuse a source verification or
+  Git import date with the fetch time. Mark missing legacy provenance explicitly
+  as unrecorded instead of fabricating it.
+
+| Filename | Source | Fetched at (UTC) | Reason to fetch |
+| --- | --- | --- | --- |
+| `Contract.json` | Exact verified Sourcify/Etherscan URL; chain and implementation address | Actual ISO 8601 retrieval timestamp | Integration methods/events/errors that require this complete ABI |
 
 ### File format
 
@@ -63,65 +68,71 @@ the full compiler artifact so their `bytecode` is available for deployment.
 
 ## Fetching a verified ABI
 
-Prefer verified sources in this order: **Sourcify** (decentralised, chain-neutral)
-→ **Etherscan-family explorer** (broadest coverage) → **the project's GitHub**.
-Always resolve proxy → implementation, and always verify the ABI actually
-contains the selectors you expect (compute `keccak` of the signatures) before
-committing it. Prefer a Python snippet over `curl` for explorer reads.
+**Do not create stub, minimal, hand-written or selectively reduced ABI JSON
+files.** Fetch and store the complete verified ABI from **Sourcify (preferred)**
+or **Etherscan**. Keep all functions, events, custom errors and tuple components;
+do not rename outputs, select only the calls currently needed, or merge invented
+fragments. Extracting the entire `abi` array from a verified metadata response
+and formatting it as JSON is allowed; changing its contents is not.
 
-### 1. Etherscan v2 unified API (recommended)
+Resolve proxy → implementation before selecting the ABI. Record the deployed
+proxy and verified implementation addresses in the folder README. Multiple
+implementations/modules need their own verified ABIs rather than a hand-made
+combined interface. A complete proxy-plumbing ABI is not a substitute for its
+implementation's business interface.
 
-One API key works across all supported chains (Ethereum, Arbitrum, Base, BNB,
-Polygon, Avalanche, Monad, …) via a `chainid` parameter. Keys come from the
-environment (`ETHERSCAN_API_KEY`, plus chain-specific keys such as
-`ARBISCAN_API_KEY` / `BASE_ETHERSCAN_API_KEY`); never hardcode them.
+### 1. Sourcify server v2 API (preferred)
 
-- Direct ABI: `GET https://api.etherscan.io/v2/api?chainid={chain}&module=contract&action=getabi&address={addr}&apikey={key}`
-- Source + proxy resolution:
-  `...&action=getsourcecode&address={addr}` returns `Proxy` and
-  `Implementation`; when `Proxy == "1"`, re-fetch the ABI for the
-  `Implementation` address.
+Use the current [Sourcify server API](https://docs.sourcify.dev/docs/api/), not
+the retired v1 `/files/any` endpoint. The lookup returns the complete verified
+ABI, compilation identity and proxy-resolution information:
 
 ```python
-import json, os, urllib.parse, urllib.request
+import json
+from pathlib import Path
 
-def fetch_abi(chain_id: int, address: str) -> list:
-    key = os.environ["ETHERSCAN_API_KEY"]
-    base = "https://api.etherscan.io/v2/api"
+import requests
 
-    def get(action: str, addr: str) -> dict:
-        q = urllib.parse.urlencode({"chainid": chain_id, "module": "contract", "action": action, "address": addr, "apikey": key})
-        with urllib.request.urlopen(f"{base}?{q}", timeout=30) as r:
-            return json.loads(r.read())
-
-    src = get("getsourcecode", address)["result"][0]
-    target = src["Implementation"] if src.get("Proxy") == "1" and src.get("Implementation") else address
-    abi_raw = get("getabi", target)["result"]
-    return json.loads(abi_raw)  # write this to eth_defi/abi/<protocol>/<Contract>.json
+chain_id = 8453
+implementation = "0x30a9A9654804F1e5b3291a86E83EdeD7cF281618"
+url = f"https://sourcify.dev/server/v2/contract/{chain_id}/{implementation}"
+response = requests.get(
+    url,
+    params={"fields": "abi,proxyResolution,compilation"},
+    timeout=30,
+)
+response.raise_for_status()
+verified = response.json()
+# Inspect proxyResolution first; fetch the implementation if this is a proxy.
+Path("eth_defi/abi/euler/EVault.json").write_text(
+    json.dumps(verified["abi"], indent=2) + "\n", encoding="utf-8"
+)
 ```
 
-### 2. Sourcify
+A missing Sourcify verification is a reason to try Etherscan, not to author a
+local substitute. Store the source URL, chain, resolved addresses, retrieval time
+and reason in the folder inventory. A source's `verifiedAt` is not its fetch time.
 
-Sourcify hosts decentralised, source-verified metadata (the ABI lives inside the
-Solidity metadata JSON at `output.abi`). No API key.
+### 2. Etherscan v2 unified API (fallback)
 
-- `GET https://repo.sourcify.dev/contracts/full_match/{chainId}/{address}/metadata.json`
-  (fall back to `partial_match/`), then read `metadata["output"]["abi"]`.
-- Or the API server: `https://sourcify.dev/server/files/any/{chainId}/{address}`.
-- Resolve the proxy's implementation address first (from the explorer or the
-  proxy's `implementation()` storage slot), then fetch the implementation.
+Use Etherscan when Sourcify does not have the verified contract. The unified API
+accepts a `chainid` and supports `module=contract` with `action=getsourcecode`
+and `action=getabi`. `getsourcecode` supplies the proxy/implementation identity;
+fetch the verified implementation's full ABI when `Proxy == "1"`.
 
-### 3. GitHub / project export
+Keys come from environment variables such as `ETHERSCAN_API_KEY`; never print
+or commit their values or authenticated request URLs. Prefer Python requests
+with a `params` dictionary to shell commands. Store the complete decoded
+`getabi` result, not selected entries, and cite the public verified-code page
+(`https://etherscan.io/address/<address>#code`) in the inventory. Retain raw
+verification receipts outside Git when useful for auditing.
 
-Some protocols do not verify on an explorer but publish ABIs or interfaces in
-their contracts repo (or a docs/SDK export). Commit the application-exported or
-repo-exported interface JSON and record the exact source URL and commit/tag in
-the protocol README. For a narrowly-scoped adapter that only needs a handful of
-stable no-argument view methods without an available ABI, using canonical
-4-byte selectors directly (see `EncodedCall` below) is acceptable instead of
-committing a full ABI — link the
-authoritative source in the module docstring and cover every decoded value with
-a fork test.
+If neither verified source provides the ABI, report the missing verification
+and leave the dependent work explicit. Do not construct JSON from Solidity
+signatures, documentation or a small interface copied from project source.
+Deliberate ABI-less discovery probes may still use the existing selector helpers;
+document why the probe has no verified ABI. This does not permit committing a
+stub ABI file.
 
 ### Repo-integrated contracts — rebuild with the Makefile, do not fetch
 
@@ -207,8 +218,8 @@ vault = get_deployed_contract(web3, "yieldnest/Vault.json", "0x01ba69727e2860b37
 max_redeem = vault.functions.maxRedeem(owner).call()
 ```
 
-Load a custom-error selector for typed preflight/decoding (fragment ≤ 1–2
-entries may stay inline; larger sets belong in the committed ABI):
+Use a known custom-error selector for typed preflight/decoding; fetch a full
+verified ABI when a contract binding or error argument schema is needed:
 
 ```python
 from hexbytes import HexBytes
@@ -237,13 +248,27 @@ probe = EncodedCall.from_keccak_signature(
 - Store ABIs under `eth_defi/abi/<protocol>/`; load through the helpers above.
 - Prefer ABI-backed proxy calls and `EncodedCall.from_contract_call()` whenever
   the stored interface provides the function; do not handcraft equivalent calls.
-- Do not inline ABIs in Python beyond a one- or two-entry fragment.
+- Never generate stub ABI JSON or inline fragments as substitutes for complete
+  verified external ABIs; fetch Sourcify first, then Etherscan.
 - For a proxy, commit the **implementation** ABI, not the proxy ABI.
-- Record the canonical source (chain, proxy, implementation, URL, date) in the
-  protocol `README.md`.
+- Maintain each folder's README inventory: Filename, Source, Fetched at (UTC),
+  Reason to fetch; record chain/proxy/implementation identity and do not invent
+  missing legacy provenance.
 - Regenerate repo-integrated contract ABIs with the compiler via the `Makefile`
   targets (e.g. `make guard safe-integration`, or `make
   compile-projects-and-prepare-abi` for the full set) — never hand-edit a
-  generated artifact. Commit verified / exported JSON for external deployments.
+  generated artifact. Fetch complete verified JSON for external deployments.
 - A fixed-block fork regression proves an ABI decodes for the tested route; it
   does not assert a later proxy upgrade is identical.
+
+### Withdrawal-capacity reader ABIs
+
+The capacity readers use complete verified ABI arrays, with individual source
+URLs and fetch timestamps in [Euler](euler/README.md), [Fluid](fluid/README.md)
+and [IPOR](ipor/README.md). They do not contain hand-declared capacity interfaces.
+The Euler binding uses the resolved EVault implementation. Fluid uses a complete
+ERC-20-route ABI for `getData()` and a complete native-route ABI for the optional
+`NATIVE_TOKEN_ADDRESS()` probe. IPOR uses the verified WithdrawManager ABI for
+`getSharesToRelease()`; its manager address is resolved from the vault storage
+slots described in the IPOR inventory. These bindings add decoding coverage,
+not a claim that all available withdrawal routes have been measured.

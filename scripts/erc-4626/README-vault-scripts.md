@@ -19,6 +19,12 @@ Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
 
+For a stateful manual capacity check on one chain, use
+[`refresh-withdrawal-capacity.py`](refresh-withdrawal-capacity.py); see the
+[capacity diagnostic instructions](../../docs/README-withdrawal-capacity.md#run-the-scheduled-refresh-manually).
+It runs normal due batches against an isolated copy and preserves resumable
+check timestamps without changing the source catalogue.
+
 ## Instructions for migration scripts
 
 Read the [migration documentation](../../.claude/docs/migration-scripts.md)
