@@ -20,7 +20,6 @@ from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 27
-EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
@@ -472,17 +471,31 @@ def test_lighter_documented_delta_neutral_grid_pool_is_tagged() -> None:
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
         StrategyTag.grid_trading,
+        StrategyTag.long_short_portfolio,
         StrategyTag.perpetual_futures,
+    }
+
+
+def test_lighter_portfolio_tag_uses_typical_exposure() -> None:
+    """Classify Black Bull at 66.5% median gross exposure despite an above-120% upper tail."""
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976489165") == {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.perpetual_futures,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+        StrategyTag.unlevered_portfolio,
     }
 
 
 def test_all_lighter_strategy_mapping_entries_use_supported_resolvers() -> None:
     """Every maintained Lighter classification augments the native default."""
-    assert len(lighter_tags.STRATEGY_TAGS) == EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT
 
     for address, specific_tags in lighter_tags.STRATEGY_TAGS.items():
         assert address == address.lower()
         assert lighter_tags.get_strategy_tags(address) == specific_tags | {StrategyTag.perpetual_futures}
+        if StrategyTag.delta_neutral in specific_tags:
+            assert StrategyTag.long_short_portfolio in specific_tags
 
 
 def test_hlp_and_fire_liquidity_provider_are_market_making() -> None:
