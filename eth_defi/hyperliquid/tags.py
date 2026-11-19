@@ -125,16 +125,23 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.directional_trading,
         StrategyTag.trend_following,
     },
-    #: Vault: HyperNeutral #1 on Hypercore (9999).
-    #: Added: 2026-11-14.
-    #: Decision material: Maintainer explicitly assigned long-short portfolio.
-    #: The current vault page confirms the address and describes a market
-    #: neutral strategy; no additional strategy tags are inferred.
-    #: Sources:
-    #: - https://tradingstrategy.ai/vaults/hyperneutral-1
-    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.long_short_portfolio},
     # The following position statistics use the Hyperliquid HF archive
     # (hyperliquid-vaults-hf.duckdb), 13 October to 11 November 2026 UTC.
+    # Exposure and concentration figures are in the freqtrade-strategies
+    # research output data/hyperliquid-ls-vault-pilot/snapshot-risk.csv.
+    #: Vault: HyperNeutral #1 on Hypercore (9999).
+    #: Added: 2026-11-14.
+    #: Updated: 2026-11-19. Added the diversified low-exposure subtype.
+    #: Decision material: The maintainer originally assigned long-short portfolio.
+    #: The operator describes a market-neutral strategy.
+    #: In the 13 October to 11 November 2026 Hyperliquid snapshots, median
+    #: gross exposure was 69% of equity across median books of 49 longs and
+    #: 57 shorts. The five largest positions accounted for 28% of gross at the median.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/hyperneutral-1
+    #: - https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794 (archived position comparison)
+    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio},
     #: Vault: Edge & Hedge on Hypercore (9999).
     #: Added: 2026-11-19.
     #: Decision material: The operator describes a quantitative
@@ -150,11 +157,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The operator describes a systematic market-neutral
     #: mandate. The archive shows broad, near-balanced long and short books
     #: in every reviewed snapshot, with median exposures of 18% and 19% of
-    #: equity.
+    #: equity. Median books held 74 longs and 94 shorts. At the median, the
+    #: five largest positions accounted for 14% of gross exposure.
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x14ecb3f4932522b8d508fa6e237e2746a4999feb
     #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
-    "0x14ecb3f4932522b8d508fa6e237e2746a4999feb": {StrategyTag.long_short_portfolio},
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794 (archived position comparison)
+    "0x14ecb3f4932522b8d508fa6e237e2746a4999feb": {StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio},
     #: Vault: Abs Return Sophon Quant on Hypercore (9999).
     #: Added: 2026-11-19.
     #: Decision material: The operator describes a long-short portfolio of
@@ -189,6 +198,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The operator describes a multi-strategy
     #: market-neutral mandate. The archive shows sustained long and short
     #: exposure, with median books of 48 long and 92 short markets.
+    #: Five positions accounted for 49% of gross exposure at the median,
+    #: supporting only the broader long-short portfolio classification.
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x9114a5161f18739ced233190861ea275c8b3a99b
     #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)

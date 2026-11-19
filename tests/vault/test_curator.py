@@ -38,7 +38,7 @@ def test_identify_hyperneutral() -> None:
     assert identify_curator(999, "", "Unbranded vault", address, "hyperliquid") is None
     assert get_curator_name("hyperneutral") == "HyperNeutral"
     assert not is_protocol_curator("hyperneutral")
-    assert get_strategy_tags(address) == {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    assert get_strategy_tags(address) == {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio}
     yaml_path = Path(__file__).resolve().parents[2] / "eth_defi/data/feeds/curators/hyperneutral.yaml"
     metadata = build_curator_metadata_json(yaml_path)
     assert metadata["twitter"] == "https://x.com/HyprNeutral"

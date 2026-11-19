@@ -33,7 +33,7 @@ def test_hyperneutral_native_export_strategy_tags() -> None:
     :return: ``None`` after checking resolver and export output.
     """
     address = "0x8bb033130be354eed1110ce7228d7095f001d9fe"
-    expected = {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    expected = {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio}
     for variant in (address, address.upper()):
         _, row = create_hyperliquid_vault_row(HexAddress(variant), "HyperNeutral #1", None, 1_000, datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC).replace(tzinfo=None))
         assert row["_strategy_tags"] == expected

@@ -80,6 +80,11 @@ class StrategyTag(str, enum.Enum):
     #: Market neutrality depends on how the two legs are sized and hedged.
     long_short_portfolio = "long_short_portfolio"
 
+    #: Spreads long and short positions across many markets, with a modest share
+    #: in the largest holdings. Gross exposure usually stays below portfolio equity.
+    #: Pair with :attr:`long_short_portfolio`. Example vault: HyperNeutral #1.
+    diversified_low_exposure_long_short_portfolio = "diversified_low_exposure_long_short_portfolio"
+
     #: Maintains a fixed long or short exposure to one underlying asset using
     #: leverage. This is direct market exposure, not a trading signal,
     #: selection method, or other trade intelligence.
@@ -318,7 +323,7 @@ class StrategyTagMetadata(TypedDict):
     #: Human-readable category label without Markdown links.
     label: str
 
-    #: Short, plain-language summary of the investment activity.
+    #: Markdown description of the investment activity, including linked examples where useful.
     description: str
 
 
@@ -341,7 +346,13 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.long_short_portfolio: {
         "label": "Long-short portfolio",
-        "description": "Pairs [long and short positions](https://tradingstrategy.ai/glossary/directional-strategy), seeking returns from how they perform relative to each other.",
+        "description": "Pairs [long and short positions](https://tradingstrategy.ai/glossary/directional-strategy), seeking returns from how they perform relative to each other. A [diversified low-exposure portfolio](https://tradingstrategy.ai/vaults/strategies/diversified-low-exposure-long-short-portfolio) spreads those positions across many markets and usually keeps their combined size below its equity.",
+    },
+    StrategyTag.diversified_low_exposure_long_short_portfolio: {
+        "label": "Diversified low-exposure long–short portfolio",  # noqa: RUF001 - The public label uses an en dash.
+        "description": """This [long-short portfolio](https://tradingstrategy.ai/vaults/strategies/long-short-portfolio) spreads positions across many markets, with a modest share in its largest holdings. **Gross exposure**, the value of longs and shorts added together, usually stays below portfolio equity. Losses can arise when longs underperform the assets sold short or when fees and funding costs outweigh trading gains.
+
+For example, [HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1) held a median of 49 longs and 57 shorts from 13 October to 11 November 2026, with median gross exposure of 69% of equity.""",
     },
     StrategyTag.directional_leverage: {
         "label": "Directional leverage",
