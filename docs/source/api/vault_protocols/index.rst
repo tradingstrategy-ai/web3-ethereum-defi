@@ -24,4 +24,5 @@ numbered migration and execute it through the unified runner.
    eth_defi.vault_protocols.repairs.strategy_tags
    eth_defi.vault_protocols.repairs.descriptions
    eth_defi.vault_protocols.repairs.price_backfill
+   eth_defi.vault_protocols.repairs.vault_onboarding
    eth_defi.vault_protocols.repairs.dense_timestamps

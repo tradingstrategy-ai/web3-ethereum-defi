@@ -12,7 +12,6 @@ migration batch test can replace them without provider access.
 
 import datetime
 import logging
-import pickle  # noqa: S403 - reads the trusted local reader-state pickle
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,7 +33,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault_protocols.migration import MigrationContext
 from eth_defi.vault_protocols.repairs import price_backfill
-from eth_defi.vault_protocols.repairs.price_backfill import READER_STATE_FILE_NAME, PriceBackfillTarget
+from eth_defi.vault_protocols.repairs.price_backfill import PriceBackfillTarget, read_price_cursor
 
 logger = logging.getLogger(__name__)
 
@@ -224,31 +223,6 @@ def build_market_rows(web3: Web3, candidates: list[WildcatMarketCandidate], bloc
         finally:
             token_cache.close()
     return rows
-
-
-def read_price_cursor(data_dir: Path, chain_id: int) -> int:
-    """Read the block at which ordinary price scanning resumes for a chain.
-
-    The scanner starts every vault without its own reader state, such as a
-    newly added market, at the chain's highest stored ``last_block`` plus
-    one.
-
-    :param data_dir:
-        Pipeline data directory holding the hourly reader-state pickle.
-    :param chain_id:
-        EVM chain id.
-    :return:
-        Highest stored ``last_block`` of the chain.
-    :raise ValueError:
-        If the chain has no stored price scan.
-    """
-    with (data_dir / READER_STATE_FILE_NAME).open("rb") as inp:
-        states = pickle.load(inp)  # noqa: S301 - trusted local production reader-state pickle.
-    cursor = max(((state.get("last_block") or 0) for spec, state in states.items() if spec.chain_id == chain_id), default=0)
-    if not cursor:
-        message = f"Chain {chain_id} has no stored price scan to continue from"
-        raise ValueError(message)
-    return cursor
 
 
 def read_lead_cursor(context: MigrationContext) -> int:

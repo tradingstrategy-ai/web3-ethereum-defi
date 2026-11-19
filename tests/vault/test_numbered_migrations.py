@@ -33,7 +33,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import dense_timestamps, flying_tulip, price_backfill, timestamp_storage, veranta, wildcat
+from eth_defi.vault_protocols.repairs import dense_timestamps, flying_tulip, price_backfill, timestamp_storage, vault_onboarding, veranta, wildcat
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -52,6 +52,9 @@ PMALT_LIGHTER = VaultSpec(9998, "lighter-pool-281474976552918")
 #: Peapods deployments required by migration 036.
 PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
 
+
+#: Llama Lend market onboarded by migration 082.
+LLAMA_LEND_WSTGBP = VaultSpec(1, "0xe279c1c1c246b6f8f32c55b7820c2164151c5570")
 
 #: Euler deployment required by migration 040.
 K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
@@ -286,6 +289,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     monkeypatch.setattr(wildcat, "check_registry_coverage", lambda web3, cursor_block: None)
     monkeypatch.setattr(wildcat, "build_market_rows", lambda web3, candidates, block: {VaultSpec(c.chain, c.address): {"Protocol": "Wildcat", "_detection_data": c} for c in candidates})
     monkeypatch.setattr(wildcat, "read_price_cursor", lambda data_dir, chain_id: 26_000_000)
+    # Vault onboarding reads are covered by tests/vault/test_vault_onboarding_migration.py.
+    monkeypatch.setattr(vault_onboarding, "create_chain_web3", lambda chain_id: SimpleNamespace(eth=SimpleNamespace(block_number=26_500_000)))
+    monkeypatch.setattr(vault_onboarding, "build_vault_row", lambda web3, target, block: {"Protocol": target.expected_protocol, "_detection_data": detection(target.as_spec(), ERC4626Feature.llamma_like)})
+    monkeypatch.setattr(vault_onboarding, "read_price_cursor", lambda data_dir, chain_id: 26_500_000)
     # Veranta live reads are separately fork-tested; the batch checks composition.
     provider = Mock()
     provider.eth.chain_id = 8453
@@ -356,8 +363,8 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
     # No reviewed Wildcat market is registered by the batch's lead cursor at block 12,345
-    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA}
-    assert database.leads == {}
+    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP}
+    assert set(database.leads) == {LLAMA_LEND_WSTGBP}
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
     assert path.read_bytes() == applied
     state = runner.load_state(batch_database / "migration.json")
