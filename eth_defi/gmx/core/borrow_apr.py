@@ -6,11 +6,12 @@ This module provides borrow APR data for GMX protocol markets.
 
 import logging
 
-logger = logging.getLogger(__name__)
-
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.types import PositionSideData
+
+logger = logging.getLogger(__name__)
 
 
 class GetBorrowAPR(GetData):
@@ -61,8 +62,9 @@ class GetBorrowAPR(GetData):
 
         for key, output in zip(mapper, threaded_output):
             if output is not None:  # Check that output is not None
-                self.output["long"][key] = (output[1] / 10**28) * 3600
-                self.output["short"][key] = (output[2] / 10**28) * 3600
+                named = reader_named_output(output, "getMarketInfo")
+                self.output["long"][key] = (named["borrowingFactorPerSecondForLongs"] / 10**28) * 3600
+                self.output["short"][key] = (named["borrowingFactorPerSecondForShorts"] / 10**28) * 3600
 
                 logger.debug("%s\nLong Borrow Hourly Rate: -%.5f%%\nShort Borrow Hourly Rate: -%.5f%%\n", key, self.output["long"][key], self.output["short"][key])
             else:

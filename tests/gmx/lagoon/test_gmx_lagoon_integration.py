@@ -17,7 +17,7 @@ from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.testing import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.testing.fork_blocks import ARBITRUM_GMX_V221_FORK_BLOCK
 from eth_defi.testing.gmx_lagoon import (
     GMX_EXCHANGE_ROUTER,
     GMX_SYNTHETICS_ROUTER,
@@ -90,7 +90,7 @@ def lagoon_gmx_fork_env(
     assert chain_name == "arbitrum"
     launch = anvil_fork_pool.get_launch(
         os.environ["JSON_RPC_ARBITRUM"],
-        ARBITRUM_MIDNIGHT_BLOCK,
+        ARBITRUM_GMX_V221_FORK_BLOCK,
         isolation_group="fork:arbitrum:gmx-lagoon",
         unlocked_addresses=[USDC_WHALE, WETH_WHALE],
         test_request_timeout=100,

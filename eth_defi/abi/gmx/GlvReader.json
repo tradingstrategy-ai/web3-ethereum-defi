@@ -1160,7 +1160,187 @@
         "type": "bool"
       }
     ],
+    "name": "getGlvTokenPriceForDeposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract DataStore",
+        "name": "dataStore",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "marketAddresses",
+        "type": "address[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props[]",
+        "name": "indexTokenPrices",
+        "type": "tuple[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props",
+        "name": "longTokenPrice",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props",
+        "name": "shortTokenPrice",
+        "type": "tuple"
+      },
+      {
+        "internalType": "address",
+        "name": "glv",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "maximize",
+        "type": "bool"
+      }
+    ],
     "name": "getGlvValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract DataStore",
+        "name": "dataStore",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "marketAddresses",
+        "type": "address[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props[]",
+        "name": "indexTokenPrices",
+        "type": "tuple[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props",
+        "name": "longTokenPrice",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "min",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "max",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Price.Props",
+        "name": "shortTokenPrice",
+        "type": "tuple"
+      },
+      {
+        "internalType": "address",
+        "name": "glv",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "maximize",
+        "type": "bool"
+      }
+    ],
+    "name": "getGlvValueForDeposit",
     "outputs": [
       {
         "internalType": "uint256",

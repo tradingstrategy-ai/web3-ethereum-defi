@@ -1,23 +1,17 @@
 """
-Close a GMX position held by a Lagoon vault on Arbitrum Sepolia
+Unsupported GMX position recovery for a Lagoon vault on Arbitrum Sepolia
 
-Flattens an open GMX perpetuals position through the vault's guard, reading the
-position size directly from the on-chain ``SyntheticsReader``.
+This script was designed to close an orphaned testnet position through the
+vault's guard without redeploying its vault.
 
 Why this exists
 ---------------
 
 ``scripts/lagoon/lagoon-gmx-example.py`` deploys a fresh vault on every run, so a
-run that fails partway leaves an orphaned position behind, owned by a vault the
-next run knows nothing about. This script closes such a position without
-redeploying anything.
-
-It also works around a testnet limitation. GMX publishes no REST or GraphQL
-position source for ``arbitrum_sepolia``, so the CCXT adapter's position lookup
-falls back to on-chain reads and is unreliable there — it can report "no position"
-while one is plainly open on chain, at which point a close silently becomes a
-no-op. Reading the size straight from the ``SyntheticsReader`` and passing it as
-an explicit USD close size sidesteps that entirely.
+run that fails partway can leave an orphaned position behind. Recovery is
+currently unsupported with the vendored v2.2.1 ABI: Sepolia still returns the
+older Reader tuple layout. This script stops with an explicit
+``GMXReleaseMismatchError`` until a matching Sepolia Reader ABI is vendored.
 
 Usage
 -----
@@ -62,7 +56,7 @@ import time
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract
+from eth_defi.gmx.contracts import GMXReleaseMismatchError
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -131,29 +125,20 @@ def resolve_private_key() -> str:
 
 
 def fetch_position(web3: Web3, safe_address: str) -> tuple[float, bool, float] | None:
-    """Read the Safe's first open GMX position from the on-chain reader.
+    """Reject Sepolia position reads until a matching Reader ABI is vendored.
 
-    Deliberately bypasses the CCXT adapter's position lookup, which is unreliable
-    on Arbitrum Sepolia — GMX serves no REST or GraphQL position data there.
+    The current vendored Reader ABI belongs to Arbitrum v2.2.1, while Sepolia
+    still returns the v2.2c-era tuple layout. Decoding with the wrong layout can
+    silently produce incorrect position sizes during recovery.
 
     :param web3: Web3 connection to Arbitrum Sepolia.
     :param safe_address: Safe that owns the position.
-    :return: ``(size_usd, is_long, collateral_amount)``, or ``None`` when flat.
+    :return: Never returns until a Sepolia-compatible Reader ABI is available.
+    :raises GMXReleaseMismatchError: Sepolia Reader has not migrated to v2.2.1.
     """
-    addresses = get_contract_addresses("arbitrum_sepolia")
-    reader = get_reader_contract(web3, "arbitrum_sepolia")
-    positions = reader.functions.getAccountPositions(
-        Web3.to_checksum_address(addresses.datastore),
-        Web3.to_checksum_address(safe_address),
-        0,
-        10,
-    ).call()
-
-    if not positions:
-        return None
-
-    numbers, flags = positions[0][1], positions[0][2]
-    return numbers[0] / 10**30, flags[0], numbers[2] / 10**6
+    raise GMXReleaseMismatchError(
+        "Sepolia position recovery is unsupported with the vendored v2.2.1 ABI; the Sepolia Reader has not migrated to this layout.",
+    )
 
 
 def wait_until_flat(web3: Web3, safe_address: str, timeout: int = KEEPER_TIMEOUT) -> bool:
@@ -173,10 +158,15 @@ def wait_until_flat(web3: Web3, safe_address: str, timeout: int = KEEPER_TIMEOUT
 
 
 def main() -> int:
-    """Close the vault's open GMX position.
+    """Reject the unsupported Sepolia position recovery before setup.
 
     :return: Process exit code.
+    :raises GMXReleaseMismatchError: The Sepolia Reader ABI is not vendored.
     """
+    raise GMXReleaseMismatchError(
+        "Sepolia position recovery is unsupported with the vendored v2.2.1 ABI; the Sepolia Reader has not migrated to this layout.",
+    )
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = parse_args()
 

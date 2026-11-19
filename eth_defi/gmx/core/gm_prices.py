@@ -241,6 +241,7 @@ class GetGMPrices(GetData):
             for symbol, result in zip(market_symbols, threaded_results):
                 try:
                     if result and len(result) > 0:
+                        assert len(result) == 2, "Unexpected Reader getMarketTokenPrice return tuple layout"
                         # Convert from wei to USD by dividing by 10^30
                         price_usd = result[0] / 10**30
                         prices_dict[symbol] = price_usd
@@ -265,6 +266,8 @@ class GetGMPrices(GetData):
             logger.debug("Successfully processed GM prices for %s markets", len(prices_dict))
             return output
 
+        except AssertionError:
+            raise
         except Exception as e:
             logger.error("Failed to process GM prices data: %s", e)
             return {"gm_prices": {}, "parameter": "gm_prices", "error": str(e), "timestamp": int(time.time()), "chain": self.config.chain}

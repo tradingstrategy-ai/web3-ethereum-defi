@@ -1429,6 +1429,11 @@
         "type": "uint256"
       },
       {
+        "internalType": "enum Order.DecreasePositionSwapType",
+        "name": "decreasePositionSwapType",
+        "type": "uint8"
+      },
+      {
         "internalType": "bool",
         "name": "autoCancel",
         "type": "bool"

@@ -64,6 +64,7 @@ from eth_defi.gmx.contracts import (
     get_contract_addresses,
     get_reader_contract,
 )
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketPriceTuple, MarketTokenAddresses, OraclePriceMap, RawOraclePriceRange
 from eth_defi.token import TokenDetails
@@ -335,11 +336,11 @@ def _fetch_market_token_addresses(
     raw_markets = reader.functions.getMarkets(datastore_address, 0, 1000).call(block_identifier=block_identifier)
 
     market_tokens: dict[HexAddress, MarketTokenAddresses] = {}
-    for raw_market in raw_markets:
-        market_addr = HexAddress(to_checksum_address(raw_market[0]))
-        index_token = HexAddress(to_checksum_address(raw_market[1]))
-        long_token = HexAddress(to_checksum_address(raw_market[2]))
-        short_token = HexAddress(to_checksum_address(raw_market[3]))
+    for raw_market in reader_named_output(raw_markets, "getMarkets"):
+        market_addr = HexAddress(to_checksum_address(raw_market["marketToken"]))
+        index_token = HexAddress(to_checksum_address(raw_market["indexToken"]))
+        long_token = HexAddress(to_checksum_address(raw_market["longToken"]))
+        short_token = HexAddress(to_checksum_address(raw_market["shortToken"]))
 
         if index_token == _ZERO_ADDRESS:
             if market_addr == _WSTETH_MARKET:
@@ -426,7 +427,8 @@ def _fetch_gmx_positions_value(
         logger.info("No open GMX positions for %s", account)
         return Decimal(0)
 
-    market_addresses = sorted({to_checksum_address(raw_position[0][1]) for raw_position in raw_positions})
+    named_raw_positions = reader_named_output(raw_positions, "getAccountPositions")
+    market_addresses = sorted({to_checksum_address(raw_position["addresses"]["market"]) for raw_position in named_raw_positions})
     market_tokens = _fetch_market_token_addresses(reader, addresses.datastore, block_identifier)
 
     # Every open position's market must resolve to its token triple, or the
@@ -455,14 +457,12 @@ def _fetch_gmx_positions_value(
     ).call(block_identifier=block_identifier)
 
     positions_total = Decimal(0)
-    for position_info in raw_position_infos:
-        # PositionInfo tuple layout (see eth_defi/abi/gmx/Reader.json):
-        # (positionKey, position, fees, executionPriceResult, basePnlUsd,
-        #  uncappedBasePnlUsd, pnlAfterPriceImpactUsd, positionValueInUsd)
-        position = position_info[1]
-        market_address = to_checksum_address(position[0][1])
-        is_long = position[2][0]
-        position_value = Decimal(position_info[7]) / Decimal(10**PRECISION)
+    named_position_infos = reader_named_output(raw_position_infos, "getAccountPositionInfoList")
+    for position_info in named_position_infos:
+        position = position_info["position"]
+        market_address = to_checksum_address(position["addresses"]["market"])
+        is_long = position["flags"]["isLong"]
+        position_value = Decimal(position_info["positionValueInUsd"]) / Decimal(10**PRECISION)
 
         logger.info(
             "Position market=%s is_long=%s value=%s",

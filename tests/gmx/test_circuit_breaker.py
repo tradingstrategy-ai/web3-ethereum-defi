@@ -20,8 +20,7 @@ def test_decode_error_reason_invalid_decrease_order_size():
     from eth_abi import encode
 
     # ABI-encoded InvalidDecreaseOrderSize(uint256, uint256)
-    # selector = be2cbc10
-    selector = bytes.fromhex("be2cbc10")
+    selector = bytes.fromhex("9fbe2cbc")
     params = encode(["uint256", "uint256"], [10 * 10**30, 9 * 10**30])
     reason_bytes = selector + params
     result = decode_error_reason(reason_bytes)
@@ -47,7 +46,7 @@ def test_reason_decoding_logic():
     from eth_abi import encode
 
     # Simulate what Subsquid provides in trade_action["reasonBytes"]
-    selector = bytes.fromhex("be2cbc10")
+    selector = bytes.fromhex("9fbe2cbc")
     params = encode(["uint256", "uint256"], [10 * 10**30, 9 * 10**30])
     raw_hex = (selector + params).hex()  # No 0x prefix (Subsquid format)
 
@@ -62,7 +61,7 @@ def test_reason_decoding_logic_with_0x_prefix():
     """Same as above but with 0x prefix (some providers include it)."""
     from eth_abi import encode
 
-    selector = bytes.fromhex("be2cbc10")
+    selector = bytes.fromhex("9fbe2cbc")
     params = encode(["uint256", "uint256"], [10 * 10**30, 9 * 10**30])
     raw_hex = "0x" + (selector + params).hex()
 

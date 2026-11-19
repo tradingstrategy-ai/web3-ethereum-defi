@@ -5,12 +5,32 @@ This test suite verifies the functionality of the Markets class
 when fetching and processing GMX market information.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from flaky import flaky
-from eth_defi.gmx.core.markets import MarketInfo
+from eth_defi.gmx.core import markets as markets_module
+from eth_defi.gmx.core.markets import MarketInfo, Markets
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_tokens_address_dict
+from eth_defi.gmx.contracts import GMXReleaseMismatchError, get_tokens_address_dict
 from eth_utils import to_checksum_address
+
+
+def test_market_registration_filter_propagates_release_mismatch(monkeypatch):
+    """Do not skip market registration filtering for a known incompatible Reader."""
+    markets = Markets(SimpleNamespace(chain="arbitrum_sepolia", web3=object()))
+
+    def raise_release_mismatch(*args: object) -> None:
+        raise GMXReleaseMismatchError("Sepolia Reader is not migrated")
+
+    monkeypatch.setattr(
+        markets_module,
+        "get_reader_contract",
+        raise_release_mismatch,
+    )
+
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia Reader is not migrated"):
+        markets._fetch_onchain_market_addresses()
 
 
 def test_token_address_checksumming():

@@ -228,6 +228,7 @@ class SwapOrder(BaseOrder):
                 estimation_params["ui_fee_receiver"],
             ).call()
 
+            assert len(result) == 3, "Unexpected Reader getSwapAmountOut return tuple layout"
             # Get output token decimals for formatting
             out_token_details = fetch_erc20_details(self.web3, self.out_token, chain_id=self.chain_id)
 

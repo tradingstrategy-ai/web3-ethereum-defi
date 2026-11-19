@@ -30,6 +30,7 @@ from typing import Optional
 
 from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
 from eth_defi.gmx.contracts import get_datastore_contract, get_reader_contract, get_tokens_address_dict
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.keys import apply_factor, create_hash, create_hash_string, min_collateral
 
@@ -359,90 +360,31 @@ def _transform_position_data(raw_data: list) -> list:
     :param raw_data: Raw position data from contract
     :returns: List of position dictionaries
     """
+    named_positions = reader_named_output(raw_data, "getAccountPositionInfoList")
     result = []
-
-    for pos in raw_data:
-        # Unpack the components
-        (
-            position,
-            referral,
-            fees,
-            base_pnl_usd,
-            uncapped_base_pnl_usd,
-            pnl_after_price_impact_usd,
-        ) = pos
-
+    for pos in named_positions:
+        position = pos["position"]
+        fees = pos["fees"]
         position_dict = {
-            "position": {
-                "addresses": {
-                    "account": position[0][0],
-                    "market": position[0][1],
-                    "collateralToken": position[0][2],
-                },
-                "numbers": {
-                    "sizeInUsd": position[1][0],
-                    "sizeInTokens": position[1][1],
-                    "collateralAmount": position[1][2],
-                    "borrowingFactor": position[1][3],
-                    "fundingFeeAmountPerSize": position[1][4],
-                    "longTokenClaimableFundingAmountPerSize": position[1][5],
-                    "shortTokenClaimableFundingAmountPerSize": position[1][6],
-                    "increasedAtBlock": position[1][7],
-                    "decreasedAtBlock": position[1][8],
-                    "increasedAtTime": position[1][9],
-                    "decreasedAtTime": position[1][10],
-                },
-                "flags": {
-                    "isLong": position[2][0],
-                },
-            },
-            "referral": {
-                "referralCode": referral[0][0],
-                "affiliate": referral[0][1],
-                "trader": referral[0][2],
-                "totalRebateFactor": referral[0][3],
-                "traderDiscountFactor": referral[0][4],
-                "totalRebateAmount": referral[0][5],
-                "traderDiscountAmount": referral[0][6],
-                "affiliateRewardAmount": referral[0][7],
-            },
-            "fees": {
-                "fundingFeeAmount": referral[1][0],
-                "claimableLongTokenAmount": referral[1][1],
-                "claimableShortTokenAmount": referral[1][2],
-                "latestFundingFeeAmountPerSize": referral[1][3],
-                "latestLongTokenClaimableFundingAmountPerSize": referral[1][4],
-                "latestShortTokenClaimableFundingAmountPerSize": referral[1][5],
-            },
-            "borrowing": {
-                "borrowingFeeUsd": referral[2][0],
-                "borrowingFeeAmount": referral[2][1],
-                "borrowingFeeReceiverFactor": referral[2][2],
-                "borrowingFeeAmountForFeeReceiver": referral[2][3],
-            },
-            "ui": {
-                "uiFeeReceiver": referral[3][0],
-                "uiFeeReceiverFactor": referral[3][1],
-                "uiFeeAmount": referral[3][2],
-            },
-            "collateralTokenPrice": {
-                "min": referral[4][0],
-                "max": referral[4][1],
-            },
-            "positionFeeFactor": referral[5],
-            "protocolFeeAmount": referral[6],
-            "positionFeeReceiverFactor": referral[7],
-            "feeReceiverAmount": referral[8],
-            "feeAmountForPool": referral[9],
-            "positionFeeAmountForPool": referral[10],
-            "positionFeeAmount": referral[11],
-            "totalCostAmountExcludingFunding": referral[12],
-            "totalCostAmount": referral[13],
-            "basePnlUsd": base_pnl_usd,
-            "uncappedBasePnlUsd": uncapped_base_pnl_usd,
-            "pnlAfterPriceImpactUsd": pnl_after_price_impact_usd,
+            "position": position,
+            "referral": fees["referral"],
+            "fees": fees["funding"],
+            "borrowing": fees["borrowing"],
+            "ui": fees["ui"],
+            "collateralTokenPrice": fees["collateralTokenPrice"],
+            "positionFeeFactor": fees["positionFeeFactor"],
+            "protocolFeeAmount": fees["protocolFeeAmount"],
+            "positionFeeReceiverFactor": fees["positionFeeReceiverFactor"],
+            "feeReceiverAmount": fees["feeReceiverAmount"],
+            "feeAmountForPool": fees["feeAmountForPool"],
+            "positionFeeAmountForPool": fees["positionFeeAmountForPool"],
+            "positionFeeAmount": fees["positionFeeAmount"],
+            "totalCostAmountExcludingFunding": fees["totalCostAmountExcludingFunding"],
+            "totalCostAmount": fees["totalCostAmount"],
+            "basePnlUsd": pos["basePnlUsd"],
+            "uncappedBasePnlUsd": pos["uncappedBasePnlUsd"],
+            "pnlAfterPriceImpactUsd": pos["pnlAfterPriceImpactUsd"],
+            "positionValueInUsd": pos["positionValueInUsd"],
         }
-
         result.append(position_dict)
-
     return result

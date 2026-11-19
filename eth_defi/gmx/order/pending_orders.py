@@ -31,6 +31,7 @@ from web3 import Web3
 
 from eth_defi.gmx.constants import PRECISION, OrderType
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.keys import account_order_list_key
 
 logger = logging.getLogger(__name__)
@@ -198,33 +199,34 @@ def _parse_raw_order(raw_order: tuple) -> PendingOrder:
     :return:
         Parsed :class:`PendingOrder` instance.
     """
-    order_key: bytes = raw_order[0]
-    props: tuple = raw_order[1]
+    order = reader_named_output([raw_order], "getAccountOrders")[0]
+    order_key: bytes = order["orderKey"]
+    props: dict = order["order"]
 
     # Order.Addresses
-    addresses: tuple = props[0]
-    account = to_checksum_address(addresses[0])
-    receiver = to_checksum_address(addresses[1])
-    cancellation_receiver = to_checksum_address(addresses[2])
-    market = to_checksum_address(addresses[5])
-    initial_collateral_token = to_checksum_address(addresses[6])
-    swap_path: list[HexAddress] = [to_checksum_address(addr) for addr in addresses[7]]
+    addresses: dict = props["addresses"]
+    account = to_checksum_address(addresses["account"])
+    receiver = to_checksum_address(addresses["receiver"])
+    cancellation_receiver = to_checksum_address(addresses["cancellationReceiver"])
+    market = to_checksum_address(addresses["market"])
+    initial_collateral_token = to_checksum_address(addresses["initialCollateralToken"])
+    swap_path: list[HexAddress] = [to_checksum_address(addr) for addr in addresses["swapPath"]]
 
     # Order.Numbers
-    numbers: tuple = props[1]
-    order_type_raw: int = int(numbers[0])
-    size_delta_usd: int = int(numbers[2])
-    initial_collateral_delta_amount: int = int(numbers[3])
-    trigger_price: int = int(numbers[4])
-    acceptable_price: int = int(numbers[5])
-    execution_fee: int = int(numbers[6])
-    updated_at_time: int = int(numbers[10])
+    numbers: dict = props["numbers"]
+    order_type_raw: int = int(numbers["orderType"])
+    size_delta_usd: int = int(numbers["sizeDeltaUsd"])
+    initial_collateral_delta_amount: int = int(numbers["initialCollateralDeltaAmount"])
+    trigger_price: int = int(numbers["triggerPrice"])
+    acceptable_price: int = int(numbers["acceptablePrice"])
+    execution_fee: int = int(numbers["executionFee"])
+    updated_at_time: int = int(numbers["updatedAtTime"])
 
     # Order.Flags
-    flags: tuple = props[2]
-    is_long: bool = bool(flags[0])
-    is_frozen: bool = bool(flags[2])
-    auto_cancel: bool = bool(flags[3])
+    flags: dict = props["flags"]
+    is_long: bool = bool(flags["isLong"])
+    is_frozen: bool = bool(flags["isFrozen"])
+    auto_cancel: bool = bool(flags["autoCancel"])
 
     return PendingOrder(
         order_key=order_key,

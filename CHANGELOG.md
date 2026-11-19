@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Pin GMX to the v2.2.1 contracts and vendored ABIs, read Reader results by field name, decode v2.2.1 custom errors, refuse orders when the resolved ExchangeRouter is not whitelisted on the vault guard, and run GMX fork tests at a fixed post-deployment Arbitrum block (2026-11-17, [#1789](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1789)).
+
 - feat: Apply manual Lighter vault flags alongside description overrides and mark Robinhood LLP deposits closed (2026-11-17).
 
 - Replace withdrawal-capacity ABI stubs with complete verified Sourcify/Etherscan interfaces and require per-folder source inventories (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).

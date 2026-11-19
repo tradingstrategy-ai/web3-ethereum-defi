@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # GMX custom error 4-byte selectors (from eth_defi/gmx/events.py GMX_ERROR_SELECTORS)
-SELECTOR_DISABLED_MARKET = "f8c937db"  # DisabledMarket(address)
+SELECTOR_DISABLED_MARKET = "09f8c937"  # DisabledMarket(address)
 SELECTOR_EMPTY_POSITION = "4dfbbff3"  # EmptyPosition()
 SELECTOR_INSUFFICIENT_COLLATERAL = "74cc815b"  # InsufficientCollateralAmount(uint256, int256)
 SELECTOR_ERROR_STRING = "08c379a0"  # Error(string) — standard Solidity revert
