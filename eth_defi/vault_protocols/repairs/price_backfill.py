@@ -24,6 +24,7 @@ import datetime
 import hashlib
 import logging
 import os
+import pickle  # noqa: S403 - reads the trusted local reader-state pickle
 import shutil
 import tempfile
 from collections.abc import Sequence
@@ -93,6 +94,31 @@ class PriceBackfillTarget:
         :return: Chain and address of the vault.
         """
         return VaultSpec(self.chain_id, self.vault_address)
+
+
+def read_price_cursor(data_dir: Path, chain_id: int) -> int:
+    """Read the block at which ordinary price scanning resumes for a chain.
+
+    The scanner starts every vault without its own reader state, such as a
+    newly added vault, at the chain's highest stored ``last_block`` plus
+    one.
+
+    :param data_dir:
+        Pipeline data directory holding the hourly reader-state pickle.
+    :param chain_id:
+        EVM chain id.
+    :return:
+        Highest stored ``last_block`` of the chain.
+    :raise ValueError:
+        If the chain has no stored price scan.
+    """
+    with (data_dir / READER_STATE_FILE_NAME).open("rb") as inp:
+        states = pickle.load(inp)  # noqa: S301 - trusted local production reader-state pickle.
+    cursor = max(((state.get("last_block") or 0) for spec, state in states.items() if spec.chain_id == chain_id), default=0)
+    if not cursor:
+        message = f"Chain {chain_id} has no stored price scan to continue from"
+        raise ValueError(message)
+    return cursor
 
 
 class PriceBackfillOutcome(TypedDict):

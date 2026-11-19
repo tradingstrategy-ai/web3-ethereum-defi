@@ -341,6 +341,17 @@ without its own reader state. See
 [`064-wildcat-price-backfill.py`](../../migration/scripts/064-wildcat-price-backfill.py)
 and its helpers in `eth_defi/vault_protocols/repairs/wildcat.py`.
 
+Lead discovery caches its result for seven days (`LEAD_DISCOVERY_STATE_TIMEOUT`),
+so a vault whose first deposit falls after the stored lead cursor stays out of
+the scanner, and the export, until the cache expires. To onboard such a reviewed
+ERC-4626 vault sooner, use
+[`vault_onboarding.py`](../../eth_defi/vault_protocols/repairs/vault_onboarding.py):
+it seeds the lead and metadata row, then backfills prices from the first deposit
+to the chain's price cursor plus one. The lead starts with zero flow counts,
+because discovery adds the vault's events when it resumes from the unchanged
+cursor. See
+[`082-llama-lend-wstgbp-crvusd.py`](../../migration/scripts/082-llama-lend-wstgbp-crvusd.py).
+
 Vaults whose readers need extra context, such as event observations or
 protocol-specific DuckDB tables, must prefill that context first, as the
 legacy GMX, YieldBasis, Rysk and Flying Tulip backfills below do. Then call
