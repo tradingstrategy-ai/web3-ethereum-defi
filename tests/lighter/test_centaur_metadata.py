@@ -26,6 +26,15 @@ POOLS = (
     (281474976489165, "Black Bull", "black-bull", "blknoiz06"),
 )
 
+#: Portfolio classifications added by the Lighter public-pool review.
+PORTFOLIO_TAGS = {
+    "Post Fiat": {StrategyTag.leveraged_portfolio, StrategyTag.long_short_portfolio, StrategyTag.portfolio_2x},
+    "Inverse 1000x": {StrategyTag.unlevered_portfolio},
+    "Serenity": {StrategyTag.unlevered_portfolio},
+    "Kole World": {StrategyTag.leveraged_portfolio},
+    "Black Bull": {StrategyTag.unlevered_portfolio},
+}
+
 
 @pytest.mark.parametrize(("account_index", "name", "slug", "trader"), POOLS)
 @pytest.mark.parametrize("source_description", [None, "Stale upstream description."])
@@ -72,7 +81,7 @@ def test_centaur_pool_metadata(account_index: int, name: str, slug: str, trader:
         StrategyTag.perpetual_futures,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
-    }
+    } | PORTFOLIO_TAGS.get(name, set())
     assert row["_strategy_tags"] == expected_tags
     assert get_strategy_tags(spec.vault_address.upper()) == expected_tags
     assert get_handwritten_vault_metadata(LIGHTER_CHAIN_ID, spec.vault_address.upper()) is not None
