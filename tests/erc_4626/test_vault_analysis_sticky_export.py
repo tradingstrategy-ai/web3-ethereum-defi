@@ -269,10 +269,8 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
-    #: These maintainer-requested categories include fuller risk explanations;
-    #: risk-premium harvesting and stablecoin AMM market making also link to
-    #: a concrete vault example.
-    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin}
+    #: These categories include fuller risk explanations, linked examples or related categories.
+    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_2x, StrategyTag.portfolio_3x, StrategyTag.unlevered_portfolio}
     short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
     #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
     assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
@@ -281,6 +279,16 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
     assert all("we " not in description.lower() for description in descriptions)
     assert all("documented assets" not in description.lower() for description in descriptions)
+
+
+def test_long_short_category_links_in_public_export() -> None:
+    """Keep the parent, subtype and example navigable in the exported Markdown."""
+    categories = top_vaults_json.build_strategy_categories_for_export([])
+    parent = categories["long_short_portfolio"]["description"]
+    subtype = categories["diversified_low_exposure_long_short_portfolio"]["description"]
+    assert "(https://tradingstrategy.ai/vaults/strategies/diversified-low-exposure-long-short-portfolio)" in parent
+    assert "(https://tradingstrategy.ai/vaults/strategies/long-short-portfolio)" in subtype
+    assert "[HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1)" in subtype
 
 
 @pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
