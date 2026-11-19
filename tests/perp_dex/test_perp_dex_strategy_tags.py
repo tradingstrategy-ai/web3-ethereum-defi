@@ -33,7 +33,7 @@ def test_hyperneutral_native_export_strategy_tags() -> None:
     :return: ``None`` after checking resolver and export output.
     """
     address = "0x8bb033130be354eed1110ce7228d7095f001d9fe"
-    expected = {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio}
+    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance}
     for variant in (address, address.upper()):
         _, row = create_hyperliquid_vault_row(HexAddress(variant), "HyperNeutral #1", None, 1_000, datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC).replace(tzinfo=None))
         assert row["_strategy_tags"] == expected
@@ -260,6 +260,43 @@ def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
     assert hyperliquid_tags.get_strategy_tags("0xdb25411e42659d910136dbe9c0f8330d952b5df8") == expected
 
 
+def test_buyback_burst_count_alone_does_not_imply_daily_rebalance() -> None:
+    """Buyback had 33 bursts in 30 days, with a median gap of only 11.4 hours."""
+    tags = hyperliquid_tags.get_strategy_tags("0xce71894b42f5c31a6ae6ca4fb77441c68ab15086")
+    assert StrategyTag.long_short_portfolio in tags
+    assert StrategyTag.daily_rebalance not in tags
+
+
+@pytest.mark.parametrize(
+    ("address", "exposure_tags"),
+    [
+        pytest.param("0x9e02aca9865e1859bb7865f6f64801e804a173df", {StrategyTag.portfolio_2x}, id="acevault-202-percent"),
+        pytest.param("0xac26cf5f3c46b5e102048c65b977d2551b72a9c7", {StrategyTag.portfolio_2x}, id="hype-btc-216-percent"),
+        pytest.param("0xce71894b42f5c31a6ae6ca4fb77441c68ab15086", set(), id="buyback-391-percent"),
+    ],
+)
+def test_leveraged_portfolio_exposure_tags(address: HexAddress, exposure_tags: set[StrategyTag]) -> None:
+    """Native exports retain the broader leveraged tag alongside any applicable exposure band."""
+    _, row = create_hyperliquid_vault_row(address, "Leveraged portfolio", None, 1_000, None)
+    tags = row["_strategy_tags"]
+    assert StrategyTag.perpetual_futures in tags
+    assert StrategyTag.algorithmic_trading in tags
+    assert StrategyTag.leveraged_portfolio in tags
+    assert tags & {StrategyTag.portfolio_2x, StrategyTag.portfolio_3x} == exposure_tags
+
+
+def test_orbit_keeps_long_short_tag_below_leverage_threshold() -> None:
+    """Orbit exceeded 120% at the 90th percentile but had a median of 102%."""
+    _, row = create_hyperliquid_vault_row("0x115849ce84370f25cadcf0d348510d73837e1aa5", "Orbit Value Strategies", None, 1_000, None)
+    assert row["_strategy_tags"] == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.unlevered_portfolio,
+        StrategyTag.perpetual_futures,
+        StrategyTag.two_and_half_days_rebalance,
+    }
+
+
 def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
     """Systemic Strategies combines its portfolio and grid classifications."""
     assert hyperliquid_tags.get_strategy_tags("0x07fd993f0fa3a185f7207adccd29f7a87404689d") == {
@@ -267,6 +304,8 @@ def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.portfolio_3x,
         StrategyTag.long_short_portfolio,
         StrategyTag.perpetual_futures,
     }

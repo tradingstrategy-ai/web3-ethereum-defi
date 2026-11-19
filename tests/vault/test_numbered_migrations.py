@@ -169,7 +169,7 @@ def test_systemic_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
     context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
     runner._execute(migration, context)
     # An installation replaying migration 041 uses the current tag registry.
-    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.long_short_portfolio}}
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x}}
     assert context.metadata().rows[target] == expected_row
     assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
     assert context.other_data["changed_rows"] == 1

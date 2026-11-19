@@ -66,6 +66,7 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags, lookup_strategy_tags
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+from eth_defi.vault_protocols.migration import MigrationContext
 
 logger = logging.getLogger(__name__)
 
@@ -525,6 +526,40 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
         )
 
     return tuple(updates), skipped_rows, invalid_tag_rows
+
+
+def stage_hyperliquid_strategy_tags(context: MigrationContext, targets: tuple[VaultSpec, ...]) -> None:
+    """Stage current strategy tags for reviewed Hyperliquid deployments.
+
+    Validate the protocol evidence for every present target before staging tag
+    changes. The runner manages preview, backups and atomic persistence.
+
+    :param context: Guarded migration attempt and shared metadata database.
+    :param targets: Fixed Hypercore deployments listed by the numbered migration.
+    :return: ``None`` after staging changes and reporting missing deployments.
+    :raises ValueError: If a target lacks Hyperliquid identity or resolvable tags.
+    """
+    database = context.metadata()
+    target_rows = {spec: database.rows[spec] for spec in targets if spec in database.rows}
+    for spec, row in target_rows.items():
+        detection = row.get("_detection_data")
+        if row.get("Protocol") != "Hyperliquid" or not isinstance(detection, ERC4262VaultDetection) or ERC4626Feature.hypercore_native not in detection.features:
+            raise ValueError(f"Target {spec.as_string_id()} is not classified as Hyperliquid native")
+
+    updates, skipped, invalid = collect_strategy_tag_updates(VaultDatabase(rows=target_rows))
+    if skipped or any(update.new_tags is None for update in updates):
+        message = "Could not resolve strategy tags for all reviewed Hyperliquid vaults"
+        raise ValueError(message)
+
+    for update in updates:
+        database.rows[update.spec]["_strategy_tags"] = set(update.new_tags)
+
+    context.report(
+        inspected_rows=len(target_rows),
+        missing_specs=[spec.as_string_id() for spec in targets if spec not in target_rows],
+        updated_fields=len(updates),
+        legacy_tag_rows=invalid,
+    )
 
 
 def migrate_vault_strategy_tags(

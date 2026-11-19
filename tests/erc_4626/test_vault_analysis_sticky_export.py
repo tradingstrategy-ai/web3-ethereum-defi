@@ -270,7 +270,7 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
     #: These categories include fuller risk explanations, linked examples or related categories.
-    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio}
+    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_2x, StrategyTag.portfolio_3x, StrategyTag.unlevered_portfolio}
     short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
     #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
     assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
