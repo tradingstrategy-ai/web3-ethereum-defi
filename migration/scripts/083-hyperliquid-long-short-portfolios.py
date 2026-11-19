@@ -4,7 +4,7 @@ Purpose: Publish the reviewed long_short_portfolio classification.
 Scope: Only _strategy_tags for the nine listed Hypercore (9999) deployments.
 Branch: check-hyperliquid-long-short-vault-equity-curves
 PR title: feat: classify more Hyperliquid long-short portfolios
-PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/compare/master...check-hyperliquid-long-short-vault-equity-curves
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794
 Preserves: Other metadata, unrelated rows, prices, leads, reader state and timestamp caches.
 Expected: Up to nine updated fields. Report absent deployments without creating rows.
 The tag refresh requires no network calls or historical price backfill.

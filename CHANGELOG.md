@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add the long-short portfolio tag to nine Hyperliquid vaults and refresh their persisted tags through migration 083 (2026-11-19).
+- feat: Add the long-short portfolio tag to nine Hyperliquid vaults and refresh their persisted tags through migration 083 (2026-11-19, [#1794](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794)).
 
 - feat: Apply manual Lighter vault flags alongside description overrides and mark Robinhood LLP deposits closed (2026-11-17).
 
