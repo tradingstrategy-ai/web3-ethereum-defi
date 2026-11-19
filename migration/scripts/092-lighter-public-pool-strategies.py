@@ -4,7 +4,7 @@ Purpose: Publish the portfolio and trading classifications from the November rev
 Scope: Only _strategy_tags for the 42 listed Lighter Core pools on synthetic chain 9998.
 Branch: lighter-vaults-strategy-tagging-analysis
 PR title: feat: classify Lighter public pool strategies
-PR: See the pull request for the branch above.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1795
 Preserves: All other metadata, prices, leads, reader state and timestamp caches.
 Expected: Up to 42 updated fields. Report missing deployments without creating rows.
 The tag refresh requires no network calls or historical price backfill.
