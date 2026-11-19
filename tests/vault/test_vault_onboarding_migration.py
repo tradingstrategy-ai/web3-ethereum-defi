@@ -58,7 +58,15 @@ def onboarding(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespa
 
     monkeypatch.setattr(vault_onboarding, "create_chain_web3", lambda chain_id: SimpleNamespace(eth=SimpleNamespace(block_number=26_448_000)))
     monkeypatch.setattr(vault_onboarding, "build_vault_row", build_row)
-    monkeypatch.setattr(price_backfill, "run_price_backfill", lambda _context, targets: state.backfilled.extend(targets))
+    state.failing_backfills = 0
+
+    def record_backfill(_context: object, targets: list) -> None:
+        if state.failing_backfills:
+            state.failing_backfills -= 1
+            raise RuntimeError("Synthetic RPC outage")
+        state.backfilled.extend(targets)
+
+    monkeypatch.setattr(price_backfill, "run_price_backfill", record_backfill)
 
     state.data_dir = tmp_path / "data"
     state.data_dir.mkdir()
@@ -154,3 +162,27 @@ def test_vault_onboarding_rejects_without_commit(onboarding: SimpleNamespace, pr
         runner.run_pending_migrations(dry_run=False, **onboarding.options)
     assert path.read_bytes() == original
     assert onboarding.backfilled == []
+
+
+def test_vault_onboarding_retries_failed_backfill(onboarding: SimpleNamespace) -> None:
+    """A backfill failing after the metadata commit is retried without rebuilding the seeded lead and row.
+
+    :param onboarding: Isolated migration state.
+    """
+    path = onboarding.data_dir / "vault-metadata-db.pickle"
+    onboarding.failing_backfills = 1
+
+    with pytest.raises(RuntimeError, match="Synthetic RPC outage"):
+        runner.run_pending_migrations(dry_run=False, **onboarding.options)
+    seeded = VaultDatabase.read(path)
+    assert MARKET in seeded.rows
+    assert MARKET in seeded.leads
+    assert onboarding.backfilled == []
+
+    assert len(runner.run_pending_migrations(dry_run=False, **onboarding.options)) == 1
+    database = VaultDatabase.read(path)
+    assert len(onboarding.built) == 1
+    assert database.rows[MARKET] == seeded.rows[MARKET]
+    assert database.leads[MARKET].deposit_count == 0
+    assert [target.as_spec() for target in onboarding.backfilled] == [MARKET]
+    assert runner.load_state(onboarding.data_dir / "migration.json")[SCRIPT_NAME]["success"]

@@ -16,8 +16,10 @@ Branch: onboard-llamalend-wstgbp-crvusd
 PR title: fix: onboard Llama Lend wstGBP / crvUSD market before lead discovery
 PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/NUMBER
 Preserves: The lead cursor, all other leads and rows, reader state, other
-vaults' prices and timestamp caches. The lead starts with zero flow counts,
-because discovery adds this vault's events when it resumes from the cursor.
+vaults' prices and existing timestamps; apply may add missing timestamps to the
+dense Ethereum cache, preview uses a copy. The lead starts with zero flow
+counts, because discovery adds this vault's events when it resumes from the
+cursor.
 Expected: One inserted lead and row, then one backfilled vault of about
 5,000 crvUSD TVL. A no-op for metadata if discovery has already found it.
 
