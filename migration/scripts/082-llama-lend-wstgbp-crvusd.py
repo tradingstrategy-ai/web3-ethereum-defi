@@ -14,7 +14,7 @@ by then. Prices run from that block to the Ethereum price cursor plus one,
 exclusive.
 Branch: onboard-llamalend-wstgbp-crvusd
 PR title: fix: onboard Llama Lend wstGBP / crvUSD market before lead discovery
-PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/NUMBER
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1793
 Preserves: The lead cursor, all other leads and rows, reader state, other
 vaults' prices and existing timestamps; apply may add missing timestamps to the
 dense Ethereum cache, preview uses a copy. The lead starts with zero flow
