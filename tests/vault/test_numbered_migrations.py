@@ -209,6 +209,45 @@ def test_systemic_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> 
     assert path.read_bytes() == original
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_steady_wealth_builder_grid_tag_removal(tmp_path: Path, dry_run: bool) -> None:
+    """Remove Grid trading from the Lighter pool and preserve its other tags.
+
+    Exercise the numbered migration against a stored row that still has the
+    obsolete tag.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the change should stay in memory.
+    :return: None after checking the staged and persisted metadata.
+    """
+    expected_tags = lighter_tags.get_strategy_tags(MARTINGALE_LIGHTER.vault_address)
+    old_tags = expected_tags | {StrategyTag.grid_trading}
+    target_row = {
+        "Protocol": "Lighter",
+        "_detection_data": detection(MARTINGALE_LIGHTER, ERC4626Feature.lighter_native),
+        "_strategy_tags": old_tags,
+        "_notes": "Preserve notes",
+    }
+    other_row = {"_strategy_tags": {StrategyTag.grid_trading}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={MARTINGALE_LIGHTER: target_row, PMALT_LIGHTER: other_row}).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 95)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+
+    expected_rows = {MARTINGALE_LIGHTER: target_row | {"_strategy_tags": expected_tags}, PMALT_LIGHTER: other_row}
+    assert context.metadata().rows == expected_rows
+    assert context.other_data["changed_rows"] == 1
+    if dry_run:
+        assert path.read_bytes() == original
+    else:
+        assert VaultDatabase.read(path).rows == expected_rows
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
 @pytest.fixture
 def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create reviewed inventories and unrelated records without real provider calls."""
