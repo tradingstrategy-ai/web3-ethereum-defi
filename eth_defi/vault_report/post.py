@@ -266,7 +266,7 @@ BEST_SECTIONS = (
         heading="Long/short vaults",
         heading_id="best-performing-long-short-vaults",
         subject="the best-performing long/short vaults",
-        intro=f'<p>Delta-neutral long/short vaults aim for steady returns by balancing long and short positions to minimise net exposure to crypto market movements. Compare <a href="{VAULTS_URL}/strategies/long-short-portfolio">long/short portfolio vaults</a>.</p>',
+        intro=f'<p>Long/short vaults combine long and short positions. Delta-neutral strategies aim for steady returns by balancing those positions to minimise net exposure to crypto market movements. Compare <a href="{VAULTS_URL}/strategies/long-short-portfolio">long/short portfolio vaults</a>.</p>',
         link="tradingstrategy.ai/vaults/strategies/long-short-portfolio",
     ),
     BestSection(
