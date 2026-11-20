@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import pickle
 import runpy
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,8 +14,11 @@ import pyarrow.parquet as pq
 import pytest
 from web3 import Web3
 
+from eth_defi.erc_4626 import scan as vault_scan
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcadia import offchain_metadata as arcadia
+from eth_defi.erc_4626.vault_protocol.buoy.deployments import BUOY_REVIEW_BLOCK, BUOY_REVIEWED_LEADS
+from eth_defi.erc_4626.vault_protocol.buoy.vault import BuoyVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
 from eth_defi.erc_4626.vault_protocol.gains.metadata import REVIEWED_GAINS_VAULTS
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader
@@ -26,6 +30,7 @@ from eth_defi.hyperliquid import tags as hyperliquid_tags
 from eth_defi.lighter import tags as lighter_tags
 from eth_defi.neutral_trade import metrics as neutral_trade_metrics
 from eth_defi.neutral_trade.api import parse_vault
+from eth_defi.provider import env as provider_env, multi_provider
 from eth_defi.vault import post_processing
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
@@ -345,12 +350,29 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: provider)
     monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))
+    # Buoy has dedicated RPC and preview coverage. Stub only its reads here
+    # while exercising actual staged metadata, lead and backfill composition.
+    buoy_provider = SimpleNamespace(eth=SimpleNamespace(block_number=BUOY_REVIEW_BLOCK))
+    read_rpc_url = provider_env.read_json_rpc_url
+    connect = multi_provider.create_multi_provider_web3
+    scan_record = vault_scan.create_vault_scan_record
+
+    def rebuild_buoy(web3: object, detection: ERC4262VaultDetection, block: int, token_cache: object) -> dict:
+        """Supply the Buoy catalogue fixture while routing other adapters normally."""
+        if web3 is buoy_provider:
+            return {"Protocol": "Buoy", "Name": "Buoy fixture", "_denomination_token": {"symbol": "USDC"}, "_detection_data": detection}
+        return scan_record(web3, detection, block, token_cache)
+
+    monkeypatch.setattr(provider_env, "read_json_rpc_url", lambda chain: "buoy-fixture" if chain == 999 else read_rpc_url(chain))
+    monkeypatch.setattr(multi_provider, "create_multi_provider_web3", lambda url, *args, **kwargs: buoy_provider if url == "buoy-fixture" else connect(url, *args, **kwargs))
+    monkeypatch.setattr(vault_scan, "create_vault_scan_record", rebuild_buoy)
+    monkeypatch.setattr(BuoyVault, "fetch_accounting", lambda *_args: SimpleNamespace(nav_timestamp=1, supply=100))
     path = batch_database / "vault-metadata-db.pickle"
     # Migration 018 validates the price file even when no reviewed vault has rows.
     # Keep real unrelated Parquet data so the complete batch exercises that path.
-    pq.write_table(pa.table({"chain": [1], "address": ["0x0000000000000000000000000000000000000001"], "share_price": [1.25], "available_liquidity": [123.0]}), batch_database / "vault-prices-1h.parquet")
-    for name in ("vault-reader-state-1h.pickle", "timestamps.duckdb"):
-        (batch_database / name).write_bytes(b"unrecoverable history")
+    pq.write_table(pa.table({"chain": [1], "address": ["0x0000000000000000000000000000000000000001"], "block_number": [12345], "share_price": [1.25], "available_liquidity": [123.0]}), batch_database / "vault-prices-1h.parquet")
+    (batch_database / "vault-reader-state-1h.pickle").write_bytes(pickle.dumps({VaultSpec(999, BUOY_REVIEWED_LEADS[0][0]): {"last_block": BUOY_REVIEW_BLOCK - 1}}))
+    (batch_database / "timestamps.duckdb").write_bytes(b"unrecoverable history")
     original = {p.name: p.read_bytes() for p in batch_database.iterdir()}
     version = {"in_docker": False, "git_commit_hash": "a" * 40}
     expected_migrations = len(tuple(runner.discover_migrations()))
@@ -405,8 +427,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
     # No reviewed Wildcat market is registered by the batch's lead cursor at block 12,345
-    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP}
-    assert set(database.leads) == {LLAMA_LEND_WSTGBP}
+    buoy_specs = {VaultSpec(999, address) for address, _, _ in BUOY_REVIEWED_LEADS}
+    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP} | buoy_specs
+    assert set(database.leads) == {LLAMA_LEND_WSTGBP} | buoy_specs
+    assert all(database.rows[spec]["Protocol"] == "Buoy" for spec in buoy_specs)
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
     assert path.read_bytes() == applied
     state = runner.load_state(batch_database / "migration.json")

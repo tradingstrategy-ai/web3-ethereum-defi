@@ -87,6 +87,7 @@ class VaultTechnicalRisk(enum.Enum):
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
     "K3": None,
+    "Buoy": None,
     # Verified upgradeable vault/manager and published audits, but no maintained
     # public core-contract development repository. The public SDK and audit
     # reports do not establish ongoing contract-development transparency.

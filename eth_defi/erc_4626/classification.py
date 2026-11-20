@@ -1326,6 +1326,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Buoy's cached seven-word accounting snapshot; no Core precompile reads.
+        if chain_id == 999:
+            yield EncodedCall.from_keccak_signature(address=address, signature=Web3.keccak(text="getNavSnapshot()")[0:4], function="getNavSnapshot", data=b"", extra_data=None)
+
         # Upshift - TokenizedAccount vaults built on August infrastructure
         # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
         yield EncodedCall.from_keccak_signature(
@@ -1615,6 +1619,10 @@ def identify_vault_features(
     # failure branch and protocol-specific non-ERC-4626 probes below.
     if (compliance_service := calls.get("COMPLIANCE_SERVICE")) and compliance_service.success:
         return {ERC4626Feature.securitize_like}
+
+    buoy_snapshot = calls.get("getNavSnapshot")
+    if chain_id == 999 and buoy_snapshot is not None and buoy_snapshot.success and len(buoy_snapshot.result) == 224:
+        return {ERC4626Feature.buoy_like}
 
     rysk_allocated = calls.get("collateralAllocated")
     rysk_asset = calls.get("collateralAsset")
@@ -2334,7 +2342,11 @@ def create_vault_instance(
         "require_denomination_token": require_denomination_token,
     }
 
-    if ERC4626Feature.mellow_like in features:
+    if ERC4626Feature.buoy_like in features:
+        from eth_defi.erc_4626.vault_protocol.buoy.vault import BuoyVault
+
+        return BuoyVault(web3, spec, **kwargs)
+    elif ERC4626Feature.mellow_like in features:
         from eth_defi.mellow.vault import MellowVault
 
         return MellowVault(web3, spec, **kwargs)

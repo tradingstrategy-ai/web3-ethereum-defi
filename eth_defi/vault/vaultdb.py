@@ -92,6 +92,12 @@ class VaultRow(TypedDict):
 
     _detection_data: ERC4262VaultDetection
 
+    #: Last published onchain NAV time, independent of metadata scan time.
+    _nav_timestamp: NotRequired[datetime.datetime | None]
+
+    #: Optional Buoy descriptive source availability; does not affect identity.
+    _buoy_metadata_available: NotRequired[bool]
+
     _denomination_token: dict
 
     _lockup: datetime.timedelta | None

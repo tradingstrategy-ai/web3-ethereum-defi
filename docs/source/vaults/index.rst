@@ -254,6 +254,7 @@ Supported protocols
    teller/index
    term_finance/index
    threejane/index
+   buoy/index
    tori/index
    truefi/index
    umami/index

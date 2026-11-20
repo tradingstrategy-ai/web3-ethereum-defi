@@ -1213,3 +1213,18 @@ def test_sticky_state_writer_rejects_non_finite_value(tmp_path: Path) -> None:
         top_vaults_json.save_sticky_export_state({"vaults": {"bad": {"value": float("nan")}}}, path)
 
     assert path.read_text(encoding="utf-8") == "previous state"
+
+
+def test_sticky_export_buoy_five_hundred_dollar_threshold() -> None:
+    """Index Buoy at $500 while keeping smaller and ordinary vaults excluded.
+
+    The real sticky export path applies protocol thresholds before building
+    persisted state, so a global $5,000 bar must not hide qualifying Buoy rows.
+
+    :return: None after checking the inclusive protocol-specific threshold.
+    """
+    module = get_top_vaults_json_module()
+    now = datetime.datetime(2026, 11, 14)
+    rows = [make_metrics_row(address="0x" + f"{number:040x}", name=name, peak_nav=tvl, protocol_slug=protocol) for number, name, tvl, protocol in ((1, "Buoy eligible", 500, "buoy"), (2, "Buoy too small", 499, "buoy"), (3, "Control", 500, "morpho"))]
+    result = module.apply_sticky_export_state(make_lifetime_df(*rows), module.make_empty_sticky_export_state(now), now=now, threshold_tvl=5_000.0, stale_warning_age_days=14)
+    assert {row["name"] for row in result.vaults} == {"Buoy eligible"}

@@ -1032,6 +1032,9 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.mellow.finance/core-vaults
     mellow_like = "mellow_like"
 
+    #: Buoy published-accounting vault; bespoke Router requests, read-only.
+    buoy_like = "buoy_like"
+
     #: Enzyme Onyx Shares vault.
     #:
     #: Routing marker for the non-ERC-4626 Enzyme Onyx vaults discovered from
@@ -1166,6 +1169,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     protocol_exempt = any(
         feature in detection.features
         for feature in (
+            ERC4626Feature.buoy_like,
             ERC4626Feature.mellow_like,
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
@@ -1251,6 +1255,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.buoy_like in features:
+        return "Buoy"
     elif ERC4626Feature.mellow_like in features:
         return "Mellow"
     elif ERC4626Feature.enzyme_onyx_like in features or ERC4626Feature.enzyme_blue_like in features:

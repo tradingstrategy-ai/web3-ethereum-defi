@@ -133,6 +133,9 @@ class ParquetScanResult(TypedDict):
     #: Actual provider boundary observation, present only after state eviction.
     historical_state_window: dict | None
 
+    #: Observations rejected or returned with errors during the read.
+    unavailable_observations: int
+
     reader_states: dict[VaultSpec, dict] | None
 
 
@@ -336,6 +339,7 @@ class VaultHistoricalReadMulticaller:
         self.hypersync_client = hypersync_client
         self.timestamp_cache_file = timestamp_cache_file
         self.rpc_request_stats = rpc_request_stats
+        self.unavailable_observations = 0
         self.allow_greylist_unavailable = allow_greylist_unavailable
         self.greylist = frozenset(HexAddress(address.lower()) for address in greylist)
 
@@ -748,7 +752,8 @@ class VaultHistoricalReadMulticaller:
             if not self.enforce_live_freshness or current.share_price is None or current.total_assets is None:
                 return False
             address = reader.address.lower()
-            self.latest_observed_at[address] = max(self.latest_observed_at.get(address, current.timestamp), current.timestamp)
+            source_at = min(current.timestamp, current.nav_timestamp) if current.nav_timestamp is not None else current.timestamp
+            self.latest_observed_at[address] = max(self.latest_observed_at.get(address, source_at), source_at)
             state = reader.reader_state
             rate = state.exchange_rate if isinstance(state, VaultReaderState) else VaultReaderState(reader.vault).exchange_rate
             if rate in (UNKNOWN_EXCHANGE_RATE, DENOMINATION_UNAVAILABLE_EXCHANGE_RATE):
@@ -764,7 +769,7 @@ class VaultHistoricalReadMulticaller:
             previous = retained_at.get(address)
             if previous is None:
                 return True
-            return current.timestamp - previous >= VAULT_PRICE_REFRESH_INTERVAL
+            return source_at - previous >= VAULT_PRICE_REFRESH_INTERVAL
 
         def is_unchanged(reader: VaultHistoricalReader, current: VaultHistoricalRead, previous: VaultHistoricalRead | None) -> bool:
             """Apply the product's existing sparse-value comparison.
@@ -782,6 +787,8 @@ class VaultHistoricalReadMulticaller:
                 Whether the current observation is economically unchanged.
             """
 
+            if previous is not None and current.nav_timestamp != previous.nav_timestamp:
+                return False
             if reader.uses_share_price_equivalence:
                 return current.is_share_price_almost_equal(previous, reader.share_price_change_threshold)
             return current.is_almost_equal(previous)
@@ -789,28 +796,30 @@ class VaultHistoricalReadMulticaller:
         skipped_results = 0
         error_count = 0
 
-        static_results = (
-            reader_func(
-                chain_id=chain_id,
-                web3factory=self.web3factory,
-                calls=calls,
-                start_block=start_block,
-                end_block=end_block,
-                step=step,
-                display_progress=f"Reading {chain_name} historical with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
-                max_workers=self.max_workers,
-                progress_suffix=_progress_bar_suffix,
-                require_multicall_result=self.require_multicall_result,
-                hypersync_client=self.hypersync_client,
-                timestamp_cache_file=self.timestamp_cache_file,
-                rpc_request_stats=self.rpc_request_stats,
-                allow_greylist_unavailable=self.allow_greylist_unavailable,
-                greylist=self.greylist,
-                batch_size=self.batch_size,
-            )
-            if static_readers
-            else ()
+        read_options = dict(
+            chain_id=chain_id,
+            web3factory=self.web3factory,
+            step=step,
+            display_progress=f"Reading {chain_name} historical with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
+            max_workers=self.max_workers,
+            progress_suffix=_progress_bar_suffix,
+            require_multicall_result=self.require_multicall_result,
+            hypersync_client=self.hypersync_client,
+            timestamp_cache_file=self.timestamp_cache_file,
+            rpc_request_stats=self.rpc_request_stats,
+            allow_greylist_unavailable=self.allow_greylist_unavailable,
+            greylist=self.greylist,
+            batch_size=self.batch_size,
         )
+        static_results = reader_func(calls=calls, start_block=start_block, end_block=end_block, **read_options) if static_readers else ()
+        if not stateful and end_block > start_block and (end_block - 1 - start_block) % step:
+            # A first NAV can be published after the final regular sample.
+            # Only opted-in readers get this extra observation; preserve the
+            # source block/time and never duplicate an endpoint on the grid.
+            endpoint_addresses = {address for address, reader in static_readers.items() if getattr(reader, "include_historical_end_sample", False)}
+            endpoint_calls = [call for call in calls if call.extra_data["vault"] in endpoint_addresses]
+            if endpoint_calls:
+                static_results = chain(static_results, reader_func(calls=endpoint_calls, start_block=end_block - 1, end_block=end_block, **read_options))
         # Capture the point in time before replaying a potentially long archive
         # range. Both passes use the same decoder and publish together.
         if latest_readers:
@@ -862,7 +871,7 @@ class VaultHistoricalReadMulticaller:
                     logger.warning("Deferred greylisted vault observation: vault=%s block=%d reason=%s", vault_address, block_number, unavailable or "served subcall revert")
                     continue
 
-                saved_state = state.save() if greylisted and state else None
+                saved_state = state.save() if state and (greylisted or getattr(reader.vault, "preserve_unavailable_price_history", False)) else None
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
                     block_number,
@@ -870,7 +879,8 @@ class VaultHistoricalReadMulticaller:
                     results,
                 )
 
-                if greylisted and (current_result.share_price is None or current_result.total_assets is None):
+                invalid_source = getattr(reader.vault, "preserve_unavailable_price_history", False) and bool(current_result.errors)
+                if invalid_source or (greylisted and (current_result.share_price is None or current_result.total_assets is None)):
                     # Decoding can reveal a partial observation even when the
                     # transport succeeded. Reject it before claiming freshness
                     # and roll back on_called progress made by a protocol reader.
@@ -878,8 +888,8 @@ class VaultHistoricalReadMulticaller:
                     if state and saved_state is not None:
                         state.load(saved_state)
                         state.rpc_error_count += 1
-                        state.last_rpc_error = "Incomplete greylisted vault valuation"
-                    logger.warning("Deferred incomplete greylisted vault valuation: vault=%s block=%d", vault_address, block_number)
+                        state.last_rpc_error = "Invalid vault valuation"
+                    logger.warning("Deferred invalid vault valuation: vault=%s block=%d", vault_address, block_number)
                     continue
 
                 # Stateless scans invoke every selected block. Keep their
@@ -904,7 +914,7 @@ class VaultHistoricalReadMulticaller:
                 else:
                     last_results[vault_address] = current_result
                     if current_result.share_price is not None:
-                        retained_at[vault_address.lower()] = current_result.timestamp
+                        retained_at[vault_address.lower()] = min(current_result.timestamp, current_result.nav_timestamp) if current_result.nav_timestamp is not None else current_result.timestamp
                     if due and unchanged:
                         self.freshness_rows_written += 1
                     if state:
@@ -928,11 +938,13 @@ class VaultHistoricalReadMulticaller:
                 last_result = current_result
                 last_results[reader.address] = current_result
                 if current_result.share_price is not None:
-                    retained_at[reader.address.lower()] = current_result.timestamp
+                    retained_at[reader.address.lower()] = min(current_result.timestamp, current_result.nav_timestamp) if current_result.nav_timestamp is not None else current_result.timestamp
                 if due and unchanged:
                     self.freshness_rows_written += 1
                 total_results += 1
                 yield current_result
+
+        self.unavailable_observations += error_count
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
 
@@ -969,11 +981,11 @@ def preserve_unreplaced_greylist_rows(
     history: pa.Table,
     replacements: set[tuple[str, int]],
 ) -> pa.Table:
-    """Retain saved greylisted vault observations without duplicating successful updates.
+    """Retain protected vault observations without duplicating successful updates.
 
     The atomic exporter calls this after collecting verified replacement keys.
     Keeping an old row does not advance its source timestamp or claim freshness.
-    The caller passes only this chain's greylisted rows in the replaced range,
+    The caller passes only this chain's protected rows in the replaced range,
     so memory use is bounded by the reviewed targets rather than the full file.
 
     :param history: Saved price table with lower-case string ``address`` and
@@ -1265,19 +1277,20 @@ def scan_historical_prices_to_parquet(
     price_rows_written_by_vault: dict[str, int] = defaultdict(int)
 
     # Keys are (lower-case vault address, source block number); chain is fixed
-    # by this export. Only verified greylisted replacements retire saved rows.
-    greylist_replacements: set[tuple[str, int]] = set()
+    # by this export. Only successful replacements retire protected saved rows.
+    preserved_addresses = greylist | frozenset(vault.address.lower() for vault in vaults if getattr(vault, "preserve_unavailable_price_history", False))
+    successful_replacements: set[tuple[str, int]] = set()
 
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
             vault_address = entry.vault.vault_address.lower()
-            if vault_address in greylist:
-                # A partly decoded greylisted observation cannot replace good history.
+            if vault_address in preserved_addresses:
+                # An invalid observation cannot replace saved source history.
                 # Null availability is not zero TVL; preserve the saved source row.
-                if entry.share_price is None or entry.total_assets is None:
+                if (getattr(entry.vault, "preserve_unavailable_price_history", False) and entry.errors) or (vault_address in greylist and (entry.share_price is None or entry.total_assets is None)):
                     continue
-                greylist_replacements.add((vault_address, entry.block_number))
+                successful_replacements.add((vault_address, entry.block_number))
             rows_written_by_vault[vault_address] += 1
             if entry.share_price is not None:
                 price_rows_written_by_vault[vault_address] += 1
@@ -1329,7 +1342,9 @@ def scan_historical_prices_to_parquet(
             previous_mask = pc.or_(previous_mask, latest_mask)
         previous_mask = pc.and_(previous_mask, pc.is_in(existing_table["address"], value_set=selected_addresses))
         previous_mask = pc.and_(previous_mask, pc.is_finite(existing_table["share_price"]))
-        prior = existing_table.select(["address", "timestamp"]).filter(previous_mask)
+        prior = existing_table.select(["address", "timestamp", "nav_timestamp"]).filter(previous_mask)
+        effective_time = pc.min_element_wise(prior["timestamp"], pc.coalesce(prior["nav_timestamp"], prior["timestamp"]))
+        prior = prior.set_column(prior.schema.get_field_index("timestamp"), "timestamp", effective_time).select(["address", "timestamp"])
         if len(prior):
             grouped = prior.group_by("address").aggregate([("timestamp", "max")])
             reader.last_retained_at = dict(zip(grouped["address"].to_pylist(), grouped["timestamp_max"].to_pylist()))
@@ -1353,7 +1368,7 @@ def scan_historical_prices_to_parquet(
 
     converted_iter = converter(entries_iter)
 
-    greylist_history = None
+    protected_history = None
     if existing_table is not None:
         logger.info(
             "Detected existing file %s with %d rows",
@@ -1376,13 +1391,13 @@ def scan_historical_prices_to_parquet(
             mask = pc.and_(mask, False)
         if latest_mask is not None:
             mask = pc.and_(mask, pc.invert(latest_mask))
-        if greylist:
-            # Keep only the greylisted source rows slated for replacement. At
+        if preserved_addresses:
+            # Keep only the protected source rows slated for replacement. At
             # publication we retain keys not replaced by a complete successful
             # observation. This avoids a full-file merge, duplicates and loss
-            # when a greylisted contract cannot supply a complete replacement.
-            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(greylist))))
-            greylist_history = existing_table.filter(grey_mask)
+            # when a contract cannot supply a valid replacement.
+            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(preserved_addresses))))
+            protected_history = existing_table.filter(grey_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
@@ -1476,8 +1491,8 @@ def scan_historical_prices_to_parquet(
             rows_written += len(chunk)
             chunks_done += 1
 
-        if greylist_history is not None and greylist_history.num_rows:
-            preserved = preserve_unreplaced_greylist_rows(greylist_history, greylist_replacements)
+        if protected_history is not None and protected_history.num_rows:
+            preserved = preserve_unreplaced_greylist_rows(protected_history, successful_replacements)
             if preserved.num_rows:
                 writer.write_table(preserved.replace_schema_metadata(writer_schema.metadata))
                 existing_row_count += preserved.num_rows
@@ -1487,9 +1502,10 @@ def scan_historical_prices_to_parquet(
                     # their actual timestamp for the audit, never written_at or
                     # the current scan horizon, so stale history stays stale.
                     finite_history = preserved.filter(pc.and_(pc.is_finite(preserved["share_price"]), pc.is_finite(preserved["total_assets"])))
-                    for address, timestamp in zip(finite_history["address"].to_pylist(), finite_history["timestamp"].to_pylist()):
+                    effective_time = pc.min_element_wise(finite_history["timestamp"], pc.coalesce(finite_history["nav_timestamp"], finite_history["timestamp"]))
+                    for address, timestamp in zip(finite_history["address"].to_pylist(), effective_time.to_pylist()):
                         reader.last_retained_at[address] = max(reader.last_retained_at.get(address, timestamp), timestamp)
-                logger.info("Preserved %d unavailable or unsampled greylisted vault source rows", preserved.num_rows)
+                logger.info("Preserved %d unavailable or unsampled vault source rows", preserved.num_rows)
 
         # Close the writer to finalise the file, then flush to disk
         # and atomically replace the target.  We also sync the parent
@@ -1626,6 +1642,7 @@ def scan_historical_prices_to_parquet(
 
     return ParquetScanResult(
         rows_written=rows_written,
+        unavailable_observations=reader.unavailable_observations,
         rows_deleted=rows_deleted,
         output_fname=output_fname,
         chain_id=chain_id,

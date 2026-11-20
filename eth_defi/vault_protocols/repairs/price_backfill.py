@@ -48,7 +48,7 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.historical import MONAD_CHAIN_ID, fetch_monad_state_available, scan_historical_prices_to_parquet
 from eth_defi.vault_protocols.migration import MigrationContext
 
@@ -87,6 +87,10 @@ class PriceBackfillTarget:
 
     #: Exclusive end block, usually the first existing price block.
     end_block: int
+
+    #: Permit complete zero-supply observations without claiming a share price.
+    #: Still reject unavailable reads, absent rows and any unpriced live supply.
+    allow_empty_supply: bool = False
 
     def as_spec(self) -> VaultSpec:
         """Return the metadata key of this target.
@@ -202,7 +206,9 @@ def _load_vault_rows(price_path: Path, chain_id: int, vault_address: str) -> pa.
     """
     source = ds.dataset(price_path, format="parquet")
     predicate = (ds.field("chain") == chain_id) & (ds.field("address") == vault_address)
-    return source.to_table(filter=predicate)
+    # Compare preserved values in the same canonical nullable schema that the
+    # writer uses; a new null-only column is not a mutation of old economics.
+    return VaultHistoricalRead.migrate_parquet_schema(source.to_table(filter=predicate))
 
 
 def _later_rows(table: pa.Table, end_block: int) -> pa.Table:
@@ -379,21 +385,23 @@ def _backfill_target(
         raise RuntimeError(f"Backfill of {spec_id} deleted rows outside its reviewed scope")
     if set(result["rows_written_by_vault"]) - {target.vault_address}:
         raise RuntimeError(f"Backfill of {spec_id} wrote rows for other vaults")
-    if result["price_rows_written_by_vault"].get(target.vault_address, 0) == 0:
-        raise RuntimeError(f"Backfill of {spec_id} produced no share price in [{scanned_start}, {end_block})")
     if pq.ParquetFile(staged_path).metadata.num_rows != total_before - expected_deleted + result["rows_written"]:
         raise RuntimeError(f"Backfill of {spec_id} left an unexpected staged row count")
 
     after = _load_vault_rows(staged_path, target.chain_id, target.vault_address)
     _assert_rows_unchanged(later_before, _later_rows(after, end_block), spec_id)
     written = after.filter(pc.and_(pc.greater_equal(after["block_number"], scanned_start), pc.less(after["block_number"], end_block)))
+    if result["price_rows_written_by_vault"].get(target.vault_address, 0) == 0:
+        complete_empty = target.allow_empty_supply and result.get("unavailable_observations") == 0 and written.num_rows > 0 and written["total_supply"].null_count == 0 and all(value == 0 for value in written["total_supply"].to_pylist())
+        if not complete_empty:
+            raise RuntimeError(f"Backfill of {spec_id} produced no share price in [{scanned_start}, {end_block})")
     timestamps: list[datetime.datetime] = written["timestamp"].to_pylist()
 
     outcome.update(
         scanned_start_block=scanned_start,
         rows_deleted=expected_deleted,
         rows_written=result["rows_written"],
-        price_rows_written=result["price_rows_written_by_vault"][target.vault_address],
+        price_rows_written=result["price_rows_written_by_vault"].get(target.vault_address, 0),
         preserved_later_rows=later_before.num_rows,
         first_written_at=min(timestamps).isoformat() if timestamps else None,
         last_written_at=max(timestamps).isoformat() if timestamps else None,

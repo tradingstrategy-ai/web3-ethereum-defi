@@ -174,3 +174,23 @@ PDAs are valid off-curve accounts: do not require Ed25519 curve membership.
 Existing Neutral Trade storage keys stay unchanged; its old helper imports
 are compatibility exports. No persistent-data migration is needed merely to
 accept the equivalent raw input identity.
+
+
+## Published NAV readers
+
+Buoy's read-only adapter is a reference for cached, asynchronously published
+onchain accounting. Keep the read timestamp distinct from `nav_timestamp` in
+raw prices, cleaned prices and resampling. Polling or forward filling cannot
+refresh a source publication. A valid total loss is zero; failed required
+calls and inconsistent accounting are unavailable observations.
+
+An adapter opting into `VaultBase.preserve_unavailable_price_history` must
+return errors without advancing its reader state on invalid observations.
+The shared consumer defers them and the atomic writer keeps unreplaced source
+rows, including their original publication time. Do not merely emit null prices
+into a range replacement, which would discard previously saved good history.
+
+When onboarding reviewed deployments, freeze their identities and creation
+boundaries. Join the early backfill to each first existing price or the saved
+chain resume point; stopping at a past research block leaves an unscanned gap.
+Check initialisation at the backfill endpoint, rather than current head.
