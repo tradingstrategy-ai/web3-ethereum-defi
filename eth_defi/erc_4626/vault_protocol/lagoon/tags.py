@@ -131,31 +131,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.liquidity_provider,
         StrategyTag.multistrategy,
     },
-    #: Vault: stETH Redemption Carry.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon documents buying discounted stETH on Curve,
-    #: redeeming it at par through Lido's withdrawal queue, and parking idle
-    #: capital in Morpho while the carry clears.
-    #: Reviewed: 2026-11-20. The governance paper documents an automated
-    #: keeper that trades only when the spread clears a fixed carry hurdle.
-    #: Sources:
-    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257
-    #: - https://app.lagoon.finance/vault/1/0x2746f31096f23670caf4043f8b30d8d02405a257
-    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
-    #: - https://app.lagoon.finance/
-    #: - https://www.sigmalabs.fi
-    #: - https://www.sigmalabs.fi/papers/lagoon-governance.pdf
-    #: - https://www.ellen.capital
-    #: - https://docs.lido.fi/contracts/withdrawal-queue-erc721/
-    #: - https://docs.lido.fi/guides/lido-tokens-integration-guide/
-    "0x2746f31096f23670caf4043f8b30d8d02405a257": {
-        StrategyTag.algorithmic_trading,
-        StrategyTag.amm,
-        StrategyTag.arbitrage,
-        StrategyTag.carry_trade,
-        StrategyTag.lending,
-        StrategyTag.multistrategy,
-    },
     #: Vault: Mt Pelerin – USD strategy pool.
     #: Added: 2026-09-28.
     #: Reviewed: 2026-11-10.
@@ -742,23 +717,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
     },
-    #: Vault: Cross-chain USDC Lending.
-    #: Added: 2026-09-28.
-    #: Decision material: Lagoon and Sigma Labs document a cost-aware optimiser
-    #: that lends USDC across whitelisted Morpho Blue markets on seven chains
-    #: and automatically moves capital when the net yield improvement warrants.
-    #: Sources:
-    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89
-    #: - https://app.lagoon.finance/vault/1/0xF02030AB0d7385CE4CC2f7F64b7B44430fB44c89
-    #: - https://www.sigmalabs.fi/vault/0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89
-    #: - https://www.sigmalabs.fi/
-    #: - https://www.sigmalabs.fi/papers/cross-chain-usdc-lending-governance.pdf
-    #: - https://www.ellen.capital/
-    "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89": {
-        StrategyTag.algorithmic_trading,
-        StrategyTag.lending,
-        StrategyTag.lending_optimisation,
-    },
     #: Vault: Coinshift USPC Prime, previously Coinshift Conservative USPC.
     #: Added: 2026-09-28.
     #: Decision material: Lagoon documents TermMax lending, Curve and StakeDAO
@@ -1082,6 +1040,50 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
 #: address, including reused addresses. These must take precedence
 #: over the address-only table above.
 CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
+    #: Vault: stETH Redemption Carry.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon documents buying discounted stETH on Curve,
+    #: redeeming it at par through Lido's withdrawal queue, and parking idle
+    #: capital in Morpho while the carry clears.
+    #: Reviewed: 2026-11-20. The governance paper documents an automated
+    #: keeper that trades only when the spread clears a fixed carry hurdle.
+    #: The sigmaETH lending leg optimises allocations across Morpho Blue markets.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257
+    #: - https://app.lagoon.finance/vault/1/0x2746f31096f23670caf4043f8b30d8d02405a257
+    #: - https://app.lagoon.finance/api/vaults?pageIndex=0&pageSize=1000
+    #: - https://app.lagoon.finance/
+    #: - https://www.sigmalabs.fi
+    #: - https://www.sigmalabs.fi/papers/lagoon-governance.pdf
+    #: - https://www.ellen.capital
+    #: - https://docs.lido.fi/contracts/withdrawal-queue-erc721/
+    #: - https://docs.lido.fi/guides/lido-tokens-integration-guide/
+    (1, "0x2746f31096f23670caf4043f8b30d8d02405a257"): {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.amm,
+        StrategyTag.arbitrage,
+        StrategyTag.carry_trade,
+        StrategyTag.lending,
+        StrategyTag.lending_optimisation,
+        StrategyTag.multistrategy,
+    },
+    #: Vault: Cross-chain USDC Lending.
+    #: Added: 2026-09-28.
+    #: Decision material: Lagoon and Sigma Labs document a cost-aware optimiser
+    #: that lends USDC across whitelisted Morpho Blue markets on seven chains
+    #: and automatically moves capital when the net yield improvement warrants.
+    #: Sources:
+    #: - https://app.lagoon.finance/api/vault?chainId=1&address=0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89
+    #: - https://app.lagoon.finance/vault/1/0xF02030AB0d7385CE4CC2f7F64b7B44430fB44c89
+    #: - https://www.sigmalabs.fi/vault/0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89
+    #: - https://www.sigmalabs.fi/
+    #: - https://www.sigmalabs.fi/papers/cross-chain-usdc-lending-governance.pdf
+    #: - https://www.ellen.capital/
+    (1, "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89"): {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.lending,
+        StrategyTag.lending_optimisation,
+    },
     #: Vault: Stablecoin Market Making (sigmaLPP).
     #: Added: 2026-11-20.
     #: Decision material: Lobster's algorithm sizes and rebalances concentrated
@@ -1134,14 +1136,16 @@ CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
     #: Vault: wstETH Dynamic Leveraged (sigmaLEV).
     #: Added: 2026-11-20.
     #: Decision material: The vault uses wstETH as Morpho collateral and
-    #: borrows WETH to buy more wstETH. A keeper adjusts the leveraged
-    #: position when its loan-to-value ratio moves outside a fixed band.
+    #: borrows WETH to buy more wstETH, earning staking income after
+    #: borrowing costs. A keeper adjusts the position outside a fixed
+    #: loan-to-value band.
     #: Sources:
     #: - https://www.sigmalabs.fi/products
     #: - https://www.sigmalabs.fi/vault/0x7d2bd5eb7066957c135585f0f055443451baadad
     #: - https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2bd5eb7066957c135585f0f055443451baadad
     (1, "0x7d2bd5eb7066957c135585f0f055443451baadad"): {
         StrategyTag.algorithmic_trading,
+        StrategyTag.carry_trade,
         StrategyTag.directional_leverage,
         StrategyTag.lending_looping,
     },

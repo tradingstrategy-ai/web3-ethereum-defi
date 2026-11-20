@@ -265,10 +265,12 @@ def test_missing_copy_remains_empty_and_allows_future_provider_text(spec: VaultS
 @pytest.mark.parametrize(
     ("chain", "address", "adapter", "tags"),
     [
+        (1, "0x2746f31096f23670caf4043f8b30d8d02405a257", LagoonVault, "algorithmic_trading amm arbitrage carry_trade lending lending_optimisation multistrategy"),
+        (1, "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89", LagoonVault, "algorithmic_trading lending lending_optimisation"),
         (1, SIGMA_LPP.vault_address, LagoonVault, "algorithmic_trading amm amm_stablecoin liquidity_provider market_making market_making_amm"),
         (8453, "0x79238962903c62865f319f660177e75652ee4780", LagoonVault, "algorithmic_trading lending lending_optimisation"),
         (42161, "0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f", LagoonVault, "algorithmic_trading arbitrage delta_neutral long_short_portfolio perpetual_futures statistical_arbitrage"),
-        (1, "0x7d2bd5eb7066957c135585f0f055443451baadad", LagoonVault, "algorithmic_trading directional_leverage lending_looping"),
+        (1, "0x7d2bd5eb7066957c135585f0f055443451baadad", LagoonVault, "algorithmic_trading carry_trade directional_leverage lending_looping"),
         (1, "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32", MorphoV2Vault, "algorithmic_trading lending lending_optimisation"),
     ],
 )
@@ -286,7 +288,8 @@ def test_sigma_labs_vault_metadata(chain: int, address: str, adapter: type[Lagoo
     """
     vault = adapter.__new__(adapter)
     vault.spec = VaultSpec(chain, address)
-    metadata = SIGMA_LABS_VAULT_METADATA[chain, address]
+    metadata = get_handwritten_vault_metadata(chain, address)
+    assert metadata is not None
     assert metadata.description.startswith("#### Vault's trading strategy\n\n")
     assert normalise_vault_description(metadata.description) == metadata.description
     assert normalise_vault_short_description(metadata.short_description) == metadata.short_description
@@ -333,7 +336,7 @@ def test_sigma_labs_migration_refreshes_only_reviewed_fields(tmp_path: Path) -> 
     assert StrategyTag.amm_stablecoin in result[SIGMA_LPP]["_strategy_tags"]
     assert result[SIGMA_LPP]["_notes"] == "Operator note"
     revised = LAGOON_CURATOR_VAULT_METADATA[carry.chain_id, carry.vault_address]
-    assert result[carry] == {**rows[carry], "_description": revised.description, "_short_description": revised.short_description, "_strategy_tags": {StrategyTag.algorithmic_trading, StrategyTag.amm, StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.lending, StrategyTag.multistrategy}}
+    assert result[carry] == {**rows[carry], "_description": revised.description, "_short_description": revised.short_description, "_strategy_tags": {StrategyTag.algorithmic_trading, StrategyTag.amm, StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.lending, StrategyTag.lending_optimisation, StrategyTag.multistrategy}}
     assert result[wrong_chain] == rows[wrong_chain]
     assert result.keys() == rows.keys()
     report = json.loads((tmp_path / "migration.json").read_text())[script.name]["other_data"]
