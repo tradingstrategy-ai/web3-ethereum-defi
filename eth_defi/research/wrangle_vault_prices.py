@@ -479,13 +479,20 @@ PRIORITY_SORT_IDS = [
 def get_vaults_by_id(rows: Mapping[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     """Build a dictionary of vaults by their chain-address id.
 
+    Price rows use canonical vault IDs. The Pear onboarding migration stored
+    checksummed HyperEVM detection addresses, which caused the cleaner to
+    drop valid histories as missing metadata. Use the database's canonical
+    keys so the join matches the lower-case Parquet IDs.
+
+    :py:func:`check_missing_metadata` uses this index to decide which price
+    histories have catalogue metadata.
+
     :param rows:
         Metadata rows from vault database
     :return:
         Dictionary of vaults by their chain-address id
     """
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in rows.values()}
-    return vaults_by_id
+    return {spec.as_string_id(): vault for spec, vault in rows.items()}
 
 
 #: Vault state and pass-through columns added by the historical scanner.
@@ -2379,7 +2386,7 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
         tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(BUOY_MIN_TVL_USD) if ERC4626Feature.buoy_like in v["_detection_data"].features else 1000.0 for v in rows.values()}
     else:
         base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
-        tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(convert_usd_threshold_to_denomination(base_guideline, v["Denomination"])) for v in rows.values() if classify_denomination(v["Denomination"]) in families}
+        tvl_threshold = {spec.as_string_id(): float(convert_usd_threshold_to_denomination(base_guideline, row["Denomination"])) for spec, row in rows.items() if classify_denomination(row["Denomination"]) in families}
 
     stage_input_rows = len(prices_df)
     stage_started_at = time.perf_counter()
@@ -2520,6 +2527,9 @@ def check_missing_metadata(
 
     If there are vaults with price data but no metadata, they are logged
     at error level and their IDs returned so the caller can drop them.
+    Check that the metadata index still uses the database's canonical keys
+    before dropping rows. A checksummed detection address must not hide a
+    catalogue entry for a canonical price ID.
 
     :param rows:
         Metadata rows keyed by vault specification.
@@ -2532,6 +2542,8 @@ def check_missing_metadata(
     :return:
         Set of vault IDs that are missing from the metadata.
         These should be dropped from the price data before further processing.
+    :raises AssertionError:
+        The metadata index omitted a canonical price ID present in the database.
 
     Performance history
     -------------------
@@ -2556,6 +2568,9 @@ def check_missing_metadata(
     missing_ids = set(unique_price_ids) - set(vaults_by_id)
 
     if missing_ids:
+        missed_catalogue_ids = missing_ids.intersection(spec.as_string_id() for spec in rows)
+        assert not missed_catalogue_ids, f"Price metadata index missed canonical vault IDs: {sorted(missed_catalogue_ids)}"
+
         # Restrict the groupby to missing rows and aggregate all diagnostic
         # fields once.  The old per-ID boolean scan multiplied its cost by the
         # number of missing vaults and competed with the main denomination
