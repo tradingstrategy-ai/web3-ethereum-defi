@@ -55,7 +55,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71
     #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {
+        StrategyTag.staff_pick,
         StrategyTag.btc_only,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
@@ -70,7 +72,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04
     #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
@@ -84,7 +88,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/tradeHistory/0x4b0eab9444a75a03f1ef340c8beac737afa5ab09
     #: - https://api.hyperliquid.xyz/info
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x4b0eab9444a75a03f1ef340c8beac737afa5ab09": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
     },
@@ -100,14 +106,19 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://www.futurailabs.xyz/#strategy
     #: - https://www.futurailabs.xyz/app.js?v=10
     #: - https://api.hyperliquid.xyz/info (vaultDetails for each address)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.directional_trading,
         StrategyTag.martingale_like,
     },
+    #: Vault: FuturAI Labs - High Sharpe, Medium Volatility.
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x53375ca9a649f337d83d0834fec0db97640a2a06": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
@@ -121,7 +132,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
     #: - https://api.hyperliquid.xyz/info (vaultDetails)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xbefed76a71682b1dc48cca5a10f397cbc492a216": {
+        StrategyTag.staff_pick,
         StrategyTag.directional_trading,
         StrategyTag.trend_following,
     },
@@ -145,7 +158,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://tradingstrategy.ai/vaults/hyperneutral-1
     #: - https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe
     #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794 (archived position comparison)
-    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
     #: Vault: Edge & Hedge on Hypercore (9999).
     #: Added: 2026-11-19.
     #: Decision material: The operator describes a quantitative
@@ -160,7 +174,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.hyperliquid.xyz/vaults/0x060d01aa996003b3731a992462d7f0ba68bf3b04
     #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
     #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
-    "0x060d01aa996003b3731a992462d7f0ba68bf3b04": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x, StrategyTag.two_and_half_days_rebalance},
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0x060d01aa996003b3731a992462d7f0ba68bf3b04": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x, StrategyTag.two_and_half_days_rebalance},
     #: Vault: Quantitative Market Neutral Strategy on Hypercore (9999).
     #: Added: 2026-11-19.
     #: Decision material: The operator describes a systematic market-neutral
@@ -260,7 +275,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.hyperliquid.xyz/vaults/0xce71894b42f5c31a6ae6ca4fb77441c68ab15086
     #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
     #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
-    "0xce71894b42f5c31a6ae6ca4fb77441c68ab15086": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio},
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0xce71894b42f5c31a6ae6ca4fb77441c68ab15086": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio},
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault
@@ -278,7 +294,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://tradingstrategy.ai/vaults/passivbot-canon
     #: - https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
     #: - https://api.hyperliquid.xyz/info
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x490af7d4a048a81db0f677517ed6373565b42349": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.directional_trading,
@@ -380,7 +398,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
@@ -396,7 +416,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
     #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.btc_only,

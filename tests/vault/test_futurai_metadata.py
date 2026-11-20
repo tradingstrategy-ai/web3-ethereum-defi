@@ -34,7 +34,7 @@ def test_futurai_attribution_and_native_tags(address: str) -> None:
     assert identify_curator(chain_id=9999, **args) == "futurai-labs"
     assert identify_curator(chain_id=999, **args) is None
     _, row = create_hyperliquid_vault_row(HexAddress(address.upper()), "Renamed vault", None, 1_000, None)
-    expected = {StrategyTag.perpetual_futures, StrategyTag.directional_trading}
+    expected = {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.directional_trading}
     if address == ADDRESSES[2]:
         expected.add(StrategyTag.trend_following)
     else:

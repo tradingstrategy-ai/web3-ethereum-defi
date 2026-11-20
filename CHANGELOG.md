@@ -1,5 +1,7 @@
 # 1.2
 
+- Add the Staff pick tag to 15 vaults selected by Trading Strategy staff across Hyperliquid, Lighter and GRVT (2026-11-20).
+
 - feat: Review all 349 Lighter public pools, add strategy tags to 42 Core pools and refresh their persisted classifications with migration 092 (2026-11-19, [#1795](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1795)).
 
 - feat: Tag nine more Hyperliquid long-short portfolios and classify HyperNeutral #1 and Quantitative Market Neutral Strategy in the diversified low-exposure long–short category. Tag five portfolios above 120% median gross exposure as leveraged and five below 120% as unlevered. Tag four vaults with a median rebalance gap of 22 to 26 hours as daily rebalance. Classify two leveraged portfolios in the 280%–320% median gross exposure band as 3x portfolios. Classify two leveraged portfolios in the 180%–220% median gross exposure band as 2x portfolios. Tag two vaults with a 61.5-hour median rebalance gap as two and half days rebalance. Assign algorithmic trading across all ten reviewed vaults. Migrations 083–091 refresh the persisted tags (2026-11-19, [#1794](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794)).

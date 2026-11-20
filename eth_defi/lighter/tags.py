@@ -2199,7 +2199,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "lighter-pool-281474976552443": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
@@ -2232,7 +2234,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - docs/protocol-research/lighter-public-pools.md
     #: - https://github.com/tradingstrategy-ai/freqtrade-strategies/pull/967#issuecomment-6502886706
     #: - https://candleeffect.io/pool
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "lighter-pool-281474976543116": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.high_frequency_high_win_rate,

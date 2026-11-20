@@ -63,6 +63,7 @@ class StrategyTag(str, enum.Enum):
     A vault may have more than one strategy tag. Tags describe its economic
     strategy, instrument, execution venue, or asset exposure rather than its
     smart-contract implementation, risk level, or current trading state.
+    Staff picks record a separate editorial judgement.
     String values are stable identifiers suitable for persisted vault metadata
     and public data exports.
     """
@@ -70,6 +71,9 @@ class StrategyTag(str, enum.Enum):
     #: Research established that the vault's strategy is unknown.
     #: Example vault: none currently mapped.
     unknown = "unknown"
+
+    #: Trading Strategy staff found the vault particularly interesting.
+    staff_pick = "staff_pick"
 
     #: Takes directional exposure to one or more markets.
     #: Example vault: AllDeFi Quant Directional Strategy (GRVT).
@@ -366,6 +370,12 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.unknown: {
         "label": "Unknown strategy",
         "description": "The investment approach is unknown.",
+    },
+    StrategyTag.staff_pick: {
+        "label": "Staff pick",
+        "description": """Trading Strategy staff highlight vaults they find particularly interesting. There are no specific performance requirements or other selection criteria.
+
+Follow the [Trading Strategy podcast](https://tradingstrategy.ai/podcast) for vault interviews.""",
     },
     StrategyTag.directional_trading: {
         "label": "Directional trading",
