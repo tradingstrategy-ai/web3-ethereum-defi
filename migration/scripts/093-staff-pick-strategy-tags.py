@@ -4,7 +4,7 @@ Purpose: Publish the November staff selection.
 Scope: Only _strategy_tags for the listed Hyperliquid, Lighter and GRVT vaults.
 Branch: add-staff-pick-strategy-tag
 PR title: feat: add staff pick strategy tag
-PR: Pending
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1796
 Preserves: All other metadata, prices, reader state and timestamp caches.
 Expected: Up to 15 updated fields. Report missing deployments without creating rows.
 
