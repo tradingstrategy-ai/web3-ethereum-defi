@@ -3,25 +3,24 @@ name: σ-Labs
 role: curator
 lagoon-curator: σ-Labs
 website: https://www.sigmalabs.fi/
-short_description: σ-Labs researches crypto investment risks and strategies that operate across blockchains.
+twitter: sigmalabsfi
+short_description: σ-Labs designs automated strategies for lending stablecoins and trading ether and crypto futures.
 long_description: |
-  [σ-Labs](https://www.sigmalabs.fi/) researches investment risks and systems that operate across blockchains. It [co-curates an ether strategy with Ellen Capital](https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257) that buys staked ether tokens below their redemption value and exchanges them for ether.
+  [σ-Labs](https://www.sigmalabs.fi/) designs the trading rules for two vaults it runs with Ellen Capital. One [buys discounted staked ether](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) and redeems it for ether. The other [lends USDC across blockchains](https://tradingstrategy.ai/vaults/cross-chain-usdc-lending), moving funds when the extra interest is expected to cover the cost.
 
-  The organisations also co-curate [stablecoin lending across several blockchains](https://app.lagoon.finance/api/vault?chainId=1&address=0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89) through [Morpho](https://morpho.org/). The precise division of responsibilities between the two curators is not disclosed.
+  Its [other strategies](https://www.sigmalabs.fi/products) include fixed-rate lending against bitcoin-backed tokens, trading perpetual futures and borrowing ether to buy more staked ether. Its sigmaETH vault lends wrapped ether while the redemption strategy waits for a trade.
 
-# Evidence and background references.
-#
-# Sigma Labs' official homepage describes its onchain research work. Lagoon's
-# official curator and vault APIs identify σ-Labs as a curator and show that it
-# co-curates the two named Ethereum vaults with Ellen Capital.
+  For [Stablecoin Market Making](https://tradingstrategy.ai/vaults/stablecoin-market-making), Lobster designs the trading rules and Coral Capital runs them on [Uniswap](https://app.uniswap.org/). σ-Labs [values the positions and settles deposits and withdrawals](https://www.sigmalabs.fi/papers/stablecoin-market-making-governance.pdf).
+
+# The X profile links to the official site and its posts link to the exact vaults.
 other-links:
-  - title: Sigma Labs official homepage - onchain research, risk analysis and multichain infrastructure
-    url: https://www.sigmalabs.fi/
-  - title: Lagoon Finance curators API - σ-Labs registered curator profile
+  - title: σ-Labs products and trading strategies
+    url: https://www.sigmalabs.fi/products
+  - title: Lagoon Finance curator directory
     url: https://app.lagoon.finance/api/curators
-  - title: Lagoon Finance vault - stETH Redemption Carry
-    url: https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257
-  - title: Trading Strategy - Cross-chain USDC Lending
+  - title: Staked ether redemption and sigmaETH lending rules
+    url: https://www.sigmalabs.fi/papers/lagoon-governance.pdf
+  - title: Cross-chain USDC Lending
     url: https://tradingstrategy.ai/vaults/cross-chain-usdc-lending
-
-# 2026-11-10 add-curator: The official homepage is reachable but publishes no verified social/news link. Do not confuse this organisation with unrelated Sigma Labs brands.
+  - title: Stablecoin Market Making
+    url: https://tradingstrategy.ai/vaults/stablecoin-market-making

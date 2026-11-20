@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Complete σ-Labs curator attribution, descriptions and strategy tags for seven vaults, and add migrations to refresh metadata and backfill early hourly prices (2026-11-20).
+
 - fix: Preserve reported protocol fee components in vault JSON exports when normalising fee metadata; complete Buoy fee fields and document HYPE request charges outside read-only analytics (2026-11-20, [#1801](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801)).
 - feat: Add read-only Buoy vault discovery, published onchain NAV provenance and optional descriptive metadata (2026-11-20, [#1801](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801)).
 - feat: Add HyperEVM Pear vault discovery, curator attribution and a one-off historical NAV import from Pear’s API. Capture point-in-time ERC-4626 valuations for Pear and Hyperdrive HYPED during HyperEVM price scans (2026-11-20).

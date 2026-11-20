@@ -880,7 +880,7 @@ LAGOON_CURATOR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVau
     (1, HexAddress("0x2746f31096f23670caf4043f8b30d8d02405a257")): HandwrittenVaultMetadata(
         name="stETH Redemption Carry",
         short_description="The vault buys discounted staked ether tokens and redeems them for ether to earn the price difference.",
-        description="#### Vault's trading strategy\n\nThe vault [buys stETH below its redemption value](https://app.lagoon.finance/api/vault?chainId=1&address=0x2746f31096f23670caf4043f8b30d8d02405a257) on [Curve](https://curve.finance/) and exchanges it for ether through [Lido's withdrawal queue](https://docs.lido.fi/token-guides/steth/). stETH represents ether deposited in Lido's staking system; the strategy earns the difference between its purchase price and the ether received, after costs.\n\nMoney awaiting a trade is placed in sigmaETH, an interest-earning lending portfolio on [Morpho](https://morpho.org/). A narrowing discount or a long redemption queue can reduce the return and delay access to money.",
+        description=("#### Vault's trading strategy\n\nThe vault buys stETH, a token representing ether staked through Lido, on [Curve](https://curve.finance/) when it trades below its redemption value. It receives ether through [Lido's withdrawal queue](https://docs.lido.fi/contracts/withdrawal-queue-erc721/). A longer wait ties up funds and reduces what the vault can earn from lending.\n\nThe [automated trading rules](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) require the expected gain after transaction costs to beat lending by a minimum margin. While the vault waits for a qualifying trade, it lends wrapped ether through sigmaETH on [Morpho Blue](https://morpho.org/)."),
         link="",
     ),
     (1, HexAddress("0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8")): HandwrittenVaultMetadata(
@@ -946,8 +946,8 @@ LAGOON_CURATOR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVau
     ),
     (1, HexAddress("0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89")): HandwrittenVaultMetadata(
         name="Cross-chain USDC Lending",
-        short_description="The vault lends USDC on Morpho and moves capital between blockchains when expected interest gains cover transfer costs.",
-        description="#### Vault's trading strategy\n\nThe vault [lends directly into selected markets](https://app.lagoon.finance/api/vault?chainId=1&address=0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89) on [Morpho](https://morpho.org/) across Ethereum, Optimism, Base, Arbitrum, Polygon, Monad and HyperEVM. Borrower interest generates income, while pledged assets provide a source of repayment if borrowers default.\n\nAn automated allocator compares the expected extra interest with the cost of moving funds through [Circle CCTP](https://developers.circle.com/cctp), a system for transferring native stablecoins between chains. Transfers are triggered only when the expected gain over the planned holding period covers the cost; that period and any human approval requirements are undisclosed. Loan defaults, insufficient proceeds from selling pledged assets and transfer delays can reduce returns or delay withdrawals.",
+        short_description="The vault lends USDC and moves it between blockchains when the extra interest is expected to cover the cost.",
+        description=("#### Vault's trading strategy\n\nBorrowers on [Morpho Blue](https://morpho.org/) pledge assets to secure loans and pay interest to the vault. Lenders can lose money if selling those assets fails to cover a loan.\n\nThe vault’s [allocation rules](https://www.sigmalabs.fi/papers/cross-chain-usdc-lending-governance.pdf) compare lending markets on Ethereum, Optimism, Base, Arbitrum, Polygon, Monad and HyperEVM. They account for how much each rate would fall if the vault supplied more money. The software uses [Circle’s USDC transfer service](https://developers.circle.com/cctp) only when the expected extra interest over the planned lending period covers transfer fees and interest forgone in transit."),
         link="https://tradingstrategy.ai/vaults/cross-chain-usdc-lending",
     ),
     (143, HexAddress("0xe95074a86fead8647edff36af2f3f1dd7e8f7adb")): HandwrittenVaultMetadata(
@@ -1093,8 +1093,44 @@ PEAR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata
 }
 
 
+#: Vault strategies documented by Sigma Labs after the original Lagoon curator review.
+SIGMA_LABS_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (1, HexAddress("0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb")): HandwrittenVaultMetadata(
+        name="Stablecoin Market Making",
+        short_description="The vault earns swap fees by supplying USDC and USDT to a Uniswap trading pool.",
+        description=("#### Vault's trading strategy\n\nThe vault puts USDC and USDT into a [Uniswap v3](https://app.uniswap.org/) pool where traders pay to exchange one token for the other. The vault earns a share of those fees **only while the exchange rate is within its range** around one USDC per USDT.\n\nCoral Capital runs [Lobster’s trading rules](https://www.sigmalabs.fi/papers/stablecoin-market-making-governance.pdf) to set the size of the position and move its price range as the two tokens trade. Moving the range costs money. If either token falls below a dollar, the vault can end up holding more of the weaker token."),
+        link="https://tradingstrategy.ai/vaults/stablecoin-market-making",
+    ),
+    (8453, HexAddress("0x79238962903c62865f319f660177e75652ee4780")): HandwrittenVaultMetadata(
+        name="Fixed/Variable Rate Arbitrage USDC Lending",
+        short_description="The vault offers fixed-rate loans backed by bitcoin and earns variable interest on funds awaiting a fixed-rate borrower.",
+        description=("#### Vault's trading strategy\n\nBorrowers pledge cbBTC, a token backed by bitcoin, to borrow at a fixed rate on [Morpho Midnight](https://docs.morpho.org/learn/concepts/midnight/). The vault’s [pricing model](https://www.sigmalabs.fi/vault/0xd1373084d7c99d8c20c11371e2ea968a7b90e5d6) forecasts the variable rate over the term of the loan and adds a premium that borrowers pay to lock in their rate.\n\nWhile it waits for fixed-rate borrowers, the vault lends at variable rates on [Morpho Blue](https://morpho.org/). Software moves those funds between approved markets as rates change. Once a borrower locks in a rate, the vault misses out on any rise in variable rates above the agreed rate."),
+        link="https://tradingstrategy.ai/vaults/fixed-rate-usdc-lending",
+    ),
+    (42161, HexAddress("0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f")): HandwrittenVaultMetadata(
+        name="Cross-Sectional Statistical Arbitrage",
+        short_description="The vault buys higher-ranked cryptoassets and sells lower-ranked ones through perpetual futures to earn the difference in their returns.",
+        description=("#### Vault's trading strategy\n\nEach day, the vault’s [trading model](https://www.sigmalabs.fi/vault/0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f) ranks the most liquid perpetual futures on Hyperliquid. It buys contracts in the top fifth and takes short positions in the bottom fifth, which gain when those prices fall. The vault paid a transfer fee to fund its [Hyperliquid trading account](https://app.hyperliquid.xyz/explorer/address/0xC28B135128c7d6B43bEB6eb48a25a9B29aF55aFD) from Arbitrum.\n\nThe model keeps similar dollar amounts on each side to limit the effect of a rise or fall in the overall market. The vault can lose money if the lower-ranked assets outperform the higher-ranked ones. Its trading rules can also halt trading and leave the vault with no open positions."),
+        link="https://tradingstrategy.ai/vaults/cross-sectional-statistical-arbitrage",
+    ),
+    (1, HexAddress("0x7d2bd5eb7066957c135585f0f055443451baadad")): HandwrittenVaultMetadata(
+        name="wstETH Dynamic Leveraged",
+        short_description="The vault borrows ether to buy more staked ether and earns the staking rewards left after borrowing costs.",
+        description=("#### Vault's trading strategy\n\nThe vault pledges wstETH, a token representing ether staked through [Lido](https://lido.fi/), to borrow wrapped ether on [Morpho](https://morpho.org/). It uses the loan to buy more wstETH. If interest on the loan exceeds the staking rewards, the strategy loses money.\n\nEach day at 13:00 UTC, after Lido reports its exchange rate, the vault’s [automated trading rules](https://www.sigmalabs.fi/vault/0x7d2bd5eb7066957c135585f0f055443451baadad) compare the debt with the value of the pledged tokens. The vault borrows more or repays part of the loan when that ratio moves outside its target range. Morpho values the pledged tokens at Lido’s exchange rate, so a fall in their market price alone does not trigger a forced sale."),
+        link="",
+    ),
+    (1, HexAddress("0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32")): HandwrittenVaultMetadata(
+        name="sigmaETH",
+        short_description="The vault lends wrapped ether and moves it between markets as borrowing rates change.",
+        description=("#### Vault's trading strategy\n\nThe vault earns interest from borrowers who pledge assets for loans on [Morpho Blue](https://morpho.org/). Its [lending rules](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) automatically divide wrapped ether among approved markets, weighing the interest each pays against the risk of lending there.\n\nSupplying more ether to a market can lower the interest rate for lenders, so the software estimates the rate it would earn after moving the money. The stETH Redemption Carry vault uses sigmaETH to earn interest while it waits to trade."),
+        link="",
+    ),
+}
+
+
 #: Ordered by lookup precedence for deployments covered by multiple catalogues.
 _HANDWRITTEN_CATALOGUES = (
+    SIGMA_LABS_VAULT_METADATA,
     LAGOON_CURATOR_VAULT_METADATA,
     K3_VAULT_METADATA,
     GMX_VAULT_METADATA,

@@ -913,6 +913,7 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
         "Gami": "gami",
         "Noon": "noon",
         "Syntropia": "syntropia",
+        "\N{GREEK SMALL LETTER SIGMA}-Labs, Ellen Capital": "sigma-labs",
     }
     for manager_name, expected_slug in expected_slugs.items():
         slug = identify_curator(
@@ -936,6 +937,14 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
         manager_name="Ellen Capital, \N{GREEK SMALL LETTER SIGMA}-Labs",
     )
     assert slug == "ellen-capital"
+
+
+def test_identify_sigma_labs_vault_without_manager_name() -> None:
+    """Resolve a documented alpha vault even when Lagoon supplies no curator."""
+
+    address = "0x0F30D4CC24024E51BEE5E7805BC7F3E6A88EA59F"
+    assert identify_curator(42161, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") == "sigma-labs"
+    assert identify_curator(1, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") is None
 
 
 def test_identify_t3tris_curator_by_curator_metadata() -> None:
