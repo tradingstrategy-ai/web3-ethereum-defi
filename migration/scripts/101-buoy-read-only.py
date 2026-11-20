@@ -5,7 +5,7 @@ Purpose: Onboard Buoy identities, published valuation history and descriptions.
 Scope: 60 HyperEVM factory creations through block 51,248,351, reviewed 2026-11-14.
 Branch: analyse-buoy-finance-vault-protocol
 PR title: feat: add read-only Buoy vault support on HyperEVM
-PR: See the pull request for the branch above.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801
 Preserves: Unrelated metadata and prices, scheduled reader state and timestamp caches.
 Expected: Refresh 60 catalogue rows and backfill sampled early accounting where published.
 
