@@ -505,6 +505,21 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb
     #: https://murmurr.xyz/
     (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"): "murmurr",
+    #: Sigma Labs publishes these three Lagoon alpha vaults by exact deployment.
+    #: Lagoon's records identify the contracts but leave the curator field empty.
+    #: https://www.sigmalabs.fi/products
+    #: The Base product uses a different address in its URL. Its product
+    #: registry gives the Lagoon vault address used here.
+    #: https://www.sigmalabs.fi/vault/0xd1373084d7c99d8c20c11371e2ea968a7b90e5d6
+    (8453, "0x79238962903c62865f319f660177e75652ee4780"): "sigma-labs",
+    #: https://www.sigmalabs.fi/vault/0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f
+    (42161, "0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f"): "sigma-labs",
+    #: https://www.sigmalabs.fi/vault/0x7d2bd5eb7066957c135585f0f055443451baadad
+    (1, "0x7d2bd5eb7066957c135585f0f055443451baadad"): "sigma-labs",
+    #: The stETH Redemption Carry governance paper identifies this Morpho V2
+    #: deployment as Sigma Labs' lending vault for capital awaiting carry trades.
+    #: https://www.sigmalabs.fi/papers/lagoon-governance.pdf
+    (1, "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32"): "sigma-labs",
     #: NAVI's otherwise unbranded USDC High Yield vault; reviewed 2026-11-10.
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da
     (1, "0x47491305479635357df29fe0cb6f1af10e51d4da"): "navi",

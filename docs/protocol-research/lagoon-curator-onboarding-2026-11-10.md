@@ -464,3 +464,11 @@ Claude CLI with exact model `claude-opus-5-5` completed an independent review
 and a focused follow-up after the Gami correction: **approved; no remaining
 material findings**. No changes were pushed or applied to production in this
 follow-up task.
+
+## Sigma Labs description review, 20 November 2026
+
+The [product list](https://www.sigmalabs.fi/products) and the [stETH redemption governance paper](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) identify six Lagoon strategies and the underlying sigmaETH lending vault. The fixed-rate product uses a different address in its product URL from the Lagoon share contract on Base. Its Trading Strategy page matches the share contract, `0x79238962903c62865f319f660177e75652ee4780`.
+
+Trading Strategy pages were verified for Cross-chain USDC Lending, Stablecoin Market Making, Fixed/Variable Rate Arbitrage USDC Lending and Cross-Sectional Statistical Arbitrage. No matching published page was verified for stETH Redemption Carry, wstETH Dynamic Leveraged or sigmaETH. Their vault destination fields remain empty.
+
+The [statistical arbitrage product page](https://www.sigmalabs.fi/vault/0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f) links the Hyperliquid trading account and describes funding it through a bridge. The [leveraged wstETH product page](https://www.sigmalabs.fi/vault/0x7d2bd5eb7066957c135585f0f055443451baadad) identifies Lido's exchange rate as the Morpho market's price feed.

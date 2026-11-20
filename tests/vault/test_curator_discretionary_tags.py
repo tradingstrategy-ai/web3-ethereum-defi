@@ -22,10 +22,16 @@ from eth_defi.vault_protocols.repairs.strategy_tags import resolve_strategy_tags
 SCRIPT = "062-curator-discretionary-strategy-tags.py"
 EXPECTED_CHANGES = 9
 
+#: These rows remain preservation controls for 062. Migration 103 owns their
+#: newer live classifications and tests them separately.
+SIGMA_LABS_PRESERVED_ROWS = (
+    (1, "0x2746f31096f23670caf4043f8b30d8d02405a257", "Lagoon Finance", "amm arbitrage carry_trade lending multistrategy", "amm arbitrage carry_trade lending multistrategy"),
+    (1, "0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb", "Lagoon Finance", None, None),
+)
+
 #: Frozen review expectations: chain, address, protocol, previous tags and current tags.
 REVIEWED = (
     (1, "0x10dbaf26e61db145c9af764fcd3bdd3993e3ce8a", "Lagoon Finance", None, None),
-    (1, "0x2746f31096f23670caf4043f8b30d8d02405a257", "Lagoon Finance", "amm arbitrage carry_trade lending multistrategy", "amm arbitrage carry_trade lending multistrategy"),
     (1, "0x401550bc1ce4fb0ffdd86015f49142bbaad29ad8", "Lagoon Finance", "algorithmic_trading directional_trading discretionary_trading perpetual_futures", "algorithmic_trading directional_trading discretionary_trading perpetual_futures"),
     (1, "0x47491305479635357df29fe0cb6f1af10e51d4da", "Lagoon Finance", None, None),
     (1, "0x4cb280e63251b9ab24a54def74bf5995d82ff398", "Lagoon Finance", "delta_neutral liquidity_provider market_making multistrategy", "delta_neutral liquidity_provider market_making multistrategy"),
@@ -34,7 +40,6 @@ REVIEWED = (
     (1, "0x71652d4898de9a7dd35e472a5fe4577ec69d82f2", "Lagoon Finance", None, None),
     (1, "0x7d798ce99ee2adc183a865d76b112810d5395ea2", "Lagoon Finance", None, None),
     (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb", "Lagoon Finance", "algorithmic_trading lending lending_optimisation", "algorithmic_trading discretionary_trading lending lending_optimisation"),
-    (1, "0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb", "Lagoon Finance", None, None),
     (1, "0x9a458370556a68bdc130a80c35b294d0ad947a6a", "Lagoon Finance", None, None),
     (1, "0xca790385506b790554571cbc9da73f0130cdcfd5", "Lagoon Finance", "amm lending liquidity_provider multistrategy", "amm lending liquidity_provider multistrategy"),
     (1, "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89", "Lagoon Finance", "algorithmic_trading lending lending_optimisation", "algorithmic_trading lending lending_optimisation"),
@@ -126,7 +131,7 @@ def pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     rows = {}
-    for chain, address, protocol, before, _after in REVIEWED:
+    for chain, address, protocol, before, _after in (*REVIEWED, *SIGMA_LABS_PRESERVED_ROWS):
         spec = VaultSpec(chain, HexAddress(address))
         features = {ERC4626Feature.morpho_v2_like} if protocol == "Morpho" else {ERC4626Feature.lagoon_like}
         rows[spec] = _row(spec, protocol, features, before)

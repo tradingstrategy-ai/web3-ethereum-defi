@@ -67,6 +67,9 @@ K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
 #: Reviewed underlying identities for the fixed valuation-warning migration.
 VALUATION_TARGETS = runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/049-reviewed-vault-valuations.py"))["TARGETS"]
 
+#: Existing Lagoon and Morpho deployments required by the Sigma Labs backfill.
+SIGMA_BACKFILL_SPECS = {target.as_spec() for target in runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/104-sigma-labs-price-backfill.py"))["TARGETS"]}
+
 
 @pytest.mark.parametrize("dry_run", [True, False])
 def test_reviewed_valuation_refresh(tmp_path: Path, dry_run: bool) -> None:
@@ -297,6 +300,10 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}
+    for spec in SIGMA_BACKFILL_SPECS:
+        morpho = spec.vault_address == "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32"
+        feature = ERC4626Feature.morpho_v2_like if morpho else ERC4626Feature.lagoon_like
+        rows[spec] = {"Protocol": "Morpho" if morpho else "Lagoon Finance", "_detection_data": detection(spec, feature)}
     VaultDatabase(rows=rows, last_scanned_block={1: 12345, 42161: 67890}).write(tmp_path / "vault-metadata-db.pickle")
     return tmp_path
 
@@ -428,7 +435,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     applied = path.read_bytes()
     # No reviewed Wildcat market is registered by the batch's lead cursor at block 12,345
     buoy_specs = {VaultSpec(999, address) for address, _, _ in BUOY_REVIEWED_LEADS}
-    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP} | buoy_specs
+    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP} | buoy_specs | SIGMA_BACKFILL_SPECS
     assert set(database.leads) == {LLAMA_LEND_WSTGBP} | buoy_specs
     assert all(database.rows[spec]["Protocol"] == "Buoy" for spec in buoy_specs)
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
