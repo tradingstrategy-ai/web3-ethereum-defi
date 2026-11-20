@@ -1094,8 +1094,14 @@ def apply_sticky_export_state(
 
     state["last_current_filter_count"] = stats.current_filter_passed
     state["updated_at"] = now_text
+    vaults = [record for _, record in vaults_by_key.values()]
+    for record in vaults:
+        if record.get("protocol_slug") == "pear" and isinstance(name := record.get("name"), str):
+            # The receipt token adds a redundant brand prefix. Edit the public
+            # name after replay so both fresh and cached rows keep their URLs.
+            record["name"] = name.removeprefix("Pear Vault ")
     return StickyExportResult(
-        vaults=[record for _, record in vaults_by_key.values()],
+        vaults=vaults,
         state=state,
         stats=stats,
     )
