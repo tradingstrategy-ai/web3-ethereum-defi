@@ -4,7 +4,7 @@ Purpose: Remove the grid trading tag from Steady Wealth Builder.
 Scope: Only _strategy_tags for Lighter pool 281474976552443 on chain 9998.
 Branch: remove-grid-trading-tag-steady-vault-builder
 PR title: fix: remove grid trading tag from Steady Wealth Builder
-PR: Pending.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1800
 Preserves: All other metadata, prices, reader state and timestamp caches.
 Expected: At most one changed row and one updated field. Report a missing pool.
 
