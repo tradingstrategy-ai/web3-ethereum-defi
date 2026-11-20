@@ -52,6 +52,10 @@ address-to-tag mapping next to its vault protocol adapter.
    - Prefer the most specific tag and include a relevant parent tag where it
      conveys useful search or reporting context. For example, an RWA lending
      vault normally receives both `rwa` and `rwa_lending`.
+   - Reserve `index` for passive tracking of a defined basket with equal
+     weights, market-capitalisation weights or a comparable weighting rule.
+     Rebalancing to match the index is part of tracking. Classify actively
+     traded strategies by how they trade, even when marketed as an index.
    - Do not infer a tag merely from a token symbol, protocol name, or generic
      yield marketing. When the strategy is not documented well enough, leave
      the address out of the mapping: `get_strategy_tags()` then returns

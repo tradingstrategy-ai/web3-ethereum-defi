@@ -21,16 +21,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.perpetual_futures,
         StrategyTag.statistical_arbitrage,
     },
-    #: Emporium Ventures SPC, reviewed 2026-11-20. The vault tracks its own
-    #: long-short index with quantitative weight rebalancing and rules for
-    #: constituent changes. The team targets an even long/short split.
+    #: Emporium Ventures SPC, reviewed 2026-11-20. The strategy trades
+    #: selected long and short perpetual futures and uses quantitative rules
+    #: to rebalance their weights. The team targets an even long/short split.
+    #: https://pro-gateway.pearprotocol.io/vaults/0xd38a67a4f54a9b4286d72f08440485a395ddfa70
     #: https://pro-gateway.pearprotocol.io/vaults
     #: https://x.com/EV_labs_/status/2100983716658970819
     #: https://x.com/Pasta_Capital/status/2122280477826425294
     "0xd38a67a4f54a9b4286d72f08440485a395ddfa70": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
-        StrategyTag.index,
         StrategyTag.long_short_portfolio,
         StrategyTag.perpetual_futures,
     },

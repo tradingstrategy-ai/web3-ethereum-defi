@@ -260,7 +260,9 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Axis Origin USDx (Upshift).
     multistrategy = "multistrategy"
 
-    #: Tracks a predefined market or asset index in an index-fund style.
+    #: Passively tracks a defined basket using equal weights, market
+    #: capitalisation or a comparable weighting rule. Classify active
+    #: strategies by how they trade.
     #: Example vault: Mantle Index Four (Securitize).
     index = "index"
 
@@ -536,7 +538,7 @@ For example, [HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1)
     },
     StrategyTag.index: {
         "label": "Index",
-        "description": "Tracks a defined basket of assets to mirror its overall market performance.",
+        "description": "Passively tracks a basket with equal, market-capitalisation or other rule-based weights.",
     },
     StrategyTag.perpetual_futures: {
         "label": "Perpetual futures",

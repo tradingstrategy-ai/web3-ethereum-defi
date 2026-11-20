@@ -24,8 +24,10 @@ from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
 AGENT_PEAR = HexAddress("0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")
+EMPORIUM_VENTURES = HexAddress("0xd38a67a4f54a9b4286d72f08440485a395ddfa70")
 LONGEVITY = HexAddress("0x69f2ed780a4cec49e552dbcd35a60f41368bc362")
 PEAR_FEATURES = {ERC4626Feature.pear_like}
+PEAR_COMMON_TAGS = {StrategyTag.long_short_portfolio, StrategyTag.perpetual_futures}
 
 #: Use a post-launch fork because the shared HyperEVM midnight block is too early.
 PEAR_FORK_BLOCK = 51_750_000
@@ -94,7 +96,7 @@ def test_pear_fee_scale_and_admission(anvil_fork_pool: AnvilForkPool) -> None:
     ("address", "specific_tags"),
     [
         (AGENT_PEAR, {StrategyTag.algorithmic_trading, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.mean_reversion, StrategyTag.pair_trading, StrategyTag.statistical_arbitrage}),
-        ("0xd38a67a4f54a9b4286d72f08440485a395ddfa70", {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.index}),
+        (EMPORIUM_VENTURES, {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral}),
         ("0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.pair_trading}),
         (LONGEVITY, {StrategyTag.discretionary_trading, StrategyTag.pair_trading}),
     ],
@@ -110,7 +112,7 @@ def test_pear_reviewed_strategy_tags(address: HexAddress, specific_tags: set[Str
     """
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=PEAR_CHAIN_ID))
     vault = create_vault_instance(web3, address, features=PEAR_FEATURES)
-    assert vault.get_strategy_tags() == specific_tags | {StrategyTag.long_short_portfolio, StrategyTag.perpetual_futures}
+    assert vault.get_strategy_tags() == specific_tags | PEAR_COMMON_TAGS
 
 
 @pytest.mark.parametrize(("chain_id", "address"), [(1, AGENT_PEAR), (PEAR_CHAIN_ID, "0xd9c45133b7506735bfc242f7a7940c23a16f7132")])
@@ -125,21 +127,44 @@ def test_pear_unreviewed_strategy_tags(chain_id: int, address: HexAddress) -> No
     assert vault.get_strategy_tags() is None
 
 
-def test_pear_strategy_tag_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("script_name", "address", "old_specific_tags", "expected_specific_tags"),
+    [
+        ("100-pear-strategy-tags.py", LONGEVITY, {StrategyTag.discretionary_trading}, {StrategyTag.discretionary_trading, StrategyTag.pair_trading}),
+        (
+            "102-pear-remove-index-tag.py",
+            EMPORIUM_VENTURES,
+            {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral, StrategyTag.index},
+            {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral},
+        ),
+    ],
+)
+def test_pear_strategy_tag_migration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    script_name: str,
+    address: HexAddress,
+    old_specific_tags: set[StrategyTag],
+    expected_specific_tags: set[StrategyTag],
+) -> None:
     """Preview and apply the Pear tag refresh to an isolated catalogue.
 
-    The existing Pear deployment gains its new category. A same-address
-    row on another chain retains the full original metadata.
+    The existing Pear deployment receives its corrected categories. A
+    same-address row on another chain retains the full original metadata.
 
     :param tmp_path: Temporary metadata database, scripts and journal.
     :param monkeypatch: Fixture used to remove metadata path overrides.
+    :param script_name: Numbered migration to run in isolation.
+    :param address: HyperEVM address targeted by the migration.
+    :param old_specific_tags: Persisted categories beyond the shared Pear tags.
+    :param expected_specific_tags: Expected categories beyond the shared tags.
     """
     for variable in ("VAULT_DB", "VAULT_DB_PATH"):
         monkeypatch.delenv(variable, raising=False)
     now = datetime.datetime.fromisoformat("2026-11-20")
-    pear = VaultSpec(PEAR_CHAIN_ID, LONGEVITY)
-    unrelated = VaultSpec(1, LONGEVITY)
-    old_tags = {StrategyTag.discretionary_trading, StrategyTag.long_short_portfolio, StrategyTag.perpetual_futures}
+    pear = VaultSpec(PEAR_CHAIN_ID, address)
+    unrelated = VaultSpec(1, address)
+    old_tags = old_specific_tags | PEAR_COMMON_TAGS
     rows = {
         spec: {
             "Protocol": "Pear",
@@ -156,7 +181,7 @@ def test_pear_strategy_tag_migration(tmp_path: Path, monkeypatch: pytest.MonkeyP
     before = path.read_bytes()
     scripts_dir = tmp_path / "scripts"
     scripts_dir.mkdir()
-    script = next(spec for spec in runner.discover_migrations() if spec.name == "100-pear-strategy-tags.py")
+    script = next(spec for spec in runner.discover_migrations() if spec.name == script_name)
     (scripts_dir / script.name).write_bytes(script.source)
     options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
 
@@ -164,5 +189,5 @@ def test_pear_strategy_tag_migration(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert path.read_bytes() == before
     runner.run_pending_migrations(dry_run=False, **options)
     updated = VaultDatabase.read(path).rows
-    assert updated[pear] == rows[pear] | {"_strategy_tags": old_tags | {StrategyTag.pair_trading}}
+    assert updated[pear] == rows[pear] | {"_strategy_tags": expected_specific_tags | PEAR_COMMON_TAGS}
     assert updated[unrelated] == rows[unrelated]
