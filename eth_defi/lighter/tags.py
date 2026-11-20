@@ -2192,7 +2192,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Steady Wealth Builder.
     #: Added: 2026-08-18.
     #: Decision material: The current Lighter description explicitly calls
-    #: this a long-only DCA grid strategy, supporting directional grid trading.
+    #: this a long-only DCA grid strategy, supporting directional trading.
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
     #: Updated: 2026-11-13. Maintainer assigned Martingale-like trading.
@@ -2200,11 +2200,13 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
     #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    #: Updated: 2026-11-20. Removed the grid trading tag at the maintainer's request.
+    #: - https://tradingstrategy.ai/vaults/strategies/grid-trading
+    #: - https://tradingstrategy.ai/vaults/steady-wealth-builder
     "lighter-pool-281474976552443": {
         StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
-        StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
     },

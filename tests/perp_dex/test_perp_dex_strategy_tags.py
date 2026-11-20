@@ -352,13 +352,12 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
     }
 
 
-def test_lighter_grid_description_is_tagged() -> None:
-    """The long-only Lighter grid pool receives its supported tags."""
+def test_steady_wealth_builder_strategy_tags() -> None:
+    """Expose the maintained Steady Wealth Builder classification."""
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
         StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
-        StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
         StrategyTag.perpetual_futures,
@@ -404,7 +403,7 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
         "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
         "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
         "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
-        "lighter-pool-281474976552443": {StrategyTag.staff_pick, StrategyTag.directional_trading, StrategyTag.grid_trading},
+        "lighter-pool-281474976552443": {StrategyTag.staff_pick, StrategyTag.directional_trading},
         "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
             StrategyTag.podcast_available,
             StrategyTag.algorithmic_trading,
