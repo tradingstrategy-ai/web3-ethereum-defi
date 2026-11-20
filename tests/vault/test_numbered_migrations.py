@@ -523,3 +523,24 @@ def test_hibachi_grvt_strategy_tag_refresh_guards(tmp_path: Path, missing: bool)
         with pytest.raises(ValueError, match="not a Hibachi/GRVT vault"):
             runner._execute(migration, context)
     assert path.read_bytes() == original
+
+
+def test_staff_pick_refresh_preserves_other_candle_effect_versions(tmp_path: Path) -> None:
+    """Apply the editorial selection to Candle Effect v2 on Lighter Core.
+
+    The closely named v1 pool must retain its stored tags, even when the other
+    staff picks are missing from the database.
+
+    :param tmp_path: Isolated metadata and migration storage.
+    :return: ``None`` after verifying the saved rows.
+    """
+    selected = VaultSpec(9998, "lighter-pool-281474976543116")
+    other = VaultSpec(9998, "lighter-pool-281474976620676")
+    path = tmp_path / "vault-metadata-db.pickle"
+    rows = {spec: {"Protocol": "Lighter", "_strategy_tags": {StrategyTag.perpetual_futures}, "_detection_data": detection(spec, ERC4626Feature.lighter_native)} for spec in (selected, other)}
+    VaultDatabase(rows=rows).write(path)
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 93)
+    runner._execute(migration, runner.MigrationContext(tmp_path, False, script_name=migration.name))
+    updated = VaultDatabase.read(path)
+    assert updated.rows[other] == rows[other]
+    assert {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.perpetual_futures} <= updated.rows[selected]["_strategy_tags"]

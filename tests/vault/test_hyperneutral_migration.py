@@ -45,6 +45,8 @@ def test_hyperneutral_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         monkeypatch.delenv(name, raising=False)
     target = VaultSpec(9999, address)
     expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance}
+    if address == "0x8bb033130be354eed1110ce7228d7095f001d9fe":
+        expected.add(StrategyTag.staff_pick)
     timestamp = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC).replace(tzinfo=None)
     detection = ERC4262VaultDetection(chain=9999, address=target.vault_address, first_seen_at_block=1, first_seen_at=timestamp, features={ERC4626Feature.hypercore_native}, updated_at=timestamp, deposit_count=1, redeem_count=1)
     row = {"Protocol": "Hyperliquid", "Name": "Preserve name", "_detection_data": detection, "_strategy_tags": expected if state == "current" else {StrategyTag.perpetual_futures}}

@@ -42,7 +42,7 @@ def test_hyperliquid_long_short_migration(tmp_path: Path, monkeypatch: pytest.Mo
     database = VaultDatabase(rows={edge: edge_row, grids: grids_row, VaultSpec(999, edge.vault_address): {"Name": "Preserve unrelated row"}})
     old_grid_tags = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.high_frequency_high_win_rate}
     portfolio_tags = {StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x}
-    edge_tags = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.two_and_half_days_rebalance} | portfolio_tags
+    edge_tags = {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.two_and_half_days_rebalance} | portfolio_tags
     assert edge_row["_strategy_tags"] == edge_tags
     assert grids_row["_strategy_tags"] == old_grid_tags | portfolio_tags
     previous_portfolio_tags = {
