@@ -5,7 +5,7 @@ Purpose: Publish researched vault strategies for existing scanner records.
 Scope: Refresh both description fields and strategy tags for seven exact deployments.
 Branch: add-curator-sigmalabs
 PR title: feat: complete Sigma Labs curator and vault metadata
-PR: Pending
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1804
 Preserves: Curator fields, eligibility, fees, other metadata and price history.
 Expected: Up to seven changed rows and 21 changed fields. Report missing rows.
 

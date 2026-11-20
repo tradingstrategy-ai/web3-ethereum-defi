@@ -8,7 +8,7 @@ Scope: Seven exact deployments on Ethereum, Base and Arbitrum. Frozen half-open
     whose supply was zero at detection.
 Branch: add-curator-sigmalabs
 PR title: feat: complete Sigma Labs curator and vault metadata
-PR: Pending
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1804
 Preserves: Metadata, reader state, prices for other vaults and existing prices
     at or after each vault's first collected block.
 Expected: Fill the priced portions of gaps ranging from about three days to
