@@ -504,6 +504,10 @@ def _record_metadata_success(row: dict[str, Any], previous: dict[str, Any], pend
         "features": features,
         "classifier_version": classifier_version,
     }
+    if same_protocol and row.get("_buoy_metadata_available") is False:
+        for key in ("_description", "_short_description", "_manager_name"):
+            if previous.get(key) is not None:
+                row[key] = previous[key]
     for key in ("_available_liquidity", "_utilisation"):
         if same_protocol and key in row.get("_lending_fields_unavailable", []) and row.get(key) is None and previous.get(key) is not None:
             row[key] = previous[key]

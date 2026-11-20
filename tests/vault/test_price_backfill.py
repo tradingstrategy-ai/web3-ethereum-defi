@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols.migration import MigrationContext
 from eth_defi.vault_protocols.repairs import price_backfill
@@ -281,3 +281,68 @@ def test_missing_vault_is_reported(pipeline: SimpleNamespace) -> None:
     outcomes = run_price_backfill(_context(pipeline.data_dir, dry_run=True), (target,))
     assert [outcome["status"] for outcome in outcomes] == ["missing_vault"]
     assert pipeline.calls == []
+
+
+def test_nullable_schema_addition_does_not_fail_preservation_check(tmp_path: Path) -> None:
+    """A canonical null provenance column cannot make an unchanged row differ.
+
+    The first backfill after a schema addition reads an old file before the
+    writer upgrades it. Both preservation snapshots must use the same schema.
+
+    :param tmp_path: Isolated raw Parquet files.
+    """
+    old = pa.Table.from_pylist(_rows(1, ETHEREUM_VAULT, [100]), schema=SCHEMA)
+    path = tmp_path / "prices.parquet"
+    pq.write_table(old, path)
+    before = price_backfill._load_vault_rows(path, 1, ETHEREUM_VAULT)
+    upgraded = price_backfill.VaultHistoricalRead.migrate_parquet_schema(old)
+    pq.write_table(upgraded, path)
+    after = price_backfill._load_vault_rows(path, 1, ETHEREUM_VAULT)
+    price_backfill._assert_rows_unchanged(before, after, "test")
+    assert after["nav_timestamp"].null_count == 1
+
+
+@pytest.mark.parametrize("supply, failures, allowed, succeeds", [(0, 0, True, True), (0, 1, True, False), (100, 0, True, False), (None, 0, True, False), (0, 0, False, False)])
+def test_empty_backfill_requires_complete_zero_supply(pipeline: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, supply: int | None, failures: int, allowed: bool, succeeds: bool) -> None:
+    """Allow empty accounting without treating unavailability as an empty vault.
+
+    A published NAV can exist before any shares are minted. Complete raw
+    zero-supply rows remain useful history, but a failed read or unpriced live
+    supply must still fail the required price-write postcondition.
+
+    :param pipeline: Isolated real Parquet and metadata fixture.
+    :param monkeypatch: Replace the provider's source observations.
+    :param supply: Raw exported supply, or unavailable.
+    :param failures: Number of deferred source observations.
+    :param allowed: Explicit target permission to retain empty accounting.
+    :param succeeds: Whether the required postcondition should pass.
+    :return: None after checking source eligibility and preview preservation.
+    """
+    original = price_backfill.scan_historical_prices_to_parquet
+    price_path = pipeline.data_dir / "vault-prices-1h.parquet"
+    before = price_path.read_bytes()
+
+    def empty_scan(**kwargs: object) -> dict:
+        """Write real zero-price rows and retain the source availability count."""
+        result = original(**kwargs)
+        path = kwargs["output_fname"]
+        rows = VaultHistoricalRead.migrate_parquet_schema(pq.read_table(path)).to_pylist()
+        for row in rows:
+            if row["address"] == ETHEREUM_VAULT and 100 <= row["block_number"] < 500:
+                row.update(share_price=None, total_supply=supply, total_assets=0)
+        pq.write_table(pa.Table.from_pylist(rows, schema=VaultHistoricalRead.to_pyarrow_schema()), path)
+        result["price_rows_written_by_vault"] = {}
+        result["unavailable_observations"] = failures
+        return result
+
+    monkeypatch.setattr(price_backfill, "scan_historical_prices_to_parquet", empty_scan)
+    target = PriceBackfillTarget(1, ETHEREUM_VAULT, 100, 500, allow_empty_supply=allowed)
+    context = _context(pipeline.data_dir, dry_run=True)
+    if succeeds:
+        (outcome,) = run_price_backfill(context, [target])
+        assert outcome["price_rows_written"] == 0
+        assert outcome["rows_written"] > 0
+    else:
+        with pytest.raises(RuntimeError, match="produced no share price"):
+            run_price_backfill(context, [target])
+    assert price_path.read_bytes() == before

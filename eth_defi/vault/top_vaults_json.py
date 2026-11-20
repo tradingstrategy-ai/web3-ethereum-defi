@@ -44,6 +44,7 @@ import psutil
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_MIN_TVL_USD
 from eth_defi.chain import CHAIN_NAMES
 from eth_defi.neutral_trade.constants import SOLANA_DATASET_CHAIN_ID, is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.compat import native_datetime_utc_now
@@ -127,6 +128,7 @@ TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per cha
 #: default once ApeX vaults gain real traction.
 PROTOCOL_MIN_TVL_OVERRIDES: dict[str, float] = {
     "apex": float(os.getenv("APEX_MIN_TVL", "499")),
+    "buoy": float(BUOY_MIN_TVL_USD),
 }
 
 
@@ -135,7 +137,7 @@ def resolve_export_threshold_tvl(record: dict, default_threshold: float) -> floa
 
     Most vaults use the global :py:data:`THRESHOLD_TVL`, but protocols listed
     in :py:data:`PROTOCOL_MIN_TVL_OVERRIDES` use their own bar. The lookup is by
-    exported ``protocol_slug`` so it does not depend on any protocol package.
+    exported ``protocol_slug`` rather than a deployment address.
 
     :param record:
         Exported vault row, expected to carry ``protocol_slug``.

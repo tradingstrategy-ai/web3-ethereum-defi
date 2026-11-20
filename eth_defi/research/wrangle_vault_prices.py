@@ -35,7 +35,8 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.core import HYPEREVM_LATEST_NAV_ADDRESSES
+from eth_defi.erc_4626.core import ERC4626Feature, HYPEREVM_LATEST_NAV_ADDRESSES
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_MIN_TVL_USD
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
 from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_FIRST_DEPOSIT_BLOCKS
 from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID
@@ -140,6 +141,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     """
 
     # -- General columns (all protocols) --
+
+    #: Original NAV publication time, preserved when prices are forward-filled.
+    nav_timestamp: "pd.Timestamp | None"
 
     #: EVM chain id (e.g. ``1`` for Ethereum, ``8453`` for Base).
     #:
@@ -511,6 +515,8 @@ VAULT_STATE_COLUMNS = {
     # When this price row was actually written/fetched (naive UTC).
     # NaT for old data that predates this column.
     "written_at": pd.NaT,
+    # Publication time of asynchronous NAV; never replace with the poll time.
+    "nav_timestamp": pd.NaT,
     # Hypercore epoch marker. Set when wrangling discards a complete prior
     # wipe-out epoch and begins from recapitalised capital.
     "epoch_reset": False,
@@ -2369,7 +2375,9 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
         display(vault_prices_df)
 
     tvl_threshold: float | Mapping[str, float] | Callable[[str], float] = 1000.0
-    if families != {DenominationFamily.stablecoin}:
+    if families == {DenominationFamily.stablecoin}:
+        tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(BUOY_MIN_TVL_USD) if ERC4626Feature.buoy_like in v["_detection_data"].features else 1000.0 for v in rows.values()}
+    else:
         base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
         tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(convert_usd_threshold_to_denomination(base_guideline, v["Denomination"])) for v in rows.values() if classify_denomination(v["Denomination"]) in families}
 

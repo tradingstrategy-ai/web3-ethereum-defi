@@ -58,6 +58,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # https://docs.neutral.trade/additional-info/fees-+-redemption-period
     # https://github.com/neutral-trade/sdk/blob/7d8b41044e757c378d9a20eddfafa507ee2ec15c/src/extensions/fees.ts
     "Neutral Trade": VaultFeeMode.externalised,
+    # Verified Buoy high-water-mark fees mint shares; fixed HYPE request fees are separate.
+    "Buoy": VaultFeeMode.internalised_minting,
     # Withdrawal charges reduce the payout rather than the quoted share price.
     # https://docs.veranta.xyz/liquidity-providers/risk-management
     "Veranta": VaultFeeMode.externalised,
@@ -382,7 +384,9 @@ class FeeData:
     #:
     #: Most protocols do not expose a separate protocol charge, so this is
     #: optional. An adapter can retain it alongside an aggregate management
-    #: fee, allowing consumers to calculate a manager-only breakdown.
+    #: fee, allowing consumers to calculate a manager-only breakdown. Charging
+    #: bases are protocol-specific: Buoy includes its referral component in
+    #: performance instead. Never add an included component a second time.
     protocol: float | None = None
 
     def __post_init__(self) -> None:

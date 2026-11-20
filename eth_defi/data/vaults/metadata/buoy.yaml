@@ -1,0 +1,49 @@
+name: Buoy
+slug: buoy
+short_description: Buoy offers USDC vaults whose leaders trade pooled capital on Hyperliquid.
+long_description: |
+  [Buoy](https://buoy.finance/) offers USDC vaults that issue transferable shares.
+  Leaders use pooled capital to trade on Hyperliquid, with strategies ranging
+  from buying spot assets to trading [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future),
+  contracts with no fixed expiry. Each vault's strategy and trading losses affect its share value.
+
+  Deposits and withdrawals follow a [request and settlement process](https://docs.buoy.finance/protocol-deep-dive/request-lifecycle).
+  A protocol-operated service values positions and processes requests; withdrawals
+  may require positions to be closed and funds moved back from the trading account.
+  Cancelling a delayed withdrawal can return shares rather than cash. A vault's
+  leader can restrict new deposits, and the protocol can pause vaults.
+
+  The [trust disclosures](https://docs.buoy.finance/protocol-deep-dive/security-and-trust)
+  identify reliance on the operator's valuations, administrator powers and
+  Hyperliquid infrastructure. Share values published onchain can remain unchanged
+  between settlements while the trading account's actual market value changes.
+fee_description: |
+  Buoy's [fee schedule](https://docs.buoy.finance/for-depositors/fees) describes
+  a vault-specific performance fee on profits above the previous share-price high.
+  This fee can be up to 50% of new profits and is paid by issuing additional shares.
+  The resulting cost to depositors is already reflected in the share price.
+
+  The protocol's referral allocation comes from within that fee, rather than
+  adding another charge. There is no management fee or percentage fee on
+  deposits or withdrawals.
+
+  Each deposit or withdrawal request also pays a fixed fee in HYPE,
+  Hyperliquid's native token, to fund request pricing and settlement.
+  It is paid separately from the deposited assets and is not refunded on
+  cancellation. Its configured amount can change.
+
+  Network gas is paid separately. Trading costs and any approved
+  trading-terminal charges are already reflected in the vault's share value.
+links:
+  homepage: https://buoy.finance/
+  app: https://buoy.finance/
+  twitter: https://x.com/buoyfinance
+  github: ''
+  documentation: https://docs.buoy.finance/
+  defillama: ''
+  audits: https://docs.buoy.finance/protocol-deep-dive/security-review-remediation
+  fees: https://docs.buoy.finance/for-depositors/fees
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/buoy
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/buoy/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0x87F76a7e6C346904192c884d48C02D3AC640DE1E

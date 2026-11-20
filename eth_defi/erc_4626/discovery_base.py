@@ -159,7 +159,12 @@ class PotentialVaultMatch:
     #: feature probe just like an Enzyme Blue lead.
     wildcat_market_candidate: "WildcatMarketCandidate | None" = None
 
+    #: Official Buoy factory creation; preserved across classification expiry.
+    buoy_factory: HexAddress | None = None
+
     def is_candidate(self) -> bool:
+        if getattr(self, "buoy_factory", None) is not None:
+            return True
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
         if is_direct_registry_lead(self) or getattr(self, "mellow_factory_candidate", None) is not None or getattr(self, "enzyme_factory_candidate", None) is not None:
             return True
@@ -690,6 +695,10 @@ def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[
         if getattr(lead, "enzyme_factory_candidate", None) is not None or is_direct_registry_lead(lead):
             continue
 
+        if getattr(lead, "buoy_factory", None) is not None:
+            factory_lead_count += 1
+            continue
+
         if lowered_address in BROKEN_VAULT_CONTRACTS or lowered_address in seen_addresses:
             continue
         addresses.append(address)
@@ -1090,6 +1099,9 @@ class VaultDiscoveryBase(abc.ABC):
         # generic ERC-4626 probes and also avoids repeatedly probing all
         # existing Enzyme leads on future scanner cycles.
         for lead in leads_by_address.values():
+            if getattr(lead, "buoy_factory", None) is not None:
+                report.detections[lead.address] = ERC4262VaultDetection(chain=chain, address=lead.address, features={ERC4626Feature.buoy_like}, first_seen_at_block=lead.first_seen_at_block, first_seen_at=lead.first_seen_at, updated_at=native_datetime_utc_now(), deposit_count=0, redeem_count=0)
+                good_vaults += 1
             enzyme_candidate = getattr(lead, "enzyme_factory_candidate", None)
             if enzyme_candidate is not None:
                 permission_result = onyx_permissions.get(HexAddress(enzyme_candidate.address.lower()))

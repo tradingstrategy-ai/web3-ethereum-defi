@@ -653,6 +653,9 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: compatibility, as one-second precision is sufficient for price scans.
     timestamp: "pd.Timestamp"
 
+    #: Optional original NAV publication time, distinct from the chain read.
+    nav_timestamp: "pd.Timestamp | None"
+
     #: Share price in denomination token units.
     #:
     #: For ERC-4626 vaults this is read directly from the contract
@@ -848,6 +851,9 @@ class VaultHistoricalRead:
     #: Value between 0.0 and 1.0 (0% to 100%).
     utilisation: Percent | None = None
 
+    #: Original NAV publication time; polling never refreshes this valuation.
+    nav_timestamp: datetime.datetime | None = None
+
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
@@ -935,6 +941,7 @@ class VaultHistoricalRead:
             "trading": str(self.trading).lower() if self.trading is not None else "",
             "available_liquidity": float(self.available_liquidity) if self.available_liquidity is not None else _nan,
             "utilisation": float(self.utilisation) if self.utilisation is not None else _nan,
+            "nav_timestamp": self.nav_timestamp,
             "written_at": None,  # Stamped in batch at Parquet write time
         }
         return data
@@ -954,6 +961,7 @@ class VaultHistoricalRead:
                 ("address", pa.string()),  # Lowercase
                 ("block_number", pa.uint64()),
                 ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
+                ("nav_timestamp", pa.timestamp("ms")),
                 ("share_price", pa.float64()),
                 ("total_assets", pa.float64()),
                 ("total_supply", pa.float64()),
@@ -1162,6 +1170,10 @@ class VaultHistoricalReader(ABC):
 
     #: Retain every successful static Multicall sample, including unchanged NAVs.
     write_all_samples: bool = False
+
+    #: Also sample end_block - 1 in stateless scans, after the regular grid.
+    #: Published NAV readers use this to retain a final partial interval.
+    include_historical_end_sample: bool = False
 
     def __init__(self, vault: "VaultBase"):
         assert isinstance(vault, VaultBase)
@@ -1396,6 +1408,10 @@ class VaultBase(ABC):
 
     For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
+
+    #: Retain saved source rows unless a successful replacement was observed.
+    #: Opt-in readers return errors without advancing state for invalid data.
+    preserve_unavailable_price_history: bool = False
 
     #: Block number hint when this vault was deployed.
     #:

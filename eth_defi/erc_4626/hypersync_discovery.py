@@ -24,6 +24,8 @@ from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScan
 from eth_defi.erc_4626.vault_protocol.wildcat.discovery import create_wildcat_market_candidate, fetch_wildcat_deployment, fetch_wildcat_market_added_event_topic, is_wildcat_registry_log
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_CHAIN_ID, BUOY_CREATED_TOPICS
+from eth_defi.erc_4626.vault_protocol.buoy.discovery import fetch_buoy_factories, fetch_buoy_vaults
 from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain, is_mellow_factory_log
 
 try:
@@ -116,6 +118,11 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
 
         # [['0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7'], ['0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db']]
         log_selections = [hypersync.LogSelection(topics=[[sig]]) for sig in self.get_topic_signatures()]
+        if self.web3.eth.chain_id == BUOY_CHAIN_ID:
+            block = self.web3.eth.block_number
+            self.buoy_factories = fetch_buoy_factories(self.web3, block)
+            self.buoy_vaults = set(fetch_buoy_vaults(self.web3, block))
+            log_selections.append(hypersync.LogSelection(address=list(self.buoy_factories), topics=[list(BUOY_CREATED_TOPICS)]))
         mellow_factories = fetch_mellow_factories_for_chain(self.web3.eth.chain_id)
         if mellow_factories:
             log_selections.append(
@@ -265,6 +272,20 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         :return:
             None.
         """
+
+        if chain == BUOY_CHAIN_ID and log.address.lower() in getattr(self, "buoy_factories", ()) and log.topics[0] in BUOY_CREATED_TOPICS:
+            if len(log.topics) != 3:
+                raise ValueError("Malformed Buoy creation topics")
+            address_key = HexAddress("0x" + log.topics[1][-40:])
+            if address_key not in self.buoy_vaults:
+                raise ValueError(f"Buoy creation not registered: {address_key}")
+            if address_key not in leads:
+                leads[address_key] = PotentialVaultMatch(chain=chain, address=address_key, first_seen_at_block=log.block_number, first_seen_at=block_timestamp, buoy_factory=HexAddress(log.address.lower()))
+                report.new_leads += 1
+            else:
+                leads[address_key].buoy_factory = HexAddress(log.address.lower())
+            seen.add(address_key)
+            return
 
         if is_mellow_factory_log(chain, log.address, log.topics[0]):
             try:
