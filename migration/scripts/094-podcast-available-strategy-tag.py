@@ -4,7 +4,7 @@ Purpose: Make vaults featured in Trading Strategy interviews discoverable.
 Scope: Only _strategy_tags for the deployment inventory from episodes 1 to 16.
 Branch: add-podcast-available-strategy-tag
 PR title: feat: tag vaults covered by the Trading Strategy podcast
-PR: Pending
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1797
 Preserves: Existing recognised strategy tags, unrelated metadata and historical data.
 Expected: Up to 25 changed rows. Report missing deployments without creating rows.
 
