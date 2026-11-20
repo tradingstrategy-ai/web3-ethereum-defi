@@ -15,6 +15,8 @@ adds. The pipeline that generates the post is described in
 | Title | The best-performing stablecoin vaults, {Month YYYY} |
 | Slug | `the-best-performing-stablecoin-vaults-{month}-{yyyy}` |
 | Excerpt | The best stablecoin yield in DeFi, {Month YYYY} report. |
+| Search title | Best stablecoin yields, {Month YYYY} |
+| Search description | Compare {Month YYYY} stablecoin yields across DeFi vaults, with rankings, risk and total value locked. |
 | Feature image | Left empty for the editor. The bundle's `hero.png` is a ready-made option, 1200×630: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Dangerous or worse risk ratings, returns above 400%, volatility above 50% and vaults the investability check excluded |
 | Social image for X | `hero-square.png`, 1080×1080, attached by hand when posting |
 
@@ -171,7 +173,15 @@ them; keep them when changing the templates in `post.py` or the notes in
 **Text**
 
 - The opening describes the best-performing DeFi vaults across blockchains
-  and decentralised exchanges for the report month. *About the report*
+  and decentralised exchanges for the report month and links to
+  [live stablecoin yields](https://tradingstrategy.ai/vaults/stablecoins).
+  Link the first relevant mention of an asset or protocol to its listing.
+  For example, the lending introduction links to the USDC and Morpho listings,
+  and the perpetual futures introduction links to the Hyperliquid listing.
+  Use anchor text that names the destination. For an individual vault such as
+  Hyperliquidity Provider (HLP), copy the URL from the current vault page.
+  Use plain listing URLs with the default page and sort order.
+- *About the report*
   describes vaults as smart contracts that let users deposit funds and execute
   a predefined strategy with investors' money.
 - *Tokenised funds* explains that vaults and funds use the same smart contract
@@ -192,7 +202,8 @@ them; keep them when changing the templates in `post.py` or the notes in
   to the matching tradingstrategy.ai page or glossary entry, except the two
   empty news subsections and *The best-performing vaults*. The latter has no
   introduction or T-bill caption and goes straight to its subsections.
-- *Report content updates*: the generated figures stay; the editor writes the
+- *Report content updates* links to the most recent earlier published edition
+  by report month, when available. The generated figures stay; the editor writes the
   new integrations under the opening sentence. The changelog candidates go
   to `report.json`, not into the post.
 - After the statistics, include a permanent paragraph offering access to the

@@ -58,7 +58,7 @@ The script refuses to replace an existing draft unless
 `GHOST_OVERWRITE_DRAFT=true`, and then only when the draft is as the pipeline
 last wrote it. It keeps a record of each write in
 `{CACHE_DIR}/ghost-drafts/{slug}.json` and compares the draft's `updated_at`,
-text fingerprint, title, excerpt and feature image with it. Opening a draft in
+text fingerprint, title, excerpt, search metadata and feature image with it. Opening a draft in
 the Ghost editor re-saves it, which the comparison allows. If the script
 refuses because the draft was edited, stop and ask the user. Use
 `GHOST_OVERWRITE_DRAFT=force`, which skips the comparison, only when there is
@@ -78,6 +78,10 @@ After the run, read the draft back through the Admin API and check the
 headings, image and table counts, the empty feature image, and that no
 excluded vault appears in the post. The Ghost site is private, so the draft
 can be viewed only in the Ghost editor.
+
+Review the links to the live stablecoin yields hub and the preceding published
+edition in the preview. Check the search title and description in
+`report.json`. The Ghost analytics setting is documented in the operator guide.
 
 The template includes the dataset subscription link after the statistics,
 the podcast audience description and the shorter tokenised-fund definition

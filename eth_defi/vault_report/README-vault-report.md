@@ -41,7 +41,7 @@ are reused. The script:
    ([FRED DGS3MO](https://fred.stlouisfed.org/series/DGS3MO)) and daily BTC and ETH
    closes from Coinbase, the same sources as the website's vault pages, plus chain
    logos from the website. All are optional: an outage leaves them out of the charts.
-4. Reads the previous report post with the Ghost Content API
+4. Reads the most recent earlier published edition by report month with the Ghost Content API
    (`GHOST_CONTENT_API_URL`, `GHOST_CONTENT_API_KEY`). The new post links back to it
    and copies its *About the report* and *Next steps* sections. *Partners* is
    rendered from `PARTNERS` in `post.py`.

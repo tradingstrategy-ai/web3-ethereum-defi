@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from eth_defi.vault_report.ghost import BLOG_URL, GhostPost, strip_ghost_ref
+from eth_defi.vault_report.ghost import BLOG_URL, GhostContentClient, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
 from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls, web_link
 
@@ -53,6 +53,7 @@ REPORT_SLUG_PREFIX = "the-best-performing-stablecoin-vaults"
 
 #: Vault pages on the website, linked from the section introductions
 VAULTS_URL = "https://tradingstrategy.ai/vaults"
+STABLECOIN_HUB_URL = f"{VAULTS_URL}/stablecoins"
 
 #: Glossary on the website, linked from the section introductions
 GLOSSARY_URL = "https://tradingstrategy.ai/glossary"
@@ -106,7 +107,7 @@ def render_partners_section(partners: tuple[tuple[str, str], ...] = PARTNERS) ->
 #: later reports inherit it.
 DEFAULT_EVERGREEN_SECTIONS = {
     "about-the-report": (f'<h2 id="about-the-report">About the report</h2><p>In this post, we examine the performance of <a href="{GLOSSARY_URL}/decentralised-finance" rel="noreferrer">DeFi</a> vaults. Vaults can be considered "self-custodial investment strategies" in traditional finance: smart contracts that let users deposit funds from their cryptocurrency wallets and execute a predefined strategy with investors\' money.</p>'),
-    "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Visit our <a href="https://tradingstrategy.ai/vaults">vaults page</a> for real-time dashboards. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
+    "next-steps": ('<h2 id="next-steps">Next steps</h2><p>Compare <a href="https://tradingstrategy.ai/vaults">live vault rankings</a>. If you have any questions, <a href="https://tradingstrategy.ai/community">contact us on Discord, email or Twitter</a>.</p>'),
 }
 
 
@@ -228,7 +229,7 @@ BEST_SECTIONS = (
         heading="Lending vaults",
         heading_id="best-performing-lending-vaults",
         subject="the best-performing lending vaults",
-        intro=f'<p>Vaults that supply stablecoins to <a href="{GLOSSARY_URL}/lending-protocol">lending protocols</a> such as Morpho and Euler, and earn the interest borrowers pay. See all <a href="{VAULTS_URL}/strategies/lending">lending vaults</a>.</p>',
+        intro=f'<p>These vaults supply stablecoins such as USDC to <a href="{GLOSSARY_URL}/lending-protocol">lending protocols</a> and earn a share of the interest borrowers pay. Compare <a href="{VAULTS_URL}/stablecoins/usdc">USDC vaults</a> across protocols. Browse <a href="{VAULTS_URL}/protocols/morpho">Morpho vaults</a> for examples. See all <a href="{VAULTS_URL}/strategies/lending">lending vaults</a>.</p>',
     ),
     BestSection(
         key="rwa",
@@ -244,7 +245,7 @@ BEST_SECTIONS = (
         heading="Perpetual futures DEX vaults by return",
         heading_id="best-performing-perp-dex-vaults",
         subject="the best-performing perp DEX vaults",
-        intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes such as Hyperliquid, GRVT and Lighter, which are discretionary, directional algorithmic or market making vaults. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
+        intro=f'<p>Vaults on <a href="{GLOSSARY_URL}/perpetual-future">perpetual futures</a> DEXes use discretionary trading, algorithmic trading or market making. Browse <a href="{VAULTS_URL}/protocols/hyperliquid">Hyperliquid vaults</a>, including its market-making vault, <a href="{VAULTS_URL}/hyperliquidity-provider-hlp">Hyperliquidity Provider (HLP)</a>. See all <a href="{VAULTS_URL}/strategies/perpetual-futures">perpetual futures vaults</a>.</p>',
         benchmark="BTC and ETH",
     ),
     BestSection(
@@ -308,7 +309,7 @@ SECTION_TEMPLATES = (
         key="by_chain",
         heading_id="best-performing-vaults-on-each-chain",
         heading="Vaults on each chain",
-        intro=f'<p>The best-performing vaults on each blockchain, for investors who stay on one chain. The <a href="{VAULTS_URL}/chains">blockchains page</a> lists the vaults of every chain.</p>',
+        intro=f'<p>The best-performing vaults on each blockchain, for investors who stay on one chain. Browse <a href="{VAULTS_URL}/chains">vault listings by blockchain</a> for live data.</p>',
         charts=(("by_chain_best", "The two best-performing vaults on each chain"),),
         level=3,
     ),
@@ -340,7 +341,7 @@ SECTION_TEMPLATES = (
         key="chain_yields",
         heading_id="average-yield-by-blockchain",
         heading="Yield by blockchain",
-        intro=f'<p>Which blockchains pay the most on stablecoins. Browse the vaults of each chain on the <a href="{VAULTS_URL}/chains">blockchains page</a>.</p>',
+        intro=f'<p>Which blockchains pay the most on stablecoins. Check the <a href="{VAULTS_URL}/chains">vault listings by blockchain</a> for current yields.</p>',
         charts=(("chain_yields", "Stablecoin vault yield on the largest blockchains against the US Treasury bill"),),
         level=3,
     ),
@@ -362,7 +363,7 @@ SECTION_TEMPLATES = (
         key="protocol_tvl",
         heading_id="stablecoin-tvl-by-defi-vault-protocol",
         heading="Stablecoin TVL by DeFi vault protocol",
-        intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">live chart</a> has the full history.</p>',
+        intro=f'<p>Where the stablecoins deposited in DeFi vaults are, by protocol, over the last 12 months. Tokenised funds are shown separately below. The <a href="{VAULTS_URL}/historical-tvl-protocol">historical TVL by protocol</a> chart has the full history.</p>',
         charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
         level=3,
     ),
@@ -370,7 +371,7 @@ SECTION_TEMPLATES = (
         key="chain_tvl",
         heading_id="stablecoin-tvl-by-blockchain",
         heading="Stablecoin TVL by blockchain",
-        intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">live chart</a> has the full history.</p>',
+        intro=f'<p>The same deposits by the blockchain they are on. The <a href="{VAULTS_URL}/historical-tvl-chain">historical TVL by blockchain</a> chart has the full history.</p>',
         charts=(("chain_tvl", "Stablecoin TVL by blockchain"),),
         level=3,
     ),
@@ -378,7 +379,7 @@ SECTION_TEMPLATES = (
         key="fund_nav",
         heading_id="stablecoin-nav-by-tokenised-fund",
         heading="Stablecoin NAV by tokenised fund",
-        intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds page</a> for the live data.</p>',
+        intro=f'<p>Tokenised funds bring money market, treasury and credit funds onchain. The chart shows their net asset value (NAV) by fund over the last 12 months. See the <a href="{VAULTS_URL}/funds">tokenised funds</a> for the live data.</p>',
         charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
         level=3,
     ),
@@ -386,7 +387,7 @@ SECTION_TEMPLATES = (
         key="flows",
         heading_id="inflows-and-outflows",
         heading="Inflows and outflows",
-        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. A TVL change includes deposits, redemptions and the returns the vaults earned. Browse all vaults and their current TVL on the <a href="{VAULTS_URL}">vaults page</a>.</p>',
+        intro=f'<p>Where the money moved: the vaults and blockchains whose total value locked grew or shrank the most over the last 30 days. A TVL change includes deposits, redemptions and the returns the vaults earned. Check the <a href="{VAULTS_URL}">live vault rankings</a> for current TVL.</p>',
         group=True,
     ),
     SectionTemplate(
@@ -401,7 +402,7 @@ SECTION_TEMPLATES = (
         key="chain_tvl_changes",
         heading_id="inflows-and-outflows-by-blockchain",
         heading="Inflows and outflows by blockchain",
-        intro=f'<p>The net TVL change of all vaults on each blockchain, for the blockchains with the largest increases and decreases. The <a href="{VAULTS_URL}/chains">blockchains page</a> shows the TVL of every chain.</p>',
+        intro=f'<p>The net TVL change of all vaults on each blockchain, for the blockchains with the largest increases and decreases. Browse <a href="{VAULTS_URL}/chains">vault listings by blockchain</a> for current TVL.</p>',
         charts=(("chain_tvl_changes", "The largest net TVL increases and decreases by blockchain over the last 30 days"),),
         level=3,
     ),
@@ -439,6 +440,9 @@ class PostContext:
     #: Previous report post with its HTML body, from the Ghost Content API, if found.
     #: Source of the evergreen sections and of the "previous report" link.
     previous: GhostPost | None = None
+
+    #: Current detail URLs by chain slug and lower-case vault address
+    vault_urls: dict[tuple[str, str], str] = field(default_factory=dict)
 
     #: Latest podcast episodes, newest first; the section is left out when empty
     podcasts: list[PodcastEpisode] = field(default_factory=list)
@@ -484,7 +488,54 @@ def make_report_slug(data_end_at: datetime.datetime) -> str:
     return f"{REPORT_SLUG_PREFIX}-{data_end_at.strftime('%B-%Y').lower()}"
 
 
-def extract_section_html(post_html: str, heading_id: str) -> str | None:
+def report_month_from_slug(slug: str) -> datetime.date | None:
+    """Read the report month independently of the publication date.
+
+    :param slug:
+        Ghost post slug in the monthly report series.
+    :return:
+        First day of the report month if the slug identifies an edition.
+    """
+    match = re.fullmatch(rf"{REPORT_SLUG_PREFIX}-([a-z]+-\d{{4}})(?:-\d+)?", slug)
+    if not match:
+        return None
+    try:
+        return datetime.datetime.strptime(f"{match[1]}+00:00", "%B-%Y%z").date()
+    except ValueError:
+        return None
+
+
+def fetch_previous_report(client: GhostContentClient, before: datetime.datetime) -> GhostPost | None:
+    """Find the latest published edition earlier than the requested report month.
+
+    The slug supplies the edition because older issues can be published late.
+    Browse older pages only if the immediately preceding month is missing.
+
+    :param client:
+        Read-only Ghost Content API client.
+    :param before:
+        Report data date, whose month is excluded.
+    :return:
+        The preceding published edition with its HTML, if one exists.
+    """
+    cutoff = before.date().replace(day=1)
+    preceding_month = (cutoff - datetime.timedelta(days=1)).replace(day=1)
+    latest_month = datetime.date.min
+    previous = None
+    page_size = 20
+    for page in itertools.count(1):
+        posts = client.fetch_latest_posts(f"slug:~^'{REPORT_SLUG_PREFIX}-'", limit=page_size, page=page)
+        for post in posts:
+            month = report_month_from_slug(post.slug)
+            if month == preceding_month:
+                return post
+            if month and latest_month < month < cutoff:
+                previous, latest_month = post, month
+        if len(posts) < page_size:
+            return previous
+
+
+def extract_section_html(post_html: str, heading_id: str, vault_urls: dict[tuple[str, str], str] | None = None) -> str | None:
     """Extract a ``<h2>`` section, up to the next ``<h2>``, from post HTML.
 
     Used to carry the evergreen sections (*About the report*, *Next steps*)
@@ -503,6 +554,8 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
 
     :param heading_id:
         The ``id`` attribute of the section ``<h2>``.
+    :param vault_urls:
+        Current detail URLs keyed by chain slug and lower-case address.
 
     :return:
         Section HTML including the heading, or ``None`` if not found.
@@ -510,7 +563,15 @@ def extract_section_html(post_html: str, heading_id: str) -> str | None:
     match = re.search(rf'<h2 id="{re.escape(heading_id)}">.*?(?=<h2 |$)', post_html, flags=re.DOTALL)
     if not match:
         return None
-    return re.sub(r"<p>\s*</p>", "", canonical_vault_urls(strip_ghost_ref(match.group(0)))).strip()
+
+    def clean_link(link: re.Match[str]) -> str:
+        quote, original = link.groups()
+        url = html.unescape(original)
+        clean_url = canonical_vault_urls(strip_ghost_ref(url), vault_urls)
+        return f"href={quote}{html.escape(clean_url, quote=True)}{quote}" if clean_url != url else link[0]
+
+    section = re.sub(r"""(?<=\s)href=(["'])(.*?)\1""", clean_link, match[0])
+    return re.sub(r"<p>\s*</p>", "", section).strip()
 
 
 def read_changelog_entries(changelog_path: Path, since: datetime.date, keywords: tuple[str, ...] = ("vault", "protocol")) -> list[str]:
@@ -636,21 +697,21 @@ def build_post_html(context: PostContext) -> str:
 
     # Copy from the previous post when it has the section, so the editor's wording carries over
     def _evergreen(heading_id: str) -> str:
-        section = extract_section_html(context.previous.html or "", heading_id) if context.previous else None
+        section = extract_section_html(context.previous.html or "", heading_id, context.vault_urls) if context.previous else None
         return section or DEFAULT_EVERGREEN_SECTIONS[heading_id]
 
     parts = [
-        f"<p>In this monthly report, we examine the best-performing DeFi vaults across blockchains and decentralised exchanges for {month}.</p>",
+        f'<p>In this monthly report, we examine the best-performing DeFi vaults across blockchains and decentralised exchanges for {month}. You can also <a href="{STABLECOIN_HUB_URL}">compare live stablecoin yields</a>.</p>',
         TABLE_OF_CONTENTS,
         _evergreen("about-the-report"),
         '<h2 id="report-content-updates">Report content updates</h2>',
     ]
 
-    if context.previous:
-        previous_month = context.previous.published_at.strftime("%B %Y")
+    previous_month = report_month_from_slug(context.previous.slug) if context.previous else None
+    if context.previous and previous_month:
         # Link the public blog domain, not the ghost.io URL the API returns
         previous_url = f"{BLOG_URL}/{context.previous.slug}"
-        parts.append(f'<p>Since the <a href="{html.escape(previous_url)}">previous report</a> is from {previous_month}, we have updated the report as follows:</p>')
+        parts.append(f'<p>Here is what changed since the <a href="{html.escape(previous_url)}">{previous_month:%B %Y} stablecoin vault report</a>.</p>')
     else:
         parts.append("<p>We have updated the report as follows:</p>")
 

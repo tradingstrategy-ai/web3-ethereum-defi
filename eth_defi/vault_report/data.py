@@ -37,6 +37,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -49,9 +50,9 @@ import requests
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
 from eth_defi.cloudflare_r2 import create_r2_client
-from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount, _get_trading_strategy_vault_link
+from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount, _get_chain_slug, _get_trading_strategy_vault_link
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, canonical_vault_urls, classify_vault, find_period, is_identified_protocol
 
@@ -241,6 +242,19 @@ def _get_three_months_drawdown(period_results: list[dict] | None) -> float:
     return float(value) if value is not None else float("nan")
 
 
+def get_canonical_vault_links(vaults: pd.DataFrame) -> dict[tuple[str, str], str]:
+    """Index current site links for resolving legacy addresses in report copy.
+
+    :param vaults:
+        Export rows with string ``chain``, ``address`` and
+        ``trading_strategy_link`` columns. Current detail URLs have a flat slug.
+    :return:
+        Canonical detail URLs keyed by case-folded chain and address.
+    """
+    links = vaults[["chain", "address", "trading_strategy_link"]].dropna()
+    return {(_get_chain_slug(chain), address.lower()): link for chain, address, link in links.itertuples(index=False, name=None) if re.fullmatch(r"https://tradingstrategy\.ai/vaults/[^/?#]+", link)}
+
+
 def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     """Turn top vaults JSON records into a report DataFrame.
 
@@ -292,7 +306,8 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
         df[column] = pd.to_datetime(df[column], format="ISO8601", utc=True).dt.tz_localize(None)
     if "trading_strategy_link" not in df.columns:
         df["trading_strategy_link"] = None
-    df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url) if isinstance(url, str) else url)
+    canonical_links = get_canonical_vault_links(df)
+    df["trading_strategy_link"] = df["trading_strategy_link"].apply(lambda url: canonical_vault_urls(url, canonical_links) if isinstance(url, str) else url)
     # Every table links the vault name to its page: build a missing link from the vault slug, like the exporter.
     # Anything not https:// counts as missing, because web_link() would render it as plain text.
     missing = ~df["trading_strategy_link"].apply(lambda url: isinstance(url, str) and url.startswith("https://"))

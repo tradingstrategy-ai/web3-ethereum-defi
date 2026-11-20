@@ -13,7 +13,8 @@ completes with the monthly news.
 - The 3-month US Treasury yield from `FRED <https://fred.stlouisfed.org/series/DGS3MO>`__
   and BTC and ETH prices are drawn as benchmarks
 - The previous report is read with the Ghost Content API to carry over
-  evergreen sections, and the draft is created with the Ghost Admin API
+  evergreen sections. The Ghost Admin API creates the draft with a dedicated
+  search title and description
 
 Run it with ``scripts/erc-4626/generate-monthly-vault-report.py``. See
 ``eth_defi/vault_report/README-vault-report.md`` for the operator guide and

@@ -215,6 +215,10 @@ class GhostPost:
     #: Feature image URL
     feature_image: str | None = None
 
+    #: Search result title and description
+    meta_title: str | None = None
+    meta_description: str | None = None
+
     @staticmethod
     def from_api(data: dict) -> "GhostPost":
         """Parse a post from a Ghost API response.
@@ -239,6 +243,8 @@ class GhostPost:
             updated_at=data.get("updated_at"),
             custom_excerpt=data.get("custom_excerpt"),
             feature_image=data.get("feature_image"),
+            meta_title=data.get("meta_title"),
+            meta_description=data.get("meta_description"),
         )
 
 
@@ -306,6 +312,10 @@ class DraftRecord:
     #: Feature image after the write; the pipeline never sets one
     feature_image: str | None
 
+    #: SEO fields default to empty for records created before the generator set them
+    meta_title: str | None = None
+    meta_description: str | None = None
+
     def matches(self, post: GhostPost) -> bool:
         """Check that a draft is as the pipeline left it.
 
@@ -322,6 +332,8 @@ class DraftRecord:
             return False
         if post.updated_at == self.updated_at:
             return True
+        if (post.meta_title or None, post.meta_description or None) != (self.meta_title or None, self.meta_description or None):
+            return False
         return fingerprint_post_text(post.html or "") == self.fingerprint and (post.title, post.custom_excerpt, post.feature_image) == (self.title, self.custom_excerpt, self.feature_image)
 
     def save(self, path: Path) -> None:
@@ -381,7 +393,7 @@ class GhostContentClient:
         posts = self.fetch_latest_posts(f"slug:~^'{slug_prefix}'", limit=1)
         return posts[0] if posts else None
 
-    def fetch_latest_posts(self, nql_filter: str, limit: int) -> list[GhostPost]:
+    def fetch_latest_posts(self, nql_filter: str, limit: int, *, page: int = 1) -> list[GhostPost]:
         """Fetch the most recently published posts that match a filter.
 
         See the `Content API filtering documentation <https://ghost.org/docs/content-api/#filtering>`__
@@ -391,12 +403,14 @@ class GhostContentClient:
             NQL filter, e.g. ``title:~'episode'`` for titles containing a word.
 
         :param limit:
-            Maximum number of posts.
+            Maximum number of posts per page.
+        :param page:
+            One-based page number for browsing older posts.
 
         :return:
             Posts including their HTML bodies, newest first.
         """
-        params = {"key": self.content_api_key, "filter": nql_filter, "limit": str(limit), "order": "published_at desc", "formats": "html"}
+        params = {"key": self.content_api_key, "filter": nql_filter, "limit": str(limit), "page": str(page), "order": "published_at desc", "formats": "html"}
         try:
             resp = self.session.get(f"{self.api_url}/ghost/api/content/posts/", params=params, timeout=self.timeout)
         except requests.RequestException as e:
@@ -564,6 +578,8 @@ class GhostAdminClient:
         custom_excerpt: str | None = None,
         tags: list[str] | None = None,
         *,
+        meta_title: str | None = None,
+        meta_description: str | None = None,
         overwrite_draft: bool = False,
         last_write: DraftRecord | None = None,
         force: bool = False,
@@ -593,6 +609,12 @@ class GhostAdminClient:
         :param tags:
             Tag names.
 
+        :param meta_title:
+            Search result title. Omit to preserve the current setting.
+
+        :param meta_description:
+            Search result description. Omit to preserve the current setting.
+
         :param overwrite_draft:
             Replace the body of an existing draft with the same slug.
 
@@ -612,6 +634,10 @@ class GhostAdminClient:
         post_data = {"title": title, "slug": slug, "html": html, "status": "draft"}
         if custom_excerpt:
             post_data["custom_excerpt"] = custom_excerpt
+        if meta_title is not None:
+            post_data["meta_title"] = meta_title
+        if meta_description is not None:
+            post_data["meta_description"] = meta_description
         if tags:
             post_data["tags"] = [{"name": t} for t in tags]
         # The feature image is the editor's choice: it is never sent, so replacing a draft keeps it

@@ -150,7 +150,8 @@ The pipeline then, in `report.publish_report_draft()`:
   (`<!--kg-card-begin: html-->`);
 - leaves the feature image empty for the editor, `hero.png` in the bundle being
   a ready-made option, and writes the editor link to `report.json` and the
-  script output.
+  script output. The search title and description also go to Ghost and the
+  manifest for review.
 
 Safety rules, see `GhostAdminClient.fetch_writable_draft()`:
 
@@ -159,11 +160,12 @@ Safety rules, see `GhostAdminClient.fetch_writable_draft()`:
 - an existing draft is replaced only with `GHOST_OVERWRITE_DRAFT=true`, and
   only when nobody has edited it since the pipeline wrote it: after each write
   the script records the draft's `updated_at` and a fingerprint of its text,
-  title, excerpt and feature image in `{CACHE_DIR}/ghost-drafts/{slug}.json`,
+  title, excerpt, search metadata and feature image in `{CACHE_DIR}/ghost-drafts/{slug}.json`,
   and compares the draft with that record before replacing it
   (`ghost.DraftRecord`). A draft re-saved by opening it in the editor passes;
   an edited one is refused. `GHOST_OVERWRITE_DRAFT=force` skips the comparison,
-  e.g. for a draft written before the record existed.
+  e.g. for a draft written before the record existed. A forced write also replaces
+  the search metadata.
 
 ## GitHub pull request comment drafts
 
@@ -221,6 +223,14 @@ The steps:
    Check afterwards that every image URL returns 200 and every index link has
    a matching anchor.
 
+## Ghost analytics setting
+
+Turn off **Settings → Analytics → Outbound link tagging** once in Ghost
+Admin, then check a rendered link to Trading Strategy for the Ghost `ref`
+query parameter. The generator cleans imported links, and Ghost controls
+tagging when it renders posts.
+See [Ghost's outbound link tagging documentation](https://ghost.org/help/member-sources/#outbound-link-tagging).
+
 ## Editor workflow
 
 1. Run the exporter with the investability check and the Admin API key.
@@ -228,6 +238,8 @@ The steps:
    entries; commit the reviewed entries.
 3. Open the draft from the editor link, rename and fill the empty *News item 1*
    and *News item 2* subsections, or remove unused ones. Write the highlight,
-   the new integrations and any commentary, add the feature image, and publish
-   from Ghost.
+   the new integrations and any commentary. Link the first relevant mention
+   of an asset or protocol to its listing. For individual vaults, copy the
+   current address-bar URL from the vault page. Check the search title and
+   description, add the feature image, and publish from Ghost.
 4. Attach `hero-square.png` when posting on X.

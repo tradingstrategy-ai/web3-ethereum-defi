@@ -69,7 +69,7 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data, fetch_vault_report_data_from_r2
 from eth_defi.vault_report.ghost import ADMIN_API_KEY_HELP, DraftRecord, GhostAdminClient, GhostAPIError, GhostContentClient
 from eth_defi.vault_report.podcasts import fetch_latest_podcast_episodes
-from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
+from eth_defi.vault_report.post import fetch_previous_report, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import ReportCriteria
 from eth_defi.vault_report.theme import get_theme
@@ -223,7 +223,7 @@ def main() -> None:
     podcasts = []
     if content_api_url and content_api_key:
         content_client = GhostContentClient(content_api_url, content_api_key)
-        previous = content_client.fetch_latest_post_by_slug_prefix(REPORT_SLUG_PREFIX)
+        previous = fetch_previous_report(content_client, data.data_end_at)
         logger.info("Previous report: %s", previous.slug if previous else "not found")
         podcasts = fetch_latest_podcast_episodes(content_client)
     else:
