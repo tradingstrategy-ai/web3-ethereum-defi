@@ -1,5 +1,7 @@
 # 1.2
 
+- Add the Podcast available tag to 25 vault deployments covered in the first 16 Trading Strategy podcast episodes (2026-11-20).
+
 - Add the Staff pick tag to 15 vaults selected by Trading Strategy staff across Hyperliquid, Lighter and GRVT (2026-11-20).
 
 - feat: Review all 349 Lighter public pools, add strategy tags to 42 Core pools and refresh their persisted classifications with migration 092 (2026-11-19, [#1795](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1795)).

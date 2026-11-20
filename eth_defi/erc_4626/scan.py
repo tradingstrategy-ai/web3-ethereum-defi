@@ -29,6 +29,7 @@ from eth_defi.vault.base import VaultBase, WithdrawalPeriod, flatten_vault_text,
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.exception import UnsupportedVaultVersion, UnsupportedVaultProtocol
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.rpc_batch import is_metadata_snapshot_compatible
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
 
@@ -495,6 +496,8 @@ def create_vault_scan_record(
         except (AttributeError, ImportError, KeyError, NotImplementedError, RuntimeError, TypeError, ValueError) as error:
             logger.warning("Failed to read strategy tags for vault %s: %s", detection.address, error, exc_info=True)
             strategy_tags = None
+
+        strategy_tags = add_podcast_available_tag(detection.chain, detection.address, strategy_tags)
 
         link = vault.get_link()
         protocol_name = get_vault_protocol_name(detection.features)
