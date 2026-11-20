@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from web3 import Web3
 
 from eth_defi.research.metrics_freshness import (
     LOW_TVL_METRICS_MAX_AGE,
@@ -547,6 +548,9 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     read path and the freshness wiring around it (gate partition, due-only
     metrics input, sticky replay bookkeeping, state commit).
 
+    The first vault has a checksummed detection address and lower-case price
+    IDs, as in the Pear rollout. It must still be selected for the export.
+
     1. Run 1 (cold): both vaults are due and computed; only vault A (peak
        6,000 USD) passes the export filter.
     2. Run 2: vault A stays due through the export-threshold rule and is
@@ -569,6 +573,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     monkeypatch.delenv("VAULT_METRICS_STATE_PATH", raising=False)
 
     vault_address = "0x00000000000000000000000000000000000000aa"
+    assert Web3.to_checksum_address(vault_address) != vault_address
     vault_id = f"1-{vault_address}"
     small_vault_address = "0x00000000000000000000000000000000000000bb"
     small_vault_id = f"1-{small_vault_address}"
@@ -579,7 +584,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
         return {
             "Denomination": "USDC",
             "Protocol": "Sky",
-            "_detection_data": SimpleNamespace(chain=1, address=address),
+            "_detection_data": SimpleNamespace(chain=1, address=Web3.to_checksum_address(address)),
             "_denomination_token": {"address": "0x00000000000000000000000000000000000000cc", "decimals": 6},
         }
 

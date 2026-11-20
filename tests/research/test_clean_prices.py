@@ -13,6 +13,7 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
 import zstandard as zstd
+from web3 import Web3
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
@@ -32,6 +33,7 @@ from eth_defi.research.wrangle_vault_prices import (
 )
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
+from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
 
 
@@ -83,8 +85,9 @@ def test_clean_vault_price_data(
 ) -> None:
     """Test cleaning vault price data.
 
-    Clean the pinned raw Hemi snapshot and verify that the daily derivative
-    preserves observations and carries the current observation-policy version.
+    Clean the pinned raw Hemi snapshot with checksummed detection addresses.
+    Verify that the daily derivative preserves observations and carries the
+    current observation-policy version.
 
     :param vault_db:
         Pickled metadata fixture path.
@@ -95,6 +98,16 @@ def test_clean_vault_price_data(
     :return:
         ``None`` after checking schema, source rows and sidecar metadata.
     """
+
+    database = VaultDatabase.read(vault_db)
+    checksummed_ids = set()
+    for spec, row in database.rows.items():
+        if spec.chain_id == 43111:
+            address = Web3.to_checksum_address(spec.vault_address)
+            row["_detection_data"] = dataclasses.replace(row["_detection_data"], address=address)
+            if address != spec.vault_address:
+                checksummed_ids.add(spec.as_string_id())
+    database.write(vault_db)
 
     dst = tmp_path / "cleaned-vault-prices.parquet"
     daily_dst = tmp_path / "cleaned-vault-prices-1d.parquet"
@@ -109,6 +122,8 @@ def test_clean_vault_price_data(
     assert "raw_share_price" in df.columns
     assert "share_price" in df.columns
     assert len(df["id"].unique()) == 4
+    assert set(df["id"]).issubset(checksummed_ids)
+    assert len(df) == 8307
 
     # Vault state columns should always be present in cleaned output,
     # even when raw scan data predates these fields
