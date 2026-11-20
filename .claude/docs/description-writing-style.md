@@ -77,9 +77,13 @@ where returns come from. Use familiar words, concrete verbs and short paragraphs
   the glossary. Glossary links do not replace sources for product-specific claims.
 - Describe business activity directly. Prefer “loans funding grain
   purchases and transport” to “short-cycle working-capital credit exposure”.
-- Do not explain familiar assets such as USDC, USDT, ether or bitcoin. Reserve
-  first-use definitions and glossary links for specialist terms and less familiar
-  products or tokens that readers need to understand the strategy.
+- Use familiar terms such as perpetual futures and asset names such as USDC,
+  USDT, ether and bitcoin without defining them. Reserve definitions and
+  glossary links for terms, products and tokens that readers need help
+  understanding.
+  The [Pear protocol description](../../eth_defi/data/vaults/metadata/pear.yaml)
+  shortens “trade perpetual futures, contracts with no expiry date, on
+  Hyperliquid” to “trade perpetual futures on Hyperliquid”.
 - Do not repeat the vault's curator, hosting protocol or blockchain name in its
   description; the page already displays them in dedicated boxes. Start with
   what the money funds. Name other products or venues only when needed to explain

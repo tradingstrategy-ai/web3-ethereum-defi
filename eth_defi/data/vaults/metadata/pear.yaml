@@ -2,7 +2,7 @@ name: Pear
 slug: pear
 short_description: Pear offers USDC vaults whose managers mainly trade one cryptoasset against another on Hyperliquid.
 long_description: |
-  [Pear](https://www.pear.garden/) pools deposits in vaults that trade [perpetual futures](https://tradingstrategy.ai/glossary/perpetual-future), contracts with no expiry date, on [Hyperliquid](https://hyperliquid.xyz/). A manager can pair a position that gains when one asset rises with a position that gains when another falls. Depositors share in the gains or losses from the combined trade.
+  [Pear](https://www.pear.garden/) pools deposits in vaults that trade perpetual futures on [Hyperliquid](https://hyperliquid.xyz/). A manager can pair a position that gains when one asset rises with a position that gains when another falls. Depositors share in the gains or losses from the combined trade.
 
   Pear runs its own automated vault, Agent Pear. External managers choose the trades for their own vaults.
 
@@ -13,7 +13,8 @@ fee_description: |
   Each manager sets the vault's [fee terms](https://docs.pear.garden/vaults#for-vault-managers).
 
   - The [performance fee](https://tradingstrategy.ai/glossary/performance-fee) is a share of realised trading profits. The rate becomes fixed when the vault receives its first deposit.
-  - Each vault sets its own withdrawal fee, which can be zero.
+  - The vault charges a percentage of the amount withdrawn, subject to a [minimum withdrawal charge](https://github.com/shieldify-security/audits-portfolio/blob/main/reports/PearProtocol-Vault-V2-Upgrade-Security-Review.pdf) that can apply even when the percentage rate is zero.
+  - The [vault terms](https://www.pear.garden/vault-terms-of-service#tos%206) specify no entry or management fee.
 # November 2026: the Trading Strategy vault sitemap has no entries for these four vaults.
 # Vault names in the curator profiles are plain text pending publication.
 links:

@@ -10,7 +10,7 @@ Preserves: Other vaults, existing leads, scan cursor, price files and reader sta
 Expected: Reclassify each saved lead or report it as missing for normal discovery.
 
 The configured HyperEVM RPCs could not value Pear at explicit historical blocks.
-The live scanner uses the ERC-4626 reader at the current head. Migration 097
+The live scanner uses the ERC-4626 reader at the current head. Migration 098
 imports earlier snapshots from Pear's API. This metadata migration
 does not attempt a backfill against unreadable HyperCore precompile state.
 

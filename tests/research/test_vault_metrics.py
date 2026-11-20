@@ -1285,6 +1285,31 @@ def test_calculate_lifetime_metrics_normalises_legacy_decimal_fee_columns(
     assert result["withdraw_fee"] == 0.02
 
 
+def test_pear_vault_json_exports_fee_floor_and_trading_account(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Publish the withdrawal floor even when Pear's percentage rate is zero."""
+    source = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    spec = VaultSpec.parse_string("999-0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")
+    row = dict(vault_db.rows[source])
+    row.update(
+        Address=spec.vault_address,
+        Protocol="Pear",
+        _risk=None,
+        _detection_data=replace(row["_detection_data"], chain=spec.chain_id, address=spec.vault_address, features={ERC4626Feature.pear_like}),
+        _fees=FeeData(fee_mode=None, management=0, performance=0.20, deposit=0, withdraw=0),
+        _pear={"hypercore_address": "0x2e9d9f8bc560c3eafa336d774c14c196a6af6500", "minimum_withdrawal_fee": Decimal("0.001")},
+    )
+    prices = price_df.loc[price_df["id"] == source.as_string_id()].assign(id=spec.as_string_id(), chain=spec.chain_id, address=spec.vault_address)
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, {spec: row}).iloc[0])
+
+    assert exported["other_data"]["pear"] == {
+        "hypercore_address": "0x2e9d9f8bc560c3eafa336d774c14c196a6af6500",
+        "minimum_withdrawal_fee": 0.001,
+    }
+    assert (exported["management_fee"], exported["performance_fee"], exported["deposit_fee"], exported["withdraw_fee"]) == (0, 0.20, 0, 0)
+    assert exported["risk"] == "Severe"
+    assert exported["lifetime_return_net"] is None
+
+
 def test_apply_morpho_not_in_api_check_blacklists_vault():
     """Morpho API missing flag blacklists the vault in metrics."""
     risk, notes, flags = apply_morpho_not_in_api_check(
@@ -1781,10 +1806,18 @@ def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
 
 
 @pytest.mark.parametrize(
-    ("deployment", "expected_slug", "expected_deployment_chain_id"),
+    ("deployment", "expected_slug", "expected_deployment_chain_id", "expected_whitelist"),
     (
-        (LIGHTER_ETHEREUM, "ethereum", 1),
-        (LIGHTER_ROBINHOOD, "robinhood", 4663),
+        (LIGHTER_ETHEREUM, "ethereum", 1, {"status": "permissionless", "notes": None}),
+        (
+            LIGHTER_ROBINHOOD,
+            "robinhood",
+            4663,
+            {
+                "status": "whitelisted",
+                "notes": "Public deposits are closed. Native perp DEX compatibility status: public deposits are unavailable; this does not imply an approved-account deposit route.",
+            },
+        ),
     ),
 )
 def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
@@ -1792,6 +1825,7 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     deployment: LighterAPIConfig,
     expected_slug: str,
     expected_deployment_chain_id: int,
+    expected_whitelist: dict,
 ) -> None:
     """Keep Lighter dataset identity separate from its associated EVM chain."""
     source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
@@ -1822,8 +1856,8 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     assert exported["chain_id"] == deployment.chain_id
     assert exported["deployment"] == expected_slug
     assert exported["deployment_chain_id"] == expected_deployment_chain_id
-    assert exported["deposit_permission"] == "permissionless"
-    assert exported["whitelist"] == {"status": "permissionless", "notes": None}
+    assert exported["deposit_permission"] == expected_whitelist["status"]
+    assert exported["whitelist"] == expected_whitelist
 
 
 def test_calculate_lifetime_metrics_exports_closed_hyperliquid_vault_as_whitelisted(price_df: pd.DataFrame) -> None:

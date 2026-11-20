@@ -195,7 +195,7 @@ companion document.
 The configured providers could value HYPED near the head. An archive rescan
 cannot recover balances after the provider has lost the corresponding
 HyperCore state. A protocol that recorded its own historical observations
-can still supply a backfill, as Pear does in migration 097.
+can still supply a backfill, as Pear does in migration 098.
 
 ## Blacklist audit — every HyperEVM entry reads HyperCore
 

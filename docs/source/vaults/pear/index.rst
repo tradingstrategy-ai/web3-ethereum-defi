@@ -17,7 +17,7 @@ use the standard ERC-4626 reader at ``latest`` and store the execution block
 and the UTC timestamp seen by that call. Each new head sampled by the scanner
 adds a point to the series. Live contract metadata also uses ``latest``.
 
-Migration 097 imports earlier observations for the four reviewed vaults from
+Migration 098 imports earlier observations for the four reviewed vaults from
 the `public Pear API <https://pro-gateway.pearprotocol.io/vaults>`__. It takes
 the last funded observation in each UTC hour before the first hour already
 covered by a verified price. Each imported row retains the source timestamp
@@ -25,7 +25,12 @@ and block. The raw price file identifies API observations as ``pear_api``
 and onchain head observations as ``latest``. Scheduled scans read NAV onchain.
 
 Curator assignments and vault descriptions come from the reviewed mandates.
-The adapter reads performance and withdrawal fees using two onchain getters.
+The adapter reads the performance and withdrawal rates onchain. The public
+vault terms specify zero entry and management fees. Vault JSON includes the
+HyperCore trading account in ``other_data.pear.hypercore_address`` and the
+comptroller's minimum withdrawal charge in
+``other_data.pear.minimum_withdrawal_fee``, measured in denomination tokens.
+The minimum can apply even if the percentage rate is zero.
 The adapter supports read-only access. Withdrawals can
 require queued settlement, and account admission is recorded as unknown.
 

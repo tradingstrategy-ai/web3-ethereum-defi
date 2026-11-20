@@ -276,7 +276,7 @@ reader records the execution block and timestamp at `latest`. When a protocol
 has retained historical observations, a numbered migration may use their
 source blocks and timestamps to fill the initial gap. Preserve existing rows
 and stop before the first covered sampling bucket so a retry cannot insert an
-earlier observation from that bucket. See [Pear migration 097](../../migration/scripts/097-pear-offchain-history.py).
+earlier observation from that bucket. See [Pear migration 098](../../migration/scripts/098-pear-offchain-history.py).
 
 #### Monad
 

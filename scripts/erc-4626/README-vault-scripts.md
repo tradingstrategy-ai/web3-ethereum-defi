@@ -3750,12 +3750,12 @@ Sharpe. The report requires 30 days for CAGR, and at least 14 days and ten
 price samples for Sharpe.
 
 After merge, run the numbered migrations using the [production migration
-procedure](../../.claude/docs/migration-scripts.md). Migration 096 refreshes
+procedure](../../.claude/docs/migration-scripts.md). Migration 097 refreshes
 HYPED's native HYPE denomination and current catalogue NAV. Check its
 `legacy_hyped_price_rows_for_unit_review` count before using a series that
 spans the unit correction. The raw file retains those rows for inspection. The cleaner excludes them from published returns.
 
-Migration 097 imports the four reviewed Pear vaults from the public
+Migration 098 imports the four reviewed Pear vaults from the public
 [Pear catalogue](https://pro-gateway.pearprotocol.io/vaults). It keeps the last
 funded observation in each UTC hour before the first hour with a usable
 `latest` or `pear_api` observation.
@@ -3765,11 +3765,19 @@ curator assignments and vault descriptions, and reports row counts per vault.
 Review the `legacy_pear_price_rows_for_review` counts for any older Pear rows
 whose source was unverified. The raw file retains them for inspection.
 Both the cleaner and the manual report exclude them when calculating returns.
-The preview reports vaults missing from the catalogue. Ensure migration 095
+The preview reports vaults missing from the catalogue. Ensure migration 096
 has registered the four targets before applying the price import.
 The API supplies the recorded timestamps and blocks, so no dense timestamp
 cache is needed for this migration. The scheduled scanner reads Pear NAV
 onchain on subsequent runs.
+
+Migration 099 refreshes the HyperCore trading account and investor fee fields
+for the four Pear vaults already registered by migration 096. Run it with the
+same stopped-scanner production procedure as the other migrations. The next
+scanner cycle publishes the updated vault JSON.
+
+Migration 100 refreshes the four vaults' strategy tags from the maintained
+Pear registry. It updates the catalogue without RPC calls or a price backfill.
 
 ### HyperEVM greylist batching and diagnostic check
 

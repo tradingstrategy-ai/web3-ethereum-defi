@@ -21,7 +21,7 @@ from eth_defi.vault_protocols.migration import MigrationContext, discover_migrat
 ADDRESS = HexAddress("0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")
 LAUNCH = PEAR_FIRST_DEPOSIT_BLOCKS[ADDRESS]
 START = datetime.datetime.fromisoformat("2026-09-14")
-MIGRATION = "097-pear-offchain-history.py"
+MIGRATION = "098-pear-offchain-history.py"
 
 
 def test_pear_hourly_nav_preserves_source_observation() -> None:
@@ -36,7 +36,7 @@ def test_pear_hourly_nav_preserves_source_observation() -> None:
     assert [(row["share_price"], row["total_assets"], row["total_supply"]) for row in rows] == [(1.25, 1.25, 1)] * 2
 
 
-def test_migration_097_preserves_existing_prices_and_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0914 - Keep the persisted preview and retry assertions together.
+def test_migration_098_preserves_existing_prices_and_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0914 - Keep the persisted preview and retry assertions together.
     """Keep onchain prices and unrelated rows while refreshing catalogue copy."""
     spec = VaultSpec(999, ADDRESS)
     path = tmp_path / "vault-prices-1h.parquet"

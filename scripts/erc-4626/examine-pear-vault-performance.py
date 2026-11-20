@@ -46,7 +46,7 @@ def format_performance_table(database: VaultDatabase, prices: pd.DataFrame) -> s
     """Format lifetime metrics using verified observations from the scratch catalogue.
 
     Older raw files may include Pear archive calls with unreliable HyperCore
-    values. Migration 097 preserves those rows for inspection. The report uses
+    values. Migration 098 preserves those rows for inspection. The report uses
     the API and onchain head samples with established provenance.
 
     :param database: Catalogue supplying launch dates, onchain TVL and vault fees.
@@ -84,7 +84,7 @@ def main() -> None:
         migration_scripts = scratch / "pear-migrations"
         migration_scripts.mkdir()
         for migration in discover_migrations():
-            if migration.name in {"095-pear-vault-metadata.py", "097-pear-offchain-history.py"}:
+            if migration.name in {"096-pear-vault-metadata.py", "098-pear-offchain-history.py"}:
                 (migration_scripts / migration.name).write_bytes(migration.source)
         database_path = scratch / "vault-metadata-db.pickle"
         database = VaultDatabase()

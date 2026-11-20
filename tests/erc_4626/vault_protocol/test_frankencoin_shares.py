@@ -187,7 +187,7 @@ def test_fcs_scan_record_on_fork(web3: Web3, tmp_path: Path) -> None:
     assert row["Name"] == "Frankencoin Shares"
     assert row["Protocol"] == "Frankencoin"
     assert row["_manager_name"] == "Frankencoin"
-    assert row["_strategy_tags"] == {StrategyTag.protocol_equity, StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending}
+    assert row["_strategy_tags"] == {StrategyTag.protocol_equity, StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.podcast_available}
     assert row["NAV"] == Decimal("1383499.536765172204801324")
     assert row["_deposit_manager"] is None
     assert row["_lockup"] is None
