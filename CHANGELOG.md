@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add HyperEVM Pear vault discovery, curator attribution and a one-off historical NAV import from Pear’s API. Capture point-in-time ERC-4626 valuations for Pear and Hyperdrive HYPED during HyperEVM price scans (2026-11-20).
+
 - Add the Podcast available tag to 25 vault deployments covered in the first 16 Trading Strategy podcast episodes (2026-11-20).
 
 - Add the Staff pick tag to 15 vaults selected by Trading Strategy staff across Hyperliquid, Lighter and GRVT (2026-11-20).

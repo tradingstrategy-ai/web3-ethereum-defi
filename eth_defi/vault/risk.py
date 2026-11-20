@@ -312,6 +312,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "ForgeYields": None,
     # CrystalClear - verified contracts on Hyperscan, UUPS proxy, no public audits yet
     "CrystalClear": None,
+    "Pear": None,
     # Aave - v4 Tokenization Spoke; blue-chip lending protocol, audited (ChainSecurity)
     # and a 6-week public security contest, open source contracts.
     "Aave": VaultTechnicalRisk.low,

@@ -33,6 +33,7 @@ from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_CHAIN_ID, PEAR_VAULT_FACTORY
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
@@ -782,6 +783,16 @@ def create_probe_calls(
             data=convert_to_shares_payload,
             extra_data=None,
         )
+
+        if chain_id == PEAR_CHAIN_ID:
+            # Explorer verification does not provide a Pear implementation ABI.
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="factory()")[:4],
+                function="pear_factory",
+                data=b"",
+                extra_data=None,
+            )
 
         # Mellow Core Vaults are not ERC-4626, but use this same probe
         # envelope so factory leads and autodetect follow the normal adapter
@@ -1588,6 +1599,13 @@ def identify_vault_features(
     # If a call to an function which cannot exist succeeds, the contract is broken
     if calls["EVM IS BROKEN SHIT"].success:
         return {ERC4626Feature.broken}
+
+    # Pear conversions read HyperCore precompiles unavailable at some numbered
+    # blocks. The factory getter reads EVM storage and identifies the deployment
+    # independently of the generic conversion test.
+    pear_factory = calls.get("pear_factory")
+    if chain_id == PEAR_CHAIN_ID and pear_factory is not None and pear_factory.success and pear_factory.result == eth_abi.encode(["address"], [PEAR_VAULT_FACTORY]):
+        return {ERC4626Feature.pear_like}
 
     if calls["shareManager"].success and calls["getAssetCount"].success:
         features.add(ERC4626Feature.mellow_like)
@@ -2953,6 +2971,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.crystalclear.vault import CrystalClearVault
 
         return CrystalClearVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.pear_like in features:
+        from eth_defi.erc_4626.vault_protocol.pear.vault import PearVault
+
+        return PearVault(web3, spec, **kwargs)
 
     else:
         # Generic ERC-4626 without fee data

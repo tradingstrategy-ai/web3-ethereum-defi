@@ -68,6 +68,10 @@ DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
 TokenAddress: TypeAlias = str
 
 
+#: ERC-7528 address returned by vaults denominated in the chain's native asset.
+NATIVE_ASSET_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+
 #: Addresses of wrapped native token (WETH9) of different chains
 WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # Mainnet
@@ -574,18 +578,17 @@ def fetch_erc20_details(
     web3: Web3,
     token_address: Union[HexAddress, str],
     max_str_length: int = 256,
-    raise_on_error=True,
-    contract_name="ERC20MockDecimals.json",
+    raise_on_error: bool = True,
+    contract_name: str = "ERC20MockDecimals.json",
     cache: dict | None = DEFAULT_TOKEN_CACHE,
-    chain_id: int = None,
+    chain_id: int | None = None,
     cause_diagnostics_message: str | None = None,
+    native_vault_asset: bool = False,
 ) -> TokenDetails:
-    """Read token details from on-chain data.
+    """Read token details from onchain data.
 
-    Connect to Web3 node and do RPC calls to extract the token info.
-    We apply some sanitazation for incoming data, like length checks and removal of null bytes.
-
-    The function should not raise an exception as long as the underlying node connection does not fail.
+    Read the ERC-20 metadata through Web3 and sanitise token names and symbols.
+    The optional native vault denomination uses the chain-defined HYPE units.
 
     .. note ::
 
@@ -603,13 +606,14 @@ def fetch_erc20_details(
         Web3 instance
 
     :param token_address:
-        ERC-20 contract address:
+        ERC-20 contract address or supported native denomination marker.
 
     :param max_str_length:
         For input sanitisation
 
     :param raise_on_error:
-        If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
+        Raise :py:class:`TokenDetailError` for missing ERC-20 metadata. Transport
+        failures can also interrupt a read when this option is disabled.
 
     :param contract_name:
         Contract ABI file to use.
@@ -636,6 +640,12 @@ def fetch_erc20_details(
     :param cause_diagnostics_message:
         Log in Python logging subsystem why this fetch was done to debug RPC overuse.
 
+    :param native_vault_asset:
+        Permit the HyperEVM native HYPE marker as a valuation denomination.
+        Its descriptor supplies units and identity only. Native transfers use
+        the EVM balance, and ERC-20 methods do not exist at the marker address.
+        See the `ERC-7528 native asset convention <https://eips.ethereum.org/EIPS/eip-7528>`__.
+
     :return:
         Sanitised token info
     """
@@ -647,6 +657,10 @@ def fetch_erc20_details(
         chain_id_given = True
 
     erc_20 = get_erc20_contract(web3, token_address, contract_name)
+    if native_vault_asset and chain_id == 999 and token_address.lower() == NATIVE_ASSET_ADDRESS:
+        # Older caches can contain zero decimals from calling decimals() on
+        # this empty address. HyperEVM vaults return native HYPE in wei.
+        return TokenDetails(erc_20, name="Hyperliquid", symbol="HYPE", decimals=18)
 
     key = TokenDetails.generate_cache_key(chain_id, token_address)
 

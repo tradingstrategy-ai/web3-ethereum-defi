@@ -269,6 +269,15 @@ separate numbered migration that follows it.
   for preview, local per-chain repair and the production run reminder. Do not
   use the legacy standalone healing script for a new persisted repair.
 
+#### HyperEVM vaults with current-state NAV
+
+For vaults whose NAV depends on current HyperCore state, the live ERC-4626
+reader records the execution block and timestamp at `latest`. When a protocol
+has retained historical observations, a numbered migration may use their
+source blocks and timestamps to fill the initial gap. Preserve existing rows
+and stop before the first covered sampling bucket so a retry cannot insert an
+earlier observation from that bucket. See [Pear migration 097](../../migration/scripts/097-pear-offchain-history.py).
+
 #### Monad
 
 [Monad full nodes retain all historical transaction data but only a

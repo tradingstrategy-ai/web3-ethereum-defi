@@ -92,7 +92,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip
 from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoryCoverageError, fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
-from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID, get_multicall_batch_size_from_env
 from eth_defi.event_reader.webshare import refresh_stale_proxy_state
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -949,7 +949,10 @@ def scan_prices_for_chain(
     Routine live scans include low-activity vaults with at least $1,500
     estimated USD TVL, retaining qualification down to $1,000. A successful
     scan reports any qualified vault whose latest real source row is older
-    than 14 days. Historical repairs keep their ordinary sparse sampling.
+    than 14 days. Each scheduled HyperEVM price scan also runs a point-in-time
+    pass for admitted vaults that value assets through live HyperCore reads.
+    Their observed head is independent of the archive range's continuation
+    point. Both passes share the price file, publication journal and writer.
 
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
@@ -1509,6 +1512,9 @@ def scan_prices_for_chain(
             frequency=frequency,
             reader_states=scanned_reader_states,
             enforce_live_freshness=live_freshness,
+            # Explicit range repairs must never stamp a current HyperCore NAV
+            # onto a past block. Only a routine live price cycle requests both passes.
+            include_latest=chain_id == HYPEREVM_CHAIN_ID and live_freshness and end_block is None,
             expected_live_vaults=low_activity_qualified_addresses,
             hypersync_client=hypersync_config.hypersync_client,
             rpc_request_stats=stats,

@@ -1065,6 +1065,55 @@ LAGOON_CURATOR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVau
 }
 
 
+PEAR_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+    (999, HexAddress("0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")): HandwrittenVaultMetadata(
+        name="Agent Pear",
+        short_description="Agent Pear automatically trades pairs of related assets, seeking gains when their prices move back towards their usual relationship.",
+        description="#### Vault's trading strategy\n\nThe vault uses automated rules to trade pairs of related assets through perpetual futures on [Hyperliquid](https://hyperliquid.xyz/). It buys exposure to the cheaper asset and sells exposure to the dearer one when their price spread moves more than two standard deviations from its average. It closes the pair as the spread returns towards its average.\n\n[Agent Pear](https://docs.pear.garden/vaults#the-agent-pear-vault) sizes both positions to reduce exposure to broad market moves. The pair can still lose money if the price relationship breaks down.",
+        link="https://vaults.pear.garden/0x65c9f4665c7d9ce96f53aafc67796dcad46f4096",
+    ),
+    (999, HexAddress("0xd38a67a4f54a9b4286d72f08440485a395ddfa70")): HandwrittenVaultMetadata(
+        name="Emporium Ventures SPC",
+        short_description="The vault seeks to profit from a basket of selected cryptoassets outperforming a basket it sells short.",
+        description="#### Vault's trading strategy\n\nThe [vault mandate](https://vaults.pear.garden/0xd38a67a4f54a9b4286d72f08440485a395ddfa70) describes two baskets of perpetual futures on [Hyperliquid](https://hyperliquid.xyz/). The vault takes long positions in cryptoassets the strategy favours and short positions in less favoured alternative tokens. Its return depends on how those baskets perform relative to each other.\n\nThe mandate leaves the selection rules and rebalancing schedule undisclosed.",
+        link="https://vaults.pear.garden/0xd38a67a4f54a9b4286d72f08440485a395ddfa70",
+    ),
+    (999, HexAddress("0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84")): HandwrittenVaultMetadata(
+        name="Valkyrie L/S",
+        short_description="Valkyrie buys exposure to stronger cryptoassets and sells exposure to weaker ones using perpetual futures.",
+        description="#### Vault's trading strategy\n\nValkyrie selects pairs of cryptoassets to trade through perpetual futures on [Hyperliquid](https://hyperliquid.xyz/). The manager seeks gains from stronger assets outperforming weaker ones and also trades around news and market themes.\n\nThe [vault mandate](https://vaults.pear.garden/0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84) generally seeks to offset broad market exposure. The manager can take a directional position when they judge there is a trading opportunity.",
+        link="https://vaults.pear.garden/0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84",
+    ),
+    (999, HexAddress("0x69f2ed780a4cec49e552dbcd35a60f41368bc362")): HandwrittenVaultMetadata(
+        name="Longevity Vault",
+        short_description="Moritz trades long and short cryptoasset pairs across two time horizons on Hyperliquid.",
+        description="#### Vault's trading strategy\n\nMoritz chooses long and short pairs of perpetual futures on [Hyperliquid](https://hyperliquid.xyz/). The strategy combines positions intended to capture longer price swings with shorter trades that the manager expects to hold for under seven days.\n\nThe [vault mandate](https://vaults.pear.garden/0x69f2ed780a4cec49e552dbcd35a60f41368bc362) sets exposure limits for both parts of the portfolio. Shorter trades can use up to 2.5 times leverage, which amplifies gains and losses.",
+        link="https://vaults.pear.garden/0x69f2ed780a4cec49e552dbcd35a60f41368bc362",
+    ),
+}
+
+
+#: Ordered by lookup precedence for deployments covered by multiple catalogues.
+_HANDWRITTEN_CATALOGUES = (
+    LAGOON_CURATOR_VAULT_METADATA,
+    K3_VAULT_METADATA,
+    GMX_VAULT_METADATA,
+    BIRCH_HILL_VAULT_METADATA,
+    NEST_VAULT_METADATA,
+    PASSIVBOT_VAULT_METADATA,
+    ROCKSTEADY_VAULT_METADATA,
+    SYSTEMIC_STRATEGIES_VAULT_METADATA,
+    ALPHAPING_VAULT_METADATA,
+    CENTAUR_VAULT_METADATA,
+    MORINI_CAPITAL_VAULT_METADATA,
+    TRAVESSIA_TAURI_VAULT_METADATA,
+    ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA,
+    VERANTA_VAULT_METADATA,
+    ROCKAWAYX_LIMINAL_VAULT_METADATA,
+    PEAR_VAULT_METADATA,
+)
+
+
 def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> HandwrittenVaultMetadata | None:
     """Look up curated metadata for a vault.
 
@@ -1081,7 +1130,10 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
     """
 
     key = (chain_id, str(address).lower())
-    return LAGOON_CURATOR_VAULT_METADATA.get(key) or K3_VAULT_METADATA.get(key) or GMX_VAULT_METADATA.get(key) or BIRCH_HILL_VAULT_METADATA.get(key) or NEST_VAULT_METADATA.get(key) or PASSIVBOT_VAULT_METADATA.get(key) or ROCKSTEADY_VAULT_METADATA.get(key) or SYSTEMIC_STRATEGIES_VAULT_METADATA.get(key) or ALPHAPING_VAULT_METADATA.get(key) or CENTAUR_VAULT_METADATA.get(key) or MORINI_CAPITAL_VAULT_METADATA.get(key) or TRAVESSIA_TAURI_VAULT_METADATA.get(key) or ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA.get(key) or VERANTA_VAULT_METADATA.get(key) or ROCKAWAYX_LIMINAL_VAULT_METADATA.get(key)
+    for catalogue in _HANDWRITTEN_CATALOGUES:
+        if metadata := catalogue.get(key):
+            return metadata
+    return None
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
