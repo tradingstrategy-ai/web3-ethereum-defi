@@ -793,6 +793,33 @@ def test_check_candidates_follow_report_selectors(vaults_df: pd.DataFrame):
     assert candidate_depth(20, 0.5) == 30
 
 
+def test_long_short_report_ranking(tmp_path: Path, prices_path: Path) -> None:
+    """The tagged ranking appears in the post and uses the same investability candidates."""
+    perp = {"protocol": "Hyperliquid", "protocol_slug": "hyperliquid", "flags": ["perp_dex_trading_vault"], "event_count": 2}
+    tag = ["long_short_portfolio"]
+    metrics = prepare_vault_metrics(
+        [
+            make_vault_record("0xa1", **perp, strategy_tags=tag, one_month_cagr_net=0.20, three_months_cagr=0.30),
+            make_vault_record("0xa2", **perp, strategy_tags=tag, one_month_cagr_net=0.25, three_months_cagr=0.10),
+            make_vault_record("0xa3", **perp, strategy_tags=tag, current_nav=50_000),
+            make_vault_record("0xa4", **perp, strategy_tags=["algorithmic_trading"], one_month_cagr_net=0.70),
+            make_vault_record("0xa5", protocol="Yearn", protocol_slug="yearn", strategy_tags=tag, event_count=2, one_month_cagr_net=0.80),
+        ]
+    )
+    report = generate_monthly_vault_report(VaultReportData(metrics, prices_path), tmp_path, render_charts=False)
+
+    assert list(report.sections["long_short"].vaults_df.index) == ["1-0xa2", "1-0xa1"]
+    assert set(report.sections["perp_dex"].vaults_df.index) >= {"1-0xa1", "1-0xa2", "1-0xa4"}
+    assert '<h3 id="best-performing-long-short-vaults">Long/short vaults</h3>' in (tmp_path / "post.html").read_text()
+    assert "https://tradingstrategy.ai/vaults/strategies/long-short-portfolio" in (tmp_path / "post.html").read_text()
+
+    criteria = ReportCriteria()
+    comparable = select_comparable_vaults(filter_eligible_vaults(metrics, DATA_END_AT, criteria))
+    candidates = collect_top_lists(comparable, criteria)
+    assert list(candidates["table:long_short"].index) == ["1-0xa2", "1-0xa1"]
+    assert list(candidates["chart:long_short"].index) == ["1-0xa1", "1-0xa2"]
+
+
 def test_check_decisions_validation(tmp_path: Path, vaults_df: pd.DataFrame):
     """Decisions must match the round, cover every in-scope candidate and carry evidence."""
     candidates = list(build_check_candidates({"table:lending": vaults_df.loc[["1-0xaa", "1-0xbb"]]}).values())

@@ -44,7 +44,7 @@ from typing import Literal
 
 from eth_defi.vault_report.ghost import BLOG_URL, GhostContentClient, GhostPost, strip_ghost_ref
 from eth_defi.vault_report.podcasts import PODCAST_PAGE_URL, PodcastEpisode, render_podcast_episodes
-from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls, web_link
+from eth_defi.vault_report.sections import AMM, CHART_RETURN, LENDING, LONG_SHORT, PERP_DEX, RWA, TOKENISED_FUND, canonical_vault_urls, web_link
 
 #: Slug prefix of the monthly report posts. The Content API finds the previous
 #: report by this prefix, so changing it breaks the month-to-month continuity
@@ -168,7 +168,7 @@ class BestSection:
     #: Section key, e.g. ``lending``: the table and criteria notes key
     key: str
 
-    #: Vault group, see :py:func:`eth_defi.vault_report.sections.classify_vault`
+    #: Ranking category passed to :py:func:`eth_defi.vault_report.sections.select_group`
     group: str
 
     #: Section heading
@@ -261,6 +261,15 @@ BEST_SECTIONS = (
         ranked_by="by 3M Sharpe ratio",
     ),
     BestSection(
+        key=LONG_SHORT,
+        group=LONG_SHORT,
+        heading="Long/short vaults",
+        heading_id="best-performing-long-short-vaults",
+        subject="the best-performing long/short vaults",
+        intro=f'<p>These vaults take long and short positions and seek returns from how the two sides perform relative to each other. Compare <a href="{VAULTS_URL}/strategies/long-short-portfolio">long/short portfolio vaults</a>.</p>',
+        link="tradingstrategy.ai/vaults/strategies/long-short-portfolio",
+    ),
+    BestSection(
         key="amm",
         group=AMM,
         heading="AMM pools",
@@ -304,7 +313,7 @@ SECTION_TEMPLATES = (
         charts=((NEW_VAULTS_CHART, "Performance of the best-performing new vaults since their launch against their benchmarks"),),
         level=3,
     ),
-    *(BEST_TEMPLATES[key] for key in ("lending", "rwa", "perp_dex", "perp_dex_sharpe", "amm")),
+    *(BEST_TEMPLATES[key] for key in ("lending", "rwa", "perp_dex", "perp_dex_sharpe", LONG_SHORT, "amm")),
     SectionTemplate(
         key="by_chain",
         heading_id="best-performing-vaults-on-each-chain",

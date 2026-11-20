@@ -33,6 +33,10 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
 | Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. No section of its own |
 
+The long/short ranking uses the long/short portfolio strategy tag and can
+overlap the groups above. Each vault keeps its existing group for the other
+rankings and follows that group’s activity requirement.
+
 ## Unidentified protocols
 
 Vaults whose protocol has not been mapped yet form one **Other** pile, never a
@@ -104,9 +108,10 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 4.3 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
 | 4.4 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
 | 4.5 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
-| 4.6 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 4.7 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
-| 4.8 | ↳ Tokenised funds | Performance chart and table, by return | — |
+| 4.6 | ↳ Long/short vaults | Performance chart and table of vaults tagged as long/short portfolios | — |
+| 4.7 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
+| 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
+| 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
 | 5 | Yield by chain and protocol | How to read the dot plots | — |
 | 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
 | 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | Where the yield comes from |

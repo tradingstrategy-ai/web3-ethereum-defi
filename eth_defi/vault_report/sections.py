@@ -11,6 +11,7 @@ Vaults are classified into groups; each group except *Other* is ranked in its ow
 - **Real-world assets (RWA):** strategy tagged as investing in, lending
   against or financing real-world assets, see :py:data:`RWA_STRATEGY_TAGS`
 - **Perpetual futures DEX:** Hyperliquid, GRVT, Lighter and other native trading vaults
+- **Long/short:** vaults tagged as long/short portfolios, alongside their existing group
 - **AMM pools:** GMX GM and GLV pools and Curve-based YieldBasis pools
 - **Tokenised funds:** vaults flagged ``tokenised_fund``, e.g. money market funds
 - **Other:** everything else, e.g. yield aggregators and trading vaults. It has no
@@ -143,6 +144,9 @@ PERP_DEX = "perp_dex"
 AMM = "amm"
 TOKENISED_FUND = "tokenised_fund"
 OTHER = "other"
+
+#: Strategy-based ranking that can overlap the vault groups above.
+LONG_SHORT = "long_short"
 
 
 @dataclass(slots=True)
@@ -612,6 +616,9 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
 
     Applies the TVL threshold, :py:attr:`ReportCriteria.amm_min_tvl` for AMM
     pools, and the activity threshold for lending, RWA and other vaults.
+    Long/short portfolios are selected by strategy tag across groups, with
+    each vault keeping the activity requirement of its original group. The
+    common report policy controls whether AMM pools can appear here.
     Perpetual futures DEX vaults and tokenised funds have no comparable
     onchain deposit events, and AMM pools have the higher TVL threshold instead.
     Vaults without the ranking metric are dropped, because a table or chart
@@ -620,13 +627,14 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
     :param eligible_df:
         Comparable vaults, see :py:func:`select_comparable_vaults`, with
         ``group``, ``current_nav``, ``event_count`` and the ``by`` column.
+        Long/short selection also needs the exported ``strategy_tags`` list.
         AMM pools must still be included, as their own section uses this.
 
     :param criteria:
         Report thresholds.
 
     :param group:
-        Vault group, see :py:func:`classify_vault`.
+        Vault group from :py:func:`classify_vault`, or :py:data:`LONG_SHORT`.
 
     :param by:
         Ranking metric column.
@@ -634,10 +642,17 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
     :return:
         All matching vaults, best first, not truncated.
     """
+    activity_groups = (LENDING, RWA, OTHER)
     df = eligible_df
-    mask = (df["group"] == group) & (df["current_nav"] >= group_min_tvl(group, criteria))
-    if group in (LENDING, RWA, OTHER):
-        mask &= df["event_count"] >= criteria.min_events
+    if group == LONG_SHORT:
+        df = exclude_amm_pools(df, criteria)
+        matches = df["strategy_tags"].map(lambda tags: isinstance(tags, list) and StrategyTag.long_short_portfolio.value in tags)
+        matches &= ~df["group"].isin(activity_groups) | (df["event_count"] >= criteria.min_events)
+    else:
+        matches = df["group"] == group
+        if group in activity_groups:
+            matches &= df["event_count"] >= criteria.min_events
+    mask = matches & (df["current_nav"] >= group_min_tvl(group, criteria))
     return rank_vaults(df.loc[mask & df[by].notna()], by)
 
 
