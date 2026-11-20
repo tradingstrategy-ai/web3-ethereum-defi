@@ -11,6 +11,7 @@ Vaults are classified into groups; each group except *Other* is ranked in its ow
 - **Real-world assets (RWA):** strategy tagged as investing in, lending
   against or financing real-world assets, see :py:data:`RWA_STRATEGY_TAGS`
 - **Perpetual futures DEX:** Hyperliquid, GRVT, Lighter and other native trading vaults
+- **Long/short:** vaults tagged as long/short portfolios, alongside their existing group
 - **AMM pools:** GMX GM and GLV pools and Curve-based YieldBasis pools
 - **Tokenised funds:** vaults flagged ``tokenised_fund``, e.g. money market funds
 - **Other:** everything else, e.g. yield aggregators and trading vaults. It has no
@@ -49,6 +50,7 @@ import html
 import logging
 import re
 from dataclasses import dataclass, field
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pandas as pd
 
@@ -142,6 +144,9 @@ PERP_DEX = "perp_dex"
 AMM = "amm"
 TOKENISED_FUND = "tokenised_fund"
 OTHER = "other"
+
+#: Strategy-based ranking that can overlap the vault groups above.
+LONG_SHORT = "long_short"
 
 
 @dataclass(slots=True)
@@ -611,6 +616,9 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
 
     Applies the TVL threshold, :py:attr:`ReportCriteria.amm_min_tvl` for AMM
     pools, and the activity threshold for lending, RWA and other vaults.
+    Long/short portfolios are selected by strategy tag across groups, with
+    each vault keeping the activity requirement of its original group. The
+    common report policy controls whether AMM pools can appear here.
     Perpetual futures DEX vaults and tokenised funds have no comparable
     onchain deposit events, and AMM pools have the higher TVL threshold instead.
     Vaults without the ranking metric are dropped, because a table or chart
@@ -619,13 +627,14 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
     :param eligible_df:
         Comparable vaults, see :py:func:`select_comparable_vaults`, with
         ``group``, ``current_nav``, ``event_count`` and the ``by`` column.
+        Long/short selection also needs the exported ``strategy_tags`` list.
         AMM pools must still be included, as their own section uses this.
 
     :param criteria:
         Report thresholds.
 
     :param group:
-        Vault group, see :py:func:`classify_vault`.
+        Vault group from :py:func:`classify_vault`, or :py:data:`LONG_SHORT`.
 
     :param by:
         Ranking metric column.
@@ -633,10 +642,17 @@ def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str
     :return:
         All matching vaults, best first, not truncated.
     """
+    activity_groups = (LENDING, RWA, OTHER)
     df = eligible_df
-    mask = (df["group"] == group) & (df["current_nav"] >= group_min_tvl(group, criteria))
-    if group in (LENDING, RWA, OTHER):
-        mask &= df["event_count"] >= criteria.min_events
+    if group == LONG_SHORT:
+        df = exclude_amm_pools(df, criteria)
+        matches = df["strategy_tags"].map(lambda tags: isinstance(tags, list) and StrategyTag.long_short_portfolio.value in tags)
+        matches &= ~df["group"].isin(activity_groups) | (df["event_count"] >= criteria.min_events)
+    else:
+        matches = df["group"] == group
+        if group in activity_groups:
+            matches &= df["event_count"] >= criteria.min_events
+    mask = matches & (df["current_nav"] >= group_min_tvl(group, criteria))
     return rank_vaults(df.loc[mask & df[by].notna()], by)
 
 
@@ -892,38 +908,54 @@ def calculate_high_yield_protocols(yield_vaults: pd.DataFrame, criteria: ReportC
     return yields.loc[yields["tvl"] >= criteria.yield_high_yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "avg_return")
 
 
-#: Legacy vault page URLs and their current form. The website moved vault pages from
-#: ``/trading-view/`` and redirects the old paths; exports and posts made before the move still carry them.
-#:
-#: The post's writing rules require the current paths, and rewriting saves
-#: readers a redirect per click. Applied in order: vault pages first,
-#: because the per-chain listing pattern also matches the start of a vault
-#: page path and would turn it into a ``/vaults/chains/...`` link.
-LEGACY_VAULT_URLS = (
-    # /trading-view/{chain}/vaults/{slug} -> /vaults/{slug}
-    (re.compile(r"https://tradingstrategy\.ai/trading-view/[a-z0-9-]+/vaults/"), "https://tradingstrategy.ai/vaults/"),
-    # /trading-view/{chain}/vaults -> /vaults/chains/{chain}
-    (re.compile(r"https://tradingstrategy\.ai/trading-view/(?!vaults\b)([a-z0-9-]+)/vaults\b"), r"https://tradingstrategy.ai/vaults/chains/\1"),
-    # /trading-view/vaults... -> /vaults...
-    (re.compile(r"https://tradingstrategy\.ai/trading-view/vaults\b"), "https://tradingstrategy.ai/vaults"),
-)
+#: Listing paths can be shared without table view parameters.
+VAULT_LISTING_PATH = re.compile(r"/vaults(?:/(?:chains|protocols|strategies|stablecoins|curators|new-vaults|funds|high-tvl)(?:/[^/]+)?)?/?$")
+VAULT_LISTING_VIEW_PARAMS = frozenset({"page", "sort", "direction"})
+LEGACY_CHAIN_VAULT_PATH = re.compile(r"/trading-view/([^/]+)/vaults(?:/([^/]+)(/.*)?)?/?$")
 
 
-def canonical_vault_urls(text: str) -> str:
-    """Rewrite legacy vault page URLs to the website's current ``/vaults/`` paths.
+def canonical_vault_urls(text: str, vault_urls: dict[tuple[str, str], str] | None = None) -> str:
+    """Use current website paths for vault links in exports and inherited copy.
 
-    Used on the export's ``trading_strategy_link`` values and on the HTML
-    copied from the previous post, see :py:data:`LEGACY_VAULT_URLS`.
+    The old per-chain detail route can carry an address with a renamed slug.
+    Use the current export URL when it identifies the vault, or follow the
+    frontend address route that resolves the current slug.
 
     :param text:
-        A URL, or HTML with links.
-
+        A URL or HTML containing absolute Trading Strategy links.
+    :param vault_urls:
+        Current detail URLs keyed by chain slug and lower-case address.
     :return:
-        The text with legacy vault URLs rewritten, following the website's redirects.
+        The same text with current vault paths and plain listing links.
     """
-    for pattern, replacement in LEGACY_VAULT_URLS:
-        text = pattern.sub(replacement, text)
-    return text
+
+    def rewrite(match: re.Match[str]) -> str:
+        original = match[0]
+        url = urlsplit(html.unescape(original))
+        path = url.path
+        query = url.query
+        legacy = LEGACY_CHAIN_VAULT_PATH.fullmatch(path)
+        if legacy:
+            chain, slug, subpath = legacy.groups()
+            if slug:
+                address = next((value.lower() for key, value in parse_qsl(query) if key == "a" and re.fullmatch(r"0x[0-9a-f]{40}", value, re.IGNORECASE)), None)
+                if address:
+                    return (vault_urls or {}).get((chain.lower(), address), f"https://tradingstrategy.ai/vaults/address/{address}")
+                path = f"/vaults/{slug}{subpath or ''}"
+            else:
+                path = f"/vaults/chains/{chain}"
+        elif path == "/trading-view/vaults" or path.startswith("/trading-view/vaults/"):
+            path = path.removeprefix("/trading-view")
+        if query and VAULT_LISTING_PATH.fullmatch(path):
+            parameters = parse_qsl(query, keep_blank_values=True)
+            if any(key in VAULT_LISTING_VIEW_PARAMS for key, _ in parameters):
+                query = urlencode([(key, value) for key, value in parameters if key not in VAULT_LISTING_VIEW_PARAMS])
+        if (path, query) == (url.path, url.query):
+            return original
+        result = urlunsplit(url._replace(path=path, query=query))
+        return result.replace("&", "&amp;") if "&amp;" in original else result
+
+    return re.sub(r"""https://tradingstrategy\.ai/(?:trading-view|vaults)(?=[/?#"'<>\s]|$)[^"'<>\s]*""", rewrite, text)
 
 
 def find_period(period_results: list[dict] | None, period: str) -> dict:

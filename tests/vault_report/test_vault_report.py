@@ -33,7 +33,7 @@ from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_pr
 from eth_defi.vault_report.ghost import DraftRecord, GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, check_ghost_admin_api_key, create_ghost_admin_token, fingerprint_post_text
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.podcasts import parse_podcast_episode, render_podcast_episodes
-from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, make_report_slug, read_changelog_entries
+from eth_defi.vault_report.post import SECTION_TEMPLATES, extract_section_html, fetch_previous_report, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import collect_top_lists, generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import AMM, LENDING, OTHER, OTHER_PROTOCOL, PERP_DEX, RWA, TOKENISED_FUND, ReportCriteria, ReportSection, calculate_average_yields, calculate_chain_tvl_changes, calculate_chain_tvl_history, calculate_chain_yields, calculate_fund_nav_history, calculate_high_yield_protocols, calculate_protocol_tvl_history, calculate_protocol_yields, calculate_tvl_changes, canonical_vault_urls, classify_vault, exclude_amm_pools, exclude_chart_risks, filter_eligible_vaults, format_return, format_sharpe, format_tvl, format_vault_cells, is_identified_protocol, render_section_table, select_average_yield_vaults, select_comparable_vaults, select_group, select_risk_return_vaults, select_tvl_history_vaults, select_vaults_by_chain, select_yield_vaults
 from eth_defi.vault_report.theme import DARK_THEME
@@ -333,6 +333,11 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     post_html = (tmp_path / "out" / "post.html").read_text()
     assert "<!--kg-card-begin: html-->" in post_html
     assert "https://tradingstrategy.ai/blog/the-best-performing-stablecoin-vaults-august-2026" in post_html
+    assert '<a href="https://tradingstrategy.ai/vaults/stablecoins">compare live stablecoin yields</a>' in post_html
+    assert "August 2026 stablecoin vault report</a>" in post_html
+    assert ">Morpho vaults</a>" in post_html and ">Hyperliquid vaults</a>" in post_html
+    assert ">USDC vaults</a>" in post_html
+    assert 'href="https://tradingstrategy.ai/vaults/hyperliquidity-provider-hlp">Hyperliquidity Provider (HLP)</a>' in post_html
     # Partners are named by organisation from post.PARTNERS, not copied from the previous post
     assert 'Thanks <a href="https://example.com">Example</a>' not in post_html
     assert '<a href="https://x.com/@arbitrumdao_gov">Arbitrum DAO</a>' in post_html and ">@arbitrumdao_gov<" not in post_html
@@ -343,6 +348,8 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert json.loads((tmp_path / "out" / "report.json").read_text())["changelog_entries"] == ["Add Foo vault support (2026-09-01)"]
     assert "Vault 0xcc" not in post_html  # Blacklisted
     manifest = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert manifest["meta_title"] == "Best stablecoin yields, September 2026"
+    assert manifest["meta_description"] == "Compare September 2026 stablecoin yields across DeFi vaults, with rankings, risk and total value locked."
     assert manifest["sections"] == {"lending": 3, "perp_dex": 2, "perp_dex_sharpe": 2, "tokenised_funds": 1, "new": 1, "by_chain": 6}
     assert (tmp_path / "out" / "tables" / "lending.csv").exists()
     # Only the best-performing vaults have section notes, returns carry no net or gross marker,
@@ -786,6 +793,33 @@ def test_check_candidates_follow_report_selectors(vaults_df: pd.DataFrame):
     assert candidate_depth(20, 0.5) == 30
 
 
+def test_long_short_report_ranking(tmp_path: Path, prices_path: Path) -> None:
+    """The tagged ranking appears in the post and uses the same investability candidates."""
+    perp = {"protocol": "Hyperliquid", "protocol_slug": "hyperliquid", "flags": ["perp_dex_trading_vault"], "event_count": 2}
+    tag = ["long_short_portfolio"]
+    metrics = prepare_vault_metrics(
+        [
+            make_vault_record("0xa1", **perp, strategy_tags=tag, one_month_cagr_net=0.20, three_months_cagr=0.30),
+            make_vault_record("0xa2", **perp, strategy_tags=tag, one_month_cagr_net=0.25, three_months_cagr=0.10),
+            make_vault_record("0xa3", **perp, strategy_tags=tag, current_nav=50_000),
+            make_vault_record("0xa4", **perp, strategy_tags=["algorithmic_trading"], one_month_cagr_net=0.70),
+            make_vault_record("0xa5", protocol="Yearn", protocol_slug="yearn", strategy_tags=tag, event_count=2, one_month_cagr_net=0.80),
+        ]
+    )
+    report = generate_monthly_vault_report(VaultReportData(metrics, prices_path), tmp_path, render_charts=False)
+
+    assert list(report.sections["long_short"].vaults_df.index) == ["1-0xa2", "1-0xa1"]
+    assert set(report.sections["perp_dex"].vaults_df.index) >= {"1-0xa1", "1-0xa2", "1-0xa4"}
+    assert '<h3 id="best-performing-long-short-vaults">Long/short vaults</h3>' in (tmp_path / "post.html").read_text()
+    assert "https://tradingstrategy.ai/vaults/strategies/long-short-portfolio" in (tmp_path / "post.html").read_text()
+
+    criteria = ReportCriteria()
+    comparable = select_comparable_vaults(filter_eligible_vaults(metrics, DATA_END_AT, criteria))
+    candidates = collect_top_lists(comparable, criteria)
+    assert list(candidates["table:long_short"].index) == ["1-0xa2", "1-0xa1"]
+    assert list(candidates["chart:long_short"].index) == ["1-0xa1", "1-0xa2"]
+
+
 def test_check_decisions_validation(tmp_path: Path, vaults_df: pd.DataFrame):
     """Decisions must match the round, cover every in-scope candidate and carry evidence."""
     candidates = list(build_check_candidates({"table:lending": vaults_df.loc[["1-0xaa", "1-0xbb"]]}).values())
@@ -1070,8 +1104,30 @@ def test_legacy_vault_links_rewritten():
     assert canonical_vault_urls('<a href="https://tradingstrategy.ai/trading-view/vaults">vaults page</a>') == '<a href="https://tradingstrategy.ai/vaults">vaults page</a>'
     assert canonical_vault_urls("https://tradingstrategy.ai/trading-view/ethereum/vaults") == "https://tradingstrategy.ai/vaults/chains/ethereum"
     assert canonical_vault_urls("https://tradingstrategy.ai/trading-view/ethereum/uniswap-v3") == "https://tradingstrategy.ai/trading-view/ethereum/uniswap-v3"  # Not a vault page
+    assert canonical_vault_urls("https://tradingstrategy.ai/trading-view/base/vaults/bar/history") == "https://tradingstrategy.ai/vaults/bar/history"
     links = prepare_vault_metrics(records)["trading_strategy_link"].tolist()
     assert links == ["https://tradingstrategy.ai/vaults/foo", "https://tradingstrategy.ai/vaults/bar", "https://tradingstrategy.ai/vaults/0x83", "https://tradingstrategy.ai/vaults/baz-vault"]  # A missing link is built from the slug
+
+
+def test_inherited_vault_links_use_current_slug_and_plain_listing() -> None:
+    """Keep a renamed vault link and remove table controls from inherited links."""
+    address = "0xe3c97b18216f58af4b9c1347d0ee010c42e6a85d"
+    current = "https://tradingstrategy.ai/vaults/rektober"
+    old = f"https://tradingstrategy.ai/trading-view/hyperliquid/vaults/rektober-2?a={address.upper()}"
+    assert canonical_vault_urls(old) == f"https://tradingstrategy.ai/vaults/address/{address}"
+    copied = f'<h2 id="next-steps">Next steps</h2><p><a href="{old}&amp;ref=trading-strategy.ghost.io">Rektober</a> <a href="https://tradingstrategy.ai/vaults/chains/ethereum?page=0&amp;sort=avg_apy&amp;direction=desc">Ethereum vaults</a> <a href="https://example.com/list?page=0&amp;sort=latest">External list</a></p>'
+    assert extract_section_html(copied, "next-steps", {("hyperliquid", address): current}) == (f'<h2 id="next-steps">Next steps</h2><p><a href="{current}">Rektober</a> <a href="https://tradingstrategy.ai/vaults/chains/ethereum">Ethereum vaults</a> <a href="https://example.com/list?page=0&amp;sort=latest">External list</a></p>')
+
+
+def test_previous_report_uses_edition_month() -> None:
+    """A late publication and the current edition cannot displace the preceding edition."""
+    october = GhostPost("oct", "October", make_report_slug(datetime.datetime(2026, 10, 1)) + "-2", "published", None, datetime.datetime(2026, 11, 4), None)
+    september = dataclasses.replace(october, id="sep", slug=make_report_slug(datetime.datetime(2026, 9, 1)), published_at=datetime.datetime(2026, 11, 8))
+    november = dataclasses.replace(october, id="nov", slug=make_report_slug(datetime.datetime(2026, 11, 1)), published_at=datetime.datetime(2026, 11, 9))
+    client = Mock(spec=GhostContentClient)
+    client.fetch_latest_posts.side_effect = [[november, september, *[dataclasses.replace(september, slug="unrelated") for _ in range(18)]], [october]]
+    assert fetch_previous_report(client, datetime.datetime(2026, 11, 1)) == october
+    assert [call.kwargs["page"] for call in client.fetch_latest_posts.call_args_list] == [1, 2]
 
 
 def test_chart_text_is_escaped():
@@ -1208,6 +1264,10 @@ def test_draft_overwrite_guard():
     ghost_html = '<p>Report</p>\n<!--kg-card-begin: html--><table><tbody><tr><td>1</td></tr></tbody></table><!--kg-card-end: html-->\n<figure class="kg-card"><img src="https://storage.ghost.io/a.png"></figure><h2 id="heading">Heading</h2>'
     record = DraftRecord(post_id="p1", updated_at="2026-09-30T19:00:00.000Z", fingerprint=fingerprint_post_text(body), title="Title", custom_excerpt="Excerpt", feature_image=None)
     reopened = GhostPost("p1", "Title", "s", "draft", ghost_html, None, "2026-09-30T19:05:00.000Z", custom_excerpt="Excerpt")
+    assert not record.matches(dataclasses.replace(reopened, meta_description="Editor-written description"))
+    seo_record = dataclasses.replace(record, meta_title="Monthly yields", meta_description="Compare yields.")
+    assert seo_record.matches(dataclasses.replace(reopened, meta_title="Monthly yields", meta_description="Compare yields."))
+    assert not seo_record.matches(dataclasses.replace(reopened, meta_title="Edited title", meta_description="Compare yields."))
     assert record.matches(reopened)  # Re-saved by the editor on opening, nothing changed
     assert not record.matches(dataclasses.replace(reopened, html=ghost_html.replace("Report", "Edited report")))
     assert not record.matches(dataclasses.replace(reopened, feature_image="https://example.com/hero.png"))
@@ -1236,13 +1296,13 @@ def test_draft_month_change_updates_same_post(monkeypatch: pytest.MonkeyPatch) -
     client.session = Mock()
     client.session.put.return_value = FakeResponse(200, {"posts": [{"id": old.id, "slug": "october", "status": "draft"}]})
 
-    post = client.create_or_update_draft("October report", "october", "<p>Fresh report</p>", custom_excerpt="October yield", overwrite_draft=True, last_write=record, existing_slug="september")
+    post = client.create_or_update_draft("October report", "october", "<p>Fresh report</p>", custom_excerpt="October yield", meta_title="Best stablecoin yields, October 2026", meta_description="Compare October yields.", overwrite_draft=True, last_write=record, existing_slug="september")
     assert post.id == old.id
     assert post.slug == "october"
     client.session.post.assert_not_called()
     args, kwargs = client.session.put.call_args
     assert args[0].endswith(f"posts/{old.id}/")
-    assert kwargs["json"]["posts"][0] == {"title": "October report", "slug": "october", "html": "<p>Fresh report</p>", "status": "draft", "custom_excerpt": "October yield", "updated_at": old.updated_at}
+    assert kwargs["json"]["posts"][0] == {"title": "October report", "slug": "october", "html": "<p>Fresh report</p>", "status": "draft", "custom_excerpt": "October yield", "meta_title": "Best stablecoin yields, October 2026", "meta_description": "Compare October yields.", "updated_at": old.updated_at}
 
 
 @pytest.mark.parametrize("problem", ["missing_source", "published_source", "occupied_destination", "edited_source"])

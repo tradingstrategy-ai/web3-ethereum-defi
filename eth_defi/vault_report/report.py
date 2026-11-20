@@ -82,7 +82,7 @@ from eth_defi.vault_report.charts import (
     select_moving_vaults,
     trim_logos,
 )
-from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
+from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, get_canonical_vault_links, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import DraftRecord, GhostAdminClient, GhostPost, fingerprint_post_text
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_path, load_protocol_logo_uri
 from eth_defi.vault_report.podcasts import PODCAST_SERVICES, PodcastEpisode, icon_image_key, logo_image_key
@@ -244,6 +244,16 @@ class GeneratedReport:
 
     #: Changelog entries since the previous report, offered to the editor in ``report.json``
     changelog_entries: list[str] = field(default_factory=list)
+
+    @property
+    def meta_title(self) -> str:
+        """Search title identifying the month, separate from the series title."""
+        return f"Best stablecoin yields, {self.context.month_label}"
+
+    @property
+    def meta_description(self) -> str:
+        """Search description summarising what the monthly rankings cover."""
+        return f"Compare {self.context.month_label} stablecoin yields across DeFi vaults, with rankings, risk and total value locked."
 
 
 def format_usd(value: USDollarAmount) -> str:
@@ -1062,6 +1072,7 @@ def generate_monthly_vault_report(
         charts={key: path.relative_to(output_dir).as_posix() for key, path in chart_paths.items()},
         criteria_notes=make_criteria_notes(criteria),
         previous=previous,
+        vault_urls=get_canonical_vault_links(data.vaults_df) if previous else {},
         podcasts=podcasts or [],
         podcast_images={key: path.relative_to(output_dir).as_posix() for key, path in podcast_image_paths.items()},
     )
@@ -1167,6 +1178,8 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "title": report.title,
         "slug": report.slug,
         "excerpt": report.excerpt,
+        "meta_title": report.meta_title,
+        "meta_description": report.meta_description,
         "data_end_at": report.data_end_at.isoformat(),
         "stats": report.context.stats,
         "changelog_entries": report.changelog_entries,
@@ -1273,6 +1286,8 @@ def publish_report_draft(
         slug=report.slug,
         html=body,
         custom_excerpt=report.excerpt,
+        meta_title=report.meta_title,
+        meta_description=report.meta_description,
         tags=tags,
         overwrite_draft=overwrite_draft,
         last_write=last_write,
@@ -1283,6 +1298,6 @@ def publish_report_draft(
         # Fingerprint the HTML we sent, not Ghost's converted HTML: the fingerprint is designed to be equal
         # for both. updated_at and the feature image come from Ghost's response, so any later save triggers
         # the text comparison and a feature image the editor adds counts as an edit.
-        DraftRecord(post_id=post.id, updated_at=post.updated_at, fingerprint=fingerprint_post_text(body), title=report.title, custom_excerpt=report.excerpt, feature_image=post.feature_image).save(draft_record_path)
+        DraftRecord(post_id=post.id, updated_at=post.updated_at, fingerprint=fingerprint_post_text(body), title=report.title, custom_excerpt=report.excerpt, feature_image=post.feature_image, meta_title=post.meta_title, meta_description=post.meta_description).save(draft_record_path)
     write_report_manifest(report, post, admin_client.get_editor_url(post))
     return post

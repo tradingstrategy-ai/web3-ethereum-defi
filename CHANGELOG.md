@@ -1,5 +1,9 @@
 # 1.2
 
+- Add a long/short vault portfolio ranking and performance chart to the monthly vault report (2026-11-20).
+
+- Link monthly vault reports to live stablecoin yields and earlier editions, fix legacy vault URLs, and generate Ghost search metadata (2026-11-20).
+
 - Add the Podcast available tag to 25 vault deployments covered in the first 16 Trading Strategy podcast episodes (2026-11-20).
 
 - Add the Staff pick tag to 15 vaults selected by Trading Strategy staff across Hyperliquid, Lighter and GRVT (2026-11-20).

@@ -15,6 +15,8 @@ adds. The pipeline that generates the post is described in
 | Title | The best-performing stablecoin vaults, {Month YYYY} |
 | Slug | `the-best-performing-stablecoin-vaults-{month}-{yyyy}` |
 | Excerpt | The best stablecoin yield in DeFi, {Month YYYY} report. |
+| Search title | Best stablecoin yields, {Month YYYY} |
+| Search description | Compare {Month YYYY} stablecoin yields across DeFi vaults, with rankings, risk and total value locked. |
 | Feature image | Left empty for the editor. The bundle's `hero.png` is a ready-made option, 1200×630: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Dangerous or worse risk ratings, returns above 400%, volatility above 50% and vaults the investability check excluded |
 | Social image for X | `hero-square.png`, 1080×1080, attached by hand when posting |
 
@@ -30,6 +32,10 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | Real-world assets (RWA) | An RWA strategy tag (`RWA_STRATEGY_TAGS`: `rwa`, `rwa_credit`, `rwa_lending`, `rwa_royalties`, `inventory_financing`), e.g. private credit, trade finance and royalty vaults. RWA lending vaults count as RWA, not lending |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
 | Other | Everything else: yield aggregators, trading vaults and synthetic dollar vaults. No section of its own |
+
+The long/short ranking uses the long/short portfolio strategy tag and can
+overlap the groups above. Each vault keeps its existing group for the other
+rankings and follows that group’s activity requirement.
 
 ## Unidentified protocols
 
@@ -102,9 +108,10 @@ Every data section and subsection opens with an introduction paragraph that expl
 | 4.3 | ↳ Real-world asset (RWA) vaults | Performance chart and table, **by return** | — |
 | 4.4 | ↳ Perpetual futures DEX vaults by return | Performance chart against BTC and ETH, and table, **by return** | — |
 | 4.5 | ↳ Perpetual futures DEX vaults by Sharpe ratio | 90-day rolling Sharpe ratio chart against BTC and ETH, and table, **by 3M Sharpe** | — |
-| 4.6 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
-| 4.7 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
-| 4.8 | ↳ Tokenised funds | Performance chart and table, by return | — |
+| 4.6 | ↳ Long/short vaults | Performance chart and table of vaults tagged as long/short portfolios | — |
+| 4.7 | ↳ AMM pools | Performance chart and table, **by return**, at least **$1M TVL** | — |
+| 4.8 | ↳ Vaults on each chain | Chart of the two best vaults and the runners-up on each chain, 3M return on a log scale; table of the top 3 per chain with at least $100k TVL | — |
+| 4.9 | ↳ Tokenised funds | Performance chart and table, by return | — |
 | 5 | Yield by chain and protocol | How to read the dot plots | — |
 | 5.1 | ↳ Yield by protocol, high TVL | Dot plot of the **10 largest identified protocols by TVL**, each with at least $1M TVL | — |
 | 5.2 | ↳ Yield by protocol, high yield | Dot plot of the **10 highest-yielding identified protocols** among those with at least $150k TVL | Where the yield comes from |
@@ -171,7 +178,15 @@ them; keep them when changing the templates in `post.py` or the notes in
 **Text**
 
 - The opening describes the best-performing DeFi vaults across blockchains
-  and decentralised exchanges for the report month. *About the report*
+  and decentralised exchanges for the report month and links to
+  [live stablecoin yields](https://tradingstrategy.ai/vaults/stablecoins).
+  Link the first relevant mention of an asset or protocol to its listing.
+  For example, the lending introduction links to the USDC and Morpho listings,
+  and the perpetual futures introduction links to the Hyperliquid listing.
+  Use anchor text that names the destination. For an individual vault such as
+  Hyperliquidity Provider (HLP), copy the URL from the current vault page.
+  Use plain listing URLs with the default page and sort order.
+- *About the report*
   describes vaults as smart contracts that let users deposit funds and execute
   a predefined strategy with investors' money.
 - *Tokenised funds* explains that vaults and funds use the same smart contract
@@ -192,7 +207,8 @@ them; keep them when changing the templates in `post.py` or the notes in
   to the matching tradingstrategy.ai page or glossary entry, except the two
   empty news subsections and *The best-performing vaults*. The latter has no
   introduction or T-bill caption and goes straight to its subsections.
-- *Report content updates*: the generated figures stay; the editor writes the
+- *Report content updates* links to the most recent earlier published edition
+  by report month, when available. The generated figures stay; the editor writes the
   new integrations under the opening sentence. The changelog candidates go
   to `report.json`, not into the post.
 - After the statistics, include a permanent paragraph offering access to the
