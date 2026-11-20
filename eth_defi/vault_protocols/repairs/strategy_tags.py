@@ -44,6 +44,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as ge
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.nova_markets.tags import STRATEGY_TAGS as NOVA_MARKETS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.pear.tags import get_pear_strategy_tags
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS as PLUTUS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.threejane.tags import STRATEGY_TAGS as THREEJANE_STRATEGY_TAGS
@@ -220,6 +221,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.forty_acres_like,
     ERC4626Feature.forgeyields_like,
     ERC4626Feature.crystalclear_like,
+    ERC4626Feature.pear_like,
 )
 
 EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
@@ -443,6 +445,12 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         if accountable_tags is None and curator_tags is None:
             return None
         return (accountable_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
+
+    if evm_feature == ERC4626Feature.pear_like:
+        pear_tags = get_pear_strategy_tags(spec.chain_id, spec.vault_address)
+        if pear_tags is None and curator_tags is None:
+            return None
+        return (pear_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
     if evm_feature == ERC4626Feature.yearn_v3_like:
         yearn_tags = get_yearn_strategy_tags(spec.chain_id, spec.vault_address) or lookup_erc4626_strategy_tags(spec.chain_id, spec.vault_address)

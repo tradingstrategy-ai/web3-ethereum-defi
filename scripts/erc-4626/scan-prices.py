@@ -108,7 +108,7 @@ except ImportError as e:
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, passes_price_scan_activity_filter
-from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID, get_multicall_batch_size_from_env
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
@@ -288,6 +288,7 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
             greylist=greylist,
             start_block=start_block,
             end_block=end_block,
+            include_latest=chain_id == HYPEREVM_CHAIN_ID and start_block is None and os.environ.get("END_BLOCK") is None,
             max_workers=max_workers,
             chunk_size=32,
             token_cache=token_cache,

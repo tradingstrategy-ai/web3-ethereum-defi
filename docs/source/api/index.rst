@@ -77,6 +77,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    veranta/index
    kiloex/index
    pallas/index
+   pear/index
    wstgbp/index
    midas/index
    kinexys/index

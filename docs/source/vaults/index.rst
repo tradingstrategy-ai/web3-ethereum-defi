@@ -226,6 +226,7 @@ Supported protocols
    nara/index
    nest/index
    pallas/index
+   pear/index
    plutus/index
    renalta/index
    resolv/index

@@ -14,7 +14,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Mismatche
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
+from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol, uses_hyperevm_latest_nav
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -375,7 +375,8 @@ def create_vault_scan_record(
 ) -> dict:
     """Read adapter metadata and assemble one vault catalogue row.
 
-    Discovery workers and queue recovery call this at a numeric source block.
+    Discovery workers and queue recovery pass the source block or the latest
+    tag for a current-state read.
     It returns a record for the caller to persist rather than writing the
     catalogue itself. Known unsupported contracts become explicit broken rows;
     transport failures and programming defects must remain visible to the
@@ -610,7 +611,8 @@ def fetch_vault_scan_record_in_worker(
     """Read one metadata candidate using a reusable worker connection.
 
     Worker-local connections and token caches serve threaded or process callers.
-    Explicit historical blocks stay pinned; current HyperEVM reads refresh the
+    Explicit historical blocks stay pinned. Live HyperCore-dependent valuations
+    use the literal latest tag. Other current HyperEVM reads refresh the
     safe head to stay inside its short execution window.
 
     :param web3factory: Phase-owned factory with optional request accounting.
@@ -647,12 +649,17 @@ def fetch_vault_scan_record_in_worker(
         token_cache = _metadata_worker_cache.token_cache = TokenDiskCache()
 
     try:
-        if current_state and detection.chain == 999:
-            block_number = get_safe_cached_latest_block_number(web3, chain_id=999)
+        source_block: BlockIdentifier = block_number
+        if current_state and uses_hyperevm_latest_nav(detection.chain, detection.address, detection.features):
+            # Use the same HyperCore valuation rule as the point-in-time price pass.
+            # Numbered historical reads retain their original source block.
+            source_block = "latest"
+        elif current_state and detection.chain == 999:
+            source_block = get_safe_cached_latest_block_number(web3, chain_id=999)
         return create_vault_scan_record(
             web3,
             detection,
-            block_number,
+            source_block,
             token_cache=token_cache,
             **({"metadata_snapshot": metadata_snapshot} if metadata_snapshot is not None else {}),
         )

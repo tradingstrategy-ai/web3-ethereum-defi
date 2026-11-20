@@ -1,0 +1,12 @@
+feeder-id: emporium-ventures
+name: Emporium Ventures
+role: curator
+twitter: EV_labs_
+short_description: Emporium Ventures trades two groups of cryptoassets against each other, aiming to profit when its preferred group performs better.
+long_description: |
+  [Emporium Ventures](https://x.com/EV_labs_) manages the Emporium Ventures SPC vault on [Hyperliquid](https://hyperliquid.xyz/). Pear introduced the team as its [first external vault manager](https://x.com/pear_protocol/status/2102402559860462042).
+
+  The team selects two baskets of cryptoassets. Its [published trading mandate](https://pro-gateway.pearprotocol.io/vaults/0xd38a67a4f54a9b4286d72f08440485a395ddfa70) pairs positions that gain when its preferred basket rises with positions that gain when the other basket falls. The trade can lose money if the second basket outperforms the first.
+other-links:
+  - title: Pear introduces Emporium Ventures as its first external vault manager
+    url: https://x.com/pear_protocol/status/2102402559860462042

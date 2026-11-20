@@ -5,9 +5,9 @@ index price data via Multicall3-batched view function calls on Derive Chain
 perp contracts, and DuckDB snapshot persistence via
 :py:class:`DeriveFundingRateDatabase`.
 
-Requires a live connection to the Derive Chain RPC (https://rpc.derive.xyz)
-and the v3 Derive REST API for legacy instrument metadata. No credentials
-required. These snapshots do not describe current Ethereum-settled v3 state.
+Requires a legacy Derive Chain archive and the v3 Derive REST API for
+instrument metadata. Set JSON_RPC_DERIVE to use an alternate archive.
+These snapshots cover the legacy chain.
 
 Price-dependent tests use a verified historical window because even the
 current oracle can refuse stale prices. Live open interest is tested
@@ -16,12 +16,14 @@ separately, and a fixed stale-oracle block checks that price refusals remain
 """
 
 import datetime
+import os
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from eth_typing import HexAddress
 from requests import Session
+from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.exceptions import ContractCustomError
 
@@ -35,6 +37,7 @@ from eth_defi.derive.api import (
 from eth_defi.derive.constants import DERIVE_MAINNET_RPC_URL
 from eth_defi.derive.historical import DeriveFundingRateDatabase, estimate_block_at_timestamp
 from eth_defi.derive.session import create_derive_session
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 #: ETH-PERP contract address on Derive mainnet.
 ETH_PERP_CONTRACT = HexAddress("0xAf65752C4643E25C02F693f9D4FE19cF23a095E3")
@@ -56,8 +59,28 @@ def session() -> Session:
 
 @pytest.fixture(scope="module")
 def w3() -> Web3:
-    """Create a shared Web3 connection to Derive Chain."""
-    return Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL))
+    """Connect to a legacy Derive Chain archive for historical state reads.
+
+    The public endpoint started returning its explicit chain-sunset error
+    locally and in the PR and master CI runs on 20 November 2026.
+
+    :return: Web3 connection for tests that require legacy onchain state.
+    """
+    rpc_urls = os.environ.get("JSON_RPC_DERIVE")
+    if rpc_urls and rpc_urls.rstrip("/") != DERIVE_MAINNET_RPC_URL:
+        return create_multi_provider_web3(rpc_urls)
+
+    web3 = Web3(Web3.HTTPProvider(DERIVE_MAINNET_RPC_URL, request_kwargs={"timeout": 10}))
+    try:
+        web3.eth.chain_id
+    except HTTPError as error:
+        response = error.response
+        if response is not None and response.status_code == 403 and response.headers.get("Content-Type", "").startswith("application/json"):
+            payload = response.json().get("error", {})
+            if payload.get("code") == -32403 and payload.get("message") == "RPC disabled, chain is winding down":
+                pytest.skip("Derive disabled its public legacy RPC. Set JSON_RPC_DERIVE to a legacy archive.")
+        raise
+    return web3
 
 
 @pytest.mark.timeout(60)

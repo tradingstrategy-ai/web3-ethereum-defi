@@ -67,9 +67,10 @@ def discover_migrations(scripts_dir: Path | None = None) -> Iterator[MigrationSp
     """Enumerate valid scripts in numeric order without executing imports.
 
     Validate the complete inventory before yielding any script. An explicit
-    directory is an internal test seam, never an operator scope override.
+    directory supplies the inventory for tests and reports using disposable data.
+    The production CLI always runs the packaged inventory.
 
-    :param scripts_dir: Test resource directory, or packaged resources.
+    :param scripts_dir: Isolated inventory directory, or None for packaged resources.
     :return: Numerically ordered migration specifications.
     :raises ValueError: If naming, headers, signature or package roots conflict.
     """
@@ -430,14 +431,14 @@ def _print_run_summary(results: dict[str, _MigrationRunResult] | None, *, dry_ru
 def run_pending_migrations(*, dry_run: bool = True, data_dir: Path | None = None, scripts_dir: Path | None = None, provenance: dict[str, Any] | None = None) -> list[str]:
     """Run all pending migrations under daemon exclusion and writer locking.
 
-    Internal path/provenance arguments support isolated tests. No migration
+    Internal path overrides support tests and reports in disposable data directories. No migration
     state or scripts are read before acquiring the lifecycle guard. A final
     table reports this invocation even if a migration fails; reported changes
     in preview mode are proposals rather than persisted writes.
 
     :param dry_run: Stage only, leaving persistent data untouched.
     :param data_dir: Internal storage override, or pipeline configuration.
-    :param scripts_dir: Internal test resource override.
+    :param scripts_dir: Internal inventory override for disposable data directories.
     :param provenance: Internal test provenance override.
     :return: Names successfully executed or previewed in this invocation.
     """

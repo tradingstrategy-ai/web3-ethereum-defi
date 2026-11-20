@@ -3674,6 +3674,9 @@ def _calculate_vault_record_from_arrays(
     if protocol == "Neutral Trade":
         other_data["neutral_trade"] = vault_metadata.get("_neutral_trade")
 
+    if protocol == "Pear" and (pear_data := vault_metadata.get("_pear")) is not None:
+        other_data["pear"] = pear_data
+
     if protocol == "Derive":
         # Native vault accounting is USD even when the accepted deposit
         # asset is ETH, BTC or another token. Keep the source asset separate

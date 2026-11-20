@@ -3727,10 +3727,62 @@ A pending publication journal must be recovered by a normal scanner run before
 a manual backfill can rewrite the shared price file. Successful reader-state
 persistence consumes the journal; damaged critical receipts fail loudly.
 
+### Point-in-time NAV on HyperEVM
+
+Each scheduled HyperEVM price scan collects one current observation per
+admitted live-only vault, before sampling the archive-readable vaults. This
+includes classified Pear vaults and the Hyperdrive HYPED deployment. A
+HyperEVM archive node can replay EVM storage while lacking the HyperCore state
+needed to value these vaults. The ERC-4626 reader therefore collects NAV,
+supply, share price and block time together at `latest`. Each row records its
+own execution block and EVM timestamp at the unconfirmed head. The timestamp
+can differ from a header fetched later. Retries at the same head preserve the original row.
+Missed scans leave gaps; explicit block-range repairs preserve these samples.
+
+The [selection rule](../../eth_defi/erc_4626/core.py) accepts a protocol feature
+or a reviewed deployment address. The Multicall gas greylist and the scanner
+blacklist retain their separate roles in batching and admission.
+
+The [manual Pear report](examine-pear-vault-performance.py) runs the numbered
+metadata and historical price migrations in temporary files, then samples current prices. It uses
+verified launch-to-date observations for gross lifetime CAGR and annualised
+Sharpe. The report requires 30 days for CAGR, and at least 14 days and ten
+price samples for Sharpe.
+
+After merge, run the numbered migrations using the [production migration
+procedure](../../.claude/docs/migration-scripts.md). Migration 097 refreshes
+HYPED's native HYPE denomination and current catalogue NAV. Check its
+`legacy_hyped_price_rows_for_unit_review` count before using a series that
+spans the unit correction. The raw file retains those rows for inspection. The cleaner excludes them from published returns.
+
+Migration 098 imports the four reviewed Pear vaults from the public
+[Pear catalogue](https://pro-gateway.pearprotocol.io/vaults). It keeps the last
+funded observation in each UTC hour before the first hour with a usable
+`latest` or `pear_api` observation.
+If the vault has no saved price, the import ends at the start of the current
+UTC hour. The migration keeps existing block observations, refreshes the four
+curator assignments and vault descriptions, and reports row counts per vault.
+Review the `legacy_pear_price_rows_for_review` counts for any older Pear rows
+whose source was unverified. The raw file retains them for inspection.
+Both the cleaner and the manual report exclude them when calculating returns.
+The preview reports vaults missing from the catalogue. Ensure migration 096
+has registered the four targets before applying the price import.
+The API supplies the recorded timestamps and blocks, so no dense timestamp
+cache is needed for this migration. The scheduled scanner reads Pear NAV
+onchain on subsequent runs.
+
+Migration 099 refreshes the HyperCore trading account and investor fee fields
+for the four Pear vaults already registered by migration 096. Run it with the
+same stopped-scanner production procedure as the other migrations. The next
+scanner cycle publishes the updated vault JSON.
+
+Migration 100 refreshes the four vaults' strategy tags from the maintained
+Pear registry. It updates the catalogue without RPC calls or a price backfill.
+
 ### HyperEVM greylist batching and diagnostic check
 
 Reviewed HyperCore-reading targets are isolated by the shared Multicall reader.
-Normal targets retain standard batching; greylisted targets use separate
+In the ordinary block reader, normal targets retain standard batching; greylisted targets use separate
 one-subcall requests, never mixed with normal calls or another greylisted target.
 The documented `greylist_batch_size` function argument defaults to one and can
 be passed to chunked and historical reader functions. No environment toggle is

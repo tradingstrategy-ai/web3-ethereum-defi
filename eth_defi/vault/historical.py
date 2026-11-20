@@ -18,8 +18,9 @@ import logging
 import os
 import tempfile
 from collections import Counter, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from decimal import Decimal
+from itertools import chain
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
@@ -33,22 +34,25 @@ except ImportError:
     fcntl = None
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
+from requests.exceptions import RequestException
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
-from web3.exceptions import BadFunctionCallOutput, ContractLogicError
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
-from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626HistoricalReader, VaultReaderState
-from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.erc_4626.core import HYPEREVM_LATEST_NAV_ADDRESSES, uses_hyperevm_latest_nav
+from eth_defi.erc_4626.vault import DENOMINATION_UNAVAILABLE_EXCHANGE_RATE, UNKNOWN_EXCHANGE_RATE, ERC4626Vault, VaultReaderState
+from eth_defi.event_reader.multicall_batcher import DEFAULT_MULTICALL_BATCH_SIZE, HYPEREVM_CHAIN_ID, BatchCallState, CombinedEncodedCallResult, EncodedCall, EncodedCallResult, MulticallStateProblem, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.provider.rpcdb import RPCRequestStats
-from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
+from eth_defi.rpc_url import redact_rpc_urls
+from eth_defi.token import NATIVE_ASSET_ADDRESS, TokenDetailError, TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VAULT_PRICE_REFRESH_INTERVAL, VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, is_meaningful_usd_tvl, verify_parquet_file
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -244,6 +248,15 @@ def fetch_monad_historical_state_start_block(
     return available_block
 
 
+def _uses_latest_prices(vault: VaultBase) -> bool:
+    """Check the adapter's catalogue identity before scheduling numbered-block reads.
+
+    :param vault: Adapter built from the catalogue's saved classification.
+    :return: Whether this vault must be sampled at the HyperEVM mainnet head.
+    """
+    return isinstance(vault, ERC4626Vault) and uses_hyperevm_latest_nav(vault.chain_id, vault.address, vault.features)
+
+
 class VaultHistoricalReadMulticaller:
     """Read historical data from multiple vaults using Multicall and JSON-RPC polling.
 
@@ -360,7 +373,7 @@ class VaultHistoricalReadMulticaller:
                 if denomination_token not in self.supported_quote_tokens:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
-    def _prepare_reader(self, vault: VaultBase, stateful=False) -> VaultHistoricalReader:
+    def _prepare_reader(self, vault: VaultBase, stateful: bool = False) -> VaultHistoricalReader:
         """Create a historical reader and validate its state contract.
 
         Stateful multicall filtering requires every call to have a
@@ -402,9 +415,8 @@ class VaultHistoricalReadMulticaller:
         """
 
         state = reader.reader_state
-        if state:
-            if state.denomination_token_address is not None:
-                return state.denomination_token_address
+        if state and state.denomination_token_address is not None:
+            return state.denomination_token_address
 
         address = reader.vault.fetch_denomination_token_address()
 
@@ -414,13 +426,16 @@ class VaultHistoricalReadMulticaller:
 
         return address
 
-    def _prepare_share_token(self, reader: ERC4626HistoricalReader) -> HexAddress:
-        """Run in subprocess"""
+    def _prepare_share_token(self, reader: VaultHistoricalReader) -> HexAddress:
+        """Resolve the share token for token-cache warmup.
+
+        :param reader: Reader whose saved state may already identify the share token.
+        :return: Address of the vault's share token.
+        """
 
         state = reader.reader_state
-        if state:
-            if state.share_token_address is not None:
-                return state.share_token_address
+        if state and state.share_token_address is not None:
+            return state.share_token_address
 
         address = reader.vault.fetch_share_token_address()
 
@@ -430,49 +445,19 @@ class VaultHistoricalReadMulticaller:
 
         return address
 
-    def _run_warmup(
-        self,
-        readers: dict[HexAddress, VaultHistoricalReader],
-        block_number: int,
-    ) -> None:
-        """Run warmup checks on all vault readers.
-
-        Tests each vault's supported calls to detect which ones revert.
-        Results are stored in reader_state.call_status and used to skip
-        broken calls during the actual scan.
-
-        See README-reader-states.md for documentation.
-
-        :param readers:
-            Dict of vault_address -> VaultHistoricalReader
-
-        :param block_number:
-            Block number to use for testing
-        """
-        checked_count = 0
-        broken_count = 0
-
-        for reader in readers.values():
-            vault_results = warmup_vault_reader(reader, block_number)
-            if vault_results:
-                checked_count += len(vault_results)
-                broken_count += sum(1 for _, reverts in vault_results.values() if reverts)
-
-        if checked_count > 0:
-            logger.info("Warmup complete: checked %d calls across %d vaults, %d broken", checked_count, len(readers), broken_count)
-
-    def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
-        """Run in subprocess"""
-        for call in reader.construct_multicalls():
-            yield call, reader.reader_state
-
     def prepare_readers(
         self,
         vaults: list[VaultBase],
-        stateful=False,
+        stateful: bool = False,
         saved_states: dict[VaultSpec, dict] | None = None,
     ) -> dict[HexAddress, VaultHistoricalReader]:
-        """Create readrs for vaults."""
+        """Prepare the readers and tokens shared by the historical and latest passes.
+
+        :param vaults: Non-empty collection of vaults on the same chain.
+        :param stateful: Enable adaptive reader state for the scan.
+        :param saved_states: Previously committed reader data keyed by chain and address.
+        :return: Readers keyed by their vault address with token metadata hydrated.
+        """
         logger.info(
             "Preparing readers for %d vaults, using %d threads, stateful is %s",
             len(vaults),
@@ -484,9 +469,6 @@ class VaultHistoricalReadMulticaller:
 
         chain_id = vaults[0].chain_id
 
-        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
-        # We do parallel to cut down the time here.
-        logger.info("Preparing readers %d vaults", len(vaults))
         results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v, stateful) for v in vaults)
         readers = {r.address: r for r in results}
 
@@ -525,7 +507,9 @@ class VaultHistoricalReadMulticaller:
         logger.info("Preparing denomination/share tokens for %d vaults", len(vaults))
         token_load_max_workers = self.max_workers
         token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_denomination_token)(r) for r in readers.values())
-        denomination_token_addresses = [a for a in token_addresses if a is not None]
+        # ERC-7528 native HYPE has protocol-defined units. Calling ERC-20
+        # decimals() on its empty marker address would seed a bad cache entry.
+        denomination_token_addresses = [a for a in token_addresses if a is not None and not (chain_id == HYPEREVM_CHAIN_ID and a.lower() == NATIVE_ASSET_ADDRESS)]
         token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_share_token)(r) for r in readers.values())
         share_token_addresses = [a for a in token_addresses if a is not None]
 
@@ -557,6 +541,7 @@ class VaultHistoricalReadMulticaller:
                     vault.__dict__["denomination_token"] = fetch_erc20_details(
                         vault.web3,
                         token_address=denomination_token_address,
+                        native_vault_asset=True,
                         chain_id=vault.chain_id,
                         cache=self.token_cache,
                     )
@@ -581,31 +566,82 @@ class VaultHistoricalReadMulticaller:
         self,
         readers: dict[HexAddress, VaultHistoricalReader],
         display_progress: bool = True,
-    ) -> Iterable[tuple[EncodedCall, BatchCallState]]:
-        """Generate multicalls for each vault to read its state at any block."""
-        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
-        # We do parallel to cut down the time here.
-        logger.info("Preparing historical multicalls for %d readers using %d workers", len(readers), self.max_workers)
+    ) -> Iterator[tuple[EncodedCall, BatchCallState | None]]:
+        """Yield each prepared reader's encoded calls and optional scheduling state.
 
-        if display_progress:
-            progress_bar = tqdm(
-                total=len(readers),
-                unit=" readers",
-                desc=f"Preparing historical multicalls for {len(readers)} readers using {self.max_workers} workers",
-            )
-        else:
-            progress_bar = None
+        :param readers: Vault readers selected for numbered-block sampling.
+        :param display_progress: Show the number of readers whose calls have been prepared.
+        :return: Encoded calls paired with the state used by the multicall scheduler.
+        """
+        for reader in tqdm(readers.values(), desc="Preparing historical multicalls", unit="vault", disable=not display_progress):
+            for call in reader.construct_multicalls():
+                yield call, reader.reader_state
 
-        results = [self._prepare_multicalls(r) for r in readers.values()]
-        # results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_multicalls)(r) for r in readers.values())
+    @staticmethod
+    def fetch_latest_price_batches(
+        readers: Iterable[VaultHistoricalReader],
+        last_blocks: dict[str, int],
+    ) -> Iterator[CombinedEncodedCallResult]:
+        """Sample each live-only vault in one Multicall3 execution at the latest tag.
 
-        for r in results:
-            if progress_bar is not None:
-                progress_bar.update(1)
-            yield from r
+        An archive node can serve an old EVM block while the HyperCore precompiles
+        used by its vaults only expose the node's current view. Even resolving
+        the tip to a block number before calling can miss that view. Execute
+        the reader's existing ERC-4626 calls at the literal latest tag, once per
+        selected vault per live price scan. The observation can only be collected
+        while the scanner is running, so historical polling intervals do not
+        suppress it. Skipped runs leave gaps.
 
-        if progress_bar is not None:
-            progress_bar.close()
+        The returned block number and onchain timestamp identify the observation;
+        Parquet's written_at separately records when the scan prepared the write. The ordinary
+        result decoder, reader state and atomic price writer consume this batch
+        just as they consume one historical block. The source timestamp is
+        the timestamp seen by the EVM call. At an unconfirmed head it can
+        differ from the block header served later by a different RPC backend.
+
+        :param readers: Prepared live-only readers with optional adaptive state.
+        :param last_blocks: Highest committed source block per lower-case address.
+        :return: Complete batches ready for the ordinary ERC-4626 result decoder.
+        """
+        for reader in readers:
+            state = reader.reader_state
+            logger.info("Reading point-in-time NAV for %s at latest", reader.address)
+            try:
+                if reader.vault.share_token is None or reader.vault.denomination_token is None:
+                    raise MulticallStateProblem("Missing token units for ERC-4626 valuation")
+                calls = list(reader.construct_multicalls())
+                multicall = get_multicall_contract(reader.vault.web3)
+                # One vault per request isolates HyperCore gas accounting. Its
+                # clock, assets, supply and conversion must all belong to one
+                # execution: two independent latest calls can cross a block.
+                clock = multicall.functions.getCurrentBlockTimestamp()
+                targets = [(multicall.address, clock._encode_transaction_data())]
+                targets.extend((call.address, call.data) for call in calls)
+                block, _, outputs = multicall.functions.tryBlockAndAggregate(False, targets).call(block_identifier="latest")
+                if len(outputs) != len(targets):
+                    raise MulticallStateProblem("Incomplete Multicall3 response")
+                (ok, raw_time), *values = outputs
+                if not ok or len(raw_time) != 32 or block <= 0:
+                    raise MulticallStateProblem("Missing execution block or timestamp")
+                # Retries can hit the same head, or an older head after RPC
+                # failover. The committed file also covers a lost reader cursor.
+                if block <= last_blocks.get(reader.address.lower(), 0) or (state and state.last_block and block <= state.last_block):
+                    continue
+                timestamp = native_datetime_utc_fromtimestamp(int.from_bytes(raw_time, "big"))
+                results = [EncodedCallResult(call, ok, data, block, timestamp, state=state) for call, (ok, data) in zip(calls, values, strict=True)]
+                # A failed valuation cannot establish a price or advance state.
+                # Optional capacity probes may revert independently of NAV.
+                decoded_selectors = {r.call.data[:4] for r in results if r.success and len(r.result) == 32}
+                if not GREYLIST_REQUIRED_NAV_SELECTORS.issubset(decoded_selectors):
+                    raise MulticallStateProblem(f"Incomplete ERC-4626 valuation at block {block}")
+            except (MulticallStateProblem, Web3Exception, ExtraValueError, ProbablyNodeHasNoBlock, RequestException, TokenDetailError) as error:
+                reason = redact_rpc_urls(str(error))
+                if state:
+                    state.rpc_error_count += 1
+                    state.last_rpc_error = reason
+                logger.warning("Latest price read deferred for %s: %s", reader.address, reason)
+                continue
+            yield CombinedEncodedCallResult(block, timestamp, results)
 
     def read_historical(
         self,
@@ -614,7 +650,9 @@ class VaultHistoricalReadMulticaller:
         end_block: int,
         step: int,
         reader_func: Callable = read_multicall_historical,
-        saved_states: dict[VaultReaderState, dict] | None = None,
+        saved_states: dict[VaultSpec, dict] | None = None,
+        include_latest: bool = False,
+        latest_saved_blocks: dict[str, int] | None = None,
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault records from RPC.
 
@@ -636,14 +674,17 @@ class VaultHistoricalReadMulticaller:
             Stateless or stateful multicall reader.
         :param saved_states:
             Optional adaptive reader states from a previous scan.
+        :param include_latest: Run the HyperEVM point-in-time pass before numbered-block reads.
+        :param latest_saved_blocks: Committed live-only observations used to suppress duplicate or older heads.
         :return:
             Real price observations retained by the sparse and freshness rules.
         """
 
-        # Debug debug
-        # vaults = [v for v in vaults if v.vault_address.lower() == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"]
+        if not include_latest:
+            vaults = [vault for vault in vaults if not _uses_latest_prices(vault)]
+        if not vaults:
+            return
 
-        # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
 
         logger.info("Preparing readers for %d vaults, stateful is %s", len(vaults), stateful)
@@ -657,28 +698,18 @@ class VaultHistoricalReadMulticaller:
         # Expose for testing purposes
         self.readers = readers
 
-        # Run warmup to detect broken calls before generating calls
-        # TODO: Warmup system disabled for now - individual readers handle broken calls
-        # if stateful:
-        #     self._run_warmup(readers, end_block)
+        # A live observation cannot satisfy any block in the archive grid.
+        # Partition before generating calls, including on an explicit backfill.
+        latest_readers = {address: reader for address, reader in readers.items() if _uses_latest_prices(reader.vault)}
+        static_readers = {address: reader for address, reader in readers.items() if address not in latest_readers and not reader.uses_contextual_history}
+        contextual_readers = {address: reader for address, reader in readers.items() if address not in latest_readers and reader.uses_contextual_history}
 
-        # for address, reader in readers.items():
-        #     state: VaultReaderState = reader.reader_state
-        #     logger.debug(
-        #         "Prepared reader for vault %s: state:\n%s",
-        #         address,
-        #         state.pformat() if state else "-",
-        #     )
-
-        static_readers = {address: reader for address, reader in readers.items() if not reader.uses_contextual_history}
-        contextual_readers = {address: reader for address, reader in readers.items() if reader.uses_contextual_history}
-
-        # Dealing with legacy shit here
-        calls = {c: state for c, state in self.generate_vault_historical_calls(static_readers)}
+        # Only archive readers contribute calls to the numbered-block grid.
+        calls = dict(self.generate_vault_historical_calls(static_readers))
 
         if not stateful:
             # Discard any state mapping
-            calls = list(calls.keys())
+            calls = list(calls)
         else:
             for reader in static_readers.values():
                 assert reader.reader_state, f"Stateful reading: Reader did not set up state: {reader}"
@@ -686,9 +717,6 @@ class VaultHistoricalReadMulticaller:
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
         )
-
-        if len(vaults) == 0:
-            return
 
         chain_id = vaults[0].chain_id
 
@@ -783,7 +811,12 @@ class VaultHistoricalReadMulticaller:
             if static_readers
             else ()
         )
-        for combined_result in static_results:
+        # Capture the point in time before replaying a potentially long archive
+        # range. Both passes use the same decoder and publish together.
+        if latest_readers:
+            logger.info("Sampling latest HyperEVM NAV for %d vaults", len(latest_readers))
+        latest_results = self.fetch_latest_price_batches(latest_readers.values(), latest_saved_blocks or {})
+        for combined_result in chain(latest_results, static_results):
             total_combined_results += 1
 
             active_vault_set.clear()
@@ -852,7 +885,7 @@ class VaultHistoricalReadMulticaller:
                 # Stateless scans invoke every selected block. Keep their
                 # exported frequency marker compatible with the historical
                 # reader-state contract without allocating a dummy state.
-                current_result.vault_poll_frequency = state.vault_poll_frequency if state else "first_read"
+                current_result.vault_poll_frequency = "latest" if vault_address in latest_readers else (state.vault_poll_frequency if state else "first_read")
 
                 if current_result.errors:
                     error_count += 1
@@ -978,6 +1011,7 @@ def scan_historical_prices_to_parquet(
     reader_state_journal_path: Path | None = None,
     greylist: frozenset[HexAddress] = frozenset(),
     batch_size: int = DEFAULT_MULTICALL_BATCH_SIZE,
+    include_latest: bool = False,
 ) -> ParquetScanResult:
     """Scan vault prices and atomically update the shared raw Parquet file.
 
@@ -987,6 +1021,8 @@ def scan_historical_prices_to_parquet(
     sparse value-change sampling. Monad scans start at the provider's readable
     historical-state boundary and preserve earlier committed rows.
 
+    :param include_latest: On live HyperEVM scans also append one observation per admitted current-state vault.
+        Explicit historical repairs leave this disabled and preserve existing point-in-time rows.
     :param batch_size: Regular physical Multicall limit, including token warmup.
     :param greylist:
         Caller-selected vault/target addresses for this chain, empty by default.
@@ -1142,10 +1178,12 @@ def scan_historical_prices_to_parquet(
     assert all(v.first_seen_at_block for v in vaults), "You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), "All vaults must be on the same chain"
 
-    if vaults:
-        first_detect_block = min(v.first_seen_at_block for v in vaults)
-    else:
-        first_detect_block = 0
+    if end_block is None:
+        end_block = get_almost_latest_block_number(web3)
+
+    latest_addresses = {vault.address.lower() for vault in vaults if _uses_latest_prices(vault)}
+    range_vaults = [vault for vault in vaults if vault.address.lower() not in latest_addresses]
+    first_detect_block = min((v.first_seen_at_block for v in range_vaults), default=end_block if latest_addresses else 0)
 
     logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
@@ -1153,7 +1191,10 @@ def scan_historical_prices_to_parquet(
             # A vault requiring an older bootstrap must use its own
             # address-scoped scan. Restored states cannot safely replay time
             # before their individual ``last_call_at`` values.
-            last_scanned_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=0)
+            # A current-state sample may be ahead of every numbered-block reader. Only
+            # range readers in this batch can determine the HyperEVM resume point.
+            range_addresses = {vault.address.lower() for vault in range_vaults} if chain_id == HYPEREVM_CHAIN_ID else None
+            last_scanned_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id and (range_addresses is None or spec.vault_address in range_addresses)), default=0)
             # The saved block was already processed. Replaying it with the
             # restored last_call_at can skip its read while the overlapping
             # Parquet replacement deletes its retained price row.
@@ -1164,9 +1205,6 @@ def scan_historical_prices_to_parquet(
             # Detected during probing.
             logger.info("No previous state, using first vault detection block as start block")
             start_block = first_detect_block
-
-    if end_block is None:
-        end_block = get_almost_latest_block_number(web3)
 
     if chain_id == MONAD_CHAIN_ID:
         start_block = fetch_monad_historical_state_start_block(
@@ -1223,16 +1261,6 @@ def scan_historical_prices_to_parquet(
         step_duration,
     )
 
-    # Create iterator that will drop in vault historical read entries block by block
-    entries_iter = reader.read_historical(
-        vaults=cleaned_vaults,
-        start_block=start_block,
-        end_block=end_block,
-        step=step,
-        reader_func=reader_func,
-        saved_states=reader_states,
-    )
-
     rows_written_by_vault: dict[str, int] = defaultdict(int)
     price_rows_written_by_vault: dict[str, int] = defaultdict(int)
 
@@ -1255,8 +1283,6 @@ def scan_historical_prices_to_parquet(
                 price_rows_written_by_vault[vault_address] += 1
             yield entry.export()
 
-    converted_iter = converter(entries_iter)
-
     # Always use the current canonical schema so new columns are not silently dropped
     canonical_schema = VaultHistoricalRead.to_pyarrow_schema()
 
@@ -1277,12 +1303,30 @@ def scan_historical_prices_to_parquet(
 
     source_table = existing_table
 
+    latest_saved_blocks: dict[str, int] = {}
+    latest_mask = None
+    if chain_id == HYPEREVM_CHAIN_ID and existing_table is not None:
+        # A chain-wide archive repair may omit a current-state vault entirely.
+        # Preserve its recorded observations because an archive cannot replay them.
+        live_rows = pc.fill_null(pc.equal(existing_table["vault_poll_frequency"], "latest"), False)
+        # The initial deployments can also have pre-integration rows without
+        # the marker. Future deployments receive the marker on their first read.
+        protected_addresses = latest_addresses | HYPEREVM_LATEST_NAV_ADDRESSES
+        live_rows = pc.or_(live_rows, pc.is_in(existing_table["address"], value_set=pa.array(sorted(protected_addresses))))
+        latest_mask = pc.and_(pc.equal(existing_table["chain"], chain_id), live_rows)
+        if include_latest and latest_addresses:
+            saved = existing_table.select(["address", "block_number"]).filter(latest_mask)
+            grouped = saved.group_by("address").aggregate([("block_number", "max")])
+            latest_saved_blocks = dict(zip(grouped["address"].to_pylist(), grouped["block_number_max"].to_pylist()))
+
     if enforce_live_freshness and existing_table is not None:
         selected_addresses = pa.array([vault.address.lower() for vault in vaults])
         previous_mask = pc.and_(
             pc.equal(existing_table["chain"], chain_id),
             pc.less(existing_table["block_number"], start_block),
         )
+        if latest_mask is not None:
+            previous_mask = pc.or_(previous_mask, latest_mask)
         previous_mask = pc.and_(previous_mask, pc.is_in(existing_table["address"], value_set=selected_addresses))
         previous_mask = pc.and_(previous_mask, pc.is_finite(existing_table["share_price"]))
         prior = existing_table.select(["address", "timestamp"]).filter(previous_mask)
@@ -1295,6 +1339,19 @@ def scan_historical_prices_to_parquet(
         if len(assets):
             grouped = assets.group_by("address").aggregate([("total_assets", "max")])
             reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
+
+    entries_iter = reader.read_historical(
+        vaults=cleaned_vaults,
+        start_block=start_block,
+        end_block=end_block,
+        step=step,
+        reader_func=reader_func,
+        saved_states=reader_states,
+        include_latest=include_latest,
+        latest_saved_blocks=latest_saved_blocks,
+    )
+
+    converted_iter = converter(entries_iter)
 
     greylist_history = None
     if existing_table is not None:
@@ -1314,6 +1371,11 @@ def scan_historical_prices_to_parquet(
         if vault_addresses is not None:
             address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
             mask = pc.and_(mask, address_mask)
+        elif latest_addresses and not range_vaults:
+            # A point-in-time-only scan has no numbered-block range to replace.
+            mask = pc.and_(mask, False)
+        if latest_mask is not None:
+            mask = pc.and_(mask, pc.invert(latest_mask))
         if greylist:
             # Keep only the greylisted source rows slated for replacement. At
             # publication we retain keys not replaced by a complete successful

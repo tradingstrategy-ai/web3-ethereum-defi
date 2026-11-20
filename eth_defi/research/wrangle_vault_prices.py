@@ -35,7 +35,10 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.core import HYPEREVM_LATEST_NAV_ADDRESSES
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_FIRST_DEPOSIT_BLOCKS
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.neutral_trade.constants import is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
@@ -2123,6 +2126,28 @@ def _copy_columns_by_position(
         target.iloc[row_positions, target.columns.get_loc(column)] = source[column].array
 
 
+def filter_verified_hyperevm_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Keep observations with known valuation units and source for reviewed HyperEVM vaults.
+
+    Legacy HYPED prices may have been decoded with zero denomination decimals.
+    Legacy Pear archive reads lack a verified HyperCore valuation. Migrations
+    082 and 083 preserve these rows in raw storage for inspection. Both the
+    published series and the manual Pear report filter them before computing returns.
+
+    :param prices_df: Raw prices with integer chain, lower-case address and optional
+        vault_poll_frequency source label. Old files may omit the label entirely.
+    :return: Eligible observations in input order, including every row from other vaults.
+    """
+    reviewed = prices_df["chain"].eq(HYPEREVM_CHAIN_ID) & prices_df["address"].isin(HYPEREVM_LATEST_NAV_ADDRESSES)
+    if not reviewed.any():
+        return prices_df
+    if "vault_poll_frequency" in prices_df:
+        source = prices_df["vault_poll_frequency"]
+        verified = source.eq("latest") | (source.eq("pear_api") & prices_df["address"].isin(PEAR_FIRST_DEPOSIT_BLOCKS))
+        reviewed = reviewed & ~verified.fillna(False)
+    return prices_df.loc[~reviewed] if reviewed.any() else prices_df
+
+
 def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestration API
     rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
@@ -2195,6 +2220,8 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
         families,
         logger=logger,
     )
+
+    prices_df = filter_verified_hyperevm_prices(prices_df)
 
     # Add the wide compatibility/state columns only after the selected family
     # has been reduced.  This preserves every output default while shrinking

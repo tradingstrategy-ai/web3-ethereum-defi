@@ -6,6 +6,12 @@ Their prices use sparse Hypersync subscription settlement events.
 Infinit APEX MultiStrategy also runs under Arbitrum, using published API prices
 and indexed receipt supply through an address-scoped contextual reader.
 
+On HyperEVM mainnet, each scheduled price scan first records a point-in-time
+NAV for admitted vaults whose valuation depends on live HyperCore state.
+These observations use the Multicall3 execution block and its UTC timestamp.
+The regular numbered-block pass supplies history for archive-readable vaults.
+Both passes are part of SCAN_PRICES and publish through the same writer.
+
 - Scan vaults and optionally prices for multiple chains
 - Track success/failure status per chain
 - Retry failed chains automatically

@@ -525,7 +525,7 @@ def _scan_targets(
     return outcomes
 
 
-def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Path) -> None:
+def publish_staged_price_backfill(context: MigrationContext, price_path: Path, staged_path: Path) -> None:
     """Replace the raw price file with the validated staged copy.
 
     The original is kept as a hard link, which costs no copy, and both paths
@@ -537,8 +537,9 @@ def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Pa
     :return: ``None`` after the durable replacement.
     """
     backup_path = context.data_dir / f"{PRICE_FILE_NAME}.bak-{context.script_name}-{native_datetime_utc_now():%Y%m%dT%H%M%S}-{os.getpid()}"
-    os.link(price_path, backup_path)
-    context.record_modified_file(backup_path, backup=True)
+    if price_path.exists():
+        os.link(price_path, backup_path)
+        context.record_modified_file(backup_path, backup=True)
     os.replace(staged_path, price_path)
     directory = os.open(context.data_dir, os.O_DIRECTORY)
     try:
@@ -546,6 +547,10 @@ def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Pa
     finally:
         os.close(directory)
     context.record_modified_file(price_path)
+
+
+# Migration 018 imports this name. Keep old migration sources reproducible.
+_publish_staged = publish_staged_price_backfill
 
 
 def run_price_backfill(
@@ -617,7 +622,7 @@ def run_price_backfill(
             raise RuntimeError(message)
         published = not context.dry_run and any(outcome["status"] == "written" for outcome in outcomes)
         if published:
-            _publish_staged(context, price_path, staged_path)
+            publish_staged_price_backfill(context, price_path, staged_path)
 
     context.report(price_backfill=outcomes, backfill_block_limit=limit, price_backfill_published=published)
     return outcomes

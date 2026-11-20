@@ -151,6 +151,7 @@ from eth_typing import HexAddress
 
 from eth_defi.erc_4626.vault_protocol.gains.metadata import lookup_gains_vault_metadata
 from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_CHAIN_ID, PEAR_CURATORS
 from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
@@ -231,6 +232,7 @@ PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
 #: GRVT GLP).
 #: Use :py:func:`is_protocol_curator` to check membership.
 ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
+    "pear",
     "gains-network",
     "nova-markets",
     "auto-finance",
@@ -251,6 +253,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "pear": "Pear",
     "veranta": "Veranta",
     "tori": "Tori Finance",
     "auto-finance": "AUTO Finance",
@@ -417,6 +420,11 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    # Pear publishes operator assignments for specific deployments.
+    "pear",
+    "emporium-ventures",
+    "valkyrie-finance",
+    "moritz-pike",
     #: Product names alone do not establish VOLTA90 management. Use reviewed
     #: operator-linked contracts or exact protocol manager metadata.
     "volta90",
@@ -465,6 +473,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    **{(PEAR_CHAIN_ID, address): curator for address, curator in PEAR_CURATORS.items()},
     #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
     #: product book links this exact chain/address, including earlier DeTrade branding.
     #: https://murmurr.xyz/

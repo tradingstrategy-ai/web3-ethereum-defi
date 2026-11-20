@@ -1518,3 +1518,24 @@ def test_arrow_dataset_filter_preserves_chain_address_pairs() -> None:
 
     assert selected["row"].to_pylist() == ["selected"]
     assert empty.num_rows == 0
+
+
+def test_hyperevm_legacy_nav_sources() -> None:
+    """Exclude unverified Pear and native HYPE rows while preserving unrelated prices."""
+    pear = "0x65c9f4665c7d9ce96f53aafc67796dcad46f4096"
+    hyped = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    prices = pd.DataFrame(
+        [
+            (999, pear, "latest", 1.1),
+            (999, pear, "pear_api", 1.2),
+            (999, pear, None, 0.8),
+            (999, hyped, "latest", 1.03),
+            (999, hyped, "pear_api", 1e18),
+            (999, hyped, "first_read", 1e18),
+            (1, pear, None, 1.9),
+            (999, "other", None, 2.2),
+        ],
+        columns=["chain", "address", "vault_poll_frequency", "share_price"],
+    )
+    assert vault_price_wrangle.filter_verified_hyperevm_prices(prices)["share_price"].tolist() == [1.1, 1.2, 1.03, 1.9, 2.2]
+    assert vault_price_wrangle.filter_verified_hyperevm_prices(prices.drop(columns="vault_poll_frequency"))["share_price"].tolist() == [1.9, 2.2]

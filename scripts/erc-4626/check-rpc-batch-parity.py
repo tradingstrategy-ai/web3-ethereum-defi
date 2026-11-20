@@ -19,7 +19,7 @@ from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, uses_hyperevm_latest_nav
 from eth_defi.erc_4626.scan import ACTIVITY_STATUS_MIN_NAV, create_vault_scan_record
 from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
@@ -116,7 +116,7 @@ def check_historical_scan(chain_id: int, batch_size: int, max_workers: int, dire
     """Run nine historical samples through the real writer and stateful consumer.
 
     Arbitrum uses an hourly grid; HyperEVM uses 90 recent blocks to test its
-    isolated lane without attempting a HyperCore historical backfill.
+    archive reads and the exclusion of current-state-only vaults.
     Explicit bounds replay a previous run. Each invocation gets independent
     temporary token, timestamp and reader state, and never publishes to production.
 
@@ -174,6 +174,9 @@ def check_historical_scan(chain_id: int, batch_size: int, max_workers: int, dire
         # Independent exact-block reads validate one real observation per vault.
         for address, vault in expected.items():
             observed = [row for row in samples if row["address"] == address]
+            if uses_hyperevm_latest_nav(chain_id, vault.address, vault.features):
+                assert not observed and vault.spec not in report["reader_states"], "Bounded replay sampled a current-state vault"
+                continue
             state = report["reader_states"][vault.spec]
             denomination, shares = vault.denomination_token, vault.share_token
             logger.info("Scan token metadata vault=%s denomination=%s symbol=%s decimals=%s share=%s share_decimals=%s", address, denomination.address if denomination else None, denomination.symbol if denomination else None, denomination.decimals if denomination else None, shares.address, shares.decimals)
