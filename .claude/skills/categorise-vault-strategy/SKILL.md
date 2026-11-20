@@ -27,6 +27,10 @@ address-to-tag mapping next to its vault protocol adapter.
 
 2. Select tags from `eth_defi.vault.strategy_tag.StrategyTag`.
 
+   Podcast coverage is an editorial tag maintained by chain and vault address in
+   `eth_defi/vault/podcast_tags.py`. Record the episode that covers the vault
+   and verify the deployment against the linked vault page or official docs.
+
    - Assign every supported tag that the documented strategy warrants; tags
      are additive and are not mutually exclusive.
    - Add `discretionary_trading` when product-specific evidence shows that a

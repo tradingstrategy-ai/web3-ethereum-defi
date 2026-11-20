@@ -64,6 +64,7 @@ from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS as SECURITIZE_
 from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS as SPIKO_STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags, lookup_strategy_tags
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 from eth_defi.vault_protocols.migration import MigrationContext
@@ -363,7 +364,7 @@ def create_backup_path(vault_db_path: Path) -> Path:
         backup_index += 1
 
 
-def _normalise_persisted_tags(value: object) -> tuple[set[StrategyTag] | None, bool]:
+def normalise_persisted_strategy_tags(value: object) -> tuple[set[StrategyTag] | None, bool]:
     """Convert a legacy persisted tag collection to enum members.
 
     :param value:
@@ -495,7 +496,7 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
     invalid_tag_rows = 0
     for spec, row in vault_db.rows.items():
         try:
-            current_tags, persisted_tags_canonical = _normalise_persisted_tags(row.get("_strategy_tags"))
+            current_tags, persisted_tags_canonical = normalise_persisted_strategy_tags(row.get("_strategy_tags"))
             if not persisted_tags_canonical:
                 invalid_tag_rows += 1
                 logger.warning("Found legacy or malformed strategy tags for %s", spec.as_string_id())
@@ -511,6 +512,7 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
             continue
 
         new_tags, source = resolved
+        new_tags = add_podcast_available_tag(spec.chain_id, spec.vault_address, new_tags)
         normalised_new_tags = None if new_tags is None else set(new_tags)
         if persisted_tags_canonical and current_tags == normalised_new_tags:
             continue

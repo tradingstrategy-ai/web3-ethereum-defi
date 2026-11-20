@@ -95,6 +95,7 @@ def test_migrate_vault_strategy_tags_updates_evm_and_native_rows(tmp_path: Path)
 
     migrated_db = VaultDatabase.read(vault_db_path)
     assert migrated_db.rows[atoma_spec]["_strategy_tags"] == {
+        StrategyTag.podcast_available,
         StrategyTag.delta_neutral,
         StrategyTag.funding_rate_arbitrage,
         StrategyTag.perpetual_futures,
@@ -217,6 +218,7 @@ def test_migrate_vault_strategy_tags_repairs_legacy_values(tmp_path: Path) -> No
     assert result.updated_rows == 1
     assert result.invalid_tag_rows == 1
     assert VaultDatabase.read(vault_db_path).rows[spec]["_strategy_tags"] == {
+        StrategyTag.podcast_available,
         StrategyTag.delta_neutral,
         StrategyTag.funding_rate_arbitrage,
         StrategyTag.perpetual_futures,
@@ -501,7 +503,7 @@ def test_nova_strategy_refresh_is_chain_scoped() -> None:
     "chain_id,address,features,expected",
     (
         (1, "0x9fb7b4477576fe5b32be4c1843afb1e55f251b33", {ERC4626Feature.fluid_like}, {StrategyTag.lending}),
-        (1, "0x9be9294722f8aad37b11a9792be2c782182cafa2", {ERC4626Feature.ember_like}, {StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.carry_trade, StrategyTag.multistrategy}),
+        (1, "0x9be9294722f8aad37b11a9792be2c782182cafa2", {ERC4626Feature.ember_like}, {StrategyTag.podcast_available, StrategyTag.lending, StrategyTag.liquidity_provider, StrategyTag.carry_trade, StrategyTag.multistrategy}),
         (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a", {ERC4626Feature.plutus_like}, {StrategyTag.algorithmic_trading, StrategyTag.multistrategy}),
         (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5", {ERC4626Feature.forty_acres_like}, {StrategyTag.lending}),
         (8453, "0x9c6864105aec23388c89600046213a44c384c831", {ERC4626Feature.autopool_like}, {StrategyTag.algorithmic_trading}),

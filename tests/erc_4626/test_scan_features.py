@@ -2,6 +2,7 @@
 
 import datetime
 import json
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -519,3 +520,35 @@ def test_birch_hill_descriptions_scan_and_export(monkeypatch: pytest.MonkeyPatch
     assert "\n\n" in decoded["description"]
     assert all(char not in decoded["short_description"] for char in ("\n", "*", "["))
     assert get_handwritten_vault_metadata(1, address) is None
+
+
+def test_metadata_scan_adds_chain_scoped_podcast_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Include the interview tag alongside protocol tags in a normal scan.
+
+    A contract at the same address on another chain keeps its own tags.
+
+    :param monkeypatch: Use a local adapter double to avoid RPC reads.
+    """
+    vault = _FakeVault()
+    vault.get_strategy_tags = lambda: {StrategyTag.lending}
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: vault)
+    detection = replace(_create_detection({ERC4626Feature.euler_like}), chain=143, address="0x438CedCe647491b1D93a73d491eC19A50194c222")
+    monad_row = scan_module.create_vault_scan_record(None, detection, block_identifier=123, token_cache={})
+    other_row = scan_module.create_vault_scan_record(None, replace(detection, chain=1), block_identifier=123, token_cache={})
+    assert monad_row["_strategy_tags"] == {StrategyTag.lending, StrategyTag.podcast_available}
+    assert other_row["_strategy_tags"] == {StrategyTag.lending}
+
+
+def test_metadata_rescan_preserves_tags_when_only_podcast_coverage_is_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retain saved classifications when a reviewed vault has no adapter tags.
+
+    :param monkeypatch: Use a local adapter with no strategy classifications.
+    """
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _FakeVault())
+    detection = replace(_create_detection({ERC4626Feature.ember_like}), chain=1, address="0x9be9294722f8aad37b11a9792be2c782182cafa2")
+    spec = detection.get_spec()
+    database = VaultDatabase(rows={spec: {"Name": "Ember Earn", "_strategy_tags": {StrategyTag.lending}}})
+    record = scan_module.create_vault_scan_record(None, detection, block_identifier=123, token_cache={})
+    assert record["_strategy_tags"] == {StrategyTag.podcast_available}
+    database.update_leads_and_rows(detection.chain, 123, {}, {spec: record})
+    assert database.rows[spec]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.podcast_available}

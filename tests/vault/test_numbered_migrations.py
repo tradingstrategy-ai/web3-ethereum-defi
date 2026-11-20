@@ -348,8 +348,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     for spec in PEAPODS_USDC:
         assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
         assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
-    for tranche in THREEJANE_TRANCHES:
-        assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
+    senior, junior = THREEJANE_TRANCHES
+    tranche_tags = {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
+    assert database.rows[senior]["_strategy_tags"] == tranche_tags
+    assert database.rows[junior]["_strategy_tags"] == tranche_tags | {StrategyTag.podcast_available}
     assert database.rows[MARTINGALE_HYPERCORE]["_strategy_tags"] == hyperliquid_tags.get_strategy_tags(MARTINGALE_HYPERCORE.vault_address)
     assert database.rows[MARTINGALE_LIGHTER]["_strategy_tags"] == lighter_tags.get_strategy_tags(MARTINGALE_LIGHTER.vault_address)
     assert StrategyTag.martingale_like in database.rows[MARTINGALE_LIGHTER]["_strategy_tags"]
@@ -544,3 +546,33 @@ def test_staff_pick_refresh_preserves_other_candle_effect_versions(tmp_path: Pat
     updated = VaultDatabase.read(path)
     assert updated.rows[other] == rows[other]
     assert {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.perpetual_futures} <= updated.rows[selected]["_strategy_tags"]
+
+
+def test_podcast_available_migration_preserves_saved_tags(tmp_path: Path) -> None:
+    """Refresh podcast coverage even when older rows lack detection metadata.
+
+    Exercise the metadata preview, chain scoping and retry path on an isolated
+    database containing old-style tags.
+
+    :param tmp_path: Isolated metadata directory.
+    """
+    featured = VaultSpec(1, "0x9be9294722f8aad37b11a9792be2c782182cafa2")
+    other = VaultSpec(8453, featured.vault_address)
+    path = tmp_path / "vault-metadata-db.pickle"
+    original = {"_strategy_tags": {"lending"}, "_notes": "Keep notes"}
+    VaultDatabase(rows={featured: original, other: original.copy()}).write(path)
+    saved_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 94)
+    preview = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    runner._execute(migration, preview)
+    assert path.read_bytes() == saved_bytes
+    assert preview.other_data["updated_fields"] == 1
+
+    context = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+    runner._execute(migration, context)
+    expected = original | {"_strategy_tags": {StrategyTag.lending, StrategyTag.podcast_available}}
+    assert VaultDatabase.read(path).rows == {featured: expected, other: original}
+
+    repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+    runner._execute(migration, repeated)
+    assert repeated.other_data["updated_fields"] == 0

@@ -402,13 +402,14 @@ class VaultDatabase:
                 new_row = new_row.copy()
                 new_row["_withdrawal_capacity_observation"] = existing["_withdrawal_capacity_observation"]
 
-            # An adapter may not have a maintained classification yet. Keep a
-            # previously persisted value instead of erasing manual metadata on
-            # every subsequent scan; the explicit migration can still replace
-            # or clear it when a resolver is reviewed.
-            if existing is not None and new_row.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
+            # Keep saved classifications when the adapter supplies no strategy.
+            # Podcast coverage can still be present in that case because the
+            # scanner adds it independently of the adapter.
+            scanned_tags = new_row.get("_strategy_tags")
+            saved_tags = existing.get("_strategy_tags") if existing is not None else None
+            if saved_tags is not None and (scanned_tags is None or scanned_tags == {StrategyTag.podcast_available}):
                 new_row = new_row.copy()
-                new_row["_strategy_tags"] = existing["_strategy_tags"]
+                new_row["_strategy_tags"] = saved_tags if scanned_tags is None else scanned_tags.union(saved_tags)
 
             # Missing provider text is not an instruction to delete previously
             # published Lagoon descriptions, including migration-filled rows.

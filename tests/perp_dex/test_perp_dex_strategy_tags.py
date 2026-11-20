@@ -247,7 +247,7 @@ def test_growi_vaults_are_mean_reversion() -> None:
         StrategyTag.perpetual_futures,
     }
 
-    assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected | {StrategyTag.martingale_like}
+    assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected | {StrategyTag.martingale_like, StrategyTag.podcast_available}
     assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected
 
 
@@ -341,6 +341,7 @@ def test_hyperliquid_grid_descriptions_are_tagged(vault_address: str, specific_t
 def test_stratwise_spot_vault_strategy_tags() -> None:
     """Stratwise's spot-only vault receives its address-scoped tags."""
     assert hyperliquid_tags.get_strategy_tags("0x0ff219ac20596b457558341bc410bc7a08a1394c") == {
+        StrategyTag.podcast_available,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
@@ -398,13 +399,14 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
         "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {StrategyTag.staff_pick, StrategyTag.btc_only},
         "0x53375ca9a649f337d83d0834fec0db97640a2a06": {StrategyTag.staff_pick, StrategyTag.mean_reversion, StrategyTag.directional_trading},
         "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {StrategyTag.staff_pick, StrategyTag.mean_reversion, StrategyTag.directional_trading},
-        "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
+        "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.podcast_available, StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
         "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
         "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
         "lighter-pool-281474976552443": {StrategyTag.staff_pick, StrategyTag.directional_trading, StrategyTag.grid_trading},
         "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
+            StrategyTag.podcast_available,
             StrategyTag.algorithmic_trading,
             StrategyTag.directional_trading,
             StrategyTag.grid_trading,

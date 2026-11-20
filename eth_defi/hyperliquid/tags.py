@@ -1,5 +1,7 @@
 """Maintained strategy classifications for Hyperliquid native vaults."""
 
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: Most Hyperliquid native vaults trade perpetual futures.
@@ -674,4 +676,5 @@ def get_strategy_tags(address: str) -> set[StrategyTag]:
     """
     normalised_address = address.lower()
     defaults = frozenset() if normalised_address in NON_PERPETUAL_VAULTS else DEFAULT_STRATEGY_TAGS
-    return combine_strategy_tags(defaults, STRATEGY_TAGS, normalised_address)
+    tags = combine_strategy_tags(defaults, STRATEGY_TAGS, normalised_address)
+    return add_podcast_available_tag(HYPERCORE_CHAIN_ID, normalised_address, tags) or set()
