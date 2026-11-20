@@ -88,6 +88,31 @@ def make_export_record(module, **kwargs) -> dict:
     return module.export_lifetime_row(pd.Series(make_metrics_row(**kwargs)))
 
 
+def test_pear_export_removes_name_prefix_and_preserves_route() -> None:
+    """Shorten published Pear names on both fresh export and cached replay.
+
+    The route still uses the original slug. An unrelated protocol with the
+    same prefix keeps its full display name.
+    """
+    now = datetime.datetime.fromisoformat("2026-06-24T12:00:00")
+    state = top_vaults_json.make_empty_sticky_export_state(now)
+    name = "Pear Vault Agent Pear"
+    pear = make_metrics_row(chain_id=999, protocol_slug="pear", name=name)
+    pear["vault_slug"] = "pear-vault-agent-pear"
+    unrelated = make_metrics_row(name=name)
+    options = {"now": now, "threshold_tvl": 5_000.0, "stale_warning_age_days": 14}
+
+    first = top_vaults_json.apply_sticky_export_state(make_lifetime_df(pear, unrelated), state, **options)
+    replay = top_vaults_json.apply_sticky_export_state(make_lifetime_df(), first.state, **options)
+
+    for result in (first, replay):
+        by_protocol = {record["protocol_slug"]: record for record in result.vaults}
+        assert by_protocol["pear"]["name"] == "Agent Pear"
+        assert by_protocol["pear"]["vault_slug"] == "pear-vault-agent-pear"
+        assert by_protocol["morpho"]["name"] == name
+    assert replay.stats.sticky_fallback_exports == 2
+
+
 def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy() -> None:
     """Export every category with two-sentence rules and additive aggregates.
 
