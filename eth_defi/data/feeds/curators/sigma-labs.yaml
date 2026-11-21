@@ -1,20 +1,22 @@
 feeder-id: sigma-labs
-name: σ-Labs
+# Use the searchable spelling because most English keyboards have no Greek sigma key.
+name: Sigma Labs
 role: curator
+# Match the original spelling supplied by Lagoon.
 lagoon-curator: σ-Labs
 website: https://www.sigmalabs.fi/
 twitter: sigmalabsfi
-short_description: σ-Labs designs automated strategies for lending stablecoins and trading ether and crypto futures.
+short_description: Sigma Labs designs automated strategies for lending stablecoins and trading ether and crypto futures.
 long_description: |
-  [σ-Labs](https://www.sigmalabs.fi/) uses its own research to design and manage vaults. It builds tools to allocate capital, monitor positions and value vault holdings. It [publishes its research](https://www.sigmalabs.fi/blog) so depositors can understand how and why the strategies work.
+  [Sigma Labs (σ-Labs)](https://www.sigmalabs.fi/) uses its own research to design and manage vaults. It builds tools to allocate capital, monitor positions and value vault holdings. It [publishes its research](https://www.sigmalabs.fi/blog) so depositors can understand how and why the strategies work.
 
-  Its **Blue vaults** seek to earn the difference between prices or lending rates in decentralised markets. In the staked ether redemption vault (rcETH), which it runs with Ellen Capital, σ-Labs [weighs the discount on staked ether](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) against the cost of waiting in the queue to redeem it for ether. The [Cross-chain USDC Lending vault](https://tradingstrategy.ai/vaults/cross-chain-usdc-lending) compares lending rates across blockchains and moves funds when the expected extra interest covers transfer costs.
+  Its **Blue vaults** seek to earn the difference between prices or lending rates in decentralised markets. In the staked ether redemption vault (rcETH), which it runs with Ellen Capital, Sigma Labs [weighs the discount on staked ether](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) against the cost of waiting in the queue to redeem it for ether. The [Cross-chain USDC Lending vault](https://tradingstrategy.ai/vaults/cross-chain-usdc-lending) compares lending rates across blockchains and moves funds when the expected extra interest covers transfer costs.
 
-  Its **Alpha vaults** issue tokens that represent shares in strategies that trade according to predefined rules. σ-Labs develops some of these strategies in-house and runs others with quantitative investment managers. One [trades perpetual futures](https://tradingstrategy.ai/vaults/cross-sectional-statistical-arbitrage), buying higher-ranked contracts and selling lower-ranked ones.
+  Its **Alpha vaults** issue tokens that represent shares in strategies that trade according to predefined rules. Sigma Labs develops some of these strategies in-house and runs others with quantitative investment managers. One [trades perpetual futures](https://tradingstrategy.ai/vaults/cross-sectional-statistical-arbitrage), buying higher-ranked contracts and selling lower-ranked ones.
 
 # The X profile links to the official site and its posts link to the exact vaults.
 other-links:
-  - title: σ-Labs products and trading strategies
+  - title: Sigma Labs products and trading strategies
     url: https://www.sigmalabs.fi/products
   - title: Lagoon Finance curator directory
     url: https://app.lagoon.finance/api/curators

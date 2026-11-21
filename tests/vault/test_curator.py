@@ -945,6 +945,9 @@ def test_identify_sigma_labs_vault_without_manager_name() -> None:
     address = "0x0F30D4CC24024E51BEE5E7805BC7F3E6A88EA59F"
     assert identify_curator(42161, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") == "sigma-labs"
     assert identify_curator(1, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") is None
+    for spelling in ("Sigma Labs", "\N{GREEK SMALL LETTER SIGMA}-Labs"):
+        assert identify_curator(1, "", f"{spelling} vault", address, "lagoon-finance") == "sigma-labs"
+    assert get_curator_name("sigma-labs") == "Sigma Labs"
 
 
 def test_identify_t3tris_curator_by_curator_metadata() -> None:
