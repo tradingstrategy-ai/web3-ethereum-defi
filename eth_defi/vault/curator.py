@@ -300,6 +300,8 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     # Retain the historical label without claiming every Waterline-branded
     # deployment (for example the unreviewed Avalanche Waterline USDe vault).
     "waterline-rusd": ["Waterline RUSD"],
+    # Vault names can still use the Greek spelling after the display name changes.
+    "sigma-labs": ["\N{GREEK SMALL LETTER SIGMA}-Labs"],
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
