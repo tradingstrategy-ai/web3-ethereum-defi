@@ -42,8 +42,8 @@ List all image files in the input folder and classify them:
 1. Identify file formats: SVG, PNG, JPG, WEBP, etc.
 2. Classify by variant based on filename:
    - `{slug}.generic.{ext}` - Generic/default theme
-   - `{slug}.light.{ext}` - Light background theme (dark logo)
-   - `{slug}.dark.{ext}` - Dark background theme (light logo)
+   - `{slug}.light.{ext}` - Light logo for dark backgrounds
+   - `{slug}.dark.{ext}` - Dark logo for light backgrounds
 3. Always prefer brand marks over word marks as source logo for post processing
 4. **Check aspect ratio** of each logo:
    - **Square aspect ratio**: Width equals height (1:1 ratio). Allow 90% tolerance in the detection as there might be one-off pixel errors in the source material.
@@ -90,9 +90,15 @@ Provide the user with:
 
 ## Output naming convention
 
-Output files should follow this naming pattern:
-- `{protocol-slug}/light.png` - For light backgrounds
-- `{protocol-slug}/dark.png` - For dark backgrounds
+Save each variant under the project slug.
+
+- `light.png` for dark backgrounds
+- `dark.png` for light backgrounds
+- `generic.png` for the default brandmark
+
+The curator page header uses `generic.png`. When formatting a curator logo,
+copy the finished `light.png` to `generic.png` if a dedicated generic file is
+missing. Apply the same rule to aliases with their own logo directories.
 
 ## Troubleshooting
 

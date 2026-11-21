@@ -1,6 +1,7 @@
 # Vault protocol metadata
 
-This folder contains metadata for vault protocols.
+This folder contains metadata for vault protocols and shared logo assets for
+vault protocols and curators.
 
 1. Vault protocol names can be found in [eth_defi.erc_4626.core.get_vault_protocol_name()](../../erc_4626/core.py)
 
@@ -8,14 +9,22 @@ This folder contains metadata for vault protocols.
 
 3. Each slug has a corresponding YAML file in [Strict YAML format](https://github.com/crdoconnor/strictyaml) stored in the `metadata` subfolder. E.g. for Lagoon Finance there is `metadata/lagoon-finance.yaml`
 
-4. Each protocol can contain multiple original logos and up to three formatted logos.
+## Formatted logos
 
-- Subfolder `original_logos` contains the logos obtained through the homepage or web search. There is a subfolder for each protocol, like `original_logos/euler` which contains raw downloads we extracted using `extract-vault-project-logo` skill.
-- Subfoder `formatted_logos` contain a subfolder `{protocol slug}` for each project we have created unified logo styles 
-- The formatted logo is 256 x 256 px PNG file, only contains brandmark and no logo text
-- For whitish text and symbol on dark-background theme there is `formatted_logos/{protocol slug}/light.png`
-- For darkish text on symbol on light-background theme there is `formatted_logos/{protocol slug}/dark.png`
-- Either of the logo files might be present or missing
+Keep raw downloads and their sources under `original_logos/{slug}/`. Save
+formatted 256 × 256 PNG brandmarks under `formatted_logos/{slug}/`.
+
+- `generic.png` is the default brandmark.
+- `light.png` is the light brandmark for dark backgrounds.
+- `dark.png` is the dark brandmark for light backgrounds.
+
+The curator page header uses `generic.png`. Every curator with a formatted
+logo needs this file under its logo slug. If `generic.png` is missing and
+`light.png` exists, copy `light.png` to `generic.png`. Keep a dedicated
+`generic.png` where one exists. An alias can inherit a canonical feeder's
+logo when that feeder publishes it in the curator metadata export. If the
+canonical feeder only publishes protocol metadata, copy its formatted logos
+into the alias folder so the curator export can publish them too.
 
 ## Example YAML file fields
 

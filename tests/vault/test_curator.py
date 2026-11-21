@@ -20,7 +20,7 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+from eth_defi.vault.curator import build_curator_index, build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
@@ -451,6 +451,24 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
     assert get_curator_available_logos("wstgbp")["generic"]
+
+
+def test_curator_logos_include_generic_brandmarks() -> None:
+    """Keep curated logo assets visible in page headers.
+
+    A published themed logo needs a generic variant because the curator
+    page header uses that variant, including for protocol curators and aliases.
+    Inherited logo URLs must belong to a slug that the curator export publishes.
+
+    :return: None after checking the exported curator index.
+    """
+    curators = build_curator_index(public_url="https://example.invalid")
+    missing = [curator["slug"] for curator in curators if any(curator["logos"].values()) and not curator["logos"]["generic"]]
+    assert not missing, f"Curators with logos but no generic variant: {', '.join(missing)}"
+
+    published_slugs = {curator["slug"] for curator in curators}
+    logo_slugs = {curator["logos"]["generic"].rsplit("/", 2)[-2] for curator in curators if curator["logos"]["generic"]}
+    assert logo_slugs <= published_slugs, f"Generic logo URLs point to unpublished curator slugs: {', '.join(sorted(logo_slugs - published_slugs))}"
 
 
 def test_curator_brandmarks_are_visible_on_dark_background() -> None:
