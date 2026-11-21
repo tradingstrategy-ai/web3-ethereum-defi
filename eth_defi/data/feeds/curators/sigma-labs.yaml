@@ -6,11 +6,11 @@ website: https://www.sigmalabs.fi/
 twitter: sigmalabsfi
 short_description: σ-Labs designs automated strategies for lending stablecoins and trading ether and crypto futures.
 long_description: |
-  [σ-Labs](https://www.sigmalabs.fi/) designs the trading rules for two vaults it runs with Ellen Capital. One [buys discounted staked ether](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) and redeems it for ether. The other [lends USDC across blockchains](https://tradingstrategy.ai/vaults/cross-chain-usdc-lending), moving funds when the extra interest is expected to cover the cost.
+  [σ-Labs](https://www.sigmalabs.fi/) uses its own research to design and manage vaults. It builds tools to allocate capital, monitor positions and value vault holdings. It [publishes its research](https://www.sigmalabs.fi/blog) so depositors can understand how and why the strategies work.
 
-  Its [other strategies](https://www.sigmalabs.fi/products) include fixed-rate lending against bitcoin-backed tokens, trading perpetual futures and borrowing ether to buy more staked ether. Its sigmaETH vault lends wrapped ether while the redemption strategy waits for a trade.
+  Its **Blue vaults** seek to earn the difference between prices or lending rates in decentralised markets. In the staked ether redemption vault (rcETH), which it runs with Ellen Capital, σ-Labs [weighs the discount on staked ether](https://www.sigmalabs.fi/papers/lagoon-governance.pdf) against the cost of waiting in the queue to redeem it for ether. The [Cross-chain USDC Lending vault](https://tradingstrategy.ai/vaults/cross-chain-usdc-lending) compares lending rates across blockchains and moves funds when the expected extra interest covers transfer costs.
 
-  For [Stablecoin Market Making](https://tradingstrategy.ai/vaults/stablecoin-market-making), Lobster designs the trading rules and Coral Capital runs them on [Uniswap](https://app.uniswap.org/). σ-Labs [values the positions and settles deposits and withdrawals](https://www.sigmalabs.fi/papers/stablecoin-market-making-governance.pdf).
+  Its **Alpha vaults** issue tokens that represent shares in strategies that trade according to predefined rules. σ-Labs develops some of these strategies in-house and runs others with quantitative investment managers. One [trades perpetual futures](https://tradingstrategy.ai/vaults/cross-sectional-statistical-arbitrage), buying higher-ranked contracts and selling lower-ranked ones.
 
 # The X profile links to the official site and its posts link to the exact vaults.
 other-links:
