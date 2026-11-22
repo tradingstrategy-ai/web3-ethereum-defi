@@ -541,15 +541,11 @@ Do not run a Sphinx documentation build as part of this skill. Verifying the
 new documentation source files, their index references, and metadata parsing
 is sufficient; documentation builds are handled separately by the project CI.
 
-Examples include
-
-- `docs/source/vaults/plutus/index.rst`, `docs/source/vaults/truefi/index.rst`, `docs/source/api/vaults/index.rst`,
+See the [Plutus](../../../docs/source/vaults/plutus/index.rst) and [TrueFi](../../../docs/source/vaults/truefi/index.rst) pages for examples, and the [vault protocol index](../../../docs/source/vaults/index.rst) for the catalogue.
 
 ## Step 13: Run all vault protocol detection tests
 
-Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626/vault_protocol` folder.
-
-Run all vault testes:
+Run the vault protocol tests after adding support for a protocol.
 
 ```
 source .local-test.env && poetry run pytest -n auto -k vault_protocol

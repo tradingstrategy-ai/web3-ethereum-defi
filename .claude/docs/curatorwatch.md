@@ -1,24 +1,6 @@
 # CuratorWatch
 
-CuratorWatch is a public DeFi vault curator intelligence website:
-
-https://curatorwatch.com/
-
-Use this note when comparing CuratorWatch curator coverage against the local
-feed files in `eth_defi/data/feeds/`, especially
-`eth_defi/data/feeds/curators/`.
-
-The site is a Vercel-hosted Next.js application. The homepage is statically
-pre-rendered and embeds a React Server Components payload, but there are public
-JSON endpoints that are easier and more stable to consume than scraping the
-HTML.
-
-Observed response headers include:
-
-- `server: Vercel`
-- `x-nextjs-prerender: 1` on statically rendered pages
-- `x-matched-path` for route resolution
-- `content-type: application/json` on API routes
+Use [CuratorWatch](https://curatorwatch.com/) to identify candidates for the [curator feed directory](../../eth_defi/data/feeds/curators/). The JSON endpoints below were observed in June 2026. Recheck the responses before using them to assess coverage.
 
 ## What the website tracks
 
@@ -41,7 +23,7 @@ Observed top-level website data:
 The homepage copy says the data is "updated every 6h". Treat all counts as
 time-sensitive and re-fetch them before using them in a report.
 
-## Api surface
+## API endpoints
 
 ### Curator list
 
@@ -291,7 +273,7 @@ Important local files:
 - `eth_defi/data/curators.md`
 - `eth_defi/vault/curator.py`
 
-The local `find-new-curators` skill is useful for this work:
+The [curator discovery skill](../skills/find-new-curators/SKILL.md) includes a script to list existing records.
 
 ```shell
 poetry run python .claude/skills/find-new-curators/scripts/print-existing-curators.py

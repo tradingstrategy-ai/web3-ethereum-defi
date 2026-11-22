@@ -657,7 +657,7 @@ Run `scripts/gmx/gmx_market_depth.py` for a full overview with three tables:
 # Quick REST-only overview (no RPC needed)
 poetry run python scripts/gmx/gmx_market_depth.py
 
-# With on-chain price impact params and custom portfolio
+# With onchain price impact params and custom portfolio
 JSON_RPC_ARBITRUM=<url> FETCH_ONCHAIN_PARAMS=1 PORTFOLIO_USD=100000 MAX_OI_PCT=0.025 \
     poetry run python scripts/gmx/gmx_market_depth.py
 ```

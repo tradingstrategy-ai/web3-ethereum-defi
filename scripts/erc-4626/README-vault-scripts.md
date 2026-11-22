@@ -1,19 +1,5 @@
 # ERC-4626 vault scripts
 
-For new database repairs, use the [numbered migration system](../../.claude/docs/migration-scripts.md).
-The `vault-migrate` command lists, previews and applies pending scripts in order.
-Both preview and apply require `vault-scanner-looped` to be stopped, including
-its sleep intervals. Production uses the one-shot Compose service:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-Run from the production checkout using a stamped image built as described in
-the migration guide. See [Docker migrations](#run-numbered-database-migrations)
-below for the deployment requirements.
-
-
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 
 All scripts use environment variables for configuration.
@@ -27,65 +13,15 @@ check timestamps without changing the source catalogue.
 
 ## Instructions for migration scripts
 
-Read the [migration documentation](../../.claude/docs/migration-scripts.md)
-before implementing or running a one-off database repair, data/schema
-migration, historical lead repair or refresh of persisted Python accessor data.
-The supported format is `migration/scripts/NNN-name.py`, exporting
-`migrate(context: MigrationContext) -> None`, executed by `vault-migrate`.
-
-**Standalone `migrate-*.py`, `fix-*.py` and one-off backfill scripts are legacy
-format and must not be used for these tasks anymore.** Do not generate another
-`migrate-<protocol>-vaults.py`, copy an old repair or invoke a legacy script to
-bypass the migration runner. Port the required operation into a new numbered
-migration, reusing pure transformation or historical-reader helpers as needed.
-
-- Allocate the next unused counter. The initial 001–009 batch is a historical
-  batch, not a set of commands to rerun for later accessor changes.
-- Freeze the reviewed targets and fields. `DRY_RUN` is the only
-  migration-specific operator input; credentials, worker limits and storage
-  remain infrastructure configuration.
-- Use the shared context for staged metadata, structured reporting and commits.
-  Preview must preserve databases, caches and the journal. Apply must retain
-  recovery evidence and validate committed data.
-- Preserve unrelated metadata, leads, historical prices, timestamp caches and
-  reader state. Add a historical backfill or reader-state change only when the
-  reviewed migration explicitly requires it. Historical price backfills follow
-  the [backfill rules](../../.claude/docs/migration-scripts.md#historical-price-backfills) in the migration guide.
-- Both preview and apply require the daemon and competing writers to be
-  stopped. Use the production Compose command above and follow the
-  documented lifecycle-guard-before-writer-lock order; helpers must not relock.
-
-For local authoring checks, set `PIPELINE_DATA_DIR` to an isolated snapshot
-directory, then use:
-
-```shell
-poetry run vault-migrate list
-DRY_RUN=true poetry run vault-migrate run
-DRY_RUN=false poetry run vault-migrate run
-```
-
-For a worktree using the parent Poetry environment, use the module form and
-`PYTHONPATH="$PWD"` described in the migration guide. The production Compose
-service retains the persistent mounts; the engine reads the image's git stamp.
-Restart the same image afterwards for normal cleaning, exports and uploads.
+For a database repair, persisted accessor refresh or historical backfill, add a [numbered migration](../../.claude/docs/migration-scripts.md#authoring-a-migration). The runner previews and applies pending scripts in order.
 
 ### Pull request run reminder
 
-Every PR adding a migration must include a **Run after merge** comment with
-its numbered filenames, reviewed scope, expected counts, required services,
-exact production Compose preview/apply commands, affected files, recovery
-precautions and post-run validation criteria. Record the deployed commit,
-UTC date and result after execution. Merging a PR does not run it.
-Use the authoring and production runbook in the migration guide as the source
-of truth for these instructions.
+Include the [migration run reminder](../../.claude/docs/migration-scripts.md#pull-request-reminder-and-checks) with the scope, expected changes and production commands.
 
 ### Reading the legacy catalogue
 
-The standalone repair and one-off backfill commands retained below are
-**legacy runbook references**, not the workflow for new maintenance tasks.
-Port a required repair into a numbered migration before running it. Recurring
-scanners, collectors, normal historical readers and read-only tools in this
-catalogue keep their existing commands.
+The standalone repair and one-off backfill sections below document earlier repairs. Port any required operation into a new numbered migration before use. Scheduled collectors and read-only diagnostics retain their normal entry points.
 
 ### Hyperliquid corruption recovery
 
@@ -2433,22 +2369,7 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 
 ### Run numbered database migrations
 
-Use the [production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
-for building the stamped image, stopping writers, preview and recovery. From
-`~/vault-scanner/web3-ethereum-defi`, the production apply command is:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-Set `DRY_RUN=true` in that command to preview. The installed `vault-migrate`
-entrypoint runs the numbered migration system instead of the normal scanner.
-Stop `vault-scanner-looped`, `post-scanner` and competing metadata writers first.
-The updated daemon's lifetime lock blocks migrations even during sleep. Keep
-the image unchanged through preview, apply and service recreation. Compose
-uses the image's embedded git commit for migration provenance; no Docker image
-hash or exported provenance variable is needed. The optional host launcher
-remains available for Docker status preflight and automatic image pinning.
+Follow the [production runbook](../../.claude/docs/migration-scripts.md#production-runbook) for image preparation, stopping writers, preview, apply and service restart. Both preview and apply require the looped scanner to be stopped.
 
 ### Scanner image and exports
 
@@ -2767,8 +2688,7 @@ admitted. The read-only `check-upshift-usdc.py` reports them as
 `permissioned_excluded`.
 
 Migration 019 changes only the permission field and fails on unresolved reads.
-Its scope and expected counts are documented in the numbered script. The
-[implementation record](../../docs/superpowers/plans/2026-10-30-upshift-trade-executor-support.md#permission-correction-and-rollout) contains validation and the production run reminder.
+See [migration 019](../../migration/scripts/019-upshift-deposit-permissions.py) for its scope and expected counts, and the [31 October 2026 snapshot](../../docs/protocol-research/2026-10-31-upshift-availability.json) for the observed availability.
 
 ### migrate-withdrawal-period-estimates.py
 
@@ -3458,8 +3378,7 @@ contains the reason replayed on the temporary Anvil fork.
 
 ## Reducing and measuring scanner RPC usage
 
-The [RPC reduction plan](../../docs/claude-plans/2026-09-30-vault-scanner-rpc-reduction.md)
-records the incident counts, six changes and acceptance criteria. RPC reductions
+The [October RPC measurements](../../docs/performance/2026-10-23-scanner-rpc/analysis.md) cover historical polling and metadata batching. RPC reductions
 are always enabled: successful node detection is cached, unused timestamps are
 omitted, classification and metadata observations have bounded lifetimes,
 admission is scheduled before adapter construction, ordinary inputs are batched,

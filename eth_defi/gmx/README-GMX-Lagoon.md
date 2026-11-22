@@ -124,7 +124,7 @@ Identical structure — same 3 inner calls. The differences from a short are:
 
 No swap is needed. GMX v2 markets accept either their long token or their short token as collateral for either position direction, and `_classify_collateral_support()` in [order_argument_parser.py](order/order_argument_parser.py) checks the collateral against both `long_token_address` and `short_token_address` regardless of `isLong`. USDC is the ETH/USD market's short token, so it is accepted directly for a long position: `start_token == collateral`, `_handle_missing_swap_path()` takes the no-swap branch, and `swapPath` stays `[]` — exactly like the short case above.
 
-> **Note — this does not mean the PnL is USDC too.** GMX v2 always denominates a long's *profit* in the market's long token (WETH), regardless of what collateral was used to open it. A USDC-collateralised long that closes in profit gets its collateral back in USDC and its PnL paid separately in WETH (or native ETH, depending on `shouldUnwrapNativeToken`), unless `decreasePositionSwapType` converts it. This is the subject of a P0 fix tracked in [`docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md`](../../docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md); see that plan for the full root-cause chain and remediation.
+On the ETH/USD market, GMX pays long profits in WETH. A long opened with USDC collateral can therefore return two assets on close. `decreasePositionSwapType` controls conversion to collateral and `shouldUnwrapNativeToken` controls unwrapping. The [payout regression tests](../../tests/gmx/lagoon/test_gmx_close_pnl_token.py) check what the Safe receives.
 
 **Token flow (long with USDC):**
 
@@ -459,7 +459,7 @@ GMX offers a [referral programme](https://docs.gmx.io/docs/referrals/) that disc
 | 2 | 10% | 10% | 15+ weekly users, $5M+ volume |
 | 3 | 10% | 15% ETH/AVAX + 5% esGMX | 30+ weekly users, $25M+ volume |
 
-### How it works on-chain
+### How it works onchain
 
 Referral codes are stored in the [ReferralStorage](https://arbiscan.io/address/0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d) contract (shared between GMX V1 and V2). When `ExchangeRouter.createOrder()` receives a non-zero `referralCode` bytes32 parameter, it calls [ReferralUtils.setTraderReferralCode()](https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/referral/ReferralUtils.sol) which persists the code for the trader account. Once set, the discount applies automatically to all subsequent orders from that account.
 
@@ -496,7 +496,7 @@ config = GMXConfig(
 wallet = LagoonGMXTradingWallet(vault, asset_manager, forward_eth=True)
 ```
 
-### Verifying a code on-chain
+### Verifying a code onchain
 
 To check that a referral code is registered and that the encoding is correct, query `ReferralStorage.codeOwners()`:
 

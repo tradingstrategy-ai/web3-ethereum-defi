@@ -102,12 +102,11 @@ gh variable delete RUN_HYPERSYNC_TESTS   # switch off again
 Export the environment variable next to the pytest invocation:
 
 ```shell
-RUN_HYPERSYNC_TESTS=true poetry run pytest tests/erc_4626/test_scan.py -k "hypersync"
+source .local-test.env && RUN_HYPERSYNC_TESTS=true timeout 180s poetry run pytest tests/erc_4626/test_scan.py -k "hypersync"
 ```
 
 ## Related
 
-- `docs/README-test-suite-performance.md` — the wider test-suite performance
-  plan this change belongs to.
+- [Test suite performance](README-test-suite-performance.md) records the CI timings.
 - `tests/erc_4626/test_scan.py` also contains `@pytest.mark.slow` RPC-scan
   variants that run in the separate slow-test workflow.

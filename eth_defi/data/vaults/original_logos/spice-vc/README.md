@@ -9,4 +9,4 @@
 
 The previous source was a horizontal wordmark. The curator artwork now uses the compact SPiCE brandmark so it remains recognisable in a small square. The processed `generic.png` and `dark.png` retain the official purple (`#3d1061`); `light.png` is the white variant for dark surfaces.
 
-Processed outputs were generated with [`scripts/logos/post-process-logo.py`](../../../../scripts/logos/post-process-logo.py), yielding transparent 256x256 PNGs in `eth_defi/data/vaults/formatted_logos/spice-vc/`.
+Processed outputs were generated with [`scripts/logos/post-process-logo.py`](../../../../../scripts/logos/post-process-logo.py), yielding transparent 256x256 PNGs in `eth_defi/data/vaults/formatted_logos/spice-vc/`.

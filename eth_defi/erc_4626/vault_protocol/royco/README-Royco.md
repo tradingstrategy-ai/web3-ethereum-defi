@@ -252,7 +252,7 @@ or reader state must be purged.
 **Note:** These steps use the Royco market API which only returns non-tranche
 WrappedVault addresses. For tranche vaults (`ROY-ST-*`, `ROY-JT-*`), see
 [Fixing corrupted Royco tranche price data](#fixing-corrupted-royco-tranche-price-data)
-below — tranche vaults are discovered via on-chain event scanning, not the
+below — tranche vaults are discovered via onchain event scanning, not the
 Royco API.
 
 ### 1. Back up state

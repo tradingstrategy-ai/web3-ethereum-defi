@@ -1,34 +1,19 @@
 # Vault description formatting
 
-Individual vault records have two text fields with different formats.
+Individual vault records have two text fields. For sourcing and editorial guidance, see the [description writing guide](../.claude/docs/description-writing-style.md).
 
-#### Full description (`description`, "About the vault")
+## Full description (`description`, "About the vault")
 
-The website renders the full description as Markdown in the "About the
-vault" box. Leave it empty when substantive source material is unavailable;
-missing-information placeholders count as descriptions and hide coverage gaps.
-Do not repeat the website's closed-status badge. Write supported copy for reading
-on a vault page:
+The website renders Markdown in the "About the vault" section. For manually written descriptions, the writing guide specifies the opening heading, `#### Vault's trading strategy`.
 
-- **Paragraphs of two or three sentences**, separated by a blank line. Do not
-  write one long block of text.
-- **Bold** only for key words, amounts or short phrases a reader must not miss,
-  such as material restrictions or shared capital. Emphasise a whole sentence only
-  when its complete wording is essential to a material warning.
-- **Inline links** to the sources of material claims, each linked once,
-  preferably on first mention.
-- **`####` subheadings** when a description covers several topics, such as how
-  the strategy works, custody, material restrictions, or the company. Do not use
-  larger heading levels; the page already has its own section headings.
-
-`normalise_vault_description()` keeps this structure. It converts carriage
+`normalise_vault_description()` preserves Markdown paragraph breaks. It converts carriage
 returns and literal `\n` / `\r` escapes from provider APIs to real line
 breaks, collapses spaces within each line and reduces runs of blank lines to
 a single paragraph break. Leading indentation is not preserved, so avoid
 nested lists. See the [Neutral Trade Autopilot descriptions](../eth_defi/vault/handwritten_metadata.py)
 for an example with subheadings, bold text and inline links.
 
-#### Short description (`short_description`)
+## Short description (`short_description`)
 
 Short descriptions are shown verbatim in listings and tables. Leave them empty
 when no useful, supported summary is available; a closure label or an explanation
@@ -41,215 +26,23 @@ retain only its first sentence and ending punctuation.
 sentence. A single line here means no embedded line breaks; the frontend may
 still wrap text to fit a screen.
 
-#### RockawayX Liminal USDC override
+## Existing descriptions
 
-The HyperEVM deployment `999:0x83107e84f9c5eaaf31f6d2e2b06e0aa14121370e`
-uses address-scoped copy from `eth_defi/vault/handwritten_metadata.py` through
-the existing Morpho V2 accessors. Its strategy is USDC lending; the collateral's
-trading strategy does not add trading or looping tags to the lending vault.
+Scanner adapters and the public JSON exporter normalise the fields, including cached records. [Migration 009](../migration/scripts/009-normalise-vault-descriptions.py) flattened paragraphs under the earlier rules. A later scan or a reviewed override can restore paragraph breaks from source text.
 
-**Run after merge:** migration `058-rockawayx-liminal-metadata.py` refreshes
-only `_description`, `_short_description` and `_strategy_tags` for this existing
-row. Its module docstring includes the production preview/apply reminder.
-No historical price backfill is required for this copy and tag refresh.
-
-#### History
-
-Nest's [first-party CMS](https://cms.nest.credit/api/vaults?limit=100&depth=2)
-has supplied the BlackOpal LiquidStone II summary with a literal `\n` between
-sentences, and its full description with actual paragraph breaks. Until
-October 2026 both fields were flattened to single lines. Full descriptions
-now keep their paragraphs, while summaries are still flattened.
-
-The corrected summary is:
-
-> Investment grade short-duration payment receivables.
-
-Lagoon's [Coinshift USPC High Yield page](https://app.lagoon.finance/vault/1/0x09252D2C4afca9B1479efdD39fAa53DE9ff23114)
-also supplies two sentences in its summary field. Its adapter now retains only
-the first sentence, including for previously cached responses.
-
-Nest, Lagoon and scanner output use the appropriate helper; automatically
-generated Accountable summaries share the same first-sentence logic.
-The public JSON exporter also applies both rules to every published vault,
-including reused sticky records and native vault records that bypass the
-ERC-4626 scanner.
-Migration `009-normalise-vault-descriptions.py` repaired existing rows across all
-protocols without fetching new data, flattening both fields under the earlier
-single-line rule. It changes only `_description` and `_short_description`;
-full descriptions retain every sentence. Paragraphs it removed return when a
-vault is next scanned or when a later migration supplies new copy, such as
-`015-neutral-trade-autopilot-markdown.py`. It preserves
-notes, all other metadata and scanning state.
-Rerunning an applied repair makes no further changes.
-
-## Nest AXI manual override
-
-Nest AXI's Plume vault (`98866:0xe154b281bd9ef3bd94df2364799d0b22b1d4ebd0`)
-uses reviewed copy from `eth_defi/vault/handwritten_metadata.py` for both text
-fields. The Nest adapter resolves that exact deployment before consulting
-provider metadata, so subsequent scans retain the override.
-
-**Run after merge:** migration `023-nest-axi-description.py` refreshes only
-`_description` and `_short_description` in `vault-metadata-db.pickle`: at most
-one existing row and two changed fields. A missing row is reported without
-creation. Prices, reader state, timestamp caches and all other metadata remain
-unchanged; no historical price backfill is needed.
-
-Follow the [production runbook](../.claude/docs/migration-scripts.md#production-runbook)
-to inspect Compose mounts, build the merged revision into the stamped image,
-and stop persistent and competing writers before either command. From
-`~/vault-scanner/web3-ethereum-defi`, preview all pending repairs, review their
-reported changes, then apply:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-Recreate the persistent services with the same image as described in the
-runbook. After their normal export and upload cycle, check both published AXI
-descriptions against the maintained copy. Migration success alone does not
-publish the change.
+| Deployment | Source or repair |
+| --- | --- |
+| Neutral Trade Autopilots | [Migration 015](../migration/scripts/015-neutral-trade-autopilot-markdown.py) introduced Markdown descriptions. |
+| Nest AXI on Plume | [Source evidence](protocol-research/nest-axi-research.md) and [migration 023](../migration/scripts/023-nest-axi-description.py). |
+| Birch Hill on Base | [Research for the two vaults](protocol-research/birch-hill-research.md) and [migration 038](../migration/scripts/038-birch-hill-descriptions.py). |
+| Systemic Strategies L/S Grids | [Mandate and sources](protocol-research/systemic-strategies-vault-research.md) and [migration 042](../migration/scripts/042-systemic-strategies-description.py). |
+| RockawayX Liminal USDC | [Migration 058](../migration/scripts/058-rockawayx-liminal-metadata.py) covers the description and lending tags for the HyperEVM deployment. |
+| Lagoon curator vaults | The [November deployment review](protocol-research/lagoon-curator-onboarding-2026-11-10.md) identified evidence for 25 of 34 vaults. [Migration 061](../migration/scripts/061-lagoon-curator-descriptions.py) targets those 25. The other nine use the normal provider fallback. |
 
 ## Veranta individual vault description
 
-The unified avUSDC vault on Base
-(`8453:0x944766f715b51967e56afde5f0aa76ceacc9e7f9`) uses address-scoped
-handwritten copy through `VerantaVault.description` and `short_description`.
-Its protocol YAML is separate: publishing that file alone shows the text on
-the protocol page, not the individual vault's "About the vault" section.
-Scanner and individual vault JSON export tests cover that distinction.
-
-**Run after merge:** migration `031-veranta-vault-description.py` refreshes only
-`_description` and `_short_description` for at most one existing Veranta row.
-It reports a missing target without creation and rejects conflicting protocol
-attribution. Successful migration 030 is unchanged and must not be rerun.
-There is no price backfill, discovery or blockchain read. Notes, fees, names,
-flags, unrelated metadata, reader state, prices and timestamp caches survive.
-
-Record the eventual PR URL in migration 031 on the feature branch before
-merging the PR. Follow the [production runbook](../.claude/docs/migration-scripts.md#production-runbook):
-inspect `docker-compose.yml` and persistent mounts, update to the merged
-revision, build the stamped image, and quiesce all competing writers. From
-`~/vault-scanner/web3-ethereum-defi`, use the same image for the entire operation:
-
-```shell
-source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
-source ../vault-rpc.env && docker compose run --rm --no-deps --entrypoint vault-migrate vault-scanner-oneshot list
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=true --entrypoint vault-migrate vault-scanner-oneshot run
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
-```
-
-Both preview and apply require stopped writers. Review the entire pending
-numbered batch before apply; expected for 031 is at most one row and two fields.
-The runner acquires its lifetime guard before the writer lock. After normal
-scanner export and publication, inspect the individual vault JSON's
-`description` and `short_description`, then the
-[vault page](https://tradingstrategy.ai/vaults/veranta-usdc-vault).
-Verify paragraphs, fee bullets and source links render, and that existing
-price history remains intact. A successful migration does not publish data
-by itself.
-
-## Birch Hill individual vault descriptions
-
-Both publicly documented Base deployments have short and full descriptions:
-Groma Ecosystem USDC (`8453:0xb038cf3e233b78225f6d350ac8319bec8457db4a`)
-and RWA USDC Flagship (`8453:0xa5afd3a598ef000a5edd96ed65929ac7a6feea39`).
-Their Morpho V2 and Yearn V3 accessors retain the reviewed copy on future scans.
-The curator YAML supplies a separate organisation profile.
-
-**Run after merge:** migration `038-birch-hill-descriptions.py` updates only
-`_description` and `_short_description` for at most two existing rows and four
-fields. Missing targets are reported without creation. There is no discovery,
-blockchain read or historical price backfill; all other metadata and scanning
-state are preserved. Migration 037 handles admission mapping separately and
-must not be rerun if already successful.
-
-Migration `039-birch-hill-strategy-tags.py` separately refreshes the Flagship's
-`_strategy_tags` only: at most one existing row and one field. The shared resolver
-uses its Yearn V3 features even when the public protocol label is `ERC-4626`.
-The exact curator address override also corrects attribution during export;
-it does not need a stored curator-field migration. Existing Birch Hill logo
-variants are reused.
-
-Record the eventual PR URL in migration 038 before merging. Use the stamped
-merged image and the stop, list, preview, apply and restart commands above,
-following the production runbook. Review the entire pending batch before apply;
-both preview and apply require stopped writers, with the lifetime guard acquired
-before the writer lock. After normal export and upload, verify both vaults'
-individual JSON descriptions and rendered paragraphs, headings and source links.
-
-## Systemic Strategies L/S Grids descriptions
-
-The [L/S Grids vault](https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids)
-on Hypercore (`9999:0x07fd993f0fa3a185f7207adccd29f7a87404689d`) uses
-address-scoped handwritten short and full descriptions through the existing
-native exporter. The copy covers the supply-based long/short grid mandate
-and the risks of directional exposure. Routine fees and
-lock-up timing remain in the page's dedicated metrics.
-Research sources and limitations are recorded in
-[the research note](../.claude/docs/systemic-strategies-vault-research.md).
-The curator profile and HyperGrowth vault are separate from this override.
-
-**Run after merge:** migration `041-systemic-strategies-grid-tags.py` refreshes
-only `_strategy_tags` for at most one row and one field. The later migration
-`042-systemic-strategies-description.py` refreshes only `_description` and
-`_short_description` for at most one row and two fields. Missing targets are
-reported without creation. Neither operation changes prices, reader state,
-notes, fees or unrelated rows; no historical price backfill is needed.
-
-Record the eventual PR URL in both new migrations before merging. Follow the
-production runbook and the stop, list, preview, apply and
-restart commands above. Inspect Compose mounts and build the merged revision
-into the stamped image first. Stop the daemon and competing writers before
-both preview and apply, preserving the lifetime-guard-before-writer-lock order.
-Review the entire pending batch and use the same image throughout maintenance.
-After the restarted scanner's normal export and upload cycle, verify the
-individual vault JSON's descriptions and tags, then check that the page renders
-its paragraphs, subheadings and source links. Migration success alone does not
-publish the changes.
+The unified avUSDC vault on Base has its own [handwritten description](../eth_defi/vault/handwritten_metadata.py). The protocol YAML supplies the protocol page. [Migration 031](../migration/scripts/031-veranta-vault-description.py) refreshes the two description fields for the individual vault.
 
 ## Apply the repair
 
-Use the [numbered migration guide](../.claude/docs/migration-scripts.md) for local previews and production
-rollout. Set `PIPELINE_DATA_DIR` to an isolated copy directory for local checks.
-The former `fix-vault-descriptions.py` command is retired. Its standalone
-format is legacy; use a new numbered migration for later repairs. The unified command
-runs all pending repairs in numeric order. Later copy repairs must supply
-normalised Markdown descriptions and single-sentence summaries. Stop the daemon
-and competing writers before either preview or apply.
-
-After applying, restart the same inspected scanner image. Its normal cleaning,
-exports and uploads publish the repaired descriptions. A successful journal
-entry is skipped on subsequent runs; future normalisation changes need a new
-numbered migration. Do not reset reader state or rescan historical prices to
-repair display text.
-
-
-## Lagoon curator vault descriptions
-
-The 13 curator records covered by the [November 2026 review](protocol-research/lagoon-curator-onboarding-2026-11-10.md)
-have 34 reviewed vault deployments: 25 have supported manual short and full
-descriptions (20 Lagoon and five Morpho), while nine retain empty fields because
-individual strategy evidence is insufficient. There are no empty or placeholder
-handwritten overrides; those nine use the normal provider fallback and can gain
-real descriptions when the provider publishes them.
-
-Exact chain/address entries in `LAGOON_CURATOR_VAULT_METADATA` take precedence
-over Lagoon provider text. Morpho V1/V2 use the same existing handwritten lookup.
-Descriptions do not repeat closed-status badges. Material share-migration facts
-remain where they explain holders' positions beyond the badge.
-
-**Run after merge:** migration `061-lagoon-curator-descriptions.py` refreshes
-only the two stored description fields for at most 25 existing rows (50 fields).
-The nine undescribed deployments are excluded from this unmerged, unapplied
-migration. Their missing fields are preserved, and no existing provider text is
-erased. It performs no network reads or price scanning, reports missing rows and
-rejects conflicting protocol identities before staging changes. Follow the
-production runbook and stop/preview/apply/restart commands above, using the
-stamped merged image and preserving persistent mounts. The migration records
-[PR #1757](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1757).
-After normal export and upload, check the individual vault JSON and rendered
-Markdown; curator profile publication is separate.
+For later corrections to persisted descriptions, add a new numbered migration. Follow the [production runbook](../.claude/docs/migration-scripts.md#production-runbook) to stop writers, preview the pending batch, apply it and restart the scanner. After export and upload, check the individual vault JSON and the rendered page. A description-only repair needs no historical price scan.

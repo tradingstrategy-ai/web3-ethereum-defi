@@ -226,7 +226,7 @@ Per [Circle's block confirmation requirements](https://developers.circle.com/cct
 
 ## Testing on forks
 
-On Anvil forks, Circle's Iris attestation service cannot observe burns, so `receiveMessage()` cannot be tested with real attestations. The `eth_defi.cctp.testing` module provides helpers to bypass this by replacing the on-chain attester with a test account we control:
+On Anvil forks, Circle's Iris attestation service cannot observe burns, so `receiveMessage()` cannot be tested with real attestations. The `eth_defi.cctp.testing` module provides helpers to bypass this by replacing the onchain attester with a test account we control:
 
 1. **Replace attester**: Impersonate the `attesterManager` on the forked `MessageTransmitterV2`, add a test attester, and lower the signature threshold to 1
 2. **Craft message**: Build a valid CCTP V2 message (376 bytes: 148-byte header + 228-byte burn body) as if USDC was burned on another chain

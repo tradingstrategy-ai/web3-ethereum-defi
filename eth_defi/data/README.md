@@ -14,17 +14,17 @@ eth_defi/data/
 │   ├── README-deposit-status.md          Manual refresh and review procedure
 │   └── vault-deposit-status.json         Version-controlled probe snapshot
 ├── feeds/                               Feed source YAML files
-│   ├── curators/      (38 YAML)         Curator social/RSS sources
-│   ├── protocols/     (70 YAML)         Vault protocol social/RSS sources
-│   └── stablecoins/  (175 YAML)         Stablecoin social/RSS sources
+│   ├── curators/                        Curator social/RSS sources
+│   ├── protocols/                       Vault protocol social/RSS sources
+│   └── stablecoins/                     Stablecoin social/RSS sources
 ├── vaults/                              Vault protocol metadata and logos
-│   ├── metadata/      (71 YAML)         Protocol descriptions, links, fees
-│   ├── original_logos/ (70 dirs)        Raw downloaded brand assets
-│   └── formatted_logos/ (70 dirs)       Standardised 256x256 PNG logos
+│   ├── metadata/                        Protocol descriptions, links, fees
+│   ├── original_logos/                  Raw downloaded brand assets
+│   └── formatted_logos/                 Standardised 256x256 PNG logos
 └── stablecoins/                         Stablecoin metadata and logos
-    ├── *.yaml         (189 YAML)        Stablecoin descriptions, links, contract addresses
-    ├── original_logos/ (187 dirs)       Raw downloaded brand assets
-    └── formatted_logos/ (187 dirs)      Standardised 256x256 PNG logos
+    ├── *.yaml                           Stablecoin descriptions, links, contract addresses
+    ├── original_logos/                  Raw downloaded brand assets
+    └── formatted_logos/                 Standardised 256x256 PNG logos
 ```
 
 ## Folders in detail
@@ -38,7 +38,7 @@ Each YAML file follows a common schema with fields like `feeder-id`, `name`, `ro
 `twitter`, `linkedin`, and `rss`. See [`feeds/README.md`](feeds/README.md) and
 [`eth_defi/feed/README-feed.md`](../feed/README-feed.md) for the full schema reference.
 
-Progress on feed YAML creation is tracked in [`feeds/tracking.md`](feeds/tracking.md).
+The [protocol](feeds/protocols/), [curator](feeds/curators/) and [stablecoin](feeds/stablecoins/) directories contain the current feed definitions.
 
 **Source modules that read/write this data:**
 
@@ -120,7 +120,6 @@ the Trading Strategy frontend.
 | Path | Description |
 |------|-------------|
 | [`feeds/README.md`](feeds/README.md) | Feed YAML schema and subfolder index |
-| [`feeds/tracking.md`](feeds/tracking.md) | Progress tracker for feed YAML creation |
 | [`vaults/README.md`](vaults/README.md) | Vault protocol YAML schema and logo conventions |
 | [`../feed/README-feed.md`](../feed/README-feed.md) | Feed submodule architecture and configuration |
 | [`../../scripts/erc-4626/README-vault-scripts.md`](../../scripts/erc-4626/README-vault-scripts.md) | ERC-4626 vault scripts overview |
