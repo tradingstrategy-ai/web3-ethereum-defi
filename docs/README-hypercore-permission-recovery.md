@@ -12,7 +12,10 @@ closures are recorded before TVL/address/count filtering; a bulk open flag never
 certifies deposits. Unchanged bulk denials retain their original receipt clock;
 a later genuine response that clears closure allows a new bulk denial record. Price overlaps preserve their original write clock.
 
+The [original investigation](protocol-research/hypercore-permission-recovery-1628.md) records the evidence for issue #1628.
+
 ## Recovery script
+The [October 2026 implementation review](protocol-research/reviews/2026-10-06-hypercore-recovery.md) records the fixes and validation limits for the original repair.
 
 The standalone repair and one-off backfill entrypoints documented here are
 **legacy format and must not be used for new repair or refresh tasks**. Follow

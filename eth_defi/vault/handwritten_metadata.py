@@ -47,7 +47,7 @@ class HandwrittenVaultMetadata:
 #: composition and maps the XUPL route to the Plume token below. The public
 #: transparency panel reports XUPL holdings. This establishes product exposure,
 #: not the complete legal lending chain or the identities of ultimate borrowers.
-#: Research evidence and remaining gaps: .claude/docs/nest-axi-research.md.
+#: Research evidence and remaining gaps: docs/protocol-research/nest-axi-research.md.
 #: https://api.nest.credit/v1/vaults/nest-axi-vault
 #: https://www.axiym.io/terms-conditions
 #: https://www.avalanche.com/about/blog/how-axiym-is-rewiring-global-payments-on-avalanche
@@ -150,7 +150,7 @@ ROCKSTEADY_VAULT_METADATA: Final[dict[tuple[int, str], HandwrittenVaultMetadata]
 #: vaults, not this vault's numerical risk limits. Do not import HyperGrowth's
 #: HYPE-specific mandate or infer a verified win rate from the maintained tags.
 #: Source access, announcement context and evidence gaps:
-#: .claude/docs/systemic-strategies-vault-research.md
+#: docs/protocol-research/systemic-strategies-vault-research.md
 #: https://api.hyperliquid.xyz/info
 #: https://x.com/SystemicStratHL/status/2117599240150987067
 #: https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids

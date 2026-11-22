@@ -1,135 +1,23 @@
-# Derive session key for vault traders
+# Derive session keys for vault traders
 
-This is a short document describing how a Lagoon vault and a Derive trading key are connected.
+A session key lets a trader sign orders for a Derive account. On Derive v3, the owner is an Ethereum account or multisig. The first deposit creates the account, and a multisig owner registers its session key onchain. The repository's LightAccount onboarding helpers apply to v2. See the [integration and version notes](../source/api/derive/README.md) and the [onboarding module](../../eth_defi/derive/onboarding.py).
 
-## Derive session key
+## Signing in with a registered key
 
-Derive is an options/perp DEX allows users to login directly with their Etheruem wallet and private key.
-No email-based account creation is needed.
+These screenshots show the v2 Lagoon vault setup. Use the session key supplied for the trading subaccount.
 
-The session key is a special kind of a private key that allows trading on behalf of the others. 
-Someone else, the vault in our case, creates a sesssion key and then approves spendable balance on it in Derive.
+1. Import the session key into an Ethereum-compatible wallet. In the version of Rabby shown below, select **Create account** and then **Import private key**.
 
-The session key is created offchain. Like any Ethereum account, it comes as a private key + address (public key) pair.
+   ![Rabby account import menu](rabby.png)
 
-## How to use session
+2. Open the [Derive app](https://app.derive.xyz), select **Connect** and choose **Session key**.
 
-First, you need to import the session key to any Ethereum compatible wallet. We recommend Rabby.
+   ![Derive connection dialogue with the session key option](derive-connect-session-key.png)
 
-You select create account > import private key and then paste in the given key. In Rabby this is the "wallet plus" icon.
+3. Sign the login message and check the subaccount and balance before trading. The example shows the vault balance under **Account 1**.
 
-![alt text](rabby.png)
+   ![Vault balance in the Derive trading subaccount](balance.png)
 
-After the account is in your wallet go to [app.derive.xyz](https://app.derive.xyz).
+## How the v2 vault was funded
 
-Choose connect.
-
-When connecting, you need to pick "Session key" option.
-
-![alt text](derive-connect-session-key.png).
-
-Then you need to sign a message to confirm the ownership of the key.
-After this you are signed in to Derive "as the vault". You should see the vault trading balannce as "Account 1" subaccount.
-
-
-![alt text](balance.png)
-
-*Note*: If the connection fails or you choose a wrong choice, you need to reset Derive cookies and local storage in your web browser.
-
-## Managing trading capital
-
-The trading capital available on the session key is subject to vault deposit/redemptions. 
-
-TODO: More on this later.
-
-## High-level vault architecture description
-
-At the core of the vault is Safe multisignature wallet smart contract which has a USDC allowance on Derive account.
-The multisignature wallet has authorised a session key to use this balance on Derive for trading through the approve()
-mechanism of ERC-20 tokens.
-
-When new deposits enter to the smart contract, the trader can claim them from the Derive user interface as a tradeable balance.
-
-When someone redeems to the vault, the redemption is processed from the free cash balance. If there is not enough free cash,
-then redemptions must wait until the open trading positions are closed.
-
-For the Minimum Viable Prototype, the vault lives on Derive L2 chain, but this may change in the future.
-
-```
-                        DERIVE CHAIN (OP Stack L2)
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│   INVESTORS / DEPOSITORS                                            │
-│   ┌──────────────┐                                                  │
-│   │  Depositor    │── approve USDC ─-─┐                             │
-│   │  EOA wallet   │── request deposit┐│                             │
-│   └──────────────┘                   ││                             │
-│                                      ▼▼                             │
-│   LAGOON VAULT (ERC-7540)                                           │
-│   ┌─────────────────────────────────────────┐                       │
-│   │  Vault Contract                         │                       │
-│   │  ┌───────────────┐  ┌────────────────┐  │                       │
-│   │  │ USDC deposits │  │ Share tokens   │  │                       │
-│   │  │ (denomination │  │ (VEGA etc.)    │  │                       │
-│   │  └───────┬───────┘  └────────────────┘  │                       │
-│   │          │ settle / finalise            │                       │
-│   └──────────┼──────────────────────────────┘                       │
-│              │                             ▲                        │
-│              │ post NAV + settle           │ account_value_func()   │
-│              ▼                             │ (pricing / valuation)  │
-│   SAFE MULTISIG (Gnosis Safe)              │                        │
-│   ┌─────────────────────────────┐          │                        │
-│   │  Vault's Safe address       │          │                        │
-│   │  (multisig signers)         │          │                        │
-│   │                             │          │                        │
-│   │  Controls:                  │          │                        │
-│   │  • USDC held by vault       │          │                        │
-│   │  • Session key registration │          │                        │
-│   │  • Deposit manager approval │          │                        │
-│   └──────┬──────────────────────┘          │                        │
-│          │                                 │                        │
-│          │ "Recover" USDC                  │                        │
-│          ▼                                 │                        │
-│   DERIVE EXCHANGE                          │                        │
-│   ┌────────────────────────────────────────┤                        │
-│   │  Derive Wallet (derived from Safe)     │                        │
-│   │  ┌──────────────────────────┐          │                        │
-│   │  │  Subaccount (ID: 143246) │──────────┘                        │
-│   │  │  ┌────────────────────┐  │  fetch subaccount value           │
-│   │  │  │ USDC margin        │  │  via Derive API                   │
-│   │  │  │ Open perp/options  │  │                                   │
-│   │  │  │ positions          │  │                                   │
-│   │  │  └────────────────────┘  │                                   │
-│   │  └──────────────────────────┘                                   │
-│   └─────────────────────────────────────────────────────────────────┘
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-
-   HOT WALLETS (off-chain key management)
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                                                                 │
-   │  ┌──────────────────┐    ┌──────────────────┐                   │
-   │  │  Asset Manager   │    │  Session Key     │                   │
-   │  │  Hot Wallet      │    │  Hot Wallet      │                   │
-   │  │                  │    │                  │                   │
-   │  │  • Settles deps  │    │  • Registered via│                   │
-   │  │  • Posts NAV     │    │    Safe tx batch │                   │
-   │  │  • Needs ETH gas │    │  • API auth to   │                   │
-   │  │                  │    │    Derive exchang│                   │
-   │  │                  │    │  • Has expiry dat│                   │
-   │  │                  │    │  • Signs trades  │                   │
-   │  └────────┬─────────┘    └────────┬─────────┘                   │
-   │           │                       │                             │
-   │           ▼                       ▼                             │
-   │     Lagoon Vault            Derive Matching                     │
-   │     settlement              Contract                            │
-   │                             (0xeB8d...DeAD)                     │
-   └─────────────────────────────────────────────────────────────────┘
-
-   CAPITAL FLOW SUMMARY
-   ────────────────────
-   Deposit:   Depositor ──USDC──▶ Vault ──settle──▶ Safe ──recover──▶ Subaccount
-   Trading:   Session Key signs orders on Derive orderbook via API
-   Valuation: Trade Executor ──API──▶ Derive subaccount value ──▶ NAV update
-   Withdraw:  Subaccount ──▶ Safe ──▶ Vault ──▶ Depositor (reverse flow)
-   ```
+In the Lagoon prototype on Derive L2, the Safe controlled the vault's USDC and registered the session key. After deposit settlement, USDC could move to the Derive subaccount for trading. The executor read the subaccount value for the vault's NAV update. Redemptions required free cash. If margin was tied up in open positions, the trader had to release it before settlement.

@@ -9,8 +9,7 @@ This skill decides whether vaults that rank high in the monthly
 "best-performing stablecoin vaults" report are **investable in practice**. It
 is run by an agent (Claude CLI or Codex CLI) from
 `eth_defi.vault_report.vault_checks`, unattended, once per report round. See
-`eth_defi/vault_report/README-vault-report.md` for how it is called, and
-`.claude/plans/2026-09-26-vault-report-investability-check.md` for the design.
+the [report workflow](../../../eth_defi/vault_report/README-vault-report.md#investability-check) for the inputs and decision rounds.
 
 You work **unattended**: never ask questions. Decide every candidate, write
 the decisions file, and stop. If you delegate research to background tasks or

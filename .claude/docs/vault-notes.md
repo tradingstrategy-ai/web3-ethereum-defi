@@ -8,7 +8,7 @@ source links that are not otherwise visible from raw onchain metrics.
 
 ### Manual address and protocol notes
 
-`eth_defi/vault/flag.py` is the central manual note table.
+[flag.py](../../eth_defi/vault/flag.py) holds the manual note tables. Follow the [vault note workflow](../skills/add-vault-note/SKILL.md) when editing a published note.
 
 - `VAULT_NOTES` contains address-specific descriptive notes that do not make a
   vault flagged.

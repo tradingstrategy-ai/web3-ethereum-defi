@@ -5,14 +5,14 @@
 Repo-local reference docs that Claude should consult when the task
 touches the relevant area:
 
-- `.claude/docs/agent-tricks-and-troubleshooting.md` — Claude, Codex, and
-  Grok CLI usage patterns, cross-agent review commands, streaming output,
+- [.claude/docs/agent-tricks-and-troubleshooting.md](.claude/docs/agent-tricks-and-troubleshooting.md) — Claude, Codex, Grok and
+  Kimi CLI usage patterns, cross-agent review commands, streaming output,
   timeouts, and common failure modes. See **Agents** below for when this
   file is mandatory.
-- `.claude/docs/vault-integration.md` — read before changing ERC-4626-style
+- [.claude/docs/vault-integration.md](.claude/docs/vault-integration.md) — read before changing ERC-4626-style
   vault adapters, their guard deployment or executor integration; defines
   existing ownership, descriptor handling and checks against unnecessary layers.
-- `docs/README-lighter-core-execution.md` — read before changing Lighter pool
+- [docs/README-lighter-core-execution.md](docs/README-lighter-core-execution.md) — read before changing Lighter pool
   execution or multichain activation scripts; covers script defaults, custody
   boundaries, recovery and the remaining funded verification requirements.
 
@@ -218,15 +218,26 @@ If you need extra output pass `--log-cli-level=info` argument to `pytest`.
 
 ### Environment variable configuration and RPC URL format
 
-We use environment variables like `JSON_RPC_ETHEREUM`, JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.
+We use environment variables like `JSON_RPC_ETHEREUM`, `JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.
 
 In the environment file, the RPC URLs are provided in the project-specific space-separated fallback format, as described in `mev-blocker.rst`.
 
 - If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
-- If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
+- If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by splitting it by spaces and taking the first entry
 - Scanner RPC variables should point to archive-capable EVM nodes, except
   `JSON_RPC_MONAD`, which can only serve its provider-dependent recent
   historical-state window.
+
+Common scanner variables include the following.
+
+- `JSON_RPC_ETHEREUM` - Ethereum mainnet
+- `JSON_RPC_ARBITRUM` - Arbitrum One
+- `JSON_RPC_BASE` - Base
+- `JSON_RPC_POLYGON` - Polygon
+- `JSON_RPC_BINANCE` - BNB Smart Chain a.k.a. Binance a.k.a. BNB chain
+- `JSON_RPC_HYPERLIQUID` - HyperEVM
+
+You can find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
 
 ## Formatting code
 
@@ -256,7 +267,7 @@ retry will be attempted.
 
 Pull request description must have sections:
 
-- Why: the rational of change
+- Why: the reason for the change
 - Lessons learnt: memory
 - Summary: what was changed
 - Related issues and PRs: if the new PR continues other PRs and issues
@@ -269,7 +280,7 @@ No test plan or verification section. Use Markdown formatting, headings.
 - GitHub plugins are not needed for pull-request work. Prefer the local `git`
   and `gh` command-line tools to create, inspect, update, cancel CI for, and
   merge pull requests.
-- Only push changes to remote when asked, never update pull requess automatically.
+- Only push changes to remote when asked, never update pull requests automatically.
 - Never push directly to a master if not told explicitly
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
@@ -348,10 +359,10 @@ removing its flaky history comment.
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
 - Observability required: All long-running actions must be observable in the run, through logging or terminal output. For long-running loops, scanners, scripts, use the `tqdm` and `tqdm_loggable.auto` module for a progress bar. Make sure no script runs without producing output for more than 1 minute. As an example, see `lead_scan_core.py`. If agent runs long-running scripts or processes, it must be done in a way the agent can tell whether the process is making work or hung.
-- For visualusations, use Plotly. For chart titles, use heading case as explained above.
+- For visualisations, use Plotly. For chart titles, use heading case as explained above.
 - Use module level imports, not function level lazy imports, whenever possible
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
-- Never silently swallow exceptions and th
+- Never silently swallow exceptions.
 
 ### DuckDB and Python 3.14
 
@@ -384,7 +395,7 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 - Keep explanations proportionate: a concise summary and relevant rationale are more useful than padding. Keep comments accurate when behaviour changes, and link to authoritative sources for non-obvious protocol constraints.
 - Use Sphinx reStructuredText for Python docstrings.
 - For documenting dataclass and Enum members, use Sphinx `#: comment here` line comment above variable, not `:param:` or `:ivar:` blocks
-- If a. class function overloads a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
+- If a method overrides a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
 - Each function should *minimum* have 1) one liner summary description 2) one paragraph longer description 3) arguments and return values documented 4) for APIs and integrations, links to authoritative and canonical documentation 5) for dataframes and series expectations of columns and value types
 
 ### Type hinting
@@ -397,12 +408,6 @@ the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/1
 - For logging, use the module level `logger = logging.getLogger(__name__)` pattern
 - When logging using `logger.info()`, `logging.debug()` or similar,
   prefer %s and %f unexpanded string syntax instead of Python string interpolation, because of performance reasons
-
-### Documentation
-
-- All API modules should have stub entry under `docs/source/api` and cross-referenced in `docs/source/api/index` table of contents
-- See `docs/source/api/index.rst` and `docs/source/api/lagoon/index.rst` as examples
-- When writing documentation, in sentences, include inline links to the source pages. Link each page only once, preferably earler in the text.
 
 ### datetime
 
@@ -478,15 +483,14 @@ Apply the following rules when adding tests or reviewing existing coverage.
   distinguish function definitions from collected parametrised cases and state
   the collection environment and suite scope; parameter IDs may be renumbered
   when rows are removed.
-- Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
 - Always use fixture and test functions, never use test classes
-- For Anvil mainnet fork based tests, whici use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change.
+- For Anvil mainnet fork based tests, which use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change.
   Exception: Monad retains only a moving recent historical-state window, so use
   latest-head or state-relative assertions instead of fixed historical blocks.
-- For reuseable testing code, use `testing` modules under `eth_defi` - do not nyt try to import "tests" as it does not work with pytest
+- For reusable testing code, use `testing` modules under `eth_defi` - do not try to import "tests" as it does not work with pytest
 
 ### pyproject.toml
 
@@ -501,13 +505,13 @@ Apply the following rules when adding tests or reviewing existing coverage.
 - Scripts must use sane defaults and run without additional environment inputs wherever possible. Require an environment variable only when its value cannot be safely defaulted or inferred, such as private keys, API credentials or the user's RPC connections. Do not invent credentials or RPC URLs.
 - Routine settings such as amounts, fee allowances, chain selections, timeouts, output paths and logging levels must have sensible defaults appropriate to the script's purpose. Keep environment overrides optional; do not make users supply routine settings merely to acknowledge a default.
 - Document the default behaviour and clearly distinguish genuinely required inputs from optional overrides. Example commands should use the defaults after the private environment has been loaded, rather than require a list of routine environment assignments. Validate defaults and overrides before sending transactions or doing other irreversible work.
-- Use scripts/erc-4626/scab-vaults.py as an example how to set up logger and read any needed environment variables as input.
+- Use scripts/erc-4626/scan-vaults.py as an example how to set up logger and read any needed environment variables as input.
 - When configuration is needed, use environment variables. Do not attempt to create command line parsers unless explicitly asked.
 - For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
 
-## Parallerisation and optimising long running data reading pipelines
+## Parallelisation and optimising long running data reading pipelines
 
-- Uses `joblib.Parallel` to parallerise API reading of multiple entries
+- Uses `joblib.Parallel` to parallelise API reading of multiple entries
 - Use threading backend unless explicitly specified otherwise
 - For example, see `lead_scan_core.py`
 - All functions using `joblib.Parallel` must take `max_workers` argument. This must be exposed to command line scripts as `MAX_WORKERS` environment variable, see `scripts/erc-4626/scan-vaults.py` as an example.
@@ -517,19 +521,11 @@ Apply the following rules when adding tests or reviewing existing coverage.
 - Prefer a blockchain explorer like Etherscan over Python and Curl when trying to read proxy contract address
 - Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
-- Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
+- Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUID. Stop and ask user if you cannot figure out.
 
 ### Contract ABIs
 
-- All contract ABI JSON files live under `eth_defi/abi/` (shared contracts at
-  the top level, protocol-specific interfaces under `eth_defi/abi/<protocol>/`)
-  and are loaded through the shared helpers in `eth_defi.abi`.
-- **Before fetching a new ABI, or loading/using any ABI file, read
-  `eth_defi/abi/README.md` first.** It explains what EVM ABIs are, how to fetch
-  complete verified ABIs from Sourcify (preferred) or Etherscan (including proxy →
-  implementation resolution), where to store them, and the API references for
-  loading and using ABI files in their different roles (contract binding,
-  deployment, ABI-less encoded calls, event decoding).
+Read the [ABI guide](eth_defi/abi/README.md) before fetching or loading an ABI. It covers shared and protocol-specific interfaces, verified implementations, deployment, encoded calls and event decoding. Follow the [ABI requirements](#abis) when adding or updating files.
 
 ### Event logs
 
@@ -555,20 +551,9 @@ Apply the following rules when adding tests or reviewing existing coverage.
   favour of recorded timestamps or a seeded cache. See *Testing* in
   `docs/README-dense-timestamps.md`.
 
-For JSON-RPC URL configuration, environment variables. The variables are in the format `JSON_RPC_{CHAIN}` where `{CHAIN}` is the uppercase chain name:
-
-- `JSON_RPC_ETHEREUM` - Ethereum mainnet
-- `JSON_RPC_ARBITRUM` - Arbitrum One
-- `JSON_RPC_BASE` - Base
-- `JSON_RPC_POLYGON` - Polygon
-- `JSON_RPC_BINANCE` - BNB Smart Chain a.k.a. Binance a.k.a. BNB chain
-- `JSON_RPC_HYPERLIQUID` - HyperEVM
-
-You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
-
 ## Building integrated smart contracts
 
-You can use `Makefile` commands `make guard safe-integration` to rebuild smart contracts for Satfe and Lagoon integration.
+Run `make guard safe-integration` to rebuild the guard and Safe integration contracts.
 
 ### ABIs
 
@@ -588,7 +573,7 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 
 ## Documentation
 
-Documentation uses Sphinx v4.5 for API and narrative documentation and lives in `docs` folder.
+API and narrative documentation lives under `docs/source/` and uses Sphinx 4.5. Give each API module a stub under `docs/source/api/` and include it in the [API table of contents](docs/source/api/index.rst). The [Lagoon index](docs/source/api/lagoon/index.rst) shows the layout. Link each source page once, at its first relevant mention.
 
 Ignore Sphinx documentation builds during development. Agents must not attempt
 to build the Sphinx documentation locally; documentation builds and their
@@ -631,75 +616,7 @@ When using browser tools, Claude may ask for permission to visit specific domain
 
 ## README files in the repository
 
-Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vaults/original_logos/*/README.md` document logo source URLs per protocol.
-
-| Path | Description |
-|------|-------------|
-| `README.md` | Web3-Ethereum-Defi project overview |
-| `docs/README-dense-timestamps.md` | Dense HyperSync timestamp coverage, why tests must not use the cached readers, numbered gap repair and local per-chain recovery |
-| `eth_defi/neutral_trade/README-delta-neutral.md` | Neutral Trade read-only API inspection and manual data verification |
-| `docs/README-block-timestamp-storage.md` | Timestamp layout benchmarks, numbered compaction and recovery |
-| `contracts/guard/README.md` | GuardV0 — on-chain trade validation for asset management |
-| `contracts/in-house/README.md` | Web3-Eth-Defi integration contracts |
-| `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
-| `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
-| `docs/README-hyperevm-goldsky-failure.md` | HyperEVM goldsky eRPC "not enough agreement" consensus failure and Alchemy failover |
-| `docs/README-hyperevm-hypercore-read-gas.md` | HyperEVM HyperCore read gas — why HyperCore-reading vaults abort Multicall3 batches with `-32003 out of gas` and revert with `CoreReaderLib.ReadFailure`, and why they are not blacklisted |
-| `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
-| `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
-| `docs/README-vault-scan-manifest.md` | Private readiness receipt: R2 keys, schema, sparse candle semantics, cache policy and rollout |
-| `docs/README-hypercore-permission-recovery.md` | Hypercore permission clocks, backed-up recovery and gated private R2 maintenance |
-| `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
-| `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
-| `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
-| `docs/source/api/derive/README.md` | Derive.xyz integration — implementation summary |
-| `eth_defi/aave_v3/README.md` | About Aave v3 integration |
-| `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify (preferred) or Etherscan, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
-| `eth_defi/abi/euler/README.md` | Euler ABI inventory, verified EVault implementation and legacy provenance |
-| `eth_defi/abi/fluid/README.md` | Fluid ABI inventory for ERC-20 and native lending routes |
-| `eth_defi/abi/ipor/README.md` | IPOR ABI inventory, verified withdrawal manager and legacy provenance |
-| `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
-| `eth_defi/abi/yield_basis/README.md` | YieldBasis ABI sources and reviewed deployment interfaces |
-| `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
-| `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
-| `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
-| `eth_defi/xerberus/README-xerberus.md` | Xerberus vault risk scores — per-vault pool ratings, DuckDB, export, scripts |
-| `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
-| `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
-| `eth_defi/enzyme/README-Enzyme-vaults.md` | Enzyme Blue and Onyx architecture, metadata and migration operations |
-| `eth_defi/tokenised_fund/asseto/README-Asseto.md` | Asseto dynamic registry, daily NAV history and operations |
-| `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
-| `eth_defi/erc_4626/vault_protocol/morpho/README-morpho-metadata.md` | Morpho metadata request pacing, shared cooldowns, warning preservation and state recovery |
-| `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
-| `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
-| `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
-| `eth_defi/gmx/README-GMX-Vaults.md` | GMX GM and GLV liquidity catalogue |
-| `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
-| `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
-| `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
-| `eth_defi/vault_report/README-vault-report.md` | Monthly best-performing stablecoin vaults blog report — data sources, sections, branded charts, Ghost draft workflow |
-| `eth_defi/vault_report/README-blog-post-outline.md` | Monthly vault report blog post outline — section order, vault groups, selection rules, editor input and open decisions |
-| `eth_defi/vault_report/README-best-vaults-news.md` | Monthly vault report blog post drafts — goal of the skeleton, GitHub PR comment previews, Ghost draft creation, architecture diagram |
-| `eth_defi/yield_basis/README-YieldBasis.md` | YieldBasis LT vault model, valuation and historical pipeline |
-| `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
-| `eth_defi/erc_4626/vault_protocol/wildcat/README-Wildcat.md` | Wildcat lending markets: scale-factor pricing, lending metrics, delinquency flag, offchain metadata and onboarding |
-| `eth_defi/erc_4626/vault_protocol/antarctic/README-Antarctic.md` | Antarctic perpetual DEX, AMLP/AHLP settlement data and event-based vault support |
-| `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
-| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), Anvil 1.8 behaviour and mitigations (cache `source_id`, async mining, hedged receipt lookups), diagnosing slow fork tests, reference tests |
-| `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |
-| `scripts/base/README.md` | Base chain related manual test scripts |
-| `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
-| `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
-| `scripts/grvt/README-grvt-vaults.md` | GRVT native vault metrics pipeline |
-| `scripts/hyperliquid/README-hyperliquid-copy-trading.md` | Hyperliquid copy trading platforms and HFT account identification |
-| `scripts/hyperliquid/README-hyperliquid-vaults.md` | Hyperliquid native vault metrics pipeline |
-| `scripts/hyperliquid/README-hyperliquid-vaults-high-frequency.md` | High-frequency Hyperliquid vault data fetcher |
-| `scripts/lighter/README-lighter-vaults.md` | Lighter native pool metrics pipeline |
-| `tests/erc_4626/vault_protocol/README.md` | Vault protocol detection tests (mainnet-fork) |
-| `tests/gmx/README.md` | Testing for GMX |
-| `tests/guard/README.md` | Integration tests for GuardV0 and TradingStrategyModuleV0 |
-| `tests/provider/README.md` | Service provider integration tests |
-| `tests/rpc/README.md` | JSON-RPC scenario tests |
+The [repository guide](.claude/docs/README.md) indexes component READMEs, runbooks and research notes.
 
 For timestamp cache ordering, compaction, WAL recovery and maintenance exclusion,
 read [block timestamp storage](docs/README-block-timestamp-storage.md) before

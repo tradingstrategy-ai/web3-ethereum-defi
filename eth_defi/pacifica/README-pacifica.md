@@ -23,9 +23,7 @@ maps `GET /account` equity and one signed notional for every non-zero
 `GET /positions` result, valuing `amount` at the same-cycle
 `GET /info/prices` mark and using `bid` as long and `ask` as short.
 
-TODO: enable this only after the DuckDB database, native price exporter,
-all-chain scheduling and mark/position timestamp-skew validation are
-implemented. Until then Pacifica does not enter Parquet or JSON.
+The [parser](perp_metrics.py) has no scheduled collector or DuckDB store. Publishing these metrics would also require checking that mark prices and positions refer to the same time. Pacifica account metrics are absent from the Parquet and JSON exports.
 Cross-margin, portfolio-margin, isolated-margin, liquidation and order data are
 intentionally excluded. The target shared raw-to-cleaned Parquet and JSON
 contract is documented in
@@ -142,7 +140,7 @@ GET https://api.pacifica.fi/api/v1/lake/list
 
 | Field | Type | Description |
 |---|---|---|
-| `address` | str | Vault's Solana account address (the vault's on-chain trading account) |
+| `address` | str | Vault's Solana account address (the vault's onchain trading account) |
 | `creator` | str | Address that created the vault |
 | `manager` | str | Address that trades the vault (often == creator) |
 | `nickname` | str | Display name |

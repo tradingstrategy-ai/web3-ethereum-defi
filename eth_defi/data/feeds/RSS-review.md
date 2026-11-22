@@ -2,7 +2,7 @@
 
 Reviewed on 2026-05-05.
 
-This continues the broken RSS review started in `updated-tracking.md`.  The
+This continues the broken RSS review started in the [April 2026 feed review](updated-tracking.md).  The
 scope was YAML files carrying `rss-failure-at`, with special attention to
 whether the project is dead, the feed moved, or the failure is caused by the
 feed host returning non-RSS HTML/rate limits.

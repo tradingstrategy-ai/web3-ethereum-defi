@@ -53,3 +53,5 @@ logo use the same rule. See the [vault logo conventions](../vaults/README.md#for
 
 For the schema, collection behaviour, and configuration details, see
 [`eth_defi/feed/README-feed.md`](../../feed/README-feed.md).
+
+The [April 2026 feed corrections](updated-tracking.md) and [May RSS review](RSS-review.md) document earlier changes to feed sources.

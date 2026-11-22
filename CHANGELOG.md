@@ -585,7 +585,7 @@
 
 # 0.33
 
-- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
+- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](README.md) for updated installation instruction details.
 - Add: Support `swapExactTokensForTokensSupportingFeeOnTransferTokens` in GuardV0 and `swap_with_slippage_protection()`
 - Add: `VaultDepositManager` interface which abstracts deposit/redeem process over different vaults: ERC-4626, ERC-7540, Gains-like
 - Add: [Initial support for Gains](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)
@@ -1320,7 +1320,7 @@
 
 # 0.9
 
-- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
+- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/994647de416e4096b4ae910d2b51b16f11796bd1/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
 - Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
 - Feature:
   Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction)

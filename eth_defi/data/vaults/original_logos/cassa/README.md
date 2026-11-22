@@ -22,7 +22,7 @@ reference, but is no longer used for the processed vault logo.
 ## Processing
 
 All three variants were processed with
-[`scripts/logos/post-process-logo.py`](../../../../scripts/logos/post-process-logo.py)
+[`scripts/logos/post-process-logo.py`](../../../../../scripts/logos/post-process-logo.py)
 into transparent 256×256 PNGs:
 
 - `formatted_logos/cassa/generic.png`

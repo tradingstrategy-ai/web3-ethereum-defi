@@ -144,7 +144,7 @@ The repository’s `add-vault-protocol`, `add-curator` and `categorise-vault-str
 
 Adapter tests verify that callers cannot mutate the maintained tag mapping. Curator tests cover canonical metadata, descriptions and logo reuse; the pipeline test checks curator attribution in the exported vault JSON.
 
-The [integration plan](../../../../docs/protocol-research/antarctic-vault-integration-plan.md) records the design and prior Kimi K3 plan review. The [research record](../../../../docs/protocol-research/antarctic-0x152f5e6142db867f905a68617dbb6408d7993a4b.md) contains source transactions, API findings and detailed event-frequency evidence.
+The [research record](../../../../docs/protocol-research/antarctic-0x152f5e6142db867f905a68617dbb6408d7993a4b.md) contains source transactions, API findings and detailed event-frequency evidence.
 
 ## Render equity and TVL charts
 

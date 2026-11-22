@@ -290,6 +290,8 @@ run with direct and proxied forks measured the same within noise.
 
 ## Anvil failure modes
 
+For local timeouts after a successful HyperEVM fork, see the [full-block warm-up investigation](../../.claude/docs/hyperevm-anvil-fork-timeouts.md).
+
 This section is the troubleshooting checklist for Anvil fork failures. A fixed
 fork block and a committed `storage.json` seed make a test reproducible, but do
 not make it an offline replay: bootstrap checks and cache misses can still make
@@ -447,5 +449,5 @@ provider — a throttled one resolves fewer tokens and yields a thinner seed.
 
 ## See also
 
-- `docs/README-test-suite-performance.md` — the wider plan and CI measurements.
+- [CI investigations and measurements](../../docs/README-test-suite-performance.md).
 - `docs/README-hypersync-tests.md` — the slow Hypersync scans (disabled on CI).

@@ -320,6 +320,7 @@ Verified on an Arbitrum fork against First USDC
 `getCurator()` on Anvil. It rejects `mock` and `ignore_liquidity`.
 
 ### GuardV0 coverage
+The [14 November 2026 guard review](../../../../docs/protocol-research/reviews/2026-11-14-t3tris-guard.md) records the reviewed revision, findings and disposition.
 
 `whitelistT3tris(vault, notes)` registers only the four calls below, the vault
 as approval destination and asset, and the denomination token.

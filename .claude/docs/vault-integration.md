@@ -40,7 +40,7 @@ descriptor = ERC4626Vault(
 ```
 
 Pass these descriptors through the existing deployment configuration to
-`setup_guard()`. That function currently resolves Atoma and Upshift through
+`setup_guard()`. That function resolves Atoma, T3tris and Upshift through
 the shared factory and selects their existing guard policies. Other protocol
 flags retain the generic descriptor; do not feed every detected protocol into
 this path and assume the factory always returns an `ERC4626Vault` subclass.

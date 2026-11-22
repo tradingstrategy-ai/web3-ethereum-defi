@@ -1,34 +1,9 @@
-"""EVM snapshot/revert helper for per-test isolation on module-scope Anvil forks.
+"""Isolate tests that mutate a shared Anvil fork.
 
-Use this when a test module shares one Anvil fork fixture (``scope="module"``)
-to keep per-test state isolation cheap. Each test brackets in ``evm_snapshot``
-and reverts on exit, so the fork warms up once per module instead of once per
-test.
-
-Usage in a conftest or test file:
-
-.. code-block:: python
-
-    import pytest
-    from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-    from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
-
-
-    @pytest.fixture(scope="module")
-    def anvil_base_fork(...) -> AnvilLaunch:
-        launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=N, ...)
-        try:
-            yield launch
-        finally:
-            launch.close()
-
-
-    @pytest.fixture(autouse=True)
-    def _evm_snapshot(anvil_base_fork):
-        yield from evm_snapshot_revert(anvil_base_fork)
-
-See the Anvil fork caching design doc for the full strategy:
-``docs/superpowers/specs/2026-05-27-anvil-fork-caching-design.md``
+Use :py:func:`evm_snapshot_revert` in a fixture to take a snapshot before
+each test and revert it afterwards. For fork selection and fixture examples,
+see :py:mod:`eth_defi.testing.anvil_fork_pool` and the snapshot section of
+:file:`eth_defi/testing/README.md`.
 """
 
 import logging
