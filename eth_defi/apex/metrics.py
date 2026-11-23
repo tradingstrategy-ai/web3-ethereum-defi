@@ -113,9 +113,11 @@ class ApexMetricsDatabase:
     affected Python 3.14/macOS ARM64 environments.
 
     ``vault_metadata`` columns contain one current record per ``vault_id``.
-    ``vault_prices`` contains actual naive UTC timestamps, source ``DOUBLE``
-    values and the source discriminator. ``history_sync`` tracks response and
-    canonical retained-history bounds separately.
+    ``vault_prices`` is keyed by vault ID and naive UTC observation time.
+    DuckDB retains microseconds for ranking observations. The shared raw
+    Parquet identifies a price for the same vault at millisecond precision.
+    Each price row also records the source and its ``DOUBLE`` values.
+    ``history_sync`` tracks response and retained-history bounds separately.
 
     :param path:
         File-backed DuckDB path.
@@ -199,6 +201,7 @@ class ApexMetricsDatabase:
             CREATE TABLE IF NOT EXISTS vault_prices (
                 vault_id VARCHAR NOT NULL,
                 synthetic_address VARCHAR NOT NULL,
+                -- Keep microseconds for metric joins. The Parquet merge derives its millisecond key from this value.
                 timestamp TIMESTAMP NOT NULL,
                 share_price DOUBLE,
                 total_assets DOUBLE,

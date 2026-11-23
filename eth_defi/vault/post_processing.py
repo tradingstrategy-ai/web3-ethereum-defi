@@ -559,9 +559,9 @@ def _native_address_keys(chain: pa.ChunkedArray, addresses: pa.ChunkedArray) -> 
 
 
 def _assert_native_keys(table: pa.Table) -> None:
-    """Reject null or repeated logical keys in the canonically sorted candidate.
+    """Reject null or repeated logical keys in the sorted replacement rows.
 
-    :param table: Combined rows ordered by chain, case-folded address and time.
+    :param table: Replacement keys ordered by chain, canonical address and time.
     """
     columns = [table["chain"], table["address"], table["timestamp"]]
     if any(column.null_count for column in columns):
@@ -637,21 +637,21 @@ def _write_native_partitions_to_uncleaned_parquet(
 
     existing_table = pq.read_table(parquet_path) if parquet_path.exists() else None
     schema = _create_native_merge_schema(existing_table.schema if existing_table is not None else None, replacements)
+    ownership_patterns = {chain_id: "|".join(f"(?:{pattern})" for pattern in sorted(patterns)) for chain_id, patterns in replacement_address_patterns.items()}
     replacement_tables = []
     for chain_id, frame in replacements.items():
         table = _align_native_merge_table(pa.Table.from_pandas(frame, preserve_index=False), schema)
         if revisions is not None:
-            addresses = pc.utf8_lower(table["address"])
             owned = pc.equal(table["chain"], chain_id)
-            patterns = replacement_address_patterns.get(chain_id)
-            if patterns:
-                address_in_scope = pc.match_substring_regex(addresses, pattern="|".join(f"(?:{pattern})" for pattern in sorted(patterns)))
+            if pattern := ownership_patterns.get(chain_id):
+                address_in_scope = pc.match_substring_regex(pc.utf8_lower(table["address"]), pattern=pattern)
                 owned = pc.and_(owned, address_in_scope)
             if not table.num_rows or pc.any(pc.invert(pc.fill_null(owned, False))).as_py():
                 raise ValueError(f"Native replacement contains rows outside its scope on chain {chain_id}")
         replacement_tables.append(table)
     native_table = pa.concat_tables(replacement_tables)
 
+    retained_rows = 0
     if existing_table is not None:
         # Most native protocols own a whole synthetic chain partition. Lighter
         # is different: Ethereum and Robinhood now share chain 9998 and scan
@@ -659,8 +659,8 @@ def _write_native_partitions_to_uncleaned_parquet(
         # address namespace below.
         whole_chain_ids = (set(replacements) - set(replacement_address_patterns)) | (remove_chain_ids or set())
         chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(sorted(whole_chain_ids), type=existing_table["chain"].type))
-        for chain_id, address_patterns in replacement_address_patterns.items():
-            address_mask = pc.match_substring_regex(pc.utf8_lower(existing_table["address"]), pattern="|".join(sorted(address_patterns)))
+        for chain_id, pattern in ownership_patterns.items():
+            address_mask = pc.match_substring_regex(pc.utf8_lower(existing_table["address"]), pattern=pattern)
             scoped_chain_mask = pc.and_(
                 pc.equal(existing_table["chain"], pa.scalar(chain_id, type=existing_table["chain"].type)),
                 address_mask,
@@ -669,7 +669,8 @@ def _write_native_partitions_to_uncleaned_parquet(
 
         retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
         removed_rows = pc.sum(chain_mask).as_py() or 0
-        if retained_table.num_rows + removed_rows != existing_table.num_rows:
+        retained_rows = retained_table.num_rows
+        if retained_rows + removed_rows != existing_table.num_rows:
             raise ValueError("Native merge did not account for all committed raw rows")
         if revisions is not None and removed_rows:
             replacements_only = pc.and_(chain_mask, pc.is_in(existing_table["chain"], value_set=pa.array(sorted(replacements), type=existing_table["chain"].type)))
@@ -694,7 +695,10 @@ def _write_native_partitions_to_uncleaned_parquet(
         combined_table = combined_table.replace_schema_metadata(metadata or None)
 
     if revisions is not None:
-        _assert_native_keys(keys.take(sort_indices))
+        # The sort already orders the owned rows. EVM rows can legitimately
+        # share a vault and timestamp when they were read at different blocks.
+        replacement_indices = pc.filter(sort_indices, pc.greater_equal(sort_indices, retained_rows)) if retained_rows else sort_indices
+        _assert_native_keys(keys.take(replacement_indices))
         metadata = (combined_table.schema.metadata or {}) | {NATIVE_REVISIONS_KEY: json.dumps(revisions, sort_keys=True).encode()}
         combined_table = combined_table.replace_schema_metadata(metadata)
 
@@ -708,12 +712,46 @@ def _write_native_partitions_to_uncleaned_parquet(
     return len(combined_table)
 
 
+def apex_price_timestamps(timestamps: pd.Series) -> pd.Series:
+    """Project source timestamps onto the raw Parquet identity.
+
+    Use Arrow's exact cast semantics so the merge and write agree at the
+    sub-millisecond boundary. The caller retains the original timestamps for
+    metric attachment and diagnostics.
+
+    :param timestamps: Naive UTC timestamps from the ApeX archive or raw file.
+    :return: Timestamps at the canonical raw price precision.
+    """
+    target_type = VaultHistoricalRead.to_pyarrow_schema().field("timestamp").type
+    values = pa.Array.from_pandas(timestamps).cast(target_type, safe=False)
+    return pd.Series(values.to_numpy(zero_copy_only=False), index=timestamps.index)
+
+
+def _check_apex_price_keys(frame: pd.DataFrame, keys: list[str], source: str) -> None:
+    """Reject missing or ambiguous ApeX identities before choosing a winner.
+
+    :param frame: One input to the merge with canonical comparison columns.
+    :param keys: Address and stored timestamp comparison columns.
+    :param source: Name of the input for diagnostics.
+    :raises ValueError: Missing or repeated identities.
+    """
+    duplicates = frame.duplicated(keys, keep=False)
+    invalid = duplicates | frame[keys[0]].isna() | frame[keys[1]].isna()
+    if invalid.any():
+        sample = frame.loc[invalid, ["address", "timestamp", keys[1]]].head(8).to_dict("records")
+        raise ValueError(f"Invalid or duplicate canonical ApeX prices in {source}: {sample}")
+
+
 def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd.DataFrame, chain_id: int, *, validate_keys: bool = True) -> pd.DataFrame:
     """Merge ApeX, Derive or Neutral Trade prices with their stored history.
 
     A rebuilt DuckDB or shorter API response may contain only part of a
     vault's history. Preserve existing rows unless the export supplies the
     same vault address and timestamp, in which case the new value wins.
+
+    For ApeX, both inputs use the lower-case address and the timestamp
+    truncated to the raw Parquet millisecond. Each input must contain at most
+    one row per key. A match across inputs is a replay or correction.
 
     Only the selected synthetic chain partition is read into Pandas. The
     complete Parquet file stays in Arrow form for the later atomic write.
@@ -722,35 +760,46 @@ def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd
     :param fresh_df: Non-empty frame with the shared raw price columns,
         including string ``address`` and naive UTC ``timestamp``.
     :param chain_id: Synthetic chain partition to read.
-    :param validate_keys: Refuse ambiguous input before recording an incremental revision.
+    :param validate_keys: Check for ambiguous Derive and Solana inputs in incremental mode.
+        ApeX always checks both inputs at the stored timestamp precision.
     :return: Combined rows for the native partition.
     """
     assert not fresh_df.empty, "A non-empty native frame is required"
-    if not parquet_path.exists():
+    if parquet_path.exists():
+        existing_table = pq.read_table(parquet_path, filters=[("chain", "=", chain_id)])
+        existing_df = existing_table.to_pandas() if existing_table.num_rows else None
+    else:
+        existing_df = None
+
+    if existing_df is None and chain_id != APEX_CHAIN_ID:
         return fresh_df
 
-    existing_table = pq.read_table(
-        parquet_path,
-        filters=[("chain", "=", chain_id)],
-    )
-    if len(existing_table) == 0:
-        return fresh_df
-
-    existing_df = existing_table.to_pandas()
-    combined = pd.concat([existing_df, fresh_df], ignore_index=True)
+    combined = pd.concat([existing_df, fresh_df], ignore_index=True) if existing_df is not None else fresh_df.copy()
     if chain_id == SOLANA_DATASET_CHAIN_ID:
         address_keys = {address: VaultSpec(chain_id, address).vault_address for address in combined["address"].unique()}
         combined["_canonical_address"] = combined["address"].map(address_keys)
     else:
         combined["_canonical_address"] = combined["address"].str.lower()
+
     keys = ["_canonical_address", "timestamp"]
-    # Overlap across the two inputs is a correction. Duplicates within either
-    # input would make the chosen value depend on its physical row order.
-    if validate_keys:
-        for source in (combined.iloc[: len(existing_df)], combined.iloc[len(existing_df) :]):
+    temporary_columns = ["_canonical_address"]
+    existing_rows = len(existing_df) if existing_df is not None else 0
+    if chain_id == APEX_CHAIN_ID:
+        # Comparing source microseconds directly to a stored millisecond would append
+        # a replay as a new price. The subsequent Arrow cast would give both the same key.
+        combined["_stored_timestamp"] = apex_price_timestamps(combined["timestamp"])
+        keys = ["_canonical_address", "_stored_timestamp"]
+        temporary_columns.append("_stored_timestamp")
+        _check_apex_price_keys(combined.iloc[existing_rows:], keys, "ApeX source")
+        if existing_rows:
+            _check_apex_price_keys(combined.iloc[:existing_rows], keys, "stored history")
+    elif validate_keys:
+        # Overlap across the two inputs is a correction. Duplicates within
+        # either input make the result depend on physical row order.
+        for source in (combined.iloc[:existing_rows], combined.iloc[existing_rows:]):
             if source.duplicated(keys).any():
                 raise ValueError(f"Duplicate canonical native prices on chain {chain_id}")
-    return combined.drop_duplicates(subset=keys, keep="last").drop(columns="_canonical_address").reset_index(drop=True)
+    return combined.drop_duplicates(subset=keys, keep="last").drop(columns=temporary_columns).reset_index(drop=True)
 
 
 def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns all native inputs
@@ -786,7 +835,9 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
     the result is written once. For ApeX and Derive, new rows replace only matching
-    vault addresses and timestamps; all other stored prices are retained.
+    vault addresses and timestamps. ApeX matches at the raw Parquet's millisecond
+    precision and rejects duplicate keys within either input. Both protocols retain
+    unmatched stored prices.
     This preserves history when an API response or rebuilt DuckDB contains
     fewer observations than the existing Parquet file.
 

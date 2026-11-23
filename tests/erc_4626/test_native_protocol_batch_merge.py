@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -541,3 +542,110 @@ def test_incremental_native_rejects_invalid_replacements(tmp_path: Path, correct
     with pytest.raises(ValueError, match=error):
         post_processing._write_native_partitions_to_uncleaned_parquet(path, {HYPERCORE_CHAIN_ID: correction}, revisions={})
     assert path.read_bytes() == committed
+
+
+def test_apex_merge_replays_at_stored_precision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Correct a replayed ranking point while retaining raw-only and EVM rows."""
+    path = tmp_path / "prices.parquet"
+    address = "apex-vault-100"
+    evm = _prices(42161, "0x" + "a" * 40, "2026-11-22 08:26:55")
+    raw_only = _prices(APEX_CHAIN_ID, address, "2026-07-25")
+    VaultHistoricalRead.write_uncleaned_parquet(pd.concat([evm.assign(block_number=100), evm.assign(block_number=101), raw_only.assign(block_number=0)]), path)
+    source_path = tmp_path / "apex.duckdb"
+    source_path.touch()
+    fresh = _prices(APEX_CHAIN_ID, address, "2026-11-22 08:26:55.999500")
+    writes = []
+    operations = Counter()
+    write = VaultHistoricalRead.write_uncleaned_arrow_table
+    read = post_processing.pq.read_table
+    sort = post_processing.pc.sort_indices
+
+    def write_prices(table: pa.Table, path: Path) -> None:
+        writes.append(table.num_rows)
+        write(table, path)
+
+    def read_prices(path: Path, **kwargs: object) -> pa.Table:
+        operations["body reads"] += 1
+        return read(path, **kwargs)
+
+    def sort_prices(table: pa.Table, **kwargs: object) -> pa.Array:
+        operations["sorts"] += 1
+        return sort(table, **kwargs)
+
+    def open_source(path: Path, *, read_only: bool) -> SimpleNamespace:
+        assert path == source_path and read_only
+        operations["opens"] += 1
+        return SimpleNamespace(close=lambda: None)
+
+    monkeypatch.setattr(VaultHistoricalRead, "write_uncleaned_arrow_table", write_prices)
+    monkeypatch.setattr(post_processing.pq, "read_table", read_prices)
+    monkeypatch.setattr(post_processing.pc, "sort_indices", sort_prices)
+    monkeypatch.setattr(post_processing, "ApexMetricsDatabase", open_source)
+    monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh)
+    options = {"merge_apex": True, "uncleaned_parquet_path": path, "apex_db_path": source_path, "incremental": True}
+
+    assert post_processing.merge_native_protocols(**options) == {"apex-price-merge": True}
+    fresh["share_price"] = 1.25
+    source_path.write_bytes(b"new revision")
+    assert post_processing.merge_native_protocols(**options) == {"apex-price-merge": True}
+    assert post_processing.merge_native_protocols(**options) == {"apex-price-merge": True}
+    assert writes == [4, 4]
+    assert operations == {"body reads": 4, "sorts": 2, "opens": 2}
+    stored = pd.read_parquet(path)
+    assert stored.loc[stored["chain"].eq(42161), "block_number"].tolist() == [100, 101]
+    apex = stored.loc[stored["chain"].eq(APEX_CHAIN_ID)]
+    assert list(apex["timestamp"]) == [pd.Timestamp("2026-07-25"), pd.Timestamp("2026-11-22 08:26:55.999")]
+    assert list(apex["share_price"]) == pytest.approx([1.0, 1.25])
+
+
+@pytest.mark.parametrize("validate_keys", [True, False])
+def test_apex_checks_source_collisions_before_first_write(tmp_path: Path, *, validate_keys: bool) -> None:
+    """Two real points in one stored millisecond have no automatic winner."""
+    fresh = pd.concat(
+        [
+            _prices(APEX_CHAIN_ID, "apex-vault-100", "2026-11-22 08:26:55.999500"),
+            _prices(APEX_CHAIN_ID, "apex-vault-100", "2026-11-22 08:26:55.999900"),
+        ],
+        ignore_index=True,
+    )
+    path = tmp_path / "missing.parquet"
+    with pytest.raises(ValueError, match=r"999500.+999900"):
+        post_processing._merge_native_history_with_existing_parquet(path, fresh, APEX_CHAIN_ID, validate_keys=validate_keys)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("collision", ["source", "stored"])
+def test_apex_collision_keeps_independent_scope_publishable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, collision: str) -> None:
+    """Ambiguity in either ApeX input leaves its receipt pending and retains every old price."""
+    path = tmp_path / "prices.parquet"
+    apex_address = "apex-vault-100"
+    old_apex = _prices(APEX_CHAIN_ID, apex_address, "2026-07-25")
+    old_grvt = _prices(GRVT_CHAIN_ID, "grvt-old", "2026-07-25")
+    if collision == "stored":
+        old_apex = pd.concat([old_apex, old_apex.assign(share_price=1.125)])
+    VaultHistoricalRead.write_uncleaned_parquet(pd.concat([old_apex, old_grvt]), path)
+
+    apex_source = tmp_path / "apex.duckdb"
+    grvt_source = tmp_path / "grvt.duckdb"
+    apex_source.touch()
+    grvt_source.touch()
+    fresh_apex = _prices(APEX_CHAIN_ID, apex_address, "2026-07-25 00:00:00.000500")
+    if collision == "source":
+        fresh_apex = pd.concat([fresh_apex, _prices(APEX_CHAIN_ID, apex_address, "2026-07-25 00:00:00.000900")])
+    monkeypatch.setattr(post_processing, "ApexMetricsDatabase", lambda *_, **__: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(post_processing, "GRVTDailyMetricsDatabase", lambda *_, **__: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh_apex)
+    monkeypatch.setattr(post_processing, "build_grvt_prices_dataframe", lambda _: old_grvt.assign(share_price=1.25))
+
+    assert post_processing.merge_native_protocols(
+        merge_apex=True,
+        merge_grvt=True,
+        apex_db_path=apex_source,
+        grvt_db_path=grvt_source,
+        uncleaned_parquet_path=path,
+        incremental=True,
+    ) == {"apex-price-merge": False, "grvt-price-merge": True}
+    assert post_processing._read_native_revisions(path).keys() == {"grvt"}
+    stored = pd.read_parquet(path)
+    assert stored.loc[stored["address"].eq("grvt-old"), "share_price"].tolist() == pytest.approx([1.25])
+    assert stored.loc[stored["address"].eq(apex_address), "share_price"].tolist() == pytest.approx(old_apex["share_price"].tolist())
