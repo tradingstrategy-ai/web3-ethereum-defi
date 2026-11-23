@@ -2354,7 +2354,7 @@ def set_balance(web3: Web3, address: str, raw_amount: int) -> int:
 
 
 def invalidate_anvil_detection(web3: Web3) -> None:
-    """Forget node-kind detection after reconnecting or replacing an endpoint.
+    """Forget node-kind detection and the derived block-tip delay after reconnecting.
 
     Provider replacement is detected automatically; an operator restarting a
     different node behind an unchanged endpoint can invalidate explicitly.
@@ -2364,6 +2364,7 @@ def invalidate_anvil_detection(web3: Web3) -> None:
     """
     with _anvil_detection_lock:
         web3.__dict__.pop("_eth_defi_anvil_detection", None)
+        web3.__dict__.pop("_eth_defi_default_block_tip_latency", None)
 
 
 def is_anvil(web3: Web3) -> bool:
