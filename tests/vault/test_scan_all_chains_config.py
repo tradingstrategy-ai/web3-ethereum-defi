@@ -193,7 +193,7 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     """Service durable pending work in an otherwise idle one-chain cycle."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("INCREMENTAL_POST_PROCESSING", "true")
+    monkeypatch.delenv("INCREMENTAL_POST_PROCESSING", raising=False)
     monkeypatch.setenv("LOOP_INTERVAL_SECONDS", "3600")
     monkeypatch.setenv("MAX_CYCLES", "1")
     monkeypatch.setenv("SKIP_TOP_VAULTS", "true")
@@ -217,16 +217,20 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     for option in ("SKIP_SPARKLINES", "SKIP_METADATA", "SKIP_DATA", "SKIP_SAMPLES"):
         monkeypatch.setenv(option, "true")
     monkeypatch.setenv("SCAN_HYPERCORE", "true")
-    monkeypatch.setenv("INCREMENTAL_CLEANING", "false")
+    monkeypatch.delenv("INCREMENTAL_CLEANING", raising=False)
     monkeypatch.delenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", raising=False)
     monkeypatch.setattr(scan_all_chains, "scan_chain", lambda *args, **kwargs: pytest.fail("Base collector is not due"))
     monkeypatch.setattr(scan_all_chains, "backup_pipeline_files", lambda **kwargs: None)
     monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity_for_chains", lambda *args, **kwargs: 0)
     merge_outcomes = iter([False, True])
-    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **kwargs: {"hypercore-price-merge": next(merge_outcomes)})
+
+    def merge(**kwargs: object) -> dict[str, bool]:
+        assert kwargs["incremental"] is True
+        return {"hypercore-price-merge": next(merge_outcomes)}
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", merge)
     calls = []
-    monkeypatch.setattr(post_processing, "clean_prices", lambda **kwargs: calls.append("clean") or True)
-    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **kwargs: True)
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *args: calls.append("clean") or (True, True))
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: None)
     monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda path: False)
 

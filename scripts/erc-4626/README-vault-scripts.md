@@ -13,13 +13,13 @@ check timestamps without changing the source catalogue.
 
 ## Incremental vault price publication
 
-The looped and one-shot scanners default to full native merging and full cleaning. Both Compose services accept the following settings.
+The looped scanner, one-shot scanner and standalone post-processing command skip unchanged native merges and reuse cleaned histories by default. Run them with the usual scanner configuration. For a comparison or recovery run, these optional overrides select which work to repeat.
 
-| Settings | Behaviour |
+| Optional override | Behaviour |
 | --- | --- |
+| Neither variable set | Reuse verified native and cleaned histories. |
+| `INCREMENTAL_CLEANING=false` | Reuse unchanged native histories and run the full cleaner. |
 | `INCREMENTAL_POST_PROCESSING=false` | Run the full native merge and cleaner. |
-| `INCREMENTAL_POST_PROCESSING=true INCREMENTAL_CLEANING=false` | Reuse unchanged native histories and run the full cleaner. This is the default when enabling incremental post-processing. |
-| `INCREMENTAL_POST_PROCESSING=true INCREMENTAL_CLEANING=true` | Also reuse cleaned histories. Enable this after validating the native-only pilot. |
 
 An EVM price write preserves the native source revisions in the combined raw Parquet footer. The scanner compares the configured native sources, including their DuckDB write-ahead logs, before building histories. Lighter Ethereum and Robinhood share a database and have separate content fingerprints. A changed scope still requires one rewrite of the combined raw file. Listings, rankings and exports keep their existing schedules.
 
@@ -27,9 +27,9 @@ The first incremental clean establishes a baseline for the stablecoin hourly, st
 
 If an old source database lacks a required column, run its normal schema-owning collector or apply the relevant numbered migration before retrying. A previously published archive that loses a vault or its date range requires a verified source restore or an intentional numbered repair.
 
-If a cycle is interrupted, leave `post-processing-pending.json` in the pipeline data directory. The loop retries interrupted work and failed native merges or cleaning even when no collectors are due. A persistent local failure stops an idle retry before exports. Export-only failures remain pending until the next scheduled publication. The warning gives the failed stages, elapsed time and attempt count. If the combined raw file is missing, restore or rebuild its EVM history before retrying the native merge. For an unexpected canonical-key collision or shortened native archive, inspect the source and last verified file before repairing persisted data. The feature creates its checkpoints on first use. A data repair, if needed, follows the [numbered migration procedure](../../.claude/docs/migration-scripts.md).
+If a cycle is interrupted, leave `post-processing-pending.json` in the pipeline data directory. The loop retries interrupted work and failed native merges or cleaning even when no collectors are due. A persistent local failure stops an idle retry before exports. Export-only failures remain pending until the next scheduled publication. The warning gives the failed stages, elapsed time and attempt count. On a fresh scanner, the first EVM price collection creates the combined raw file. Restore or rebuild the EVM history if that file goes missing later. For an intentionally new native-only dataset, run the configured native merge once with `INCREMENTAL_POST_PROCESSING=false` to create the raw file. Subsequent runs use the defaults. For an unexpected canonical-key collision or shortened native archive, inspect the source and last verified file before repairing persisted data. The feature creates its checkpoints on first use. A data repair, if needed, follows the [numbered migration procedure](../../.claude/docs/migration-scripts.md).
 
-Before enabling the feature in production, run the [one-chain comparison and timing procedure](../../docs/claude-plans/2026-11-22-incremental-vault-post-processing.md#manual-test-with-one-chain-due) on an isolated copy of scanner state. Record the complete cycle time alongside the merge and cleaning times.
+To validate a deployment, run the [one-chain comparison and timing procedure](../../docs/claude-plans/2026-11-22-incremental-vault-post-processing.md#manual-test-with-one-chain-due) on an isolated copy of scanner state. Record the complete cycle time alongside the merge and cleaning times.
 
 ## Instructions for migration scripts
 

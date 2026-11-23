@@ -819,7 +819,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param apex_db_path: Override for the ApeX DuckDB path
     :param neutral_trade_db_path: Private Neutral Trade archive override.
     :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
-    :param incremental: Skip scopes whose published source revision matches.
+    :param incremental: Skip scopes whose published source revision matches. The scanner enables this by default. Direct migration callers can bootstrap a raw file with a full merge.
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -849,7 +849,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
         "neutral-trade": (neutral_trade_db_path or NEUTRAL_TRADE_DATABASE,),
     }
     if incremental and any(enabled.values()) and not parquet_path.is_file():
-        logger.warning("Native merge deferred until the combined raw Parquet is restored or rebuilt")
+        logger.warning("Native merge deferred: restore the combined raw Parquet or run EVM price collection first. For a new native-only dataset, initialise it once with INCREMENTAL_POST_PROCESSING=false.")
         return {f"{protocol}-price-merge": False for protocol, active in enabled.items() if active}
     applied = _read_native_revisions(parquet_path) if incremental and any(enabled.values()) else {}
     registry = embed_perp_capability_registry(pa.schema([]), PERP_DEX_CAPABILITY_REGISTRY).metadata
@@ -1749,8 +1749,8 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     feed_db_path: Path | None = None,
     crypto_vaults_dir: Path | None = None,
     price_scan_state_path: Path | None = None,
-    incremental: bool = False,
-    incremental_cleaning: bool = False,
+    incremental: bool = True,
+    incremental_cleaning: bool = True,
     publication_retry: bool = False,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.

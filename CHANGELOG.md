@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add an opt-in mode for the vault scanner to skip unchanged native price merges and rebuild the full cleaned histories of affected vaults (2026-11-23).
+- feat: Make the vault scanner skip unchanged native price merges and recalculate only affected vault histories by default (2026-11-23).
 
 - feat: Complete σ-Labs curator attribution, descriptions and strategy tags for seven vaults, and add migrations to refresh metadata and backfill early hourly prices (2026-11-20).
 

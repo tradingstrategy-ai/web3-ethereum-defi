@@ -78,8 +78,7 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
     calls: list[str] = []
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
-    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: True)
-    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: True)
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *_: (True, True))
     monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: None)
     monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("prices") or True)
@@ -163,7 +162,7 @@ def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failu
     crypto_calls: list[str] = []
 
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
-    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *_: (False, False))
     monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: crypto_calls.append("clean") or True)
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: crypto_calls.append("metadata") or {"vaults": []})
     monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda *_: crypto_calls.append("export") or True)

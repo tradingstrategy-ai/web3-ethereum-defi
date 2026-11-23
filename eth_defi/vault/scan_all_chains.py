@@ -3062,8 +3062,8 @@ def run_scan_tick(
     disabled_items: dict[str, str] | None = None,
     historical_context_path: Path | None = None,
     *,
-    incremental_post_processing: bool = False,
-    incremental_cleaning: bool = False,
+    incremental_post_processing: bool = True,
+    incremental_cleaning: bool = True,
     publication_retry: bool = False,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -3836,8 +3836,8 @@ def _main() -> None:
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
-    incremental_post_processing = os.environ.get("INCREMENTAL_POST_PROCESSING", "false").lower() == "true"
-    incremental_cleaning = os.environ.get("INCREMENTAL_CLEANING", "false").lower() == "true"
+    incremental_post_processing = os.environ.get("INCREMENTAL_POST_PROCESSING", "true").lower() == "true"
+    incremental_cleaning = os.environ.get("INCREMENTAL_CLEANING", "true").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
     skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
