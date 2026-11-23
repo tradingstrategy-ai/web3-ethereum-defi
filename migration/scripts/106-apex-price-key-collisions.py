@@ -2,6 +2,9 @@
 
 Purpose: Unblock incremental publication after PR #1812.
 Scope: Duplicate millisecond keys in the ApeX partition of vault-prices-1h.parquet.
+Branch: plan/native-price-merge-repair
+PR title: fix: repair ApeX price key collisions and preserve same-second EVM observations
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1818
 Preserves: EVM block observations, unique ApeX history, other native rows,
 source databases, reader state, and unrelated Parquet metadata.
 Expected: 109,361 excess rows in the audited 23 November 2026 snapshot.
