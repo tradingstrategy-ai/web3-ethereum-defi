@@ -5,8 +5,8 @@
 This package reads every native [ApeX Omni](https://www.apex.exchange/) vault
 from the exchange's public web API and stores metadata, current observations
 and recoverable history in DuckDB. The all-chain scanner can also publish the
-same identities and exact-timestamp observations through the shared vault
-metadata and Parquet pipeline.
+same vault identities through the shared metadata and Parquet pipeline.
+The raw Parquet stores observation timestamps at millisecond precision.
 
 The integration is reader-only:
 
@@ -270,9 +270,11 @@ All history writes are append-and-correct. Returned timestamps replace earlier
 values at the same logical key, but a later shortened or empty response never
 deletes timestamps that the source omitted.
 
-The all-chain Parquet export applies the same policy by synthetic vault address
-and exact timestamp. It preserves unmatched rows already present in Parquet
-even if the current DuckDB is partial or rebuilt.
+The all-chain raw Parquet matches a price by lower-case synthetic vault address
+and stored millisecond. A ranking observation can carry microseconds in DuckDB.
+Replaying it updates the same stored row. Two distinct source observations for
+the same vault in one millisecond stop the ApeX merge. Unmatched stored history
+survives a partial or rebuilt DuckDB archive.
 
 Durations accept positive decimal seconds, minutes, hours and days, for example
 `30s`, `30m`, `1.5h` and `2d`.

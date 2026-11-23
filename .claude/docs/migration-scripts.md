@@ -187,6 +187,8 @@ progress reporting; never include credentials in reports.
 
 For a native price correction, repair the protocol-owned source used by the scanner. If the migration also rewrites native rows in the combined raw Parquet, remove the affected scope's entry from its `vault.native_revisions` footer, or remove the entire revision key if the affected scopes are unknown. Preserve unrelated Parquet metadata. Retaining a receipt for edited native history would allow the scanner to skip its next rebuild. An EVM-only rewrite can retain the footer when it preserves all native rows. The [scanner guide](../../scripts/erc-4626/README-vault-scripts.md#incremental-vault-price-publication) covers publication and recovery.
 
+[Migration 106](../../migration/scripts/106-apex-price-key-collisions.py) repairs historical ApeX duplicates in `vault-prices-1h.parquet`. Place the matching checkpointed `apex-vaults.duckdb` beside the raw file. Preview stages a temporary candidate on the data volume and checks its contents. Allow free space of at least twice the original Parquet size. Apply keeps the original as a hard-linked backup and invalidates the ApeX revision on repair. The enriched count covers rows reconstructed from source snapshots, whose values may differ from both old copies. The journal records the repair image commit. Inspect the reported removed and enriched row counts before restarting the scanner. Stop for investigation if the migration reports conflicting prices, ambiguous source observations or unresolved enrichment.
+
 ## Credentials and Docker configuration
 
 Every new API key must reach the process that consumes it. Wire it through
