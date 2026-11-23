@@ -2,6 +2,12 @@
 
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 
+With Docker Compose 2.24.6 or later, `docker compose up -d` from the repository
+root reads `../vault-rpc.env` when it exists. Use Compose dotenv syntax for the
+file, such as `export NAME="value"`.
+Exported shell variables and the checkout's `.env` take precedence over the RPC
+file. Compose uses the scanner defaults for settings left unset.
+
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
 

@@ -14,7 +14,6 @@ from eth_defi.vault.scan_all_chains import build_chain_configs
 from eth_defi.version_info import VersionInfo
 
 LINEA_CHAIN_ID = 59144
-COMPOSE_SCANNER_SERVICE_COUNT = 2
 
 
 def test_robinhood_chain_is_scheduled_for_vault_scans() -> None:
@@ -140,13 +139,6 @@ def test_nest_chains_follow_global_price_switch(name: str, chain_id: int, chain_
     assert result.vault_scan_ok is True
     assert result.price_scan_ok is (True if chain_prices and global_prices else None)
     assert phases == (["discovery", "prices"] if chain_prices and global_prices else ["discovery"])
-
-
-def test_nest_chain_rpcs_reach_both_compose_scanners() -> None:
-    """Production services receive the new chain URLs from the host environment."""
-    compose = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text()
-    assert compose.count("JSON_RPC_WORLDCHAIN: ${JSON_RPC_WORLDCHAIN:-}") == COMPOSE_SCANNER_SERVICE_COUNT
-    assert compose.count("JSON_RPC_PLUME: ${JSON_RPC_PLUME:-}") == COMPOSE_SCANNER_SERVICE_COUNT
 
 
 def test_linea_uses_poa_middleware_for_historical_settlement_reads():

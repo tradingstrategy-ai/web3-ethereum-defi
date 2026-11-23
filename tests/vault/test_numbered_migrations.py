@@ -380,7 +380,19 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     path = batch_database / "vault-metadata-db.pickle"
     # Migration 018 validates the price file even when no reviewed vault has rows.
     # Keep real unrelated Parquet data so the complete batch exercises that path.
-    pq.write_table(pa.table({"chain": [1], "address": ["0x0000000000000000000000000000000000000001"], "block_number": [12345], "share_price": [1.25], "available_liquidity": [123.0]}), batch_database / "vault-prices-1h.parquet")
+    pq.write_table(
+        pa.table(
+            {
+                "chain": [1],
+                "address": ["0x0000000000000000000000000000000000000001"],
+                "block_number": [12345],
+                "timestamp": pa.array([datetime.datetime(2026, 11, 20)], type=pa.timestamp("ms")),
+                "share_price": [1.25],
+                "available_liquidity": [123.0],
+            }
+        ),
+        batch_database / "vault-prices-1h.parquet",
+    )
     (batch_database / "vault-reader-state-1h.pickle").write_bytes(pickle.dumps({VaultSpec(999, BUOY_REVIEWED_LEADS[0][0]): {"last_block": BUOY_REVIEW_BLOCK - 1}}))
     (batch_database / "timestamps.duckdb").write_bytes(b"unrecoverable history")
     original = {p.name: p.read_bytes() for p in batch_database.iterdir()}
