@@ -121,14 +121,15 @@ class ApexMetricsDatabase:
         File-backed DuckDB path.
     """
 
-    def __init__(self, path: Path = APEX_METRICS_DATABASE) -> None:
+    def __init__(self, path: Path = APEX_METRICS_DATABASE, *, read_only: bool = False) -> None:
         """Open or create an owner-thread ApeX metrics database.
 
         The parent directory is created as needed, automatic WAL checkpoints
-        are disabled and the forward-compatible schema is initialised.
+        are disabled and the forward-compatible schema is initialised for writers.
 
         :param path:
             File-backed DuckDB path.
+        :param read_only: Open an existing schema for export without running writer setup.
         """
         if not isinstance(path, Path):
             raise TypeError(f"Expected Path, got {type(path)}")
@@ -137,7 +138,9 @@ class ApexMetricsDatabase:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self._owner_thread_id = threading.get_ident()
-        self.con: duckdb.DuckDBPyConnection | None = duckdb.connect(str(path))
+        self.con: duckdb.DuckDBPyConnection | None = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self.con.execute("SET wal_autocheckpoint = '1TB'")
         self._init_schema()
 

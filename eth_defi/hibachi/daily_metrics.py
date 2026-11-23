@@ -66,11 +66,12 @@ class HibachiDailyMetricsDatabase:
 
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         """Initialise the database connection.
 
         :param path:
             Path to the DuckDB file. Parent directories will be created if needed.
+        :param read_only: Open an existing schema for export without running writer setup.
         """
         assert isinstance(path, Path), f"Expected Path for path, got {type(path)}"
         assert not path.is_dir(), f"Expected file path, got directory: {path}"
@@ -78,7 +79,9 @@ class HibachiDailyMetricsDatabase:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         self.path = path
-        self.con = duckdb.connect(str(path))
+        self.con = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self._init_schema()
 
     def __del__(self):

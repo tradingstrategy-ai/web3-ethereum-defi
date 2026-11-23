@@ -147,8 +147,8 @@ class HyperliquidHighFreqMetricsDatabase(HyperliquidMetricsDatabaseBase):
     price_table = "vault_high_freq_prices"
     time_column = "timestamp"
 
-    def __init__(self, db_path: Path) -> None:
-        super().__init__(db_path)
+    def __init__(self, db_path: Path, *, read_only: bool = False) -> None:
+        super().__init__(db_path, read_only=read_only)
 
     def _init_price_schema(self) -> None:
         """Create the HF price table."""

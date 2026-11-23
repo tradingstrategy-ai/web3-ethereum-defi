@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from eth_typing import HexAddress
@@ -24,7 +25,6 @@ from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
 from eth_defi.token import NATIVE_ASSET_ADDRESS, TokenDetails
 from eth_defi.vault import historical
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
-from eth_defi.vault import historical as historical_module
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller, scan_historical_prices_to_parquet
 from eth_defi.vault.scan_all_chains import fetch_current_vault_tvl_usd
 
@@ -402,7 +402,7 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
     """
     # Exercise an archive-readable target with a batching restriction. HYPED
     # now uses the current-state pass and cannot supply replacement archive rows.
-    grey_address = "0x0000000000000000000000000000000000000002"
+    grey_address = "0x00000000000000000000000000000000000000ab"
     grey = DummyVault(VaultSpec(chain_id, grey_address), DummyToken(), preserve_unavailable_price_history=adapter_policy)
     normal = DummyVault(VaultSpec(chain_id, "0x0000000000000000000000000000000000000001"), DummyToken())
     start = datetime.datetime(2026, 10, 3)
@@ -482,13 +482,18 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
             return scan_historical_prices_to_parquet(**kwargs)
 
     scan()
-    original = pq.read_table(path).to_pandas()
+    table = pq.read_table(path)
+    original = table.to_pandas()
+    legacy_address = "0x" + grey_address[2:].upper()
+    table = table.set_column(table.schema.get_field_index("address"), "address", pa.array([legacy_address if address == grey_address else address for address in original.address]))
+    pq.write_table(table, path)
     rescan = True
     report = scan()
-    updated = pq.read_table(path).to_pandas().sort_values(["address", "block_number"])
+    updated = pq.read_table(path).to_pandas().sort_values("block_number")
     assert len(updated) == 6
-    assert not updated.duplicated(["chain", "address", "block_number"]).any()
-    grey_rows = updated[updated.address == grey_address]
+    assert not updated.assign(address=updated.address.str.lower()).duplicated(["chain", "address", "block_number"]).any()
+    grey_rows = updated[updated.address.str.lower() == grey_address]
+    assert list(grey_rows.address) == [grey_address, legacy_address, legacy_address]
     assert list(grey_rows.total_assets) == [3_000, 2_000, 2_000]
     assert list(updated[updated.address == normal.address].total_assets) == [3_000] * 3
     retained = grey_rows[grey_rows.block_number.isin([2, 3])]
@@ -778,7 +783,7 @@ def test_published_nav_reader_retains_final_partial_interval(monkeypatch: pytest
             row.nav_timestamp = timestamp
         return row
 
-    monkeypatch.setattr(historical_module, "read_multicall_historical", source)
+    monkeypatch.setattr(historical, "read_multicall_historical", source)
     monkeypatch.setattr(reader, "process_result", decode)
     rows = list(scanner.read_historical([vault], 2, end_block, 5, reader_func=source))
     assert dispatched == expected
