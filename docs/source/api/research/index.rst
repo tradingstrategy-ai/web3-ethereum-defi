@@ -10,16 +10,15 @@ Research, metrics and charts
 - Vault data clean up ("wrangling")
 - Setting up Jupyter notebook rendering modes
 
-Sparkline generation uses deterministic native SVG and Pillow PNG renderers.
-The batch exporter consumes the daily crypto-vault Parquet, publishes both
-formats to R2, and keeps per-vault cadence and retry state in the pipeline data
-directory. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1 BTC)
-are successfully completed at most once per 72 hours; the standalone
-benchmark renders samples without reading or writing publication state.
-The looped scanner stages daily prices and their catalogue for a background
-sparkline worker. See the `sparkline deployment instructions
-<https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/README-vault-scripts.md#export-sparklinespy>`__
-for the worker and manual repair procedure.
+Sparkline generation uses a native SVG renderer, Pillow drawing and box
+downsampling with fpng encoding for the square PNG, and CairoSVG for the
+table PNG.
+The scanner publishes all three images to R2 during post-processing. The
+exporter reads the daily crypto-vault Parquet and stores per-vault cadence and
+retry state in the pipeline data directory. Low-TVL vaults (below 5,000
+stablecoin units, 2.5 ETH or 0.1 BTC) are successfully completed at most once
+per 72 hours. The standalone benchmark renders samples without reading or
+writing publication state.
 
 .. autosummary::
    :toctree: _autosummary_research

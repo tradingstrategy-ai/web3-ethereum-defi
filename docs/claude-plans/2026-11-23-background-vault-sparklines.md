@@ -1,5 +1,9 @@
 # Move vault sparkline exports off the scanner cycle
 
+This historical plan is superseded by inline sparkline publication. The
+unchanged-input fingerprint still applies. See the
+[current export and upgrade instructions](../../scripts/erc-4626/README-vault-scripts.md#export-sparklinespy).
+
 ## Why
 
 On 23 November 2026, sparklines took 355 seconds of a 1,039-second publication retry. A run on 22 November spent 124 seconds in the exporter with zero renders. The scanner holds its pipeline lock throughout the export, and the exporter prepares chart data before checking cadence or whether inputs changed. See the [sparkline exporter](../../eth_defi/research/sparkline_export.py).

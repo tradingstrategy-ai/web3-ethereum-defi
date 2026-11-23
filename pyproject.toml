@@ -83,6 +83,8 @@ pandas = {version = ">=1.4"}
 # also used by the development logo-processing scripts.
 cairosvg = {version = ">=2.7.0", optional = true}
 ffn = {version = "^1.1.2", optional = true}
+# Encode the legacy square vault sparkline PNG without changing its pixels.
+fpng = {version = "^0.1.0", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
 kaleido = {version = "^1.0.0", optional = true}
@@ -186,7 +188,7 @@ rembg = ">=2.0.50"
 
 [tool.poetry.extras]
 # To install the web3py version based dependencies
-data = ["jupyter", "tqdm", "gql", "matplotlib", "pillow", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn", "cairosvg"]
+data = ["jupyter", "tqdm", "gql", "matplotlib", "pillow", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn", "cairosvg", "fpng"]
 docs = [
   "Sphinx",
   "sphinx-rtd-theme",
