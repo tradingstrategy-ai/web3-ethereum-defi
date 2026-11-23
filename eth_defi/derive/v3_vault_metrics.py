@@ -37,10 +37,12 @@ class DeriveV3VaultDatabase:
     :param path: Destination DuckDB file.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(path))
+        self.con = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self.con.execute("SET wal_autocheckpoint = '1TB'")
         initialise_perp_vault_observation_schema(self.con)
         self.con.execute("""

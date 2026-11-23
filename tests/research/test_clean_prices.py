@@ -32,6 +32,7 @@ from eth_defi.research.wrangle_vault_prices import (
     replace_cleaned_vault_histories,
 )
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
+from eth_defi.vault.post_processing import _clean_incrementally, clean_crypto_vault_prices, clean_prices
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
@@ -1554,3 +1555,93 @@ def test_hyperevm_legacy_nav_sources() -> None:
     )
     assert vault_price_wrangle.filter_verified_hyperevm_prices(prices)["share_price"].tolist() == [1.1, 1.2, 1.03, 1.9, 2.2]
     assert vault_price_wrangle.filter_verified_hyperevm_prices(prices.drop(columns="vault_poll_frequency"))["share_price"].tolist() == [1.9, 2.2]
+
+
+def test_incremental_cleaning_matches_rebuild_after_corrections(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Reconcile mixed-case history, additions, removals and metadata changes."""
+    catalogue = VaultDatabase.read(vault_db)
+    raw = tmp_path / "raw.parquet"
+    settlement = tmp_path / "settlements.duckdb"
+    hourly = tmp_path / "hourly.parquet"
+    daily = tmp_path / "cleaned-vault-prices-1d.parquet"
+    crypto = tmp_path / "crypto.parquet"
+    prices = pd.read_parquet(raw_price_df)
+    prices.to_parquet(raw, index=False)
+    assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (True, True)
+    caplog.set_level(logging.INFO)
+
+    def assert_targeted_matches_full() -> None:
+        """Compare all three files with independent full builders after each mutation."""
+        caplog.clear()
+        assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (True, True)
+        assert "Replaced" in caplog.text
+        assert "establish a current output baseline" not in caplog.text
+        reference_dir = tmp_path / "reference"
+        reference_dir.mkdir(exist_ok=True)
+        reference_hourly = reference_dir / hourly.name
+        reference_daily = reference_dir / daily.name
+        reference_crypto = reference_dir / crypto.name
+        assert clean_prices(vault_db, raw, reference_hourly, settlement)
+        assert clean_crypto_vault_prices(vault_db_path=vault_db, uncleaned_path=raw, cleaned_path=reference_crypto, cleaned_stablecoin_path=reference_hourly, cleaned_stablecoin_daily_path=reference_daily, settlement_db_path=settlement)
+        for actual, expected in ((hourly, reference_hourly), (daily, reference_daily), (crypto, reference_crypto)):
+            pd.testing.assert_frame_equal(pd.read_parquet(actual, dtype_backend="pyarrow"), pd.read_parquet(expected, dtype_backend="pyarrow"))
+
+    baseline = pd.read_parquet(hourly).reset_index()
+    counts = baseline.groupby("id").size().sort_values()
+    target_id = counts.index[0]
+    target = VaultSpec.parse_string(target_id)
+    previous = baseline.loc[baseline["id"] == target_id].iloc[-1]
+    raw_mask = prices["address"] == target.vault_address
+    previous_mask = raw_mask & (prices["timestamp"] == previous["timestamp"])
+    prices.loc[previous_mask, "address"] = Web3.to_checksum_address(target.vault_address)
+    corrected_share_price = previous["raw_share_price"] * 1.001
+    prices.loc[previous_mask, "share_price"] = corrected_share_price
+    addition = prices.loc[previous_mask].copy()
+    addition["address"] = target.vault_address
+    addition["timestamp"] += pd.Timedelta(days=1)
+    addition["timestamp"] = addition["timestamp"].astype(prices["timestamp"].dtype)
+    addition["block_number"] += 10_000
+    pd.concat([prices, addition], ignore_index=True).to_parquet(raw, index=False)
+
+    database = VaultSettlementDatabase(settlement)
+    try:
+        database.upsert_settlements([VaultSettlement(chain_id=target.chain_id, address=target.vault_address, block_number=int(previous["block_number"]), protocol="test", block_hash="0x" + "11" * 32, timestamp=previous["timestamp"].to_pydatetime(), tx_hash="0x" + "22" * 32, event_name="SettleDeposit")])
+    finally:
+        database.close()
+
+    assert_targeted_matches_full()
+    after = pd.read_parquet(hourly).reset_index()
+    selected = after.loc[after["id"] == target_id].set_index("timestamp")
+    assert selected.loc[previous["timestamp"], "raw_share_price"] == pytest.approx(corrected_share_price)
+    assert selected.loc[previous["timestamp"], "vault_settlement_at"] == previous["timestamp"]
+    assert list(selected["address"].unique()) == [target.vault_address]
+    assert len(selected) == counts.iloc[0] + 1
+
+    # A case alias at the *same* instant cannot be resolved by row order.
+    committed = hourly.read_bytes()
+    collision = pd.read_parquet(raw)
+    alias = addition.assign(address=Web3.to_checksum_address(target.vault_address))
+    pd.concat([collision, alias], ignore_index=True).to_parquet(raw, index=False)
+    assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (False, False)
+    assert hourly.read_bytes() == committed
+    collision.to_parquet(raw, index=False)
+
+    # A denomination move updates both the public and crypto products.
+    catalogue.rows[target]["Name"] = "Updated vault name"
+    catalogue.rows[target]["Denomination"] = "ETH"
+    catalogue.write(vault_db)
+    prices = pd.read_parquet(raw)
+    prices.loc[prices["timestamp"] != addition["timestamp"].iloc[0]].to_parquet(raw, index=False)
+    assert_targeted_matches_full()
+
+    assert target_id not in set(pd.read_parquet(hourly, columns=["id"])["id"])
+    prices = pd.read_parquet(raw)
+    prices.loc[prices["address"].str.lower() != target.vault_address].to_parquet(raw, index=False)
+    assert_targeted_matches_full()
+    for output in (hourly, daily, crypto):
+        assert target_id not in set(pd.read_parquet(output, columns=["id"])["id"])

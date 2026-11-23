@@ -238,10 +238,12 @@ class LighterDailyMetricsDatabase:
         Path to the DuckDB database file.
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(path))
+        self.con = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self._init_schema()
 
     def _init_schema(self) -> None:

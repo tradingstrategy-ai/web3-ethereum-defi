@@ -320,7 +320,7 @@ def _derive_daily_flow_columns(
     return result
 
 
-def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
+def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase, deployment: str | None = None) -> pd.DataFrame:
     """Build a raw prices DataFrame from the Lighter DuckDB.
 
     Produces rows matching the schema of the EVM vault scanner
@@ -342,13 +342,13 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
     :return:
         DataFrame with columns matching the uncleaned Parquet schema.
     """
-    prices_df = db.get_all_daily_prices()
+    prices_df = db.get_all_daily_prices() if deployment is None else db.get_all_daily_prices(deployment)
 
     if prices_df.empty:
         return pd.DataFrame()
 
     prices_df = _derive_daily_flow_columns(prices_df, current_date=native_datetime_utc_now().date())
-    metadata_df = db.get_all_pool_metadata()
+    metadata_df = db.get_all_pool_metadata() if deployment is None else db.get_all_pool_metadata(deployment)
     prices_df = prices_df.merge(
         metadata_df[["deployment", "account_index", "operator_fee"]],
         on=["deployment", "account_index"],

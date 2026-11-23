@@ -9,7 +9,7 @@ import pytest
 
 from eth_defi.chain import POA_MIDDLEWARE_NEEDED_CHAIN_IDS
 from eth_defi.lighter.constants import LIGHTER_DEPLOYMENTS
-from eth_defi.vault import scan_all_chains
+from eth_defi.vault import post_processing, scan_all_chains
 from eth_defi.vault.scan_all_chains import build_chain_configs
 from eth_defi.version_info import VersionInfo
 
@@ -187,3 +187,67 @@ def test_missing_hypersync_chain_keeps_price_scanning(name: str) -> None:
     config = next(config for config in build_chain_configs() if config.name == name)
     assert config.scan_vaults is False
     assert config.scan_prices is True
+
+
+def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Service durable pending work in an otherwise idle one-chain cycle."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("INCREMENTAL_POST_PROCESSING", raising=False)
+    monkeypatch.setenv("LOOP_INTERVAL_SECONDS", "3600")
+    monkeypatch.setenv("MAX_CYCLES", "1")
+    monkeypatch.setenv("SKIP_TOP_VAULTS", "true")
+    monkeypatch.setenv("SKIP_POST_PROCESSING", "false")
+    monkeypatch.setenv("SKIP_CLEANING", "false")
+    monkeypatch.setenv("FORCE_RESCAN", "false")
+    monkeypatch.setenv("FORCE_LEAD_DISCOVERY", "false")
+    monkeypatch.delenv("CHAIN_ORDER", raising=False)
+    monkeypatch.delenv("DISABLE_CHAINS", raising=False)
+    monkeypatch.setenv("TEST_CHAINS", "Base")
+    monkeypatch.setattr(scan_all_chains, "build_active_protocols", lambda **_kwargs: ["Hypercore"])
+    monkeypatch.setattr(scan_all_chains, "clear_sqlite_rate_limit_databases", lambda: [])
+    monkeypatch.setattr(scan_all_chains, "refresh_stale_proxy_state", lambda: None)
+    monkeypatch.setattr(scan_all_chains, "setup_console_logging", lambda **_kwargs: None)
+    monkeypatch.setattr(scan_all_chains.logging.getLogger(), "addHandler", lambda handler: handler.close())
+    pending = tmp_path / "post-processing-pending.json"
+    pending.write_text("{}")
+    now = scan_all_chains.native_datetime_utc_now().isoformat()
+    scan_all_chains.save_cycle_state({"Base": now, "Hypercore": now}, tmp_path / "scan-cycle-state.json")
+
+    for option in ("SKIP_SPARKLINES", "SKIP_METADATA", "SKIP_DATA", "SKIP_SAMPLES"):
+        monkeypatch.setenv(option, "true")
+    monkeypatch.setenv("SCAN_HYPERCORE", "true")
+    monkeypatch.delenv("INCREMENTAL_CLEANING", raising=False)
+    monkeypatch.delenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(scan_all_chains, "scan_chain", lambda *args, **kwargs: pytest.fail("Base collector is not due"))
+    monkeypatch.setattr(scan_all_chains, "backup_pipeline_files", lambda **kwargs: None)
+    monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity_for_chains", lambda *args, **kwargs: 0)
+    merge_outcomes = iter([False, True])
+
+    def merge(**kwargs: object) -> dict[str, bool]:
+        assert kwargs["incremental"] is True
+        return {"hypercore-price-merge": next(merge_outcomes)}
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", merge)
+    calls = []
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *args: calls.append("clean") or (True, True))
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: None)
+    monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda path: False)
+
+    scan_all_chains.main()
+    receipt = json.loads(pending.read_text())
+    assert receipt["attempts"] == 1
+    assert receipt["failed"] == ["hypercore-price-merge"]
+    assert calls == []
+
+    scan_all_chains.main()
+    assert calls == ["clean"]
+    assert not pending.exists()
+
+    # Only an export is outstanding. Leave it pending for the scheduled
+    # publication without repeating local transforms or native builders.
+    receipt["failed"] = ["export-data-files"]
+    pending.write_text(json.dumps(receipt))
+    scan_all_chains.main()
+    assert json.loads(pending.read_text()) == receipt
+    assert calls == ["clean"]

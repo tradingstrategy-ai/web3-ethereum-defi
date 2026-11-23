@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Make the vault scanner skip unchanged native price merges and recalculate only affected vault histories by default (2026-11-23).
+
 - feat: Complete σ-Labs curator attribution, descriptions and strategy tags for seven vaults, and add migrations to refresh metadata and backfill early hourly prices (2026-11-20).
 
 - fix: Preserve reported protocol fee components in vault JSON exports when normalising fee metadata; complete Buoy fee fields and document HYPE request charges outside read-only analytics (2026-11-20, [#1801](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801)).

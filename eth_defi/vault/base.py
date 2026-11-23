@@ -38,6 +38,7 @@ from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.publication_state import publish_verified_parquet
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
@@ -48,9 +49,10 @@ from .risk import VaultTechnicalRisk, get_vault_risk
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
     import pandas as pd
     import pyarrow
+
+    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -1142,7 +1144,7 @@ class VaultHistoricalRead:
                 expected_rows=len(table),
                 expected_schema=table.schema,
             )
-            os.replace(temp_path, str(path))
+            publish_verified_parquet(pathlib.Path(temp_path), path)
         except BaseException:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)

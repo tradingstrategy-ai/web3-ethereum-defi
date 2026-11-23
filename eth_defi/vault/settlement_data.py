@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import duckdb
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
@@ -110,20 +111,21 @@ class VaultSettlementDatabase:
         DuckDB database path.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         """Open the database and create the schema if needed.
 
         :param path:
             DuckDB file path.
+        :param read_only: Read existing settlement rows without modifying the source.
         """
         assert isinstance(path, Path), f"Expected Path, got {type(path)}"
         assert not path.is_dir(), f"Expected DuckDB file path, got directory: {path}"
 
-        import duckdb
-
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(path))
+        self.con = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self.con.execute("SET wal_autocheckpoint = '1TB'")
         self._init_schema()
 
@@ -267,6 +269,8 @@ class VaultSettlementDatabase:
             params.append(protocol)
 
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        columns = {row[1] for row in self.con.execute("PRAGMA table_info('vault_settlements')").fetchall()}
+        event_column = "event_name" if "event_name" in columns else "NULL::VARCHAR AS event_name"
         return self.con.execute(
             f"""
             SELECT
@@ -277,7 +281,7 @@ class VaultSettlementDatabase:
                 block_hash,
                 timestamp,
                 tx_hash,
-                event_name,
+                {event_column},
                 inserted_at
             FROM vault_settlements
             {where}
@@ -404,7 +408,7 @@ def load_vault_settlements(path: Path | None = None) -> pd.DataFrame:
         logger.info("Vault settlement database does not exist: %s", path)
         return _create_empty_settlement_dataframe()
 
-    db = VaultSettlementDatabase(path)
+    db = VaultSettlementDatabase(path, read_only=True)
     try:
         return db.get_settlements()
     finally:
