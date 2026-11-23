@@ -31,6 +31,8 @@ If a cycle is interrupted, leave `post-processing-pending.json` in the pipeline 
 
 To validate a deployment, run the [one-chain comparison and timing procedure](../../docs/claude-plans/2026-11-22-incremental-vault-post-processing.md#manual-test-with-one-chain-due) on an isolated copy of scanner state. Record the complete cycle time alongside the merge and cleaning times.
 
+To diagnose a Base cycle, find a `Scan tick timing` INFO line whose `chains=` list includes Base. It gives wall-clock seconds for preparation, EVM scans and settlements, protocol collectors, retries, withdrawal capacity and shared post-processing. Use the preceding `EVM scan timing chain=Base` for discovery and prices, and `Raw price writer timing chain=8453` for the cost of reading and copying history versus collecting and writing new rows. The writer reports the final counts of retained, removed and new rows after restoring any protected history. `Post-processing timing` splits shared work into native merge, cleaning, listing, crypto metrics and individual export phases, including the names of failed steps. These breakdowns are nested within the tick. Compare the existing `Vault scanner cycle` total against the one-hour budget because it also includes scheduler and lock time.
+
 ## Instructions for migration scripts
 
 For a database repair, persisted accessor refresh or historical backfill, add a [numbered migration](../../.claude/docs/migration-scripts.md#authoring-a-migration). The runner previews and applies pending scripts in order.

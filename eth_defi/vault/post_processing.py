@@ -76,6 +76,7 @@ from eth_defi.vault.incremental_cleaning import changed_histories, cleaning_inpu
 from eth_defi.vault.publication_state import NATIVE_REVISIONS_KEY, duckdb_revision, file_revision, read_publication_state, write_publication_state
 from eth_defi.vault.sample_export import export_sample_files_to_r2
 from eth_defi.vault.scan_manifest import publish_hypercore_permission_manifest, publish_vault_scan_manifest
+from eth_defi.vault.scan_timing import ScanTimings
 from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase, get_pipeline_data_dir
 
@@ -1795,8 +1796,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param publication_retry: Stop an idle recovery tick before exports if its local inputs still need repair.
     :return: Dictionary mapping step name to success boolean
     """
-    started_at = time.perf_counter()
-    steps = {}
+    timings = ScanTimings()
+    steps: dict[str, bool] = {}
+
+    def log_summary() -> None:
+        """Include failed steps by name, including when an idle retry ends early."""
+        failed = [name for name, ok in steps.items() if not ok]
+        logger.info("Post-processing timing ok=%d failed=%d failed_steps=%s %s", len(steps) - len(failed), len(failed), ",".join(failed) or "none", timings)
+
     data_dir = get_pipeline_data_dir()
     resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
 
@@ -1824,9 +1831,11 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     )
     steps.update(merge_results)
     native_publication_ok = not incremental or all(merge_results.values())
+    timings.finish("native_merge")
 
     if publication_retry and not native_publication_ok:
         logger.warning("Native history is still pending; ending idle retry before cleaning and exports")
+        log_summary()
         return steps
 
     # The isolated crypto product can fail independently of public publication.
@@ -1863,8 +1872,10 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
             settlement_db_path=settlement_db_path,
         )
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
+    timings.finish("cleaning")
     if publication_retry and not (cleaning_ok and crypto_clean_ok):
         logger.warning("Price cleaning is still pending; ending idle retry before exports")
+        log_summary()
         return steps
 
     # The crypto USD metrics and R2 data-file export must share one immutable
@@ -1883,6 +1894,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         exchange_rate_parquet_error = exc
         steps["materialise-exchange-rate-parquet"] = False
 
+    timings.finish("exchange_rates")
     # Export top vaults JSON, including its best-effort strategy-category
     # aggregate. This depends on cleaned Parquet and must run before the
     # private data-file upload.
@@ -1899,6 +1911,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
             feed_db_path=feed_db_path,
         )
 
+    timings.finish("listing")
     crypto_metadata = None
     if crypto_clean_ok and cleaning_ok and exchange_rate_parquet_path is not None:
         crypto_metadata = calculate_crypto_vault_metadata(
@@ -1915,6 +1928,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         steps["calculate-crypto-vault-metadata"] = False
 
     # Publish trading inputs before the potentially lengthy image rendering.
+    timings.finish("crypto_metrics")
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
@@ -1950,6 +1964,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
             steps["publish-vault-scan-manifest"] = False
 
     # Export sparklines.
+    timings.finish("data_and_manifests")
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
     elif not cleaning_ok or not crypto_clean_ok:
@@ -1964,12 +1979,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
 
     # Export protocol metadata. This is not derived from cleaned prices and is
     # always safe to run.
+    timings.finish("sparklines")
     if skip_metadata:
         logger.info("Skipping metadata export (SKIP_METADATA=true)")
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
     # Export Ethereum-only sample files to the public bucket.
+    timings.finish("protocol_metadata")
     if skip_samples:
         logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
     else:
@@ -1994,6 +2011,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
                 skip_json_sample=not json_ok,
             )
 
+    timings.finish("samples")
     crypto_rate_published = bool(steps.get("export-data-files"))
     if not crypto_rate_published and exchange_rate_parquet_path is not None:
         # ``SKIP_DATA=true`` and public-data export failures must not prevent
@@ -2013,5 +2031,6 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     else:
         steps["export-crypto-vault-bundle"] = export_crypto_vault_bundle(crypto_paths, crypto_metadata)
 
-    logger.info("Vault post-processing completed in %.2fs", time.perf_counter() - started_at)
+    timings.finish("crypto_upload")
+    log_summary()
     return steps

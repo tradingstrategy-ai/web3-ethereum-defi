@@ -58,6 +58,7 @@ from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VAULT_PRICE_REFRESH_INT
 from eth_defi.vault.publication_state import NATIVE_REVISIONS_KEY
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault.rpc_scan_state import save_reader_publication_journal
+from eth_defi.vault.scan_timing import ScanTimings
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
@@ -1147,6 +1148,7 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
+    timings = ScanTimings()
     stateful = reader_states is not None
 
     assert isinstance(output_fname, Path)
@@ -1310,6 +1312,7 @@ def scan_historical_prices_to_parquet(
         horizon_block = web3.eth.get_block(max(0, end_block - 1))
         freshness_horizon = datetime.datetime.fromtimestamp(horizon_block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
 
+    timings.finish("setup")
     if output_fname.exists():
         logger.info("Reading existing Parquet file %s", output_fname)
         existing_table = pq.read_table(output_fname)
@@ -1467,9 +1470,11 @@ def scan_historical_prices_to_parquet(
 
     try:
         # Initialize ParquetWriter with the unified schema
+        timings.finish("read_and_prepare_raw")
         writer = pq.ParquetWriter(temp_fname, writer_schema, compression=compression)
         if existing_table is not None:
             writer.write_table(existing_table)
+        timings.finish("copy_retained")
 
         rows_written = 0
 
@@ -1489,6 +1494,8 @@ def scan_historical_prices_to_parquet(
         chunks_done = 0
         written_at = native_datetime_utc_now()
         for chunk in chunked(converted_iter, chunk_size):
+            # Advancing the lazy iterator performs the historical reads.
+            timings.finish("collect_samples")
             logger.debug(f"Processing Parquet chunk {chunks_done:,}, rows written so far {rows_written:,}")
             table = pa.Table.from_pylist(chunk, schema=canonical_schema)
             # Stamp all rows in this batch with the same write timestamp
@@ -1505,7 +1512,9 @@ def scan_historical_prices_to_parquet(
             writer.write_table(table)
             rows_written += len(chunk)
             chunks_done += 1
+            timings.finish("write_new_rows")
 
+        timings.finish("collect_samples")
         if protected_history is not None and protected_history.num_rows:
             preserved = preserve_unreplaced_greylist_rows(protected_history, successful_replacements)
             if preserved.num_rows:
@@ -1655,6 +1664,17 @@ def scan_historical_prices_to_parquet(
             os.unlink(temp_fname)
         raise
 
+    timings.finish("preserve_verify_publish")
+    logger.info(
+        "Raw price writer timing chain=%d vaults=%d retained_rows=%d removed_rows=%d new_rows=%d batches=%d %s",
+        chain_id,
+        len(vaults),
+        existing_row_count,
+        rows_deleted,
+        rows_written,
+        chunks_done,
+        timings,
+    )
     return ParquetScanResult(
         rows_written=rows_written,
         unavailable_observations=reader.unavailable_observations,

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from eth_defi.cloudflare_r2 import R2RetryableOperationError
-from eth_defi.vault import post_processing
+from eth_defi.vault import post_processing, scan_timing
 
 brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
 
@@ -65,7 +65,7 @@ def test_manifest_requires_successful_private_export(
     assert calls == expected
 
 
-def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Image rendering cannot delay price publication or its readiness receipt.
 
     Exercise the real coordinator, including an unsuccessful rendering phase,
@@ -73,9 +73,13 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
 
     :param tmp_path: Isolated pipeline directory.
     :param monkeypatch: Replace costly external phases with observable results.
+    :param caplog: Capture the aggregate stage timings and failed export names.
     :return: None; checks publication order and failure reporting.
     """
     calls: list[str] = []
+    clock = 0.0
+    monkeypatch.setattr(scan_timing, "perf_counter", lambda: clock)
+    caplog.set_level(logging.INFO, logger=post_processing.__name__)
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
     monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *_: (True, True))
@@ -87,6 +91,8 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
 
     def render(**_: object) -> bool:
         """Check published inputs at the moment a slow renderer would start."""
+        nonlocal clock
+        clock += 9.5
         assert calls == ["prices", "manifest"]
         calls.append("sparklines")
         return False
@@ -96,6 +102,11 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
     assert calls == ["prices", "manifest", "sparklines", "protocols"]
     assert steps["export-sparklines"] is False
     assert steps["publish-vault-scan-manifest"] is True
+    summaries = [message for message in caplog.messages if message.startswith("Post-processing timing ")]
+    assert len(summaries) == 1
+    assert "total=9.50s" in summaries[0]
+    assert "sparklines=9.50s" in summaries[0]
+    assert "export-sparklines" in summaries[0]
 
 
 def test_clean_prices_uses_structured_logger(
