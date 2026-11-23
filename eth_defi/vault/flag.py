@@ -725,6 +725,9 @@ K3_CAPITAL_CLUSTER_ILLIQUID = "This vault is illiquid."
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
+#: User-reported illiquidity of the Peapods USDC metavault on Base.
+PEAPODS_USDC_METAVAULT_ILLIQUID = "This vault is illiquid."
+
 USDN_WRAPPER_ILLIQUID = "USDN Wrapper is illiquid"
 
 SUMMER_FI_ILLIQUID = "Summer.fi vault is illiquid"
@@ -1388,6 +1391,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # https://tradingstrategy.ai/vaults/peapods-interest-bearing-usdc-195
     # https://basescan.org/address/0x2efd686fe4023b683b67fe0b59a0f941ab381d84
     "0x2efd686fe4023b683b67fe0b59a0f941ab381d84": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
+    # Peapods Metavault for USD Coin, Peapods on Base (8453).
+    # Added 2026-11-23 after a user report of illiquidity. The report supplied
+    # no liquidity measurement. The illiquid flag excludes the vault from
+    # investable rankings.
+    # Deployment identity:
+    # https://tradingstrategy.ai/vaults/peapods-metavault-for-usd-coin-12
+    # https://basescan.org/address/0x0887354c58af4392f6012c8cb96354342912902c
+    "0x0887354c58af4392f6012c8cb96354342912902c": (VaultFlag.illiquid, PEAPODS_USDC_METAVAULT_ILLIQUID),
     # Curve Boosted crvUSD-fxSAVE Lender (Yearn on Ethereum)
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
     # Convex crvUSD-fxSAVE Lender (Yearn on Ethereum)

@@ -57,6 +57,9 @@ PMALT_LIGHTER = VaultSpec(9998, "lighter-pool-281474976552918")
 #: Peapods deployments required by migration 036.
 PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
 
+#: Peapods metavault deployment required by migration 105.
+PEAPODS_USDC_METAVAULT = VaultSpec(8453, "0x0887354c58af4392f6012c8cb96354342912902c")
+
 
 #: Llama Lend market onboarded by migration 082.
 LLAMA_LEND_WSTGBP = VaultSpec(1, "0xe279c1c1c246b6f8f32c55b7820c2164151c5570")
@@ -271,7 +274,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
-    for spec in PEAPODS_USDC:
+    for spec in (*PEAPODS_USDC, PEAPODS_USDC_METAVAULT):
         rows[spec] = {"Protocol": "Peapods", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[K3_CLUSTER] = {"Protocol": "Euler", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
@@ -416,6 +419,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     for spec in PEAPODS_USDC:
         assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
         assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
+    assert database.rows[PEAPODS_USDC_METAVAULT] == {"Protocol": "Peapods", "_flags": {VaultFlag.paused, VaultFlag.illiquid}, "_notes": "This vault is illiquid."}
     senior, junior = THREEJANE_TRANCHES
     tranche_tags = {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
     assert database.rows[senior]["_strategy_tags"] == tranche_tags
@@ -455,7 +459,7 @@ def test_nova_reader_retains_existing_cursor() -> None:
     assert reader.reader_state.last_block == 518876926
 
 
-@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), *((36, spec) for spec in PEAPODS_USDC)])
+@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), (105, PEAPODS_USDC_METAVAULT), *((36, spec) for spec in PEAPODS_USDC)])
 def test_missing_required_single_target_fails(batch_database: Path, tmp_path: Path, number: int, target: VaultSpec) -> None:
     """Absent reviewed targets remain pending instead of being marked complete."""
     path = batch_database / "vault-metadata-db.pickle"
