@@ -3071,7 +3071,6 @@ def run_scan_tick(
     incremental_post_processing: bool = True,
     incremental_cleaning: bool = True,
     publication_retry: bool = False,
-    queue_sparklines: bool = False,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
     xerberus_db_path: Path | None = None,
@@ -3086,7 +3085,6 @@ def run_scan_tick(
     Returns a tick-local results dict containing only the items scanned
     during this tick.
 
-    :param queue_sparklines: Stage sparkline inputs for the background worker.
     :param on_item_success:
         Optional callback invoked after each successful chain or protocol
         data fetch.  Used to persist cycle state incrementally so that
@@ -3669,7 +3667,6 @@ def run_scan_tick(
             skip_cleaning=skip_cleaning,
             skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
-            queue_sparklines=queue_sparklines,
             skip_metadata=skip_metadata,
             skip_data=skip_data,
             skip_samples=skip_samples,
@@ -4115,7 +4112,6 @@ def _main() -> None:
         skip_cleaning=skip_cleaning,
         skip_top_vaults=skip_top_vaults,
         skip_sparklines=skip_sparklines,
-        queue_sparklines=looped_mode,
         skip_metadata=skip_metadata,
         skip_data=skip_data,
         skip_samples=skip_samples,

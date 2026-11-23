@@ -516,8 +516,12 @@ Stop the persistent writers, and finish or stop other one-shot/cron metadata
 writers before preview or apply:
 
 ```shell
-source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner sparkline-worker
+source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
 ```
+
+If upgrading from a deployment with a separate sparkline worker, follow the
+[sparkline upgrade instructions](../../scripts/erc-4626/README-vault-scripts.md#export-sparklinespy)
+before switching Compose configurations.
 
 Preview all pending migrations, then review the reported targets and changes
 before using the apply command above:
@@ -536,7 +540,7 @@ numbered migrations, using the service's existing persistent mounts.
 After a successful apply, recreate the persistent services with the same image:
 
 ```shell
-source ../vault-rpc.env && docker compose up -d --force-recreate vault-scanner-looped post-scanner sparkline-worker
+source ../vault-rpc.env && docker compose up -d --no-deps --force-recreate vault-scanner-looped post-scanner
 docker compose exec vault-scanner-looped cat /usr/src/web3-ethereum-defi/GIT_VERSION_HASH.txt
 ```
 

@@ -2183,11 +2183,19 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 ### export-sparklines.py
 
-Export eligible vault share-price sparklines to Cloudflare R2. Run after the
-crypto daily file `crypto-vaults/crypto-cleaned-vault-prices-1d.parquet` is
-generated. This standalone operator command neither refreshes that input nor
-checks its age; use `post-process-prices.py` when the current scan must be
-cleaned and validated before publication.
+The looped and one-shot scanners publish eligible vault share-price
+sparklines to Cloudflare R2 during post-processing. If the previous
+deployment started a background publisher, run
+`docker compose stop sparkline-worker` from that deployment's checkout
+before switching to the new Compose configuration.
+The exporter reuses existing publication state. The change requires no data
+migration.
+
+Run the standalone exporter after generating the daily crypto price file
+`crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`. Use
+`post-process-prices.py` to clean and validate the current scan before
+publication. Run manual exports between scanner cycles so they can acquire
+the shared pipeline lock.
 
 A vault is eligible when its denomination is a supported stablecoin, ETH or
 BTC family and it has two valid share-price observations at distinct timestamps,
@@ -2200,40 +2208,25 @@ The BTC boundary is the explicit 0.1 BTC native-unit policy; its USD-equivalent
 conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
 
-The looped scanner copies the paired daily prices and vault catalogue under its
-pipeline lock. Compose starts `sparkline-worker` with the looped scanner. The worker
-publishes the latest pair outside the scanner lock and reuses the existing
-publication and retry state. The staged copies and optional source fingerprints
-require no data migration. For a looped scanner run outside Compose, start
-`poetry run python scripts/erc-4626/scan-vault-sparklines.py` alongside it
-using the same pipeline data directory.
-
-The manual exporter uses the latest staged snapshot unless newer daily prices
-exist. It uses the current pipeline inputs when no current snapshot is queued. To repair chart objects from a
-Compose deployment, use the existing force option with the manual entry point:
-
-```shell
-docker compose run --rm --no-deps -e FORCE_SPARKLINE_EXPORT=true \
-  --entrypoint 'python scripts/erc-4626/export-sparklines.py' sparkline-worker
-```
-
 Every published chart has a 90-day horizontal axis ending on the vault's own
 latest observation timestamp. A vault with less than 90 days of history is drawn on the
 right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
 is still rendered from its own history. The exporter publishes one 100 × 25
 SVG, one legacy 300 × 300 PNG and one native 300 × 75 table PNG for each vault.
+Pillow draws the square chart at twice its output resolution and downsamples
+with a box filter before [fpng](https://github.com/dofuuz/py-fpng-nb) encodes
+the PNG. Previously published charts adopt these settings on their next render.
 The existing `sparkline-90d-{vault_id}.svg` and `.png` object names remain;
 the new `sparkline-table-90d-{vault_id}.png` rasterises the canonical SVG with
 uniform 3× scaling, including its 3 px stroke, for 72 × 18 blog/email cells.
 All three assets are required before completion state advances. A missing
 variant or partial upload fails that vault and retains its previous completion
-until a complete retry succeeds. Renderer version 5 invalidates previous
-successful input hashes, including low-TVL cadence skips, so unchanged-input
-vaults receive the table PNG on their next export (retry backoff still applies).
+until a complete retry succeeds.
 All assets are gzip-compressed, and
-unchanged source images are skipped before rendering or R2 requests. Previously
-verified source inputs can also skip chart preparation.
+unchanged source images are skipped using the local input digest before any
+rendering or R2 request. A matching source fingerprint also lets the exporter
+skip preparing chart data for a previously completed vault.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py

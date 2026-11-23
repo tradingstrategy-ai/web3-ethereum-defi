@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Restore inline vault sparkline publishing, speed up square PNG downsampling and encoding, and reduce state writes (2026-11-23).
+
 - feat: Publish vault sparklines in the background and skip chart preparation for unchanged vault inputs (2026-11-23).
 
 - feat: Load an optional `../vault-rpc.env` at Docker Compose scanner startup while preserving exported shell overrides (2026-11-23, [#1811](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1811)).

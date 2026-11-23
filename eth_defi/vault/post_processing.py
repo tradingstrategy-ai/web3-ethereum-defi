@@ -61,7 +61,7 @@ from eth_defi.neutral_trade.vault_data_export import build_raw_prices_dataframe 
 from eth_defi.perp_dex.adapter import PerpDexCapability, PerpDexCapabilityRegistry, embed_perp_capability_registry
 from eth_defi.perp_dex.parquet import attach_perp_metrics_to_price_rows, derive_perp_vault_metric_snapshots
 from eth_defi.perp_dex.storage import read_perp_vault_observations
-from eth_defi.research.sparkline_export import inline_sparkline_writer, queue_sparkline_snapshot, run_sparkline_export
+from eth_defi.research.sparkline_export import run_sparkline_export
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, VaultHistoricalRead, VaultSpec
@@ -1398,40 +1398,38 @@ def export_sparklines(
     prices_path: Path | None = None,
     vault_db_path: Path | None = None,
     state_path: Path | None = None,
-    queue_snapshot: bool = False,
 ) -> bool:
-    """Publish sparklines or stage their inputs for the background worker.
+    """Export sparkline images to R2 through the typed library entry point.
 
-    The scanner holds the pipeline lock here so the staged files describe
-    the same scan. Inline export also takes the sparkline publication lock.
+    The scanner already holds the shared ``scan-pipeline`` writer lock when
+    this function is called from post-processing. The standalone script owns
+    the same lock around its direct library call.
 
-    :param prices_path: Current crypto daily price Parquet.
-    :param vault_db_path: Current vault metadata database.
-    :param state_path: Persistent sparkline publication state for inline runs.
-    :param queue_snapshot: Stage the input pair for background export.
-    :return: Whether staging or inline publication succeeded.
+    :param prices_path:
+        Current crypto daily price Parquet.
+    :param vault_db_path:
+        Current vault metadata database.
+    :param state_path:
+        Persistent sparkline publication state.
+    :return:
+        True if export succeeds.
     """
     try:
-        data_dir = get_pipeline_data_dir()
-        if queue_snapshot:
-            assert prices_path is not None and vault_db_path is not None
-            queue_sparkline_snapshot(data_dir, prices_path, vault_db_path)
-            return True
         logger.info("Creating sparkline images")
-        with inline_sparkline_writer(data_dir):
-            result = run_sparkline_export(
-                data_dir=data_dir,
-                prices_path=prices_path,
-                vault_db_path=vault_db_path,
-                state_path=state_path,
-            )
+        data_dir = get_pipeline_data_dir()
+        result = run_sparkline_export(
+            data_dir=data_dir,
+            prices_path=prices_path,
+            vault_db_path=vault_db_path,
+            state_path=state_path,
+        )
         if not result.success:
             logger.error("Sparkline export completed with %d failed vaults", result.counters["failed"])
             return False
         logger.info("Sparkline export complete")
         return True
     except (EOFError, KeyError, ImportError, OSError, pickle.UnpicklingError, pa.ArrowException, R2OperationError, RuntimeError, TypeError, ValueError):
-        logger.exception("Sparkline export or staging failed")
+        logger.exception("Export sparklines failed")
         return False
 
 
@@ -1784,7 +1782,6 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
-    queue_sparklines: bool = False,
     skip_metadata: bool = False,
     skip_data: bool = False,
     skip_samples: bool = False,
@@ -1825,7 +1822,6 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
-    :param queue_sparklines: Stage new sparkline inputs for a background worker.
     :param skip_metadata: Skip protocol/stablecoin metadata export to R2
     :param skip_data: Skip data file (parquet, pickle) export to R2
     :param skip_samples: Skip Ethereum-only sample file export to R2
@@ -2022,17 +2018,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     timings.finish("data_and_manifests")
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
-    elif queue_sparklines and skip_cleaning:
-        logger.info("Skipping sparkline staging (SKIP_CLEANING=true)")
     elif not cleaning_ok or not crypto_clean_ok:
-        logger.warning("Skipping sparklines because both price cleaners did not succeed in this run")
+        logger.warning("Skipping sparkline export — current public or crypto cleaning failed, refusing to export stale data")
         steps["export-sparklines"] = False
     else:
         steps["export-sparklines"] = export_sparklines(
             prices_path=crypto_paths.cleaned_price_path,
             vault_db_path=resolved_vault_db_path,
             state_path=data_dir / "sparkline-export-state.json",
-            queue_snapshot=queue_sparklines,
         )
 
     # Export protocol metadata. This is not derived from cleaned prices and is

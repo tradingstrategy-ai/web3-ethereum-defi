@@ -237,7 +237,6 @@ services:
     image: vault-scanner:local
     container_name: vault-scanner-looped
     restart: unless-stopped
-    depends_on: [sparkline-worker]
     entrypoint: [ "python", "scripts/erc-4626/scan-vaults-all-chains.py" ]
     environment:
       # Hold the lifecycle guard even if LOOP_INTERVAL_SECONDS is accidentally zero.
@@ -404,24 +403,6 @@ services:
       - ../logs:/usr/src/web3-ethereum-defi/logs:rw
       - ${HOME}/.cache:/root/.cache:rw
       - ../eth_defi/data/stablecoins:/usr/src/web3-ethereum-defi/eth_defi/data/stablecoins:rw
-
-  # Publish snapshots staged by the looped scanner.
-  sparkline-worker:
-    image: vault-scanner:local
-    restart: unless-stopped
-    entrypoint: [ "python", "scripts/erc-4626/scan-vault-sparklines.py" ]
-    environment:
-      SPARKLINE_RENDER_WORKERS: ${SPARKLINE_RENDER_WORKERS:-6}
-      SPARKLINE_UPLOAD_WORKERS: ${SPARKLINE_UPLOAD_WORKERS:-${SPARKLINE_MAX_WORKERS:-8}}
-      SPARKLINE_RENDER_BACKEND: ${SPARKLINE_RENDER_BACKEND:-processes}
-      SPARKLINE_BATCH_SIZE: ${SPARKLINE_BATCH_SIZE:-100}
-      R2_SPARKLINE_BUCKET_NAME: ${R2_SPARKLINE_BUCKET_NAME:-}
-      R2_SPARKLINE_ENDPOINT_URL: ${R2_SPARKLINE_ENDPOINT_URL:-}
-      R2_SPARKLINE_ACCESS_KEY_ID: ${R2_SPARKLINE_ACCESS_KEY_ID:-}
-      R2_SPARKLINE_SECRET_ACCESS_KEY: ${R2_SPARKLINE_SECRET_ACCESS_KEY:-}
-    volumes:
-      - ${HOME:?Compose must resolve HOME for the scanner state mount}/.tradingstrategy:/root/.tradingstrategy:rw
-      - ../logs:/usr/src/web3-ethereum-defi/logs:rw
 
   # Persistent: continuously collects vault-related posts from RSS, LinkedIn, and X/Twitter.
   # Started by `docker compose up -d`.
