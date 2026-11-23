@@ -16,6 +16,10 @@ formats to R2, and keeps per-vault cadence and retry state in the pipeline data
 directory. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1 BTC)
 are successfully completed at most once per 72 hours; the standalone
 benchmark renders samples without reading or writing publication state.
+The looped scanner stages daily prices and their catalogue for a background
+sparkline worker. See the `sparkline deployment instructions
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/README-vault-scripts.md#export-sparklinespy>`__
+for the worker and manual repair procedure.
 
 .. autosummary::
    :toctree: _autosummary_research

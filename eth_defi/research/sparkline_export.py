@@ -9,8 +9,12 @@ import json
 import logging
 import math
 import os
+import shutil
 import struct
+import tempfile
+import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import islice
@@ -19,6 +23,7 @@ from typing import Any, Literal, TypedDict, TypeVar
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
@@ -47,6 +52,7 @@ from eth_defi.research.sparkline import (
     render_sparkline_svg,
     render_sparkline_table_png,
 )
+from eth_defi.utils import wait_other_writers
 from eth_defi.vault.denomination import DenominationFamily, classify_denomination, resolve_sparkline_tvl_threshold
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 
@@ -56,6 +62,9 @@ _T = TypeVar("_T")
 
 #: Version of the persisted state envelope.
 SPARKLINE_STATE_SCHEMA_VERSION = 1
+
+#: Bump when chart preparation starts using a new source input or setting.
+SPARKLINE_SOURCE_FINGERPRINT_VERSION = 1
 
 #: Maximum age of a low-TVL successful completion.
 SPARKLINE_LOW_TVL_INTERVAL = datetime.timedelta(days=3)
@@ -105,8 +114,14 @@ class RenderData(_RenderVariant):
 class SparklineExportResult:
     """Counters and terminal status from one sparkline export run."""
 
+    #: Whether every attempted publication succeeded.
     success: bool
+
+    #: Outcomes counted during this pass.
     counters: dict[str, int]
+
+    #: Earliest retry of a failed vault seen in this snapshot, in naive UTC.
+    retry_at: datetime.datetime | None = None
 
 
 @dataclass(slots=True)
@@ -561,11 +576,14 @@ def _failure_backoff(now: datetime.datetime, consecutive_failures: int) -> str:
     return _format_timestamp(now + datetime.timedelta(hours=delay_hours))
 
 
-def _record_failure(entry: dict[str, Any], now: datetime.datetime) -> None:
+def _record_failure(entry: dict[str, Any], now: datetime.datetime) -> datetime.datetime:
     """Advance failure state while preserving the last successful digest."""
     failures = int(entry.get("consecutive_failures", 0)) + 1
     entry["consecutive_failures"] = failures
     entry["next_retry_at"] = _failure_backoff(now, failures)
+    retry_at = _parse_timestamp(entry["next_retry_at"])
+    assert retry_at is not None
+    return retry_at
 
 
 def load_sparkline_price_data(prices_path: Path) -> pd.DataFrame:
@@ -800,12 +818,39 @@ def _process_vault_for_export(  # noqa: PLR0914
         return SparklineVaultWorkResult(vault_id, status, latest_assets, classification)
 
     digest = calculate_sparkline_input_digest(sparkline_data)
-    if not force and entry is not None and _has_current_success(entry, digest, publication_target, renderer_state_is_current=renderer_state_is_current):
+    if not force and entry is not None and not entry.get("consecutive_failures") and _has_current_success(entry, digest, publication_target, renderer_state_is_current=renderer_state_is_current):
         return SparklineVaultWorkResult(vault_id, "unchanged", latest_assets, classification)
 
     _vault_id, images, error = _render_one_safe(vault_id, sparkline_data)
     status = "render_failed" if error is not None else "rendered"
     return SparklineVaultWorkResult(vault_id, status, latest_assets, classification, digest, images, error)
+
+
+def _fingerprint_source(prices: pd.DataFrame, symbol: str | None) -> str:
+    """Hash ordered source values before normalising chart history.
+
+    :param prices: Numeric share price and TVL columns with a naive UTC index.
+    :param symbol: Denomination symbol used for eligibility and TVL classification.
+    :return: Versioned digest of the inputs that can affect this vault's chart.
+    """
+    digest = hashlib.sha256(repr((SPARKLINE_SOURCE_FINGERPRINT_VERSION, symbol, resolve_sparkline_tvl_threshold(symbol))).encode())
+    digest.update(prices.index.to_numpy(dtype="datetime64[ns]").tobytes())
+    for column in ("share_price", "total_assets"):
+        digest.update(prices[column].to_numpy(dtype="float64", na_value=np.nan).tobytes())
+    return digest.hexdigest()
+
+
+def _source_receipt(fingerprint: str, entry: dict[str, Any]) -> str:
+    """Bind a source fingerprint to the completion and TVL it represents.
+
+    An older exporter or a throttled pass may update the state entry while
+    retaining unknown fields. Those updates invalidate the old receipt.
+
+    :param fingerprint: Ordered source fingerprint.
+    :param entry: Current persistent state for the vault.
+    :return: Comparable source receipt.
+    """
+    return repr((fingerprint, entry.get("input_sha256"), entry.get("last_completed_at"), entry.get("latest_total_assets")))
 
 
 def _resolve_worker_counts(
@@ -933,25 +978,43 @@ def run_sparkline_export(  # noqa: PLR0914
         "r2_unchanged": 0,
         "failed": 0,
         "batches": 0,
+        "skipped_preparation": 0,
     }
 
+    retry_times: list[datetime.datetime] = []
     groups = _iter_supported_vault_groups(prices_df, symbols)
     del prices_df, vault_db
     for batch in tqdm(_iter_batches(groups, batch_size), desc="Exporting sparkline batches"):
-        tasks = (
-            delayed(_process_vault_for_export)(
-                vault_id,
-                vault_prices,
-                symbol,
-                state["vaults"].get(vault_id),
-                renderer_state_is_current=renderer_state_is_current,
-                publication_target=publication_target,
-                now=now,
-                force=force,
+        fingerprints = {}
+        tasks = []
+        work_results = []
+        for vault_id, vault_prices, symbol in batch:
+            fingerprint = _fingerprint_source(vault_prices, symbol)
+            fingerprints[vault_id] = fingerprint
+            entry = state["vaults"].get(vault_id)
+            if not force and entry and not entry.get("next_retry_at") and not entry.get("consecutive_failures"):
+                if entry.get("source_receipt") == _source_receipt(fingerprint, entry) and _has_current_success(entry, (entry.get("input_sha256") or ""), publication_target, renderer_state_is_current=renderer_state_is_current):
+                    assets = entry.get("latest_total_assets")
+                    classification = _classify_latest_tvl(symbol, assets)
+                    if classification is not None:
+                        due = _is_due(entry, low_tvl=classification[2], now=now, force=False)
+                        work_results.append(SparklineVaultWorkResult(vault_id, "unchanged" if due else "low_tvl_throttled", assets, classification))
+                        counters["skipped_preparation"] += 1
+                        continue
+            tasks.append(
+                delayed(_process_vault_for_export)(
+                    vault_id,
+                    vault_prices,
+                    symbol,
+                    entry,
+                    renderer_state_is_current=renderer_state_is_current,
+                    publication_target=publication_target,
+                    now=now,
+                    force=force,
+                )
             )
-            for vault_id, vault_prices, symbol in batch
-        )
-        work_results = Parallel(n_jobs=render_workers, prefer=render_backend)(tqdm(tasks, total=len(batch), desc="Preparing and rendering sparkline batch"))
+        if tasks:
+            work_results.extend(Parallel(n_jobs=render_workers, prefer=render_backend)(tqdm(tasks, desc="Preparing and rendering sparkline batch")))
         rendered = [result for result in work_results if result.status == "rendered"]
         if dry_run or not rendered:
             publication_results = {result.vault_id: (0, 0, None) for result in rendered}
@@ -994,14 +1057,22 @@ def run_sparkline_export(  # noqa: PLR0914
             )
             if result.status in {"retry_deferred", "low_tvl_throttled"}:
                 counters[result.status] += 1
+                next_retry_at = _parse_timestamp(entry.get("next_retry_at"))
+                if next_retry_at is not None:
+                    completed_at = _parse_timestamp(entry.get("last_completed_at"))
+                    if result.status == "low_tvl_throttled" and completed_at is not None:
+                        next_retry_at = max(next_retry_at, completed_at + SPARKLINE_LOW_TVL_INTERVAL)
+                    if next_retry_at > now:
+                        retry_times.append(next_retry_at)
                 continue
             entry["last_attempted_at"] = _format_timestamp(now)
             if result.status == "unchanged":
                 entry.update({"last_completed_at": _format_timestamp(now), "consecutive_failures": 0, "next_retry_at": None})
+                entry["source_receipt"] = _source_receipt(fingerprints[result.vault_id], entry)
                 counters["unchanged"] += 1
                 continue
             if result.status == "render_failed":
-                _record_failure(entry, now)
+                retry_times.append(_record_failure(entry, now))
                 counters["failed"] += 1
                 logger.warning("Sparkline render failed for vault %s; retry after %s: %s", result.vault_id, entry["next_retry_at"], result.error)
                 continue
@@ -1011,7 +1082,7 @@ def run_sparkline_export(  # noqa: PLR0914
             counters["uploaded"] += uploaded_count
             counters["r2_unchanged"] += unchanged_count
             if publication_error is not None:
-                _record_failure(entry, now)
+                retry_times.append(_record_failure(entry, now))
                 counters["failed"] += 1
                 logger.warning("Sparkline publication failed for vault %s; retry after %s: %s", result.vault_id, entry["next_retry_at"], publication_error)
                 continue
@@ -1025,6 +1096,7 @@ def run_sparkline_export(  # noqa: PLR0914
                     "next_retry_at": None,
                 }
             )
+            entry["source_receipt"] = _source_receipt(fingerprints[result.vault_id], entry)
             if uploaded_count:
                 entry["last_uploaded_at"] = _format_timestamp(now)
         if eligible_in_batch:
@@ -1037,7 +1109,7 @@ def run_sparkline_export(  # noqa: PLR0914
         save_sparkline_state(state, state_path, now)
 
     logger.info(
-        "Sparkline export complete: eligible=%d insufficient_history=%d invalid_tvl=%d throttled=%d retry_deferred=%d unchanged=%d rendered=%d uploaded=%d r2_unchanged=%d failed=%d dry_run=%s render_backend=%s render_workers=%d upload_workers=%d",
+        "Sparkline export complete: eligible=%d insufficient_history=%d invalid_tvl=%d throttled=%d retry_deferred=%d unchanged=%d rendered=%d uploaded=%d r2_unchanged=%d failed=%d skipped_preparation=%d dry_run=%s render_backend=%s render_workers=%d upload_workers=%d",
         counters["eligible"],
         counters["insufficient_history"],
         counters["invalid_tvl"],
@@ -1048,9 +1120,125 @@ def run_sparkline_export(  # noqa: PLR0914
         counters["uploaded"],
         counters["r2_unchanged"],
         counters["failed"],
+        counters["skipped_preparation"],
         dry_run,
         render_backend,
         render_workers,
         upload_workers,
     )
-    return SparklineExportResult(success=counters["failed"] == 0, counters=counters)
+    return SparklineExportResult(success=counters["failed"] == 0, counters=counters, retry_at=min(retry_times, default=None))
+
+
+@contextmanager
+def inline_sparkline_writer(data_dir: Path) -> Iterator[None]:
+    """Serialise an inline export and retire any older queued request.
+
+    The caller holds the pipeline lock, so no producer can stage new work.
+    The sparkline lock prevents a background publisher from claiming it.
+
+    :param data_dir: Shared scanner data directory.
+    :yield: Control after acquiring the writer lock.
+    """
+    with wait_other_writers((data_dir / "sparkline-export").resolve()):
+        (data_dir / "sparkline-queue" / "latest").unlink(missing_ok=True)
+        yield
+
+
+def queue_sparkline_snapshot(data_dir: Path, prices_path: Path, vault_db_path: Path) -> str:
+    """Stage a matched pair while the caller holds the pipeline lock.
+
+    The worker can continue reading a previous snapshot as the scanner stages
+    new files. The pointer advances only after both copies are readable.
+
+    :param data_dir: Shared scanner data directory.
+    :param prices_path: Successfully cleaned daily price Parquet.
+    :param vault_db_path: Catalogue used for cleaning.
+    :return: Directory name of the published snapshot.
+    """
+    started_at = time.monotonic()
+    queue = (data_dir / "sparkline-queue").resolve()
+    queue.mkdir(parents=True, exist_ok=True)
+    snapshot = Path(tempfile.mkdtemp(prefix="snapshot-", dir=queue))
+    try:
+        prices = snapshot / "prices.parquet"
+        catalogue = snapshot / "vaults.pickle"
+        shutil.copy2(prices_path, prices)
+        shutil.copyfile(vault_db_path, catalogue)
+        pq.read_metadata(prices)
+        with catalogue.open("rb") as source:
+            if not source.read(1):
+                raise ValueError(f"Empty vault catalogue {vault_db_path}")
+        with wait_other_writers(queue / "pointer"):
+            with atomic_write(str(queue / "latest"), overwrite=True, encoding="utf-8") as output:
+                output.write(snapshot.name)
+    except (OSError, ValueError):
+        shutil.rmtree(snapshot)
+        raise
+
+    for previous in queue.glob("snapshot-*"):
+        if previous != snapshot:
+            # Claims use hard links to these private copies, so reclaiming the
+            # directory does not remove inputs from a running export.
+            try:
+                shutil.rmtree(previous)
+            except OSError:
+                logger.warning("Could not remove old sparkline snapshot %s", previous, exc_info=True)
+    logger.info("Staged sparkline snapshot %s in %.2fs", snapshot.name, time.monotonic() - started_at)
+    return snapshot.name
+
+
+def export_queued_sparklines(
+    data_dir: Path,
+    *,
+    last_snapshot: str | None = None,
+    retry_at: datetime.datetime | None = None,
+    force: bool = False,
+    timeout: int = 120,
+) -> tuple[str, SparklineExportResult] | None:
+    """Export the latest snapshot, claiming it under the publication lock.
+
+    Pin both files with hard links before releasing the queue lock. The hard
+    links refer to private staged copies and survive producer cleanup.
+
+    :param data_dir: Shared scanner data directory.
+    :param last_snapshot: Snapshot already processed by this worker.
+    :param retry_at: Next retry for that snapshot, in naive UTC.
+    :param force: Bypass cadence and repair the latest chart set.
+    :param timeout: Seconds to wait for the publication lock.
+    :return: Snapshot name and export result, or None when idle.
+    """
+    queue = (data_dir / "sparkline-queue").resolve()
+    with wait_other_writers((data_dir / "sparkline-export").resolve(), timeout=timeout):
+        with wait_other_writers(queue / "pointer"):
+            pointer = queue / "latest"
+            if not pointer.is_file():
+                return None
+            snapshot_name = pointer.read_text(encoding="utf-8")
+            if not snapshot_name.startswith("snapshot-") or Path(snapshot_name).name != snapshot_name:
+                raise ValueError(f"Invalid sparkline snapshot pointer in {queue}")
+            if not force and snapshot_name == last_snapshot and (retry_at is None or native_datetime_utc_now() < retry_at):
+                return None
+            snapshot = queue / snapshot_name
+            live_prices = data_dir / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
+            if live_prices.is_file() and live_prices.stat().st_mtime_ns > (snapshot / "prices.parquet").stat().st_mtime_ns:
+                logger.info("Retiring superseded sparkline snapshot %s", snapshot_name)
+                pointer.unlink()
+                return None
+            active = queue / "active"
+            if active.exists():
+                shutil.rmtree(active)
+            active.mkdir()
+            try:
+                for name in ("prices.parquet", "vaults.pickle"):
+                    (active / name).hardlink_to(snapshot / name)
+            except OSError:
+                shutil.rmtree(active)
+                raise
+        try:
+            started_at = time.monotonic()
+            logger.info("Exporting sparkline snapshot %s", snapshot_name)
+            result = run_sparkline_export(data_dir=data_dir, prices_path=active / "prices.parquet", vault_db_path=active / "vaults.pickle", force=force)
+        finally:
+            shutil.rmtree(active)
+        logger.info("Processed sparkline snapshot %s in %.2fs", snapshot_name, time.monotonic() - started_at)
+        return snapshot_name, result
