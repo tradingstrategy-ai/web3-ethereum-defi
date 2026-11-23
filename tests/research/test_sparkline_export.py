@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import gzip
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -633,8 +634,8 @@ def test_process_worker_matches_previous_preparation(tmp_path: Path) -> None:
 
 
 def test_export_state_skips_unchanged_high_tvl_without_rendering(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The local input digest avoids a second render for unchanged high TVL."""
-    vault_id, vault_db_path, prices_path, state_path, _prices = _write_export_inputs(tmp_path, total_assets=10_000.0)
+    """Unchanged inputs skip both preparation and rendering across exports."""
+    vault_id, vault_db_path, prices_path, state_path, prices = _write_export_inputs(tmp_path, total_assets=10_000.0)
     fixed_now = datetime.datetime(2026, 9, 22)  # noqa: DTZ001
     monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: fixed_now)
     renders: list[str] = []
@@ -654,6 +655,14 @@ def test_export_state_skips_unchanged_high_tvl_without_rendering(tmp_path: Path,
         max_workers=1,
         force=False,
     )
+    original_prepare = sparkline_export.prepare_sparkline_data
+    prepared = []
+
+    def track_preparation(frame: pd.DataFrame) -> SparklineData | None:
+        prepared.append(frame.index[-1])
+        return original_prepare(frame)
+
+    monkeypatch.setattr(sparkline_export, "prepare_sparkline_data", track_preparation)
     second = sparkline_export.run_sparkline_export(
         vault_db_path=vault_db_path,
         prices_path=prices_path,
@@ -664,7 +673,21 @@ def test_export_state_skips_unchanged_high_tvl_without_rendering(tmp_path: Path,
 
     assert first.success and second.success
     assert renders == [vault_id]
-    assert second.counters["unchanged"] == 1
+    assert second.counters["skipped_preparation"] == second.counters["unchanged"] == 1
+    assert prepared == []
+
+    prices.iloc[4, prices.columns.get_loc("share_price")] = 1.6
+    prices.to_parquet(prices_path)
+    corrected = sparkline_export.run_sparkline_export(
+        vault_db_path=vault_db_path,
+        prices_path=prices_path,
+        state_path=state_path,
+        max_workers=1,
+        force=False,
+    )
+    assert corrected.counters["skipped_preparation"] == 0
+    assert renders == [vault_id, vault_id]
+    assert len(prepared) == 1
 
 
 def test_invalidated_vault_honours_retry_backoff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -810,3 +833,118 @@ def test_low_tvl_export_is_due_at_exactly_72_hours(tmp_path: Path, monkeypatch: 
     assert before_boundary.counters["low_tvl_throttled"] == 1
     assert at_boundary.counters["rendered"] == 1
     assert renders == [vault_id, vault_id]
+
+
+def test_queue_retains_active_inputs_when_a_new_pair_is_staged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A new snapshot supersedes waiting work without changing a running export."""
+    initial_assets = 1000.0
+    _, catalogue, prices, _, frame = _write_export_inputs(tmp_path, total_assets=initial_assets)
+    first = sparkline_export.queue_sparkline_snapshot(tmp_path, prices, catalogue)
+    snapshots_seen = []
+
+    def export(*, data_dir: Path, prices_path: Path, vault_db_path: Path, force: bool) -> sparkline_export.SparklineExportResult:
+        assert data_dir == tmp_path
+        assets = pd.read_parquet(prices_path)["total_assets"].iloc[0]
+        snapshots_seen.append((assets, force))
+        if assets == initial_assets:
+            frame["total_assets"] = 2000.0
+            frame.to_parquet(prices)
+            sparkline_export.queue_sparkline_snapshot(tmp_path, prices, catalogue)
+            assert pd.read_parquet(prices_path)["total_assets"].iloc[0] == initial_assets
+            assert VaultDatabase.read(vault_db_path).rows
+        return sparkline_export.SparklineExportResult(True, {})
+
+    monkeypatch.setattr(sparkline_export, "run_sparkline_export", export)
+    initial = sparkline_export.export_queued_sparklines(tmp_path)
+    assert initial and initial[0] == first
+    latest = sparkline_export.export_queued_sparklines(tmp_path, last_snapshot=first, force=True)
+    assert latest and latest[0] != first
+    assert snapshots_seen == [(1000.0, False), (2000.0, True)]
+    assert sparkline_export.export_queued_sparklines(tmp_path, last_snapshot=latest[0]) is None
+
+
+def test_queue_preserves_previous_snapshot_and_retries_it_when_due(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed stage leaves its predecessor available for retry after backoff."""
+    _, catalogue, prices, _, _ = _write_export_inputs(tmp_path, total_assets=1000.0)
+    first = sparkline_export.queue_sparkline_snapshot(tmp_path, prices, catalogue)
+    prices.write_bytes(b"invalid parquet")
+    with pytest.raises(ValueError):
+        sparkline_export.queue_sparkline_snapshot(tmp_path, prices, catalogue)
+    fixed_now = datetime.datetime(2026, 9, 22)  # noqa: DTZ001
+    monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: fixed_now)
+    monkeypatch.setattr(sparkline_export, "run_sparkline_export", lambda **_: sparkline_export.SparklineExportResult(True, {}))
+    assert sparkline_export.export_queued_sparklines(tmp_path, last_snapshot=first, retry_at=fixed_now + datetime.timedelta(seconds=1)) is None
+    retried = sparkline_export.export_queued_sparklines(tmp_path, last_snapshot=first, retry_at=fixed_now)
+    assert retried and retried[0] == first
+
+
+def test_retry_repairs_partial_upload_with_unchanged_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The last successful digest cannot hide a later partial upload."""
+    _, catalogue, prices, state, _ = _write_export_inputs(tmp_path, total_assets=10_000.0)
+    now = datetime.datetime(2026, 9, 22)  # noqa: DTZ001
+    monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: now)
+    monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _: (object(), "test-bucket"))
+    monkeypatch.setattr(sparkline_export, "_render_one_safe", lambda vault_id, _: (vault_id, [], None))
+    uploads = iter([(3, 0, None), (1, 0, "partial write"), (2, 1, None)])
+    monkeypatch.setattr(sparkline_export, "_publish_rendered_vault", lambda *_: next(uploads))
+
+    def export(*, force: bool = False) -> sparkline_export.SparklineExportResult:
+        return sparkline_export.run_sparkline_export(vault_db_path=catalogue, prices_path=prices, state_path=state, max_workers=1, force=force)
+
+    assert export().success
+    failed = export(force=True)
+    assert not failed.success
+    assert failed.retry_at == now + datetime.timedelta(hours=6)
+    assert export().counters["retry_deferred"] == 1
+    now = failed.retry_at
+    repaired = export()
+    assert repaired.success and repaired.retry_at is None
+    assert repaired.counters["rendered"] == 1
+    assert repaired.counters["skipped_preparation"] == 0
+
+
+def test_due_retry_waits_for_low_tvl_cadence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A past backoff deadline cannot cause repeated scans before cadence is due."""
+    vault_id, catalogue, prices, state_path, _ = _write_export_inputs(tmp_path, total_assets=1000.0)
+    now = datetime.datetime(2026, 9, 22)  # noqa: DTZ001
+    monkeypatch.setattr(sparkline_export, "native_datetime_utc_now", lambda: now)
+    monkeypatch.setattr(sparkline_export, "_create_s3_client_from_environment", lambda _: (object(), "test-bucket"))
+    state = sparkline_export.make_empty_sparkline_state(now)
+    completed = now - datetime.timedelta(days=1)
+    state["vaults"][vault_id] = {
+        "renderer_version": sparkline_export.SPARKLINE_RENDERER_VERSION,
+        "publication_target": sparkline_export._publication_target("test-bucket"),
+        "last_completed_at": sparkline_export._format_timestamp(completed),
+        "consecutive_failures": 1,
+        "next_retry_at": sparkline_export._format_timestamp(now - datetime.timedelta(hours=1)),
+    }
+    sparkline_export.save_sparkline_state(state, state_path, now)
+    result = sparkline_export.run_sparkline_export(vault_db_path=catalogue, prices_path=prices, state_path=state_path, max_workers=1, force=False)
+    assert result.counters["low_tvl_throttled"] == 1
+    assert result.retry_at == completed + sparkline_export.SPARKLINE_LOW_TVL_INTERVAL
+
+
+def test_inline_export_retires_queued_snapshot(tmp_path: Path) -> None:
+    """Restarting a worker after inline publication cannot replay stale inputs."""
+    _, catalogue, prices, _, _ = _write_export_inputs(tmp_path, total_assets=1000.0)
+    sparkline_export.queue_sparkline_snapshot(tmp_path, prices, catalogue)
+    with sparkline_export.inline_sparkline_writer(tmp_path):
+        assert not (tmp_path / "sparkline-queue" / "latest").exists()
+    assert sparkline_export.export_queued_sparklines(tmp_path) is None
+
+
+def test_queue_retires_snapshot_when_newer_live_prices_exist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A delayed retry or force repair cannot publish a superseded price file."""
+    _, catalogue, prices, _, frame = _write_export_inputs(tmp_path, total_assets=1000.0)
+    live = tmp_path / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
+    live.parent.mkdir()
+    prices.rename(live)
+    queued = sparkline_export.queue_sparkline_snapshot(tmp_path, live, catalogue)
+    previous_mtime = live.stat().st_mtime_ns
+    frame["total_assets"] = 2000.0
+    frame.to_parquet(live)
+    newer_mtime = previous_mtime + 1_000_000_000
+    os.utime(live, ns=(newer_mtime, newer_mtime))
+    monkeypatch.setattr(sparkline_export, "run_sparkline_export", lambda **_: pytest.fail("Superseded inputs must never be exported"))
+    assert sparkline_export.export_queued_sparklines(tmp_path, last_snapshot=queued, retry_at=sparkline_export.native_datetime_utc_now()) is None
+    assert sparkline_export.export_queued_sparklines(tmp_path, force=True) is None

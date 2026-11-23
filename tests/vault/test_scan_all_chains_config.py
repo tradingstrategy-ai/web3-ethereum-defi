@@ -206,7 +206,8 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     now = scan_all_chains.native_datetime_utc_now().isoformat()
     scan_all_chains.save_cycle_state({"Base": now, "Hypercore": now}, tmp_path / "scan-cycle-state.json")
 
-    for option in ("SKIP_SPARKLINES", "SKIP_METADATA", "SKIP_DATA", "SKIP_SAMPLES"):
+    monkeypatch.setenv("SKIP_SPARKLINES", "false")
+    for option in ("SKIP_METADATA", "SKIP_DATA", "SKIP_SAMPLES"):
         monkeypatch.setenv(option, "true")
     monkeypatch.setenv("SCAN_HYPERCORE", "true")
     monkeypatch.delenv("INCREMENTAL_CLEANING", raising=False)
@@ -223,6 +224,13 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     monkeypatch.setattr(post_processing, "merge_native_protocols", merge)
     calls = []
     monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *args: calls.append("clean") or (True, True))
+
+    def export_sparklines(*, queue_snapshot: bool, **_: object) -> bool:
+        assert queue_snapshot
+        calls.append("stage")
+        return True
+
+    monkeypatch.setattr(post_processing, "export_sparklines", export_sparklines)
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: None)
     monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda path: False)
 
@@ -233,7 +241,7 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     assert calls == []
 
     scan_all_chains.main()
-    assert calls == ["clean"]
+    assert calls == ["clean", "stage"]
     assert not pending.exists()
 
     # Only an export is outstanding. Leave it pending for the scheduled
@@ -242,4 +250,4 @@ def test_loop_retries_publication_with_no_collectors_due(tmp_path: Path, monkeyp
     pending.write_text(json.dumps(receipt))
     scan_all_chains.main()
     assert json.loads(pending.read_text()) == receipt
-    assert calls == ["clean"]
+    assert calls == ["clean", "stage"]

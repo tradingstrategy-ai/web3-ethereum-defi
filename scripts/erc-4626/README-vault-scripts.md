@@ -2200,6 +2200,23 @@ The BTC boundary is the explicit 0.1 BTC native-unit policy; its USD-equivalent
 conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
 
+The looped scanner copies the paired daily prices and vault catalogue under its
+pipeline lock. Compose starts `sparkline-worker` with the looped scanner. The worker
+publishes the latest pair outside the scanner lock and reuses the existing
+publication and retry state. The staged copies and optional source fingerprints
+require no data migration. For a looped scanner run outside Compose, start
+`poetry run python scripts/erc-4626/scan-vault-sparklines.py` alongside it
+using the same pipeline data directory.
+
+The manual exporter uses the latest staged snapshot unless newer daily prices
+exist. It uses the current pipeline inputs when no current snapshot is queued. To repair chart objects from a
+Compose deployment, use the existing force option with the manual entry point:
+
+```shell
+docker compose run --rm --no-deps -e FORCE_SPARKLINE_EXPORT=true \
+  --entrypoint 'python scripts/erc-4626/export-sparklines.py' sparkline-worker
+```
+
 Every published chart has a 90-day horizontal axis ending on the vault's own
 latest observation timestamp. A vault with less than 90 days of history is drawn on the
 right, while the period before its first observation stays blank. An inactive
@@ -2215,8 +2232,8 @@ until a complete retry succeeds. Renderer version 5 invalidates previous
 successful input hashes, including low-TVL cadence skips, so unchanged-input
 vaults receive the table PNG on their next export (retry backoff still applies).
 All assets are gzip-compressed, and
-unchanged source images are skipped using the local input digest before any
-rendering or R2 request.
+unchanged source images are skipped before rendering or R2 requests. Previously
+verified source inputs can also skip chart preparation.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py

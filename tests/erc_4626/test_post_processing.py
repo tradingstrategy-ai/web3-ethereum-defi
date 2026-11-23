@@ -65,7 +65,8 @@ def test_manifest_requires_successful_private_export(
     assert calls == expected
 
 
-def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.parametrize("queue_sparklines", [False, True])
+def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, *, queue_sparklines: bool) -> None:
     """Image rendering cannot delay price publication or its readiness receipt.
 
     Exercise the real coordinator, including an unsuccessful rendering phase,
@@ -74,6 +75,7 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
     :param tmp_path: Isolated pipeline directory.
     :param monkeypatch: Replace costly external phases with observable results.
     :param caplog: Capture the aggregate stage timings and failed export names.
+    :param queue_sparklines: Whether the scanner stages or renders inline.
     :return: None; checks publication order and failure reporting.
     """
     calls: list[str] = []
@@ -89,16 +91,17 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
     monkeypatch.setattr(post_processing, "publish_vault_scan_manifest", lambda **_: calls.append("manifest") or True)
     monkeypatch.setattr(post_processing, "export_protocol_metadata", lambda: calls.append("protocols") or True)
 
-    def render(**_: object) -> bool:
+    def render(*, queue_snapshot: bool = False, **_: object) -> bool:
         """Check published inputs at the moment a slow renderer would start."""
         nonlocal clock
+        assert queue_snapshot == queue_sparklines
         clock += 9.5
         assert calls == ["prices", "manifest"]
         calls.append("sparklines")
         return False
 
     monkeypatch.setattr(post_processing, "export_sparklines", render)
-    steps = post_processing.run_post_processing(skip_top_vaults=True, skip_samples=True)
+    steps = post_processing.run_post_processing(skip_top_vaults=True, skip_samples=True, queue_sparklines=queue_sparklines)
     assert calls == ["prices", "manifest", "sparklines", "protocols"]
     assert steps["export-sparklines"] is False
     assert steps["publish-vault-scan-manifest"] is True
@@ -470,3 +473,16 @@ def test_brotli_failure_returns_false(
     # 4. Raw upload succeeded but brotli failed → returns False
     assert len(raw_calls) == 1
     assert result is False
+
+
+def test_queue_skip_cleaning_does_not_report_export_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skipping cleaning also skips staging without creating a failure."""
+    monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: True)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: None)
+    monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda _path: True)
+    monkeypatch.setattr(post_processing, "export_sparklines", lambda **_: pytest.fail("Staging requires successful cleaning"))
+    steps = post_processing.run_post_processing(skip_cleaning=True, queue_sparklines=True, skip_top_vaults=True, skip_data=True, skip_metadata=True, skip_samples=True)
+    assert "export-sparklines" not in steps
