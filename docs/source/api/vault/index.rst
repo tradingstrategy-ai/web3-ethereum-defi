@@ -28,6 +28,11 @@ can defer execution until the vault is ready.
 block. Reviewed metadata adapters use it to keep prepared fees and valuations
 at the same numeric block while no-argument callers retain latest-state reads.
 
+The scanner can reuse native prices and cleaned histories when their committed
+inputs match. See the `scanner settings and recovery procedure
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/README-vault-scripts.md#incremental-vault-price-publication>`__
+for the rollout modes and checkpoint behaviour.
+
 .. autosummary::
    :toctree: _autosummary_vault
    :recursive:
@@ -45,6 +50,8 @@ at the same numeric block while no-argument callers retain latest-state reads.
    eth_defi.vault.vaultdb
    eth_defi.vault.valuation
    eth_defi.vault.historical
+   eth_defi.vault.incremental_cleaning
+   eth_defi.vault.publication_state
    eth_defi.vault.lower_case_dict
    eth_defi.vault.mass_buyer
    eth_defi.vault.flag

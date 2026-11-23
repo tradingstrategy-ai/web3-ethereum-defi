@@ -11,6 +11,26 @@ For a stateful manual capacity check on one chain, use
 It runs normal due batches against an isolated copy and preserves resumable
 check timestamps without changing the source catalogue.
 
+## Incremental vault price publication
+
+The looped and one-shot scanners default to full native merging and full cleaning. Both Compose services accept the following settings.
+
+| Settings | Behaviour |
+| --- | --- |
+| `INCREMENTAL_POST_PROCESSING=false` | Run the full native merge and cleaner. |
+| `INCREMENTAL_POST_PROCESSING=true INCREMENTAL_CLEANING=false` | Reuse unchanged native histories and run the full cleaner. This is the default when enabling incremental post-processing. |
+| `INCREMENTAL_POST_PROCESSING=true INCREMENTAL_CLEANING=true` | Also reuse cleaned histories. Enable this after validating the native-only pilot. |
+
+An EVM price write preserves the native source revisions in the combined raw Parquet footer. The scanner compares the configured native sources, including their DuckDB write-ahead logs, before building histories. Lighter Ethereum and Robinhood share a database and have separate content fingerprints. A changed scope still requires one rewrite of the combined raw file. Listings, rankings and exports keep their existing schedules.
+
+The first incremental clean establishes a baseline for the stablecoin hourly, stablecoin daily and combined crypto daily files. When an input changes, the scanner compares raw histories, cleaner metadata and settlements for each chain and vault. A historical correction recalculates the vault's complete history. A changed transform, a missing or replaced output, or changes affecting over half the current eligible raw rows trigger full cleaning. Changing `CRYPTO_VAULTS_MIN_TVL_USD` also invalidates the cleaning baseline. The checkpoint sits beside the hourly file with the suffix `.cleaning.json`.
+
+If an old source database lacks a required column, run its normal schema-owning collector or apply the relevant numbered migration before retrying. A previously published archive that loses a vault or its date range requires a verified source restore or an intentional numbered repair.
+
+If a cycle is interrupted, leave `post-processing-pending.json` in the pipeline data directory. The loop retries interrupted work and failed native merges or cleaning even when no collectors are due. A persistent local failure stops an idle retry before exports. Export-only failures remain pending until the next scheduled publication. The warning gives the failed stages, elapsed time and attempt count. If the combined raw file is missing, restore or rebuild its EVM history before retrying the native merge. For an unexpected canonical-key collision or shortened native archive, inspect the source and last verified file before repairing persisted data. The feature creates its checkpoints on first use. A data repair, if needed, follows the [numbered migration procedure](../../.claude/docs/migration-scripts.md).
+
+Before enabling the feature in production, run the [one-chain comparison and timing procedure](../../docs/claude-plans/2026-11-22-incremental-vault-post-processing.md#manual-test-with-one-chain-due) on an isolated copy of scanner state. Record the complete cycle time alongside the merge and cleaning times.
+
 ## Instructions for migration scripts
 
 For a database repair, persisted accessor refresh or historical backfill, add a [numbered migration](../../.claude/docs/migration-scripts.md#authoring-a-migration). The runner previews and applies pending scripts in order.

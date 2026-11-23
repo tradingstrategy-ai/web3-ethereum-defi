@@ -24,11 +24,12 @@ def test_export_sparklines_contains_corrupt_vault_database(monkeypatch: pytest.M
     assert post_processing.export_sparklines() is False
 
 
-@pytest.mark.parametrize(("cleaning_ok", "skip_data", "export_ok", "override_path"), [(True, False, True, False), (True, False, False, False), (True, True, True, False), (False, False, True, False), (True, False, True, True)])
+@pytest.mark.parametrize(("cleaning_ok", "native_ok", "skip_data", "export_ok", "override_path"), [(True, True, False, True, False), (True, True, False, False, False), (True, True, True, True, False), (False, True, False, True, False), (True, True, False, True, True), (True, False, False, True, False)])
 def test_manifest_requires_successful_private_export(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     cleaning_ok: bool,
+    native_ok: bool,
     skip_data: bool,
     export_ok: bool,
     override_path: bool,
@@ -41,6 +42,7 @@ def test_manifest_requires_successful_private_export(
     :param tmp_path: Isolated pipeline directory.
     :param monkeypatch: Replace expensive scanner phases for this unit test.
     :param cleaning_ok: Whether cleaning produced a valid current snapshot.
+    :param native_ok: Whether the native merge published matching prices and permissions.
     :param skip_data: Whether private export is disabled by the operator.
     :param export_ok: Whether the private export succeeded.
     :param override_path: Use a local snapshot the exporter did not upload.
@@ -48,15 +50,15 @@ def test_manifest_requires_successful_private_export(
     """
     calls: list[str] = []
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {"hypercore-price-merge": native_ok})
     monkeypatch.setattr(post_processing, "clean_prices", lambda **_: cleaning_ok)
     monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: False)
     monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
     monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("export") or export_ok)
     monkeypatch.setattr(post_processing, "publish_vault_scan_manifest", lambda **_: calls.append("manifest") or True)
-    post_processing.run_post_processing(skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_samples=True, skip_data=skip_data, cleaned_path=tmp_path / "other.parquet" if override_path else None)
+    post_processing.run_post_processing(skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_samples=True, skip_data=skip_data, cleaned_path=tmp_path / "other.parquet" if override_path else None, incremental=True, incremental_cleaning=False)
     expected = []
-    if cleaning_ok and not skip_data:
+    if cleaning_ok and native_ok and not skip_data:
         expected.append("export")
         if export_ok and not override_path:
             expected.append("manifest")

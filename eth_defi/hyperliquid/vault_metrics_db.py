@@ -66,13 +66,13 @@ class HyperliquidMetricsDatabaseBase:
     #: Name of the time column in the price table (``"date"`` or ``"timestamp"``).
     time_column: str = ""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         assert isinstance(path, Path), f"Expected Path, got {type(path)}"
         assert not path.is_dir(), f"Expected file path, got directory: {path}"
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self.writer_lock = threading.RLock()
-        self.con = duckdb.connect(str(path))
+        self.con = duckdb.connect(str(path), read_only=read_only)
         # Refuse a legacy bulk table before initialisation mutates the file.
         constrained = self.con.execute("SELECT count(*) FROM duckdb_constraints() WHERE table_name=? AND constraint_type IN ('PRIMARY KEY','UNIQUE')", [self.price_table]).fetchone()[0]
         if constrained:
@@ -80,6 +80,8 @@ class HyperliquidMetricsDatabaseBase:
             self.con = None
             msg = f"{path} requires the backed-up recover-permissions.py migration before starting this collector"
             raise RuntimeError(msg)
+        if read_only:
+            return
         self.con.execute("SET wal_autocheckpoint = '1TB'")
         initialise_permission_schema(self.con)
         self._init_metadata_schema()

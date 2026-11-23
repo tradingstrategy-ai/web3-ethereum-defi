@@ -19,6 +19,7 @@ from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDat
 from eth_defi.hyperliquid.permission import PERMISSION_FILENAME, PermissionObservation, append_permission_observation
 from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
+from eth_defi.solana import SOLANA_CHAIN_ID, make_solana_vault_address
 from eth_defi.vault import base, post_processing
 from eth_defi.vault.base import ParquetVerificationError, VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -127,7 +128,7 @@ def test_hypercore_permission_failure_preserves_prices(tmp_path: Path, monkeypat
     hf_path = tmp_path / "hf.duckdb"
     hf_path.touch()
     closed: list[bool] = []
-    monkeypatch.setattr(post_processing, "HyperliquidHighFreqMetricsDatabase", lambda _: SimpleNamespace(close=lambda: closed.append(True)))
+    monkeypatch.setattr(post_processing, "HyperliquidHighFreqMetricsDatabase", lambda _, *, read_only: SimpleNamespace(close=lambda: closed.append(True)))
     monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: _prices(HYPERCORE_CHAIN_ID, "fresh", "2026-09-22"))
     monkeypatch.setattr(post_processing, "merge_into_vault_database", lambda *_, **__: None)
 
@@ -214,7 +215,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     class FakeDatabase:
         """Provide the close method required by the post-processing pipeline."""
 
-        def __init__(self, path: Path) -> None:
+        def __init__(self, path: Path, *, read_only: bool) -> None:
             self.path = path
 
         def close(self) -> None:
@@ -329,7 +330,7 @@ def test_partial_lighter_merge_preserves_other_deployment_and_legacy_partition(
     class FakeDatabase:
         """Provide the close method required by the post-processing pipeline."""
 
-        def __init__(self, _: Path) -> None:
+        def __init__(self, _: Path, *, read_only: bool) -> None:
             pass
 
         def close(self) -> None:
@@ -378,6 +379,18 @@ def test_build_hypercore_prices_dataframe_prefers_high_frequency_duplicate(
     assert result_df.iloc[0]["share_price"] == pytest.approx(1.1)
 
 
+def test_append_native_history_matches_encoded_solana_and_preserves_distinct_accounts(tmp_path: Path) -> None:
+    """Correct an encoded account while keeping its case-sensitive neighbour."""
+    path = tmp_path / "raw.parquet"
+    account = "J7qhMAKnB6G5dvoAN9281ufabajKbyGQxxd2bq6R7fPJ"
+    neighbour = account[:-1] + "j"
+    day = "2026-09-21"
+    VaultHistoricalRead.write_uncleaned_parquet(_prices(SOLANA_CHAIN_ID, make_solana_vault_address(account), day), path)
+    fresh = pd.concat([_prices(SOLANA_CHAIN_ID, account, day).assign(share_price=1.25), _prices(SOLANA_CHAIN_ID, neighbour, day)])
+    merged = post_processing._merge_native_history_with_existing_parquet(path, fresh, SOLANA_CHAIN_ID)
+    assert merged.set_index("address")["share_price"].to_dict() == {account: 1.25, neighbour: 1.0}
+
+
 def test_native_arrow_merge_preserves_original_parquet_when_verification_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -407,3 +420,124 @@ def test_native_arrow_merge_preserves_original_parquet_when_verification_fails(
         )
 
     assert parquet_path.read_bytes() == original_bytes
+
+
+def test_incremental_hypercore_merge_retries_failed_rename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip unchanged histories and retry an unacknowledged source correction."""
+    raw = tmp_path / "raw.parquet"
+    source = tmp_path / "hf.duckdb"
+    address = "0x" + "a" * 40
+    timestamp = datetime.datetime(2026, 9, 21, 10)
+    VaultHistoricalRead.write_uncleaned_parquet(_prices(8453, address.upper().replace("0X", "0x"), str(timestamp)), raw)
+    database = HyperliquidHighFreqMetricsDatabase(source)
+    try:
+        database.upsert_vault_metadata(vault_address=address, name="Native vault", leader="0x" + "c" * 40, description=None, is_closed=False, allow_deposits=True, relationship_type="normal", create_time=timestamp, commission_rate=None, follower_count=None, tvl=100_000, apr=None)
+        database.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(address, timestamp, 1.0, 100_000, 0)])
+    finally:
+        database.close()
+    options = dict(merge_hypercore=True, incremental=True, uncleaned_parquet_path=raw, hyperliquid_db_path=tmp_path / "missing.duckdb", hyperliquid_hf_db_path=source)
+    assert post_processing.merge_native_protocols(**options) == {"hypercore-price-merge": True}
+
+    original_raw = raw.read_bytes()
+    with monkeypatch.context() as patch:
+        patch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_kwargs: pytest.fail("Unchanged source rebuilt"))
+        assert post_processing.merge_native_protocols(**options) == {"hypercore-price-merge": True}
+    assert raw.read_bytes() == original_raw
+
+    # A restored catalogue can exist yet omit all HyperCore vaults.
+    catalogue_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase().write(catalogue_path)
+    assert post_processing.merge_native_protocols(**options)["hypercore-price-merge"]
+    assert VaultSpec(HYPERCORE_CHAIN_ID, address) in VaultDatabase.read(catalogue_path).rows
+    original_raw = raw.read_bytes()
+
+    database = HyperliquidHighFreqMetricsDatabase(source)
+    try:
+        database.upsert_high_freq_prices([HyperliquidHighFreqPriceRow(address, timestamp, 1.5, 150_000, 0)])
+    finally:
+        database.close()
+    replace = base.os.replace
+
+    def fail_raw_rename(temp_path: str, destination: str) -> None:
+        if Path(destination) == raw:
+            raise OSError("simulated native rename failure")
+        replace(temp_path, destination)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(base.os, "replace", fail_raw_rename)
+        assert post_processing.merge_native_protocols(**options) == {"hypercore-price-merge": False}
+    assert raw.read_bytes() == original_raw
+
+    assert post_processing.merge_native_protocols(**options) == {"hypercore-price-merge": True}
+    prices = pd.read_parquet(raw).set_index("chain")
+    assert prices.loc[8453, "share_price"] == 1.0
+    assert prices.loc[HYPERCORE_CHAIN_ID, "total_assets"] == 150_000
+    assert len(prices) == 2
+
+
+def test_incremental_lighter_rebuilds_only_changed_deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A same-count Ethereum correction leaves the Robinhood scope intact."""
+    raw = tmp_path / "raw.parquet"
+    source = tmp_path / "lighter.duckdb"
+    date = datetime.date(2026, 9, 21)
+    VaultHistoricalRead.write_uncleaned_parquet(_prices(8453, "0x" + "b" * 40, str(date)), raw)
+    database = post_processing.LighterDailyMetricsDatabase(source)
+    try:
+        for deployment in ("ethereum", "robinhood"):
+            database.con.execute("INSERT INTO pool_daily_prices (deployment, account_index, date, share_price, tvl) VALUES (?, 100, ?, 1.0, 10000)", [deployment, date])
+    finally:
+        database.close()
+    options = dict(merge_lighter=True, incremental=True, uncleaned_parquet_path=raw, lighter_db_path=source)
+    assert post_processing.merge_native_protocols(**options) == {"lighter-price-merge": True}
+
+    before = pd.read_parquet(raw)
+    database = post_processing.LighterDailyMetricsDatabase(source)
+    try:
+        database.con.execute("UPDATE pool_daily_prices SET share_price = 1.25 WHERE deployment = 'ethereum'")
+    finally:
+        database.close()
+    original_builder = post_processing.build_lighter_prices_dataframe
+    builds = []
+
+    def record_build(db: post_processing.LighterDailyMetricsDatabase, deployment: str | None = None) -> pd.DataFrame:
+        builds.append(deployment)
+        return original_builder(db, deployment=deployment)
+
+    monkeypatch.setattr(post_processing, "build_lighter_prices_dataframe", record_build)
+    assert post_processing.merge_native_protocols(**options) == {"lighter-price-merge": True}
+    assert builds == ["ethereum"]
+    after = pd.read_parquet(raw)
+    pd.testing.assert_frame_equal(after.loc[after.address != "lighter-pool-100"], before.loc[before.address != "lighter-pool-100"])
+    assert after.loc[after.address == "lighter-pool-100", "share_price"].tolist() == [1.25]
+
+    # A restored source missing an entire previously published deployment
+    # must keep publication pending and its sibling's prices untouched.
+    database = post_processing.LighterDailyMetricsDatabase(source)
+    try:
+        database.con.execute("DELETE FROM pool_daily_prices WHERE deployment = 'robinhood'")
+    finally:
+        database.close()
+    committed = raw.read_bytes()
+    assert post_processing.merge_native_protocols(**options) == {"lighter-price-merge": False}
+    assert raw.read_bytes() == committed
+
+
+@pytest.mark.parametrize(
+    ("correction_time", "duplicate", "error"),
+    [
+        ("2026-09-21", True, "duplicate canonical price keys"),
+        ("2026-09-22", False, "shrink published history"),
+    ],
+)
+def test_incremental_native_rejects_invalid_replacements(tmp_path: Path, correction_time: str, duplicate: bool, error: str) -> None:
+    """A conflicting alias or shortened archive cannot replace the committed file."""
+    path = tmp_path / "prices.parquet"
+    address = "0x" + "a" * 40
+    VaultHistoricalRead.write_uncleaned_parquet(_prices(HYPERCORE_CHAIN_ID, address, "2026-09-21"), path)
+    committed = path.read_bytes()
+    correction = _prices(HYPERCORE_CHAIN_ID, address, correction_time)
+    if duplicate:
+        correction = pd.concat([correction, correction.assign(address="0x" + "A" * 40, share_price=1.25)])
+    with pytest.raises(ValueError, match=error):
+        post_processing._write_native_partitions_to_uncleaned_parquet(path, {HYPERCORE_CHAIN_ID: correction}, revisions={})
+    assert path.read_bytes() == committed

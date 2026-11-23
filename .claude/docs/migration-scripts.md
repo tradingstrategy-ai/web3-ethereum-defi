@@ -183,6 +183,10 @@ files. Put provider/token caches in `TemporaryDirectory`. Script imports must
 not perform network reads or data writes. Keep long operations observable with
 progress reporting; never include credentials in reports.
 
+### Repairs to vault price histories
+
+For a native price correction, repair the protocol-owned source used by the scanner. If the migration also rewrites native rows in the combined raw Parquet, remove the affected scope's entry from its `vault.native_revisions` footer, or remove the entire revision key if the affected scopes are unknown. Preserve unrelated Parquet metadata. Retaining a receipt for edited native history would allow the scanner to skip its next rebuild. An EVM-only rewrite can retain the footer when it preserves all native rows. The [scanner guide](../../scripts/erc-4626/README-vault-scripts.md#incremental-vault-price-publication) covers publication and recovery.
+
 ## Credentials and Docker configuration
 
 Every new API key must reach the process that consumes it. Wire it through

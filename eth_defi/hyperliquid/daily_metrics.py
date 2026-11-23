@@ -354,8 +354,8 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
     price_table = "vault_daily_prices"
     time_column = "date"
 
-    def __init__(self, path: Path) -> None:
-        super().__init__(path)
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
+        super().__init__(path, read_only=read_only)
 
     def _init_price_schema(self) -> None:
         """Create the daily price table and run schema migrations."""

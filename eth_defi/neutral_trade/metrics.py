@@ -54,12 +54,13 @@ class NeutralTradeDatabase:
     :param path: Explicit private source archive, not a public dataset.
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         """Acquire ownership before opening the file-backed database.
 
         The entry-point must already hold lifecycle/pipeline locks where needed.
 
         :param path: File-backed source database.
+        :param read_only: Open an existing schema for export without running writer setup.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
@@ -67,7 +68,9 @@ class NeutralTradeDatabase:
         self._lock = FileLock(str(path) + ".lock", timeout=0)
         self._lock.acquire()
         try:
-            self.con = duckdb.connect(str(path))
+            self.con = duckdb.connect(str(path), read_only=read_only)
+            if read_only:
+                return
             self.con.execute("SET wal_autocheckpoint='1TB'")
             self.con.execute("CREATE TABLE IF NOT EXISTS leads(chain VARCHAR, address VARCHAR, raw VARCHAR, metrics VARCHAR, first_seen TIMESTAMP, last_seen TIMESTAMP, skip_reason VARCHAR)")
             self.con.execute("CREATE TABLE IF NOT EXISTS observations(chain VARCHAR, address VARCHAR, endpoint VARCHAR, observation_key VARCHAR, timestamp TIMESTAMP, raw VARCHAR, envelope VARCHAR, written_at TIMESTAMP)")

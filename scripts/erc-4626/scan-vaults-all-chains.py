@@ -147,6 +147,8 @@ Environment variables:
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
     - CHAIN_ORDER: Comma-separated list of chain names to scan in order (whitespace allowed, chains not listed are skipped)
     - DISABLE_CHAINS: Comma-separated list of chain names to skip (whitespace allowed)
+    - INCREMENTAL_POST_PROCESSING: "true" to enable revision-aware native merges (default: "false").
+    - INCREMENTAL_CLEANING: Reuse cleaned histories in incremental mode (default: "false").
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - SKIP_CLEANING: "true" to skip price cleaning step (default: "false")
     - SKIP_SPARKLINES: "true" to skip sparkline image export to R2 (default: "false")

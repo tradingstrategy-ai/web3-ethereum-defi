@@ -76,6 +76,8 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      INCREMENTAL_POST_PROCESSING: ${INCREMENTAL_POST_PROCESSING:-false}
+      INCREMENTAL_CLEANING: ${INCREMENTAL_CLEANING:-false}
       # Recurring reviewed tokenised-fund NAV feeds. These remain separate
       # from generic chain price scans to preserve address-scoped history.
       SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}
@@ -279,6 +281,8 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      INCREMENTAL_POST_PROCESSING: ${INCREMENTAL_POST_PROCESSING:-false}
+      INCREMENTAL_CLEANING: ${INCREMENTAL_CLEANING:-false}
       # Recurring reviewed tokenised-fund NAV feeds. These remain separate
       # from generic chain price scans to preserve address-scoped history.
       SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}
