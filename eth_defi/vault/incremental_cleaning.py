@@ -226,7 +226,7 @@ def replace_changed_histories(
         scratch = Path(directory)
         hourly = _clean_selected(stable_inputs, STABLECOIN_FAMILY, raw_path, vault_db_path, settlement_path, scratch / "stable.parquet")
         if stable_ids:
-            replace_cleaned_price_rows(hourly_path, stable_ids, hourly, logger=logger.info, allow_empty_output=False)
+            replace_cleaned_price_rows(hourly_path, stable_ids, hourly, logger=logger.info, allow_empty_output=False, allow_same_timestamp_blocks=True)
         try:
             stable_daily = materialise_daily_crypto_prices(hourly).reset_index() if not hourly.empty else pd.DataFrame()
             if stable_ids:
