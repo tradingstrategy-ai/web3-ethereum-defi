@@ -5,7 +5,7 @@ Purpose: Refresh the stored flag and note to exclude the vault from investable r
 Scope: One Peapods deployment on Base; update only _flags and _notes.
 Branch: notes/peapods-metavault-usdc-illiquid
 PR title: notes: mark the Peapods USDC metavault on Base as illiquid
-PR: Pending creation.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1813
 Preserves: Unrelated flags and metadata, prices, leads, reader state and
 timestamp caches. No historical price backfill is needed.
 Expected: One validated target and up to two changed fields. Safe to retry.
